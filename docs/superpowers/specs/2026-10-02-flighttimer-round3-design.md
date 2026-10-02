@@ -15,11 +15,12 @@ Builds on rounds 1 and 2. The user approved the design and asked for everything 
 - **Vignette.** Left and right black gradients, each 16% of the screen width, peaking at 0.6 alpha. They
   fade with the letterbox.
 - **Music** (off by default). A dropdown picks an expansion main theme (`SOUNDKIT.MUS_*_MAIN_TITLE`).
-  - `PlaySound(kit, "Master")`, with `Sound_EnableMusic` set to 0 while it plays so zone music doesn't
-    overlap. The old value is saved on the flight and restored.
-  - On exit: `StopSound(handle, 3000)` to fade it.
-  - The handle and CVar backup live on the flight (`db.current`), so a resume doesn't start a second
-    copy and a cleanup can still stop it.
+  - `PlaySound(kit, "Master")`. While it plays, zone music is muted by setting `Sound_MusicVolume` to 0.
+    The old value is backed up in `db.musicVolumeBackup`.
+  - On exit: `StopSound(handle, 3000)` to fade it, then put the volume back, but only if it's still 0,
+    so a change the user made in the meantime wins.
+  - A login that doesn't resume a flight also restores a leftover backup.
+  - The handle lives on the flight (`db.current`), so a resume doesn't start a second copy.
 - **Settings for orbit, cursor and minimum length.** Orbit and cursor hiding can each be turned off.
   The minimum flight length for cinematic mode is configurable (10–60s, default 20).
 
