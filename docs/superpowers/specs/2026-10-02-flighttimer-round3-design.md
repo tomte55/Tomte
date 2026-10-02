@@ -94,7 +94,7 @@ panel. `/ft` keeps working, and `/ft options` opens the panel.
     ground shadow, built from stacked masked circles, replaces them.
   - Gear is a centered strip under the feet, two rows of 8, framed by thin gold lines (the title card
     style). Only equipped items show; shirt and tabard are left out.
-- **Sign:**
+- **Sign:** (later changed: no upright post or brace; the beam comes out of the right screen edge)
   - Hangs from a wooden signpost: an upright post at the right edge, an arm reaching left, and a
     diagonal brace. The sign sits 70 units below the top band.
   - Ropes are 40 units long, with a swing strength of 0.06 (about 20° max).
