@@ -84,3 +84,22 @@ panel. `/ft` keeps working, and `/ft options` opens the panel.
   - Name with title (`UnitPVPName`) and item level above the model.
   - Slim gear columns that fade toward their ends, with weapons under the floor glow.
   - Band contents and the sign sit at explicitly higher frame levels than the showcase shade.
+
+## Revision 2 (second in-game test)
+
+- **Showcase:**
+  - Static model. Spinning rotated it around its center, which made the feet slide.
+  - A frozen 3/4 pose: `FreezeAnimation(0,0,0)` on load, again after `SetUnit`, and once more 0.3s later.
+  - The light beam and floor glow are gone. They rendered as a hard rectangle and a blocky slab. A soft
+    ground shadow, built from stacked masked circles, replaces them.
+  - Gear is a centered strip under the feet, two rows of 8, framed by thin gold lines (the title card
+    style). Only equipped items show; shirt and tabard are left out.
+- **Sign:**
+  - Hangs from a wooden signpost: an upright post at the right edge, an arm reaching left, and a
+    diagonal brace. The sign sits 70 units below the top band.
+  - Ropes are 40 units long, with a swing strength of 0.06 (about 20° max).
+  - The plank is built from three parts: the art's nailed right end, a mirrored copy as the left end,
+    and the middle stretched between them. The original art's left side is a plain cut, which looked
+    cut off.
+  - Wood parts come from `C_Texture.GetAtlasInfo` texture coordinates, rotated 90° for the post. If the
+    atlas is missing, plain brown is used instead.
