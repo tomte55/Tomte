@@ -70,3 +70,19 @@ Settled by reading DialogueUI 1.0.5 (`## Interface: 120100`), which ships these 
   - `/reload` mid-cinematic: it resumes cleanly.
   - `/ft cinematic` mid-flight: it exits right away.
   - `/ft stats` output looks right.
+
+## Addendum: band contents, alert sound, cursor
+
+- The letterbox is 10.5% per band. The timer bar stays under UIParent and hides with it; the bands
+  take over its job.
+- Top band (title card): spaced `NOW FLYING TO` label, the destination in Morpheus 28 gold, a thin gold
+  divider line, and `<zone> - from <origin>`.
+- Bottom band:
+  - Left: character name in class color, then `Level N Race Class - ilvl N`.
+  - Center: countdown with the pulsing REC dot while the route is being learned, a gold progress line
+    with stop ticks, and `lands HH:MM`.
+  - Right: `Flight #N` and the total time in the air.
+- Band contents fade in during the second half of the bar slide.
+- Alert: `SOUNDKIT.MAP_PING` twice, 0.3s apart, plus the taskbar flash. `/ft testalert` previews it.
+- Cinematic also hides other addons' unprotected WorldFrame children (e.g. WaypointUI), and hides the
+  cursor via `MouselookStart`.
