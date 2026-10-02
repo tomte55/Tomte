@@ -103,3 +103,20 @@ panel. `/ft` keeps working, and `/ft options` opens the panel.
     cut off.
   - Wood parts come from `C_Texture.GetAtlasInfo` texture coordinates, rotated 90° for the post. If the
     atlas is missing, plain brown is used instead.
+
+## Revision 3 (third in-game test)
+
+- **Zone text replaces the sign.** The sign and its pendulum code and tests are removed.
+  - Layout: a spaced `E N T E R I N G` label, the zone name in Morpheus 42 gold, and a thin gold line
+    with a small diamond, centered 24% down the screen.
+  - Motion: fades in over 1.0s while rising 10 units, holds 3s, fades out over 1.2s. A new zone while
+    it's showing restarts the hold.
+  - It follows the band content alpha, so it fades with the cinematic exit.
+- **Title card is bigger:** label 12, title 36, subtitle 14, divider 300.
+- **Timer has more room:**
+  - The time is 28 and sits higher.
+  - The progress line is a 440-wide hairline with a gold fill and a small glowing head at its leading
+    edge.
+  - Underneath it, `A R R I V E S  HH:MM` (spaced, size 10), with more spacing throughout.
+- **Showcase:** the ground shadow is raised to the feet (74 above the model frame bottom), and the gear
+  strip is moved up to just under it.
