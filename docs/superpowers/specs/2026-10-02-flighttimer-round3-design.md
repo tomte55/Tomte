@@ -64,3 +64,23 @@ Uses `Settings.RegisterVerticalLayoutCategory("FlightTimer")` with `RegisterAddO
 
 The addon compartment entry `FlightTimer_OnAddonCompartmentClick` (TOC `AddonCompartmentFunc`) opens the
 panel. `/ft` keeps working, and `/ft options` opens the panel.
+
+## Revision after the first in-game test
+
+- **Passing captions removed.** Zone changes now show a separate hanging sign instead of a title-card caption.
+- **Hanging zone sign (upper right).** It uses the `housing-woodsign` atlas (Midnight housing UI) with
+  `ENTERING`-free text: just the zone name in Morpheus 20.
+  - It hangs on two parallel rope lines from the bottom of the top band, so it stays level while
+    swinging (text can't rotate).
+  - The rope anchors slide in from the right edge (0.9s, ease-out). The sign follows a damped pendulum
+    (`ns.PendulumStep`, unit-tested), driven by the anchor's acceleration.
+  - It holds for 5s, then slides out (0.8s, ease-in). A new zone while hanging updates the text and
+    restarts the hold.
+- **Showcase redesigned as "Spotlight".**
+  - The model has a frozen stand pose (`FreezeAnimation(0,0,0)`), and `ZeroCachedCenterXY` on
+    `OnModelLoaded` keeps the feet steady while turning.
+  - A full-height left gradient (no visible edges), a soft additive light beam, and a class-colored
+    floor glow (`UI-Common-MouseHilight`).
+  - Name with title (`UnitPVPName`) and item level above the model.
+  - Slim gear columns that fade toward their ends, with weapons under the floor glow.
+  - Band contents and the sign sit at explicitly higher frame levels than the showcase shade.
