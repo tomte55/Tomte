@@ -83,6 +83,6 @@ Settled by reading DialogueUI 1.0.5 (`## Interface: 120100`), which ships these 
     with stop ticks, and `lands HH:MM`.
   - Right: `Flight #N` and the total time in the air.
 - Band contents fade in during the second half of the bar slide.
-- Alert: `SOUNDKIT.MAP_PING` twice, 0.3s apart, plus the taskbar flash. `/ft testalert` previews it.
+- Alert: `SOUNDKIT.ALARM_CLOCK_WARNING_3` twice, 0.5s apart, plus the taskbar flash. `/ft testalert` previews it.
 - Cinematic also hides other addons' unprotected WorldFrame children (e.g. WaypointUI), and hides the
   cursor via `MouselookStart`.
