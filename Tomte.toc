@@ -34,6 +34,10 @@ Modules/Travel/Data.lua
 Modules/Travel/Target.lua
 Modules/Travel/Marker.lua
 Modules/Travel/Waypoint.lua
+Modules/Mount/Data.lua
+Modules/Mount/Journal.lua
+Modules/Mount/ZonesPage.lua
+Modules/Mount/Mount.lua
 Modules/AFK/Data.lua
 Modules/AFK/Scene.lua
 Modules/AFK/AFK.lua

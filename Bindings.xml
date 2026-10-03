@@ -5,4 +5,5 @@
 	<Binding name="TOMTE_WHISPER_INBOX" category="Tomte">
 		Tomte_Binding("WHISPER_INBOX")
 	</Binding>
+	<Binding name="CLICK TomteSmartMount:LeftButton" category="Tomte"/>
 </Bindings>
