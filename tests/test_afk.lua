@@ -78,6 +78,25 @@ test("VisibleWhispers counts entries dropped by the cap as left out", function()
 	eq(more, 3) -- m1, m2 dropped by the cap + m3 not shown
 end)
 
+test("MoneyText shows only gold once there is any, with thousands separators", function()
+	local icons = { gold = "%sg", silver = "%ss", copper = "%sc" }
+	eq(ns.AFK_MoneyText(500002312, false, icons), "50,000g")
+	eq(ns.AFK_MoneyText(12345678, false, icons), "1,234g")
+	eq(ns.AFK_MoneyText(9990000, false, icons), "999g")
+	eq(ns.AFK_MoneyText(5612, false, icons), "56s 12c")
+	eq(ns.AFK_MoneyText(5600, false, icons), "56s")
+	eq(ns.AFK_MoneyText(7, false, icons), "7c")
+	eq(ns.AFK_MoneyText(0, false, icons), "0c")
+end)
+
+test("MoneyText keeps silver next to gold when detailed", function()
+	local icons = { gold = "%sg", silver = "%ss", copper = "%sc" }
+	eq(ns.AFK_MoneyText(12345678, true, icons), "1,234g 56s")
+	eq(ns.AFK_MoneyText(12340078, true, icons), "1,234g")
+	eq(ns.AFK_MoneyText(1234567890, true, icons), "123,456g 78s")
+	eq(ns.AFK_MoneyText(5612, true, icons), "56s 12c")
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)

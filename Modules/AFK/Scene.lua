@@ -16,7 +16,7 @@ local WHISPER_WIDTH = 400
 local WHISPER_PAD = 80 -- from the right screen edge
 local WHISPER_TOP = 150 -- list top, above the screen center
 local SHADE_WIDTH = 620
-local Text, Spaced = ns.SceneText, ns.Spaced
+local Text, Spaced, Place, SetText = ns.SceneText, ns.Spaced, ns.ScenePlace, ns.SceneSetText
 
 local card, list
 local state
@@ -55,8 +55,14 @@ local function XPFraction()
 	return max > 0 and UnitXP("player") / max or 0
 end
 
-local function Coins(copper)
-	return C_CurrencyInfo.GetCoinTextureString(copper)
+local COIN_ICONS = {
+	gold = "%s|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t",
+	silver = "%s|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t",
+	copper = "%s|TInterface\\MoneyFrame\\UI-CopperIcon:0:0:2:0|t",
+}
+
+local function Coins(copper, detailed)
+	return ns.AFK_MoneyText(copper, detailed, COIN_ICONS)
 end
 
 local function BuildPages()
@@ -70,9 +76,9 @@ local function BuildPages()
 			local delta = money - session.money
 			local line = "no change this session"
 			if delta > 0 then
-				line = "+" .. Coins(delta) .. " this session"
+				line = "+" .. Coins(delta, true) .. " this session"
 			elseif delta < 0 then
-				line = "-" .. Coins(-delta) .. " this session"
+				line = "-" .. Coins(-delta, true) .. " this session"
 			end
 			return Coins(money), line
 		end,
@@ -89,17 +95,17 @@ end
 
 local function ShowPage()
 	local title, line = pages[page]()
-	card.statTitle:SetText(title)
-	card.statLine:SetText(line)
+	SetText(card.statTitle, title)
+	SetText(card.statLine, line)
 end
 
 local function RefreshText()
-	card.label:SetText(Spaced("Away for " .. ns.FormatTime(GetTime() - state.since)))
-	card.title:SetText(GetZoneText() or "")
+	SetText(card.label, Spaced("Away for " .. ns.FormatTime(GetTime() - state.since)))
 	local zone, sub = GetZoneText(), GetSubZoneText()
-	card.subtitle:SetText((sub and sub ~= zone) and sub or "")
-	card.clock:SetText(ClockNow())
-	card.date:SetText(DateText())
+	SetText(card.title, zone)
+	SetText(card.subtitle, (sub and sub ~= zone) and sub or "")
+	SetText(card.clock, ClockNow())
+	SetText(card.date, DateText())
 	if page == 1 and not statsSwap.t then
 		ShowPage() -- live online time
 	end
@@ -181,39 +187,41 @@ function scene.Create(parent, letterbox)
 	card:SetAlpha(0)
 
 	-- Top band: away time over the zone.
+	-- Offsets from the band's center (font strings by their top edge, roughly font size tall).
 	card.title = Text(card, 36, GOLD, ns.SCENE_TITLE_FONT)
-	card.title:SetPoint("CENTER", letterbox.top, "CENTER", 0, 4)
+	Place(card, card.title, "TOP", letterbox.top, "CENTER", 0, 22)
 	card.label = Text(card, 12, GREY)
-	card.label:SetPoint("BOTTOM", card.title, "TOP", 0, 6)
+	Place(card, card.label, "TOP", letterbox.top, "CENTER", 0, 40)
 	card.line = ns.SceneGoldLine(card, 300)
-	card.line:SetPoint("TOPRIGHT", card.title, "BOTTOM", 0, -5)
+	Place(card, card.line, "TOPRIGHT", letterbox.top, "CENTER", 0, -19)
 	card.subtitle = Text(card, 14, GREY)
-	card.subtitle:SetPoint("TOP", card.title, "BOTTOM", 0, -12)
+	Place(card, card.subtitle, "TOP", letterbox.top, "CENTER", 0, -26)
 
 	-- Bottom band, left: character.
 	card.charName = Text(card, 19, GOLD)
-	card.charName:SetPoint("BOTTOMLEFT", letterbox.bottom, "LEFT", PAD, 1)
+	Place(card, card.charName, "TOPLEFT", letterbox.bottom, "LEFT", PAD, 20)
 	card.charInfo = Text(card, 13, GREY)
-	card.charInfo:SetPoint("TOPLEFT", card.charName, "BOTTOMLEFT", 0, -4)
+	Place(card, card.charInfo, "TOPLEFT", letterbox.bottom, "LEFT", PAD, -3)
 
 	-- Bottom band, center: clock over a hairline and the date.
 	card.clock = Text(card, 28, { 1, 1, 1 })
-	card.clock:SetPoint("BOTTOM", letterbox.bottom, "CENTER", 0, 8)
+	Place(card, card.clock, "TOP", letterbox.bottom, "CENTER", 0, 36)
 	local track = card:CreateTexture(nil, "OVERLAY")
 	track:SetColorTexture(1, 1, 1, 0.16)
 	track:SetSize(CLOCK_LINE, 1)
-	track:SetPoint("TOP", card.clock, "BOTTOM", 0, -14)
+	track.pixelHeight = 1
+	Place(card, track, "TOP", letterbox.bottom, "CENTER", 0, -6)
 	card.date = Text(card, 10, GREY)
-	card.date:SetPoint("TOP", track, "BOTTOM", 0, -12)
+	Place(card, card.date, "TOP", letterbox.bottom, "CENTER", 0, -19)
 
 	-- Bottom band, right: rotating session stats.
 	local statsGroup = CreateFrame("Frame", nil, card)
 	statsGroup:SetAllPoints(card)
 	statsSwap = ns.NewSwap(statsGroup)
 	card.statTitle = Text(statsGroup, 18, WHITE)
-	card.statTitle:SetPoint("BOTTOMRIGHT", letterbox.bottom, "RIGHT", -PAD, 1)
+	Place(card, card.statTitle, "TOPRIGHT", letterbox.bottom, "RIGHT", -PAD, 19)
 	card.statLine = Text(statsGroup, 13, GREY)
-	card.statLine:SetPoint("TOPRIGHT", card.statTitle, "BOTTOMRIGHT", 0, -4)
+	Place(card, card.statLine, "TOPRIGHT", letterbox.bottom, "RIGHT", -PAD, -3)
 
 	-- Right side: whispers, on a gradient like the showcase's.
 	list = CreateFrame("Frame", nil, card)
@@ -225,12 +233,12 @@ function scene.Create(parent, letterbox)
 	shade:SetWidth(SHADE_WIDTH)
 	shade:SetGradient("HORIZONTAL", CreateColor(0, 0, 0, 0), CreateColor(0, 0, 0, 0.75))
 	list.header = Text(list, 12, GOLD)
-	list.header:SetPoint("TOPRIGHT", letterbox, "RIGHT", -WHISPER_PAD, WHISPER_TOP)
+	Place(card, list.header, "TOPRIGHT", letterbox, "RIGHT", -WHISPER_PAD, WHISPER_TOP)
 	list.header:SetText(Spaced("While you were away"))
 	list.lineWidth = 300
 	list.line = ns.SceneGoldLine(list, list.lineWidth)
 	-- Ends under the header's right edge (the line fades out to both ends).
-	list.line:SetPoint("TOPLEFT", list.header, "BOTTOMRIGHT", -list.lineWidth, -8)
+	Place(card, list.line, "TOPLEFT", letterbox, "RIGHT", -WHISPER_PAD - list.lineWidth, WHISPER_TOP - 20)
 	list.more = Text(list, 11, GREY)
 	list.more:SetJustifyH("RIGHT")
 	list:Hide()
@@ -239,6 +247,7 @@ end
 function scene.Begin(s)
 	state = s
 	card:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
+	ns.SceneSnap(card)
 	ns.ResetSwap(statsSwap)
 
 	local className, classFile = UnitClass("player")

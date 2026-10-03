@@ -18,6 +18,38 @@ function ns.SceneText(parent, size, color, font)
 	return fs
 end
 
+-- Only on change: SetText re-lays out the card even with the same text.
+function ns.SceneSetText(fs, text)
+	text = text or ""
+	if (fs:GetText() or "") ~= text then
+		fs:SetText(text)
+	end
+end
+
+-- Pixel-exact placement. Text and hairlines on fractional pixels round differently each time the card is
+-- laid out again (1px flicker), so the card is placed from band edges/centers (whole pixels, see the
+-- engine) with snapped offsets. Font strings anchor by a top edge: their height is fractional.
+-- ScenePlace sets the point right away; SceneSnap re-snaps all of them once the card's scale is final.
+function ns.ScenePlace(card, region, point, relativeTo, relativePoint, x, y)
+	card.places = card.places or {}
+	card.places[#card.places + 1] = { region, point, relativeTo, relativePoint, x, y }
+	region:SetPoint(point, relativeTo, relativePoint, x, y)
+end
+
+function ns.SceneSnap(card)
+	for _, p in ipairs(card.places or {}) do
+		local region = p[1]
+		region:ClearAllPoints()
+		PixelUtil.SetPoint(region, p[2], p[3], p[4], p[5], p[6])
+		if region.pixelHeight then
+			PixelUtil.SetHeight(region, region.pixelHeight, region.pixelHeight)
+			if region.pair then
+				PixelUtil.SetHeight(region.pair, region.pixelHeight, region.pixelHeight)
+			end
+		end
+	end
+end
+
 -- "Now flying to" -> "N O W   F L Y I N G   T O"
 function ns.Spaced(text)
 	return (text:upper():gsub(".", "%0 "):sub(1, -2))
@@ -36,6 +68,7 @@ function ns.SceneGoldLine(parent, width, alpha)
 	right:SetSize(half, 1)
 	right:SetGradient("HORIZONTAL", CreateColor(gold[1], gold[2], gold[3], alpha or 0.8), CreateColor(gold[1], gold[2], gold[3], 0))
 	right:SetPoint("LEFT", left, "RIGHT")
+	left.pixelHeight, left.pair = 1, right
 	return left
 end
 

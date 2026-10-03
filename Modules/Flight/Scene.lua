@@ -9,7 +9,7 @@ local GOLD, GREY, WHITE = ns.SCENE_GOLD, ns.SCENE_GREY, ns.SCENE_WHITE
 local PAD = 48 -- side padding inside the bottom band
 local LINE_WIDTH = 440 -- progress line under the timer
 local STATS_PAGE_TIME = 6
-local Text, Spaced = ns.SceneText, ns.Spaced
+local Text, Spaced, Place, SetText = ns.SceneText, ns.Spaced, ns.ScenePlace, ns.SceneSetText
 
 local card
 local flight
@@ -43,8 +43,8 @@ end
 
 local function ShowPage(elapsed)
 	local title, line = pages[page](elapsed)
-	card.statTitle:SetText(title)
-	card.statLine:SetText(line)
+	SetText(card.statTitle, title)
+	SetText(card.statLine, line)
 end
 
 local function BuildPages()
@@ -87,30 +87,32 @@ function scene.Create(parent, letterbox)
 	card:SetAlpha(0)
 
 	-- Top band: title card.
+	-- Offsets from the band's center (font strings by their top edge, roughly font size tall).
 	card.title = Text(card, 36, GOLD, ns.SCENE_TITLE_FONT)
-	card.title:SetPoint("CENTER", letterbox.top, "CENTER", 0, 4)
+	Place(card, card.title, "TOP", letterbox.top, "CENTER", 0, 22)
 	card.label = Text(card, 12, GREY)
-	card.label:SetPoint("BOTTOM", card.title, "TOP", 0, 6)
+	Place(card, card.label, "TOP", letterbox.top, "CENTER", 0, 40)
 	card.line = ns.SceneGoldLine(card, 300)
-	card.line:SetPoint("TOPRIGHT", card.title, "BOTTOM", 0, -5)
+	Place(card, card.line, "TOPRIGHT", letterbox.top, "CENTER", 0, -19)
 	card.subtitle = Text(card, 14, GREY)
-	card.subtitle:SetPoint("TOP", card.title, "BOTTOM", 0, -12)
+	Place(card, card.subtitle, "TOP", letterbox.top, "CENTER", 0, -26)
 
 	-- Bottom band, left: character.
 	card.charName = Text(card, 19, GOLD)
-	card.charName:SetPoint("BOTTOMLEFT", letterbox.bottom, "LEFT", PAD, 1)
+	Place(card, card.charName, "TOPLEFT", letterbox.bottom, "LEFT", PAD, 20)
 	card.charInfo = Text(card, 13, GREY)
-	card.charInfo:SetPoint("TOPLEFT", card.charName, "BOTTOMLEFT", 0, -4)
+	Place(card, card.charInfo, "TOPLEFT", letterbox.bottom, "LEFT", PAD, -3)
 
 	-- Bottom band, center: timer + progress line + arrival clock.
 	card.time = Text(card, 28, { 1, 1, 1 })
-	card.time:SetPoint("BOTTOM", letterbox.bottom, "CENTER", 0, 8)
+	Place(card, card.time, "TOP", letterbox.bottom, "CENTER", 0, 36)
 
 	-- A hairline track with a gold fill and a small glowing head at the fill's leading edge.
 	card.track = card:CreateTexture(nil, "OVERLAY")
 	card.track:SetColorTexture(1, 1, 1, 0.16)
 	card.track:SetSize(LINE_WIDTH, 1)
-	card.track:SetPoint("TOP", card.time, "BOTTOM", 0, -14)
+	card.track.pixelHeight = 1
+	Place(card, card.track, "TOP", letterbox.bottom, "CENTER", 0, -6)
 	card.fill = card:CreateTexture(nil, "OVERLAY", nil, 1)
 	card.fill:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
 	card.fill:SetHeight(1)
@@ -132,16 +134,16 @@ function scene.Create(parent, letterbox)
 	haloMask:SetAllPoints(card.halo)
 	card.halo:AddMaskTexture(haloMask)
 	card.eta = Text(card, 10, GREY)
-	card.eta:SetPoint("TOP", card.track, "BOTTOM", 0, -12)
+	Place(card, card.eta, "TOP", letterbox.bottom, "CENTER", 0, -19)
 
 	-- Bottom band, right: rotating flight stats.
 	local statsGroup = CreateFrame("Frame", nil, card)
 	statsGroup:SetAllPoints(card)
 	statsSwap = ns.NewSwap(statsGroup)
 	card.statTitle = Text(statsGroup, 18, WHITE)
-	card.statTitle:SetPoint("BOTTOMRIGHT", letterbox.bottom, "RIGHT", -PAD, 1)
+	Place(card, card.statTitle, "TOPRIGHT", letterbox.bottom, "RIGHT", -PAD, 19)
 	card.statLine = Text(statsGroup, 13, GREY)
-	card.statLine:SetPoint("TOPRIGHT", card.statTitle, "BOTTOMRIGHT", 0, -4)
+	Place(card, card.statLine, "TOPRIGHT", letterbox.bottom, "RIGHT", -PAD, -3)
 
 	ns.ZoneText_Create(parent)
 end
@@ -151,6 +153,7 @@ function scene.Begin(f)
 	ns.ZoneText_Hide()
 	-- Same on-screen size as normal UI text, whatever the UI scale.
 	card:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
+	ns.SceneSnap(card)
 	ns.ResetSwap(statsSwap)
 	SetDestinationTitle()
 
@@ -203,11 +206,11 @@ function scene.Update(alpha, dt)
 	local now = GetTime()
 	local elapsed = now - flight.start
 	local text, fill, remaining = ns.TimerText(flight.expected, false, elapsed) -- no "~": the cinematic doesn't flag estimates
-	card.time:SetText(text)
+	SetText(card.time, text)
 	if fill then
 		-- The line grows left to right as the flight progresses.
 		card.fill:SetWidth(math.max((1 - fill) * LINE_WIDTH, 0.01))
-		card.eta:SetText(remaining >= 0 and Spaced("Arrives " .. date("%H:%M", time() + math.floor(remaining + 0.5))) or "")
+		SetText(card.eta, remaining >= 0 and Spaced("Arrives " .. date("%H:%M", time() + math.floor(remaining + 0.5))) or "")
 	end
 
 	pageTimer = pageTimer + dt

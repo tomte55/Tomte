@@ -307,7 +307,9 @@ local function LetterboxOnUpdate(self, elapsed)
 		progress = math.max(progress - step, 0)
 	end
 	local e = Ease(progress)
-	local h = math.max(self:GetHeight() * LETTERBOX_FRACTION * e, 0.01)
+	-- An even number of whole pixels: the scenes place their text from the band's center and edges.
+	local pixel = PixelUtil.GetPixelToUIUnitFactor() / self:GetEffectiveScale()
+	local h = math.max(2 * math.floor(self:GetHeight() * LETTERBOX_FRACTION * e / pixel / 2 + 0.5) * pixel, 0.01)
 	-- Only on change: re-setting it every frame re-lays out the title card anchored to the band, and its
 	-- sub-pixel edges then round differently frame to frame (1px jitter).
 	if h ~= self.bandHeight then

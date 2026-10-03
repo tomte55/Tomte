@@ -46,3 +46,35 @@ function ns.AFK_VisibleWhispers(list, n)
 	end
 	return shown, (first - 1) + (list.dropped or 0)
 end
+
+local function Thousands(n)
+	local s = tostring(n)
+	local head = #s % 3
+	if head == 0 then
+		head = 3
+	end
+	return s:sub(1, head) .. s:sub(head + 1):gsub("%d%d%d", ",%0")
+end
+
+-- "50,000g": only gold once there is any (detailed keeps the silver: "1,234g 56s"), else silver and copper.
+-- icons = { gold, silver, copper } format strings that take the amount.
+function ns.AFK_MoneyText(copper, detailed, icons)
+	local g = math.floor(copper / 10000)
+	local s = math.floor(copper / 100) % 100
+	local c = copper % 100
+	local parts = {}
+	if g > 0 then
+		parts[1] = icons.gold:format(Thousands(g))
+		if detailed and s > 0 then
+			parts[2] = icons.silver:format(s)
+		end
+	else
+		if s > 0 then
+			parts[#parts + 1] = icons.silver:format(s)
+		end
+		if c > 0 or s == 0 then
+			parts[#parts + 1] = icons.copper:format(c)
+		end
+	end
+	return table.concat(parts, " ")
+end
