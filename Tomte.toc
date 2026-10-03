@@ -12,6 +12,7 @@ Core/Core.lua
 Core/Modules.lua
 Core/Migration.lua
 Cinematic/Engine.lua
+Cinematic/SceneKit.lua
 Cinematic/Showcase.lua
 Panel/Widgets.lua
 Panel/Panel.lua
@@ -21,3 +22,6 @@ Modules/Flight/Tooltip.lua
 Modules/Flight/ZoneText.lua
 Modules/Flight/Scene.lua
 Modules/Flight/Flight.lua
+Modules/AFK/Data.lua
+Modules/AFK/Scene.lua
+Modules/AFK/AFK.lua

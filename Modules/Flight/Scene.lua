@@ -5,14 +5,11 @@ local addonName, ns = ...
 -- bottom = character (left), flight timer (center), rotating flight stats (right).
 -- The "Entering <zone>" text (ZoneText.lua) belongs to this scene too.
 
-local GOLD = { 1, 0.82, 0.45 }
-local GREY = { 0.62, 0.62, 0.62 }
-local WHITE = { 0.92, 0.92, 0.92 }
+local GOLD, GREY, WHITE = ns.SCENE_GOLD, ns.SCENE_GREY, ns.SCENE_WHITE
 local PAD = 48 -- side padding inside the bottom band
 local LINE_WIDTH = 440 -- progress line under the timer
-local TITLE_FONT = "Fonts\\MORPHEUS.TTF"
-local SWAP_FADE = 0.3 -- cross-fade half time for stat pages
 local STATS_PAGE_TIME = 6
+local Text, Spaced = ns.SceneText, ns.Spaced
 
 local card
 local flight
@@ -20,71 +17,10 @@ local ticks = {}
 local statsSwap
 local pages, page, pageTimer = {}, 1, 0
 
-local function Text(parent, size, color, font)
-	local fs = parent:CreateFontString(nil, "OVERLAY")
-	fs:SetFont(font or STANDARD_TEXT_FONT, size, "")
-	fs:SetTextColor(color[1], color[2], color[3])
-	fs:SetShadowOffset(1, -1)
-	return fs
-end
-
-local function Spaced(text)
-	return (text:upper():gsub(".", "%0 "):sub(1, -2))
-end
-
 -- "Gundargaz, The Ringing Deeps" -> "Gundargaz", "The Ringing Deeps"
 local function SplitName(name)
 	local place, zone = name:match("^(.-),%s*(.+)$")
 	return place or name, zone
-end
-
-local function GoldLine(parent, width)
-	local half = width / 2
-	local left = parent:CreateTexture(nil, "OVERLAY")
-	left:SetColorTexture(1, 1, 1, 1)
-	left:SetSize(half, 1)
-	left:SetGradient("HORIZONTAL", CreateColor(GOLD[1], GOLD[2], GOLD[3], 0), CreateColor(GOLD[1], GOLD[2], GOLD[3], 0.8))
-	local right = parent:CreateTexture(nil, "OVERLAY")
-	right:SetColorTexture(1, 1, 1, 1)
-	right:SetSize(half, 1)
-	right:SetGradient("HORIZONTAL", CreateColor(GOLD[1], GOLD[2], GOLD[3], 0.8), CreateColor(GOLD[1], GOLD[2], GOLD[3], 0))
-	right:SetPoint("LEFT", left, "RIGHT")
-	return left
-end
-
--- Fade a group out, run swap(), fade it back in.
-local function NewSwap(group)
-	return { group = group }
-end
-
-local function StartSwap(swap, fn)
-	if not (swap.t and swap.fn) then
-		-- Not already fading out: start the fade-out from the group's current alpha (no pop).
-		swap.t = SWAP_FADE * (1 - swap.group:GetAlpha())
-	end
-	swap.fn = fn
-end
-
-local function UpdateSwap(swap, elapsed)
-	if not swap.t then
-		return
-	end
-	swap.t = swap.t + elapsed
-	if swap.t < SWAP_FADE then
-		swap.group:SetAlpha(1 - swap.t / SWAP_FADE)
-		return
-	end
-	if swap.fn then
-		swap.fn()
-		swap.fn = nil
-	end
-	local a = (swap.t - SWAP_FADE) / SWAP_FADE
-	if a >= 1 then
-		swap.group:SetAlpha(1)
-		swap.t = nil
-	else
-		swap.group:SetAlpha(a)
-	end
 end
 
 local function SetTitle(label, title, subtitle)
@@ -151,11 +87,11 @@ function scene.Create(parent, letterbox)
 	card:SetAlpha(0)
 
 	-- Top band: title card.
-	card.title = Text(card, 36, GOLD, TITLE_FONT)
+	card.title = Text(card, 36, GOLD, ns.SCENE_TITLE_FONT)
 	card.title:SetPoint("CENTER", letterbox.top, "CENTER", 0, 4)
 	card.label = Text(card, 12, GREY)
 	card.label:SetPoint("BOTTOM", card.title, "TOP", 0, 6)
-	card.line = GoldLine(card, 300)
+	card.line = ns.SceneGoldLine(card, 300)
 	card.line:SetPoint("TOPRIGHT", card.title, "BOTTOM", 0, -5)
 	card.subtitle = Text(card, 14, GREY)
 	card.subtitle:SetPoint("TOP", card.title, "BOTTOM", 0, -12)
@@ -201,7 +137,7 @@ function scene.Create(parent, letterbox)
 	-- Bottom band, right: rotating flight stats.
 	local statsGroup = CreateFrame("Frame", nil, card)
 	statsGroup:SetAllPoints(card)
-	statsSwap = NewSwap(statsGroup)
+	statsSwap = ns.NewSwap(statsGroup)
 	card.statTitle = Text(statsGroup, 18, WHITE)
 	card.statTitle:SetPoint("BOTTOMRIGHT", letterbox.bottom, "RIGHT", -PAD, 1)
 	card.statLine = Text(statsGroup, 13, GREY)
@@ -215,8 +151,7 @@ function scene.Begin(f)
 	ns.ZoneText_Hide()
 	-- Same on-screen size as normal UI text, whatever the UI scale.
 	card:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
-	statsSwap.t = nil
-	statsSwap.group:SetAlpha(1)
+	ns.ResetSwap(statsSwap)
 	SetDestinationTitle()
 
 	local className, classFile = UnitClass("player")
@@ -278,7 +213,7 @@ function scene.Update(alpha, dt)
 	pageTimer = pageTimer + dt
 	if pageTimer >= STATS_PAGE_TIME and #pages > 1 then
 		pageTimer = 0
-		StartSwap(statsSwap, function()
+		ns.StartSwap(statsSwap, function()
 			page = page % #pages + 1
 			ShowPage(elapsed)
 		end)
@@ -286,5 +221,5 @@ function scene.Update(alpha, dt)
 	if page == 1 and not statsSwap.t then
 		ShowPage(elapsed) -- live air time
 	end
-	UpdateSwap(statsSwap, dt)
+	ns.UpdateSwap(statsSwap, dt)
 end

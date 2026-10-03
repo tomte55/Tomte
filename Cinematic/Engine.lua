@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Shared cinematic engine: camera zoom + tilt + slow orbit, letterbox + vignette, optional music, UI
 -- faded out. What's drawn in the letterbox comes from a scene; the character showcase (Showcase.lua) is
 -- optional per Enter.
--- The letterbox swallows mouse input so the player can't move the camera; a click or Esc pauses. A paused
+-- The letterbox swallows mouse input so the player can't move the camera; a click or Esc pauses (or calls
+-- opts.onDismiss, with opts.hint as the hint text). A paused
 -- cinematic comes back after state.resumeDelay seconds without clicks, key presses or open windows (the
 -- owner's tick decides when to Enter again).
 -- The UI must always come back: Exit is idempotent and waits for combat to end if needed.
@@ -58,6 +59,7 @@ ns.Cinematic = C
 local active
 local current -- state of the active cinematic
 local scene -- scene in the letterbox; stays set while the letterbox slides out
+local dismiss -- opts.onDismiss of the active cinematic (click/Esc), nil = pause
 local createdScenes = {}
 local hidUI -- we only bring back a UI we hid ourselves (respects a manual Alt-Z)
 local showUIAfterCombat
@@ -263,6 +265,15 @@ local function ShowHint()
 	hintTimer = HINT_TIME
 end
 
+-- Click or Esc: the scene's own handler (AFK closes for good), otherwise pause.
+local function Dismiss()
+	if dismiss then
+		dismiss(current)
+	else
+		C.Pause(current)
+	end
+end
+
 local function UpdateHint(contentAlpha, dt)
 	hintFrame:SetAlpha(contentAlpha)
 	hintTimer = math.max(hintTimer - dt, 0)
@@ -297,8 +308,13 @@ local function LetterboxOnUpdate(self, elapsed)
 	end
 	local e = Ease(progress)
 	local h = math.max(self:GetHeight() * LETTERBOX_FRACTION * e, 0.01)
-	self.top:SetHeight(h)
-	self.bottom:SetHeight(h)
+	-- Only on change: re-setting it every frame re-lays out the title card anchored to the band, and its
+	-- sub-pixel edges then round differently frame to frame (1px jitter).
+	if h ~= self.bandHeight then
+		self.bandHeight = h
+		self.top:SetHeight(h)
+		self.bottom:SetHeight(h)
+	end
 	self.topEdge:SetAlpha(e)
 	self.bottomEdge:SetAlpha(e)
 	local w = self:GetWidth() * VIGNETTE_WIDTH
@@ -421,15 +437,12 @@ local function CreateLetterbox()
 	hint:SetTextColor(GREY[1], GREY[2], GREY[3])
 	hint:SetShadowOffset(1, -1)
 	hint:SetPoint("RIGHT", letterbox.top, "RIGHT", -HINT_PAD, 0)
-	hint:SetText(Spaced("Click or Esc to pause"))
 	hint:SetAlpha(0)
 
 	letterbox:SetScript("OnUpdate", LetterboxOnUpdate)
 
 	-- Input is only enabled while active: clicks/drags and the wheel never reach the camera.
-	letterbox:SetScript("OnMouseDown", function()
-		C.Pause(current)
-	end)
+	letterbox:SetScript("OnMouseDown", Dismiss)
 	letterbox:SetScript("OnMouseWheel", function() end)
 	letterbox:SetScript("OnKeyDown", function(self, key)
 		if InCombatLockdown() then
@@ -437,7 +450,7 @@ local function CreateLetterbox()
 		end
 		if key == "ESCAPE" then
 			self:SetPropagateKeyboardInput(false) -- no game menu
-			C.Pause(current)
+			Dismiss()
 		else
 			self:SetPropagateKeyboardInput(true)
 		end
@@ -479,6 +492,8 @@ function C.Enter(newScene, state, opts)
 		s.frame:SetShown(s == newScene)
 	end
 	scene = newScene
+	dismiss = opts.onDismiss
+	hint:SetText(Spaced(opts.hint or "Click or Esc to pause"))
 	active = true
 	current = state
 	state.resumeAt = nil
@@ -557,6 +572,7 @@ function C.Exit(state)
 	end
 	active = false
 	current = nil
+	dismiss = nil
 	target = 0
 	if scene.End then
 		scene.End()
