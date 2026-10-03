@@ -13,6 +13,7 @@ local CORE_DEFAULTS = {
 	enabled = {}, -- [moduleKey] = bool, only for modules the user has toggled
 	panel = { category = "All" },
 	cinematic = {}, -- engine-owned (musicVolumeBackup)
+	toast = {}, -- social toasts: point = saved position
 }
 
 function ns.Print(msg)

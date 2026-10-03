@@ -223,6 +223,55 @@ function Setup.button(row, module, spec)
 	row.button.label:SetText(spec.text)
 end
 
+-- Text box; the value is saved on Enter or when the box loses focus (Esc restores the saved text).
+function Factory.input()
+	local row = NewRow("input")
+	local box = CreateFrame("EditBox", nil, row)
+	box:SetSize(170, 20)
+	box:SetPoint("RIGHT", -6, 0)
+	box:SetAutoFocus(false)
+	box.isOptionInput = true
+	box:SetFont(STANDARD_TEXT_FONT, 12, "")
+	box:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
+	box:SetTextInsets(6, 6, 0, 0)
+	box:SetScript("OnHide", box.ClearFocus) -- saves before the row is reused for another option
+	local bg = box:CreateTexture(nil, "BACKGROUND")
+	bg:SetAllPoints()
+	bg:SetColorTexture(UI.BOX[1], UI.BOX[2], UI.BOX[3], UI.BOX[4])
+	UI.Border(box, GOLD[1], GOLD[2], GOLD[3], 0.35)
+	box.placeholder = UI.Text(box, 12, DIM)
+	box.placeholder:SetPoint("LEFT", 6, 0)
+	box:SetScript("OnTextChanged", function(self)
+		self.placeholder:SetShown(self:GetText() == "")
+	end)
+	box:SetScript("OnEnterPressed", box.ClearFocus)
+	box:SetScript("OnEscapePressed", function(self)
+		self:SetText(GetOption(row.module, row.spec.key) or "")
+		self:ClearFocus()
+	end)
+	box:SetScript("OnEditFocusGained", function(self)
+		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 0.8)
+	end)
+	box:SetScript("OnEditFocusLost", function(self)
+		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 0.35)
+		local text = strtrim(self:GetText())
+		if text ~= (GetOption(row.module, row.spec.key) or "") then
+			SetOption(row.module, row.spec, text)
+		end
+	end)
+	row.box = box
+	LabelUpTo(row, box)
+	ForwardHover(row, box)
+	return row
+end
+
+function Setup.input(row, module, spec)
+	row.label:SetText(spec.label)
+	row.box:SetText(GetOption(module, spec.key) or "")
+	row.box.placeholder:SetText(spec.placeholder or "")
+	row.box:SetCursorPosition(0)
+end
+
 local function Acquire(kind)
 	local pool = pools[kind]
 	if not pool then
@@ -388,13 +437,24 @@ local function CreateModuleRow(parent)
 	row.gear.tex:SetTexCoord(0, 0.5, 0, 0.5)
 	row.gear.tex:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], 0.7)
 
+	-- Typing in an option's text box: hovering the list mustn't rebuild the options under it.
+	local function Typing()
+		local focus = GetCurrentKeyBoardFocus()
+		return focus ~= nil and focus.isOptionInput == true
+	end
 	local function Enter()
+		if Typing() then
+			return
+		end
 		hovered = row.module
 		row.bg:Show()
 		row.gear.tex:SetAlpha(1)
 		RefreshDetail()
 	end
 	local function Leave()
+		if Typing() then
+			return
+		end
 		if hovered == row.module then
 			hovered = nil
 		end

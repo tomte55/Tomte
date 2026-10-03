@@ -39,3 +39,10 @@ Modules/Hunter/Tooltips.lua
 Modules/Hunter/Checks.lua
 Modules/Hunter/StablePage.lua
 Modules/Hunter/Hunter.lua
+Modules/Social/Data.lua
+Modules/Social/Toast.lua
+Modules/Social/Inbox.lua
+Modules/Social/Whispers.lua
+Modules/Social/Mentions.lua
+Modules/Social/Friends.lua
+Modules/Social/Alerts.lua

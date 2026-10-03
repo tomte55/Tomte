@@ -1,0 +1,8 @@
+<Bindings>
+	<Binding name="TOMTE_WHISPER_REPLY" category="Tomte">
+		Tomte_Binding("WHISPER_REPLY")
+	</Binding>
+	<Binding name="TOMTE_WHISPER_INBOX" category="Tomte">
+		Tomte_Binding("WHISPER_INBOX")
+	</Binding>
+</Bindings>
