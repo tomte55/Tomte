@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
--- Recorded/estimated flight time on taxi map tooltips. The hooks can't be removed, so they check whether
--- the module is on.
+-- Recorded/estimated flight time on taxi map tooltips, and a note on flight masters without a recorded
+-- time (see MapCoverage.lua). The hooks can't be removed, so they check whether the module is on.
 
 local function AddTimeLine(slot)
 	if not ns.flightModule.active then
@@ -21,8 +21,15 @@ end
 
 local function OnPinEnter(pin)
 	local data = pin.taxiNodeData
-	if data and data.state == Enum.FlightPathState.Reachable then
+	if not data then
+		return
+	end
+	if data.state == Enum.FlightPathState.Reachable then
 		AddTimeLine(data.slotIndex)
+	end
+	if ns.flightModule.active and not data.isMapLayerTransition and not ns.MapCoverage_IsTimed(data.nodeID) then
+		GameTooltip:AddLine("No recorded time to or from here", ns.ORANGE[1], ns.ORANGE[2], ns.ORANGE[3])
+		GameTooltip:Show()
 	end
 end
 
@@ -32,6 +39,7 @@ function ns.HookFlightMap()
 		return
 	end
 	flightMapHooked = true
+	ns.MapCoverage_Hook()
 	-- Pins created from now on copy the hooked method into their OnEnter script.
 	hooksecurefunc(FlightMap_FlightPointPinMixin, "OnMouseEnter", OnPinEnter)
 	-- Pins that already exist captured the original method; hook their script directly.

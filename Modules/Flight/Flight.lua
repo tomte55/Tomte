@@ -436,6 +436,7 @@ module = ns.RegisterModule({
 	cinematicState = function()
 		return flight
 	end,
+	page = ns.CoveragePage, -- Coverage tab next to the options
 	panelClosed = StopPreview,
 	commands = {
 		{ "stats", "show flight stats", PrintStats },

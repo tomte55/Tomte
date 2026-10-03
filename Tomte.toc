@@ -18,6 +18,10 @@ Panel/Widgets.lua
 Panel/Panel.lua
 Modules/Flight/Data.lua
 Modules/Flight/Bar.lua
+Modules/Flight/Coverage.lua
+Modules/Flight/Atlas.lua
+Modules/Flight/CoveragePage.lua
+Modules/Flight/MapCoverage.lua
 Modules/Flight/Tooltip.lua
 Modules/Flight/ZoneText.lua
 Modules/Flight/Scene.lua

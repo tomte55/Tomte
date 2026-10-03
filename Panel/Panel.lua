@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Settings panel. One frame, used standalone (/tomte, addon compartment; Esc closes it) and embedded in
 -- Options > AddOns (re-parented into a canvas category while that page is open). Built on first use.
 -- Left: search + categories. Center: modules with on/off checkboxes. Right: the hovered module's
--- description, or the selected module's options (built from its options schema).
+-- description, or the selected module's options (built from its options schema) and/or its custom page
+-- (Options and page tabs when it has both).
 
 local UI = ns.UI
 local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
@@ -13,6 +14,7 @@ local TITLE_H = 36
 local ROW_H = 24
 local OPT_H = 28
 local SCROLL_STEP = 40
+local TAB_H = 22
 local ALL = "All"
 
 local panel, holder, escape
@@ -22,6 +24,7 @@ local searchText = ""
 local categoryButtons, moduleRows, listHeaders = {}, {}, {}
 local pools, used = {}, {}
 local builtFor -- module whose options are in the pane
+local tabFor = {} -- [module] = "options" | "page" (modules with both), for this session
 local Refresh, RefreshDetail -- forward declarations
 
 StaticPopupDialogs.TOMTE_CONFIRM = {
@@ -290,6 +293,7 @@ function RefreshDetail()
 		detail.desc:SetText("")
 		detail.reason:Hide()
 		detail.scroll:Hide()
+		detail.tabs:Hide()
 		for _, frame in pairs(detail.pages) do
 			frame:Hide()
 		end
@@ -306,7 +310,18 @@ function RefreshDetail()
 	-- Options (or a custom page) only for the selected module, and not while it is blocked (its data is
 	-- being replaced).
 	local open = module == selected and reason == nil
-	local showPage = open and module.page ~= nil
+	local hasTabs = open and module.page ~= nil and module.options ~= nil
+	local tab = tabFor[module] or "options"
+	detail.tabs:SetShown(hasTabs)
+	-- Content starts under the description, or under the tabs.
+	local top, topY = detail.desc, -14
+	if hasTabs then
+		detail.tabs.module = module
+		detail.tabs.options:Set("Options", tab == "options")
+		detail.tabs.page:Set(module.page.title or "Overview", tab == "page")
+		top, topY = detail.tabs, -8
+	end
+	local showPage = open and module.page ~= nil and (not hasTabs or tab == "page")
 	for owner, frame in pairs(detail.pages) do
 		if owner ~= module or not showPage then
 			frame:Hide()
@@ -316,12 +331,13 @@ function RefreshDetail()
 		local frame = detail.pages[module]
 		if not frame then
 			frame = CreateFrame("Frame", nil, detail)
-			frame:SetPoint("TOPLEFT", detail.desc, "BOTTOMLEFT", -8, -14)
-			frame:SetPoint("BOTTOMRIGHT", detail, "BOTTOMRIGHT", -14, 12)
 			frame:Hide()
 			module.page.Create(frame)
 			detail.pages[module] = frame
 		end
+		frame:ClearAllPoints()
+		frame:SetPoint("TOPLEFT", top, "BOTTOMLEFT", -8, topY)
+		frame:SetPoint("BOTTOMRIGHT", detail, "BOTTOMRIGHT", -14, 12)
 		if not frame:IsShown() then
 			frame:Show()
 			if module.page.Refresh then
@@ -333,7 +349,7 @@ function RefreshDetail()
 	detail.scroll:SetShown(showOptions)
 	if showOptions then
 		detail.scroll:ClearAllPoints()
-		detail.scroll:SetPoint("TOPLEFT", detail.desc, "BOTTOMLEFT", -8, -14)
+		detail.scroll:SetPoint("TOPLEFT", top, "BOTTOMLEFT", -8, topY)
 		detail.scroll:SetPoint("BOTTOMRIGHT", detail, "BOTTOMRIGHT", -14, 12)
 		BuildOptions(module)
 	else
@@ -582,6 +598,57 @@ local function CreateDetail(parent)
 	detail.empty:SetPoint("CENTER")
 	detail.empty:SetText("Select a module to see its options.")
 	detail.pages = {} -- [module] = frame for modules with a custom page
+
+	-- Options / page tabs, for a module that has both.
+	local tabs = CreateFrame("Frame", nil, detail)
+	tabs:SetPoint("TOPLEFT", detail.desc, "BOTTOMLEFT", 0, -12)
+	tabs:SetPoint("RIGHT", -20, 0)
+	tabs:SetHeight(TAB_H)
+	tabs:Hide()
+	local baseline = tabs:CreateTexture(nil, "BACKGROUND")
+	baseline:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.2)
+	baseline:SetHeight(1)
+	baseline:SetPoint("BOTTOMLEFT")
+	baseline:SetPoint("BOTTOMRIGHT")
+	local function Tab(which)
+		local b = CreateFrame("Button", nil, tabs)
+		b:SetHeight(TAB_H)
+		b.text = UI.Text(b, 12, GREY)
+		b.text:SetPoint("BOTTOMLEFT", 0, 6)
+		b.bar = b:CreateTexture(nil, "ARTWORK")
+		b.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+		b.bar:SetHeight(2)
+		b.bar:SetPoint("BOTTOMLEFT")
+		b.bar:SetPoint("BOTTOMRIGHT")
+		function b:Set(text, isSelected)
+			self.isSelected = isSelected
+			self.text:SetText(text)
+			self:SetWidth(self.text:GetStringWidth())
+			local c = isSelected and GOLD or GREY
+			self.text:SetTextColor(c[1], c[2], c[3])
+			self.bar:SetShown(isSelected)
+		end
+		b:SetScript("OnEnter", function(self)
+			self.text:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+		end)
+		b:SetScript("OnLeave", function(self)
+			local c = self.isSelected and GOLD or GREY
+			self.text:SetTextColor(c[1], c[2], c[3])
+		end)
+		b:SetScript("OnClick", function()
+			if tabFor[tabs.module] ~= which then
+				tabFor[tabs.module] = which
+				PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+				RefreshDetail()
+			end
+		end)
+		return b
+	end
+	tabs.options = Tab("options")
+	tabs.options:SetPoint("BOTTOMLEFT")
+	tabs.page = Tab("page")
+	tabs.page:SetPoint("BOTTOMLEFT", tabs.options, "BOTTOMRIGHT", 18, 0)
+	detail.tabs = tabs
 
 	detail.scroll = CreateFrame("ScrollFrame", nil, detail)
 	detail.scroll:EnableMouseWheel(true)
