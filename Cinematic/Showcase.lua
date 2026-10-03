@@ -196,5 +196,6 @@ end
 function ns.Showcase_Update(alpha)
 	if panel:IsShown() then
 		panel:SetAlpha(alpha)
+		panel.model:SetModelAlpha(alpha) -- the 3D model ignores the frame alpha: without this it pops out at 0
 	end
 end

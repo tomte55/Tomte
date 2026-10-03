@@ -309,7 +309,7 @@ local function LetterboxOnUpdate(self, elapsed)
 	local e = Ease(progress)
 	-- An even number of whole pixels: the scenes place their text from the band's center and edges.
 	local pixel = PixelUtil.GetPixelToUIUnitFactor() / self:GetEffectiveScale()
-	local h = math.max(2 * math.floor(self:GetHeight() * LETTERBOX_FRACTION * e / pixel / 2 + 0.5) * pixel, 0.01)
+	local h = 2 * math.floor(self:GetHeight() * LETTERBOX_FRACTION / pixel / 2 + 0.5) * pixel
 	-- Only on change: re-setting it every frame re-lays out the title card anchored to the band, and its
 	-- sub-pixel edges then round differently frame to frame (1px jitter).
 	if h ~= self.bandHeight then
@@ -317,13 +317,19 @@ local function LetterboxOnUpdate(self, elapsed)
 		self.top:SetHeight(h)
 		self.bottom:SetHeight(h)
 	end
-	self.topEdge:SetAlpha(e)
-	self.bottomEdge:SetAlpha(e)
+	-- The bands keep their height and slide in from off screen, soft edge included (0 once fully in).
+	local offset = (1 - e) * (h + LETTERBOX_EDGE)
+	if offset ~= self.bandOffset then
+		self.bandOffset = offset
+		self.top:SetPoint("TOPLEFT", 0, offset)
+		self.top:SetPoint("TOPRIGHT", 0, offset)
+		self.bottom:SetPoint("BOTTOMLEFT", 0, -offset)
+		self.bottom:SetPoint("BOTTOMRIGHT", 0, -offset)
+	end
 	local w = self:GetWidth() * VIGNETTE_WIDTH
 	self.vignetteLeft:SetWidth(w)
 	self.vignetteRight:SetWidth(w)
-	self.vignetteLeft:SetAlpha(e)
-	self.vignetteRight:SetAlpha(e)
+	self.vignette:SetAlpha(e)
 	-- Scene contents appear in the second half of the slide, the showcase a little after.
 	local contentAlpha = math.max((e - 0.5) * 2, 0)
 	if scene then
@@ -356,7 +362,7 @@ local function CreateEdge(band, below)
 end
 
 local function CreateVignette(side)
-	local tex = letterbox:CreateTexture(nil, "BACKGROUND")
+	local tex = letterbox.vignette:CreateTexture(nil, "BACKGROUND")
 	tex:SetColorTexture(1, 1, 1, 1)
 	tex:SetPoint("TOP" .. side)
 	tex:SetPoint("BOTTOM" .. side)
@@ -417,6 +423,9 @@ local function CreateLetterbox()
 	letterbox:SetFrameStrata("FULLSCREEN")
 	letterbox:Hide()
 
+	-- Faded as a frame: alpha set on the gradient textures themselves is ignored (they'd pop out at the end).
+	letterbox.vignette = CreateFrame("Frame", nil, letterbox)
+	letterbox.vignette:SetAllPoints(letterbox)
 	letterbox.vignetteLeft = CreateVignette("LEFT")
 	letterbox.vignetteRight = CreateVignette("RIGHT")
 	letterbox.top = letterbox:CreateTexture(nil, "ARTWORK")
