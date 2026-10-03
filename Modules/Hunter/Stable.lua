@@ -7,9 +7,36 @@ local addonName, ns = ...
 local ACTIVE_SLOTS = 6 -- Call Pet 1-5, then the BM bonus slot
 local READ_DELAY = 0.5 -- coalesces bursts of stable events
 local SETTLE = 10 -- seconds after a loading screen when reads may be incomplete (no tame moments)
+local TAME_BEAST = 1515
+local TAME_WINDOW = 90 -- seconds a Tame Beast cast counts for the next new pet
 
 local pending
 local settleUntil = 0
+local lastTame -- { rare = target was a rare spawn, at = GetTime() } from the last Tame Beast cast
+
+local function Secret(...)
+	if not issecretvalue then
+		return false
+	end
+	for i = 1, select("#", ...) do
+		if issecretvalue((select(i, ...))) then
+			return true
+		end
+	end
+	return false
+end
+
+-- Tame Beast started: remember whether the beast is a rare spawn (the stable only says exotic).
+function ns.Stable_OnSpellcast(spellID)
+	if Secret(spellID) or spellID ~= TAME_BEAST then
+		return
+	end
+	local classification = UnitClassification("target")
+	if Secret(classification) then
+		return
+	end
+	lastTame = { rare = ns.Moments_IsRareClassification(classification), at = GetTime() }
+end
 
 local function CharKey()
 	return UnitGUID("player")
@@ -55,6 +82,10 @@ local function Update()
 	local old = ns.Stable_Snapshot()
 	local tames = ns.Hunter_MergeSnapshot(old, snapshot, GetTime() < settleUntil)
 	ns.hunterDB.chars[CharKey()] = snapshot
+	local rareSpawn = lastTame and lastTame.rare and GetTime() - lastTame.at < TAME_WINDOW
+	if #tames > 0 then
+		lastTame = nil
+	end
 	for _, pet in ipairs(tames) do
 		if ns.Moments_Trigger then
 			ns.Moments_Trigger("tame", {
@@ -62,6 +93,8 @@ local function Update()
 				subtitle = pet.family and (pet.exotic and ("Exotic " .. pet.family) or pet.family) or nil,
 				icon = pet.icon,
 				displayID = pet.displayID,
+				exotic = pet.exotic,
+				rareSpawn = rareSpawn,
 			})
 		end
 	end

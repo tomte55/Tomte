@@ -57,10 +57,11 @@ local function CanPlay()
 end
 
 local function ShowBanner(moment)
+	local fx = moment.tier ~= "common" and ns.MOMENT_TIER_FX[moment.tier]
 	ns.Banner_Show({
 		owner = "moments",
 		label = moment.label,
-		accent = ACCENT,
+		accent = fx and fx.glow or ACCENT,
 		title = moment.title,
 		subtitle = moment.subtitle or moment.detail,
 		icon = moment.icon,
@@ -75,7 +76,8 @@ local function Stop()
 end
 
 local function Play(moment)
-	playing = { moment = moment, left = ns.momentsDB.duration }
+	local fx = moment.displayID and ns.MOMENT_TIER_FX[moment.tier]
+	playing = { moment = moment, left = ns.momentsDB.duration + (fx and fx.extraTime or 0), sound = ns.momentsDB.revealSound }
 	ns.Cinematic.Enter(ns.MomentScene, playing, {
 		skipCamera = true,
 		passthrough = true,
@@ -124,7 +126,7 @@ ticker:SetScript("OnUpdate", function(self, elapsed)
 	end
 end)
 
--- moment = { label, title, subtitle, detail, icon, displayID, showcase }. force = a style for previews.
+-- moment = { label, title, subtitle, detail, icon, displayID, showcase, tier }. force = a style for previews.
 local function Show(kind, moment, force)
 	local style = force or ns.momentsDB.styles[kind] or "off"
 	if style == "off" then
@@ -138,9 +140,13 @@ local function Show(kind, moment, force)
 	ticker:Show()
 end
 
--- For other modules (Hunter Pets' tames). Ignored while Moments is off.
+-- For other modules (Hunter Pets' tames: moment.exotic, moment.rareSpawn). Ignored while Moments is off.
 function ns.Moments_Trigger(kind, moment)
 	if module and module.active then
+		if kind == "tame" then
+			moment.tier = moment.tier or ns.Moments_TameTier(moment.exotic, moment.rareSpawn)
+			moment.label = moment.label or ns.Moments_TierLabel(moment.tier, "companion")
+		end
 		moment.label = moment.label or "New companion"
 		Show(kind, moment)
 	end
@@ -181,21 +187,37 @@ function Build.achievement(achievementID)
 	}
 end
 
-function Build.mount(mountID)
+-- Share of players who own a mount (0-100), from the MountsRarity library that Mount Journal Enhanced
+-- bundles. nil without it.
+local function MountRarity(mountID)
+	local lib = LibStub and LibStub("MountsRarity-2.0", true)
+	local ok, percent = pcall(function()
+		return lib and lib:GetRarityByID(mountID)
+	end)
+	return ok and type(percent) == "number" and percent or nil
+end
+
+function Build.mount(mountID, tier)
 	local name, _, icon = C_MountJournal.GetMountInfoByID(mountID)
 	if not name then
 		return nil
 	end
 	local displayID, description = C_MountJournal.GetMountInfoExtraByID(mountID)
-	return { label = "New mount", title = name, detail = description, icon = icon, displayID = displayID }
+	local percent = MountRarity(mountID)
+	tier = tier or ns.Moments_MountTier(percent)
+	return { label = ns.Moments_TierLabel(tier, "mount"), title = name, subtitle = ns.Moments_OwnedLine(percent),
+		detail = description, icon = icon, displayID = displayID, tier = tier }
 end
 
-function Build.pet(petGUID)
+function Build.pet(petGUID, tier)
 	local _, customName, _, _, _, displayID, _, name, icon, _, _, _, description = C_PetJournal.GetPetInfoByPetID(petGUID)
 	if not name then
 		return nil
 	end
-	return { label = "New battle pet", title = customName or name, detail = description, icon = icon, displayID = displayID }
+	local quality = select(5, C_PetJournal.GetPetStats(petGUID))
+	tier = tier or ns.Moments_PetTier(quality)
+	return { label = ns.Moments_TierLabel(tier, "battle pet"), title = customName or name, detail = description,
+		icon = icon, displayID = displayID, tier = tier }
 end
 
 function Build.toy(itemID)
@@ -400,7 +422,8 @@ function events:RECEIVED_HOUSE_LEVEL_REWARDS(level)
 		Show("house", { label = "House level", title = "Level " .. level, subtitle = "Your house has grown" })
 	end
 end
--- Previews: sample data, shown in the type's style (a cinematic when the type is off).
+-- Previews: sample data, shown in the type's style (a cinematic when the type is off). Creature samples
+-- take a tier (nil = the sample's own).
 local SAMPLES = {
 	levelup = function()
 		return Build.levelup(UnitLevel("player"))
@@ -408,11 +431,20 @@ local SAMPLES = {
 	achievement = function()
 		return Build.achievement(6) or { label = "Achievement earned", title = "Level 10", subtitle = "Reach level 10.", detail = "10 points" }
 	end,
-	mount = function()
-		return Build.mount(6) or { label = "New mount", title = "Brown Horse" } -- 6 = Brown Horse
+	mount = function(tier)
+		return Build.mount(6, tier) or { label = "New mount", title = "Brown Horse", tier = tier } -- 6 = Brown Horse
 	end,
-	pet = function()
-		return { label = "New battle pet", title = "Mechanical Squirrel", icon = "Interface\\Icons\\INV_Pet_MechanicalSquirrel" }
+	pet = function(tier)
+		-- The first owned pet in the journal (its list follows the journal's filters).
+		for i = 1, math.min(C_PetJournal.GetNumPets(), 50) do
+			local petGUID = C_PetJournal.GetPetInfoByIndex(i)
+			local moment = petGUID and Build.pet(petGUID, tier)
+			if moment then
+				return moment
+			end
+		end
+		return { label = ns.Moments_TierLabel(tier, "battle pet"), title = "Mechanical Squirrel",
+			icon = "Interface\\Icons\\INV_Pet_MechanicalSquirrel", tier = tier }
 	end,
 	toy = function()
 		return { label = "New toy", title = "Hearthstone Board", icon = "Interface\\Icons\\INV_Misc_Toy_10" }
@@ -434,22 +466,30 @@ local SAMPLES = {
 	house = function()
 		return { label = "House level", title = "Level 3", subtitle = "Your house has grown" }
 	end,
-	tame = function()
+	tame = function(tier)
 		local snapshot = ns.Stable_Snapshot and ns.hunterDB and ns.Stable_Snapshot()
 		local pet = snapshot and snapshot.active and (snapshot.active[1] or snapshot.active[2])
+		tier = tier or (pet and ns.Moments_TameTier(pet.exotic, false)) or "epic"
+		local label = ns.Moments_TierLabel(tier, "companion")
 		if pet then
-			return { label = "New companion", title = pet.name, subtitle = pet.family, icon = pet.icon, displayID = pet.displayID }
+			return { label = label, title = pet.name, subtitle = pet.family, icon = pet.icon, displayID = pet.displayID, tier = tier }
 		end
-		return { label = "New companion", title = "Loque'nahak", subtitle = "Exotic Spirit Beast" }
+		return { label = label, title = "Loque'nahak", subtitle = "Exotic Spirit Beast", tier = tier }
 	end,
 }
 
-local function Preview(kind)
+-- "mount legendary": a type and, for creatures, a tier.
+local function Preview(text)
 	if not module.active then
 		ns.Print("Moments is off.")
 		return
 	end
-	kind = (kind and kind ~= "") and kind or ns.momentsDB.previewKind
+	local kind, tier = (text or ""):match("^(%S*)%s*(%S*)")
+	kind = kind ~= "" and kind or ns.momentsDB.previewKind
+	if tier ~= "" and not ns.Moments_IsTier(tier) then
+		ns.Print("tier is one of: " .. table.concat(ns.MOMENT_TIERS, ", "))
+		return
+	end
 	local sample = SAMPLES[kind]
 	if not sample then
 		local keys = {}
@@ -463,7 +503,7 @@ local function Preview(kind)
 	if style == "cinematic" and not CanPlay() then
 		ns.Print("a cinematic moment waits until you're out of combat, instances and taxis (a banner after 10s).")
 	end
-	Show(kind, sample(), style == "off" and "cinematic" or style)
+	Show(kind, sample(tier ~= "" and tier or nil), style == "off" and "cinematic" or style)
 end
 
 local function Activate()
@@ -509,7 +549,9 @@ options[#options + 1] = { type = "slider", key = "duration", label = "Cinematic 
 	format = function(value)
 		return value .. "s"
 	end,
-	tooltip = "How long a cinematic moment stays. Click or Esc closes it sooner." }
+	tooltip = "How long a cinematic moment stays. Click or Esc closes it sooner. Epic and legendary creatures stay a little longer." }
+options[#options + 1] = { type = "checkbox", key = "revealSound", label = "Reveal sounds",
+	tooltip = "Play a sound when a new mount, battle pet or tamed pet is revealed. Rarer ones sound grander." }
 options[#options + 1] = { type = "header", label = "Preview" }
 options[#options + 1] = { type = "dropdown", key = "previewKind", label = "Moment", choices = TypeChoices }
 options[#options + 1] = { type = "button", label = "Preview moment", text = "Show", onClick = function()
@@ -527,6 +569,7 @@ module = ns.RegisterModule({
 		duration = 7,
 		previewKind = "levelup",
 		replaceZoneText = true,
+		revealSound = true,
 		zones = {}, -- [player GUID] = { [zone mapID] = true } once its "new zone" moment ran
 	},
 	init = function(db)
@@ -543,7 +586,7 @@ module = ns.RegisterModule({
 		return playing
 	end,
 	commands = {
-		{ "preview", "show a sample moment; add a type (levelup, mount, zone, tame, ...)", Preview },
+		{ "preview", "show a sample moment; add a type (levelup, mount, zone, tame, ...) and for mount, pet or tame a tier (common, rare, epic, legendary)", Preview },
 	},
 	options = options,
 })

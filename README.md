@@ -17,7 +17,7 @@ size and position.
 | Minimap Button | General | A button on the minimap's edge that opens the panel. Drag it to move it. |
 | Flight Timer | Travel | Times flight paths account-wide and shows a countdown while flying, with an optional cinematic flight mode. Coverage tab and a flight master map show which routes you've timed. |
 | AFK Screen | Ambience | A cinematic screen while you're AFK: orbiting camera, your character, time away, clock, session stats and missed whispers. |
-| Moments | Ambience | Title cards for level ups, achievements, new mounts/pets/toys, new zones, renown, campaign chapters, house levels and tamed pets. Banner or small cinematic. |
+| Moments | Ambience | Title cards for level ups, achievements, new mounts/pets/toys, new zones, renown, campaign chapters, house levels and tamed pets. Banner or small cinematic; new mounts, battle pets and tames get a centered reveal scaled by rarity (mount rarity via Mount Journal Enhanced). |
 | Hunter Pets | Class | Call Pet tooltips, a Stable tab with your pets and a tame log (with 3D models of the beasts you've seen), and a pet check on entering dungeons, raids and delves, and on ready checks. |
 | Pet Health | Combat | Pet health bar under your character that glows when your pet needs healing, with Mend Pet and Exhilaration cooldowns and reminders for a dead or missing pet. |
 | Whispers | Social | A toast per whisper (click to reply), unread badge, an inbox, and a summary card for whispers received in combat or during a cinematic. |
@@ -33,7 +33,7 @@ Cinematics never lock your controls: any key or click ends them.
 Each module's commands are `/tomte <module> <command>`, for example:
 
 - `/tomte flight stats`, `/tomte flight lock` / `unlock`, `/tomte flight testalert`
-- `/tomte moments preview mount` (or `levelup`, `zone`, `tame`, ...)
+- `/tomte moments preview mount` (or `levelup`, `zone`, `tame`, ...); add a tier for creatures: `/tomte moments preview mount legendary`
 - `/tomte afk preview`, `/tomte whispers inbox`, `/tomte hunter check`, `/tomte pet unlock`
 - `/tomte alerts test`
 - `/tomte gear sim` (how to check an item on Raidbots), `/tomte gear import` / `weights` / `clear`

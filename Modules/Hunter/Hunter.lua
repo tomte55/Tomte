@@ -35,6 +35,12 @@ events.PET_STABLE_SHOW = ns.Stable_Refresh
 events.PET_STABLE_UPDATE = ns.Stable_Refresh
 events.PET_SPECIALIZATION_CHANGED = ns.Stable_Refresh
 
+-- Tame Beast is a channel; START too in case that ever changes.
+function events:UNIT_SPELLCAST_CHANNEL_START(_, _, spellID)
+	ns.Stable_OnSpellcast(spellID)
+end
+events.UNIT_SPELLCAST_START = events.UNIT_SPELLCAST_CHANNEL_START
+
 local function IsHunter()
 	local _, class = UnitClass("player")
 	return class == "HUNTER"
@@ -100,6 +106,8 @@ module = ns.RegisterModule({
 			for _, event in ipairs(EVENTS) do
 				events:RegisterEvent(event)
 			end
+			events:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
+			events:RegisterUnitEvent("UNIT_SPELLCAST_START", "player")
 			if ns.inWorld then
 				ns.Stable_Refresh()
 			end

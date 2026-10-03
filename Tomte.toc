@@ -5,7 +5,7 @@
 ## Version: 1.0.0
 ## IconTexture: Interface\Icons\INV_Misc_PocketWatch_01
 ## SavedVariables: TomteDB
-## OptionalDeps: FlightTimer, Baganator
+## OptionalDeps: FlightTimer, Baganator, MountJournalEnhanced
 ## AddonCompartmentFunc: Tomte_OnAddonCompartmentClick
 
 Core/Core.lua
