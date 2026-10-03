@@ -22,6 +22,7 @@ compartment), or `/tomte help` for all commands.
 | Mentions | Social | A toast when someone says your name or a keyword in guild, group, say or channel chat. |
 | Friends Online | Social | Who's online at login, and toasts when friends (or watched people and guildmates) come online. |
 | Group Alerts | Social | Invites, queue pops, ready checks and summons: a repeating sound on the Master channel until answered, plus a taskbar flash for summons. |
+| Gear Check | Gear | Upgrade verdict on item tooltips that checks what Pawn ignores: armor type and main stat, tier set count (and catalyst), lost embellishments and effects, unique limits, upgrade track. Trinkets and items with effects say "sim it" instead of guessing. Optional Raidbots stat weights; marks clean upgrades in Baganator. |
 
 Cinematics never lock your controls: any key or click ends them.
 
@@ -33,6 +34,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte moments preview mount` (or `levelup`, `zone`, `tame`, ...)
 - `/tomte afk preview`, `/tomte whispers inbox`, `/tomte hunter check`, `/tomte pet unlock`
 - `/tomte alerts test`
+- `/tomte gear sim` (how to check an item on Raidbots), `/tomte gear import` / `weights` / `clear`
 
 Key bindings for whisper reply and the whisper inbox are under **Tomte** in the game's Key Bindings menu.
 
@@ -50,7 +52,7 @@ Tomte/
   Core/        saved variables, module registry, /tomte, FlightTimer migration
   Cinematic/   shared cinematic engine and banners
   Panel/       settings panel and widgets
-  Modules/     one folder per module group (Flight, AFK, Moments, Hunter, Combat, Social)
+  Modules/     one folder per module group (Flight, AFK, Moments, Hunter, Combat, Social, Gear)
   tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 docs/          design specs and implementation plans
 ```
