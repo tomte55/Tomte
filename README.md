@@ -16,6 +16,7 @@ size and position.
 | --- | --- | --- |
 | Minimap Button | General | A button on the minimap's edge that opens the panel. Drag it to move it. |
 | Flight Timer | Travel | Times flight paths account-wide and shows a countdown while flying, with an optional cinematic flight mode. Coverage tab and a flight master map show which routes you've timed. |
+| Waypoints | Travel | An in-world marker for whatever you track (quest, map pin, POI, rare, corpse): icon, optional beam, name, distance and arrival time. Up close it turns into a card with the objectives; off-screen, an arrow at the edge points to it. Classic or Minimal style. Map pins are tracked as soon as you place them. Replaces WaypointUI. |
 | AFK Screen | Ambience | A cinematic screen while you're AFK: orbiting camera, your character, time away, clock, session stats and missed whispers. |
 | Moments | Ambience | Title cards for level ups, achievements, new mounts/pets/toys, new zones, renown, campaign chapters, house levels and tamed pets. Banner or small cinematic; new mounts, battle pets and tames get a centered reveal scaled by rarity (mount rarity via Mount Journal Enhanced). |
 | Hunter Pets | Class | Call Pet tooltips, a Stable tab with your pets and a tame log (with 3D models of the beasts you've seen), and a pet check on entering dungeons, raids and delves, and on ready checks. |
@@ -38,6 +39,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte afk preview`, `/tomte whispers inbox`, `/tomte hunter check`, `/tomte pet unlock`
 - `/tomte alerts test`
 - `/tomte gear sim` (how to check an item on Raidbots), `/tomte gear import` / `weights` (source, best gem, season) / `clear`
+- `/tomte way test` (pin ahead of you), `/tomte way clear`
 - `/tomte ach scan`, `/tomte ach tracker`, `/tomte ach lock` / `unlock`, `/tomte ach test`
 
 Key bindings for whisper reply and the whisper inbox are under **Tomte** in the game's Key Bindings menu.
@@ -56,7 +58,7 @@ Tomte/
   Core/        saved variables, module registry, /tomte, FlightTimer migration
   Cinematic/   shared cinematic engine and banners
   Panel/       settings panel and widgets
-  Modules/     one folder per module group (Flight, AFK, Moments, Hunter, Combat, Social, Gear, Achievements)
+  Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements)
   tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 docs/          design specs and implementation plans
 ```

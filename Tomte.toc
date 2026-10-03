@@ -5,7 +5,7 @@
 ## Version: 1.0.0
 ## IconTexture: Interface\Icons\INV_Misc_PocketWatch_01
 ## SavedVariables: TomteDB
-## OptionalDeps: FlightTimer, Baganator, MountJournalEnhanced, AlmostCompletedAchievements
+## OptionalDeps: FlightTimer, Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI
 ## AddonCompartmentFunc: Tomte_OnAddonCompartmentClick
 
 Core/Core.lua
@@ -30,6 +30,10 @@ Modules/Flight/Tooltip.lua
 Modules/Flight/ZoneText.lua
 Modules/Flight/Scene.lua
 Modules/Flight/Flight.lua
+Modules/Travel/Data.lua
+Modules/Travel/Target.lua
+Modules/Travel/Marker.lua
+Modules/Travel/Waypoint.lua
 Modules/AFK/Data.lua
 Modules/AFK/Scene.lua
 Modules/AFK/AFK.lua
