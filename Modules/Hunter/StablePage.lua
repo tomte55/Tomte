@@ -15,6 +15,7 @@ local SCROLL_STEP = 40
 local INDENT = 14
 local TURN_SPEED = 0.35 -- radians per second
 local SLOT_LABEL = { "1", "2", "3", "4", "5", "B" } -- B = the BM bonus slot
+local GREY_CODE = "|cff9d9d9d"
 
 local page
 local summary
@@ -142,7 +143,7 @@ local function PetRow(y, indent, pet, label)
 	row.name:ClearAllPoints()
 	row.name:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
 	row.name:SetPoint("RIGHT", row.extra, "LEFT", -8, 0)
-	row.name:SetText(label and (GREY_FONT_COLOR_CODE .. label .. "|r   " .. pet.name) or pet.name)
+	row.name:SetText(label and (GREY_CODE .. label .. "|r   " .. pet.name) or pet.name)
 	local c = (clickedPet == pet) and GOLD or WHITE
 	row.name:SetTextColor(c[1], c[2], c[3])
 	row.extra:SetText(PetLine(pet))
@@ -212,7 +213,7 @@ function Layout()
 		if pet then
 			y = y + PetRow(y, 0, pet, SLOT_LABEL[slot])
 		elseif slot <= 5 then
-			y = y + TextRow(y, 0, GREY_FONT_COLOR_CODE .. SLOT_LABEL[slot] .. "|r   empty", nil, DIM)
+			y = y + TextRow(y, 0, GREY_CODE .. SLOT_LABEL[slot] .. "|r   empty", nil, DIM)
 		end
 	end
 
