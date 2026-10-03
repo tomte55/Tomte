@@ -556,6 +556,15 @@ function ns.Panel_Open()
 	panel:Show()
 end
 
+function ns.Panel_OpenModule(key)
+	ns.db.panel.selected = key
+	if panel and panel:IsShown() then
+		Refresh()
+	else
+		ns.Panel_Open()
+	end
+end
+
 function ns.Panel_Toggle()
 	if panel and panel:IsShown() then
 		panel:Hide()
