@@ -16,7 +16,8 @@ with scenes, so an AFK cinematic can be added later as a second scene.
 - Turning the flight module off mid-flight brings the UI, camera, pitch limit and music back at once.
 - Nothing in Tomte does per-frame work while idle.
 
-**Out of scope:** the AFK scene itself, localization, release notes, "new" tags, sort filters, and
+**Out of scope:** the flight-master overview (zone coverage of recorded/estimated times; a follow-up
+round that will use the `page` hook), the AFK scene itself, localization, release notes, "new" tags, sort filters, and
 shared libraries.
 
 ## Decisions
@@ -112,6 +113,9 @@ ns.RegisterModule({
   blocked = function() return reasonOrNil end, -- optional
   options = { ... },               -- schema, see "Options schema"
   panelClosed = function() end,    -- optional: the panel was hidden
+  init = function(db) end,         -- optional: once after the defaults merge, before the first toggle
+  cinematicState = function() return state end, -- optional: live engine state (music cleanup)
+  page = { Create = function(frame) end, Refresh = function(frame) end }, -- optional, instead of options
   commands = {                     -- optional; listed by /tomte help in this order
     { "stats", "show flight stats", fn },
     ...
@@ -148,8 +152,14 @@ one. The core uses it for every module's `defaults`. The flight `Data.lua` keeps
 `ns.InitDB` (used by its tests and by the stats reset), so it stays self-contained. The twelve duplicated
 lines are on purpose: the core must not depend on a module's file.
 
-`Data.lua` changes in exactly one place: the line `ns.ownFrames = {}` moves to `Core.lua`, which loads
-first, so the bar and letterbox register into one table that is never replaced.
+`Data.lua` changes in two places:
+
+- The line `ns.ownFrames = {}` moves to `Core.lua`, which loads first, so the bar and letterbox register
+  into one table that is never replaced.
+- **Pace window** (added 2026-10-03, after the user unlocked +25% flight speed in Khaz Algar):
+  `ns.RecordPace` weights only the last `ns.PACE_WINDOW = 10` flights per map. Older totals fade by 9/10
+  per new flight, and pace data saved without a `flights` count starts fading immediately. Route and hop
+  times already update to the latest flight, so faster taxis show up there after one flight per route.
 
 `ns.defaults` stays the flight module's defaults table (it's what `ns.InitDB` reads). The flight module
 registers with `defaults = ns.defaults`. Future modules keep their defaults in their own locals and don't
