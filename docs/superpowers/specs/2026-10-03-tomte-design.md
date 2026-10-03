@@ -158,7 +158,8 @@ lines are on purpose: the core must not depend on a module's file.
   into one table that is never replaced.
 - **Pace window** (added 2026-10-03, after the user unlocked +25% flight speed in Khaz Algar):
   `ns.RecordPace` weights only the last `ns.PACE_WINDOW = 10` flights per map. Older totals fade by 9/10
-  per new flight, and pace data saved without a `flights` count starts fading immediately. Route and hop
+  per new flight. Pace data saved without a `flights` count (lifetime totals) is first shrunk to nine
+  flights' worth, keeping its pace, so a faster taxi shows up within a few flights. Route and hop
   times already update to the latest flight, so faster taxis show up there after one flight per route.
 
 `ns.defaults` stays the flight module's defaults table (it's what `ns.InitDB` reads). The flight module

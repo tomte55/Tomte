@@ -1,0 +1,23 @@
+## Interface: 120100
+## Title: Tomte
+## Notes: Personal quality-of-life modules.
+## Author: tomte55
+## Version: 1.0.0
+## IconTexture: Interface\Icons\INV_Misc_PocketWatch_01
+## SavedVariables: TomteDB
+## OptionalDeps: FlightTimer
+## AddonCompartmentFunc: Tomte_OnAddonCompartmentClick
+
+Core/Core.lua
+Core/Modules.lua
+Core/Migration.lua
+Cinematic/Engine.lua
+Cinematic/Showcase.lua
+Panel/Widgets.lua
+Panel/Panel.lua
+Modules/Flight/Data.lua
+Modules/Flight/Bar.lua
+Modules/Flight/Tooltip.lua
+Modules/Flight/ZoneText.lua
+Modules/Flight/Scene.lua
+Modules/Flight/Flight.lua
