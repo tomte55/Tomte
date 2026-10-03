@@ -14,6 +14,7 @@ Core/Migration.lua
 Cinematic/Engine.lua
 Cinematic/SceneKit.lua
 Cinematic/Showcase.lua
+Cinematic/Banner.lua
 Panel/Widgets.lua
 Panel/Panel.lua
 Modules/Flight/Data.lua
@@ -29,3 +30,12 @@ Modules/Flight/Flight.lua
 Modules/AFK/Data.lua
 Modules/AFK/Scene.lua
 Modules/AFK/AFK.lua
+Modules/Moments/Data.lua
+Modules/Moments/Scene.lua
+Modules/Moments/Moments.lua
+Modules/Hunter/Data.lua
+Modules/Hunter/Stable.lua
+Modules/Hunter/Tooltips.lua
+Modules/Hunter/Checks.lua
+Modules/Hunter/StablePage.lua
+Modules/Hunter/Hunter.lua

@@ -55,10 +55,12 @@ local function PrintHelp()
 	end
 end
 
-local function RunModuleCommand(module, name)
+-- "preview mount" runs the "preview" command with "mount".
+local function RunModuleCommand(module, text)
+	local name, arg = text:match("^(%S*)%s*(.-)$")
 	for _, cmd in ipairs(module.commands) do
 		if cmd[1] == name then
-			cmd[3]()
+			cmd[3](arg)
 			return
 		end
 	end

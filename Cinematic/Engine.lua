@@ -4,7 +4,8 @@ local addonName, ns = ...
 -- faded out. What's drawn in the letterbox comes from a scene; the character showcase (Showcase.lua) is
 -- optional per Enter.
 -- The letterbox swallows mouse input so the player can't move the camera; a click or Esc pauses (or calls
--- opts.onDismiss, with opts.hint as the hint text). A paused
+-- opts.onDismiss, with opts.hint as the hint text). opts.passthrough instead leaves all input to the game
+-- and dismisses on any key or click (short cinematics that must never take control away). A paused
 -- cinematic comes back after state.resumeDelay seconds without clicks, key presses or open windows (the
 -- owner's tick decides when to Enter again).
 -- The UI must always come back: Exit is idempotent and waits for combat to end if needed.
@@ -60,6 +61,7 @@ local active
 local current -- state of the active cinematic
 local scene -- scene in the letterbox; stays set while the letterbox slides out
 local dismiss -- opts.onDismiss of the active cinematic (click/Esc), nil = pause
+local passthrough -- opts.passthrough of the active cinematic: input reaches the game, any input dismisses
 local createdScenes = {}
 local hidUI -- we only bring back a UI we hid ourselves (respects a manual Alt-Z)
 local showUIAfterCombat
@@ -286,6 +288,10 @@ local function UpdateHint(contentAlpha, dt)
 end
 
 local function LetterboxOnUpdate(self, elapsed)
+	if active and passthrough and IsMouseButtonDown() then
+		Dismiss() -- the click itself went through to the game
+		return
+	end
 	if active then
 		local x, y = GetCursorPosition()
 		if cursorX and (x ~= cursorX or y ~= cursorY) then
@@ -452,7 +458,9 @@ local function CreateLetterbox()
 
 	letterbox:SetScript("OnUpdate", LetterboxOnUpdate)
 
-	-- Input is only enabled while active: clicks/drags and the wheel never reach the camera.
+	-- Input is only enabled while active: clicks/drags and the wheel never reach the camera. A passthrough
+	-- cinematic leaves the mouse alone (clicks are seen in OnUpdate) and lets keys through, and any of them
+	-- dismisses it.
 	letterbox:SetScript("OnMouseDown", Dismiss)
 	letterbox:SetScript("OnMouseWheel", function() end)
 	letterbox:SetScript("OnKeyDown", function(self, key)
@@ -464,6 +472,9 @@ local function CreateLetterbox()
 			Dismiss()
 		else
 			self:SetPropagateKeyboardInput(true)
+			if passthrough then
+				Dismiss()
+			end
 		end
 	end)
 end
@@ -535,8 +546,9 @@ function C.Enter(newScene, state, opts)
 	hintFrame:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
 	target = 1
 	cursorX, cursorY = nil, nil
-	letterbox:EnableMouse(true)
-	letterbox:EnableMouseWheel(true)
+	passthrough = opts.passthrough
+	letterbox:EnableMouse(not passthrough)
+	letterbox:EnableMouseWheel(not passthrough)
 	letterbox:EnableKeyboard(true)
 	letterbox:SetPropagateKeyboardInput(true)
 	ShowHint()
@@ -584,6 +596,7 @@ function C.Exit(state)
 	active = false
 	current = nil
 	dismiss = nil
+	passthrough = nil
 	target = 0
 	if scene.End then
 		scene.End()
