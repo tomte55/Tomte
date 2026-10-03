@@ -38,6 +38,10 @@ Modules/Mount/Data.lua
 Modules/Mount/Journal.lua
 Modules/Mount/ZonesPage.lua
 Modules/Mount/Mount.lua
+Modules/Teleports/Data.lua
+Modules/Teleports/Owned.lua
+Modules/Teleports/MapTab.lua
+Modules/Teleports/Teleports.lua
 Modules/AFK/Data.lua
 Modules/AFK/Scene.lua
 Modules/AFK/AFK.lua

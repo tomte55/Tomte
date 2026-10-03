@@ -74,6 +74,9 @@ destination when it's on the map you're viewing.
 
 ### Data
 
+**As built:** dungeon and mage teleports are discovered from the spellbook's flyouts (Hero's Path, and any flyout whose spells teleport), the current season from `C_ChallengeMode.GetMapTable()`, and "To this map" by matching each teleport's destination (parsed from its description, or the bind location) against the viewed map, its child zones and their dungeon entrances (`C_EncounterJournal.GetDungeonEntrancesForMap`). Only class spells outside flyouts, hearthstone items/toys and teleport items are hardcoded. Hearthstone toys show as one "Random hearthstone toy" row unless "List every hearthstone toy" is on. The original plan follows.
+
+
 `Teleports/Data.lua`: `{ kind = "spell"|"toy"|"item"|"home", id = 12345, dest = "Valdrakken", mapID = 2112,
 section = "dungeon", season = "12.1S1", expansion = 11 }`. `Owned.lua` filters the list on login and on
 `SPELLS_CHANGED`, `TOYS_UPDATED`, `BAG_UPDATE_DELAYED` and `NEW_TOY_ADDED`.

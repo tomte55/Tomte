@@ -18,6 +18,7 @@ size and position.
 | Flight Timer | Travel | Times flight paths account-wide and shows a countdown while flying, with an optional cinematic flight mode. Coverage tab and a flight master map show which routes you've timed. |
 | Waypoints | Travel | An in-world marker for whatever you track (quest, map pin, POI, rare, corpse): icon, optional beam, name, distance and arrival time. Up close it turns into a card with the objectives; off-screen, an arrow at the edge points to it. Classic or Minimal style. Map pins are tracked as soon as you place them. Replaces WaypointUI. |
 | Smart Mount | Travel | One key (Key Bindings > Tomte > Smart Mount) that summons a mount that fits where you are (underwater, flying or ground) from your zone favorites, then journal favorites, then all usable mounts. Pressed again it dismounts (not while flying), leaves a vehicle or leaves travel form / Ghost Wolf. A star in the Mount Journal makes the selected mount a favorite for the zone or continent you're in; the Zones tab lists them. |
+| Teleports | Travel | A Teleports tab in the world map's side panel: Hearthstone, a random hearthstone toy, your house, dungeon teleports (this season first, unearned ones greyed out), class teleports and teleport items, with cooldowns. Teleports to the map you're viewing float to the top, with a pin on dungeon entrances. Click to use (out of combat), right-click to favorite. |
 | AFK Screen | Ambience | A cinematic screen while you're AFK: orbiting camera, your character, time away, clock, session stats and missed whispers. |
 | Moments | Ambience | Title cards for level ups, achievements, new mounts/pets/toys, new zones, renown, campaign chapters, house levels and tamed pets. Banner or small cinematic; new mounts, battle pets and tames get a centered reveal scaled by rarity (mount rarity via Mount Journal Enhanced). |
 | Hunter Pets | Class | Call Pet tooltips, a Stable tab with your pets and a tame log (with 3D models of the beasts you've seen), and a pet check on entering dungeons, raids and delves, and on ready checks. |
@@ -46,6 +47,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte ach scan`, `/tomte ach tracker`, `/tomte ach lock` / `unlock`, `/tomte ach test`
 - `/tomte vendor last`, `/tomte dura list`
 - `/tomte mount why` (context, pool and pick of the last press), `/tomte mount zone`
+- `/tomte tp open`, `/tomte tp scan` (what the Teleports tab found)
 
 Key bindings for Smart Mount, whisper reply and the whisper inbox are under **Tomte** in the game's Key Bindings menu.
 
@@ -63,7 +65,7 @@ Tomte/
   Core/        saved variables, module registry, /tomte, FlightTimer migration
   Cinematic/   shared cinematic engine and banners
   Panel/       settings panel and widgets
-  Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements, Upkeep, Mount)
+  Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements, Upkeep, Mount, Teleports)
   tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 docs/          design specs and implementation plans
 ```
