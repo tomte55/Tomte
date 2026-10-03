@@ -49,8 +49,9 @@ end)
 
 test("SlimPet keeps the first spec ability", function()
 	local slim = ns.Hunter_SlimPet({ name = "Fluffy", familyName = "Wolf", specialization = "Ferocity",
-		specAbilities = { 264667, 1 }, petNumber = 3, slotID = 1, isExotic = false })
+		specAbilities = { 264667, 1 }, petNumber = 3, slotID = 1, isExotic = false, uiModelSceneID = 718 })
 	eq(slim.family, "Wolf")
+	eq(slim.uiModelSceneID, 718)
 	eq(slim.specAbility, 264667)
 	eq(slim.exotic, nil)
 end)
@@ -150,6 +151,16 @@ test("StableSummary splits owned and seen-only families, sorted", function()
 	eq(#s.seenOnly, 1)
 	eq(s.seenOnly[1].name, "Bat")
 	eq(s.seenOnly[1].creatures[1].zone, "Duskwood")
+	eq(s.seenOnly[1].creatures[1].npcID, 2)
+	eq(s.seenOnly[1].creatures[1].family, "Bat")
+end)
+
+test("StableSummary: name-keyed creature has no npcID", function()
+	local seen = {}
+	ns.Hunter_RecordSeen(seen, "Bat", nil, "Old Bat", "Duskwood", 1)
+	local s = ns.Hunter_StableSummary(nil, seen)
+	eq(s.seenOnly[1].creatures[1].npcID, nil)
+	eq(s.seenOnly[1].creatures[1].name, "Old Bat")
 end)
 
 test("ContentKind maps instance types", function()

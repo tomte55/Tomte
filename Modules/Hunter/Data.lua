@@ -39,6 +39,7 @@ function ns.Hunter_SlimPet(info)
 		specAbility = info.specAbilities and info.specAbilities[1] or nil,
 		icon = info.icon,
 		displayID = info.displayID,
+		uiModelSceneID = info.uiModelSceneID, -- camera and framing Blizzard uses for this pet
 		creatureID = info.creatureID,
 		exotic = info.isExotic or nil,
 		level = info.level,
@@ -185,8 +186,12 @@ function ns.Hunter_StableSummary(snapshot, seen)
 	for family, entry in pairs(seen or {}) do
 		if not families[family] then
 			local creatures = {}
-			for _, c in pairs(entry.creatures) do
-				creatures[#creatures + 1] = c
+			-- Copies (the saved entries stay as they are); the key is the npcID, or the name for old entries.
+			for key, c in pairs(entry.creatures) do
+				creatures[#creatures + 1] = {
+					name = c.name, zone = c.zone, at = c.at, family = family,
+					npcID = type(key) == "number" and key or nil,
+				}
 			end
 			table.sort(creatures, ByName)
 			seenOnly[#seenOnly + 1] = { name = family, creatures = creatures }

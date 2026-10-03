@@ -8,15 +8,17 @@ everything and whitelists only our own folders, so third-party addons installed 
 
 ## Tomte
 
-One addon with toggleable modules. Type `/tomte` to open the settings panel (also in the addon
-compartment), or `/tomte help` for all commands.
+One addon with toggleable modules. Type `/tomte` to open the settings panel (also from the minimap
+button and the addon compartment), or `/tomte help` for all commands. The panel is resizable and remembers its
+size and position.
 
 | Module | Category | What it does |
 | --- | --- | --- |
+| Minimap Button | General | A button on the minimap's edge that opens the panel. Drag it to move it. |
 | Flight Timer | Travel | Times flight paths account-wide and shows a countdown while flying, with an optional cinematic flight mode. Coverage tab and a flight master map show which routes you've timed. |
 | AFK Screen | Ambience | A cinematic screen while you're AFK: orbiting camera, your character, time away, clock, session stats and missed whispers. |
 | Moments | Ambience | Title cards for level ups, achievements, new mounts/pets/toys, new zones, renown, campaign chapters, house levels and tamed pets. Banner or small cinematic. |
-| Hunter Pets | Class | Call Pet tooltips, a Stable tab with your pets and a tame log, and a pet check on entering dungeons, raids and delves, and on ready checks. |
+| Hunter Pets | Class | Call Pet tooltips, a Stable tab with your pets and a tame log (with 3D models of the beasts you've seen), and a pet check on entering dungeons, raids and delves, and on ready checks. |
 | Pet Health | Combat | Pet health bar under your character that glows when your pet needs healing, with Mend Pet and Exhilaration cooldowns and reminders for a dead or missing pet. |
 | Whispers | Social | A toast per whisper (click to reply), unread badge, an inbox, and a summary card for whispers received in combat or during a cinematic. |
 | Mentions | Social | A toast when someone says your name or a keyword in guild, group, say or channel chat. |

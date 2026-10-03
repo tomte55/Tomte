@@ -4,6 +4,8 @@ local addonName, ns = ...
 -- (Modules.lua); everything is started here on ADDON_LOADED.
 
 ns.PREFIX = "|cff66ccffTomte|r: "
+-- Panel title bar and minimap button. The TOC's IconTexture is set separately (it can't read this).
+ns.ICON = "Interface\\Icons\\INV_Misc_PocketWatch_01"
 ns.ownFrames = {} -- our frames on WorldFrame that the cinematic must not hide (bar, letterbox)
 ns.errorHandler = function(err)
 	return geterrorhandler()(err)
@@ -11,7 +13,7 @@ end
 
 local CORE_DEFAULTS = {
 	enabled = {}, -- [moduleKey] = bool, only for modules the user has toggled
-	panel = { category = "All" },
+	panel = { collapsed = {} }, -- also layout = saved size and position, selected = module key
 	cinematic = {}, -- engine-owned (musicVolumeBackup)
 	toast = {}, -- social toasts: point = saved position
 }
@@ -33,6 +35,7 @@ function f:ADDON_LOADED(name)
 	end
 	self:UnregisterEvent("ADDON_LOADED")
 	TomteDB = ns.MergeDefaults(CORE_DEFAULTS, TomteDB or {})
+	TomteDB.panel.category = nil -- the old panel's category filter
 	ns.db = TomteDB
 	ns.Migration_Run(TomteDB) -- before modules get their db
 	ns.InitModules(TomteDB)

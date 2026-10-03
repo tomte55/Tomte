@@ -16,7 +16,10 @@ Cinematic/SceneKit.lua
 Cinematic/Showcase.lua
 Cinematic/Banner.lua
 Panel/Widgets.lua
+Panel/Options.lua
 Panel/Panel.lua
+Modules/Minimap/Data.lua
+Modules/Minimap/Minimap.lua
 Modules/Flight/Data.lua
 Modules/Flight/Bar.lua
 Modules/Flight/Coverage.lua

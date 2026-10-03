@@ -1,28 +1,31 @@
 local addonName, ns = ...
 
--- Stable tab of the Hunter Pets entry in the panel. Top: a slowly turning model of the hovered pet (else
--- the clicked one, else the summoned one) with its name, family, spec and level. Below, a list: the Call Pet
--- slots, owned families (click to list their pets) and families from the tame log you haven't tamed yet
--- (click to list where you saw them).
+-- Stable tab of the Hunter Pets entry in the panel. Left: a list of the Call Pet slots, owned families (click to
+-- list their pets) and families from the tame log you haven't tamed yet (click to list where you saw them).
+-- Right: a slowly turning model of the hovered pet or beast (else the clicked one, else the summoned pet) with
+-- its details.
 
 local UI = ns.UI
 local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
 local GREEN = { 0.5, 0.88, 0.5 }
-local PREVIEW_H = 128
-local MODEL_W = 128
+local PREVIEW_W = 260
+local MODEL_H = 240
 local ROW_H, HEADER_H = 20, 24
-local SCROLL_STEP = 40
 local INDENT = 14
 local TURN_SPEED = 0.35 -- radians per second
+local DEFAULT_SCENE = 718 -- PetInfo.uiModelSceneID's default: Blizzard's pet model scene (camera + framing)
+local PET_ACTOR = "pet" -- the actor tag in pet model scenes
+local RETRY_LOOKUP = 0.5 -- seconds; a creature the client hasn't cached yet takes a moment to load
 local SLOT_LABEL = { "1", "2", "3", "4", "5", "B" } -- B = the BM bonus slot
 local GREY_CODE = "|cff9d9d9d"
 
 local page
 local summary
 local expanded = {} -- ["owned:Wolf"] / ["seen:Bat"] = true, for this session
-local hoveredPet, clickedPet
+local hovered, clicked -- a pet, or a seen creature (has npcID)
 local rows, used = {}, 0
-local Layout
+local displayIDs = {} -- [npcID] = displayID, looked up this session
+local Layout, ShowPreview
 
 local function PetLine(pet)
 	local parts = {}
@@ -35,37 +38,99 @@ local function PetLine(pet)
 	return table.concat(parts, "  -  ")
 end
 
-local function ShowPreview()
-	local pet = hoveredPet or clickedPet
-	if not pet then
+-- Seen creatures are rebuilt on every refresh, so they match by npcID.
+local function IsClicked(entry)
+	return clicked ~= nil and (clicked == entry or (entry.npcID ~= nil and clicked.npcID == entry.npcID))
+end
+
+-- Seen creatures only have an npcID; a tiny invisible PlayerModel turns it into a display ID. Returns nil while
+-- the creature is still loading (the probe shows the preview again once it has the ID).
+local function LookUpDisplayID(npcID)
+	if displayIDs[npcID] then
+		return displayIDs[npcID]
+	end
+	local probe = page.probe
+	if probe.npcID ~= npcID then
+		probe.npcID = npcID
+		probe:SetCreature(npcID)
+		C_Timer.After(RETRY_LOOKUP, function()
+			if probe.npcID == npcID and page:IsVisible() then
+				ShowPreview()
+			end
+		end)
+	end
+	local id = probe:GetDisplayInfo()
+	if id and id > 0 then
+		displayIDs[npcID] = id
+		return id
+	end
+	return nil
+end
+
+-- Same setup as Blizzard's stable: the pet's model scene and its "pet" actor, which centres the model and
+-- normalises its size. The scene/display pair is the key, so hovering back and forth doesn't reload it.
+local function SetModel(p, sceneID, displayID)
+	local key = displayID and (sceneID .. ":" .. displayID)
+	if key == p.modelKey then
+		return
+	end
+	p.modelKey = key
+	p.actor = nil
+	p.scene:SetShown(key ~= nil)
+	if not key then
+		return
+	end
+	p.scene:TransitionToModelSceneID(sceneID, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
+	local actor = p.scene:GetActorByTag(PET_ACTOR)
+	if not actor then
+		return
+	end
+	p.actor, p.baseYaw, p.turn = actor, actor:GetYaw(), 0
+	-- The scene stands pets on its floor (centred only horizontally), so short pets sit low and tall ones reach
+	-- the top. Centre the model on all axes and put that centre where the camera looks: the frame's middle.
+	actor:SetUseCenterForOrigin(true, true, true)
+	local camera = p.scene:GetActiveCamera()
+	if camera then
+		actor:SetPosition(camera:GetDerivedTarget())
+	end
+	actor:Hide()
+	actor:SetOnModelLoadedCallback(function()
+		actor:Show()
+	end)
+	actor:SetModelByCreatureDisplayID(displayID)
+end
+
+function ShowPreview()
+	local entry = hovered or clicked
+	if not entry then
 		local snapshot = ns.Stable_Snapshot()
 		local slot = ns.Stable_SummonedSlot() or 1
-		pet = snapshot and snapshot.active and snapshot.active[slot]
+		entry = snapshot and snapshot.active and snapshot.active[slot]
 	end
 	local p = page.preview
-	if not pet then
+	if not entry then
 		p:Hide()
 		return
 	end
 	p:Show()
-	p.name:SetText(pet.name or "")
-	p.info:SetText(PetLine(pet))
-	local where = pet.slot and pet.slot <= #SLOT_LABEL and (pet.slot == 6 and "Bonus slot" or ("Call Pet " .. pet.slot)) or "Stabled"
-	p.level:SetText(("Level %d   -   %s"):format(pet.level or 0, where))
-	local ability = pet.specAbility and C_Spell.GetSpellName(pet.specAbility)
-	p.ability:SetText(ability or "")
-	if pet.displayID and pet.displayID ~= p.displayID then
-		p.displayID = pet.displayID
-		p.model:SetDisplayInfo(pet.displayID)
-		p.model:SetPortraitZoom(0)
-		p.facing = 0.5
-		p.model:SetFacing(p.facing)
+	p.name:SetText(entry.name or "")
+	if entry.npcID then
+		p.info:SetText(entry.family or "")
+		p.level:SetText(entry.zone and ("Seen in " .. entry.zone) or "")
+		p.ability:SetText(entry.at and date("%d %b %Y", entry.at) or "")
+		SetModel(p, DEFAULT_SCENE, LookUpDisplayID(entry.npcID))
+		return
 	end
-	p.model:SetShown(pet.displayID ~= nil)
+	p.info:SetText(PetLine(entry))
+	local where = entry.slot and entry.slot <= #SLOT_LABEL and (entry.slot == 6 and "Bonus slot" or ("Call Pet " .. entry.slot)) or "Stabled"
+	p.level:SetText(("Level %d   -   %s"):format(entry.level or 0, where))
+	local ability = entry.specAbility and C_Spell.GetSpellName(entry.specAbility)
+	p.ability:SetText(ability or "")
+	SetModel(p, entry.uiModelSceneID or DEFAULT_SCENE, entry.displayID)
 end
 
 local function NewRow()
-	local row = CreateFrame("Button", nil, page.content)
+	local row = CreateFrame("Button", nil, page.list.content)
 	row.hover = row:CreateTexture(nil, "BACKGROUND")
 	row.hover:SetAllPoints()
 	row.hover:SetColorTexture(1, 1, 1, 0.04)
@@ -82,23 +147,24 @@ local function NewRow()
 	row.extra:SetPoint("RIGHT", -6, 0)
 	row.extra:SetWordWrap(false)
 	row:SetScript("OnEnter", function(self)
-		self.hover:SetShown(self.onClick ~= nil or self.pet ~= nil)
-		if self.pet then
-			hoveredPet = self.pet
+		self.hover:SetShown(self.onClick ~= nil or self.entry ~= nil)
+		if self.entry then
+			hovered = self.entry
 			ShowPreview()
 		end
 	end)
 	row:SetScript("OnLeave", function(self)
 		self.hover:Hide()
-		if self.pet and hoveredPet == self.pet then
-			hoveredPet = nil
+		if self.entry and hovered == self.entry then
+			hovered = nil
 			ShowPreview()
 		end
 	end)
 	row:SetScript("OnClick", function(self)
-		if self.pet then
-			clickedPet = self.pet
+		if self.entry then
+			clicked = self.entry
 			ShowPreview()
+			Layout() -- the clicked row turns gold
 		elseif self.onClick then
 			self.onClick()
 			Layout()
@@ -112,10 +178,10 @@ local function Acquire(y, height)
 	local row = rows[used] or NewRow()
 	rows[used] = row
 	row:ClearAllPoints()
-	row:SetPoint("TOPLEFT", page.content, "TOPLEFT", 0, -y)
-	row:SetPoint("RIGHT", page.content, "RIGHT")
+	row:SetPoint("TOPLEFT", page.list.content, "TOPLEFT", 0, -y)
+	row:SetPoint("RIGHT", page.list.content, "RIGHT")
 	row:SetHeight(height)
-	row.pet, row.onClick = nil, nil
+	row.entry, row.onClick = nil, nil
 	row.toggle:Hide()
 	row.icon:Hide()
 	row:Show()
@@ -135,7 +201,7 @@ end
 
 local function PetRow(y, indent, pet, label)
 	local row = Acquire(y, ROW_H)
-	row.pet = pet
+	row.entry = pet
 	row.icon:ClearAllPoints()
 	row.icon:SetPoint("LEFT", indent + 4, 0)
 	row.icon:SetTexture(pet.icon)
@@ -144,7 +210,7 @@ local function PetRow(y, indent, pet, label)
 	row.name:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
 	row.name:SetPoint("RIGHT", row.extra, "LEFT", -8, 0)
 	row.name:SetText(label and (GREY_CODE .. label .. "|r   " .. pet.name) or pet.name)
-	local c = (clickedPet == pet) and GOLD or WHITE
+	local c = IsClicked(pet) and GOLD or WHITE
 	row.name:SetTextColor(c[1], c[2], c[3])
 	row.extra:SetText(PetLine(pet))
 	return ROW_H
@@ -180,28 +246,16 @@ local function TextRow(y, indent, name, extra, color)
 	return ROW_H
 end
 
-local function UpdateThumb()
-	local viewH, contentH = page.scroll:GetHeight(), page.content:GetHeight()
-	if contentH <= viewH + 1 then
-		page.thumb:Hide()
-		return
-	end
-	local thumbH = math.max(viewH * viewH / contentH, 20)
-	local offset = page.scroll:GetVerticalScroll() / (contentH - viewH) * (viewH - thumbH)
-	page.thumb:SetHeight(thumbH)
-	page.thumb:ClearAllPoints()
-	page.thumb:SetPoint("TOPLEFT", page.scroll, "TOPRIGHT", 4, -offset)
-	page.thumb:Show()
-end
-
-local function SetScroll(value)
-	local maxScroll = math.max(page.content:GetHeight() - page.scroll:GetHeight(), 0)
-	page.scroll:SetVerticalScroll(math.min(math.max(value, 0), maxScroll))
-	UpdateThumb()
+-- A beast from the tame log. Old entries saved without an npcID have no model to show.
+local function CreatureRow(y, creature)
+	local color = creature.npcID and (IsClicked(creature) and GOLD or WHITE) or GREY
+	local h = TextRow(y, INDENT, creature.name, creature.zone, color)
+	rows[used].entry = creature.npcID and creature or nil
+	return h
 end
 
 function Layout()
-	if not summary or page.scroll:GetWidth() <= 1 then
+	if not summary or page.list:GetWidth() <= 1 then
 		return
 	end
 	used = 0
@@ -239,7 +293,7 @@ function Layout()
 		y = y + h
 		if open then
 			for _, creature in ipairs(family.creatures) do
-				y = y + TextRow(y, INDENT, creature.name, creature.zone, WHITE)
+				y = y + CreatureRow(y, creature)
 			end
 		end
 	end
@@ -247,8 +301,7 @@ function Layout()
 	for i = used + 1, #rows do
 		rows[i]:Hide()
 	end
-	page.content:SetHeight(math.max(y, 1))
-	SetScroll(page.scroll:GetVerticalScroll())
+	page.list:SetContentHeight(y)
 end
 
 local function Refresh()
@@ -270,66 +323,79 @@ function ns.StablePage_Refresh()
 	end
 end
 
+local function CreatePreview()
+	local preview = CreateFrame("Frame", nil, page)
+	preview:SetWidth(PREVIEW_W)
+	preview.scene = CreateFrame("ModelScene", nil, preview, "NoCameraControlModelSceneMixinTemplate")
+	preview.scene:SetPoint("TOPLEFT")
+	preview.scene:SetPoint("TOPRIGHT")
+	preview.scene:SetHeight(MODEL_H)
+	preview.scene:HookScript("OnUpdate", function(_, dt)
+		if preview.actor then
+			preview.turn = (preview.turn + dt * TURN_SPEED) % (2 * math.pi)
+			preview.actor:SetYaw(preview.baseYaw + preview.turn)
+		end
+	end)
+	page.probe = CreateFrame("PlayerModel", nil, preview)
+	page.probe:SetSize(1, 1)
+	page.probe:SetPoint("TOPLEFT")
+	page.probe:SetAlpha(0)
+	page.probe:SetScript("OnModelLoaded", function(self)
+		local id = self:GetDisplayInfo()
+		if self.npcID and id and id > 0 and not displayIDs[self.npcID] then
+			displayIDs[self.npcID] = id
+			if page:IsVisible() then
+				ShowPreview()
+			end
+		end
+	end)
+	local function Line(size, color, font, above, gap)
+		local fs = UI.Text(preview, size, color, font)
+		fs:SetPoint("TOP", above, "BOTTOM", 0, -gap)
+		fs:SetPoint("LEFT", 8, 0)
+		fs:SetPoint("RIGHT", -8, 0)
+		fs:SetJustifyH("CENTER")
+		fs:SetWordWrap(false)
+		return fs
+	end
+	preview.name = Line(20, GOLD, ns.SCENE_TITLE_FONT, preview.scene, 8)
+	preview.info = Line(13, WHITE, nil, preview.name, 8)
+	preview.level = Line(12, GREY, nil, preview.info, 6)
+	preview.ability = Line(12, GREY, nil, preview.level, 4)
+	return preview
+end
+
 local function Create(frame)
 	page = frame
-	local preview = CreateFrame("Frame", nil, page)
-	preview:SetPoint("TOPLEFT", 0, 0)
-	preview:SetPoint("RIGHT", -8, 0)
-	preview:SetHeight(PREVIEW_H)
-	page.preview = preview
-	preview.model = CreateFrame("PlayerModel", nil, preview)
-	preview.model:SetPoint("TOPLEFT")
-	preview.model:SetSize(MODEL_W, PREVIEW_H)
-	preview.facing = 0.5
-	preview.model:SetScript("OnUpdate", function(self, dt)
-		preview.facing = (preview.facing + dt * TURN_SPEED) % (2 * math.pi)
-		self:SetFacing(preview.facing)
-	end)
-	preview.name = UI.Text(preview, 18, GOLD, ns.SCENE_TITLE_FONT)
-	preview.name:SetPoint("TOPLEFT", preview.model, "TOPRIGHT", 10, -22)
-	preview.name:SetPoint("RIGHT", -4, 0)
-	preview.name:SetWordWrap(false)
-	preview.info = UI.Text(preview, 12, WHITE)
-	preview.info:SetPoint("TOPLEFT", preview.name, "BOTTOMLEFT", 0, -6)
-	preview.info:SetPoint("RIGHT", -4, 0)
-	preview.level = UI.Text(preview, 11, GREY)
-	preview.level:SetPoint("TOPLEFT", preview.info, "BOTTOMLEFT", 0, -4)
-	preview.ability = UI.Text(preview, 11, GREY)
-	preview.ability:SetPoint("TOPLEFT", preview.level, "BOTTOMLEFT", 0, -4)
-
-	page.summary = UI.Text(page, 11, GREY)
-	page.summary:SetPoint("TOPLEFT", 8, -PREVIEW_H - 4)
+	page.summary = UI.Text(page, 12, GREY)
+	page.summary:SetPoint("TOPLEFT", 8, -2)
 	page.summary:SetPoint("RIGHT", -8, 0)
 	local line = page:CreateTexture(nil, "ARTWORK")
 	line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.25)
 	line:SetHeight(1)
-	line:SetPoint("TOPLEFT", page.summary, "BOTTOMLEFT", 0, -6)
+	line:SetPoint("TOPLEFT", page.summary, "BOTTOMLEFT", 0, -8)
 	line:SetPoint("RIGHT", -8, 0)
 
+	page.preview = CreatePreview()
+	page.preview:SetPoint("TOPRIGHT", line, "BOTTOMRIGHT", 0, -12)
+	page.preview:SetPoint("BOTTOMRIGHT", -8, 0)
+	local divider = UI.VLine(page)
+	divider:SetPoint("TOPRIGHT", page.preview, "TOPLEFT", -8, 0)
+	divider:SetPoint("BOTTOMRIGHT", page.preview, "BOTTOMLEFT", -8, 0)
+
+	page.list = UI.Scroll(page)
+	page.list:SetPoint("TOPLEFT", line, "BOTTOMLEFT", -8, -8)
+	page.list:SetPoint("BOTTOMRIGHT", page.preview, "BOTTOMLEFT", -24, 0)
+	page.list.onWidthChanged = function()
+		Layout()
+	end
+
 	page.empty = UI.Text(page, 12, GREY)
-	page.empty:SetPoint("TOP", 0, -40)
+	page.empty:SetPoint("TOP", page.list, "TOP", 0, -40)
 	page.empty:SetWidth(280)
 	page.empty:SetJustifyH("CENTER")
+	page.empty:SetWordWrap(true)
 	page.empty:SetText("No pets read yet. Visit a stable master once (or /reload) so Tomte can see your pets.")
-
-	page.scroll = CreateFrame("ScrollFrame", nil, page)
-	page.scroll:SetPoint("TOPLEFT", line, "BOTTOMLEFT", -8, -4)
-	page.scroll:SetPoint("BOTTOMRIGHT", -8, 0)
-	page.scroll:EnableMouseWheel(true)
-	page.content = CreateFrame("Frame", nil, page.scroll)
-	page.content:SetSize(1, 1)
-	page.scroll:SetScrollChild(page.content)
-	page.scroll:SetScript("OnSizeChanged", function(self, width)
-		page.content:SetWidth(width)
-		Layout()
-	end)
-	page.scroll:SetScript("OnMouseWheel", function(self, delta)
-		SetScroll(self:GetVerticalScroll() - delta * SCROLL_STEP)
-	end)
-	page.thumb = page:CreateTexture(nil, "OVERLAY")
-	page.thumb:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.45)
-	page.thumb:SetWidth(2)
-	page.thumb:Hide()
 end
 
 ns.StablePage = {

@@ -222,3 +222,61 @@ function UI.Dropdown(parent, width)
 	end)
 	return b
 end
+
+-- Scroll frame with a scroll child (scroll.content, as wide as the frame) and a thin gold thumb right of it.
+-- The caller anchors the frame and calls SetContentHeight after laying out the content. Optional
+-- scroll.onWidthChanged(width) runs when the width changes (for content that lays out by width).
+local SCROLL_STEP = 40
+
+function UI.Scroll(parent)
+	local scroll = CreateFrame("ScrollFrame", nil, parent)
+	scroll:EnableMouseWheel(true)
+	scroll.content = CreateFrame("Frame", nil, scroll)
+	scroll.content:SetSize(1, 1)
+	scroll:SetScrollChild(scroll.content)
+	scroll.thumb = parent:CreateTexture(nil, "OVERLAY")
+	scroll.thumb:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.45)
+	scroll.thumb:SetWidth(2)
+	scroll.thumb:Hide()
+
+	function scroll:UpdateThumb()
+		local viewH, contentH = self:GetHeight(), self.content:GetHeight()
+		if not self:IsShown() or contentH <= viewH + 1 then
+			self.thumb:Hide()
+			return
+		end
+		local thumbH = math.max(viewH * viewH / contentH, 20)
+		local offset = self:GetVerticalScroll() / (contentH - viewH) * (viewH - thumbH)
+		self.thumb:SetHeight(thumbH)
+		self.thumb:ClearAllPoints()
+		self.thumb:SetPoint("TOPLEFT", self, "TOPRIGHT", 4, -offset)
+		self.thumb:Show()
+	end
+
+	function scroll:SetScroll(value)
+		local maxScroll = math.max(self.content:GetHeight() - self:GetHeight(), 0)
+		self:SetVerticalScroll(math.min(math.max(value, 0), maxScroll))
+		self:UpdateThumb()
+	end
+
+	function scroll:SetContentHeight(height)
+		self.content:SetHeight(math.max(height, 1))
+		self:SetScroll(self:GetVerticalScroll())
+	end
+
+	scroll:SetScript("OnSizeChanged", function(self, width)
+		self.content:SetWidth(width)
+		if self.onWidthChanged then
+			self.onWidthChanged(width)
+		end
+		self:UpdateThumb()
+	end)
+	scroll:SetScript("OnMouseWheel", function(self, delta)
+		self:SetScroll(self:GetVerticalScroll() - delta * SCROLL_STEP)
+	end)
+	scroll:SetScript("OnShow", scroll.UpdateThumb)
+	scroll:SetScript("OnHide", function(self)
+		self.thumb:Hide()
+	end)
+	return scroll
+end

@@ -1,413 +1,69 @@
 local addonName, ns = ...
 
--- Settings panel. One frame, used standalone (/tomte, addon compartment; Esc closes it) and embedded in
--- Options > AddOns (re-parented into a canvas category while that page is open). Built on first use.
--- Left: search + categories. Center: modules with on/off checkboxes. Right: the hovered module's
--- description, or the selected module's options (built from its options schema) and/or its custom page
--- (Options and page tabs when it has both).
+-- Settings panel: a standalone, resizable window (/tomte, the addon compartment, the minimap button; Esc closes
+-- it). Size and position are saved. Left: search and every module grouped under collapsible categories, each
+-- with an on/off checkbox. Right: the selected module's page: a header, then its options (Options.lua) and/or its custom page,
+-- with tabs when it has both. Options > AddOns only has a button that opens it. Built on first use.
 
 local UI = ns.UI
 local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
-local WIDTH, HEIGHT = 760, 480
-local LEFT_W, CENTER_W = 170, 240
+local RED = { 1, 0.45, 0.35 }
+local TITLE_FONT = "Fonts\\MORPHEUS.TTF"
+local DEFAULT_W, DEFAULT_H = 960, 640
+local MIN_W, MIN_H = 820, 560
+local SIDEBAR_W = 220
+local OPTIONS_MAX_W = 560
 local TITLE_H = 36
-local ROW_H = 24
-local OPT_H = 28
-local SCROLL_STEP = 40
+local ROW_H, HEADER_H = 24, 26
 local TAB_H = 22
-local ALL = "All"
+local PAD = 24 -- page text inset; content frames sit 8 px further out
 
-local panel, holder, escape
-local mode -- "standalone" | "embedded"
-local selected, hovered -- modules
+local panel, escape
 local searchText = ""
-local categoryButtons, moduleRows, listHeaders = {}, {}, {}
-local pools, used = {}, {}
-local builtFor -- module whose options are in the pane
+local moduleRows, listHeaders = {}, {}
 local tabFor = {} -- [module] = "options" | "page" (modules with both), for this session
-local Refresh, RefreshDetail -- forward declarations
+local Refresh, RefreshList, RefreshPage -- forward declarations
 
-StaticPopupDialogs.TOMTE_CONFIRM = {
-	text = "%s",
-	button1 = YES,
-	button2 = NO,
-	OnAccept = function(_, onAccept)
-		onAccept()
-	end,
-	timeout = 0,
-	whileDead = true,
-	hideOnEscape = true,
-}
-
--- "frame.locked" -> db.frame, "locked"
-local function Resolve(db, key)
-	local tbl, last = db, nil
-	for part in key:gmatch("[^.]+") do
-		if last then
-			tbl = tbl[last]
-		end
-		last = part
-	end
-	return tbl, last
-end
-
-local function GetOption(module, key)
-	local tbl, field = Resolve(module.db, key)
-	return tbl[field]
-end
-
-local function SetOption(module, spec, value)
-	local tbl, field = Resolve(module.db, spec.key)
-	tbl[field] = value
-	if spec.onChange then
-		spec.onChange(value)
-	end
+-- The saved selection, or the first module when there is none (or it no longer exists).
+local function Selected()
+	local key = ns.db.panel.selected
+	return key and ns.modulesByKey[key] or ns.modules[1]
 end
 
 local function HideTooltip()
 	GameTooltip:Hide()
 end
 
-local function RowTooltip(row)
-	local spec = row.spec
-	if not (spec and spec.tooltip) then
-		return
-	end
-	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-	GameTooltip:SetText(spec.label, 1, 1, 1)
-	GameTooltip:AddLine(spec.tooltip, nil, nil, nil, true)
-	GameTooltip:Show()
+-- Window size and position -------------------------------------------------------------------------------
+
+local function Clamp(value, low, high)
+	return math.min(math.max(value, low), high)
 end
 
--- Options rows: one factory per schema type. Rows are pooled per type and rebuilt per module.
-local Factory, Setup = {}, {}
-
-local function NewRow(kind)
-	local row = CreateFrame("Frame", nil, panel.detail.content)
-	row.kind = kind
-	row:SetHeight(OPT_H)
-	row:EnableMouse(true)
-	row:SetScript("OnEnter", RowTooltip)
-	row:SetScript("OnLeave", HideTooltip)
-	row.label = UI.Text(row, 13, WHITE)
-	row.label:SetPoint("LEFT", 8, 0)
-	row.label:SetWordWrap(false)
-	return row
-end
-
--- Long labels end at the control instead of running under it (the options column is narrow).
-local function LabelUpTo(row, control)
-	row.label:SetPoint("RIGHT", control, "LEFT", -8, 0)
-end
-
-local function ForwardHover(row, control)
-	control:HookScript("OnEnter", function()
-		RowTooltip(row)
-	end)
-	control:HookScript("OnLeave", HideTooltip)
-end
-
-function Factory.header()
-	local row = CreateFrame("Frame", nil, panel.detail.content)
-	row.kind = "header"
-	row:SetHeight(34)
-	row.label = UI.Text(row, 14, GOLD)
-	row.label:SetPoint("BOTTOMLEFT", 4, 9)
-	local line = row:CreateTexture(nil, "ARTWORK")
-	line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.25)
-	line:SetHeight(1)
-	line:SetPoint("BOTTOMLEFT", 4, 4)
-	line:SetPoint("BOTTOMRIGHT", -4, 4)
-	return row
-end
-
-function Setup.header(row, module, spec)
-	row.label:SetText(spec.label)
-end
-
-function Factory.checkbox()
-	local row = NewRow("checkbox")
-	row.check = UI.Checkbox(row)
-	row.check:SetPoint("LEFT", 8, 0)
-	row.label:ClearAllPoints()
-	row.label:SetPoint("LEFT", row.check, "RIGHT", 10, 0)
-	row.check.onChange = function(checked)
-		SetOption(row.module, row.spec, checked)
-	end
-	row:SetScript("OnMouseUp", function()
-		row.check:Click() -- the label toggles too
-	end)
-	ForwardHover(row, row.check)
-	return row
-end
-
-function Setup.checkbox(row, module, spec)
-	row.label:SetText(spec.label)
-	row.check:SetChecked(GetOption(module, spec.key))
-end
-
-function Factory.slider()
-	local row = NewRow("slider")
-	row.value = UI.Text(row, 12, WHITE)
-	row.value:SetJustifyH("RIGHT")
-	row.value:SetWidth(40)
-	row.value:SetPoint("RIGHT", -6, 0)
-	row.slider = UI.Slider(row, 150)
-	row.slider:SetPoint("RIGHT", row.value, "LEFT", -10, 0)
-	row.slider.valueText = row.value
-	LabelUpTo(row, row.slider)
-	row.slider.onChange = function(value)
-		SetOption(row.module, row.spec, value)
-	end
-	ForwardHover(row, row.slider)
-	return row
-end
-
-function Setup.slider(row, module, spec)
-	row.label:SetText(spec.label)
-	local s = row.slider
-	s.format = spec.format or tostring
-	s:SetMinMaxValues(spec.min, spec.max)
-	s:SetValueStep(spec.step or 1)
-	s:SetValue(GetOption(module, spec.key))
-	row.value:SetText(s.format(s:GetValue()))
-end
-
-function Factory.dropdown()
-	local row = NewRow("dropdown")
-	local d = UI.Dropdown(row, 170)
-	d:SetPoint("RIGHT", -6, 0)
-	d.getValue = function()
-		return GetOption(row.module, row.spec.key)
-	end
-	d.setValue = function(value)
-		SetOption(row.module, row.spec, value)
-	end
-	d.choices = function()
-		return row.spec.choices()
-	end
-	row.dropdown = d
-	LabelUpTo(row, d)
-	ForwardHover(row, d)
-	return row
-end
-
-function Setup.dropdown(row, module, spec)
-	row.label:SetText(spec.label)
-	row.dropdown:Refresh()
-end
-
-function Factory.button()
-	local row = NewRow("button")
-	row.button = UI.Button(row, 80, "")
-	row.button:SetPoint("RIGHT", -6, 0)
-	LabelUpTo(row, row.button)
-	row.button:SetScript("OnClick", function()
-		local spec = row.spec
-		if spec.confirm then
-			-- data on the returned dialog reaches OnAccept (warcraft.wiki.gg: Creating simple pop-up dialog boxes).
-			local dialog = StaticPopup_Show("TOMTE_CONFIRM", spec.confirm)
-			if dialog then
-				dialog.data = spec.onClick
-			end
-		else
-			spec.onClick()
-		end
-	end)
-	ForwardHover(row, row.button)
-	return row
-end
-
-function Setup.button(row, module, spec)
-	row.label:SetText(spec.label)
-	row.button.label:SetText(spec.text)
-end
-
--- Text box; the value is saved on Enter or when the box loses focus (Esc restores the saved text).
-function Factory.input()
-	local row = NewRow("input")
-	local box = CreateFrame("EditBox", nil, row)
-	box:SetSize(170, 20)
-	box:SetPoint("RIGHT", -6, 0)
-	box:SetAutoFocus(false)
-	box.isOptionInput = true
-	box:SetFont(STANDARD_TEXT_FONT, 12, "")
-	box:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
-	box:SetTextInsets(6, 6, 0, 0)
-	box:SetScript("OnHide", box.ClearFocus) -- saves before the row is reused for another option
-	local bg = box:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BOX[1], UI.BOX[2], UI.BOX[3], UI.BOX[4])
-	UI.Border(box, GOLD[1], GOLD[2], GOLD[3], 0.35)
-	box.placeholder = UI.Text(box, 12, DIM)
-	box.placeholder:SetPoint("LEFT", 6, 0)
-	box:SetScript("OnTextChanged", function(self)
-		self.placeholder:SetShown(self:GetText() == "")
-	end)
-	box:SetScript("OnEnterPressed", box.ClearFocus)
-	box:SetScript("OnEscapePressed", function(self)
-		self:SetText(GetOption(row.module, row.spec.key) or "")
-		self:ClearFocus()
-	end)
-	box:SetScript("OnEditFocusGained", function(self)
-		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 0.8)
-	end)
-	box:SetScript("OnEditFocusLost", function(self)
-		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 0.35)
-		local text = strtrim(self:GetText())
-		if text ~= (GetOption(row.module, row.spec.key) or "") then
-			SetOption(row.module, row.spec, text)
-		end
-	end)
-	row.box = box
-	LabelUpTo(row, box)
-	ForwardHover(row, box)
-	return row
-end
-
-function Setup.input(row, module, spec)
-	row.label:SetText(spec.label)
-	row.box:SetText(GetOption(module, spec.key) or "")
-	row.box.placeholder:SetText(spec.placeholder or "")
-	row.box:SetCursorPosition(0)
-end
-
-local function Acquire(kind)
-	local pool = pools[kind]
-	if not pool then
-		pool = {}
-		pools[kind] = pool
-	end
-	local row = table.remove(pool) or Factory[kind]()
-	row:Show()
-	used[#used + 1] = row
-	return row
-end
-
-local function ReleaseOptions()
-	for _, row in ipairs(used) do
-		row:Hide()
-		row:ClearAllPoints()
-		local pool = pools[row.kind]
-		pool[#pool + 1] = row
-	end
-	wipe(used)
-end
-
-local function UpdateScrollThumb()
-	local detail = panel.detail
-	local viewH, contentH = detail.scroll:GetHeight(), detail.content:GetHeight()
-	if contentH <= viewH + 1 then
-		detail.thumb:Hide()
-		return
-	end
-	local thumbH = math.max(viewH * viewH / contentH, 20)
-	local offset = detail.scroll:GetVerticalScroll() / (contentH - viewH) * (viewH - thumbH)
-	detail.thumb:SetHeight(thumbH)
-	detail.thumb:ClearAllPoints()
-	detail.thumb:SetPoint("TOPLEFT", detail.scroll, "TOPRIGHT", 4, -offset)
-	detail.thumb:Show()
-end
-
-local function SetScroll(value)
-	local detail = panel.detail
-	local maxScroll = math.max(detail.content:GetHeight() - detail.scroll:GetHeight(), 0)
-	detail.scroll:SetVerticalScroll(math.min(math.max(value, 0), maxScroll))
-	UpdateScrollThumb()
-end
-
-local function BuildOptions(module)
-	local detail = panel.detail
-	local keepScroll = builtFor == module and detail.scroll:GetVerticalScroll() or 0
-	builtFor = module
-	local y = 0
-	for _, spec in ipairs(module.options) do
-		local row = Acquire(spec.type)
-		row.module, row.spec = module, spec
-		row:SetPoint("TOPLEFT", detail.content, "TOPLEFT", 0, -y)
-		row:SetPoint("RIGHT", detail.content, "RIGHT")
-		Setup[spec.type](row, module, spec)
-		y = y + row:GetHeight()
-	end
-	detail.content:SetHeight(math.max(y, 1))
-	SetScroll(keepScroll)
-end
-
-function RefreshDetail()
-	local detail = panel.detail
-	local module = hovered or selected
-	ReleaseOptions()
-	if not module then
-		detail.title:SetText("")
-		detail.desc:SetText("")
-		detail.reason:Hide()
-		detail.scroll:Hide()
-		detail.tabs:Hide()
-		for _, frame in pairs(detail.pages) do
-			frame:Hide()
-		end
-		detail.thumb:Hide()
-		detail.empty:Show()
-		return
-	end
-	detail.empty:Hide()
-	detail.title:SetText(module.name)
-	detail.desc:SetText(module.description or "")
-	local reason = ns.ModuleBlockedReason(module)
-	detail.reason:SetText(reason or "")
-	detail.reason:SetShown(reason ~= nil)
-	-- Options (or a custom page) only for the selected module, and not while it is blocked (its data is
-	-- being replaced).
-	local open = module == selected and reason == nil
-	local hasTabs = open and module.page ~= nil and module.options ~= nil
-	local tab = tabFor[module] or "options"
-	detail.tabs:SetShown(hasTabs)
-	-- Content starts under the description, or under the tabs.
-	local top, topY = detail.desc, -14
-	if hasTabs then
-		detail.tabs.module = module
-		detail.tabs.options:Set("Options", tab == "options")
-		detail.tabs.page:Set(module.page.title or "Overview", tab == "page")
-		top, topY = detail.tabs, -8
-	end
-	local showPage = open and module.page ~= nil and (not hasTabs or tab == "page")
-	for owner, frame in pairs(detail.pages) do
-		if owner ~= module or not showPage then
-			frame:Hide()
-		end
-	end
-	if showPage then
-		local frame = detail.pages[module]
-		if not frame then
-			frame = CreateFrame("Frame", nil, detail)
-			frame:Hide()
-			module.page.Create(frame)
-			detail.pages[module] = frame
-		end
-		frame:ClearAllPoints()
-		frame:SetPoint("TOPLEFT", top, "BOTTOMLEFT", -8, topY)
-		frame:SetPoint("BOTTOMRIGHT", detail, "BOTTOMRIGHT", -14, 12)
-		if not frame:IsShown() then
-			frame:Show()
-			if module.page.Refresh then
-				module.page.Refresh(frame) -- only when it becomes visible, not on every hover
-			end
-		end
-	end
-	local showOptions = open and not showPage and module.options ~= nil
-	detail.scroll:SetShown(showOptions)
-	if showOptions then
-		detail.scroll:ClearAllPoints()
-		detail.scroll:SetPoint("TOPLEFT", top, "BOTTOMLEFT", -8, topY)
-		detail.scroll:SetPoint("BOTTOMRIGHT", detail, "BOTTOMRIGHT", -14, 12)
-		BuildOptions(module)
+-- Max is the screen, which can be smaller than the saved size after a resolution or UI scale change.
+local function ApplyLayout()
+	local maxW, maxH = math.max(UIParent:GetWidth(), MIN_W), math.max(UIParent:GetHeight(), MIN_H)
+	panel:SetResizeBounds(MIN_W, MIN_H, maxW, maxH)
+	local layout = ns.db.panel.layout
+	panel:ClearAllPoints()
+	if layout then
+		panel:SetSize(Clamp(layout.w, MIN_W, maxW), Clamp(layout.h, MIN_H, maxH))
+		panel:SetPoint(layout.point, UIParent, layout.relPoint, layout.x, layout.y)
 	else
-		detail.thumb:Hide()
+		panel:SetSize(DEFAULT_W, DEFAULT_H)
+		panel:SetPoint("CENTER")
 	end
 end
 
-local function SelectModule(module)
-	selected = module
+local function SaveLayout()
+	local point, _, relPoint, x, y = panel:GetPoint(1)
+	ns.db.panel.layout = { point = point, relPoint = relPoint, x = x, y = y, w = panel:GetWidth(), h = panel:GetHeight() }
+end
+
+-- Sidebar ------------------------------------------------------------------------------------------------
+
+local function Select(module)
+	ns.db.panel.selected = module.key
 	Refresh()
 end
 
@@ -426,53 +82,33 @@ local function CreateModuleRow(parent)
 	row.check:SetPoint("LEFT", 12, 0)
 	row.name = UI.Text(row, 13, WHITE)
 	row.name:SetPoint("LEFT", row.check, "RIGHT", 10, 0)
-	row.name:SetPoint("RIGHT", -32, 0)
+	row.name:SetPoint("RIGHT", -8, 0)
 	row.name:SetWordWrap(false)
-	row.gear = CreateFrame("Button", nil, row)
-	row.gear:SetSize(16, 16)
-	row.gear:SetPoint("RIGHT", -8, 0)
-	row.gear.tex = row.gear:CreateTexture(nil, "ARTWORK")
-	row.gear.tex:SetAllPoints()
-	row.gear.tex:SetTexture(UI.GEAR)
-	row.gear.tex:SetTexCoord(0, 0.5, 0, 0.5)
-	row.gear.tex:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], 0.7)
 
-	-- Typing in an option's text box: hovering the list mustn't rebuild the options under it.
-	local function Typing()
-		local focus = GetCurrentKeyBoardFocus()
-		return focus ~= nil and focus.isOptionInput == true
-	end
 	local function Enter()
-		if Typing() then
-			return
-		end
-		hovered = row.module
+		local module = row.module
 		row.bg:Show()
-		row.gear.tex:SetAlpha(1)
-		RefreshDetail()
+		GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+		GameTooltip:SetText(module.name, GOLD[1], GOLD[2], GOLD[3])
+		if module.description then
+			GameTooltip:AddLine(module.description, 1, 1, 1, true)
+		end
+		local reason = ns.ModuleBlockedReason(module)
+		if reason then
+			GameTooltip:AddLine(reason, RED[1], RED[2], RED[3], true)
+		end
+		GameTooltip:Show()
 	end
 	local function Leave()
-		if Typing() then
-			return
-		end
-		if hovered == row.module then
-			hovered = nil
-		end
-		row.bg:SetShown(selected == row.module)
-		row.gear.tex:SetAlpha(0.7)
-		RefreshDetail()
+		row.bg:SetShown(row.module == Selected())
+		HideTooltip()
 	end
 	row:SetScript("OnEnter", Enter)
 	row:SetScript("OnLeave", Leave)
-	row.gear:SetScript("OnEnter", Enter)
-	row.gear:SetScript("OnLeave", Leave)
 	row.check:HookScript("OnEnter", Enter)
 	row.check:HookScript("OnLeave", Leave)
 	row:SetScript("OnClick", function()
-		SelectModule(row.module)
-	end)
-	row.gear:SetScript("OnClick", function()
-		SelectModule(row.module)
+		Select(row.module)
 	end)
 	row.check.onChange = function(checked)
 		ns.SetModuleEnabled(row.module.key, checked)
@@ -481,47 +117,85 @@ local function CreateModuleRow(parent)
 	return row
 end
 
-local function SetRow(row, module)
+local function SetRow(row, module, selected)
 	row.module = module
 	local reason = ns.ModuleBlockedReason(module)
 	row.check:SetChecked(ns.ModuleEnabled(module))
 	row.check:SetEnabled(reason == nil)
-	local c = reason and DIM or WHITE
+	local c = reason and DIM or (selected and GOLD or WHITE)
 	row.name:SetTextColor(c[1], c[2], c[3])
 	row.name:SetText(module.name)
-	row.bar:SetShown(selected == module)
-	row.bg:SetShown(selected == module or hovered == module)
-	row.gear:SetShown(module.options ~= nil)
+	row.bar:SetShown(selected)
+	row.bg:SetShown(selected or row:IsMouseOver())
 end
 
-local function RefreshList()
-	local center = panel.center
-	local category = ns.db.panel.category
-	local all = category == ALL or searchText ~= ""
-	local rowCount, headerCount, y = 0, 0, 12
+-- Category header: click to collapse or expand it (saved). While searching, every match shows.
+local function CreateCategoryHeader(parent)
+	local b = CreateFrame("Button", nil, parent)
+	b:SetHeight(HEADER_H)
+	b.toggle = UI.Text(b, 12, GREY)
+	b.toggle:SetPoint("BOTTOMLEFT", 10, 6)
+	b.toggle:SetWidth(10)
+	b.text = UI.Text(b, 11, GREY)
+	b.text:SetPoint("BOTTOMLEFT", b.toggle, "BOTTOMRIGHT", 4, 0)
+	b.count = UI.Text(b, 11, DIM)
+	b.count:SetPoint("BOTTOMRIGHT", -10, 6)
+	b:SetScript("OnEnter", function(self)
+		self.text:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
+	end)
+	b:SetScript("OnLeave", function(self)
+		local c = self.color
+		self.text:SetTextColor(c[1], c[2], c[3])
+	end)
+	b:SetScript("OnClick", function(self)
+		local collapsed = ns.db.panel.collapsed
+		collapsed[self.category] = not collapsed[self.category] or nil
+		PlaySound(collapsed[self.category] and SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF or SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		RefreshList()
+	end)
+	return b
+end
+
+function RefreshList()
+	local list = panel.list
+	local content = list.content
+	local current = Selected()
+	local searching = searchText ~= ""
+	local rowCount, headerCount, y = 0, 0, 0
 	for _, cat in ipairs(ns.ModuleCategories()) do
-		if all or cat == category then
-			local first = true
-			for _, module in ipairs(ns.modules) do
-				if module.category == cat and ns.ModuleMatches(module, searchText) then
-					if first then
-						first = false
-						headerCount = headerCount + 1
-						local header = listHeaders[headerCount] or UI.Text(center, 11, GREY)
-						listHeaders[headerCount] = header
-						header:SetText(cat:upper())
-						header:ClearAllPoints()
-						header:SetPoint("TOPLEFT", center, "TOPLEFT", 14, -y - 6)
-						header:Show()
-						y = y + 24
-					end
+		local matches = {}
+		for _, module in ipairs(ns.modules) do
+			if module.category == cat and ns.ModuleMatches(module, searchText) then
+				matches[#matches + 1] = module
+			end
+		end
+		if #matches > 0 then
+			local collapsed = not searching and ns.db.panel.collapsed[cat] == true
+			headerCount = headerCount + 1
+			local header = listHeaders[headerCount] or CreateCategoryHeader(content)
+			listHeaders[headerCount] = header
+			header.category = cat
+			header:SetEnabled(not searching)
+			header.toggle:SetText(searching and "" or (collapsed and "+" or "-"))
+			header.text:SetText(cat:upper())
+			header.count:SetText(#matches)
+			-- A collapsed category holding the selected module stays gold, so you can see where it is.
+			header.color = (collapsed and current and current.category == cat) and GOLD or GREY
+			header.text:SetTextColor(header.color[1], header.color[2], header.color[3])
+			header:ClearAllPoints()
+			header:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+			header:SetPoint("RIGHT", content, "RIGHT")
+			header:Show()
+			y = y + HEADER_H
+			if not collapsed then
+				for _, module in ipairs(matches) do
 					rowCount = rowCount + 1
-					local row = moduleRows[rowCount] or CreateModuleRow(center)
+					local row = moduleRows[rowCount] or CreateModuleRow(content)
 					moduleRows[rowCount] = row
 					row:ClearAllPoints()
-					row:SetPoint("TOPLEFT", center, "TOPLEFT", 4, -y)
-					row:SetPoint("RIGHT", center, "RIGHT", -4, 0)
-					SetRow(row, module)
+					row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+					row:SetPoint("RIGHT", content, "RIGHT")
+					SetRow(row, module, module == current)
 					row:Show()
 					y = y + ROW_H
 				end
@@ -534,82 +208,15 @@ local function RefreshList()
 	for i = headerCount + 1, #listHeaders do
 		listHeaders[i]:Hide()
 	end
-	panel.noMatches:SetShown(rowCount == 0)
-end
-
-local function CreateCategoryButton(parent)
-	local b = CreateFrame("Button", nil, parent)
-	b:SetSize(LEFT_W - 24, 22)
-	b.bg = b:CreateTexture(nil, "BACKGROUND")
-	b.bg:SetAllPoints()
-	b.bg:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.1)
-	b.bar = b:CreateTexture(nil, "ARTWORK")
-	b.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
-	b.bar:SetPoint("TOPLEFT")
-	b.bar:SetPoint("BOTTOMLEFT")
-	b.bar:SetWidth(2)
-	b.text = UI.Text(b, 13, WHITE)
-	b.text:SetPoint("LEFT", 10, 0)
-	b:SetScript("OnEnter", function(self)
-		self.text:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-	end)
-	b:SetScript("OnLeave", function(self)
-		local c = self.isSelected and GOLD or WHITE
-		self.text:SetTextColor(c[1], c[2], c[3])
-	end)
-	b:SetScript("OnClick", function(self)
-		ns.db.panel.category = self.category
-		panel.search:SetText("") -- picking a category ends the search
-		Refresh()
-	end)
-	return b
-end
-
-local function RefreshCategories()
-	local cats = ns.ModuleCategories()
-	local current = ns.db.panel.category
-	local list = { ALL }
-	local valid = current == ALL
-	for _, cat in ipairs(cats) do
-		list[#list + 1] = cat
-		valid = valid or cat == current
-	end
-	if not valid then
-		current = ALL
-		ns.db.panel.category = ALL
-	end
-	for i, name in ipairs(list) do
-		local b = categoryButtons[i] or CreateCategoryButton(panel.left)
-		categoryButtons[i] = b
-		b.category = name
-		b.text:SetText(name)
-		b.isSelected = name == current and searchText == ""
-		b.bg:SetShown(b.isSelected)
-		b.bar:SetShown(b.isSelected)
-		local c = b.isSelected and GOLD or WHITE
-		b.text:SetTextColor(c[1], c[2], c[3])
-		b:ClearAllPoints()
-		b:SetPoint("TOPLEFT", panel.left, "TOPLEFT", 12, -50 - (i - 1) * 24)
-		b:Show()
-	end
-	for i = #list + 1, #categoryButtons do
-		categoryButtons[i]:Hide()
-	end
-end
-
-function Refresh()
-	if not (panel and panel:IsShown()) then
-		return
-	end
-	RefreshCategories()
-	RefreshList()
-	RefreshDetail()
+	panel.noMatches:SetShown(headerCount == 0)
+	list:SetContentHeight(y + 8)
 end
 
 local function CreateSearch(parent)
 	local box = CreateFrame("EditBox", nil, parent)
-	box:SetSize(LEFT_W - 24, 22)
+	box:SetHeight(22)
 	box:SetPoint("TOPLEFT", 12, -14)
+	box:SetPoint("RIGHT", -12, 0)
 	box:SetAutoFocus(false)
 	box:SetFont(STANDARD_TEXT_FONT, 12, "")
 	box:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
@@ -624,8 +231,8 @@ local function CreateSearch(parent)
 	box:SetScript("OnTextChanged", function(self)
 		local text = self:GetText()
 		placeholder:SetShown(text == "")
-		searchText = text:lower()
-		Refresh()
+		searchText = strtrim(text):lower()
+		RefreshList() -- the page keeps showing the selected module, even when it's filtered out
 	end)
 	box:SetScript("OnEscapePressed", function(self)
 		self:SetText("")
@@ -641,28 +248,24 @@ local function CreateSearch(parent)
 	return box
 end
 
-local function CreateDetail(parent)
-	local detail = CreateFrame("Frame", nil, parent)
-	detail.title = UI.Text(detail, 20, GOLD, "Fonts\\MORPHEUS.TTF")
-	detail.title:SetPoint("TOPLEFT", 20, -14)
-	detail.title:SetPoint("RIGHT", -20, 0)
-	detail.desc = UI.Text(detail, 12, GREY)
-	detail.desc:SetPoint("TOPLEFT", detail.title, "BOTTOMLEFT", 0, -6)
-	detail.desc:SetPoint("RIGHT", -20, 0)
-	detail.desc:SetWordWrap(true)
-	detail.reason = UI.Text(detail, 12, { 1, 0.45, 0.35 })
-	detail.reason:SetPoint("TOPLEFT", detail.desc, "BOTTOMLEFT", 0, -10)
-	detail.reason:SetPoint("RIGHT", -20, 0)
-	detail.reason:SetWordWrap(true)
-	detail.empty = UI.Text(detail, 13, GREY)
-	detail.empty:SetPoint("CENTER")
-	detail.empty:SetText("Select a module to see its options.")
-	detail.pages = {} -- [module] = frame for modules with a custom page
+local function CreateSidebar(parent)
+	local sidebar = CreateFrame("Frame", nil, parent)
+	sidebar:SetWidth(SIDEBAR_W)
+	panel.search = CreateSearch(sidebar)
+	local list = UI.Scroll(sidebar)
+	list:SetPoint("TOPLEFT", panel.search, "BOTTOMLEFT", -8, -10)
+	list:SetPoint("BOTTOMRIGHT", -10, 10)
+	panel.list = list
+	panel.noMatches = UI.Text(list.content, 12, GREY)
+	panel.noMatches:SetPoint("TOP", list, "TOP", 0, -20)
+	panel.noMatches:SetText("No matching modules.")
+	return sidebar
+end
 
-	-- Options / page tabs, for a module that has both.
-	local tabs = CreateFrame("Frame", nil, detail)
-	tabs:SetPoint("TOPLEFT", detail.desc, "BOTTOMLEFT", 0, -12)
-	tabs:SetPoint("RIGHT", -20, 0)
+-- Module page --------------------------------------------------------------------------------------------
+
+local function CreateTabs(page)
+	local tabs = CreateFrame("Frame", nil, page)
 	tabs:SetHeight(TAB_H)
 	tabs:Hide()
 	local baseline = tabs:CreateTexture(nil, "BACKGROUND")
@@ -673,7 +276,7 @@ local function CreateDetail(parent)
 	local function Tab(which)
 		local b = CreateFrame("Button", nil, tabs)
 		b:SetHeight(TAB_H)
-		b.text = UI.Text(b, 12, GREY)
+		b.text = UI.Text(b, 13, GREY)
 		b.text:SetPoint("BOTTOMLEFT", 0, 6)
 		b.bar = b:CreateTexture(nil, "ARTWORK")
 		b.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
@@ -699,7 +302,7 @@ local function CreateDetail(parent)
 			if tabFor[tabs.module] ~= which then
 				tabFor[tabs.module] = which
 				PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
-				RefreshDetail()
+				RefreshPage()
 			end
 		end)
 		return b
@@ -707,51 +310,147 @@ local function CreateDetail(parent)
 	tabs.options = Tab("options")
 	tabs.options:SetPoint("BOTTOMLEFT")
 	tabs.page = Tab("page")
-	tabs.page:SetPoint("BOTTOMLEFT", tabs.options, "BOTTOMRIGHT", 18, 0)
-	detail.tabs = tabs
-
-	detail.scroll = CreateFrame("ScrollFrame", nil, detail)
-	detail.scroll:EnableMouseWheel(true)
-	detail.content = CreateFrame("Frame", nil, detail.scroll)
-	detail.content:SetSize(1, 1)
-	detail.scroll:SetScrollChild(detail.content)
-	detail.scroll:SetScript("OnSizeChanged", function(self, width)
-		detail.content:SetWidth(width)
-		UpdateScrollThumb()
-	end)
-	detail.scroll:SetScript("OnMouseWheel", function(self, delta)
-		SetScroll(self:GetVerticalScroll() - delta * SCROLL_STEP)
-	end)
-	detail.thumb = detail:CreateTexture(nil, "OVERLAY")
-	detail.thumb:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.45)
-	detail.thumb:SetWidth(2)
-	detail.thumb:Hide()
-	return detail
+	tabs.page:SetPoint("BOTTOMLEFT", tabs.options, "BOTTOMRIGHT", 20, 0)
+	return tabs
 end
 
-local function SetMode(newMode)
-	mode = newMode
-	local standalone = mode == "standalone"
-	panel.titleBar:SetShown(standalone)
-	panel.body:ClearAllPoints()
-	panel.body:SetPoint("TOPLEFT", 0, standalone and -TITLE_H or 0)
-	panel.body:SetPoint("BOTTOMRIGHT")
+-- The options column is capped so a slider doesn't end up far from its label on a wide panel.
+local function UpdateOptionsWidth()
+	local page = panel.page
+	page.options:SetWidth(math.min(page:GetWidth() - 2 * (PAD - 8) - 10, OPTIONS_MAX_W))
 end
 
-local function Build()
-	panel = CreateFrame("Frame", "TomtePanel", UIParent)
-	panel:SetSize(WIDTH, HEIGHT)
-	panel:SetToplevel(true)
-	panel:EnableMouse(true)
-	panel:SetMovable(true)
-	panel:SetClampedToScreen(true)
-	panel:Hide()
-	local bg = panel:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], UI.BG[4])
-	UI.Border(panel, GOLD[1], GOLD[2], GOLD[3], 0.45)
+local function CreatePage(parent)
+	local page = CreateFrame("Frame", nil, parent)
+	page.title = UI.Text(page, 22, GOLD, TITLE_FONT)
+	page.title:SetPoint("TOPLEFT", PAD, -16)
+	page.title:SetWordWrap(false)
 
-	-- Title bar: standalone only (Blizzard's settings frame has its own).
+	-- "Enabled" checkbox; the label toggles it too.
+	local toggle = CreateFrame("Button", nil, page)
+	toggle:SetPoint("TOPRIGHT", -PAD, -20)
+	toggle:SetHeight(20)
+	toggle.check = UI.Checkbox(toggle)
+	toggle.check:SetPoint("RIGHT")
+	toggle.label = UI.Text(toggle, 13, WHITE)
+	toggle.label:SetPoint("RIGHT", toggle.check, "LEFT", -8, 0)
+	toggle.label:SetText("Enabled")
+	toggle:SetWidth(toggle.label:GetStringWidth() + 24)
+	toggle:SetScript("OnClick", function(self)
+		if self.check:IsEnabled() then
+			self.check:Click()
+		end
+	end)
+	toggle.check.onChange = function(checked)
+		ns.SetModuleEnabled(Selected().key, checked)
+		Refresh()
+	end
+	page.toggle = toggle
+	page.title:SetPoint("RIGHT", toggle, "LEFT", -16, 0)
+
+	page.desc = UI.Text(page, 12, GREY)
+	page.desc:SetPoint("TOPLEFT", page.title, "BOTTOMLEFT", 0, -8)
+	page.desc:SetPoint("RIGHT", -PAD, 0)
+	page.desc:SetWordWrap(true)
+	page.reason = UI.Text(page, 12, RED)
+	page.reason:SetPoint("TOPLEFT", page.desc, "BOTTOMLEFT", 0, -8)
+	page.reason:SetPoint("RIGHT", -PAD, 0)
+	page.reason:SetWordWrap(true)
+
+	page.tabs = CreateTabs(page)
+	page.options = UI.Scroll(page)
+	page.none = UI.Text(page, 12, GREY)
+	page.none:SetText("No options.")
+	page.pages = {} -- [module] = frame, for modules with a custom page
+	page:SetScript("OnSizeChanged", UpdateOptionsWidth)
+	return page
+end
+
+function RefreshPage()
+	local page = panel.page
+	local module = Selected()
+	if not module then
+		return
+	end
+	page.title:SetText(module.name)
+	page.desc:SetText(module.description or "")
+	local reason = ns.ModuleBlockedReason(module)
+	page.reason:SetText(reason or "")
+	page.reason:SetShown(reason ~= nil)
+	page.toggle.check:SetChecked(ns.ModuleEnabled(module))
+	page.toggle.check:SetEnabled(reason == nil)
+	local c = reason and DIM or WHITE
+	page.toggle.label:SetTextColor(c[1], c[2], c[3])
+
+	-- Nothing below the header while blocked (its data may be getting replaced).
+	local open = reason == nil
+	local hasTabs = open and module.page ~= nil and module.options ~= nil
+	local tab = tabFor[module] or "options"
+	-- Content starts under the tabs, or under the description.
+	local top = page.desc
+	page.tabs:SetShown(hasTabs)
+	if hasTabs then
+		page.tabs:ClearAllPoints()
+		page.tabs:SetPoint("TOPLEFT", page.desc, "BOTTOMLEFT", 0, -14)
+		page.tabs:SetPoint("RIGHT", -PAD, 0)
+		page.tabs.module = module
+		page.tabs.options:Set("Options", tab == "options")
+		page.tabs.page:Set(module.page.title or "Overview", tab == "page")
+		top = page.tabs
+	end
+
+	local showPage = open and module.page ~= nil and (not hasTabs or tab == "page")
+	for owner, frame in pairs(page.pages) do
+		if owner ~= module or not showPage then
+			frame:Hide()
+		end
+	end
+	if showPage then
+		local frame = page.pages[module]
+		if not frame then
+			frame = CreateFrame("Frame", nil, page)
+			frame:Hide()
+			module.page.Create(frame)
+			page.pages[module] = frame
+		end
+		frame:ClearAllPoints()
+		frame:SetPoint("TOPLEFT", top, "BOTTOMLEFT", -8, -12)
+		frame:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -(PAD - 8), 14)
+		if not frame:IsShown() then
+			frame:Show()
+			if module.page.Refresh then
+				module.page.Refresh(frame) -- only when it becomes visible
+			end
+		end
+	end
+
+	local showOptions = open and not showPage and module.options ~= nil
+	page.options:SetShown(showOptions)
+	if showOptions then
+		page.options:ClearAllPoints()
+		page.options:SetPoint("TOPLEFT", top, "BOTTOMLEFT", -8, -12)
+		page.options:SetPoint("BOTTOMLEFT", page, "BOTTOMLEFT", PAD - 8, 14)
+		UpdateOptionsWidth()
+		ns.PanelOptions_Build(page.options, module)
+	else
+		ns.PanelOptions_Release()
+	end
+	page.none:SetShown(open and not showPage and not showOptions)
+	page.none:ClearAllPoints()
+	page.none:SetPoint("TOPLEFT", top, "BOTTOMLEFT", 0, -16)
+end
+
+function Refresh()
+	if not (panel and panel:IsShown()) then
+		return
+	end
+	RefreshList()
+	RefreshPage()
+end
+
+-- Window -------------------------------------------------------------------------------------------------
+
+local function CreateTitleBar()
 	local titleBar = CreateFrame("Frame", nil, panel)
 	titleBar:SetPoint("TOPLEFT")
 	titleBar:SetPoint("TOPRIGHT")
@@ -763,58 +462,80 @@ local function Build()
 	end)
 	titleBar:SetScript("OnDragStop", function()
 		panel:StopMovingOrSizing()
+		SaveLayout()
 	end)
-	local title = UI.Text(titleBar, 20, GOLD, "Fonts\\MORPHEUS.TTF")
-	title:SetPoint("LEFT", 16, -2)
+	local icon = titleBar:CreateTexture(nil, "ARTWORK")
+	icon:SetSize(20, 20)
+	icon:SetPoint("LEFT", 14, 0)
+	icon:SetTexture(ns.ICON)
+	local title = UI.Text(titleBar, 20, GOLD, TITLE_FONT)
+	title:SetPoint("LEFT", icon, "RIGHT", 8, -2)
 	title:SetText("Tomte")
 	local close = UI.Button(titleBar, 20, "x")
 	close:SetPoint("RIGHT", -10, 0)
 	close:SetScript("OnClick", function()
 		panel:Hide()
 	end)
-	local titleLine = UI.Hairline(titleBar, WIDTH - 40, 0.5)
-	titleLine:SetPoint("BOTTOM")
-	panel.titleBar = titleBar
+	local line = UI.Hairline(titleBar, 100, 0.5)
+	line:ClearAllPoints()
+	line:SetPoint("BOTTOMLEFT", 20, 0)
+	line:SetPoint("BOTTOMRIGHT", -20, 0)
+end
+
+local function CreateResizeGrip()
+	local grip = CreateFrame("Button", nil, panel)
+	grip:SetSize(16, 16)
+	grip:SetPoint("BOTTOMRIGHT", -2, 2)
+	grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+	grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+	grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+	grip:SetScript("OnMouseDown", function()
+		panel:StartSizing("BOTTOMRIGHT")
+	end)
+	grip:SetScript("OnMouseUp", function()
+		panel:StopMovingOrSizing()
+		SaveLayout()
+	end)
+end
+
+local function Build()
+	panel = CreateFrame("Frame", "TomtePanel", UIParent)
+	panel:SetFrameStrata("HIGH")
+	panel:SetToplevel(true)
+	panel:EnableMouse(true)
+	panel:SetMovable(true)
+	panel:SetResizable(true)
+	panel:SetDontSavePosition(true) -- we save it ourselves (TomteDB.panel.layout)
+	panel:SetClampedToScreen(true)
+	panel:Hide()
+	local bg = panel:CreateTexture(nil, "BACKGROUND")
+	bg:SetAllPoints()
+	bg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], UI.BG[4])
+	UI.Border(panel, GOLD[1], GOLD[2], GOLD[3], 0.45)
+	CreateTitleBar()
 
 	local body = CreateFrame("Frame", nil, panel)
-	panel.body = body
+	body:SetPoint("TOPLEFT", 0, -TITLE_H)
+	body:SetPoint("BOTTOMRIGHT")
 
-	local left = CreateFrame("Frame", nil, body)
-	left:SetPoint("TOPLEFT")
-	left:SetPoint("BOTTOMLEFT")
-	left:SetWidth(LEFT_W)
-	panel.left = left
-	panel.search = CreateSearch(left)
-
-	local center = CreateFrame("Frame", nil, body)
-	center:SetPoint("TOPLEFT", left, "TOPRIGHT")
-	center:SetPoint("BOTTOMLEFT", left, "BOTTOMRIGHT")
-	center:SetWidth(CENTER_W)
-	panel.center = center
-	panel.noMatches = UI.Text(center, 12, GREY)
-	panel.noMatches:SetPoint("TOP", 0, -30)
-	panel.noMatches:SetText("No matching modules.")
-
-	local detail = CreateDetail(body)
-	detail:SetPoint("TOPLEFT", center, "TOPRIGHT")
-	detail:SetPoint("BOTTOMRIGHT")
-	panel.detail = detail
-
-	for _, column in ipairs({ left, center }) do
-		local line = UI.VLine(body)
-		line:SetPoint("TOP", column, "TOPRIGHT", 0, -12)
-		line:SetPoint("BOTTOM", column, "BOTTOMRIGHT", 0, 12)
-	end
+	local sidebar = CreateSidebar(body)
+	sidebar:SetPoint("TOPLEFT")
+	sidebar:SetPoint("BOTTOMLEFT")
+	local page = CreatePage(body)
+	page:SetPoint("TOPLEFT", sidebar, "TOPRIGHT")
+	page:SetPoint("BOTTOMRIGHT")
+	panel.page = page
+	local divider = UI.VLine(body)
+	divider:SetPoint("TOP", sidebar, "TOPRIGHT", 0, -12)
+	divider:SetPoint("BOTTOM", sidebar, "BOTTOMRIGHT", 0, 12)
+	CreateResizeGrip()
 
 	panel:SetScript("OnShow", function()
-		if mode == "standalone" then
-			escape:Show()
-		end
+		escape:Show()
 		Refresh()
 	end)
 	panel:SetScript("OnHide", function()
 		escape:Hide()
-		hovered = nil
 		HideTooltip()
 		for _, module in ipairs(ns.modules) do
 			if module.panelClosed then
@@ -824,59 +545,59 @@ local function Build()
 	end)
 end
 
-function ns.Panel_Toggle()
-	if holder:IsVisible() then
-		return -- shown inside Options > AddOns right now
-	end
+function ns.Panel_Open()
 	if not panel then
 		Build()
 	end
 	if panel:IsShown() then
-		panel:Hide()
 		return
 	end
-	SetMode("standalone")
-	panel:SetParent(UIParent)
-	panel:SetFrameStrata("HIGH")
-	panel:ClearAllPoints()
-	panel:SetSize(WIDTH, HEIGHT)
-	panel:SetPoint("CENTER")
+	ApplyLayout()
 	panel:Show()
 end
 
--- Called on ADDON_LOADED: registers the Options > AddOns page (a small holder frame). The panel itself
--- is built the first time it is shown.
-function ns.Panel_Init()
-	holder = CreateFrame("Frame")
+function ns.Panel_Toggle()
+	if panel and panel:IsShown() then
+		panel:Hide()
+	else
+		ns.Panel_Open()
+	end
+end
+
+-- Options > AddOns > Tomte: a short page with a button that opens the panel.
+local function CreateSettingsStub()
+	local holder = CreateFrame("Frame")
 	holder:Hide()
+	local title = UI.Text(holder, 22, GOLD, TITLE_FONT)
+	title:SetPoint("TOPLEFT", 16, -16)
+	title:SetText("Tomte")
+	local text = UI.Text(holder, 13, WHITE)
+	text:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
+	text:SetPoint("RIGHT", -16, 0)
+	text:SetWordWrap(true)
+	text:SetText("Tomte's settings have their own window. Open it here, with /tomte, or from the minimap button.")
+	local open = UI.Button(holder, 120, "Open Tomte")
+	open:SetHeight(24)
+	open:SetPoint("TOPLEFT", text, "BOTTOMLEFT", 0, -16)
+	open:SetScript("OnClick", function()
+		if SettingsPanel and SettingsPanel:IsShown() then
+			HideUIPanel(SettingsPanel)
+		end
+		ns.Panel_Open()
+	end)
 	local category = Settings.RegisterCanvasLayoutCategory(holder, "Tomte")
 	Settings.RegisterAddOnCategory(category)
-	holder:SetScript("OnShow", function(self)
-		if not panel then
-			Build()
-		end
-		panel:Hide()
-		SetMode("embedded")
-		panel:SetParent(self)
-		-- The standalone strata would draw it under (or over) Blizzard's settings frame.
-		panel:SetFrameStrata(self:GetFrameStrata())
-		panel:SetFrameLevel(self:GetFrameLevel() + 1)
-		panel:ClearAllPoints()
-		panel:SetAllPoints(self)
-		panel:Show()
-	end)
-	holder:SetScript("OnHide", function()
-		if panel and mode == "embedded" then
-			panel:Hide()
-		end
-	end)
+end
 
-	-- Esc closes the standalone panel: UISpecialFrames hides this dummy, which hides the panel.
+-- Called on ADDON_LOADED. The panel itself is built the first time it is shown.
+function ns.Panel_Init()
+	CreateSettingsStub()
+	-- Esc closes the panel: UISpecialFrames hides this dummy, which hides the panel.
 	escape = CreateFrame("Frame", "TomtePanelEscape", UIParent)
 	escape:Hide()
 	table.insert(UISpecialFrames, "TomtePanelEscape")
 	escape:SetScript("OnHide", function()
-		if panel and mode == "standalone" then
+		if panel then
 			panel:Hide()
 		end
 	end)
