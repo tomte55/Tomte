@@ -487,6 +487,28 @@ test("Audit: missing enchants and empty sockets", function()
 	eq(ns.Gear_WornSlot("c", { [1] = { link = "a" } }), nil)
 end)
 
+test("AuditList: one entry per slot with a problem, in slot order", function()
+	local e = {
+		[11] = { equipLoc = "INVTYPE_FINGER", enchanted = false, sockets = 2, gems = 0, link = "ring" },
+		[2] = { equipLoc = "INVTYPE_NECK", enchanted = false, sockets = 1, gems = 0, link = "neck" },
+		[3] = { equipLoc = "INVTYPE_SHOULDER", enchanted = true, link = "shoulder" },
+		[9] = { equipLoc = "INVTYPE_WRIST", enchanted = true, sockets = 1, gems = 1, link = "wrist" },
+	}
+	local list = ns.Gear_AuditList(e)
+	eq(#list, 2)
+	eq(list[1].slot, 2)
+	eq(list[1].enchant, false, "neck takes no enchant")
+	eq(list[1].empty, 1)
+	eq(list[1].link, "neck")
+	eq(list[2].slot, 11)
+	eq(list[2].enchant, true)
+	eq(list[2].empty, 2)
+	eq(ns.Gear_AuditEntryText(list[2]), "Not enchanted, 2 empty sockets")
+	eq(ns.Gear_AuditEntryText({ enchant = true, empty = 0 }), "Not enchanted")
+	eq(ns.Gear_AuditEntryText({ enchant = false, empty = 1 }), "1 empty socket")
+	eq(#ns.Gear_AuditList({}), 0)
+end)
+
 test("Scales: weights for BM, MM, Prot; gem lists", function()
 	for _, id in ipairs({ 253, 254, 66 }) do
 		local scale = ns.Gear_Scales.specs[id]

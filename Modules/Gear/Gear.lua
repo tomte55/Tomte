@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Gear Check: an upgrade verdict on item tooltips (and Baganator's upgrade arrows) that only says "upgrade" when
 -- nothing it can't value is at stake: set bonuses, embellishments, effects and unique limits are checked, and
 -- items whose value is an effect are sent to a sim instead of guessed. Rules in Data.lua, advice (weights source,
--- gems, enchants, off-spec) in Advice.lua, built-in weights and gem IDs in Scales.lua, item reading in Items.lua.
+-- gems, enchants, off-spec) in Advice.lua, built-in weights and gem IDs in Scales.lua, item reading in Items.lua,
+-- the character sheet button and panel in Sheet.lua.
 -- Weights: imported Pawn string per character and spec > built-in for the spec > primary 1 / secondaries 0.5.
 
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
@@ -280,12 +281,14 @@ end
 function events:PLAYER_EQUIPMENT_CHANGED()
 	ns.GearItems_InvalidateEquipped()
 	RefreshBags()
+	ns.GearSheet_Refresh()
 end
 
 function events:PLAYER_SPECIALIZATION_CHANGED(unit)
 	if unit == "player" then
 		RefreshBags()
 		WeightsHint()
+		ns.GearSheet_Refresh()
 	end
 end
 
@@ -296,6 +299,7 @@ end
 function events:PLAYER_LEVEL_UP()
 	ns.GearItems_ClearCache()
 	RefreshBags()
+	ns.GearSheet_Refresh()
 end
 
 function events:GET_ITEM_INFO_RECEIVED()
@@ -305,6 +309,7 @@ end
 ns.GearItems_OnReady = function()
 	if module.active then
 		RefreshBags()
+		ns.GearSheet_Refresh()
 	end
 end
 
@@ -370,6 +375,7 @@ local function ClearWeights()
 		local after = scales.specs[ctx.spec.id] and "the built-in weights" or "item level"
 		ns.Print(("Gear Check: imported weights for %s cleared, back to %s."):format(ctx.spec.name, after))
 		RefreshBags()
+		ns.GearSheet_Refresh()
 	end
 end
 
@@ -390,6 +396,7 @@ local function Import(text)
 	CharWeights()[ctx.spec.id] = { name = parsed.name, weights = parsed.weights }
 	ns.Print(("Gear Check: imported \"%s\" for %s."):format(parsed.name, ctx.spec.name))
 	RefreshBags()
+	ns.GearSheet_Refresh()
 	return nil
 end
 
@@ -484,6 +491,12 @@ local function Command(fn)
 	end
 end
 
+-- For the character sheet panel (Sheet.lua).
+ns.Gear_Context = Context
+ns.Gear_OpenImport = OpenImport
+ns.Gear_ClearWeights = ClearWeights
+ns.Gear_PrintSimSteps = PrintSimSteps
+
 ---------------------------------------------------------------------------------------------------------------
 
 local function Start()
@@ -506,6 +519,7 @@ local function Start()
 	end
 	ns.GearItems_InvalidateEquipped()
 	RefreshBags()
+	ns.GearSheet_Init()
 	C_Timer.After(ns.inWorld and 0 or 8, WeightsHint) -- at login, after the chat flood
 end
 
@@ -515,6 +529,7 @@ local function Stop()
 		dialog:Hide()
 	end
 	RefreshBags()
+	ns.GearSheet_Refresh()
 end
 
 module = ns.RegisterModule({
@@ -537,9 +552,12 @@ module = ns.RegisterModule({
 		enchantHints = true,
 		weights = {}, -- [playerGUID][specID] = { name, weights = { AGI = 1, ... } }
 		hinted = {}, -- [specID] = which built-in weights hint was shown ("builtin" or "stale:<season>")
+		sheetButton = true,
+		sheetOpen = false, -- the panel next to the character sheet
 	},
 	init = function(moduleDB)
 		db = moduleDB
+		ns.gearDB = moduleDB
 	end,
 	toggle = function(active)
 		if active then
@@ -573,6 +591,10 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "enchantHints", label = "Missing enchants",
 			tooltip = "\"Not enchanted\" on worn items that take an enchant, and a chat line when you open the "
 				.. "character pane and something is missing." },
+		{ type = "checkbox", key = "sheetButton", label = "Button on the character sheet", onChange = function()
+			ns.GearSheet_Refresh()
+		end, tooltip = "A Gear button under the trinkets that opens a panel with your stat weights, best gem and "
+			.. "missing enchants and sockets." },
 		{ type = "header", label = "Bags" },
 		{ type = "checkbox", key = "baganator", label = "Mark upgrades in Baganator", onChange = RefreshBags,
 			tooltip = "Only clean upgrades get the arrow. In Baganator's settings (Icons), pick \"Tomte Gear Check\" "
@@ -589,3 +611,4 @@ module = ns.RegisterModule({
 			tooltip = "Prints the Raidbots Top Gear steps in chat." },
 	},
 })
+ns.gearModule = module

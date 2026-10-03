@@ -56,6 +56,7 @@ Modules/Gear/Data.lua
 Modules/Gear/Advice.lua
 Modules/Gear/Scales.lua
 Modules/Gear/Items.lua
+Modules/Gear/Sheet.lua
 Modules/Gear/Gear.lua
 Modules/Achievements/Data.lua
 Modules/Achievements/Rewards.lua

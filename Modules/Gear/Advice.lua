@@ -5,10 +5,11 @@ local addonName, ns = ...
 -- list live in Scales.lua.
 
 local GEM_SLACK = 0.05 -- a socketed gem this much below the best one is fine (weights aren't that precise)
-local STAT_LABELS = {
+local STAT_LABELS = { -- also ns.GEAR_STAT_LABELS (Sheet.lua)
 	CRIT = "Crit", HASTE = "Haste", MASTERY = "Mastery", VERS = "Versatility", STA = "Stamina",
 	STR = "Strength", AGI = "Agility", INT = "Intellect",
 }
+ns.GEAR_STAT_LABELS = STAT_LABELS
 
 ---------------------------------------------------------------------------------------------------------------
 -- Weights
@@ -155,6 +156,34 @@ function ns.Gear_Audit(equipped)
 		result.sockets = result.sockets + math.max((desc.sockets or 0) - (desc.gems or 0), 0)
 	end
 	return result
+end
+
+-- Worn items with something missing, in slot order: { slot, link, enchant = missing enchant, empty = empty sockets }.
+function ns.Gear_AuditList(equipped)
+	local list = {}
+	for slot, desc in pairs(equipped) do
+		local enchant = ns.Gear_MissingEnchant(slot, desc)
+		local empty = math.max((desc.sockets or 0) - (desc.gems or 0), 0)
+		if enchant or empty > 0 then
+			list[#list + 1] = { slot = slot, link = desc.link, enchant = enchant, empty = empty }
+		end
+	end
+	table.sort(list, function(a, b)
+		return a.slot < b.slot
+	end)
+	return list
+end
+
+-- "Not enchanted, 2 empty sockets" for one AuditList entry.
+function ns.Gear_AuditEntryText(entry)
+	local parts = {}
+	if entry.enchant then
+		parts[#parts + 1] = "Not enchanted"
+	end
+	if entry.empty > 0 then
+		parts[#parts + 1] = ("%d empty socket%s"):format(entry.empty, entry.empty == 1 and "" or "s")
+	end
+	return table.concat(parts, ", ")
 end
 
 -- "Gear: 2 missing enchants, 1 empty socket", or nil when nothing is missing.
