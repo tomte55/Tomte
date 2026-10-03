@@ -67,6 +67,25 @@ strings agree to within a few hundredths.
 - In practice this means BM ↔ MM. Prot Paladin's other specs have no weights, so they're skipped.
 - Option: `offspec` (on).
 
+## Rank on worn items (added after the first in-game test)
+
+Pawn's "Beast Mastery: your best" line on worn items, by our own score.
+
+- **Shown on:** worn items only. One line for the current spec, plus one for each other spec with weights (and
+  only when that spec can use the item).
+- **Compared against:** the other worn ring (for rings) and the gear in bags 0-4. The bank isn't included.
+- **Peers** must fit the same slot and be usable by the spec (armor type, main stat, spec list). For weapons, they
+  must be the same kind (bow against bow). Trinkets and items with effects are never ranked and never count as
+  peers, since their value is the effect.
+- **Lines:**
+  - "<Spec>: your best" (green).
+  - "<Spec>: your second best" (green, rings only).
+  - "<Spec>: bag has better (<name>)" (orange) otherwise.
+- **Score:** the same as the verdict's (weights, gems, best-gem value for empty sockets). Set bonuses and unique
+  limits aren't considered.
+- **Bag list:** cached, and rebuilt on `BAG_UPDATE_DELAYED`.
+- Option: `rank` (on).
+
 ## Gems
 
 - `Scales.lua` lists the **16 Flawless rank-2 gems** (240888–240918, even IDs; Peridot = Haste, Amethyst =

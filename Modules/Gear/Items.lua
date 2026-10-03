@@ -15,8 +15,11 @@ local EQUIP_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 }
 local MAX_CACHE = 1000
 local EFFECT_CHARS = 60
 
+local BAGS = { 0, 1, 2, 3, 4 } -- backpack and the four bags (gear never goes in the reagent bag)
+
 local cache, cacheSize = {}, 0
 local equipped -- slot -> descriptor; nil when it has to be rebuilt
+local bagGear -- descriptors of the gear in the bags; nil when it has to be rebuilt
 local waiting = false -- something we asked for hasn't loaded yet
 
 local function Secret(v)
@@ -189,11 +192,42 @@ function ns.GearItems_InvalidateEquipped()
 	equipped = nil
 end
 
+-- Descriptors of the equippable items in the bags. Items still loading are left out until they arrive.
+function ns.GearItems_BagGear()
+	if bagGear then
+		return bagGear
+	end
+	local list, complete = {}, true
+	for _, bag in ipairs(BAGS) do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+			local link = C_Container.GetContainerItemLink(bag, slot)
+			local equipLoc = link and select(4, C_Item.GetItemInfoInstant(link))
+			if equipLoc and ns.Gear_Slots(equipLoc) then
+				local desc = ns.GearItems_Describe(link)
+				if desc then
+					list[#list + 1] = desc
+				else
+					complete = false
+				end
+			end
+		end
+	end
+	if complete then
+		bagGear = list
+	end
+	return list
+end
+
+function ns.GearItems_InvalidateBags()
+	bagGear = nil
+end
+
 -- After a level up, red "Requires level" lines change.
 function ns.GearItems_ClearCache()
 	wipe(cache)
 	cacheSize = 0
 	equipped = nil
+	bagGear = nil
 end
 
 -- GET_ITEM_INFO_RECEIVED: tell Gear.lua once (it refreshes bag arrows), shortly after the burst ends.

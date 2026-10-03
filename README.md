@@ -24,7 +24,7 @@ size and position.
 | Mentions | Social | A toast when someone says your name or a keyword in guild, group, say or channel chat. |
 | Friends Online | Social | Who's online at login, and toasts when friends (or watched people and guildmates) come online. |
 | Group Alerts | Social | Invites, queue pops, ready checks and summons: a repeating sound on the Master channel until answered, plus a taskbar flash for summons. |
-| Gear Check | Gear | Upgrade verdict on item tooltips that checks what Pawn ignores: armor type and main stat, tier set count (and catalyst), lost embellishments and effects, unique limits, upgrade track. Trinkets and items with effects say "sim it" instead of guessing. Built-in stat weights for BM/MM Hunter and Prot Paladin (Raidbots import overrides), upgrades for your other spec, best gem for empty sockets, missing enchants. Marks clean upgrades in Baganator. Replaces Pawn. |
+| Gear Check | Gear | Upgrade verdict on item tooltips that checks what Pawn ignores: armor type and main stat, tier set count (and catalyst), lost embellishments and effects, unique limits, upgrade track. Trinkets and items with effects say "sim it" instead of guessing. Built-in stat weights for BM/MM Hunter and Prot Paladin (Raidbots import overrides), upgrades for your other spec, "your best" rank on worn items, best gem for empty sockets, missing enchants. Marks clean upgrades in Baganator. Replaces Pawn. |
 
 Cinematics never lock your controls: any key or click ends them.
 

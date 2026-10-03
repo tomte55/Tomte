@@ -70,6 +70,7 @@ local function ContextFor(spec)
 		label = label,
 		noWeights = source == "none",
 		armorSubclass = ns.Gear_ArmorForClass(classToken),
+		specID = spec.id,
 		best = best,
 		bestValue = bestValue,
 		gemValue = best and bestValue or nil,
@@ -146,6 +147,33 @@ local function OnItem(tooltip, data)
 	end
 
 	local worn = ns.Gear_WornSlot(link, equipped)
+	if db.rank and worn and ns.Gear_Rankable(cand) then
+		local pair = cand.equipLoc == "INVTYPE_FINGER" and 2 or 1 -- trinkets aren't ranked
+		local others = {}
+		local partner = pair == 2 and equipped[worn == 11 and 12 or 11]
+		if partner then
+			others[1] = partner
+		end
+		local bag = ns.GearItems_BagGear()
+		local specs = { ctx.spec }
+		for _, other in ipairs(OtherSpecs(ctx.spec)) do
+			specs[#specs + 1] = other
+		end
+		for i, spec in ipairs(specs) do
+			local sctx = i == 1 and ctx or ContextFor(spec)
+			if sctx and (i == 1 or sctx.source ~= "none") and not ns.Gear_Unusable(cand, sctx) then
+				local function Score(d)
+					return ns.Gear_Score(d, sctx.weights, sctx.primary, sctx.gemValue)
+				end
+				local rank, better = ns.Gear_Rank(cand, worn, others, bag, sctx, Score)
+				local betterName = better and C_Item.GetItemNameByID(better.itemID)
+				local text, color = ns.Gear_RankLine(spec.name, rank, pair, betterName)
+				if text then
+					Add(text, color)
+				end
+			end
+		end
+	end
 	if db.offspec and not worn then
 		for _, other in ipairs(OtherSpecs(ctx.spec)) do
 			local octx = ContextFor(other)
@@ -259,6 +287,10 @@ function events:PLAYER_SPECIALIZATION_CHANGED(unit)
 		RefreshBags()
 		WeightsHint()
 	end
+end
+
+function events:BAG_UPDATE_DELAYED()
+	ns.GearItems_InvalidateBags()
 end
 
 function events:PLAYER_LEVEL_UP()
@@ -459,6 +491,8 @@ local function Start()
 	events:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 	events:RegisterEvent("PLAYER_LEVEL_UP")
 	events:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+	events:RegisterEvent("BAG_UPDATE_DELAYED")
+	ns.GearItems_InvalidateBags()
 	if not module.tooltipHooked then
 		module.tooltipHooked = true -- post-calls can't be removed; OnItem checks module.active
 		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, OnItem)
@@ -498,6 +532,7 @@ module = ns.RegisterModule({
 		compareTooltips = false,
 		baganator = true,
 		offspec = true,
+		rank = true,
 		gemHints = true,
 		enchantHints = true,
 		weights = {}, -- [playerGUID][specID] = { name, weights = { AGI = 1, ... } }
@@ -529,6 +564,9 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "offspec", label = "Upgrades for your other specs",
 			tooltip = "\"Also an upgrade for Marksmanship +4%\" when an item is a clean upgrade for another spec "
 				.. "with weights (imported or built-in)." },
+		{ type = "checkbox", key = "rank", label = "Rank on worn items",
+			tooltip = "On items you wear: \"your best\" or \"your second best\" (rings) against your bags, per spec "
+				.. "with weights, or \"bag has better\". Stats only, so trinkets and items with effects aren't ranked." },
 		{ type = "checkbox", key = "gemHints", label = "Gem advice",
 			tooltip = "The best gem for empty sockets under your weights, and a hint on your worn items when a "
 				.. "socketed gem is clearly worse." },

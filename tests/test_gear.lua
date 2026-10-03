@@ -522,5 +522,60 @@ test("Evaluate: best-gem value for empty sockets when given", function()
 	eq(v.kind, "upgrade") -- 150 + 20 vs 150
 end)
 
+test("Rank: rings best / second best / bag has better", function()
+	local ctx = { primary = "AGI", armorSubclass = 3, specID = 253 }
+	local score = function(d)
+		return ns.Gear_Score(d, CTX.weights, "AGI", 0)
+	end
+	local r1 = item("INVTYPE_FINGER", nil, 200)
+	local r2 = item("INVTYPE_FINGER", nil, 150)
+	local rank = ns.Gear_Rank(r1, 11, { r2 }, {}, ctx, score)
+	eq(rank, 1)
+	rank = ns.Gear_Rank(r2, 12, { r1 }, {}, ctx, score)
+	eq(rank, 2)
+	local bagRing = item("INVTYPE_FINGER", nil, 180)
+	local better
+	rank, better = ns.Gear_Rank(r2, 12, { r1 }, { bagRing, item("INVTYPE_HEAD", 100, 999) }, ctx, score)
+	eq(rank, 3)
+	eq(better, bagRing)
+	-- Effect items, trinkets and things the spec can't use don't count.
+	local fx = item("INVTYPE_FINGER", nil, 900, { effect = "Equip: stuff" })
+	local cloth = item("INVTYPE_HEAD", 100, 999, { subclassID = 1 })
+	local str = item("INVTYPE_FINGER", nil, 900, { specs = { [71] = true } })
+	rank = ns.Gear_Rank(r1, 11, { r2 }, { fx, str }, ctx, score)
+	eq(rank, 1)
+	local head = item("INVTYPE_HEAD", 100, 100)
+	eq(ns.Gear_Rank(head, 1, {}, { cloth }, ctx, score), 1)
+	eq(ns.Gear_Rankable(item("INVTYPE_TRINKET", 100)), false)
+end)
+
+test("Rank: weapons only against the same kind", function()
+	local ctx = { primary = "AGI", armorSubclass = 3 }
+	local score = function(d)
+		return ns.Gear_Score(d, CTX.weights, "AGI", 0)
+	end
+	local bow = item("INVTYPE_RANGED", 100, 100, { classID = 2 })
+	local bigger2h = item("INVTYPE_2HWEAPON", 300, 300, { classID = 2 })
+	local betterBow = item("INVTYPE_RANGED", 120, 100, { classID = 2 })
+	eq(ns.Gear_Rank(bow, 16, {}, { bigger2h }, ctx, score), 1)
+	eq(ns.Gear_Rank(bow, 16, {}, { betterBow }, ctx, score), 2)
+end)
+
+test("RankLine", function()
+	eq(ns.Gear_RankLine("Beast Mastery", 1, 2), "Beast Mastery: your best")
+	eq(ns.Gear_RankLine("Beast Mastery", 2, 2), "Beast Mastery: your second best")
+	eq(ns.Gear_RankLine("Beast Mastery", 2, 1, "Bow"), "Beast Mastery: bag has better (Bow)")
+	eq(select(2, ns.Gear_RankLine("Beast Mastery", 3, 2, "Ring")), "orange")
+	eq(ns.Gear_RankLine("Beast Mastery", 2, 1, nil), nil)
+end)
+
+test("Unusable: armor, main stat, spec", function()
+	local ctx = { primary = "AGI", armorSubclass = 3, specID = 253 }
+	eq(ns.Gear_Unusable(item("INVTYPE_HEAD", 100, 1), ctx), nil)
+	eq(ns.Gear_Unusable(item("INVTYPE_HEAD", 100, 1, { subclassID = 4 }), ctx), "wrong armor type (Plate)")
+	eq(ns.Gear_Unusable(item("INVTYPE_FINGER", nil, 1, { specs = { [254] = true } }), ctx), "not for your spec")
+	eq(ns.Gear_Unusable(item("INVTYPE_FINGER", nil, 1, { redText = "Requires level 90" }), ctx), "Requires level 90")
+end)
+
 print(failures == 0 and "all passed" or (failures .. " failed"))
 os.exit(failures == 0 and 0 or 1)

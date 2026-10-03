@@ -173,6 +173,71 @@ function ns.Gear_AuditText(audit)
 end
 
 ---------------------------------------------------------------------------------------------------------------
+-- Rank of a worn item ("your best", "your second best", "bag has better")
+
+-- Whether an item gets ranked at all: trinkets and items with effects are valued by their effect, not stats.
+function ns.Gear_Rankable(desc)
+	return desc.equipLoc ~= "INVTYPE_TRINKET" and not desc.effect
+end
+
+-- Whether item can take the worn item's place: fits that slot (weapons: same kind), usable by the spec, rankable.
+function ns.Gear_RankPeer(item, worn, slot, ctx)
+	if item.link == worn.link or not ns.Gear_Rankable(item) then
+		return false
+	end
+	if slot == 16 or slot == 17 then
+		if item.equipLoc ~= worn.equipLoc then
+			return false
+		end
+	else
+		local fits = false
+		for _, s in ipairs(ns.Gear_Slots(item.equipLoc) or {}) do
+			fits = fits or s == slot
+		end
+		if not fits then
+			return false
+		end
+	end
+	return ns.Gear_Unusable(item, ctx) == nil
+end
+
+-- worn: the worn item in slot. others: the other worn item of the pair (rings) or nil. bag: bag items.
+-- Returns rank (1 = best) and the best bag item that beats the worn one (or nil).
+function ns.Gear_Rank(worn, slot, others, bag, ctx, score)
+	local mine, rank = score(worn), 1
+	local better, betterScore
+	for _, item in ipairs(others) do
+		if ns.Gear_RankPeer(item, worn, slot, ctx) and score(item) > mine then
+			rank = rank + 1
+		end
+	end
+	for _, item in ipairs(bag) do
+		if ns.Gear_RankPeer(item, worn, slot, ctx) then
+			local value = score(item)
+			if value > mine then
+				rank = rank + 1
+				if not betterScore or value > betterScore then
+					better, betterScore = item, value
+				end
+			end
+		end
+	end
+	return rank, better
+end
+
+-- pairSize: 2 for rings, else 1. betterName: the bag item that beats it. Returns text, color key (or nil).
+function ns.Gear_RankLine(specName, rank, pairSize, betterName)
+	if rank == 1 then
+		return specName .. ": your best", "green"
+	elseif rank == 2 and pairSize == 2 then
+		return specName .. ": your second best", "green"
+	elseif betterName then
+		return ("%s: bag has better (%s)"):format(specName, betterName), "orange"
+	end
+	return nil
+end
+
+---------------------------------------------------------------------------------------------------------------
 -- Off-spec
 
 -- "Also an upgrade for Marksmanship +4.0%", only for a plain upgrade (an empty slot says nothing about the spec).

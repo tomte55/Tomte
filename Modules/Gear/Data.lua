@@ -355,6 +355,25 @@ local function NotForYou(why)
 	return { kind = "notForYou", why = why, reasons = {} }
 end
 
+-- Why the spec in ctx can't use an item, or nil. ctx.specOK (set by the caller) or ctx.specID against cand.specs.
+function ns.Gear_Unusable(cand, ctx)
+	if cand.redText then
+		return cand.redText
+	end
+	if cand.classID == ARMOR_CLASS_ID and ARMOR_LOCS[cand.equipLoc] and ARMOR_NAMES[cand.subclassID or 0]
+		and ctx.armorSubclass and cand.subclassID ~= ctx.armorSubclass then
+		return "wrong armor type (" .. ARMOR_NAMES[cand.subclassID] .. ")"
+	end
+	local primaries = cand.stats and cand.stats.PRIMARY
+	if primaries and next(primaries) and not primaries[ctx.primary] then
+		return "wrong main stat"
+	end
+	if ctx.specOK == false or (cand.specs and ctx.specID and not cand.specs[ctx.specID]) then
+		return "not for your spec"
+	end
+	return nil
+end
+
 -- ctx: { primary = "AGI", weights, noWeights, armorSubclass, specOK, gemValue (best gem's value; else the
 -- average of the gems worn) }
 function ns.Gear_Evaluate(cand, equipped, ctx)
@@ -366,19 +385,9 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 	if not SLOTS[cand.equipLoc] then
 		return nil
 	end
-	if cand.redText then
-		return NotForYou(cand.redText)
-	end
-	if cand.classID == ARMOR_CLASS_ID and ARMOR_LOCS[cand.equipLoc] and ARMOR_NAMES[cand.subclassID or 0]
-		and ctx.armorSubclass and cand.subclassID ~= ctx.armorSubclass then
-		return NotForYou("wrong armor type (" .. ARMOR_NAMES[cand.subclassID] .. ")")
-	end
-	local primaries = cand.stats and cand.stats.PRIMARY
-	if primaries and next(primaries) and not primaries[ctx.primary] then
-		return NotForYou("wrong main stat")
-	end
-	if ctx.specOK == false then
-		return NotForYou("not for your spec")
+	local why = ns.Gear_Unusable(cand, ctx)
+	if why then
+		return NotForYou(why)
 	end
 
 	local target = ns.Gear_Target(cand, equipped)
