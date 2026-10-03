@@ -1,6 +1,8 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_gear.lua
 local ns = {}
 assert(loadfile("Tomte/Modules/Gear/Data.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Modules/Gear/Advice.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Modules/Gear/Scales.lua"))("Tomte", ns)
 
 local failures = 0
 local function test(name, fn)
@@ -351,6 +353,173 @@ test("Headlines say what to do", function()
 	eq((ns.Gear_Headline({ kind = "notForYou", why = "wrong main stat" })), "Not for you: wrong main stat")
 	local _, color = ns.Gear_Headline({ kind = "simIt", pct = -1.5 })
 	eq(color, "orange")
+end)
+
+-------------------------------------------------------------------------------------------------- advice
+
+test("ResolveWeights: imported > built-in > fallback", function()
+	local builtin = { weights = { AGI = 1, HASTE = 0.8 }, label = "guide" }
+	local saved = { name = "Raidbots", weights = { AGI = 1, CRIT = 0.9 } }
+	local w, source, label = ns.Gear_ResolveWeights(saved, builtin, "AGI")
+	eq(source, "imported")
+	eq(label, "Raidbots")
+	eq(w.CRIT, 0.9)
+	w, source = ns.Gear_ResolveWeights(nil, builtin, "AGI")
+	eq(source, "builtin")
+	eq(w.HASTE, 0.8)
+	w, source = ns.Gear_ResolveWeights(nil, nil, "STR")
+	eq(source, "none")
+	eq(w.STR, 1)
+	eq(w.HASTE, 0.5)
+end)
+
+test("WeightsHint: once for built-in, again when the season moves on", function()
+	local b = { season = 1 }
+	local kind, seen = ns.Gear_WeightsHint("builtin", b, nil, 1)
+	eq(kind, "builtin")
+	eq(ns.Gear_WeightsHint("builtin", b, seen, 1), nil)
+	kind, seen = ns.Gear_WeightsHint("builtin", b, seen, 2)
+	eq(kind, "stale")
+	eq(seen, "stale:2")
+	eq(ns.Gear_WeightsHint("builtin", b, seen, 2), nil)
+	eq(select(1, ns.Gear_WeightsHint("builtin", b, seen, 3)), "stale")
+	-- Unknown season: only the first-time hint.
+	eq(ns.Gear_WeightsHint("builtin", b, nil, nil), "builtin")
+	eq(ns.Gear_WeightsHint("builtin", b, "builtin", nil), nil)
+	-- Imported or no weights: never.
+	eq(ns.Gear_WeightsHint("imported", b, nil, 2), nil)
+	eq(ns.Gear_WeightsHint("none", nil, nil, 2), nil)
+end)
+
+local GEMS = {
+	{ itemID = 1, name = "Crit Gem", stats = { CRIT = 10, VERS = 5 } },
+	{ itemID = 2, name = "Haste Gem", stats = { HASTE = 10, MASTERY = 5 } },
+	{ itemID = 3, name = "Agi Gem", stats = { PRIMARY = { AGI = 6 } } },
+}
+
+test("BestGem: highest value under the weights", function()
+	local best, value = ns.Gear_BestGem(GEMS, { AGI = 1, HASTE = 0.9, MASTERY = 0.6, CRIT = 0.5, VERS = 0.4 }, "AGI")
+	eq(best.name, "Haste Gem")
+	eq(value, 12)
+	best = ns.Gear_BestGem(GEMS, { AGI = 1, CRIT = 1, VERS = 1 }, "AGI")
+	eq(best.name, "Crit Gem")
+	best = ns.Gear_BestGem(GEMS, { STR = 3 }, "STR") -- nothing scores: no advice
+	eq(best, nil)
+	eq(ns.Gear_BestGem({}, { AGI = 1 }, "AGI"), nil)
+end)
+
+test("StatLabel: largest first", function()
+	eq(ns.Gear_StatLabel({ MASTERY = 5, HASTE = 10 }), "Haste, Mastery")
+	eq(ns.Gear_StatLabel({ PRIMARY = { AGI = 6 } }), "Agility")
+end)
+
+test("GemLines: empty sockets and worse gems on worn items", function()
+	local w = { AGI = 1, HASTE = 1, MASTERY = 0.5, CRIT = 0.2, VERS = 0.2 }
+	local best, value = ns.Gear_BestGem(GEMS, w, "AGI")
+	local stats = function(id)
+		for _, g in ipairs(GEMS) do
+			if g.itemID == id then
+				return g.stats
+			end
+		end
+	end
+	local lines = ns.Gear_GemLines({ sockets = 2, gems = 1, gemIDs = { 1 } }, best, value, true, stats, w, "AGI")
+	eq(#lines, 2)
+	eq(lines[1], "Empty socket: best gem Haste Gem (Haste, Mastery)")
+	eq(lines[2], "Gem: Haste Gem is better for your spec")
+	-- Not worn: no gem nagging. Best gem socketed: nothing.
+	lines = ns.Gear_GemLines({ sockets = 1, gems = 1, gemIDs = { 1 } }, best, value, false, stats, w, "AGI")
+	eq(#lines, 0)
+	lines = ns.Gear_GemLines({ sockets = 2, gems = 2, gemIDs = { 2, 2 } }, best, value, true, stats, w, "AGI")
+	eq(#lines, 0)
+	lines = ns.Gear_GemLines({ sockets = 2, gems = 0, gemIDs = {} }, best, value, false, stats, w, "AGI")
+	eq(lines[1], "2 empty sockets: best gem Haste Gem (Haste, Mastery)")
+	-- Unloaded gem: no claim. Within the slack: fine.
+	lines = ns.Gear_GemLines({ sockets = 1, gems = 1, gemIDs = { 99 } }, best, value, true, stats, w, "AGI")
+	eq(#lines, 0)
+	local close = { HASTE = 9.8, MASTERY = 5 }
+	lines = ns.Gear_GemLines({ sockets = 1, gems = 1, gemIDs = { 7 } }, best, value, true, function()
+		return close
+	end, w, "AGI")
+	eq(#lines, 0)
+	eq(#ns.Gear_GemLines({ sockets = 1, gems = 0 }, nil, 0, true, stats, w, "AGI"), 0)
+	lines = ns.Gear_GemLines({ sockets = 1, gems = 0 }, best, value, false, stats, w, "AGI", "Eversong Diamond")
+	eq(lines[2], "Or your one Eversong Diamond (sim which)")
+end)
+
+test("WearsGem", function()
+	local e = { [1] = { gemIDs = { 5 } }, [2] = {} }
+	eq(ns.Gear_WearsGem(e, { [5] = true }), true)
+	eq(ns.Gear_WearsGem(e, { [6] = true }), false)
+end)
+
+test("LinkGemIDs: socketed gems in order", function()
+	local ids = ns.Gear_LinkGemIDs("|cnIQ4:|Hitem:12345:7000:213:0:214:::::90|h[x]|h|r")
+	eq(#ids, 2)
+	eq(ids[1], 213)
+	eq(ids[2], 214)
+	eq(#ns.Gear_LinkGemIDs("|cnIQ4:|Hitem:12345::::::::90|h[x]|h|r"), 0)
+end)
+
+test("Enchant slots: off-hand only when it's a weapon", function()
+	eq(ns.Gear_EnchantSlot(1, "INVTYPE_HEAD"), true)
+	eq(ns.Gear_EnchantSlot(9, "INVTYPE_WRIST"), false)
+	eq(ns.Gear_EnchantSlot(17, "INVTYPE_WEAPON"), true)
+	eq(ns.Gear_EnchantSlot(17, "INVTYPE_SHIELD"), false)
+	eq(ns.Gear_EnchantSlot(17, "INVTYPE_HOLDABLE"), false)
+end)
+
+test("Audit: missing enchants and empty sockets", function()
+	local e = {
+		[1] = { equipLoc = "INVTYPE_HEAD", enchanted = false, sockets = 1, gems = 0 },
+		[3] = { equipLoc = "INVTYPE_SHOULDER", enchanted = true },
+		[9] = { equipLoc = "INVTYPE_WRIST", enchanted = false, sockets = 1, gems = 1 },
+		[11] = { equipLoc = "INVTYPE_FINGER", enchanted = false, sockets = 2, gems = 0 },
+		[17] = { equipLoc = "INVTYPE_SHIELD", enchanted = false },
+	}
+	local a = ns.Gear_Audit(e)
+	eq(a.enchants, 2)
+	eq(a.sockets, 3)
+	eq(ns.Gear_AuditText(a), "2 missing enchants, 3 empty sockets")
+	eq(ns.Gear_AuditText({ enchants = 1, sockets = 0 }), "1 missing enchant")
+	eq(ns.Gear_AuditText({ enchants = 0, sockets = 0 }), nil)
+	eq(ns.Gear_WornSlot("b", { [1] = { link = "a" }, [5] = { link = "b" } }), 5)
+	eq(ns.Gear_WornSlot("c", { [1] = { link = "a" } }), nil)
+end)
+
+test("Scales: weights for BM, MM, Prot; gem lists", function()
+	for _, id in ipairs({ 253, 254, 66 }) do
+		local scale = ns.Gear_Scales.specs[id]
+		assert(scale and scale.label, "scale " .. id)
+		local primary = 0
+		for key in pairs(scale.weights) do
+			if key == "AGI" or key == "STR" or key == "INT" then
+				primary = primary + 1
+			end
+		end
+		eq(primary, 1, "one primary for " .. id)
+	end
+	eq(#ns.Gear_Scales.gems, 16)
+	eq(#ns.Gear_Scales.diamonds, 8)
+end)
+
+test("OffspecLine: only plain upgrades", function()
+	eq(ns.Gear_OffspecLine("Marksmanship", { kind = "upgrade", pct = 4 }), "Also an upgrade for Marksmanship +4.0%")
+	eq(ns.Gear_OffspecLine("Marksmanship", { kind = "empty" }), nil)
+	eq(ns.Gear_OffspecLine("Marksmanship", { kind = "upgradeBut", pct = 4 }), nil)
+	eq(ns.Gear_OffspecLine("Marksmanship", nil), nil)
+end)
+
+test("Evaluate: best-gem value for empty sockets when given", function()
+	local e = gearset()
+	local cand = item("INVTYPE_HEAD", 100, 100, { sockets = 1 })
+	local ctx = {}
+	for k, v in pairs(CTX) do
+		ctx[k] = v
+	end
+	ctx.gemValue = 20
+	local v = ns.Gear_Evaluate(cand, e, ctx)
+	eq(v.kind, "upgrade") -- 150 + 20 vs 150
 end)
 
 print(failures == 0 and "all passed" or (failures .. " failed"))

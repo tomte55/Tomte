@@ -58,7 +58,7 @@ local function RowTooltip(row)
 		return
 	end
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-	GameTooltip:SetText(spec.label, 1, 1, 1)
+	GameTooltip:SetText(type(spec.label) == "function" and spec.label() or spec.label, 1, 1, 1)
 	GameTooltip:AddLine(spec.tooltip, nil, nil, nil, true)
 	GameTooltip:Show()
 end
@@ -202,7 +202,7 @@ function Factory.button()
 end
 
 function Setup.button(row, module, spec)
-	row.label:SetText(spec.label)
+	row.label:SetText(type(spec.label) == "function" and spec.label() or spec.label)
 	row.button.label:SetText(spec.text)
 end
 

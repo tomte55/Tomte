@@ -188,6 +188,7 @@ local function StatsScore(stats, weights, primary)
 	end
 	return total
 end
+ns.Gear_StatsScore = StatsScore
 
 -- Average value of one socketed gem, over everything equipped. 0 when no gems are known.
 function ns.Gear_GemValue(equipped, weights, primary)
@@ -222,6 +223,26 @@ function ns.Gear_LinkInfo(link)
 		end
 	end
 	return (tonumber(enchant) or 0) > 0, gems
+end
+
+-- Socketed gem item IDs from the item string, in socket order (fields 3-6).
+function ns.Gear_LinkGemIDs(link)
+	local ids = {}
+	local g1, g2, g3, g4 = (link or ""):match("item:%-?%d+:[^:|]*:([^:|]*):([^:|]*):([^:|]*):([^:|]*)")
+	for _, g in ipairs({ g1 or "", g2 or "", g3 or "", g4 or "" }) do
+		if (tonumber(g) or 0) > 0 then
+			ids[#ids + 1] = tonumber(g)
+		end
+	end
+	return ids
+end
+
+-- Whether what's worn in slot takes an enchant. The off-hand only when it's a weapon (not a shield or frill).
+function ns.Gear_EnchantSlot(slot, equipLoc)
+	if slot == 17 then
+		return OFFHAND_WEAPON[equipLoc] == true
+	end
+	return ENCHANT_SLOTS[slot] == true
 end
 
 -- "Unique-Equipped: Embellished (2)" -> { category = "Embellished", max = 2 }; "Unique-Equipped" -> max 1.
@@ -334,7 +355,8 @@ local function NotForYou(why)
 	return { kind = "notForYou", why = why, reasons = {} }
 end
 
--- ctx: { primary = "AGI", weights, noWeights, armorSubclass, specOK, isCombat }
+-- ctx: { primary = "AGI", weights, noWeights, armorSubclass, specOK, gemValue (best gem's value; else the
+-- average of the gems worn) }
 function ns.Gear_Evaluate(cand, equipped, ctx)
 	for _, desc in pairs(equipped) do
 		if SameItem(cand, desc) then
@@ -366,7 +388,7 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 	end
 
 	local weights, primary = ctx.weights, ctx.primary
-	local gemValue = ns.Gear_GemValue(equipped, weights, primary)
+	local gemValue = ctx.gemValue or ns.Gear_GemValue(equipped, weights, primary)
 	local function Score(desc)
 		return desc and ns.Gear_Score(desc, weights, primary, gemValue) or 0
 	end

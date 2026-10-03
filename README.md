@@ -24,7 +24,7 @@ size and position.
 | Mentions | Social | A toast when someone says your name or a keyword in guild, group, say or channel chat. |
 | Friends Online | Social | Who's online at login, and toasts when friends (or watched people and guildmates) come online. |
 | Group Alerts | Social | Invites, queue pops, ready checks and summons: a repeating sound on the Master channel until answered, plus a taskbar flash for summons. |
-| Gear Check | Gear | Upgrade verdict on item tooltips that checks what Pawn ignores: armor type and main stat, tier set count (and catalyst), lost embellishments and effects, unique limits, upgrade track. Trinkets and items with effects say "sim it" instead of guessing. Optional Raidbots stat weights; marks clean upgrades in Baganator. |
+| Gear Check | Gear | Upgrade verdict on item tooltips that checks what Pawn ignores: armor type and main stat, tier set count (and catalyst), lost embellishments and effects, unique limits, upgrade track. Trinkets and items with effects say "sim it" instead of guessing. Built-in stat weights for BM/MM Hunter and Prot Paladin (Raidbots import overrides), upgrades for your other spec, best gem for empty sockets, missing enchants. Marks clean upgrades in Baganator. Replaces Pawn. |
 
 Cinematics never lock your controls: any key or click ends them.
 
@@ -36,7 +36,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte moments preview mount` (or `levelup`, `zone`, `tame`, ...); add a tier for creatures: `/tomte moments preview mount legendary`
 - `/tomte afk preview`, `/tomte whispers inbox`, `/tomte hunter check`, `/tomte pet unlock`
 - `/tomte alerts test`
-- `/tomte gear sim` (how to check an item on Raidbots), `/tomte gear import` / `weights` / `clear`
+- `/tomte gear sim` (how to check an item on Raidbots), `/tomte gear import` / `weights` (source, best gem, season) / `clear`
 
 Key bindings for whisper reply and the whisper inbox are under **Tomte** in the game's Key Bindings menu.
 

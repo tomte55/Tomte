@@ -95,6 +95,7 @@ function ns.GearItems_Describe(link)
 		stats = ns.Gear_NormalizeStats(raw),
 		enchanted = enchanted,
 		gems = gems,
+		gemIDs = ns.Gear_LinkGemIDs(link),
 		sockets = C_Item.GetItemNumSockets(link) or 0,
 		setID = select(16, C_Item.GetItemInfo(link)),
 	}
@@ -120,6 +121,48 @@ function ns.GearItems_Describe(link)
 	cache[link] = desc
 	cacheSize = cacheSize + 1
 	return desc
+end
+
+-- Normalized stats of a gem, nil until it has loaded (and asks for it). GetItemStats first; gems it returns
+-- nothing for are read from their tooltip text ("+13 Haste", "+12 Haste and +5 Mastery").
+local gemStats = {}
+function ns.GearItems_GemStats(itemID)
+	if gemStats[itemID] then
+		return gemStats[itemID]
+	end
+	if not C_Item.IsItemDataCachedByID(itemID) then
+		C_Item.RequestLoadItemDataByID(itemID)
+		waiting = true
+		return nil
+	end
+	local stats = ns.Gear_NormalizeStats(C_Item.GetItemStats("item:" .. itemID))
+	if not next(stats) then
+		local data = C_TooltipInfo.GetItemByID(itemID)
+		for _, line in ipairs(data and data.lines or {}) do
+			local text = line.leftText
+			if text and not Secret(text) and text:find("^%+") then
+				ns.Gear_ParseStatText(text, stats)
+			end
+		end
+	end
+	if not next(stats) then
+		return nil
+	end
+	gemStats[itemID] = stats
+	return stats
+end
+
+-- The loaded gems out of a list of item IDs: { { itemID, name, stats } }.
+function ns.GearItems_Gems(ids)
+	local list = {}
+	for _, id in ipairs(ids or {}) do
+		local stats = ns.GearItems_GemStats(id)
+		local name = stats and C_Item.GetItemNameByID(id)
+		if name then
+			list[#list + 1] = { itemID = id, name = name, stats = stats }
+		end
+	end
+	return list
 end
 
 -- slot -> descriptor of everything worn; nil until every worn item is loaded.
