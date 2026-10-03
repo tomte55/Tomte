@@ -27,6 +27,8 @@ size and position.
 | Group Alerts | Social | Invites, queue pops, ready checks and summons: a repeating sound on the Master channel until answered, plus a taskbar flash for summons. |
 | Gear Check | Gear | Upgrade verdict on item tooltips that checks what Pawn ignores: armor type and main stat, tier set count (and catalyst), lost embellishments and effects, unique limits, upgrade track. Trinkets and items with effects say "sim it" instead of guessing. Built-in stat weights for BM/MM Hunter and Prot Paladin (Raidbots import overrides), upgrades for your other spec, "your best" rank on worn items, best gem for empty sockets, missing enchants. A Gear button on the character sheet opens a panel with the weights in use, the best gem and every worn item missing an enchant or gem. Marks clean upgrades in Baganator. Replaces Pawn. |
 | Almost Done | Achievements | Near-complete achievements in a list docked to the Achievements window: search, threshold, category/expansion/reward filters, reward icons (owned ones greyed out) with a model preview, and a meta browser. A Top 5 tracker (pins first) and toasts when something reaches the threshold, has one step left, or a pinned one moves. Replaces AlmostCompletedAchievements. |
+| Vendor Helper | Upkeep | At a vendor: repairs (guild funds first when the withdraw limit covers it) and sells grey items, then one summary toast. Hold Shift while opening the vendor to skip it. |
+| Durability | Upkeep | A toast when your worst item drops below a threshold (once per drop) or an item breaks, and a warning when you enter a dungeon, raid or delve with low gear. |
 
 Cinematics never lock your controls: any key or click ends them.
 
@@ -41,6 +43,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte gear sim` (how to check an item on Raidbots), `/tomte gear import` / `weights` (source, best gem, season) / `clear`
 - `/tomte way test` (pin ahead of you), `/tomte way clear`
 - `/tomte ach scan`, `/tomte ach tracker`, `/tomte ach lock` / `unlock`, `/tomte ach test`
+- `/tomte vendor last`, `/tomte dura list`
 
 Key bindings for whisper reply and the whisper inbox are under **Tomte** in the game's Key Bindings menu.
 
@@ -58,7 +61,7 @@ Tomte/
   Core/        saved variables, module registry, /tomte, FlightTimer migration
   Cinematic/   shared cinematic engine and banners
   Panel/       settings panel and widgets
-  Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements)
+  Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements, Upkeep)
   tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 docs/          design specs and implementation plans
 ```
