@@ -39,6 +39,9 @@ Modules/Hunter/Tooltips.lua
 Modules/Hunter/Checks.lua
 Modules/Hunter/StablePage.lua
 Modules/Hunter/Hunter.lua
+Modules/Combat/Data.lua
+Modules/Combat/UnitBar.lua
+Modules/Combat/PetHealth.lua
 Modules/Social/Data.lua
 Modules/Social/Toast.lua
 Modules/Social/Inbox.lua
