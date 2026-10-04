@@ -12,6 +12,7 @@ local MAX_DEPTH = 10
 
 local module, db, button
 local lastMount
+local nextMount -- the mountID the action bar macro shows; the next press takes it when it still suits
 local lastWhy -- details of the latest press, for /tomte mount why
 
 -- mapIDs from where you stand up to the world (zone, continent, ...), with their infos.
@@ -125,7 +126,9 @@ local function Tiers(stats)
 	return tiers
 end
 
-local function Choose()
+-- Picks a mount for where you are, taking `prefer` (the one the macro shows) when it suits. Returns the mount (or
+-- nil) and the details for /tomte mount why.
+local function Choose(prefer)
 	local context = ns.Mount_Context({
 		submerged = IsSubmerged(),
 		flyable = IsFlyableArea() or IsAdvancedFlyableArea(),
@@ -137,9 +140,9 @@ local function Choose()
 		preferGround = db.preferGround,
 		skyriding = skyriding,
 		avoid = db.noRepeat and lastMount or nil,
+		prefer = prefer,
 	}, math.random)
-	lastWhy = { context = context, skyriding = skyriding, source = source, stats = stats, mount = mount }
-	return mount
+	return mount, { context = context, skyriding = skyriding, source = source, stats = stats, mount = mount }
 end
 
 local function SetMacro(text)
@@ -203,7 +206,9 @@ local function PreClick(_, mouseButton)
 			lastWhy = { context = "G-99 (Shift or the \"normal mount\" key for a mount)", macro = "/cast " .. g99 }
 			return
 		end
-		local mount = Choose()
+		local mount
+		mount, lastWhy = Choose(nextMount)
+		nextMount = nil
 		if mount then
 			lastMount = mount.id
 			-- /cast by name, like a hand-made mount macro. The spell name, not the journal name: they can differ.
@@ -261,14 +266,107 @@ local function UpdateShiftBindings()
 	end
 end
 
+-- The action bar macro (/tomte mount macro): Tomte keeps its "#showtooltip <mount>" on what the key would summon,
+-- so the bar greys it out when you can't mount, like a mount spell on your bar. Only touched while the macro exists
+-- and out of combat (macros can't be edited in combat).
+local MACRO_NAME = "Smart Mount"
+local MACRO_ICON = 134400 -- the question mark: the icon then follows #showtooltip
+local MAX_GENERAL_MACROS = 120
+
+local function ActiveMountSpell()
+	for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
+		local _, spellID, _, isActive = C_MountJournal.GetMountInfoByID(mountID)
+		if isActive then
+			return C_Spell.GetSpellName(spellID)
+		end
+	end
+	return nil
+end
+
+-- The spell the macro shows: the mount you ride, the G-99, or the next pick (kept while it still suits).
+local function MacroSpell()
+	if IsMounted() then
+		return ActiveMountSpell()
+	end
+	local g99 = db.g99 and G99Spell()
+	if g99 then
+		return g99
+	end
+	local mount = Choose(nextMount)
+	nextMount = mount and mount.id
+	return mount and (C_Spell.GetSpellName(mount.spellID) or mount.name)
+end
+
+local function UpdateMacro()
+	if InCombatLockdown() or not module.active then
+		return
+	end
+	local index = GetMacroIndexByName(MACRO_NAME)
+	if index == 0 then
+		return
+	end
+	local spell = MacroSpell()
+	if not spell then -- nothing usable: the mount it shows is greyed out anyway
+		return
+	end
+	local body = ns.Mount_MacroBody(spell, BUTTON_NAME)
+	if GetMacroBody(index) ~= body then
+		EditMacro(index, nil, nil, body)
+	end
+end
+
+local macroQueued = false
+local function QueueMacroUpdate()
+	if macroQueued then
+		return
+	end
+	macroQueued = true
+	C_Timer.After(0.5, function()
+		macroQueued = false
+		UpdateMacro()
+	end)
+end
+
+local function MacroCommand()
+	if InCombatLockdown() then
+		ns.Print("macros can't be made in combat.")
+		return
+	end
+	if not module.active then
+		ns.Print("turn Smart Mount on first.")
+		return
+	end
+	if GetMacroIndexByName(MACRO_NAME) == 0 then
+		if GetNumMacros() >= MAX_GENERAL_MACROS then
+			ns.Print("your general macros are full, delete one first.")
+			return
+		end
+		CreateMacro(MACRO_NAME, MACRO_ICON, ns.Mount_MacroBody(nil, BUTTON_NAME))
+	end
+	UpdateMacro()
+	PickupMacro(MACRO_NAME)
+	ns.Print("drop the \"" .. MACRO_NAME .. "\" macro on your action bar. It's greyed out when you can't mount.")
+end
+
 events.UPDATE_BINDINGS = UpdateShiftBindings
-events.PLAYER_ENTERING_WORLD = UpdateShiftBindings
+
+function events:PLAYER_ENTERING_WORLD()
+	UpdateShiftBindings()
+	QueueMacroUpdate()
+end
 
 function events:PLAYER_REGEN_ENABLED()
 	if shiftPending then
 		UpdateShiftBindings()
 	end
+	QueueMacroUpdate()
 end
+
+events.ZONE_CHANGED = QueueMacroUpdate
+events.ZONE_CHANGED_INDOORS = QueueMacroUpdate
+events.ZONE_CHANGED_NEW_AREA = QueueMacroUpdate
+events.PLAYER_MOUNT_DISPLAY_CHANGED = QueueMacroUpdate
+events.MOUNT_JOURNAL_USABILITY_CHANGED = QueueMacroUpdate
 
 local function Why()
 	if not lastWhy then
@@ -321,7 +419,7 @@ module = ns.RegisterModule({
 	key = "mount",
 	name = "Smart Mount",
 	category = "Travel",
-	description = "One key (Key Bindings > Tomte > Smart Mount) that summons a mount that fits where you are: swimming, flying or ground, from your zone favorites, then your journal favorites. Pressed again it dismounts, leaves a vehicle or leaves travel form. Set zone favorites with the star in the Mount Journal.",
+	description = "One key (Key Bindings > Tomte > Smart Mount) that summons a mount that fits where you are: swimming, flying or ground, from your zone favorites, then your journal favorites. Pressed again it dismounts, leaves a vehicle or leaves travel form. Set zone favorites with the star in the Mount Journal. /tomte mount macro makes an action bar macro that does the same and is greyed out when you can't mount.",
 	enabledByDefault = true,
 	defaults = {
 		zones = {}, -- [mapID] = { mountID, ... }, account-wide like mounts
@@ -343,6 +441,12 @@ module = ns.RegisterModule({
 			events:RegisterEvent("PLAYER_REGEN_ENABLED")
 			events:RegisterEvent("UPDATE_BINDINGS")
 			events:RegisterEvent("PLAYER_ENTERING_WORLD")
+			events:RegisterEvent("ZONE_CHANGED")
+			events:RegisterEvent("ZONE_CHANGED_INDOORS")
+			events:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+			events:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+			events:RegisterEvent("MOUNT_JOURNAL_USABILITY_CHANGED")
+			QueueMacroUpdate()
 		else
 			events:UnregisterAllEvents()
 		end
@@ -355,6 +459,7 @@ module = ns.RegisterModule({
 	commands = {
 		{ "why", "context, pool and pick of your last press", Why },
 		{ "zone", "zone favorites where you stand", ZoneCommand },
+		{ "macro", "make the action bar macro (greyed out when you can't mount)", MacroCommand },
 	},
 	options = {
 		{ type = "header", label = "Picking" },

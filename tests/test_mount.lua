@@ -139,6 +139,20 @@ test("tiered: the last tier takes the best fallback", function()
 	eq(ns.Mount_PickTiered({ { source = "all", candidates = {} } }, "flying", {}, first), nil)
 end)
 
+test("pick: takes the preferred mount when it suits, ignores it otherwise", function()
+	local FLYER2 = { id = 6, flying = true }
+	eq(ns.Mount_Pick({ FLYER, FLYER2 }, "flying", { prefer = 6 }, first), FLYER2)
+	eq(ns.Mount_Pick({ GROUND, FLYER }, "flying", { prefer = 1 }, first), FLYER, "ground mount doesn't suit")
+	local tiers = { { source = "zone", candidates = { FLYER } }, { source = "all", candidates = { FLYER, FLYER2 } } }
+	eq(ns.Mount_PickTiered(tiers, "flying", { prefer = 6 }, first), FLYER, "an earlier tier still wins")
+end)
+
+test("macro body", function()
+	eq(ns.Mount_MacroBody("Swift Razorwing", "Btn"), "#showtooltip Swift Razorwing\n/click Btn LeftButton 1")
+	eq(ns.Mount_MacroBody(nil, "Btn"), "#showtooltip\n/click Btn LeftButton 1")
+	eq(ns.Mount_MacroBody(("x"):rep(300), "Btn"), "#showtooltip\n/click Btn LeftButton 1", "too long")
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)

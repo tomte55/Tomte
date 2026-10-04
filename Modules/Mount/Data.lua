@@ -133,8 +133,8 @@ local function Steps(context, opts)
 end
 
 -- candidates: usable mounts { id, flying, aquatic, swimOnly, steady }. opts = { preferGround, skyriding, avoid
--- (last mountID), strict (only a mount that suits the context, else nil) }. rand(n) -> 1..n. Returns the chosen
--- candidate or nil.
+-- (last mountID), prefer (mountID to take when it's in the pool: the one the macro shows), strict (only a mount
+-- that suits the context, else nil) }. rand(n) -> 1..n. Returns the chosen candidate or nil.
 function ns.Mount_Pick(candidates, context, opts, rand)
 	local steps, fit = Steps(context, opts)
 	local pool
@@ -156,6 +156,13 @@ function ns.Mount_Pick(candidates, context, opts, rand)
 	if #pool == 0 then
 		return nil
 	end
+	if opts.prefer then
+		for _, m in ipairs(pool) do
+			if m.id == opts.prefer then
+				return m
+			end
+		end
+	end
 	if opts.avoid and #pool > 1 then
 		pool = Filter(pool, function(m)
 			return m.id ~= opts.avoid
@@ -170,11 +177,23 @@ function ns.Mount_PickTiered(tiers, context, opts, rand)
 	for i, tier in ipairs(tiers) do
 		local last = i == #tiers
 		local mount = ns.Mount_Pick(tier.candidates, context, {
-			preferGround = opts.preferGround, skyriding = opts.skyriding, avoid = opts.avoid, strict = not last,
+			preferGround = opts.preferGround, skyriding = opts.skyriding, avoid = opts.avoid, prefer = opts.prefer,
+			strict = not last,
 		}, rand)
 		if mount then
 			return mount, tier.source
 		end
 	end
 	return nil
+end
+
+-- The action bar macro: #showtooltip makes the bar show that spell's icon, tooltip and usable/greyed state, and the
+-- /click presses the Smart Mount button (down, as the button only takes down clicks). Macros hold 255 characters.
+function ns.Mount_MacroBody(spell, buttonName)
+	local click = "/click " .. buttonName .. " LeftButton 1"
+	local body = spell and ("#showtooltip " .. spell .. "\n" .. click)
+	if not body or #body > 255 then
+		return "#showtooltip\n" .. click
+	end
+	return body
 end
