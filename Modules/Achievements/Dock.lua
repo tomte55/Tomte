@@ -291,7 +291,7 @@ local function SetListRow(row, record)
 	row.name:SetText(record.name)
 	local c = ignored and DIM or ((clicked and clicked.id == record.id) and GOLD or WHITE)
 	row.name:SetTextColor(c[1], c[2], c[3])
-	row.percent:SetText(("%d%%  %d/%d"):format(math.floor(record.percent), record.done, record.total))
+	row.percent:SetText(ns.Ach_ProgressText(record, "  "))
 	row.pin:SetShown(ns.Ach_IsPinned(record.id))
 	local info = ns.Ach_RewardInfo(record)
 	row.reward:SetShown(info ~= nil)
@@ -440,7 +440,7 @@ local function ChildExtra(child)
 		return "|cff80e080done|r"
 	end
 	if child.percent then
-		return ("%d%%  %d/%d"):format(math.floor(child.percent), child.done, child.total)
+		return ns.Ach_ProgressText(child, "  ")
 	end
 	return ""
 end

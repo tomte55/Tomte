@@ -40,7 +40,7 @@ local function ShowTooltip(row)
 		GameTooltip:SetPoint(vertical .. "RIGHT", row, vertical .. "LEFT", -16, 0)
 	end
 	GameTooltip:SetText(entry.name, GOLD[1], GOLD[2], GOLD[3])
-	GameTooltip:AddLine(("%d%%  -  %d/%d"):format(math.floor(entry.percent), entry.done, entry.total), 1, 1, 1)
+	GameTooltip:AddLine(ns.Ach_ProgressText(entry), 1, 1, 1)
 	if entry.last then
 		GameTooltip:AddLine("Left: " .. entry.last, 0.8, 0.8, 0.8, true)
 	end

@@ -212,9 +212,7 @@ end
 
 -- Toasts ------------------------------------------------------------------------------------------------------
 
-local function ProgressText(record)
-	return ("%d%%  -  %d/%d"):format(math.floor(record.percent), record.done, record.total)
-end
+local ProgressText = ns.Ach_ProgressText
 
 local function ToastText(kind, record)
 	if kind == "lastStep" then

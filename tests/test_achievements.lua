@@ -55,6 +55,23 @@ test("Percent caps a quantity above the requirement", function()
 	eq(ns.Ach_Percent({ crit("A", false, 12, 10) }), 100)
 end)
 
+test("Percent shows a single counted criterion as its quantity", function()
+	local percent, done, total, last, have, need = ns.Ach_Percent({ crit("", false, 198, 200) })
+	eq(percent, 99)
+	eq(done, 0)
+	eq(total, 1)
+	eq(last, nil, "unnamed criterion")
+	eq(have, 198)
+	eq(need, 200)
+	eq(ns.Ach_ProgressText({ percent = percent, have = have, need = need }), "99%  -  198/200")
+end)
+
+test("Percent shows criteria counts when there are several", function()
+	local _, _, _, _, have, need = ns.Ach_Percent({ crit("A", true), crit("B", false, 5, 10) })
+	eq(have, 1)
+	eq(need, 2)
+end)
+
 -- Milestones -----------------------------------------------------------------------------------------------
 
 local function state(percent, done, total)

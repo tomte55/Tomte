@@ -94,10 +94,10 @@ function ns.Ach_ReadAchievement(id)
 		return nil
 	end
 	local criteria = ns.Ach_ReadCriteria(id)
-	local percent, done, total, last = ns.Ach_Percent(criteria)
+	local percent, done, total, last, have, need = ns.Ach_Percent(criteria)
 	return { id = id, name = name, icon = icon, points = points, description = description,
 		completed = IsDone(completed, wasEarnedByMe), percent = percent, done = done, total = total, last = last,
-		reward = rewardText or "", criteria = criteria }
+		have = have, need = need, reward = rewardText or "", criteria = criteria }
 end
 
 local function AddMetaLinks(links, metaID, criteria)
@@ -128,14 +128,15 @@ local function BuildRecord(id, categoryID, pinned, links)
 	end
 	local criteria = ns.Ach_ReadCriteria(id)
 	AddMetaLinks(links, id, criteria)
-	local percent, done, total, last = ns.Ach_Percent(criteria)
+	local percent, done, total, last, have, need = ns.Ach_Percent(criteria)
 	if not percent or (percent <= 0 and not pinned) then
 		return nil, criteria
 	end
 	local cat = ns.Ach_CategoryInfo(categoryID)
 	return {
 		id = id, name = name, icon = icon, points = points, category = categoryID, catName = cat.name, top = cat.top,
-		expansion = cat.expansion or ns.Ach_MetaExpansion(id), percent = percent, done = done, total = total, last = last, reward = rewardText or "",
+		expansion = cat.expansion or ns.Ach_MetaExpansion(id), percent = percent, done = done, total = total, last = last,
+		have = have, need = need, reward = rewardText or "",
 	}, criteria
 end
 
@@ -267,7 +268,7 @@ local function Recalculate(id, pins)
 	else
 		watch[id] = nil
 	end
-	local changed = not old or old.percent ~= record.percent or old.done ~= record.done
+	local changed = not old or old.percent ~= record.percent or old.done ~= record.done or old.have ~= record.have
 	if not changed then
 		return false
 	end

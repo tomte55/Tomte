@@ -12,8 +12,9 @@ ns.ACH_EXPANSIONS = {
 ns.ACH_OTHER = "Other"
 
 -- criteria: list of { name, completed, quantity, required }. Every criterion counts equally: a completed one 1,
--- an incomplete one quantity / required. Returns percent (0-100), done, total and, when exactly one is left,
--- its name. nil when there are no criteria.
+-- an incomplete one quantity / required. Returns percent (0-100), done, total, the name of the one left (when
+-- exactly one is left and it has a name), and the count to show: have, need. That's done/total, except for a single
+-- counted criterion ("Complete 200 World Quests"), where it's its quantity/required. nil when there are no criteria.
 function ns.Ach_Percent(criteria)
 	if not criteria or #criteria == 0 then
 		return nil
@@ -32,7 +33,19 @@ function ns.Ach_Percent(criteria)
 			end
 		end
 	end
-	return sum / #criteria * 100, done, #criteria, left == 1 and last or nil
+	local have, need = done, #criteria
+	local only = criteria[1]
+	if #criteria == 1 and (only.required or 0) > 1 then
+		need = only.required
+		have = only.completed and need or math.min(only.quantity or 0, need)
+	end
+	return sum / #criteria * 100, done, #criteria, left == 1 and last ~= "" and last or nil, have, need
+end
+
+-- "99%  -  198/200" for a record carrying percent, have and need (falling back to done and total).
+function ns.Ach_ProgressText(record, sep)
+	return ("%d%%%s%d/%d"):format(math.floor(record.percent), sep or "  -  ", record.have or record.done,
+		record.need or record.total)
 end
 
 -- The strongest milestone between two states ({ percent, done, total }) of one achievement, or nil.

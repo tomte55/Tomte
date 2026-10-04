@@ -255,8 +255,8 @@ function ns.Collect_ReadProgress(entries)
 				table.remove(entries, i)
 				achIndex[e.id] = nil
 			else
-				local percent, done, total = ns.Ach_Percent(ns.Ach_ReadCriteria(e.id))
-				e.percent, e.done, e.total = percent or 0, done, total
+				local percent, _, _, _, have, need = ns.Ach_Percent(ns.Ach_ReadCriteria(e.id))
+				e.percent, e.done, e.total = percent or 0, have, need
 			end
 		end
 	end
