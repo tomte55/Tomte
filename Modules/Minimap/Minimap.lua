@@ -1,6 +1,7 @@
 local addonName, ns = ...
 
--- Minimap Button module: a round button on the minimap's edge that opens the panel. Drag it around the edge.
+-- Minimap Button module: a round button on the minimap's edge that opens the panel (right-click: the Weekly
+-- board's popup). Drag it around the edge.
 -- Looks like LibDBIcon's retail buttons (same Blizzard textures and sizes), without the library.
 -- Positioning maths is in Data.lua.
 
@@ -28,6 +29,9 @@ local function ShowTooltip(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	GameTooltip:SetText("Tomte", 1, 0.82, 0.45)
 	GameTooltip:AddLine("Click to open settings", 1, 1, 1)
+	if ns.Weekly_Active and ns.Weekly_Active() then
+		GameTooltip:AddLine("Right-click for this week's open items", 1, 1, 1)
+	end
 	GameTooltip:AddLine("Drag to move", 0.62, 0.62, 0.62)
 	GameTooltip:Show()
 end
@@ -39,7 +43,7 @@ local function Create()
 	button:SetFixedFrameStrata(true)
 	button:SetFrameLevel(8)
 	button:SetFixedFrameLevel(true)
-	button:RegisterForClicks("LeftButtonUp")
+	button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	button:RegisterForDrag("LeftButton")
 	button:SetHighlightTexture(136477) -- Interface\Minimap\UI-Minimap-ZoomButton-Highlight
 
@@ -60,7 +64,15 @@ local function Create()
 	border:SetSize(50, 50)
 	border:SetPoint("TOPLEFT")
 
-	button:SetScript("OnClick", ns.Panel_Toggle)
+	button:SetScript("OnClick", function(_, mouseButton)
+		if mouseButton == "RightButton" then
+			if ns.Weekly_TogglePopup then -- Weekly board (it ignores the click while turned off)
+				ns.Weekly_TogglePopup()
+			end
+		else
+			ns.Panel_Toggle()
+		end
+	end)
 	button:SetScript("OnEnter", ShowTooltip)
 	button:SetScript("OnLeave", function()
 		GameTooltip:Hide()

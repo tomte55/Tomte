@@ -14,7 +14,8 @@ size and position.
 
 | Module | Category | What it does |
 | --- | --- | --- |
-| Minimap Button | General | A button on the minimap's edge that opens the panel. Drag it to move it. |
+| Minimap Button | General | A button on the minimap's edge that opens the panel (right-click: the Weekly board popup). Drag it to move it. |
+| Weekly board | General | What you haven't done this week: Great Vault, crests, weekly quests, profession knowledge and Concentration (toast when full), renown, lockouts. Tabs for this character, an alt grid and professions; alts roll over at the weekly reset without logging in. |
 | Flight Timer | Travel | Times flight paths account-wide and shows a countdown while flying, with an optional cinematic flight mode. Coverage tab and a flight master map show which routes you've timed. |
 | Waypoints | Travel | An in-world marker for whatever you track (quest, map pin, POI, rare, corpse): icon, optional beam, name, distance and arrival time. Up close it turns into a card with the objectives; off-screen, an arrow at the edge points to it. Classic or Minimal style. Map pins are tracked as soon as you place them. Replaces WaypointUI. |
 | Smart Mount | Travel | One key (Key Bindings > Tomte > Smart Mount) that summons a mount that fits where you are (underwater, flying or ground) from your zone favorites, then journal favorites, then all usable mounts (a favorite list is skipped when nothing in it suits the spot). Pressed again it dismounts (not while flying), leaves a vehicle or leaves travel form / Ghost Wolf. In Undermine it calls the G-99 Breakneck instead (hold Shift for a normal mount). A star in the Mount Journal makes the selected mount a favorite for the zone or continent you're in; the Zones tab lists them. |
@@ -48,6 +49,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte vendor last`, `/tomte dura list`
 - `/tomte mount why` (context, pool and pick of the last press), `/tomte mount zone`
 - `/tomte tp open`, `/tomte tp scan` (what the Teleports tab found)
+- `/tomte weekly popup` / `board`, `/tomte weekly quests` (learned weekly quests), `/tomte weekly forget <name>`, `/tomte weekly ids` (check crest and knowledge quest IDs)
 
 Key bindings for Smart Mount, whisper reply and the whisper inbox are under **Tomte** in the game's Key Bindings menu.
 
@@ -65,7 +67,7 @@ Tomte/
   Core/        saved variables, module registry, /tomte, FlightTimer migration
   Cinematic/   shared cinematic engine and banners
   Panel/       settings panel and widgets
-  Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements, Upkeep, Mount, Teleports)
+  Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements, Upkeep, Mount, Teleports, Weekly)
   tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 docs/          design specs and implementation plans
 ```

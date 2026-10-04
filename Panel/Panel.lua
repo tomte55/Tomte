@@ -556,8 +556,12 @@ function ns.Panel_Open()
 	panel:Show()
 end
 
-function ns.Panel_OpenModule(key)
+-- tab: "options" or "page", for a module with both (default: the tab used last this session).
+function ns.Panel_OpenModule(key, tab)
 	ns.db.panel.selected = key
+	if tab and ns.modulesByKey[key] then
+		tabFor[ns.modulesByKey[key]] = tab
+	end
 	if panel and panel:IsShown() then
 		Refresh()
 	else

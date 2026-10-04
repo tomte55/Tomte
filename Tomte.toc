@@ -81,3 +81,8 @@ Modules/Achievements/Achievements.lua
 Modules/Upkeep/Data.lua
 Modules/Upkeep/Vendor.lua
 Modules/Upkeep/Durability.lua
+Modules/Weekly/Data.lua
+Modules/Weekly/Collect.lua
+Modules/Weekly/BoardPage.lua
+Modules/Weekly/Popup.lua
+Modules/Weekly/Weekly.lua
