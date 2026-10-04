@@ -49,9 +49,10 @@ local function Report(visit)
 		return
 	end
 	if db.toast then
+		-- First line as the title, the rest below it.
 		ns.Toast_Show({
-			owner = "vendor", label = "Vendor", accent = ACCENT, title = visit.npc or "Merchant",
-			text = table.concat(parts, "\n"), icon = "Interface\\Icons\\INV_Misc_Bag_10", hold = 6,
+			owner = "vendor", label = "Vendor", accent = ACCENT, title = parts[1],
+			text = table.concat(parts, "\n", 2), icon = "Interface\\Icons\\INV_Misc_Bag_10", hold = 6,
 		})
 	else
 		ns.Print(table.concat(parts, "  -  "))
@@ -155,7 +156,7 @@ function events:MERCHANT_SHOW()
 	if IsShiftKeyDown() or Restricted() then
 		return
 	end
-	local visit = { npc = UnitName("npc") }
+	local visit = {}
 	Repair(visit)
 	SellJunk(visit)
 	last = visit
