@@ -6,7 +6,7 @@ local addonName, ns = ...
 -- attributes can't change, so entering combat leaves a macro that only gets you out. Rules in Data.lua.
 
 local BUTTON_NAME = "TomteSmartMount" -- global: the CLICK binding in Bindings.xml needs it
-local SKYRIDING_AURA = 404464 -- "Flight Style: Skyriding" on the player (test in game)
+local SKYRIDING_AURA = 404464 -- "Flight Style: Skyriding" on the player (confirmed in game)
 local TRAVEL_FORMS = { [783] = true, [210053] = true, [2645] = true } -- Travel Form, Mount Form, Ghost Wolf
 local MAX_DEPTH = 10
 
