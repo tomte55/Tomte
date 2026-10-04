@@ -288,12 +288,34 @@ local function RegisterBaganator()
 		return
 	end
 	module.baganatorRegistered = true
-	Baganator.API.RegisterUpgradePlugin("Tomte Gear Check", BAGANATOR_ID, function(link)
-		if not (module.active and db.baganator) then
+	local function IsUpgrade(link)
+		if not (module.active and db.baganator and link) then
 			return false
 		end
 		return ns.Gear_IsCleanUpgrade(Evaluate(link))
-	end)
+	end
+	-- The upgrade plugin only feeds Baganator's "upgrade" search and category; the arrow is a corner widget. Items
+	-- still loading say false here, and GearItems_OnReady refreshes the bags once they've arrived.
+	Baganator.API.RegisterUpgradePlugin("Tomte Gear Check", BAGANATOR_ID, IsUpgrade)
+	if Baganator.API.RegisterCornerWidget then
+		Baganator.API.RegisterCornerWidget("Tomte Gear Check", BAGANATOR_ID, function(_, details)
+			return IsUpgrade(details.itemLink)
+		end, function(itemButton)
+			-- Bigger than Blizzard's bag arrow, with a dark copy behind it so it reads on bright icons.
+			local widget = CreateFrame("Frame", nil, itemButton)
+			widget:SetSize(22, 24)
+			widget.padding = 0.5
+			local shadow = widget:CreateTexture(nil, "ARTWORK")
+			shadow:SetAtlas("bags-greenarrow")
+			shadow:SetVertexColor(0, 0, 0, 0.9)
+			shadow:SetPoint("TOPLEFT", 1.5, -1.5)
+			shadow:SetPoint("BOTTOMRIGHT", 1.5, -1.5)
+			local arrow = widget:CreateTexture(nil, "OVERLAY")
+			arrow:SetAtlas("bags-greenarrow")
+			arrow:SetAllPoints()
+			return widget
+		end, { corner = "top_left", priority = 1 })
+	end
 end
 
 ---------------------------------------------------------------------------------------------------------------
@@ -628,8 +650,8 @@ module = ns.RegisterModule({
 			.. "missing enchants and sockets." },
 		{ type = "header", label = "Bags" },
 		{ type = "checkbox", key = "baganator", label = "Mark upgrades in Baganator", onChange = RefreshBags,
-			tooltip = "Only clean upgrades get the arrow. In Baganator's settings (Icons), pick \"Tomte Gear Check\" "
-				.. "as the upgrade source." },
+			tooltip = "Only clean upgrades get the arrow. In Baganator's settings (Icons), \"Tomte Gear Check\" is a "
+				.. "corner icon (the arrow) and an upgrade source (the upgrade search and category)." },
 		{ type = "header", label = "Upgrade reveal" },
 		{ type = "checkbox", key = "reveal", label = "Reveal new upgrades",
 			tooltip = "When gear that's new to your bags (loot, quest rewards, the vault, mail) is a clean upgrade, show "
