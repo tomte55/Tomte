@@ -48,14 +48,23 @@ function f:PLAYER_ENTERING_WORLD()
 	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
 end
 
+-- One help line: the command in the Tomte blue, the description in grey.
+local function PrintCommand(command, description)
+	print(("  |cff66ccff%s|r |cffaaaaaa- %s|r"):format(command, description))
+end
+
+local function PrintModuleCommands(module)
+	for _, cmd in ipairs(module.commands or {}) do
+		PrintCommand(("/tomte %s %s"):format(module.key, cmd[1]), cmd[2])
+	end
+end
+
 local function PrintHelp()
 	ns.Print("commands:")
-	print("  /tomte - open the settings panel")
-	print("  /tomte help - this list")
+	PrintCommand("/tomte", "open the settings panel")
+	PrintCommand("/tomte help", "this list")
 	for _, module in ipairs(ns.modules) do
-		for _, cmd in ipairs(module.commands or {}) do
-			print(("  /tomte %s %s - %s"):format(module.key, cmd[1], cmd[2]))
-		end
+		PrintModuleCommands(module)
 	end
 end
 
@@ -69,9 +78,7 @@ local function RunModuleCommand(module, text)
 		end
 	end
 	ns.Print(module.name .. " commands:")
-	for _, cmd in ipairs(module.commands) do
-		print(("  /tomte %s %s - %s"):format(module.key, cmd[1], cmd[2]))
-	end
+	PrintModuleCommands(module)
 end
 
 SLASH_TOMTE1 = "/tomte"

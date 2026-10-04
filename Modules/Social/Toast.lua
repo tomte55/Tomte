@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- downwards. A card has a spaced label in its accent color, a title (a name), a few lines of text and an
 -- accent bar on the left. Left-click runs the card's onClick, right-click dismisses it; hovering pauses its
 -- timer. A card with a mergeKey that is still up takes the next one with the same key (text replaced,
--- count shown). Pinned cards (the unread badge) sit on top of the stack and never time out.
+-- count shown). Pinned cards (the unread whisper recap) sit on top of the stack and never time out.
 -- While a cinematic hides the UI (and in combat, for cards with holdInCombat) cards are held back; when
 -- they're let go, an owner with a digest builder gets one card for all of its held cards.
 --

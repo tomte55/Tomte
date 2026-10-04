@@ -46,7 +46,13 @@ local function ClassOf(guid)
 	return nil
 end
 
--- What a Battle.net friend is doing: "Thrall - Dornogal", "World of Warcraft Classic", "Battle.net app".
+-- Only signed in to the Battle.net launcher or the mobile app ("BSAp"): online, but not playing anything.
+local function Idle(game)
+	local client = game.clientProgram
+	return client == BNET_CLIENT_APP or client == BNET_CLIENT_CLNT or client == "BSAp"
+end
+
+-- What a Battle.net friend is doing: "Thrall - Dornogal", "World of Warcraft Classic". nil in the launcher.
 local function Activity(game)
 	if not (game and game.isOnline) then
 		return nil
@@ -58,13 +64,13 @@ local function Activity(game)
 		end
 		return (game.richPresence and game.richPresence ~= "") and game.richPresence or "World of Warcraft"
 	end
-	if game.clientProgram == BNET_CLIENT_APP or game.clientProgram == BNET_CLIENT_CLNT then
-		return "Battle.net app"
+	if Idle(game) then
+		return nil
 	end
 	return (game.richPresence and game.richPresence ~= "") and game.richPresence or "Another game"
 end
 
--- Online Battle.net friends: { info, activity, inWoW }.
+-- Online Battle.net friends: { info, activity, inWoW, idle }.
 local function OnlineBNet()
 	local list = {}
 	local total = BNGetNumFriends() or 0
@@ -73,7 +79,7 @@ local function OnlineBNet()
 		local game = info and info.gameAccountInfo
 		if game and game.isOnline then
 			local activity, inWoW = Activity(game)
-			list[#list + 1] = { info = info, activity = activity, inWoW = inWoW }
+			list[#list + 1] = { info = info, activity = activity, inWoW = inWoW, idle = Idle(game) }
 		end
 	end
 	return list
@@ -138,13 +144,21 @@ local function Announce(entry)
 	end
 end
 
+-- "3 friends online" with the number in the accent color, so it stands out from the words.
+local COUNT_COLOR = CreateColor(ACCENT[1], ACCENT[2], ACCENT[3])
+local function Count(n, one, many)
+	return COUNT_COLOR:WrapTextInColorCode(tostring(n)) .. " " .. (n == 1 and one or many)
+end
+
 local function Summary(preview)
-	local wow, other, seen = {}, 0, {}
+	local wow, other, idle, seen = {}, 0, 0, {}
 	for _, friend in ipairs(OnlineBNet()) do
 		if friend.inWoW then
 			local game = friend.info.gameAccountInfo
 			seen[game.characterName:lower()] = true
 			wow[#wow + 1] = ("%s (%s)"):format(friend.info.accountName, ClassColored(game.characterName, game.classFilename))
+		elseif friend.idle then
+			idle = idle + 1
 		else
 			other = other + 1
 		end
@@ -160,26 +174,31 @@ local function Summary(preview)
 		local _, online = GetNumGuildMembers()
 		guild = math.max((online or 0) - 1, 0) -- you're online too
 	end
-	if #wow == 0 and other == 0 and guild == 0 and not preview then
+	if #wow == 0 and other == 0 and idle == 0 and guild == 0 and not preview then
 		return
 	end
-	local extra = {}
+	-- "3 friends online" on top; below, friends in game with their names, then other games and guildmates.
+	-- Friends only in the launcher count as online and get no line of their own.
+	local lines, extra = {}, {}
+	if #wow > 0 then
+		lines[1] = Count(#wow, "friend", "friends") .. " in game: " .. ns.Social_NameList(wow, 3)
+	end
 	if other > 0 then
-		extra[#extra + 1] = other == 1 and "1 in another game" or (other .. " in other games")
+		extra[#extra + 1] = Count(other, "in another game", "in other games")
 	end
 	if guild > 0 then
-		extra[#extra + 1] = guild == 1 and "1 guildmate" or (guild .. " guildmates")
+		extra[#extra + 1] = Count(guild, "guildmate", "guildmates")
 	end
-	local text = ns.Social_NameList(wow, 4)
 	if #extra > 0 then
-		text = (text ~= "" and (text .. "\n") or "") .. table.concat(extra, "  -  ")
+		lines[#lines + 1] = table.concat(extra, "  -  ")
 	end
+	local friends = #wow + other + idle
 	ns.Toast_Show({
 		owner = OWNER,
 		label = "Online now",
 		accent = ACCENT,
-		title = #wow == 1 and "1 friend in WoW" or (#wow .. " friends in WoW"),
-		text = text ~= "" and text or "Nobody's online right now.",
+		title = Count(friends, "friend online", "friends online"),
+		text = #lines > 0 and table.concat(lines, "\n") or (friends == 0 and "Nobody's online right now." or nil),
 		hold = 12,
 		onClick = function()
 			ToggleFriendsFrame(FRIEND_TAB_FRIENDS)
@@ -317,7 +336,7 @@ local NOTIFY_CHOICES = {
 local options = {
 	{ type = "header", label = "At login" },
 	{ type = "checkbox", key = "summary", label = "Who's online",
-		tooltip = "A card a few seconds after login: friends in WoW (with their character), friends in other games and how many guildmates are on. Click it for the friends list." },
+		tooltip = "A card a few seconds after login: how many friends are online, who's in WoW (with their character), friends in other games and how many guildmates are on. Click it for the friends list." },
 	{ type = "header", label = "Coming online" },
 	{ type = "dropdown", key = "notify", label = "Toast when", choices = function()
 		return NOTIFY_CHOICES

@@ -1,8 +1,8 @@
 local addonName, ns = ...
 
 -- Whispers module: every whisper (character or Battle.net) gets a toast (left-click replies, right-click
--- dismisses), an unread badge stays on top of the toasts until you've answered or looked, and an inbox
--- window keeps the conversations. Toasts wait while a cinematic hides the UI (and, by default, during
+-- dismisses), back from AFK an unread recap stays on top of the toasts until you've answered or looked, and
+-- an inbox window keeps the conversations. Toasts wait while a cinematic hides the UI (and, by default, during
 -- combat) and come back as one "while you were busy" card. Optional extra sound on the Master channel.
 -- Blizzard already flashes the taskbar icon for whispers.
 -- In chat lockdown (instances, encounters, M+, PvP) the text and sender are secret: such whispers are shown
@@ -17,7 +17,8 @@ local WHISPER_ACCENT = { 1, 0.5, 1 } -- Blizzard's whisper pink
 local BN_ACCENT = { 0, 0.85, 1 }
 local GM_ACCENT = { 0.25, 0.75, 1 }
 local OUT_EVENTS = { "CHAT_MSG_WHISPER_INFORM", "CHAT_MSG_BN_WHISPER_INFORM" }
-local EVENTS = { "CHAT_MSG_WHISPER", "CHAT_MSG_BN_WHISPER", "CHAT_MSG_WHISPER_INFORM", "CHAT_MSG_BN_WHISPER_INFORM" }
+local EVENTS = { "CHAT_MSG_WHISPER", "CHAT_MSG_BN_WHISPER", "CHAT_MSG_WHISPER_INFORM", "CHAT_MSG_BN_WHISPER_INFORM",
+	"PLAYER_FLAGS_CHANGED" }
 local SAMPLES = {
 	{ sender = "Thrall", class = "SHAMAN", text = "Raid tonight at 8, are you in?" },
 	{ sender = "Jaina", class = "MAGE", text = "Left you a few Sunwell Shards in the mail." },
@@ -27,6 +28,8 @@ local SAMPLES = {
 local module
 local restricted = { key = RESTRICTED, name = "In instance", restricted = true, unread = 0, messages = {} }
 local bnTokens = {} -- [conversation key] = this session's |K account name, for replies
+local recapUp = false -- the unread card is showing
+local wasAFK = false
 
 local events = CreateFrame("Frame")
 events:SetScript("OnEvent", function(self, event, ...)
@@ -70,12 +73,19 @@ local function UnreadTotal()
 	return total + restricted.unread, convos
 end
 
-local function UpdateBadge()
+-- The unread card only comes up when you're back from AFK; after that it follows the unread count until
+-- everything's read (answered, opened in the inbox, or right-clicked).
+local function UpdateBadge(show)
 	local total, convos = UnreadTotal()
 	if total == 0 or not ns.whispersDB.badge or not module.active then
+		recapUp = false
 		ns.Toast_Unpin(BADGE)
 		return
 	end
+	if not (show or recapUp) then
+		return
+	end
+	recapUp = true
 	local names = {}
 	for _, convo in ipairs(convos) do
 		names[#names + 1] = ns.Inbox_ColoredName(convo)
@@ -85,7 +95,7 @@ local function UpdateBadge()
 	end
 	ns.Toast_Pin(BADGE, {
 		owner = OWNER,
-		label = "Unread",
+		label = "While you were away",
 		accent = WHISPER_ACCENT,
 		title = total == 1 and "1 whisper" or (total .. " whispers"),
 		text = "From " .. ns.Social_NameList(names, 3) .. ". Click to read, right-click to clear.",
@@ -153,6 +163,58 @@ function ns.Whispers_Reply(key)
 		return
 	end
 	ChatFrameUtil.SendTell(key)
+end
+
+-- This session's bnetAccountID for a BattleTag (what C_BattleNet.SendWhisper takes).
+local function FindBNetAccountID(battleTag)
+	for i = 1, BNGetNumFriends() do
+		local info = C_BattleNet.GetFriendAccountInfo(i)
+		if info and info.battleTag == battleTag then
+			return info.bnetAccountID
+		end
+	end
+	return nil
+end
+
+function ns.Whispers_CanSend(key)
+	return key ~= nil and key ~= RESTRICTED and not (C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown())
+end
+
+-- Sends from the inbox. Your whisper shows up in the conversation through the INFORM event.
+-- Returns false when it couldn't go out here (the normal chat box is opened instead).
+function ns.Whispers_Send(key, text)
+	text = strtrim(text or "")
+	if text == "" then
+		return true
+	end
+	if not ns.Whispers_CanSend(key) then
+		ns.Print("can't send from the inbox during instance chat restrictions; use the chat box.")
+		ns.Whispers_Reply(key)
+		return false
+	end
+	local convo = Store().convos[key]
+	local ok, err
+	if convo and convo.bn then
+		local id = FindBNetAccountID(key:sub(4))
+		if not id then
+			ns.Print(convo.name .. " isn't online on Battle.net.")
+			return false
+		end
+		local sent
+		ok, sent = pcall(C_BattleNet.SendWhisper or BNSendWhisper, id, text)
+		if not ok then
+			err = sent
+		elseif sent == false then
+			ok, err = false, "Battle.net refused the whisper"
+		end
+	else
+		ok, err = pcall(C_ChatInfo.SendChatMessage or SendChatMessage, text, "WHISPER", nil, key)
+	end
+	if not ok then
+		ns.Print("couldn't send: " .. tostring(err))
+	end
+	ns.Whispers_MarkRead(key)
+	return ok
 end
 
 -- The reply keybind: the newest unread conversation, else whoever whispered last.
@@ -320,6 +382,20 @@ function events:CHAT_MSG_BN_WHISPER_INFORM(text, target, _, _, _, _, _, _, _, _,
 	end
 end
 
+-- Back from AFK with unread whispers: one recap card instead of the toasts still up or held back.
+function events:PLAYER_FLAGS_CHANGED(unit)
+	local afk = UnitIsAFK("player")
+	if not Readable(unit, afk) or unit ~= "player" then
+		return
+	end
+	afk = afk and true or false
+	if wasAFK and not afk and ns.whispersDB.badge and UnreadTotal() > 0 then
+		ns.Toast_Clear(OWNER)
+		UpdateBadge(true)
+	end
+	wasAFK = afk
+end
+
 local function Preview()
 	if not module.active then
 		ns.Print("Whispers is off.")
@@ -341,13 +417,15 @@ local function Activate()
 		events:RegisterEvent(event)
 	end
 	ns.Toast_SetDigest(OWNER, Digest)
-	UpdateBadge()
+	local afk = UnitIsAFK("player")
+	wasAFK = Readable(afk) and afk and true or false
 end
 
 local function Deactivate()
 	events:UnregisterAllEvents()
 	ns.Toast_Clear(OWNER)
 	ns.Toast_Unpin(BADGE)
+	recapUp = false
 	ns.Inbox_Hide()
 end
 
@@ -377,10 +455,10 @@ local options = {
 	{ type = "header", label = "Whispers" },
 	{ type = "checkbox", key = "toasts", label = "Toasts",
 		tooltip = "A toast for every whisper. Left-click replies, right-click dismisses. More whispers from the same person while the toast is up go into it." },
-	{ type = "checkbox", key = "badge", label = "Unread badge", onChange = function()
+	{ type = "checkbox", key = "badge", label = "Unread recap after AFK", onChange = function()
 		UpdateBadge()
 	end,
-		tooltip = "Stays on top of the toasts until you answer, open the inbox or right-click it." },
+		tooltip = "Back from AFK with unread whispers: one card with who wrote, in place of their toasts. It stays on top until you answer, open the inbox or right-click it." },
 	{ type = "checkbox", key = "holdInCombat", label = "Hold toasts during combat",
 		tooltip = "Whispers that arrive in combat show after it, as one card when there are several. Toasts always wait while a cinematic (AFK screen, flight, moment) hides the UI." },
 	{ type = "dropdown", key = "sound", label = "Extra sound", onChange = ns.Social_PlaySound, choices = function()
@@ -408,7 +486,7 @@ module = ns.RegisterModule({
 	key = "whispers",
 	name = "Whispers",
 	category = "Social",
-	description = "Whispers you can't miss: a toast for each one (click to reply), an unread badge until you've answered, an inbox with your conversations, and one summary card for whispers that came in combat or during a cinematic.",
+	description = "Whispers you can't miss: a toast for each one (click to reply), an unread recap when you're back from AFK, an inbox with your conversations, and one summary card for whispers that came in combat or during a cinematic.",
 	enabledByDefault = true,
 	defaults = {
 		toasts = true,
