@@ -62,7 +62,7 @@ local function ShowPreview(record)
 	local info = record and DB().preview and ns.Ach_RewardInfo(record)
 	local model
 	if info and (info.type == "mount" or info.type == "pet") then
-		model = { sceneID = info.sceneID, displayID = info.displayID }
+		model = { sceneID = info.sceneID, displayID = info.displayID, selfMount = info.selfMount }
 	elseif info and info.type == "appearance" and info.link then
 		model = { link = info.link, key = "item:" .. info.itemID }
 	end

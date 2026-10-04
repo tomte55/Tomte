@@ -58,13 +58,13 @@ end
 -- The turning model next to the tooltip (Panel/ModelPreview.lua), for mounts and pets.
 local function ModelFor(e)
 	if e.kind == "mount" then
-		local displayID, _, _, _, _, sceneID = C_MountJournal.GetMountInfoExtraByID(e.id)
+		local displayID, _, _, isSelfMount, _, sceneID = C_MountJournal.GetMountInfoExtraByID(e.id)
 		if not displayID then
 			-- Mounts with several looks have no single display ID: use the first one.
 			local all = C_MountJournal.GetMountAllCreatureDisplayInfoByID(e.id)
 			displayID = all and all[1] and all[1].creatureDisplayID
 		end
-		return { sceneID = sceneID, displayID = displayID, name = e.name, sub = "Mount" }
+		return { sceneID = sceneID, displayID = displayID, selfMount = isSelfMount, name = e.name, sub = "Mount" }
 	elseif e.kind == "pet" then
 		local displayID = select(12, C_PetJournal.GetPetInfoBySpeciesID(e.id))
 		local sceneID = C_PetJournal.GetPetModelSceneInfoBySpeciesID(e.id)
@@ -257,11 +257,12 @@ function Refresh()
 	if not panel or not panel:IsShown() then
 		return
 	end
-	-- Only our own tooltip goes (map pins use GameTooltip too); it comes back for the hovered row below.
+	-- Only our own tooltip goes (map pins use GameTooltip too); it comes back for the hovered row below. The model
+	-- preview stays up so a redraw doesn't restart it.
 	local owner = GameTooltip:GetOwner()
-	if owner and owner.isCollectRow then
+	local ours = owner and owner.isCollectRow
+	if ours then
 		GameTooltip:Hide()
-		HidePreview()
 	end
 	for i = 1, used do
 		rows[i]:Hide()
@@ -273,6 +274,7 @@ function Refresh()
 	local loading = not (state.mounts and state.pets and state.achievements)
 	local entries, mapName, _, mapID = ns.Collect_ForMap(WorldMapFrame:GetMapID())
 	if not entries then
+		HidePreview()
 		panel.note:SetText("")
 		panel.empty:SetText("Open a zone or a continent to see what's left to collect there.")
 		panel.empty:Show()
@@ -311,14 +313,19 @@ function Refresh()
 		or "Nothing left here that the journals know about. Only mounts and pets whose source names a zone, and achievements that name it, can be listed.")
 	panel.empty:SetShown(#sections == 0)
 	panel.scroll:SetContentHeight(y)
+	local hovered
 	for i = 1, used do
 		local row = rows[i]
 		if row:IsMouseOver() and (row.entry or row.section) then
 			row.hover:Show()
 			if row.entry then
 				ShowTooltip(row)
+				hovered = row.entry
 			end
 		end
+	end
+	if ours and not hovered then
+		HidePreview()
 	end
 end
 

@@ -158,12 +158,13 @@ local function ModelFor(item)
 		if not mountID then
 			return nil
 		end
-		local displayID, _, _, _, _, sceneID = C_MountJournal.GetMountInfoExtraByID(mountID)
+		local displayID, _, _, isSelfMount, _, sceneID = C_MountJournal.GetMountInfoExtraByID(mountID)
 		if not displayID then
 			local all = C_MountJournal.GetMountAllCreatureDisplayInfoByID(mountID)
 			displayID = all and all[1] and all[1].creatureDisplayID
 		end
-		return { sceneID = sceneID, displayID = displayID, name = item.name, sub = COLLECTIBLE_SUB.mount }
+		return { sceneID = sceneID, displayID = displayID, selfMount = isSelfMount, name = item.name,
+			sub = COLLECTIBLE_SUB.mount }
 	elseif item.collectible == "pet" then
 		local _, _, _, _, _, _, _, _, _, _, _, displayID, speciesID = C_PetJournal.GetPetInfoByItemID(item.itemID)
 		local sceneID = speciesID and C_PetJournal.GetPetModelSceneInfoBySpeciesID(speciesID)
