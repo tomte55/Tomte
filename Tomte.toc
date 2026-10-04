@@ -99,3 +99,7 @@ Modules/Collect/Data.lua
 Modules/Collect/Catalog.lua
 Modules/Collect/Tab.lua
 Modules/Collect/Collect.lua
+Modules/WorldQuests/Data.lua
+Modules/WorldQuests/Scan.lua
+Modules/WorldQuests/Tab.lua
+Modules/WorldQuests/WorldQuests.lua

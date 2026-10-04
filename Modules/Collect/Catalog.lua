@@ -8,7 +8,6 @@ local addonName, ns = ...
 
 local BUDGET_MS = 4
 local MAX_SPECIES = 6000 -- battle pet species IDs are read 1..MAX_SPECIES
-local MAX_DEPTH = 10
 local WALK_KEY = "collect"
 
 local mounts, pets = {}, {} -- { kind, id, spellID, name, icon, source, parsed }
@@ -166,28 +165,6 @@ end
 
 -- Maps -------------------------------------------------------------------------------------------------------------
 
--- The map to list for a viewed map: zones and dungeons as they are, micro and orphan maps up to their zone,
--- continents as a whole. Returns mapID, info, "zone" | "continent", or nil for the world and cosmic maps.
-function ns.Collect_ResolveMap(mapID)
-	local depth = 0
-	while mapID and mapID > 0 and depth < MAX_DEPTH do
-		local info = C_Map.GetMapInfo(mapID)
-		if not info then
-			return nil
-		end
-		local t = info.mapType
-		if t == Enum.UIMapType.Zone or t == Enum.UIMapType.Dungeon then
-			return mapID, info, "zone"
-		elseif t == Enum.UIMapType.Continent then
-			return mapID, info, "continent"
-		elseif t == Enum.UIMapType.World or t == Enum.UIMapType.Cosmic then
-			return nil
-		end
-		mapID, depth = info.parentMapID, depth + 1
-	end
-	return nil
-end
-
 -- A dungeon's maps are often named after a floor; sources and achievements name the instance. EJ_GetInstanceForMap
 -- takes a uiMapID; EJ_GetInstanceInfo with an ID doesn't change the journal's selection.
 local function InstanceName(mapID, info)
@@ -287,7 +264,7 @@ end
 
 -- entries for a viewed map, the listed map's name and kind; nil for the world and cosmic maps.
 function ns.Collect_ForMap(viewedMapID)
-	local mapID, info, kind = ns.Collect_ResolveMap(viewedMapID)
+	local mapID, info, kind = ns.MapTabs_ResolveMap(viewedMapID)
 	if not mapID then
 		return nil
 	end
@@ -305,7 +282,7 @@ end
 
 -- The names a viewed map is matched with, for /tomte collect here.
 function ns.Collect_MapNames(viewedMapID)
-	local mapID, info, kind = ns.Collect_ResolveMap(viewedMapID)
+	local mapID, info, kind = ns.MapTabs_ResolveMap(viewedMapID)
 	if not mapID then
 		return nil
 	end

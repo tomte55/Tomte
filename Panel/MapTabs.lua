@@ -9,8 +9,10 @@ local addonName, ns = ...
 --
 -- ns.MapTabs_Add({ key, icon, tooltip, title, onShow(panel), onHide(panel), onMapChanged(panel) }) -> tab, panel
 -- ns.MapTabs_SetShown(key, shown), ns.MapTabs_Select(key), ns.MapTabs_IsActive(key)
+-- ns.MapTabs_ResolveMap(mapID): which map a tab lists for the viewed map (shared by Collect here and World quests).
 
 local UI = ns.UI
+local MAX_MAP_DEPTH = 10
 
 local tabs = {} -- in the order they were added: { key, spec, tab, panel, shown }
 local byKey = {}
@@ -156,4 +158,26 @@ function ns.MapTabs_Add(spec)
 	Hook()
 	Layout()
 	return t.tab, t.panel
+end
+
+-- The map to list for a viewed map: zones and dungeons as they are, micro and orphan maps up to their zone,
+-- continents as a whole. Returns mapID, info, "zone" | "continent", or nil for the world and cosmic maps.
+function ns.MapTabs_ResolveMap(mapID)
+	local depth = 0
+	while mapID and mapID > 0 and depth < MAX_MAP_DEPTH do
+		local info = C_Map.GetMapInfo(mapID)
+		if not info then
+			return nil
+		end
+		local t = info.mapType
+		if t == Enum.UIMapType.Zone or t == Enum.UIMapType.Dungeon then
+			return mapID, info, "zone"
+		elseif t == Enum.UIMapType.Continent then
+			return mapID, info, "continent"
+		elseif t == Enum.UIMapType.World or t == Enum.UIMapType.Cosmic then
+			return nil
+		end
+		mapID, depth = info.parentMapID, depth + 1
+	end
+	return nil
 end

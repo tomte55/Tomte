@@ -105,6 +105,27 @@ local function Evaluate(link, ctx)
 	return ns.Gear_Evaluate(cand, equipped, ctx), cand, equipped
 end
 
+-- For other modules (World quests): the context to judge many items with (nil while Gear Check is off or there's
+-- no spec), and verdict, headline, color key for an item link. Gear_Verdict is nil while Gear Check is off, items
+-- load, there's no spec, or the item is worn. Pass one Gear_Context() when judging a batch.
+function ns.Gear_Context()
+	if not (module and module.active) then
+		return nil
+	end
+	return Context()
+end
+
+function ns.Gear_Verdict(link, ctx)
+	if not (module and module.active) then
+		return nil
+	end
+	local v = Evaluate(link, ctx)
+	if not v then
+		return nil
+	end
+	return v, ns.Gear_Headline(v)
+end
+
 ---------------------------------------------------------------------------------------------------------------
 -- Tooltip
 
