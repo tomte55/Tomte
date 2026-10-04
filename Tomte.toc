@@ -20,6 +20,8 @@ Cinematic/Banner.lua
 Panel/Widgets.lua
 Panel/Options.lua
 Panel/Panel.lua
+Panel/MapTabs.lua
+Panel/ModelPreview.lua
 Modules/Minimap/Data.lua
 Modules/Minimap/Minimap.lua
 Modules/Flight/Data.lua
@@ -76,6 +78,7 @@ Modules/Gear/Reveal.lua
 Modules/Achievements/Data.lua
 Modules/Achievements/Rewards.lua
 Modules/Achievements/Metas.lua
+Modules/Achievements/Walk.lua
 Modules/Achievements/Scan.lua
 Modules/Achievements/Dock.lua
 Modules/Achievements/Tracker.lua
@@ -92,3 +95,7 @@ Modules/Recap/Data.lua
 Modules/Recap/Track.lua
 Modules/Recap/Scene.lua
 Modules/Recap/Recap.lua
+Modules/Collect/Data.lua
+Modules/Collect/Catalog.lua
+Modules/Collect/Tab.lua
+Modules/Collect/Collect.lua

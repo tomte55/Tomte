@@ -5,8 +5,7 @@ local addonName, ns = ...
 -- (a secure button inside the map would make the map protected, so it couldn't open or close in combat). In combat
 -- the secure button is hidden and the list greys out; the map itself keeps working.
 --
--- The tab doesn't call QuestMapFrame:SetDisplayMode (that would taint the quest log's state). It hides Blizzard's
--- content frames itself, and a hook on SetDisplayMode hands control back when one of Blizzard's tabs is used.
+-- The tab itself (switching with Blizzard's tabs without taint) is Panel/MapTabs.lua.
 
 local UI = ns.UI
 local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
@@ -14,10 +13,10 @@ local ROW_H, HEADER_H, ICON = 34, 24, 26
 local TAB_ICON = "Interface\\Icons\\Spell_Arcane_PortalDalaran"
 local TICK = 1 -- seconds between cooldown text updates
 local PIN_SIZE = 34
+local KEY = "tp"
 
 local db
-local tab, panel, secure, pin
-local active = false
+local panel, secure, pin
 local rows, used = {}, 0
 local hoverRow
 local tick = 0
@@ -395,72 +394,27 @@ end
 
 -- Tab ---------------------------------------------------------------------------------------------------------------
 
-local function ShowOurs()
-	for _, frame in ipairs(QuestMapFrame.ContentFrames) do
-		frame:Hide()
-	end
-	for _, t in ipairs(QuestMapFrame.TabButtons) do
-		t:SetChecked(false)
-	end
-	active = true
-	tab:SetChecked(true)
-	panel:Show()
-	Refresh()
-end
-
-local function HideOurs()
-	active = false
-	tab:SetChecked(false)
-	panel:Hide()
-	Detach()
-	HidePin()
-end
-
--- Blizzard switched tabs (or re-selected the one it thinks is shown): give its frames back.
-local function OnDisplayMode(self)
-	if not active then
+local function Build()
+	if panel then
 		return
 	end
-	HideOurs()
-	for _, frame in ipairs(self.ContentFrames) do
-		frame:SetShown(frame.displayMode == self.displayMode)
+	local _
+	_, panel = ns.MapTabs_Add({
+		key = KEY, icon = TAB_ICON, tooltip = "Teleports",
+		onShow = function()
+			Refresh()
+		end,
+		onHide = function()
+			Detach()
+			HidePin()
+		end,
+		onMapChanged = function()
+			Refresh()
+		end,
+	})
+	if not panel then
+		return
 	end
-	for _, t in ipairs(self.TabButtons) do
-		t:SetChecked(t.displayMode == self.displayMode)
-	end
-end
-
-local function CreateTab()
-	tab = CreateFrame("Frame", nil, QuestMapFrame, "LargeSideTabButtonTemplate")
-	tab:SetPoint("TOP", QuestMapFrame.MapLegendTab, "BOTTOM", 0, -3)
-	tab.tooltipText = "Teleports"
-	tab.Icon:SetTexture(TAB_ICON)
-	tab.Icon:SetSize(24, 24)
-	tab.Icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-	function tab:SetChecked(checked)
-		self.Icon:SetDesaturated(not checked)
-		self.Icon:SetAlpha(checked and 1 or 0.7)
-		self.SelectedTexture:SetShown(checked)
-	end
-	tab:SetChecked(false)
-	tab:SetCustomOnMouseUpHandler(function(_, button, upInside)
-		if button == "LeftButton" and upInside then
-			ShowOurs()
-		end
-	end)
-end
-
-local function CreatePanel()
-	panel = CreateFrame("Frame", nil, QuestMapFrame)
-	panel:SetPoint("TOPLEFT", QuestMapFrame.ContentsAnchor, "TOPLEFT")
-	panel:SetPoint("BOTTOMRIGHT", QuestMapFrame.ContentsAnchor, "BOTTOMRIGHT", -22, 0)
-	panel:Hide()
-	panel.bg = panel:CreateTexture(nil, "BACKGROUND")
-	panel.bg:SetAllPoints()
-	panel.bg:SetColorTexture(0.06, 0.06, 0.07, 0.94)
-	panel.title = UI.Text(panel, 14, GOLD)
-	panel.title:SetPoint("TOPLEFT", 10, -10)
-	panel.title:SetText("Teleports")
 	panel.note = UI.Text(panel, 11, GREY)
 	panel.note:SetPoint("TOPLEFT", panel.title, "BOTTOMLEFT", 0, -4)
 	panel.note:SetPoint("RIGHT", -10, 0)
@@ -477,21 +431,7 @@ local function CreatePanel()
 		HidePin()
 	end)
 	panel.scroll:HookScript("OnMouseWheel", Detach)
-end
-
-local function Build()
-	if tab or not QuestMapFrame or not QuestMapFrame.MapLegendTab then
-		return
-	end
-	CreateTab()
-	CreatePanel()
 	CreateSecure()
-	hooksecurefunc(QuestMapFrame, "SetDisplayMode", OnDisplayMode)
-	hooksecurefunc(WorldMapFrame, "OnMapChanged", function()
-		if active then
-			Refresh()
-		end
-	end)
 end
 
 -- API for Teleports.lua ---------------------------------------------------------------------------------------------
@@ -504,16 +444,11 @@ function ns.TpTab_SetEnabled(enabled)
 	if enabled then
 		Build()
 	end
-	if tab then
-		tab:SetShown(enabled)
-		if not enabled and active then
-			OnDisplayMode(QuestMapFrame)
-		end
-	end
+	ns.MapTabs_SetShown(KEY, enabled)
 end
 
 function ns.TpTab_Refresh()
-	if active then
+	if ns.MapTabs_IsActive(KEY) then
 		Refresh()
 	end
 end
@@ -538,7 +473,7 @@ function ns.TpTab_Open()
 		ToggleWorldMap()
 	end
 	if QuestMapFrame:IsShown() then
-		ShowOurs()
+		ns.MapTabs_Select(KEY)
 	else
 		ns.Print("open the map's quest log panel, then click the portal tab.")
 	end

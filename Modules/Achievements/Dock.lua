@@ -15,10 +15,7 @@ local ROW_H = 34
 local META_ROW_H = 28
 local INDENT = 16
 local ICON = 24
-local PREVIEW_W, PREVIEW_H = 240, 260
 local TOOLTIP_GAP = 18 -- from a row's right edge to the tooltip: past the scroll thumb and the dock's edge
-local TURN_SPEED = 0.35 -- radians per second
-local DRESS_UP_SCENE = 596 -- Blizzard's dress-up frame scene (DressUpFrames.lua)
 local REWARD_FILTERS = {
 	{ value = "any", text = "Any reward" },
 	{ value = "reward", text = "Has a reward" },
@@ -54,130 +51,26 @@ local function Active()
 	return ns.achModule.active
 end
 
--- Preview --------------------------------------------------------------------------------------------------
-
-local function ClearModel(p)
-	p.modelKey, p.actor = nil, nil
-	p.scene:Hide()
-end
-
-local function SetCreature(p, sceneID, displayID, key)
-	if p.modelKey == key then
-		return
-	end
-	p.modelKey = key
-	p.actor = nil
-	p.scene:Show()
-	p.scene:TransitionToModelSceneID(sceneID, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
-	local actor = p.scene:GetActorByTag("unwrapped") or p.scene:GetActorByTag("pet")
-	if not actor then
-		return
-	end
-	p.actor, p.baseYaw, p.turn = actor, actor:GetYaw(), 0
-	actor:SetModelByCreatureDisplayID(displayID, true)
-	if actor.SetAnimationBlendOperation and Enum.ModelBlendOperation then
-		actor:SetAnimationBlendOperation(Enum.ModelBlendOperation.Anim)
-	end
-	actor:SetAnimation(0)
-end
-
-local function SetAppearance(p, link, key)
-	if p.modelKey == key then
-		return
-	end
-	p.modelKey = key
-	p.actor = nil
-	p.scene:Show()
-	p.scene:TransitionToModelSceneID(DRESS_UP_SCENE, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
-	SetupPlayerForModelScene(p.scene, nil, nil, true, true)
-	local actor = p.scene:GetPlayerActor()
-	if actor then
-		actor:TryOn(link)
-		p.actor, p.baseYaw, p.turn = actor, actor:GetYaw(), 0
-	end
-end
+-- Preview (Panel/ModelPreview.lua) ------------------------------------------------------------------------
 
 local function HidePreview()
-	local p = dock.preview
-	if p:IsShown() then
-		p:Hide()
-		ClearModel(p)
-	end
-end
-
--- Under the tooltip, or above it when there's no room below, or right of it when there's none above either.
-local function PlacePreview(p)
-	p:ClearAllPoints()
-	-- In screen pixels: the tooltip, the preview and UIParent can each have their own scale.
-	local tipScale = GameTooltip:GetEffectiveScale()
-	local bottom, top = GameTooltip:GetBottom(), GameTooltip:GetTop()
-	local screenH = UIParent:GetHeight() * UIParent:GetEffectiveScale()
-	local needed = (PREVIEW_H + 4) * p:GetEffectiveScale()
-	if bottom and bottom * tipScale - needed >= 0 then
-		p:SetPoint("TOPLEFT", GameTooltip, "BOTTOMLEFT", 0, -4)
-	elseif top and top * tipScale + needed <= screenH then
-		p:SetPoint("BOTTOMLEFT", GameTooltip, "TOPLEFT", 0, 4)
-	else
-		p:SetPoint("TOPLEFT", GameTooltip, "TOPRIGHT", 4, 0)
-	end
+	ns.ModelPreview_Hide(dock.preview)
 end
 
 -- After the row's tooltip is shown: the reward's model next to it, when it has one.
 local function ShowPreview(record)
-	local p = dock.preview
 	local info = record and DB().preview and ns.Ach_RewardInfo(record)
-	local model = info and ((info.type == "mount" or info.type == "pet") and info.displayID and info.sceneID
-		or (info.type == "appearance" and info.link))
-	if not (model and GameTooltip:IsShown()) then
-		HidePreview()
-		return
+	local model
+	if info and (info.type == "mount" or info.type == "pet") then
+		model = { sceneID = info.sceneID, displayID = info.displayID }
+	elseif info and info.type == "appearance" and info.link then
+		model = { link = info.link, key = "item:" .. info.itemID }
 	end
-	PlacePreview(p)
-	p:Show()
-	local ok = pcall(function()
-		if info.type == "appearance" then
-			SetAppearance(p, info.link, "item:" .. info.itemID)
-		else
-			SetCreature(p, info.sceneID, info.displayID, info.sceneID .. ":" .. info.displayID)
-		end
-	end)
-	if not ok then
-		ClearModel(p)
+	if model then
+		model.name = info.name or record.reward
+		model.sub = (ns.ACH_REWARD_NAMES[info.type] or "") .. (info.owned and "  -  |cff80e080owned|r" or "")
 	end
-	p.name:SetText(info.name or record.reward)
-	local owned = info.owned and "  -  |cff80e080owned|r" or ""
-	p.kind:SetText((ns.ACH_REWARD_NAMES[info.type] or "") .. owned)
-end
-
-local function CreatePreview(parent)
-	local p = CreateFrame("Frame", nil, parent)
-	p:SetSize(PREVIEW_W, PREVIEW_H)
-	p:SetFrameStrata("TOOLTIP")
-	p:SetClampedToScreen(true)
-	p:Hide()
-	local bg = p:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], UI.BG[4])
-	UI.Border(p, GOLD[1], GOLD[2], GOLD[3], 0.45)
-	p.scene = CreateFrame("ModelScene", nil, p, "NoCameraControlModelSceneMixinTemplate")
-	p.scene:SetPoint("TOPLEFT", 4, -4)
-	p.scene:SetPoint("BOTTOMRIGHT", -4, 40)
-	p.scene:HookScript("OnUpdate", function(_, dt)
-		if p.actor then
-			p.turn = (p.turn + dt * TURN_SPEED) % (2 * math.pi)
-			p.actor:SetYaw(p.baseYaw + p.turn)
-		end
-	end)
-	p.name = UI.Text(p, 14, GOLD, TITLE_FONT)
-	p.name:SetPoint("BOTTOMLEFT", 8, 22)
-	p.name:SetPoint("BOTTOMRIGHT", -8, 22)
-	p.name:SetJustifyH("CENTER")
-	p.name:SetWordWrap(false)
-	p.kind = UI.Text(p, 11, GREY)
-	p.kind:SetPoint("BOTTOMLEFT", 8, 8)
-	p.kind:SetPoint("BOTTOMRIGHT", -8, 8)
-	p.kind:SetJustifyH("CENTER")
-	return p
+	ns.ModelPreview_Show(dock.preview, model)
 end
 
 -- Tooltips and menus -----------------------------------------------------------------------------------------
@@ -789,7 +682,7 @@ local function CreateListView()
 	dock.empty:SetJustifyH("CENTER")
 	dock.empty:SetWordWrap(true)
 
-	dock.preview = CreatePreview(dock)
+	dock.preview = ns.ModelPreview_Create(dock)
 end
 
 local function CreateMetaView()

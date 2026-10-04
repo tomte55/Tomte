@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Almost Done: finding near-complete achievements. A full scan walks every category a few milliseconds per frame
+-- Almost Done: finding near-complete achievements. A full scan rides the shared achievement walk (Walk.lua)
 -- and keeps a record for each incomplete achievement with progress. The watch set (records close to the
 -- threshold, and pins) is recalculated on criteria events, which is where milestones come from. The watch set
 -- is cached per character, so the list shows right away after a login.
@@ -27,8 +27,9 @@ local ready = false -- a full scan finished this session; live updates wait for 
 local onChanged = function() end
 local debounceTimer
 
-local scanner = CreateFrame("Frame")
-scanner:Hide()
+ns.AchWalk_SetSkipped(function(categoryID)
+	return SKIPPED_TOP[ns.Ach_CategoryInfo(categoryID).topID] == true
+end)
 
 -- Reading -------------------------------------------------------------------------------------------------
 
@@ -150,7 +151,6 @@ end
 -- Full scan -------------------------------------------------------------------------------------------------
 
 local function Finish()
-	scanner:Hide()
 	local result = scan
 	scan = nil
 	records, metaLinks = result.records, result.metaLinks
@@ -183,58 +183,30 @@ local function Finish()
 	onChanged(nil, nil)
 end
 
-local function Step()
-	local deadline = debugprofilestop() + BUDGET_MS
-	local pins = ns.Ach_PinSet()
-	local categories = scan.categories
-	while debugprofilestop() < deadline do
-		local categoryID = categories[scan.ci]
-		if not categoryID then
-			Finish()
-			return
-		end
-		if scan.ai == 1 then
-			scan.count = GetCategoryNumAchievements(categoryID) or 0
-			local cat = ns.Ach_CategoryInfo(categoryID)
-			if SKIPPED_TOP[cat.topID] then
-				scan.count = 0
-			end
-		end
-		if scan.ai > scan.count then
-			scan.ci, scan.ai = scan.ci + 1, 1
-			scan.moved = true
-		else
-			local id = GetAchievementInfo(categoryID, scan.ai)
-			scan.ai = scan.ai + 1
-			if id then
-				local record, criteria = BuildRecord(id, categoryID, pins[id], scan.metaLinks)
-				if record then
-					record.critNames = CritNames(criteria)
-					scan.records[id] = record
-				end
-			end
-		end
+-- One achievement of the walk (Walk.lua; Feats of Strength and Legacy are skipped there).
+local function Visit(id, categoryID)
+	local record, criteria = BuildRecord(id, categoryID, scan.pins[id], scan.metaLinks)
+	if record then
+		record.critNames = CritNames(criteria)
+		scan.records[id] = record
 	end
 end
 
-scanner:SetScript("OnUpdate", function()
-	Step()
-	if scan and scan.moved then
-		scan.moved = false
-		ns.AchDock_ScanStatus()
-	end
-end)
+local function CategoryDone()
+	scan.pins = ns.Ach_PinSet()
+	ns.AchDock_ScanStatus()
+end
 
 function ns.Ach_StartScan()
 	ns.Ach_ClearQueue()
-	scan = { categories = GetCategoryList() or {}, ci = 1, ai = 1, count = 0, records = {}, metaLinks = {} }
-	scanner:Show()
+	scan = { records = {}, metaLinks = {}, pins = ns.Ach_PinSet() }
+	ns.AchWalk_Join("ach", { visit = Visit, category = CategoryDone, finish = Finish })
 	onChanged(nil, nil)
 end
 
 function ns.Ach_StopScan()
 	scan = nil
-	scanner:Hide()
+	ns.AchWalk_Leave("ach")
 	ns.Ach_ClearQueue()
 	if debounceTimer then
 		debounceTimer:Cancel()
@@ -247,7 +219,7 @@ function ns.Ach_ScanProgress()
 	if not scan then
 		return nil
 	end
-	return math.min((scan.ci - 1) / math.max(#scan.categories, 1), 1)
+	return ns.AchWalk_Progress("ach") or 0
 end
 
 function ns.Ach_Records()
