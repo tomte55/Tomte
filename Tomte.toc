@@ -3,7 +3,7 @@
 ## Notes: Personal quality-of-life modules.
 ## Author: tomte55
 ## Version: 1.0.0
-## IconTexture: Interface\Icons\INV_Misc_PocketWatch_01
+## IconTexture: Interface\AddOns\Tomte\Media\Logo
 ## SavedVariables: TomteDB
 ## OptionalDeps: FlightTimer, Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI
 ## AddonCompartmentFunc: Tomte_OnAddonCompartmentClick

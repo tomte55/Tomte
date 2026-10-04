@@ -5,7 +5,7 @@ local addonName, ns = ...
 
 ns.PREFIX = "|cff66ccffTomte|r: "
 -- Panel title bar and minimap button. The TOC's IconTexture is set separately (it can't read this).
-ns.ICON = "Interface\\Icons\\INV_Misc_PocketWatch_01"
+ns.ICON = "Interface\\AddOns\\Tomte\\Media\\Logo" -- Media/Logo.svg is the source
 ns.ownFrames = {} -- our frames on WorldFrame that the cinematic must not hide (bar, letterbox)
 ns.errorHandler = function(err)
 	return geterrorhandler()(err)
