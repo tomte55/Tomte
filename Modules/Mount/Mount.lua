@@ -158,7 +158,28 @@ local function CombatMacro()
 	return table.concat(lines, "\n")
 end
 
-local function PreClick()
+-- The G-99 Breakneck's spell name when you can call it here (Undermine): its zone ability, or the journal mount of
+-- that name if it's usable. Matched by name because neither has a stable ID we can check against.
+local G99_PATTERN = "^G%-99"
+local function G99Spell()
+	for _, ability in ipairs(C_ZoneAbility.GetActiveAbilities() or {}) do
+		local name = C_Spell.GetSpellName(ability.spellID)
+		if name and name:find(G99_PATTERN) then
+			return name
+		end
+	end
+	for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
+		local name, spellID, _, _, isUsable, _, _, _, _, _, isCollected = C_MountJournal.GetMountInfoByID(mountID)
+		if name and isCollected and isUsable and name:find(G99_PATTERN) and C_MountJournal.GetMountUsabilityByID(mountID, true) then
+			return C_Spell.GetSpellName(spellID) or name
+		end
+	end
+	return nil
+end
+
+-- LeftButton = the Smart Mount key, RightButton = "normal mount" (its own binding, and Shift + your Smart Mount key).
+-- Modifiers can't be read here: during a binding's click IsShiftKeyDown() is false even with Shift held (measured).
+local function PreClick(_, mouseButton)
 	if InCombatLockdown() then
 		return
 	end
@@ -176,6 +197,12 @@ local function PreClick()
 	elseif InTravelForm() then
 		SetMacro("/cancelform")
 	else
+		local g99 = db.g99 and mouseButton ~= "RightButton" and G99Spell()
+		if g99 then
+			SetMacro("/cast " .. g99)
+			lastWhy = { context = "G-99 (Shift or the \"normal mount\" key for a mount)", macro = "/cast " .. g99 }
+			return
+		end
 		local mount = Choose()
 		if mount then
 			lastMount = mount.id
@@ -185,7 +212,8 @@ local function PreClick()
 			lastWhy.macro = "/cast " .. spell
 		else
 			SetMacro("")
-			UIErrorsFrame:AddMessage("Smart Mount: no usable mount here.", 1, 0.82, 0)
+			UIErrorsFrame:AddMessage(IsIndoors() and "Smart Mount: you can't mount indoors."
+				or "Smart Mount: no usable mount here.", 1, 0.82, 0)
 		end
 	end
 end
@@ -208,12 +236,50 @@ function events:PLAYER_REGEN_DISABLED()
 	SetMacro(CombatMacro())
 end
 
+-- Shift + your Smart Mount key works as the "normal mount" key (a mount instead of the G-99), unless you've bound
+-- that Shift combination to something else. Override bindings can't change in combat: redone after it.
+local BINDING = "CLICK " .. BUTTON_NAME .. ":LeftButton"
+local NORMAL_BINDING = "CLICK " .. BUTTON_NAME .. ":RightButton"
+local shiftPending = false
+
+local function UpdateShiftBindings()
+	if InCombatLockdown() then
+		shiftPending = true
+		return
+	end
+	shiftPending = false
+	ClearOverrideBindings(events)
+	if not module.active then
+		return
+	end
+	for _, key in ipairs({ GetBindingKey(BINDING) }) do
+		local shifted = "SHIFT-" .. key
+		local taken = GetBindingAction(shifted)
+		if not key:find("-", 2, true) and (taken == "" or taken == BINDING or taken == NORMAL_BINDING) then
+			SetOverrideBindingClick(events, false, shifted, BUTTON_NAME, "RightButton")
+		end
+	end
+end
+
+events.UPDATE_BINDINGS = UpdateShiftBindings
+events.PLAYER_ENTERING_WORLD = UpdateShiftBindings
+
+function events:PLAYER_REGEN_ENABLED()
+	if shiftPending then
+		UpdateShiftBindings()
+	end
+end
+
 local function Why()
 	if not lastWhy then
 		ns.Print("press the Smart Mount key first.")
 		return
 	end
 	local w, st = lastWhy, lastWhy.stats
+	if not st then -- the G-99, no mount was picked
+		ns.Print(("%s: %s"):format(w.context, w.macro))
+		return
+	end
 	ns.Print(("context: %s%s, picked from: %s"):format(w.context, w.skyriding and " (skyriding)" or "",
 		w.source or "-"))
 	print(("  mounts: %d collected, %d usable here, %d not usable on this character"):format(st.collected, st.usable,
@@ -263,6 +329,7 @@ module = ns.RegisterModule({
 		preferGround = true,
 		noRepeat = true,
 		keepFlying = true,
+		g99 = true,
 	},
 	init = function(moduleDB)
 		db = moduleDB
@@ -273,9 +340,13 @@ module = ns.RegisterModule({
 	toggle = function(active)
 		if active then
 			events:RegisterEvent("PLAYER_REGEN_DISABLED")
+			events:RegisterEvent("PLAYER_REGEN_ENABLED")
+			events:RegisterEvent("UPDATE_BINDINGS")
+			events:RegisterEvent("PLAYER_ENTERING_WORLD")
 		else
 			events:UnregisterAllEvents()
 		end
+		UpdateShiftBindings()
 		if not InCombatLockdown() then
 			button:SetAttribute("type", nil)
 		end
@@ -292,6 +363,8 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "preferGround", label = "Ground mounts on the ground",
 			tooltip = "Where you can't fly, use ground mounts if the pool has any. Off: flying mounts can be picked too." },
 		{ type = "checkbox", key = "noRepeat", label = "Avoid the same mount twice in a row" },
+		{ type = "checkbox", key = "g99", label = "G-99 Breakneck in Undermine",
+			tooltip = "Where the G-99 can be called, the key calls it instead of a mount. Shift + your Smart Mount key (or the \"normal mount\" key binding) gives a normal mount." },
 		{ type = "header", label = "Dismounting" },
 		{ type = "checkbox", key = "keepFlying", label = "Don't dismount while flying",
 			tooltip = "The key does nothing in the air, so you can't fall off by accident." },
@@ -301,3 +374,4 @@ module = ns.RegisterModule({
 ns.mountModule = module
 
 _G["BINDING_NAME_CLICK " .. BUTTON_NAME .. ":LeftButton"] = "Smart Mount"
+_G["BINDING_NAME_CLICK " .. BUTTON_NAME .. ":RightButton"] = "Smart Mount: normal mount (not the G-99)"
