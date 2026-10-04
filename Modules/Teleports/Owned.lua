@@ -174,7 +174,9 @@ local function AddHearth(list, db)
 		end
 	end
 	for i, itemID in ipairs(ns.TP_HEARTH_ITEMS) do
-		if HasItem(itemID) then
+		if PlayerHasToy(itemID) then
+			Add(list, ItemEntry("toy", itemID, "hearth", 5 + i))
+		elseif HasItem(itemID) then
 			Add(list, ItemEntry("item", itemID, "hearth", 5 + i))
 		end
 	end

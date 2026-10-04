@@ -132,15 +132,39 @@ local function SetHover(row, on)
 	end
 end
 
+-- A protected frame can't be anchored to an ordinary one, so the secure button is placed in UIParent coordinates over
+-- the row's on-screen rect, clipped to the visible part of the list. Returns false when nothing of the row shows.
+local function PlaceOver(row)
+	local scale = row:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	local left, bottom, width, height = row:GetRect()
+	local cLeft, cBottom, cWidth, cHeight = panel.scroll:GetRect()
+	if not left or not cLeft then
+		return false
+	end
+	local top = math.min(bottom + height, cBottom + cHeight)
+	bottom = math.max(bottom, cBottom)
+	local right = math.min(left + width, cLeft + cWidth)
+	left = math.max(left, cLeft)
+	if top <= bottom or right <= left then
+		return false
+	end
+	secure:ClearAllPoints()
+	secure:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * scale, bottom * scale)
+	secure:SetSize((right - left) * scale, (top - bottom) * scale)
+	return true
+end
+
 local function Attach(row)
 	if InCombat() or not row.entry or not row.entry.known then
-		return
+		return false
+	end
+	if not PlaceOver(row) then
+		return false
 	end
 	SetAction(row.entry)
 	secure.row = row
-	secure:ClearAllPoints()
-	secure:SetAllPoints(row)
 	secure:Show()
+	return true
 end
 
 local function CreateSecure()
@@ -225,13 +249,10 @@ local function NewRow()
 			return
 		end
 		hoverRow = self
-		if self.entry.known and not InCombat() then
-			Attach(self) -- the secure button's OnEnter takes over
-		else
-			SetHover(self, true)
-			ShowTooltip(self, self.entry)
-			ShowPin(self.entry)
-		end
+		local owner = Attach(self) and secure or self
+		SetHover(self, true)
+		ShowTooltip(owner, self.entry)
+		ShowPin(self.entry)
 	end)
 	row:SetScript("OnLeave", function(self)
 		if secure.row == self then

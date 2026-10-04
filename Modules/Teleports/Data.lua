@@ -15,7 +15,7 @@ ns.TP_CLASS_SPELLS = {
 
 ns.TP_HEARTHSTONE = 6948
 
--- Other hearthstone-like items (not toys).
+-- Other hearthstone-like items. Toys now (in the toy box), or the old bag item on characters that still have one.
 ns.TP_HEARTH_ITEMS = {
 	110560, -- Garrison Hearthstone
 	140192, -- Dalaran Hearthstone
@@ -191,9 +191,9 @@ end
 function ns.Tp_FormatCooldown(seconds)
 	seconds = math.ceil(seconds)
 	if seconds >= 3600 then
-		return ("%d:%02d:%02d"):format(seconds / 3600, (seconds % 3600) / 60, seconds % 60)
+		return ("%d:%02d:%02d"):format(math.floor(seconds / 3600), math.floor(seconds % 3600 / 60), seconds % 60)
 	elseif seconds >= 60 then
-		return ("%d:%02d"):format(seconds / 60, seconds % 60)
+		return ("%d:%02d"):format(math.floor(seconds / 60), seconds % 60)
 	end
 	return seconds .. "s"
 end
