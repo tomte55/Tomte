@@ -110,6 +110,35 @@ test("pick: uses rand over the pool", function()
 	eq(got, c)
 end)
 
+test("pick strict: only mounts that suit the context", function()
+	eq(ns.Mount_Pick({ GROUND }, "flying", { strict = true }, first), nil, "ground where you fly")
+	eq(ns.Mount_Pick({ STEADY }, "flying", { strict = true, skyriding = true }, first), STEADY, "steady still flies")
+	eq(ns.Mount_Pick({ FLYER }, "water", { strict = true }, first), nil, "flyer underwater")
+	eq(ns.Mount_Pick({ FLYER }, "ground", { strict = true, preferGround = true }, first), FLYER, "flyer on the ground")
+	eq(ns.Mount_Pick({ TURTLE }, "ground", { strict = true }, first), nil, "turtle on land")
+end)
+
+test("tiered: favorites that don't suit the spot fall through", function()
+	local tiers = {
+		{ source = "zone", candidates = { GROUND } },
+		{ source = "journal", candidates = { TURTLE } },
+		{ source = "all", candidates = { GROUND, FLYER } },
+	}
+	local m, source = ns.Mount_PickTiered(tiers, "flying", {}, first)
+	eq(m, FLYER)
+	eq(source, "all")
+	m, source = ns.Mount_PickTiered(tiers, "ground", {}, first)
+	eq(m, GROUND)
+	eq(source, "zone", "zone favorite suits the ground")
+end)
+
+test("tiered: the last tier takes the best fallback", function()
+	local m, source = ns.Mount_PickTiered({ { source = "all", candidates = { GROUND } } }, "flying", {}, first)
+	eq(m, GROUND)
+	eq(source, "all")
+	eq(ns.Mount_PickTiered({ { source = "all", candidates = {} } }, "flying", {}, first), nil)
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)

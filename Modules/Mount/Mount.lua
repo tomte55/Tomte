@@ -50,56 +50,79 @@ local function InTravelForm()
 	return spellID ~= nil and TRAVEL_FORMS[spellID] == true
 end
 
-local function Candidate(mountID)
-	local name, spellID, icon, _, isUsable, _, _, _, _, _, isCollected, _, isSteadyFlight = C_MountJournal.GetMountInfoByID(mountID)
-	if not name or not isCollected or not isUsable or not C_MountJournal.GetMountUsabilityByID(mountID, true) then
+-- A usable mount as a candidate, or nil. stats counts why mounts were left out, for /tomte mount why.
+local function Candidate(mountID, stats)
+	local name, spellID, icon, _, isUsable, _, isFavorite, _, _, _, isCollected, _, isSteadyFlight = C_MountJournal.GetMountInfoByID(mountID)
+	if not name or not isCollected then
+		return nil
+	end
+	stats.collected = stats.collected + 1
+	if not isUsable then
+		stats.notUsable = stats.notUsable + 1
+		return nil
+	end
+	local usableHere, useError = C_MountJournal.GetMountUsabilityByID(mountID, true)
+	if not usableHere then
+		local reason = useError or "?"
+		stats.errors[reason] = (stats.errors[reason] or 0) + 1
 		return nil
 	end
 	local typeID = select(5, C_MountJournal.GetMountInfoExtraByID(mountID))
 	local info = ns.Mount_TypeInfo(typeID)
 	return {
 		id = mountID, name = name, spellID = spellID, icon = icon, typeID = typeID, steady = isSteadyFlight,
-		flying = info.flying, aquatic = info.aquatic, swimOnly = info.swimOnly,
+		favorite = isFavorite, flying = info.flying, aquatic = info.aquatic, swimOnly = info.swimOnly,
 	}
 end
 
-local function Candidates(ids, favoritesOnly)
-	local list = {}
-	for _, mountID in ipairs(ids) do
-		if not favoritesOnly or select(7, C_MountJournal.GetMountInfoByID(mountID)) then
-			local c = Candidate(mountID)
-			if c then
-				list[#list + 1] = c
-			end
+-- The zone favorites list for where you stand, as a set of mountIDs, and its map's name.
+local function ZoneFavorites()
+	if not db.useZones then
+		return nil
+	end
+	local chain, infos = ns.Mount_Chain()
+	local list, mapID = ns.Mount_ZoneList(chain, ns.mountDB.zones)
+	if not list then
+		return nil
+	end
+	local set = {}
+	for _, id in ipairs(list) do
+		set[id] = true
+	end
+	for i, id in ipairs(chain) do
+		if id == mapID then
+			return set, infos[i].name
 		end
 	end
-	return list
+	return set, tostring(mapID)
 end
 
--- The usable candidates and where they came from: zone favorites, journal favorites, or all mounts.
-local function Pool()
-	if db.useZones then
-		local chain, infos = ns.Mount_Chain()
-		local list, mapID = ns.Mount_ZoneList(chain, ns.mountDB.zones)
-		if list then
-			local pool = Candidates(list)
-			if #pool > 0 then
-				local name = mapID
-				for i, id in ipairs(chain) do
-					if id == mapID then
-						name = infos[i].name
-					end
-				end
-				return pool, "zone favorites (" .. name .. ")"
+-- Candidate tiers, in order: zone favorites, journal favorites, all usable mounts (one pass over the journal).
+local function Tiers(stats)
+	local zoneSet, zoneName = ZoneFavorites()
+	local zone, favorites, all = {}, {}, {}
+	for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
+		local c = Candidate(mountID, stats)
+		if c then
+			all[#all + 1] = c
+			if c.favorite then
+				favorites[#favorites + 1] = c
+			end
+			if zoneSet and zoneSet[mountID] then
+				zone[#zone + 1] = c
 			end
 		end
 	end
-	local all = C_MountJournal.GetMountIDs()
-	local pool = Candidates(all, true)
-	if #pool > 0 then
-		return pool, "journal favorites"
+	stats.usable = #all
+	local tiers = {}
+	if #zone > 0 then
+		tiers[#tiers + 1] = { source = "zone favorites (" .. zoneName .. ")", candidates = zone }
 	end
-	return Candidates(all), "all mounts"
+	if #favorites > 0 then
+		tiers[#tiers + 1] = { source = "journal favorites", candidates = favorites }
+	end
+	tiers[#tiers + 1] = { source = "all mounts", candidates = all }
+	return tiers
 end
 
 local function Choose()
@@ -109,13 +132,13 @@ local function Choose()
 		indoors = IsIndoors(),
 	})
 	local skyriding = C_UnitAuras.GetPlayerAuraBySpellID(SKYRIDING_AURA) ~= nil
-	local pool, source = Pool()
-	local mount = ns.Mount_Pick(pool, context, {
+	local stats = { collected = 0, notUsable = 0, usable = 0, errors = {} }
+	local mount, source = ns.Mount_PickTiered(Tiers(stats), context, {
 		preferGround = db.preferGround,
 		skyriding = skyriding,
 		avoid = db.noRepeat and lastMount or nil,
 	}, math.random)
-	lastWhy = { context = context, skyriding = skyriding, source = source, count = #pool, mount = mount }
+	lastWhy = { context = context, skyriding = skyriding, source = source, stats = stats, mount = mount }
 	return mount
 end
 
@@ -126,10 +149,11 @@ end
 
 -- What the key does in combat: only ways out (mounting isn't possible in combat).
 local function CombatMacro()
-	local lines = { "/leavevehicle [canexitvehicle]", "/dismount [mounted,noflying]" }
+	local ground = db.keepFlying and ",noflying" or ""
+	local lines = { "/leavevehicle [canexitvehicle]", ("/dismount [mounted%s]"):format(ground) }
 	local form = TravelFormIndex()
 	if form then
-		lines[#lines + 1] = ("/cancelform [form:%d]"):format(form)
+		lines[#lines + 1] = ("/cancelform [form:%d%s]"):format(form, ground)
 	end
 	return table.concat(lines, "\n")
 end
@@ -144,21 +168,21 @@ local function PreClick()
 	end
 	if CanExitVehicle() then
 		SetMacro("/leavevehicle")
+	elseif (IsMounted() or InTravelForm()) and IsFlying() and db.keepFlying then
+		SetMacro("")
+		UIErrorsFrame:AddMessage("Smart Mount: land first (or turn off \"Don't dismount while flying\").", 1, 0.82, 0)
 	elseif IsMounted() then
-		if IsFlying() and db.keepFlying then
-			SetMacro("")
-			UIErrorsFrame:AddMessage("Smart Mount: land first (or turn off \"Don't dismount while flying\").", 1, 0.82, 0)
-		else
-			SetMacro("/dismount")
-		end
+		SetMacro("/dismount")
 	elseif InTravelForm() then
 		SetMacro("/cancelform")
 	else
 		local mount = Choose()
 		if mount then
 			lastMount = mount.id
-			button:SetAttribute("type", "spell")
-			button:SetAttribute("spell", mount.spellID)
+			-- /cast by name, like a hand-made mount macro. The spell name, not the journal name: they can differ.
+			local spell = C_Spell.GetSpellName(mount.spellID) or mount.name
+			SetMacro("/cast " .. spell)
+			lastWhy.macro = "/cast " .. spell
 		else
 			SetMacro("")
 			UIErrorsFrame:AddMessage("Smart Mount: no usable mount here.", 1, 0.82, 0)
@@ -189,14 +213,20 @@ local function Why()
 		ns.Print("press the Smart Mount key first.")
 		return
 	end
-	local w = lastWhy
-	ns.Print(("context: %s%s, pool: %s (%d usable)"):format(w.context, w.skyriding and " (skyriding)" or "",
-		w.source, w.count))
+	local w, st = lastWhy, lastWhy.stats
+	ns.Print(("context: %s%s, picked from: %s"):format(w.context, w.skyriding and " (skyriding)" or "",
+		w.source or "-"))
+	print(("  mounts: %d collected, %d usable here, %d not usable on this character"):format(st.collected, st.usable,
+		st.notUsable))
+	for reason, n in pairs(st.errors) do
+		print(("  %d not usable here: %s"):format(n, reason))
+	end
 	local m = w.mount
 	if m then
 		local kind = m.flying and "flying" or (m.swimOnly and "swim only" or (m.aquatic and "aquatic" or "ground"))
 		print(("  picked %s (mountID %d, type %s = %s%s%s)"):format(m.name, m.id, tostring(m.typeID), kind,
 			m.steady and ", steady flight only" or "", ns.Mount_KnownType(m.typeID) and "" or ", |cffff9940unknown type|r"))
+		print("  macro: " .. tostring(w.macro))
 	else
 		print("  nothing usable")
 	end

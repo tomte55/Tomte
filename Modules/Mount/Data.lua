@@ -101,7 +101,8 @@ local function Filter(list, fn)
 	return out
 end
 
--- Narrowing steps per context: the first step that leaves anything wins.
+-- Narrowing steps per context: the first step that leaves anything wins. The first `fit` steps give a mount that
+-- suits the context; the rest are fallbacks (a ground mount where you could fly, a turtle on land).
 local function Steps(context, opts)
 	local function flying(m)
 		return m.flying
@@ -118,30 +119,38 @@ local function Steps(context, opts)
 	if context == "water" then
 		return { function(m)
 			return m.aquatic
-		end, flying, notSwimOnly }
+		end, flying, notSwimOnly }, 1
 	elseif context == "flying" then
 		if opts.skyriding then
-			return { canSkyride, flying, notSwimOnly }
+			return { canSkyride, flying, notSwimOnly }, 2
 		end
-		return { flying, notSwimOnly }
+		return { flying, notSwimOnly }, 1
 	end
 	if opts.preferGround then
-		return { landOnly, notSwimOnly }
+		return { landOnly, notSwimOnly }, 2
 	end
-	return { notSwimOnly }
+	return { notSwimOnly }, 1
 end
 
 -- candidates: usable mounts { id, flying, aquatic, swimOnly, steady }. opts = { preferGround, skyriding, avoid
--- (last mountID) }. rand(n) -> 1..n. Returns the chosen candidate or nil.
+-- (last mountID), strict (only a mount that suits the context, else nil) }. rand(n) -> 1..n. Returns the chosen
+-- candidate or nil.
 function ns.Mount_Pick(candidates, context, opts, rand)
+	local steps, fit = Steps(context, opts)
 	local pool
-	for _, step in ipairs(Steps(context, opts)) do
+	for i, step in ipairs(steps) do
+		if opts.strict and i > fit then
+			break
+		end
 		pool = Filter(candidates, step)
 		if #pool > 0 then
 			break
 		end
 	end
 	if not pool or #pool == 0 then
+		if opts.strict then
+			return nil
+		end
 		pool = candidates
 	end
 	if #pool == 0 then
@@ -153,4 +162,19 @@ function ns.Mount_Pick(candidates, context, opts, rand)
 		end)
 	end
 	return pool[rand(#pool)]
+end
+
+-- tiers: { { source, candidates } } in order (zone favorites, journal favorites, all mounts). A tier is used only
+-- when it has a mount that suits the context; the last tier takes whatever fits best. Returns mount, source.
+function ns.Mount_PickTiered(tiers, context, opts, rand)
+	for i, tier in ipairs(tiers) do
+		local last = i == #tiers
+		local mount = ns.Mount_Pick(tier.candidates, context, {
+			preferGround = opts.preferGround, skyriding = opts.skyriding, avoid = opts.avoid, strict = not last,
+		}, rand)
+		if mount then
+			return mount, tier.source
+		end
+	end
+	return nil
 end
