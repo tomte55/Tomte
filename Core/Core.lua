@@ -57,6 +57,10 @@ local function PrintModuleCommands(module)
 	for _, cmd in ipairs(module.commands or {}) do
 		PrintCommand(("/tomte %s %s"):format(module.key, cmd[1]), cmd[2])
 	end
+	if module.fallbackCommand then
+		local cmd = module.fallbackCommand
+		PrintCommand(("/tomte %s %s"):format(module.key, cmd[1]), cmd[2])
+	end
 end
 
 local function PrintHelp()
@@ -68,7 +72,8 @@ local function PrintHelp()
 	end
 end
 
--- "preview mount" runs the "preview" command with "mount".
+-- "preview mount" runs the "preview" command with "mount". Text that matches no command goes to the module's
+-- fallbackCommand (if it has one and its pattern matches), with the whole text.
 local function RunModuleCommand(module, text)
 	local name, arg = text:match("^(%S*)%s*(.-)$")
 	for _, cmd in ipairs(module.commands) do
@@ -76,6 +81,11 @@ local function RunModuleCommand(module, text)
 			cmd[3](arg)
 			return
 		end
+	end
+	local fallback = module.fallbackCommand
+	if fallback and text:match(fallback.pattern) then
+		fallback[3](text)
+		return
 	end
 	ns.Print(module.name .. " commands:")
 	PrintModuleCommands(module)

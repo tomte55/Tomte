@@ -219,6 +219,35 @@ local function TestPin()
 	C_SuperTrack.SetSuperTrackedUserWaypoint(true)
 end
 
+-- "45.2 67.8", "45.2, 67.8" or TomTom's "#2248 45.2 67.8" (a map ID first). Anything after the coordinates
+-- (TomTom's description) is ignored: a map pin can't carry a name.
+local function PinAt(text)
+	if not RequireActive() then
+		return
+	end
+	local mapID, rest = text:match("^#(%d+)%s+(.*)$")
+	mapID = tonumber(mapID) or C_Map.GetBestMapForUnit("player")
+	local x, y = (rest or text):match("^([%d.]+)[%s,]+([%d.]+)")
+	x, y = tonumber(x), tonumber(y)
+	if not x or not y or x < 0 or x > 100 or y < 0 or y > 100 then
+		ns.Print("usage: /way <x> <y>, for example /way 45.2 67.8 (or /way #mapID <x> <y>).")
+		return
+	end
+	if not mapID or not C_Map.CanSetUserWaypointOnMap(mapID) then
+		ns.Print("can't place a map pin on that map.")
+		return
+	end
+	C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x / 100, y / 100))
+	C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	local info = C_Map.GetMapInfo(mapID)
+	ns.Print(("tracking %.1f, %.1f in %s."):format(x, y, info and info.name or ("map " .. mapID)))
+end
+
+SLASH_TOMTEWAY1 = "/way"
+SlashCmdList.TOMTEWAY = function(msg)
+	PinAt(strtrim(msg or ""))
+end
+
 local function Clear()
 	if C_SuperTrack.IsSuperTrackingUserWaypoint() or C_Map.HasUserWaypoint() then
 		C_Map.ClearUserWaypoint()
@@ -305,6 +334,7 @@ module = ns.RegisterModule({
 		{ "test", "place a map pin ahead of you and track it", TestPin },
 		{ "clear", "stop tracking (and remove the map pin)", Clear },
 	},
+	fallbackCommand = { "<x> <y>", "pin and track a spot on this map (also /way <x> <y>)", PinAt, pattern = "^[#%d.]" },
 	options = {
 		{ type = "header", label = "Look" },
 		{ type = "dropdown", key = "style", label = "Style",
