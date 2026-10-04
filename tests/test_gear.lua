@@ -261,13 +261,55 @@ test("Trinket and effect items: can't judge", function()
 	eq(v.kind, "simIt")
 end)
 
-test("Losing an effect: upgrade, but", function()
+test("Losing an effect: can't judge, sim both", function()
 	local e = gearset()
 	e[1].effect = "Equip: your attacks sometimes explode"
 	local v = ns.Gear_Evaluate(item("INVTYPE_HEAD", 150, 150, { ilvl = 320 }), e, CTX)
-	eq(v.kind, "upgradeBut")
-	has(v.reasons, "Loses: Equip")
+	eq(v.kind, "simIt")
+	eq(v.reasons[1], "Your current gear has an Equip effect that stats can't value")
+	eq(v.reasons[2], "Sim both to know: /tomte gear sim")
 	eq(ns.Gear_IsCleanUpgrade(v), false)
+	eq((ns.Gear_Headline(v)), "Can't judge (stats alone +50.0%)")
+	for _, r in ipairs(v.reasons) do
+		assert(not r:find("Loses:"), "no pasted effect text")
+	end
+end)
+
+test("Losing a Use effect", function()
+	local e = gearset()
+	e[1].effect = "Use: open the device"
+	local v = ns.Gear_Evaluate(item("INVTYPE_HEAD", 150, 150, { ilvl = 320 }), e, CTX)
+	eq(v.reasons[1], "Your current gear has a Use effect that stats can't value")
+end)
+
+test("Losing an effect while gaining one: one sim line", function()
+	local e = gearset()
+	e[1].effect = "Equip: old"
+	local v = ns.Gear_Evaluate(item("INVTYPE_HEAD", 150, 150, { effect = "Equip: new" }), e, CTX)
+	eq(v.kind, "simIt")
+	local sims = 0
+	for _, r in ipairs(v.reasons) do
+		if r:find("/tomte gear sim") then
+			sims = sims + 1
+		end
+	end
+	eq(sims, 1)
+	has(v.reasons, "has an Equip effect that stats can't value")
+end)
+
+test("Losing a socket names the gem", function()
+	local e = gearset()
+	e[1].sockets = 1
+	e[1].gemText = "+10 Critical Strike and +3 Haste"
+	local v = ns.Gear_Evaluate(item("INVTYPE_HEAD", 150, 150, { ilvl = 320 }), e, CTX)
+	has(v.reasons, "^Loses a socket %(your gem: %+10 Critical Strike and %+3 Haste%)$")
+	e[1].sockets, e[1].gemText = 2, nil
+	v = ns.Gear_Evaluate(item("INVTYPE_HEAD", 150, 150, { ilvl = 320 }), e, CTX)
+	has(v.reasons, "^Loses 2 sockets$")
+	v = ns.Gear_Evaluate(item("INVTYPE_HEAD", 150, 150, { ilvl = 320, sockets = 2 }), e, CTX)
+	for _, r in ipairs(v.reasons) do
+		assert(not r:find("Loses"), "same sockets: nothing lost")
+	end
 end)
 
 test("Unique: same ring is compared against itself", function()

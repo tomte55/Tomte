@@ -2,8 +2,8 @@ local addonName, ns = ...
 
 -- Gear Check pure logic (unit-tested with plain Lua): Pawn weight strings, stat tables, scores, what a candidate
 -- is compared against, set/unique/effect checks and the verdict. Items come in as descriptors built by Items.lua:
--- { link, equipLoc, classID, subclassID, stats, gemStats, gems, sockets, enchanted, setID, unique = {category, max},
---   effect (text), upgrade = {cur, max, maxIlvl, track}, redText }.
+-- { link, equipLoc, classID, subclassID, stats, gemStats, gemText (first gem's line), gems, sockets, enchanted,
+--   setID, unique = {category, max}, effect (text), upgrade = {cur, max, maxIlvl, track}, redText }.
 -- Stat keys: STR AGI INT (only inside stats.PRIMARY), STA CRIT HASTE MASTERY VERS DPS ARMOR.
 
 local UPGRADE_PCT = 1 -- above +1% is an upgrade, within +-1% a sidegrade
@@ -347,6 +347,17 @@ local function MainSet(equipped)
 	return best
 end
 
+-- "Equip: ..." -> "an Equip", "Use: ..." -> "a Use"; anything else -> "an".
+local function EffectKind(effect)
+	local word = effect:match("^(%a+):")
+	if word == "Use" then
+		return "a Use"
+	elseif word then
+		return "an " .. word
+	end
+	return "an"
+end
+
 local function SameItem(a, b)
 	return a and b and a.link == b.link
 end
@@ -476,14 +487,23 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 	end
 
 	-- What the replaced item has that the candidate doesn't.
+	local lostEffects = {}
 	for s in pairs(replaced) do
 		local desc = equipped[s]
 		if desc then
 			if desc.unique and desc.unique.category == "Embellished"
 				and not (cand.unique and cand.unique.category == "Embellished") then
 				warnings[#warnings + 1] = "Loses an embellishment"
-			elseif desc.effect and not cand.effect then
-				warnings[#warnings + 1] = "Loses: " .. desc.effect
+			elseif desc.effect then
+				-- Stats can't value an effect, so this is a sim question, like a candidate with an effect.
+				lostEffects[#lostEffects + 1] = ("Your current gear has %s effect that stats can't value"):format(
+					EffectKind(desc.effect))
+			end
+			local lostSockets = (desc.sockets or 0) - (cand.sockets or 0)
+			if lostSockets == 1 then
+				info[#info + 1] = desc.gemText and ("Loses a socket (your gem: %s)"):format(desc.gemText) or "Loses a socket"
+			elseif lostSockets > 1 then
+				info[#info + 1] = ("Loses %d sockets"):format(lostSockets)
 			end
 			if desc.enchanted and ENCHANT_SLOTS[s] and not cand.enchanted then
 				info[#info + 1] = "Current one is enchanted: re-enchant"
@@ -502,9 +522,14 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 		info[#info + 1] = ("%s %d/%d, upgrades to %d"):format(up.track or "Upgradable", up.cur, up.max, up.maxIlvl or 0)
 	end
 
-	if cand.equipLoc == "INVTYPE_TRINKET" or cand.effect then
+	if cand.equipLoc == "INVTYPE_TRINKET" or cand.effect or #lostEffects > 0 then
 		verdict.kind = "simIt"
-		table.insert(warnings, 1, "Its effect decides: check with /tomte gear sim")
+		local sim = (cand.equipLoc == "INVTYPE_TRINKET" or cand.effect) and "Its effect decides: check with /tomte gear sim"
+			or "Sim both to know: /tomte gear sim"
+		table.insert(warnings, 1, sim)
+		for i = #lostEffects, 1, -1 do
+			table.insert(warnings, 1, lostEffects[i])
+		end
 	elseif empty then
 		verdict.kind = "empty"
 	elseif target.mode == "single" and cand.ilvl and oldIlvl and math.abs(cand.ilvl - oldIlvl) <= STAT_MIX_ILVL

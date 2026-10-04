@@ -54,6 +54,7 @@ local function ReadTooltip(desc, link)
 				desc.effect = desc.effect or Short(text)
 			elseif line.type == GEM_TEXT then
 				desc.gemStats = ns.Gear_ParseStatText(text, desc.gemStats)
+				desc.gemText = desc.gemText or Short(text)
 			elseif not SKIP_RED[line.type] and IsRed(line.leftColor) and not text:find("^Durability") then
 				desc.redText = desc.redText or Short(text)
 			end
