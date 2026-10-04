@@ -6,7 +6,8 @@ local addonName, ns = ...
 -- timer. A card with a mergeKey that is still up takes the next one with the same key (text replaced,
 -- count shown). Pinned cards (the unread whisper recap) sit on top of the stack and never time out.
 -- While a cinematic hides the UI (and in combat, for cards with holdInCombat) cards are held back; when
--- they're let go, an owner with a digest builder gets one card for all of its held cards.
+-- they're let go, an owner with a digest builder gets one card for all of its held cards. When a Blizzard UI
+-- panel (merchant, mail, character...) covers the stack, the stack slides beside it until the panel closes.
 --
 -- ns.Toast_Show(spec): spec = { owner, label, accent, title, text, secret, icon, iconAtlas, mergeKey, hold,
 --   holdInCombat, onClick(button), onDismiss(), digestName, count }. secret = title/text may be secret values.
@@ -27,6 +28,9 @@ local HELD_CHECK = 0.5
 local GOLD = ns.SCENE_GOLD
 local SECRET_TITLE_H, SECRET_TEXT_H = 16, 45 -- one title line, three text lines (the most a card shows)
 local DEFAULT_POINT = { "TOPLEFT", "LEFT", 40, 140 } -- on UIParent: left side, above the chat
+local DODGE_CHECK = 0.2 -- seconds between looks at the open UI panels
+local DODGE_GAP = 12 -- pixels between a panel and the stack beside it
+local PANEL_KEYS = { "left", "center", "right", "doublewide" } -- fullscreen panels can't be dodged
 
 local anchor, mover
 local shown = {} -- cards on screen, top to bottom (pinned first)
@@ -36,6 +40,7 @@ local pinned = {} -- [key] = card
 local digests = {} -- [owner] = fn(held) -> spec
 local pool = {}
 local heldCheck = 0
+local dodgeX, dodgeTarget, dodgeCheck = 0, 0, DODGE_CHECK
 
 local function Smooth(p)
 	return p * p * (3 - 2 * p)
@@ -52,6 +57,7 @@ local function OffscreenOffset()
 	if not (left and right) then
 		return -WIDTH
 	end
+	left, right = left + dodgeX, right + dodgeX
 	local toRight = UIParent:GetWidth() - right
 	if left <= toRight then
 		return -(left + WIDTH)
@@ -264,6 +270,7 @@ local function Place(spec, pinKey)
 	card.pinKey = pinKey
 	anchor:Show()
 	card.enter, card.pulse = 0, nil
+	dodgeCheck = DODGE_CHECK -- a new card changes the stack height: look at the panels right away
 	card.from = OffscreenOffset()
 	card.y, card.drawnX, card.drawnY = nil, nil, nil
 	card:SetAlpha(0)
@@ -358,7 +365,74 @@ local function ReleaseHeld()
 	end
 end
 
+-- Open UI panels as { left, right, top, bottom } in the anchor's coordinates.
+local function PanelRects()
+	local rects = {}
+	local scale = anchor:GetEffectiveScale()
+	for _, key in ipairs(PANEL_KEYS) do
+		local panel = GetUIPanel(key)
+		if panel and panel:IsVisible() then
+			local left, bottom, width, height = panel:GetRect()
+			if left then
+				local k = panel:GetEffectiveScale() / scale
+				rects[#rects + 1] = { left * k, (left + width) * k, (bottom + height) * k, bottom * k }
+			end
+		end
+	end
+	return rects
+end
+
+-- x offset that moves the stack beside any panel covering it: away from the screen edge the stack sits at.
+local function DodgeOffset()
+	if #shown == 0 or mover:IsShown() then
+		return 0
+	end
+	local left, top = anchor:GetLeft(), anchor:GetTop()
+	if not (left and top) then
+		return 0
+	end
+	local rects = PanelRects()
+	if #rects == 0 then
+		return 0
+	end
+	local height = 0
+	for _, card in ipairs(shown) do
+		height = height + card:GetHeight() + GAP
+	end
+	local bottom = top - height
+	local screen = UIParent:GetWidth()
+	local towardRight = left + WIDTH / 2 < screen / 2
+	local x = left
+	for _ = 1, #rects do
+		local hit
+		for _, r in ipairs(rects) do
+			if x < r[2] and x + WIDTH > r[1] and top > r[4] and bottom < r[3] then
+				hit = r
+				break
+			end
+		end
+		if not hit then
+			break
+		end
+		x = towardRight and hit[2] + DODGE_GAP or hit[1] - DODGE_GAP - WIDTH
+	end
+	x = math.max(0, math.min(x, screen - WIDTH))
+	return x - left
+end
+
 local function Layout(dt)
+	dodgeCheck = dodgeCheck + dt
+	if dodgeCheck >= DODGE_CHECK then
+		dodgeCheck = 0
+		dodgeTarget = DodgeOffset()
+	end
+	if dodgeX ~= dodgeTarget then
+		dodgeX = dodgeX + (dodgeTarget - dodgeX) * math.min(dt * MOVE_SPEED, 1)
+		if math.abs(dodgeTarget - dodgeX) < 0.5 then
+			dodgeX = dodgeTarget
+		end
+	end
+	local dx = math.floor(dodgeX + 0.5)
 	local y = 0
 	for _, card in ipairs(shown) do
 		local target = -y
@@ -376,7 +450,7 @@ local function Layout(dt)
 			local away = card.from < 0 and 1 or -1
 			slide = math.floor(away * BOUNCE * math.sin(p * math.pi * 2) * (1 - p) + 0.5)
 		end
-		local x, cy = slide, math.floor(card.y + 0.5)
+		local x, cy = slide + dx, math.floor(card.y + 0.5)
 		if card.drawnX ~= x or card.drawnY ~= cy then
 			card.drawnX, card.drawnY = x, cy
 			card:ClearAllPoints()
