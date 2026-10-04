@@ -71,6 +71,7 @@ local hintTimer = 0
 local showcaseCreated
 local progress, target = 0, 0
 local hiddenWorldFrames = {} -- other addons' WorldFrame children we hid (UIParent hiding doesn't reach them)
+local fadedBubbles = {} -- chat bubbles we set to alpha 0 (never hidden, see HideWorldFrameAddons)
 local sinceWorldSweep = 0
 local cursorX, cursorY
 local pitcher = CreateFrame("Frame")
@@ -94,10 +95,19 @@ local function UpdateEvents()
 end
 
 local function HideWorldFrameAddons()
+	-- Chat bubbles are WorldFrame children the client recycles: Hide()/Show() would resurrect an expired bubble
+	-- that the client never hides again. Alpha leaves their lifecycle alone.
+	local bubbles = {}
+	for _, bubble in ipairs(C_ChatBubbles.GetAllChatBubbles()) do
+		bubbles[bubble] = true
+		bubble:SetAlpha(0)
+		fadedBubbles[bubble] = true
+	end
 	for _, child in ipairs({ WorldFrame:GetChildren() }) do
 		-- Forbidden frames error on any other call, so check that first. Skip protected frames,
-		-- engine-managed nameplates, and our own frames.
-		if not child:IsForbidden() and not child:IsProtected() and child:IsShown() and not ns.ownFrames[child] then
+		-- engine-managed nameplates, chat bubbles, and our own frames.
+		if not child:IsForbidden() and not child:IsProtected() and child:IsShown() and not ns.ownFrames[child]
+			and not bubbles[child] then
 			local name = child:GetName()
 			if not (name and name:find("^NamePlate")) then
 				child:Hide()
@@ -112,6 +122,10 @@ local function ShowWorldFrameAddons()
 		child:Show()
 	end
 	wipe(hiddenWorldFrames)
+	for bubble in pairs(fadedBubbles) do
+		bubble:SetAlpha(1)
+	end
+	wipe(fadedBubbles)
 end
 
 local function FadeUI(from, to, duration, onDone)
