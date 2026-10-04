@@ -1,8 +1,8 @@
 local addonName, ns = ...
 
--- Vendor Helper: at a merchant, repair (guild funds first when the remaining withdraw limit covers it) and sell
+-- Vendor Helper: at a merchant, repair (guild funds first when the guild can pay the whole bill) and sell
 -- grey items, then one toast that sums it up. Holding Shift while opening the merchant skips both. Nothing runs
--- while an addon restriction is active. Rules in Data.lua.
+-- in combat or during a boss encounter. Rules in Data.lua.
 
 local GUILD_CHECK_DELAY = 1 -- seconds before checking that a guild repair went through
 local ACCENT = { 0.95, 0.75, 0.3 }
@@ -10,14 +10,15 @@ local ACCENT = { 0.95, 0.75, 0.3 }
 local module, db
 local last -- { repaired, funds, sold, junkValue, poor } from the latest visit, for /tomte vendor last
 
+-- Hold off in combat and during a boss encounter. The other addon restrictions (M+, maps, chat) hide combat
+-- information; repairing and selling don't need any.
 local function Restricted()
-	if not (C_RestrictedActions and C_RestrictedActions.IsAddOnRestrictionActive and Enum.AddOnRestrictionType) then
-		return false
+	if InCombatLockdown() then
+		return true
 	end
-	for _, value in pairs(Enum.AddOnRestrictionType) do
-		if C_RestrictedActions.IsAddOnRestrictionActive(value) then
-			return true
-		end
+	if C_RestrictedActions and C_RestrictedActions.IsAddOnRestrictionActive and Enum.AddOnRestrictionType then
+		return C_RestrictedActions.IsAddOnRestrictionActive(Enum.AddOnRestrictionType.Combat)
+			or C_RestrictedActions.IsAddOnRestrictionActive(Enum.AddOnRestrictionType.Encounter)
 	end
 	return false
 end
@@ -32,6 +33,8 @@ local function Summary(visit)
 		parts[#parts + 1] = ("Repaired %s%s"):format(Money(visit.repaired), visit.funds == "guild" and " (guild)" or "")
 	elseif visit.poor then
 		parts[#parts + 1] = ("|cffff6040Can't afford repairs (%s)|r"):format(Money(visit.poor))
+	elseif visit.unpaid then
+		parts[#parts + 1] = ("|cffff6040Guild repair didn't go through (%s)|r"):format(Money(visit.unpaid))
 	end
 	if visit.sold then
 		parts[#parts + 1] = ("Sold %d junk %s +%s"):format(visit.sold, visit.sold == 1 and "item" or "items",
@@ -47,7 +50,7 @@ local function Report(visit)
 	end
 	if db.toast then
 		ns.Toast_Show({
-			owner = "vendor", label = "Vendor", accent = ACCENT, title = UnitName("npc") or "Merchant",
+			owner = "vendor", label = "Vendor", accent = ACCENT, title = visit.npc or "Merchant",
 			text = table.concat(parts, "\n"), icon = "Interface\\Icons\\INV_Misc_Bag_10", hold = 6,
 		})
 	else
@@ -79,6 +82,17 @@ local function BagItems()
 	return items
 end
 
+-- Any equipped item below full durability (works away from the vendor, unlike GetRepairAllCost).
+local function EquippedDamaged()
+	for slot = INVSLOT_FIRST_EQUIPPED, INVSLOT_LAST_EQUIPPED do
+		local cur, max = GetInventoryItemDurability(slot)
+		if cur and max and cur < max then
+			return true
+		end
+	end
+	return false
+end
+
 local function Repair(visit)
 	if not db.repair or not CanMerchantRepair() then
 		return
@@ -88,7 +102,8 @@ local function Repair(visit)
 		return
 	end
 	local canGuild = IsInGuild() and CanGuildBankRepair()
-	local plan = ns.Upkeep_RepairPlan(cost, GetMoney(), db.guild, canGuild, canGuild and GetGuildBankWithdrawMoney() or nil)
+	local plan = ns.Upkeep_RepairPlan(cost, GetMoney(), db.guild, canGuild, canGuild and GetGuildBankWithdrawMoney() or nil,
+		canGuild and GetGuildBankMoney() or nil)
 	if plan == "guild" then
 		RepairAllItems(true)
 		visit.repaired, visit.funds, visit.pending = cost, "guild", true
@@ -96,14 +111,19 @@ local function Repair(visit)
 		-- waits for this.
 		C_Timer.After(GUILD_CHECK_DELAY, function()
 			visit.pending = nil
-			local left = GetRepairAllCost()
-			if left and left > 0 and MerchantFrame:IsShown() and CanMerchantRepair() then
-				if GetMoney() >= left then
-					RepairAllItems()
-					visit.repaired, visit.funds = left, "own"
-				else
-					visit.repaired, visit.poor = nil, left
+			if MerchantFrame:IsShown() and CanMerchantRepair() then
+				local left = GetRepairAllCost()
+				if left and left > 0 then
+					if GetMoney() >= left then
+						RepairAllItems()
+						visit.repaired, visit.funds = left, "own"
+					else
+						visit.repaired, visit.poor = nil, left
+					end
 				end
+			elseif EquippedDamaged() then
+				-- Vendor closed before we could check, and the gear still isn't repaired: the guild didn't pay.
+				visit.repaired, visit.unpaid = nil, cost
 			end
 			Report(visit)
 		end)
@@ -135,7 +155,7 @@ function events:MERCHANT_SHOW()
 	if IsShiftKeyDown() or Restricted() then
 		return
 	end
-	local visit = {}
+	local visit = { npc = UnitName("npc") }
 	Repair(visit)
 	SellJunk(visit)
 	last = visit
@@ -183,7 +203,7 @@ module = ns.RegisterModule({
 		{ type = "header", label = "At a vendor" },
 		{ type = "checkbox", key = "repair", label = "Repair everything" },
 		{ type = "checkbox", key = "guild", label = "Use guild funds first",
-			tooltip = "When the guild lets you repair and today's withdraw limit covers the whole bill. Otherwise your own gold pays." },
+			tooltip = "When the guild lets you repair and both your withdraw limit and the guild bank cover the whole bill. Otherwise your own gold pays." },
 		{ type = "checkbox", key = "junk", label = "Sell grey items",
 			tooltip = "Bags set to \"Ignore junk selling\" are left alone." },
 		{ type = "checkbox", key = "toast", label = "Summary toast",

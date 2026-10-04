@@ -242,35 +242,35 @@ function ns.Tp_PinPosition(e, mapNames)
 	return nil
 end
 
-local function Restricted()
-	if not (C_RestrictedActions and C_RestrictedActions.IsAddOnRestrictionActive and Enum.AddOnRestrictionType) then
-		return InCombatLockdown()
+local function Secret(...)
+	if not issecretvalue then
+		return false
 	end
-	for _, value in pairs(Enum.AddOnRestrictionType) do
-		if C_RestrictedActions.IsAddOnRestrictionActive(value) then
+	for i = 1, select("#", ...) do
+		if issecretvalue((select(i, ...))) then
 			return true
 		end
 	end
 	return false
 end
 
-local function Remaining(start, duration)
-	if not start or not duration or duration <= 1.5 or start == 0 then -- 1.5: the global cooldown
+-- Seconds left, 0 when ready, nil when the game hides the values (secret, e.g. in combat or M+).
+local function Remaining(start, duration, enabled)
+	if Secret(start, duration, enabled) then
+		return nil
+	end
+	if not enabled or not start or not duration or duration <= 1.5 or start == 0 then -- 1.5: the global cooldown
 		return 0
 	end
 	return math.max(start + duration - GetTime(), 0)
 end
 
 local function ItemRemaining(itemID)
-	local start, duration, enabled = C_Item.GetItemCooldown(itemID)
-	return enabled and Remaining(start, duration) or 0
+	return Remaining(C_Item.GetItemCooldown(itemID))
 end
 
--- Seconds left on the entry's cooldown (0 = ready), or nil when it can't be read (restricted: cooldowns are secret).
+-- Seconds left on the entry's cooldown (0 = ready), or nil when the game hides it.
 function ns.Tp_Cooldown(e)
-	if Restricted() then
-		return nil
-	end
 	if e.kind == "spell" or e.kind == "home" then
 		local info
 		if e.kind == "spell" then
@@ -278,15 +278,22 @@ function ns.Tp_Cooldown(e)
 		else
 			info = C_Housing.GetVisitCooldownInfo()
 		end
-		if not info or (issecretvalue and issecretvalue(info.startTime)) then
+		if not info then
 			return nil
 		end
-		return info.isEnabled and Remaining(info.startTime, info.duration) or 0
+		return Remaining(info.startTime, info.duration, info.isEnabled)
 	elseif e.kind == "random" then
-		local best
+		local best, hidden
 		for _, itemID in ipairs(ns.Tp_OwnedHearthToys()) do
 			local left = ItemRemaining(itemID)
-			best = best and math.min(best, left) or left
+			if left == nil then
+				hidden = true
+			else
+				best = best and math.min(best, left) or left
+			end
+		end
+		if best == nil and hidden then
+			return nil
 		end
 		return best or 0
 	end

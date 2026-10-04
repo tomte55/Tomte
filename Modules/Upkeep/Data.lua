@@ -4,14 +4,20 @@ local addonName, ns = ...
 -- the worst durability among equipped items and when a durability warning fires.
 
 -- How to pay for a repair: "guild", "own", "poor" (can't afford it) or nil (nothing to repair).
--- guildLimit is GetGuildBankWithdrawMoney(): what you may still withdraw today; negative means no limit.
--- CanGuildBankRepair() doesn't look at that limit, so we do. A repair is all or nothing: no splitting.
-function ns.Upkeep_RepairPlan(cost, money, useGuild, canGuild, guildLimit)
+-- withdraw is GetGuildBankWithdrawMoney(): what you may still take out today, -1 for the guild leader (no limit).
+-- bankMoney is GetGuildBankMoney(): the guild can't pay more than it has (if it reads 0 because the client hasn't
+-- heard from the bank yet, own gold pays: safe). Like Blizzard's tooltip: available = the limit capped
+-- by the bank. RepairAllItems(true) quietly takes the rest from your own gold, so the guild only counts when it covers
+-- the whole bill.
+function ns.Upkeep_RepairPlan(cost, money, useGuild, canGuild, withdraw, bankMoney)
 	if not cost or cost <= 0 then
 		return nil
 	end
-	if useGuild and canGuild and guildLimit and (guildLimit < 0 or guildLimit >= cost) then
-		return "guild"
+	if useGuild and canGuild and withdraw and bankMoney then
+		local available = withdraw == -1 and bankMoney or math.min(withdraw, bankMoney)
+		if available >= cost then
+			return "guild"
+		end
 	end
 	if money >= cost then
 		return "own"
@@ -59,7 +65,8 @@ function ns.Durability_Alert(state, lowest, broken, threshold)
 		state.warned, state.broken = false, 0
 		return nil
 	end
-	local prevBroken = state.broken or 0
+	-- First call (login, /reload): items that were already broken aren't news.
+	local prevBroken = state.broken or broken
 	state.broken = broken
 	if lowest >= threshold then
 		state.warned = false

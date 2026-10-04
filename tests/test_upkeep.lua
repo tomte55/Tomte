@@ -21,27 +21,29 @@ end
 local Plan = ns.Upkeep_RepairPlan
 
 test("repair: nothing to repair", function()
-	eq(Plan(0, 1000, true, true, -1), nil)
-	eq(Plan(nil, 1000, true, true, -1), nil)
+	eq(Plan(0, 1000, true, true, -1, 9999), nil)
+	eq(Plan(nil, 1000, true, true, -1, 9999), nil)
 end)
 
-test("repair: guild when allowed and the limit covers it", function()
-	eq(Plan(500, 0, true, true, 500), "guild")
-	eq(Plan(500, 0, true, true, -1), "guild", "unlimited")
+test("repair: guild when allowed and it can pay the whole bill", function()
+	eq(Plan(500, 0, true, true, 500, 9999), "guild", "limit covers it")
+	eq(Plan(500, 0, true, true, -1, 500), "guild", "guild leader, bank covers it")
 end)
 
-test("repair: own gold when the guild limit is too low", function()
-	eq(Plan(500, 1000, true, true, 499), "own")
+test("repair: own gold when the guild can't pay it all", function()
+	eq(Plan(500, 1000, true, true, 499, 9999), "own", "limit too low")
+	eq(Plan(500, 1000, true, true, -1, 0), "own", "guild leader, empty bank")
+	eq(Plan(500, 1000, true, true, 9999, 100), "own", "bank lower than the limit")
 end)
 
 test("repair: own gold when guild is off or not allowed", function()
-	eq(Plan(500, 1000, false, true, -1), "own", "setting off")
-	eq(Plan(500, 1000, true, false, -1), "own", "no guild rights")
-	eq(Plan(500, 1000, true, true, nil), "own", "no limit known")
+	eq(Plan(500, 1000, false, true, -1, 9999), "own", "setting off")
+	eq(Plan(500, 1000, true, false, -1, 9999), "own", "no guild rights")
+	eq(Plan(500, 1000, true, true, nil, nil), "own", "nothing known")
 end)
 
 test("repair: poor", function()
-	eq(Plan(500, 499, true, true, 100), "poor")
+	eq(Plan(500, 499, true, true, 100, 9999), "poor")
 	eq(Plan(500, 499, false, false, nil), "poor")
 end)
 
@@ -86,6 +88,12 @@ test("durability alert: broken items warn even after a low warning", function()
 	eq(ns.Durability_Alert(state, 0, 1, 0.3), "broken", "first break")
 	eq(ns.Durability_Alert(state, 0, 1, 0.3), nil, "same break")
 	eq(ns.Durability_Alert(state, 0, 2, 0.3), "broken", "second break")
+end)
+
+test("durability alert: an item already broken at login is a low warning, not a break", function()
+	local state = {}
+	eq(ns.Durability_Alert(state, 0, 1, 0.3), "low", "login")
+	eq(ns.Durability_Alert(state, 0, 2, 0.3), "broken", "new break")
 end)
 
 test("durability alert: no durability items resets", function()
