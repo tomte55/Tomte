@@ -491,8 +491,9 @@ local function Command(fn)
 	end
 end
 
--- For the character sheet panel (Sheet.lua).
+-- For the character sheet panel (Sheet.lua) and the upgrade reveal (Reveal.lua).
 ns.Gear_Context = Context
+ns.Gear_EvaluateLink = Evaluate
 ns.Gear_OpenImport = OpenImport
 ns.Gear_ClearWeights = ClearWeights
 ns.Gear_PrintSimSteps = PrintSimSteps
@@ -520,11 +521,13 @@ local function Start()
 	ns.GearItems_InvalidateEquipped()
 	RefreshBags()
 	ns.GearSheet_Init()
+	ns.GearReveal_Start(db)
 	C_Timer.After(ns.inWorld and 0 or 8, WeightsHint) -- at login, after the chat flood
 end
 
 local function Stop()
 	events:UnregisterAllEvents()
+	ns.GearReveal_Stop()
 	if dialog then
 		dialog:Hide()
 	end
@@ -539,7 +542,8 @@ module = ns.RegisterModule({
 	description = "Says on each item's tooltip whether it's an upgrade, and why not when it isn't: wrong armor or "
 		.. "main stat, breaks your tier set, loses an embellishment or effect, unique limits. Trinkets and items "
 		.. "with effects are marked to sim instead of guessed. Also: upgrades for your other specs, the best gem "
-		.. "for empty sockets, and missing enchants. Can mark upgrades in Baganator.",
+		.. "for empty sockets, and missing enchants. Can mark upgrades in Baganator and reveal new upgrades as a moment "
+		.. "with a click-to-equip toast.",
 	enabledByDefault = true,
 	defaults = {
 		showReasons = true,
@@ -554,6 +558,9 @@ module = ns.RegisterModule({
 		hinted = {}, -- [specID] = which built-in weights hint was shown ("builtin" or "stale:<season>")
 		sheetButton = true,
 		sheetOpen = false, -- the panel next to the character sheet
+		reveal = true,
+		revealToast = true,
+		revealMinPct = 2,
 	},
 	init = function(moduleDB)
 		db = moduleDB
@@ -571,6 +578,9 @@ module = ns.RegisterModule({
 		{ "import", "paste Raidbots stat weights for your current spec", Command(OpenImport) },
 		{ "weights", "show the stat weights in use and where they come from", Command(PrintWeights) },
 		{ "clear", "remove the imported weights for your current spec", Command(ClearWeights) },
+		{ "upgrades", "reveal the clean upgrades already in your bags", function()
+			ns.GearReveal_ShowBags()
+		end },
 	},
 	options = {
 		{ type = "header", label = "Tooltip" },
@@ -599,6 +609,18 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "baganator", label = "Mark upgrades in Baganator", onChange = RefreshBags,
 			tooltip = "Only clean upgrades get the arrow. In Baganator's settings (Icons), pick \"Tomte Gear Check\" "
 				.. "as the upgrade source." },
+		{ type = "header", label = "Upgrade reveal" },
+		{ type = "checkbox", key = "reveal", label = "Reveal new upgrades",
+			tooltip = "When gear that's new to your bags (loot, quest rewards, the vault, mail) is a clean upgrade, show "
+				.. "it as a moment. Choose banner or cinematic under Moments > Gear upgrade. Items taken out of a bank "
+				.. "don't count." },
+		{ type = "slider", key = "revealMinPct", label = "Smallest upgrade", min = 0, max = 10, step = 0.5,
+			format = function(value)
+				return ("%g%%"):format(value)
+			end,
+			tooltip = "Upgrades below this are left alone (gear for an empty slot always counts)." },
+		{ type = "checkbox", key = "revealToast", label = "Equip toast",
+			tooltip = "A toast with the upgrade: click it to equip the item, right-click to dismiss. Not in combat." },
 		{ type = "header", label = "Stat weights" },
 		{ type = "button", label = SourceLabel, text = "Show", onClick = Command(PrintWeights),
 			tooltip = "Imported weights win, then the built-in ones (Beast Mastery, Marksmanship, Protection "

@@ -426,7 +426,7 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 		end
 	end
 
-	local verdict = { reasons = {}, noWeights = ctx.noWeights }
+	local verdict = { reasons = {}, noWeights = ctx.noWeights, slot = target.slots[1] } -- slot = where it goes
 	local warnings, info = {}, {}
 
 	if target.mode == "pair" then
@@ -567,4 +567,72 @@ end
 -- Only a clean upgrade marks a bag item.
 function ns.Gear_IsCleanUpgrade(v)
 	return v ~= nil and (v.kind == "upgrade" or v.kind == "empty")
+end
+
+---------------------------------------------------------------------------------------------------------------
+-- Upgrade reveal (Reveal.lua): which new items get a moment.
+
+-- Item quality -> Moments reveal tier: green and below common, blue rare, purple epic, orange and up legendary.
+function ns.Gear_RevealTier(quality)
+	if not quality or quality <= 2 then
+		return "common"
+	elseif quality == 3 then
+		return "rare"
+	elseif quality == 4 then
+		return "epic"
+	end
+	return "legendary"
+end
+
+-- items = { { verdict, ... } } new to the bags. Keeps clean upgrades of at least minPct (an empty slot always
+-- counts), the best one per slot (a ring and a better ring: only the better), biggest first.
+function ns.Gear_PickReveals(items, minPct)
+	local best = {}
+	local function Value(v)
+		return v.kind == "empty" and math.huge or v.pct
+	end
+	for _, item in ipairs(items) do
+		local v = item.verdict
+		if ns.Gear_IsCleanUpgrade(v) and v.slot and (v.kind == "empty" or v.pct >= minPct) then
+			local held = best[v.slot]
+			if not held or Value(v) > Value(held.verdict) then
+				best[v.slot] = item
+			end
+		end
+	end
+	local list = {}
+	for _, item in pairs(best) do
+		list[#list + 1] = item
+	end
+	table.sort(list, function(a, b)
+		local va, vb = Value(a.verdict), Value(b.verdict)
+		if va ~= vb then
+			return va > vb
+		end
+		return a.verdict.slot < b.verdict.slot
+	end)
+	return list
+end
+
+-- The moment's label: "Upgrade +4.2%", or "Upgrade for an empty slot".
+function ns.Gear_RevealLabel(v)
+	if v.kind == "empty" then
+		return "Upgrade for an empty slot"
+	end
+	return "Upgrade " .. Pct(v.pct)
+end
+
+-- "Item level 684, replaces Old Helm (671)". Either name or level may be missing.
+function ns.Gear_RevealLine(ilvl, oldName, oldIlvl)
+	local parts = {}
+	if ilvl then
+		parts[#parts + 1] = "Item level " .. ilvl
+	end
+	if oldName then
+		parts[#parts + 1] = "replaces " .. oldName .. (oldIlvl and (" (" .. oldIlvl .. ")") or "")
+	end
+	if #parts == 0 then
+		return nil
+	end
+	return table.concat(parts, ", ")
 end

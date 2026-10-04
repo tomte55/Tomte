@@ -3,13 +3,17 @@ local addonName, ns = ...
 -- Moment scene for the cinematic engine: top band = title card (spaced label, title, gold line,
 -- subtitle), bottom band = the moment's icon and one line of detail. A creature (new mount, battle pet,
 -- tamed pet) gets a reveal in the middle of the screen: the world dims, a flash, and the model pops in on
--- a glow. Its tier (ns.MOMENT_TIER_FX) adds rays, a spin-in, sparkles, a build-up and sounds.
+-- a glow. A gear upgrade gets the same reveal with a big item icon instead of a model. The tier
+-- (ns.MOMENT_TIER_FX) adds rays, a spin-in, sparkles, a build-up and sounds.
 
 local GOLD, GREY, WHITE = ns.SCENE_GOLD, ns.SCENE_GREY, ns.SCENE_WHITE
 local TURN_SPEED = 0.25 -- radians per second, once the model has settled
 local SPIN_SPEED = 14 -- extra radians per second at the reveal (rare and up), decays quickly
 local SPIN_DECAY = 3
 local ICON = 30
+local ITEM_SIZE = 0.2 -- of screen height: the revealed item icon
+local ITEM_BOB = 0.012 -- of screen height: the item icon floats up and down
+local ITEM_TURNS = 2 -- flips at the reveal (rare and up)
 local GLOW_TEXTURE = 132039 -- Interface\GLUES\MODELS\UI_Tauren\gradientCircle
 local STARGLOW_ATLAS = "LegendaryToast-OrangeStarglow"
 local DIM_ALPHA = 0.6
@@ -124,6 +128,16 @@ local function CreateStage(parent, letterbox)
 	-- Behind the model (the feet stand on it), placed once the model is measured.
 	stage.pedestal = Glow(stage, "BACKGROUND", 3)
 
+	-- Instead of a model: an item icon in its quality color.
+	stage.item = CreateFrame("Frame", nil, stage)
+	stage.item:SetFrameLevel(stage:GetFrameLevel() + 3)
+	stage.item.border = stage.item:CreateTexture(nil, "BACKGROUND")
+	stage.item.border:SetAllPoints()
+	stage.item.icon = stage.item:CreateTexture(nil, "ARTWORK")
+	stage.item.icon:SetPoint("TOPLEFT", 3, -3)
+	stage.item.icon:SetPoint("BOTTOMRIGHT", -3, 3)
+	stage.item.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
 	-- Above the model: flash and burst cover it.
 	local front = CreateFrame("Frame", nil, stage)
 	front:SetAllPoints(stage)
@@ -201,6 +215,7 @@ local function SetupStage(fx, h)
 	stage.actor:ClearModel()
 	stage.model:Hide()
 	stage.pedestal:SetAlpha(0)
+	stage.item:Hide()
 end
 
 -- A point in the model's space on the model frame, as fractions of the frame's half size from its
@@ -285,7 +300,8 @@ local function FitCamera(guess)
 	return true
 end
 
--- state.moment = { label, title, subtitle, detail, icon, displayID, tier }; state.sound = play the sounds.
+-- state.moment = { label, title, subtitle, detail, icon, displayID, itemIcon, itemColor, tier }; state.sound =
+-- play the sounds. displayID reveals a creature, itemIcon an item (framed in itemColor).
 function scene.Begin(state)
 	local m = state.moment
 	local scale = UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale()
@@ -305,11 +321,13 @@ function scene.Begin(state)
 		card.icon:SetTexture(m.icon)
 	end
 	reveal = nil
-	stage:SetShown(m.displayID ~= nil)
+	local revealed = m.displayID or m.itemIcon
+	stage:SetShown(revealed ~= nil)
 	stage:SetAlpha(0)
-	if m.displayID then
+	if revealed then
 		fx = fx or ns.MOMENT_TIER_FX.common
-		reveal = { fx = fx, displayID = m.displayID, sound = state.sound, sounds = {}, h = WorldFrame:GetHeight() / scale }
+		reveal = { fx = fx, displayID = m.displayID, itemIcon = not m.displayID and m.itemIcon or nil,
+			itemColor = m.itemColor or fx.color, sound = state.sound, sounds = {}, h = WorldFrame:GetHeight() / scale }
 		SetupStage(fx, reveal.h)
 	end
 end
@@ -397,7 +415,16 @@ local function UpdateReveal(dt)
 		return
 	end
 	local since = t - revealAt
-	if not reveal.revealed then
+	if not reveal.revealed and reveal.itemIcon then
+		reveal.revealed = true
+		local c = reveal.itemColor
+		stage.item.icon:SetTexture(reveal.itemIcon)
+		stage.item.border:SetColorTexture(c[1], c[2], c[3], 1)
+		stage.item:SetAlpha(0)
+		stage.item:Show()
+		reveal.fitAt = t -- nothing to load or measure
+		PlaySounds()
+	elseif not reveal.revealed then
 		reveal.revealed = true
 		stage.model:SetSize(reveal.size, reveal.size)
 		stage.model:Show()
@@ -423,9 +450,23 @@ local function UpdateReveal(dt)
 		stage.burst:SetAlpha(0)
 	end
 
+	-- Item: pops in like a model, flips in for rare and up (a spin seen edge-on), then floats.
+	if reveal.itemIcon then
+		local shown = t - reveal.fitAt
+		local p = math.min(shown / POP_TIME, 1)
+		local size = math.max(math.floor(h * ITEM_SIZE * (0.3 + 0.7 * EaseOutBack(p))), 1)
+		local flip = 1
+		if fx.spin then
+			-- Whole turns that slow down: it always ends facing the camera.
+			local turned = ITEM_TURNS * TWO_PI * (1 - math.exp(-SPIN_DECAY * shown))
+			flip = math.max(math.abs(math.cos(turned)), 0.05)
+		end
+		stage.item:SetSize(math.max(math.floor(size * flip), 1), size)
+		stage.item:SetPoint("CENTER", stage, "CENTER", 0, math.sin(shown * 1.6) * h * ITEM_BOB)
+		reveal.modelAlpha = math.min(shown / 0.3, 1)
 	-- Model: pops in (scale with a little overshoot), spins in for rare and up, then turns slowly. The
 	-- pedestal glow lies on the ring the feet turn on.
-	if reveal.fitAt then
+	elseif reveal.fitAt then
 		local shown = t - reveal.fitAt
 		local p = math.min(shown / POP_TIME, 1)
 		local size = math.max(math.floor(reveal.size * (0.3 + 0.7 * EaseOutBack(p))), 1)
@@ -473,7 +514,11 @@ function scene.Update(alpha, dt)
 	if alpha > 0 then
 		UpdateReveal(dt)
 	end
-	stage.actor:SetAlpha((reveal.modelAlpha or 0) * alpha) -- the 3D model ignores the frame alpha
+	if reveal.itemIcon then
+		stage.item:SetAlpha(reveal.modelAlpha or 0)
+	else
+		stage.actor:SetAlpha((reveal.modelAlpha or 0) * alpha) -- the 3D model ignores the frame alpha
+	end
 end
 
 function scene.End()

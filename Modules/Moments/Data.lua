@@ -16,6 +16,7 @@ ns.MOMENT_TYPES = {
 	{ key = "chapter", name = "Campaign chapter", style = "cinematic" },
 	{ key = "house", name = "House level", style = "banner" },
 	{ key = "tame", name = "Tamed pet (hunter)", style = "cinematic" },
+	{ key = "upgrade", name = "Gear upgrade (Gear Check)", style = "cinematic" },
 }
 
 ns.MOMENT_STYLES = {

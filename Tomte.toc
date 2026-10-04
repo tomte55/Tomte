@@ -70,6 +70,7 @@ Modules/Gear/Scales.lua
 Modules/Gear/Items.lua
 Modules/Gear/Sheet.lua
 Modules/Gear/Gear.lua
+Modules/Gear/Reveal.lua
 Modules/Achievements/Data.lua
 Modules/Achievements/Rewards.lua
 Modules/Achievements/Metas.lua

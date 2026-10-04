@@ -599,5 +599,47 @@ test("Unusable: armor, main stat, spec", function()
 	eq(ns.Gear_Unusable(item("INVTYPE_FINGER", nil, 1, { redText = "Requires level 90" }), ctx), "Requires level 90")
 end)
 
+-------------------------------------------------------------------------------------------------- reveal
+
+test("Evaluate: verdict.slot is where the item goes (the weaker ring)", function()
+	local e = gearset()
+	local v = ns.Gear_Evaluate(item("INVTYPE_FINGER", nil, 170, { ilvl = 310 }), e, CTX)
+	local weaker = ns.Gear_Score(e[11], CTX.weights, CTX.primary, 0) <= ns.Gear_Score(e[12], CTX.weights, CTX.primary, 0) and 11 or 12
+	eq(v.slot, weaker)
+end)
+
+test("RevealTier: by item quality", function()
+	eq(ns.Gear_RevealTier(nil), "common")
+	eq(ns.Gear_RevealTier(2), "common")
+	eq(ns.Gear_RevealTier(3), "rare")
+	eq(ns.Gear_RevealTier(4), "epic")
+	eq(ns.Gear_RevealTier(5), "legendary")
+end)
+
+test("PickReveals: clean upgrades over the minimum, best per slot, biggest first", function()
+	local function it(kind, pct, slot)
+		return { verdict = { kind = kind, pct = pct, slot = slot } }
+	end
+	local small = it("upgrade", 1.5, 1)
+	local ring = it("upgrade", 4, 11)
+	local betterRing = it("upgrade", 9, 11)
+	local empty = it("empty", nil, 15)
+	local list = ns.Gear_PickReveals({ small, ring, it("upgradeBut", 20, 5), it("simIt", 30, 13), betterRing,
+		it("sidegrade", 0.5, 7), empty }, 2)
+	eq(#list, 2)
+	eq(list[1], empty)
+	eq(list[2], betterRing)
+	eq(#ns.Gear_PickReveals({ small }, 1), 1)
+	eq(#ns.Gear_PickReveals({}, 0), 0)
+end)
+
+test("RevealLabel and RevealLine", function()
+	eq(ns.Gear_RevealLabel({ kind = "upgrade", pct = 4.21 }), "Upgrade +4.2%")
+	eq(ns.Gear_RevealLabel({ kind = "empty" }), "Upgrade for an empty slot")
+	eq(ns.Gear_RevealLine(684, "Old Helm", 671), "Item level 684, replaces Old Helm (671)")
+	eq(ns.Gear_RevealLine(684, nil, nil), "Item level 684")
+	eq(ns.Gear_RevealLine(nil, nil, nil), nil)
+end)
+
 print(failures == 0 and "all passed" or (failures .. " failed"))
 os.exit(failures == 0 and 0 or 1)

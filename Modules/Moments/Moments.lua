@@ -76,7 +76,7 @@ local function Stop()
 end
 
 local function Play(moment)
-	local fx = moment.displayID and ns.MOMENT_TIER_FX[moment.tier]
+	local fx = (moment.displayID or moment.itemIcon) and ns.MOMENT_TIER_FX[moment.tier]
 	playing = { moment = moment, left = ns.momentsDB.duration + (fx and fx.extraTime or 0), sound = ns.momentsDB.revealSound }
 	ns.Cinematic.Enter(ns.MomentScene, playing, {
 		skipCamera = true,
@@ -476,6 +476,22 @@ local SAMPLES = {
 		end
 		return { label = label, title = "Loque'nahak", subtitle = "Exotic Spirit Beast", tier = tier }
 	end,
+	upgrade = function(tier)
+		-- An item you wear, shown as if it had just dropped.
+		for _, slot in ipairs({ 1, 5, 16, 3, 7 }) do
+			local location = ItemLocation:CreateFromEquipmentSlot(slot)
+			if C_Item.DoesItemExist(location) then
+				local quality = C_Item.GetItemQuality(location)
+				local r, g, b = C_Item.GetItemQualityColor(quality or 1)
+				return { label = "Upgrade +4.2%", title = C_Item.GetItemName(location),
+					subtitle = ns.Gear_RevealLine(C_Item.GetCurrentItemLevel(location), "your old one", nil),
+					itemIcon = C_Item.GetItemIcon(location), itemColor = { r, g, b },
+					tier = tier or ns.Gear_RevealTier(quality) }
+			end
+		end
+		return { label = "Upgrade +4.2%", title = "Sample Helm", itemIcon = "Interface\\Icons\\INV_Helmet_03",
+			tier = tier or "rare" }
+	end,
 }
 
 -- "mount legendary": a type and, for creatures, a tier.
@@ -562,7 +578,7 @@ module = ns.RegisterModule({
 	key = "moments",
 	name = "Moments",
 	category = "Ambience",
-	description = "Short title cards for moments worth a pause: level ups, achievements, new mounts, pets and toys, new zones, renown, campaign chapters, house levels and tamed pets. A banner or a small cinematic.",
+	description = "Short title cards for moments worth a pause: level ups, achievements, new mounts, pets and toys, new zones, renown, campaign chapters, house levels, tamed pets and gear upgrades. A banner or a small cinematic.",
 	enabledByDefault = true,
 	defaults = {
 		styles = ns.Moments_DefaultStyles(),
@@ -586,7 +602,7 @@ module = ns.RegisterModule({
 		return playing
 	end,
 	commands = {
-		{ "preview", "show a sample moment; add a type (levelup, mount, zone, tame, ...) and for mount, pet or tame a tier (common, rare, epic, legendary)", Preview },
+		{ "preview", "show a sample moment; add a type (levelup, mount, zone, tame, upgrade, ...) and for mount, pet, tame or upgrade a tier (common, rare, epic, legendary)", Preview },
 	},
 	options = options,
 })
