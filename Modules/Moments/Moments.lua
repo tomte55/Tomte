@@ -277,6 +277,7 @@ function events:ACHIEVEMENT_EARNED(achievementID, alreadyEarned)
 	if ns.Moments_ShouldShowAchievement(alreadyEarned, isGuild) then
 		local moment = Build.achievement(achievementID)
 		if moment then
+			ns.Session_Note("achievement", { title = moment.title, icon = moment.icon }) -- also when the style is off
 			Show("achievement", moment)
 		end
 	end
@@ -288,12 +289,14 @@ local function Collected(kind, id)
 	end
 	local moment = Build[kind](id)
 	if moment then
+		ns.Session_Note(kind, { title = moment.title, icon = moment.icon, tier = moment.tier })
 		Show(kind, moment)
 	elseif kind == "toy" then
 		-- Item data may not be cached yet: one more try.
 		C_Timer.After(1, function()
 			local retry = Build.toy(id)
 			if retry and module.active then
+				ns.Session_Note(kind, { title = retry.title, icon = retry.icon })
 				Show(kind, retry)
 			end
 		end)
@@ -364,6 +367,7 @@ function events:MAJOR_FACTION_RENOWN_LEVEL_CHANGED(factionID, newLevel, oldLevel
 	end
 	local data = C_MajorFactions.GetMajorFactionData(factionID)
 	if data and data.name then
+		ns.Session_Note("renown", { factionID = factionID, title = data.name, from = oldLevel, to = newLevel })
 		Show("renown", { label = "Renown " .. newLevel, title = data.name })
 	end
 end

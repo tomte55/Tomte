@@ -38,6 +38,7 @@ function f:ADDON_LOADED(name)
 	TomteDB.panel.category = nil -- the old panel's category filter
 	ns.db = TomteDB
 	ns.Migration_Run(TomteDB) -- before modules get their db
+	ns.Session_Init(TomteDB) -- before the modules: their world handlers read the session
 	ns.InitModules(TomteDB)
 	ns.Panel_Init()
 end

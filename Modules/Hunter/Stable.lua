@@ -87,6 +87,8 @@ local function Update()
 		lastTame = nil
 	end
 	for _, pet in ipairs(tames) do
+		ns.Session_Note("tame", { title = pet.name, icon = pet.icon,
+			detail = pet.family and (pet.exotic and ("Exotic " .. pet.family) or pet.family) or nil })
 		if ns.Moments_Trigger then
 			ns.Moments_Trigger("tame", {
 				title = pet.name,

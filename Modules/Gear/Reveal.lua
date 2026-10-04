@@ -113,6 +113,8 @@ local function Reveal(item)
 	local label = ns.Gear_RevealLabel(v)
 	local desc = ns.GearItems_Describe(item.link)
 
+	ns.Session_Note("upgrade", { title = item.name or item.link, icon = item.icon, quality = item.quality,
+		itemID = C_Item.GetItemInfoInstant(item.link), detail = label })
 	ns.Moments_Trigger("upgrade", { -- shown in the Moments style for "Gear upgrade" (nothing when Moments is off)
 		label = label,
 		title = item.name or item.link,

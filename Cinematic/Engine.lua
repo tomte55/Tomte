@@ -5,7 +5,8 @@ local addonName, ns = ...
 -- optional per Enter.
 -- The letterbox swallows mouse input so the player can't move the camera; a click or Esc pauses (or calls
 -- opts.onDismiss, with opts.hint as the hint text). opts.passthrough instead leaves all input to the game
--- and dismisses on any key or click (short cinematics that must never take control away). A paused
+-- and dismisses on any key or click (short cinematics that must never take control away). opts.escapeToGame also
+-- lets Esc through to the game's own Esc handling (the logout card: Blizzard's Esc cancels the logout). A paused
 -- cinematic comes back after state.resumeDelay seconds without clicks, key presses or open windows (the
 -- owner's tick decides when to Enter again).
 -- The UI must always come back: Exit is idempotent and waits for combat to end if needed.
@@ -62,6 +63,7 @@ local current -- state of the active cinematic
 local scene -- scene in the letterbox; stays set while the letterbox slides out
 local dismiss -- opts.onDismiss of the active cinematic (click/Esc), nil = pause
 local passthrough -- opts.passthrough of the active cinematic: input reaches the game, any input dismisses
+local escapeToGame -- opts.escapeToGame: Esc reaches the game too (otherwise it's kept from opening the game menu)
 local createdScenes = {}
 local hidUI -- we only bring back a UI we hid ourselves (respects a manual Alt-Z)
 local showUIAfterCombat
@@ -481,8 +483,14 @@ local function CreateLetterbox()
 		if InCombatLockdown() then
 			return
 		end
-		if key == "ESCAPE" then
+		if key == "ESCAPE" and not escapeToGame then
 			self:SetPropagateKeyboardInput(false) -- no game menu
+			Dismiss()
+		elseif key == "ESCAPE" then
+			-- Close first: the game's Esc runs after this handler and must find the UI shown again. A popup it
+			-- hides while the UI is hidden never runs its OnHide, stays on Blizzard's shown-dialog list, and then
+			-- eats every later Esc (no game menu until /reload).
+			self:SetPropagateKeyboardInput(true)
 			Dismiss()
 		else
 			self:SetPropagateKeyboardInput(true)
@@ -561,6 +569,7 @@ function C.Enter(newScene, state, opts)
 	target = 1
 	cursorX, cursorY = nil, nil
 	passthrough = opts.passthrough
+	escapeToGame = opts.escapeToGame
 	letterbox:EnableMouse(not passthrough)
 	letterbox:EnableMouseWheel(not passthrough)
 	letterbox:EnableKeyboard(true)
@@ -611,6 +620,7 @@ function C.Exit(state)
 	current = nil
 	dismiss = nil
 	passthrough = nil
+	escapeToGame = nil
 	target = 0
 	if scene.End then
 		scene.End()

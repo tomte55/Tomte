@@ -46,26 +46,6 @@ local function InChatLockdown()
 	return C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() or false
 end
 
-local function XPFraction()
-	local max = UnitXPMax("player")
-	return max > 0 and UnitXP("player") / max or 0
-end
-
--- Session stats count from the character's login; a /reload keeps them.
-local function EnsureSession(newLogin)
-	local guid = UnitGUID("player")
-	local session = ns.afkDB.session
-	if newLogin or type(session) ~= "table" or session.guid ~= guid then
-		ns.afkDB.session = {
-			guid = guid,
-			start = GetServerTime(),
-			money = GetMoney(),
-			level = UnitLevel("player"),
-			xpFraction = XPFraction(),
-		}
-	end
-end
-
 local function SceneBlocked()
 	return IsInInstance() or UnitOnTaxi("player") or InCombatLockdown()
 		or (C_PetBattles and C_PetBattles.IsInBattle())
@@ -103,7 +83,6 @@ end
 local Tick
 
 local function BeginAway(state)
-	EnsureSession(false) -- normally done on PLAYER_ENTERING_WORLD already; the scene needs it
 	away = state
 	ns.afkDB.current = state
 	for _, event in ipairs(AWAY_EVENTS) do
@@ -209,8 +188,7 @@ local function AddWhisper(entry)
 	ns.AFKScene_RefreshWhispers()
 end
 
-function events:PLAYER_ENTERING_WORLD(isInitialLogin)
-	EnsureSession(isInitialLogin)
+function events:PLAYER_ENTERING_WORLD()
 	ResumeOrCleanup()
 end
 
@@ -283,7 +261,6 @@ local function Activate()
 	end
 	-- Turned on from the panel: the world is already there.
 	if ns.inWorld then
-		EnsureSession(false)
 		ResumeOrCleanup()
 	end
 end

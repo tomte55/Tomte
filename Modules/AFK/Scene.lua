@@ -66,7 +66,7 @@ local function Coins(copper, detailed)
 end
 
 local function BuildPages()
-	local session = ns.afkDB.session
+	local session = ns.Session_Current() -- Core/Session.lua
 	pages = {
 		function()
 			return ns.FormatTime(GetServerTime() - session.start), "online this session"
@@ -89,6 +89,10 @@ local function BuildPages()
 			local gain = ns.AFK_XPGain(session.level, session.xpFraction, level, fraction)
 			return ("Level %d  -  %d%%"):format(level, math.floor(fraction * 100)), (gain or "no XP") .. " this session"
 		end
+	end
+	local highlights = ns.Recap_AFKPage and ns.Recap_AFKPage() -- Session recap: nil when off or nothing yet
+	if highlights then
+		pages[#pages + 1] = highlights
 	end
 	page, pageTimer = 1, 0
 end

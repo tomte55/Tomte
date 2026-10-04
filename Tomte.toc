@@ -11,6 +11,8 @@
 Core/Core.lua
 Core/Modules.lua
 Core/Migration.lua
+Core/SessionData.lua
+Core/Session.lua
 Cinematic/Engine.lua
 Cinematic/SceneKit.lua
 Cinematic/Showcase.lua
@@ -86,3 +88,7 @@ Modules/Weekly/Collect.lua
 Modules/Weekly/BoardPage.lua
 Modules/Weekly/Popup.lua
 Modules/Weekly/Weekly.lua
+Modules/Recap/Data.lua
+Modules/Recap/Track.lua
+Modules/Recap/Scene.lua
+Modules/Recap/Recap.lua
