@@ -792,3 +792,67 @@ function ns.Weekly_CharOrder(chars, current, hidden, keepCurrent)
 	end
 	return list
 end
+
+-- Home tile line: "Vault 2/6 · 9 knowledge left" (unlocked vault slots, open knowledge sources of all professions).
+function ns.Weekly_HomeSummary(v)
+	local parts = {}
+	local unlocked, total = 0, 0
+	for _, track in ipairs(ns.WEEKLY_TRACKS) do
+		local slots = v.vault and v.vault[track.key] or {}
+		unlocked = unlocked + ns.Weekly_VaultGoal(slots)
+		total = total + #slots
+	end
+	if v.vaultReady then
+		parts[1] = "Vault rewards waiting"
+	elseif total > 0 then
+		parts[1] = ("Vault %d/%d"):format(unlocked, total)
+	end
+	local left = 0
+	for _, p in ipairs(v.profs and Profs(v) or {}) do
+		local n, of = KnowledgeTotal(p.def, p.prof.knowledge or {}, p.prof.expansion)
+		left = left + of - n
+	end
+	if left > 0 then
+		parts[#parts + 1] = ("%d knowledge left"):format(left)
+	end
+	return table.concat(parts, " · ")
+end
+
+-- Home "This week" list: what's still open this week, then what's done. { text, right, done }.
+-- Knowledge sources per profession ("Mining treatise"), learned weekly quests, crests with a cap.
+function ns.Weekly_HomeTodo(v, learned)
+	local open, done = {}, {}
+	local function Add(row)
+		local list = row.done and done or open
+		list[#list + 1] = row
+	end
+	for _, p in ipairs(v.profs and Profs(v) or {}) do
+		local name = p.prof.name or p.def.name
+		for _, k in ipairs(ns.Weekly_Knowledge(p.def, p.prof.knowledge or {}, p.prof.expansion)) do
+			Add({
+				text = ("%s %s"):format(name, k.label:lower()),
+				right = k.of > 1 and ("%d/%d"):format(k.n, k.of) or Pts(k.pts),
+				done = k.n >= k.of,
+			})
+		end
+	end
+	for _, q in ipairs(ns.Weekly_Quests(v, learned or {})) do
+		Add({ text = q.title, right = q.done and "done" or "in log", done = q.done })
+	end
+	local ids = {}
+	for id in pairs(v.currencies or {}) do
+		ids[#ids + 1] = id
+	end
+	table.sort(ids)
+	for _, id in ipairs(ids) do
+		local c = v.currencies[id]
+		local amount, cap = ns.Weekly_CurrencyProgress(c)
+		if cap then
+			Add({ text = c.name or ("Currency " .. id), right = ("%d / %d"):format(amount, cap), done = amount >= cap })
+		end
+	end
+	for _, row in ipairs(done) do
+		open[#open + 1] = row
+	end
+	return open
+end

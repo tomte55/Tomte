@@ -349,6 +349,7 @@ end
 
 module = ns.RegisterModule({
 	key = "ach",
+	conflicts = { { addon = "AlmostCompletedAchievements", why = "Almost Done stays off while it's enabled" } },
 	name = "Almost Done",
 	category = "Achievements",
 	description = "Near-complete achievements in a list next to the Achievements window, with rewards (owned ones greyed out), a meta browser, a Top 5 tracker and toasts when something is almost done.",

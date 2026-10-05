@@ -188,6 +188,15 @@ local function Changed()
 	ns.WQTab_Refresh()
 end
 
+-- Home reads the quests for its title and its rows in the same refresh: one read serves both.
+local homeQuests, homeQuestsAt
+local function HomeQuests()
+	if homeQuestsAt ~= GetTime() then
+		homeQuests, homeQuestsAt = ns.WQ_ForMap(C_Map.GetBestMapForUnit("player")), GetTime()
+	end
+	return homeQuests
+end
+
 module = ns.RegisterModule({
 	key = "wq",
 	name = "World quests",
@@ -197,6 +206,66 @@ module = ns.RegisterModule({
 		.. "Gear Check) on top, then gear, gold, currencies and reputation, with time left. Click to track one. A "
 		.. "toast when you arrive in a zone with one worth doing.",
 	enabledByDefault = true,
+	home = {
+		{ kind = "map", key = "worldquests", order = 3, name = "World quests", icon = "Interface\\Icons\\INV_Misc_Map_01",
+			open = function()
+				ns.WQTab_Open()
+			end,
+			summary = function()
+				local zoneID = ns.MapTabs_ResolveMap(C_Map.GetBestMapForUnit("player"))
+				if not zoneID then
+					return nil
+				end
+				local n = 0
+				for _, info in ipairs(C_TaskQuest.GetQuestsOnMap(zoneID) or {}) do
+					if info.questID and C_QuestLog.IsWorldQuest(info.questID)
+						and not C_QuestLog.IsQuestFlaggedCompleted(info.questID) then
+						n = n + 1
+					end
+				end
+				return n == 1 and "1 world quest around here" or (n .. " world quests around here")
+			end },
+		{ kind = "around", key = "wqaround", order = 2, name = "World quests",
+			icon = "Interface\\Icons\\INV_Misc_Map_01",
+			open = function()
+				ns.WQTab_Open()
+			end,
+			title = function()
+				local quests = HomeQuests()
+				if not quests then
+					return "World quests: none on this map"
+				end
+				local n = 0
+				for _, s in ipairs(ns.WQ_Sections(quests, ns.WQ_Options())) do
+					n = n + #s.quests
+				end
+				return ("World quests: %d here"):format(n)
+			end,
+			-- The tab's own order: worth-it rewards first.
+			items = function(limit)
+				local quests = HomeQuests()
+				local rows = {}
+				for _, s in ipairs(quests and ns.WQ_Sections(quests, ns.WQ_Options()) or {}) do
+					for _, q in ipairs(s.quests) do
+						if #rows >= limit then
+							return rows
+						end
+						local main = ns.WQ_RewardText(q)
+						rows[#rows + 1] = {
+							icon = ns.WQ_RowIcon(q), text = main, right = ns.WQ_TimeText(q.seconds),
+							color = s.key == "worth" and { 1, 0.82, 0.45 } or nil,
+							onEnter = function(row)
+								GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+								GameTooltip:SetText(q.title, 1, 1, 1)
+								GameTooltip:AddLine(main, 0.8, 0.8, 0.8)
+								GameTooltip:Show()
+							end,
+						}
+					end
+				end
+				return rows
+			end },
+	},
 	defaults = {
 		show = { pvp = false, petbattle = false, otherProfessions = false },
 		worth = { transmog = false, gold = false, goldAmount = 500 },

@@ -56,7 +56,7 @@ local function CheckToasts()
 			icon = prof.icon or CONC_ICON, hold = 10, holdInCombat = true,
 			onClick = function()
 				ns.weeklyDB.view = "profs"
-				ns.Panel_OpenModule("weekly", "page")
+				ns.Panel_OpenPage("weekly")
 				ns.WeeklyBoard_Refresh()
 			end,
 		})
@@ -231,12 +231,20 @@ module = ns.RegisterModule({
 			ns.WeeklyPopup_Hide()
 		end
 	end,
-	page = ns.WeeklyBoardPage,
+	home = {
+		ns.WeeklyHomeSection,
+		{ kind = "page", key = "weekly", order = 2, name = "Weekly board", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01",
+			page = ns.WeeklyBoardPage,
+			summary = function()
+				local v = ns.Weekly_CurrentView()
+				return v and ns.Weekly_HomeSummary(v) or "Max-level characters only"
+			end },
+	},
 	options = {},
 	commands = {
 		{ "popup", "toggle the weekly popup", ns.WeeklyPopup_Toggle },
 		{ "board", "open the weekly board", function()
-			ns.Panel_OpenModule("weekly", "page")
+			ns.Panel_OpenPage("weekly")
 		end },
 		{ "quests", "list the learned weekly quests", ListQuests },
 		{ "forget", "forget a character: /tomte weekly forget <name>", Forget },

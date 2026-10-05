@@ -589,6 +589,15 @@ end
 
 module = ns.RegisterModule({
 	key = "gear",
+	uses = {
+		{ addon = "Baganator", why = "upgrade arrows on your bag items", without = "no upgrade arrows in bags" },
+		{ addon = "Simulationcraft", why = "the /simc export for Raidbots Top Gear", without = "no /simc export" },
+	},
+	home = {
+		{ kind = "quick", key = "reveal", order = 3, name = "Reveal upgrades", open = function()
+			ns.GearReveal_ShowBags()
+		end },
+	},
 	name = "Gear Check",
 	category = "Gear",
 	description = "Says on each item's tooltip whether it's an upgrade, and why not when it isn't: wrong armor or "

@@ -20,16 +20,85 @@ function ns.MergeDefaults(src, dst)
 	return dst
 end
 
+ns.homeByKey = {} -- [entry key] = home entry
+
 function ns.RegisterModule(module)
 	assert(module.key and not ns.modulesByKey[module.key], "module key missing or already registered")
 	module.active = false
 	ns.modules[#ns.modules + 1] = module
 	ns.modulesByKey[module.key] = module
+	for _, entry in ipairs(module.home or {}) do
+		assert(entry.key and not ns.homeByKey[entry.key], "home entry key missing or already registered")
+		entry.module = module
+		ns.homeByKey[entry.key] = entry
+	end
 	return module
+end
+
+-- Home entries (module.home): kind "page" (a page in the Tomte window), "map" (opens a world map tab) or "quick"
+-- (an action button). An entry shows while its module is active and its optional shown() is true.
+function ns.HomeEntryVisible(entry)
+	return entry.module.active and (not entry.shown or entry.shown() == true)
+end
+
+-- Sorted by entry.order (lowest first, default 100), then registration order.
+function ns.HomeEntries(kind)
+	local list, index = {}, {}
+	for _, module in ipairs(ns.modules) do
+		for _, entry in ipairs(module.home or {}) do
+			if entry.kind == kind and ns.HomeEntryVisible(entry) then
+				list[#list + 1] = entry
+				index[entry] = #list
+			end
+		end
+	end
+	table.sort(list, function(a, b)
+		local x, y = a.order or 100, b.order or 100
+		if x ~= y then
+			return x < y
+		end
+		return index[a] < index[b]
+	end)
+	return list
+end
+
+-- The module's page entries (for the settings page's "Open ..." buttons), visible or not.
+function ns.ModulePages(module)
+	local list = {}
+	for _, entry in ipairs(module.home or {}) do
+		if entry.kind == "page" then
+			list[#list + 1] = entry
+		end
+	end
+	return list
+end
+
+-- Lines for the settings header from module.uses / module.conflicts ({ addon, why }). isLoaded(addon) -> bool.
+-- ok: a used addon is loaded, or a conflicting one isn't.
+function ns.ModuleDependencies(module, isLoaded)
+	local lines = {}
+	for _, dep in ipairs(module.uses or {}) do
+		local loaded = isLoaded(dep.addon)
+		lines[#lines + 1] = {
+			ok = loaded,
+			text = ("Uses %s: %s"):format(dep.addon, loaded and dep.why or ("not loaded, " .. (dep.without or dep.why))),
+		}
+	end
+	for _, dep in ipairs(module.conflicts or {}) do
+		local loaded = isLoaded(dep.addon)
+		lines[#lines + 1] = {
+			ok = not loaded,
+			text = ("Conflicts with %s: %s"):format(dep.addon, dep.why),
+		}
+	end
+	return lines
 end
 
 -- The user's choice (TomteDB.enabled), or the module's default when they never toggled it.
 function ns.ModuleEnabled(module)
+	if module.alwaysOn then
+		return true
+	end
 	local saved = ns.db.enabled[module.key]
 	if saved == nil then
 		return module.enabledByDefault == true
@@ -126,4 +195,20 @@ function ns.AnyCinematicState()
 		end
 	end
 	return nil
+end
+
+-- Where the Tomte window reopens. last = { view = "home" | "page" | "settings", page = entry key, at = server time }
+-- (saved when it closes); within `seconds` of closing it reopens there, otherwise on Home. A page that's no longer
+-- available (pageOk(key) false) also means Home. Returns view, page key.
+function ns.PanelResume(last, now, seconds, pageOk)
+	if not last or not last.at or seconds <= 0 or now - last.at > seconds then
+		return "home", nil
+	end
+	if last.view == "page" then
+		if last.page and pageOk(last.page) then
+			return "page", last.page
+		end
+		return "home", nil
+	end
+	return last.view == "settings" and "settings" or "home", nil
 end

@@ -1,0 +1,260 @@
+local addonName, ns = ...
+
+-- Alts on Tomte's Home ("characters" slot): every character with level, profession icons (unspent knowledge in a
+-- gold box) and gold, then the account's total gold and which of the eleven professions somebody has.
+
+local UI = ns.UI
+local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
+local ROW_H = 24
+local FOOT_H = 84
+
+-- The eleven professions (base skill lines) in name order, with a stand-in icon until a character has one.
+local PROFESSIONS = {
+	{ 171, "Alchemy", "Interface\\Icons\\Trade_Alchemy" },
+	{ 164, "Blacksmithing", "Interface\\Icons\\Trade_BlackSmithing" },
+	{ 333, "Enchanting", "Interface\\Icons\\Trade_Engraving" },
+	{ 202, "Engineering", "Interface\\Icons\\Trade_Engineering" },
+	{ 182, "Herbalism", "Interface\\Icons\\Trade_Herbalism" },
+	{ 773, "Inscription", "Interface\\Icons\\INV_Inscription_Tradeskill01" },
+	{ 755, "Jewelcrafting", "Interface\\Icons\\INV_Misc_Gem_01" },
+	{ 165, "Leatherworking", "Interface\\Icons\\Trade_LeatherWorking" },
+	{ 186, "Mining", "Interface\\Icons\\Trade_Mining" },
+	{ 393, "Skinning", "Interface\\Icons\\INV_Misc_Pelt_Wolf_01" },
+	{ 197, "Tailoring", "Interface\\Icons\\Trade_Tailoring" },
+}
+
+local function SetColor(fs, c)
+	fs:SetTextColor(c[1], c[2], c[3])
+end
+
+local function Narrow(parent, size)
+	local fs = parent:CreateFontString(nil, "OVERLAY")
+	fs:SetFont(ns.HomeKit.NARROW_FONT, size, "")
+	fs:SetShadowOffset(1, -1)
+	return fs
+end
+
+local function ShowCharTooltip(row)
+	local c = row.char
+	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+	GameTooltip:SetText(c.name or "?", 1, 1, 1)
+	GameTooltip:AddLine(("Level %d %s %s"):format(c.level or 0, c.race or "", c.spec or ""), 0.8, 0.8, 0.8)
+	for _, prof in ipairs(ns.Alts_Profs(c)) do
+		local line = ns.Alts_ProfText(prof)
+		if prof.unspent and prof.unspent > 0 then
+			line = line .. (", %d knowledge unspent"):format(prof.unspent)
+		end
+		GameTooltip:AddLine(line, 0.8, 0.8, 0.8)
+	end
+	local secondary = ns.Alts_SecondaryText(c)
+	if secondary then
+		GameTooltip:AddLine(secondary, 0.62, 0.62, 0.62, true)
+	end
+	if c.zone then
+		GameTooltip:AddLine(c.zone, 0.62, 0.62, 0.62)
+	end
+	GameTooltip:Show()
+end
+
+local function CreateRow(parent)
+	local row = CreateFrame("Button", nil, parent)
+	row:SetHeight(ROW_H)
+	row.bg = row:CreateTexture(nil, "BACKGROUND")
+	row.bg:SetAllPoints()
+	row.bg:SetColorTexture(1, 1, 1, 0.04)
+	row.bg:Hide()
+	row.line = row:CreateTexture(nil, "ARTWORK")
+	row.line:SetColorTexture(1, 1, 1, 0.05)
+	row.line:SetHeight(1)
+	row.line:SetPoint("BOTTOMLEFT")
+	row.line:SetPoint("BOTTOMRIGHT")
+	row.name = UI.Text(row, 13, WHITE)
+	row.name:SetPoint("LEFT")
+	row.name:SetWidth(110)
+	row.name:SetWordWrap(false)
+	row.level = Narrow(row, 14)
+	row.level:SetPoint("LEFT", row.name, "RIGHT", 4, 0)
+	row.level:SetWidth(26)
+	row.level:SetJustifyH("RIGHT")
+	SetColor(row.level, GREY)
+	row.gold = Narrow(row, 14)
+	row.gold:SetPoint("RIGHT")
+	row.gold:SetJustifyH("RIGHT")
+	SetColor(row.gold, GOLD)
+	row.profs = {}
+	for i = 1, 2 do
+		local icon = row:CreateTexture(nil, "ARTWORK")
+		icon:SetSize(16, 16)
+		icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+		local pill = Narrow(row, 12)
+		SetColor(pill, GOLD)
+		row.profs[i] = { icon = icon, pill = pill }
+	end
+	row.none = UI.Text(row, 12, DIM)
+	row.none:SetPoint("LEFT", row.level, "RIGHT", 18, 0)
+	row.none:SetText("no professions")
+	row:SetScript("OnEnter", function(self)
+		self.bg:Show()
+		ShowCharTooltip(self)
+	end)
+	row:SetScript("OnLeave", function(self)
+		self.bg:Hide()
+		GameTooltip:Hide()
+	end)
+	row:SetScript("OnClick", function()
+		ns.Panel_OpenPage("alts")
+	end)
+	return row
+end
+
+local function SetRow(row, c)
+	row.char = c
+	local color = c.class and C_ClassColor.GetClassColor(c.class)
+	row.name:SetText(c.name or "?")
+	if color then
+		row.name:SetTextColor(color.r, color.g, color.b)
+	else
+		SetColor(row.name, WHITE)
+	end
+	row.level:SetText(c.level or "?")
+	row.gold:SetText(ns.Alts_Gold(c.money))
+	local profs = ns.Alts_Profs(c)
+	local anchor, x = row.level, 18
+	for i, p in ipairs(row.profs) do
+		local prof = profs[i]
+		p.icon:SetShown(prof ~= nil)
+		p.pill:SetShown(prof ~= nil and (prof.unspent or 0) > 0)
+		if prof then
+			p.icon:SetTexture(prof.icon or 134400)
+			p.icon:ClearAllPoints()
+			p.icon:SetPoint("LEFT", anchor, "RIGHT", x, 0)
+			anchor, x = p.icon, 6
+			if (prof.unspent or 0) > 0 then
+				p.pill:SetText(("[%d]"):format(prof.unspent))
+				p.pill:ClearAllPoints()
+				p.pill:SetPoint("LEFT", p.icon, "RIGHT", 3, 0)
+				anchor, x = p.pill, 8
+			end
+		end
+	end
+	row.none:SetShown(#profs == 0)
+end
+
+local function Create(frame, Kit)
+	frame.heading = Kit.Heading(frame)
+	frame.heading:SetPoint("TOPLEFT")
+	frame.heading:SetPoint("TOPRIGHT")
+	frame.rows = {}
+
+	local foot = CreateFrame("Frame", nil, frame)
+	foot:SetPoint("BOTTOMLEFT")
+	foot:SetPoint("BOTTOMRIGHT")
+	foot:SetHeight(FOOT_H)
+	foot.totalLabel = UI.Text(foot, 13, GREY)
+	foot.totalLabel:SetPoint("TOPLEFT", 0, -8)
+	foot.totalLabel:SetText("Total gold")
+	foot.total = Narrow(foot, 16)
+	foot.total:SetPoint("TOPRIGHT", 0, -6)
+	SetColor(foot.total, GOLD)
+	foot.covLabel = UI.Text(foot, 13, GREY)
+	foot.covLabel:SetPoint("TOPLEFT", 0, -34)
+	foot.covLabel:SetText("Professions covered")
+	foot.covCount = Narrow(foot, 16)
+	foot.covCount:SetPoint("TOPRIGHT", 0, -32)
+	foot.icons = {}
+	for i, p in ipairs(PROFESSIONS) do
+		local b = CreateFrame("Frame", nil, foot)
+		b:SetSize(24, 24)
+		b.icon = b:CreateTexture(nil, "ARTWORK")
+		b.icon:SetAllPoints()
+		b.icon:SetTexture(p[3])
+		b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+		UI.Border(b, GOLD[1], GOLD[2], GOLD[3], 0.6)
+		b:EnableMouse(true)
+		b:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_TOP")
+			GameTooltip:SetText(p[2], 1, 1, 1)
+			if #self.who > 0 then
+				for _, line in ipairs(self.who) do
+					GameTooltip:AddLine(line, 0.8, 0.8, 0.8)
+				end
+			else
+				GameTooltip:AddLine("None of your characters has it yet.", 0.62, 0.62, 0.62)
+			end
+			GameTooltip:Show()
+		end)
+		b:SetScript("OnLeave", function()
+			GameTooltip:Hide()
+		end)
+		b.who = {}
+		foot.icons[i] = b
+	end
+	frame.foot = foot
+	frame.hint = UI.Text(frame, 12, GREY)
+	frame.hint:SetPoint("RIGHT")
+	frame.hint:SetWordWrap(true)
+	frame.hint:SetText("Log in on your other characters once to add them here.")
+end
+
+local function Refresh(frame)
+	local Kit = ns.HomeKit
+	local db = ns.altsDB
+	frame.heading:Set("Your characters", nil, "Open Alts", function()
+		ns.Panel_OpenPage("alts")
+	end)
+	local list = ns.Alts_Roster(db.chars, "level", UnitGUID("player"))
+	local room = math.max(math.floor((frame:GetHeight() - 40 - FOOT_H) / ROW_H), 1)
+	local shown = math.min(#list, room)
+	for i = 1, shown do
+		local row = frame.rows[i]
+		if not row then
+			row = CreateRow(frame)
+			frame.rows[i] = row
+		end
+		SetRow(row, list[i])
+		row:ClearAllPoints()
+		row:SetPoint("TOPLEFT", 0, -(40 + (i - 1) * ROW_H))
+		row:SetPoint("RIGHT")
+		row:Show()
+	end
+	for i = shown + 1, #frame.rows do
+		frame.rows[i]:Hide()
+	end
+	frame.hint:SetShown(#list <= 2)
+	frame.hint:ClearAllPoints()
+	frame.hint:SetPoint("TOPLEFT", 0, -(40 + shown * ROW_H + 12))
+	frame.hint:SetPoint("RIGHT")
+
+	local foot = frame.foot
+	foot.total:SetText(ns.Alts_Gold(ns.Alts_TotalGold(db.chars)))
+	local covered = 0
+	for i, p in ipairs(PROFESSIONS) do
+		local b = foot.icons[i]
+		wipe(b.who)
+		for _, c in pairs(db.chars) do
+			local prof = c.profs and c.profs[p[1]]
+			if prof then
+				b.who[#b.who + 1] = ("%s, %s"):format(c.name or "?", ns.Alts_ProfText(prof))
+				if prof.icon then
+					b.icon:SetTexture(prof.icon)
+				end
+			end
+		end
+		local has = #b.who > 0
+		covered = covered + (has and 1 or 0)
+		b.icon:SetDesaturated(not has)
+		b.icon:SetAlpha(has and 1 or 0.35)
+		UI.SetBorderColor(b, GOLD[1], GOLD[2], GOLD[3], has and 0.6 or 0.1)
+	end
+	foot.covCount:SetText(("%d of %d"):format(covered, #PROFESSIONS))
+	SetColor(foot.covCount, covered == #PROFESSIONS and GOLD or WHITE)
+	-- One row of icons under the label, as large as the column allows (up to 26 px).
+	local step = math.max(math.min(math.floor((frame:GetWidth() + 4) / #PROFESSIONS), 30), 14)
+	for i, b in ipairs(foot.icons) do
+		b:SetSize(step - 4, step - 4)
+		b:ClearAllPoints()
+		b:SetPoint("BOTTOMLEFT", (i - 1) * step, 2)
+	end
+end
+
+ns.AltsHomeSection = { kind = "section", slot = "characters", key = "altssection", Create = Create, Refresh = Refresh }

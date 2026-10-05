@@ -28,7 +28,7 @@ end
 local function ShowTooltip(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	GameTooltip:SetText("Tomte", 1, 0.82, 0.45)
-	GameTooltip:AddLine("Click to open settings", 1, 1, 1)
+	GameTooltip:AddLine("Click to open Tomte", 1, 1, 1)
 	if ns.Weekly_Active and ns.Weekly_Active() then
 		GameTooltip:AddLine("Right-click for this week's open items", 1, 1, 1)
 	end

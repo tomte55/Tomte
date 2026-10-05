@@ -116,7 +116,18 @@ module = ns.RegisterModule({
 			ns.Banner_Clear("hunter")
 		end
 	end,
-	page = ns.StablePage,
+	home = {
+		{ kind = "page", key = "stable", order = 3, name = "Stable", icon = "Interface\\Icons\\Ability_Hunter_BeastCall",
+			page = ns.StablePage,
+			summary = function()
+				local snapshot = ns.Stable_Snapshot()
+				if not snapshot then
+					return "Visit a stable master to read your pets"
+				end
+				local n = ns.Hunter_PetCount(snapshot)
+				return n == 1 and "1 pet" or (n .. " pets")
+			end },
+	},
 	commands = {
 		{ "check", "run the pet check now", Check },
 	},

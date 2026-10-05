@@ -43,6 +43,20 @@ local function ShownCounts(entries)
 	return counts
 end
 
+-- Short source for Home's rows: the first label that isn't the zone ("Drop", "Vendor", "Pet Battle"),
+-- else what it is.
+local function SourceWord(e)
+	if e.drop then
+		return "Drop"
+	end
+	for _, line in ipairs(ns.Collect_ParseSource(e.source).lines) do
+		if line.label ~= "zone" then
+			return line.display
+		end
+	end
+	return e.kind == "pet" and "Wild pet" or "Mount"
+end
+
 -- Toasts --------------------------------------------------------------------------------------------------------
 
 local function ShowZoneToast(name, counts)
@@ -228,6 +242,84 @@ module = ns.RegisterModule({
 	category = "Collections",
 	description = "A tab in the world map's side panel with the mounts, battle pets and achievements still missing on the map you're looking at (from the journals' source text), toasts when you arrive in a zone with mounts or pets left, and when a rare that drops one is up.",
 	enabledByDefault = true,
+	home = {
+		{ kind = "map", key = "collect", order = 1, name = "Collect here", icon = "Interface\\Icons\\Ability_Mount_RidingHorse",
+			open = function()
+				ns.CollectTab_Open()
+			end,
+			summary = function()
+				local state = ns.Collect_State()
+				if not (state.mounts and state.pets and state.achievements) then
+					return "Reading your collections..."
+				end
+				local entries = ns.Collect_ForMap(PlayerMap())
+				return entries and (ns.Collect_ZoneToastText(ShownCounts(entries)) or "Nothing left here") or nil
+			end },
+		{ kind = "around", key = "collectaround", order = 1, name = "Collect here", keepEmpty = true,
+			icon = "Interface\\Icons\\Ability_Mount_RidingHorse",
+			open = function()
+				ns.CollectTab_Open()
+			end,
+			title = function()
+				local state = ns.Collect_State()
+				if not (state.mounts and state.pets and state.achievements) then
+					return "Collect here: reading your collections..."
+				end
+				local entries = ns.Collect_ForMap(PlayerMap())
+				local text = entries and ns.Collect_ZoneToastText(ShownCounts(entries))
+				return text and ("Collect here: " .. text) or "Collect here: nothing left in this zone"
+			end,
+			-- Mounts and pets first, then the achievements closest to done.
+			items = function(limit)
+				local state = ns.Collect_State()
+				local entries = state.mounts and state.pets and state.achievements and ns.Collect_ForMap(PlayerMap())
+				if not entries or limit <= 0 then
+					return {}
+				end
+				ns.Collect_ReadProgress(entries)
+				local list = {}
+				for _, e in ipairs(entries) do
+					local key = e.kind == "mount" and "mounts" or e.kind == "pet" and "pets" or "achievements"
+					if db.show[key] ~= false then
+						list[#list + 1] = e
+					end
+				end
+				table.sort(list, function(a, b)
+					local ra, rb = a.kind == "ach" and 2 or 1, b.kind == "ach" and 2 or 1
+					if ra ~= rb then
+						return ra < rb
+					end
+					if ra == 2 and (a.percent or 0) ~= (b.percent or 0) then
+						return (a.percent or 0) > (b.percent or 0)
+					end
+					return (a.name or "") < (b.name or "")
+				end)
+				-- Keep two rows for the achievements when there are any (mounts and pets come first and would fill it).
+				local collectibles, achievements = {}, {}
+				for _, e in ipairs(list) do
+					table.insert(e.kind == "ach" and achievements or collectibles, e)
+				end
+				local achRows = math.min(#achievements, 2, limit)
+				local picked = {}
+				for i = 1, math.min(#collectibles, limit - achRows) do
+					picked[#picked + 1] = collectibles[i]
+				end
+				for i = 1, math.min(#achievements, limit - #picked) do
+					picked[#picked + 1] = achievements[i]
+				end
+				local rows = {}
+				for i, e in ipairs(picked) do
+					local right
+					if e.kind == "ach" then
+						right = e.total and e.total > 0 and ("%d / %d"):format(e.done or 0, e.total) or nil
+					else
+						right = SourceWord(e)
+					end
+					rows[i] = { icon = e.icon, text = e.name, right = right }
+				end
+				return rows
+			end },
+	},
 	defaults = {
 		show = { mounts = true, pets = true, achievements = true },
 		collapsed = { mounts = false, pets = false, achievements = false },

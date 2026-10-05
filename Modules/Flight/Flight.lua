@@ -428,15 +428,20 @@ module = ns.RegisterModule({
 			Deactivate()
 		end
 	end,
-	blocked = function()
-		if ns.FlightTimerLoaded() then
-			return "The FlightTimer addon is still enabled. Disable it and /reload to switch over."
-		end
-	end,
 	cinematicState = function()
 		return flight
 	end,
-	page = ns.CoveragePage, -- Coverage tab next to the options
+	home = {
+		{ kind = "page", key = "coverage", order = 4, name = "Flight coverage", icon = "Interface\\Icons\\Ability_Mount_Wyvern_01",
+			page = ns.CoveragePage,
+			summary = function()
+				local n = 0
+				for _ in pairs((ns.Coverage_Timed(ns.flightDB))) do
+					n = n + 1
+				end
+				return n == 1 and "1 flight master timed" or (n .. " flight masters timed")
+			end },
+	},
 	panelClosed = StopPreview,
 	commands = {
 		{ "stats", "show flight stats", PrintStats },

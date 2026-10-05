@@ -390,6 +390,7 @@ local function RowIcon(q)
 	end
 	return NO_ICON
 end
+ns.WQ_RowIcon = RowIcon
 
 local function SetQuest(row, q)
 	row.quest, row.section = q, nil
@@ -418,6 +419,7 @@ end
 local function Options()
 	return { show = db.show, worth = db.worth, collapsed = db.collapsed, maxLevel = ns.WQ_MaxLevel() }
 end
+ns.WQ_Options = Options
 
 local function Count(sections)
 	local n = 0

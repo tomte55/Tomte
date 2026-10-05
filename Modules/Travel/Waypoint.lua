@@ -278,6 +278,7 @@ end
 
 module = ns.RegisterModule({
 	key = "way",
+	conflicts = { { addon = "WaypointUI", why = "Waypoints stays off while it's enabled" } },
 	name = "Waypoints",
 	category = "Travel",
 	description = "An in-world marker for whatever you track: icon, beam, distance and arrival time, a close-up card "

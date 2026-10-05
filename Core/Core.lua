@@ -36,8 +36,8 @@ function f:ADDON_LOADED(name)
 	self:UnregisterEvent("ADDON_LOADED")
 	TomteDB = ns.MergeDefaults(CORE_DEFAULTS, TomteDB or {})
 	TomteDB.panel.category = nil -- the old panel's category filter
+	TomteDB.flightImported = nil -- the old FlightTimer hand-over flag
 	ns.db = TomteDB
-	ns.Migration_Run(TomteDB) -- before modules get their db
 	ns.Session_Init(TomteDB) -- before the modules: their world handlers read the session
 	ns.InitModules(TomteDB)
 	ns.Panel_Init()
@@ -66,7 +66,7 @@ end
 
 local function PrintHelp()
 	ns.Print("commands:")
-	PrintCommand("/tomte", "open the settings panel")
+	PrintCommand("/tomte", "open Tomte (Home)")
 	PrintCommand("/tomte help", "this list")
 	for _, module in ipairs(ns.modules) do
 		PrintModuleCommands(module)

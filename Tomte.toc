@@ -5,12 +5,11 @@
 ## Version: 1.0.0
 ## IconTexture: Interface\AddOns\Tomte\Media\Logo
 ## SavedVariables: TomteDB
-## OptionalDeps: FlightTimer, Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI
+## OptionalDeps: Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI
 ## AddonCompartmentFunc: Tomte_OnAddonCompartmentClick
 
 Core/Core.lua
 Core/Modules.lua
-Core/Migration.lua
 Core/SessionData.lua
 Core/Session.lua
 Cinematic/Engine.lua
@@ -19,7 +18,9 @@ Cinematic/Showcase.lua
 Cinematic/Banner.lua
 Panel/Widgets.lua
 Panel/Options.lua
+Panel/Home.lua
 Panel/Panel.lua
+Panel/Window.lua
 Panel/MapTabs.lua
 Panel/ModelPreview.lua
 Modules/Minimap/Data.lua
@@ -90,7 +91,14 @@ Modules/Weekly/Data.lua
 Modules/Weekly/Collect.lua
 Modules/Weekly/BoardPage.lua
 Modules/Weekly/Popup.lua
+Modules/Weekly/HomeSection.lua
 Modules/Weekly/Weekly.lua
+Modules/Alts/Data.lua
+Modules/Alts/Collect.lua
+Modules/Alts/CraftTab.lua
+Modules/Alts/RosterTab.lua
+Modules/Alts/HomeSection.lua
+Modules/Alts/Alts.lua
 Modules/Recap/Data.lua
 Modules/Recap/Track.lua
 Modules/Recap/Scene.lua

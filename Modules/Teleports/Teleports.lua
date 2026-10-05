@@ -111,6 +111,47 @@ module = ns.RegisterModule({
 	category = "Travel",
 	description = "A Teleports tab in the world map's side panel: your hearthstone (and a random hearthstone toy), house, dungeon teleports (this season first), class teleports and teleport items, with cooldowns. Teleports that go to the map you're looking at float to the top. Click to use, right-click to favorite.",
 	enabledByDefault = true,
+	home = {
+		{ kind = "map", key = "teleports", order = 2, name = "Teleports", icon = "Interface\\Icons\\Spell_Arcane_PortalDalaran",
+			open = function()
+				ns.TpTab_Open()
+			end,
+			summary = function()
+				local ready = 0
+				for _, e in ipairs(ns.Tp_Entries(db)) do
+					if e.known and ns.Tp_Cooldown(e) == 0 then
+						ready = ready + 1
+					end
+				end
+				return ready .. " ready"
+			end },
+		{ kind = "around", key = "teleportsaround", order = 3, name = "Teleports", maxRows = 3,
+			icon = "Interface\\Icons\\Spell_Arcane_PortalDalaran",
+			open = function()
+				ns.TpTab_Open()
+			end,
+			title = function()
+				local ready = 0
+				for _, e in ipairs(ns.Tp_Entries(db)) do
+					if e.known and ns.Tp_Cooldown(e) == 0 then
+						ready = ready + 1
+					end
+				end
+				return ("Teleports: %d ready"):format(ready)
+			end,
+			items = function(limit)
+				local rows = {}
+				for _, e in ipairs(ns.Tp_Entries(db)) do
+					if #rows >= limit then
+						break
+					end
+					if e.known and ns.Tp_Cooldown(e) == 0 then
+						rows[#rows + 1] = { icon = e.icon, text = e.name, right = "ready" }
+					end
+				end
+				return rows
+			end },
+	},
 	defaults = {
 		favorites = {}, -- [entry key] = true
 		showUnearned = true,

@@ -329,6 +329,11 @@ end
 
 module = ns.RegisterModule({
 	key = "recap",
+	home = {
+		{ kind = "quick", key = "lastrecap", order = 2, name = "Last session recap", open = ShowLast, shown = function()
+			return ns.Session_Last(UnitGUID("player")) ~= nil
+		end },
+	},
 	name = "Session recap",
 	category = "Ambience",
 	description = "What you got done this session: time, gold and where it came from, notable loot, achievements, rares, tames and progress. A card while you log out, on /tomte recap and on the AFK screen; a toast at login for your last session.",

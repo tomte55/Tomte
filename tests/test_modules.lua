@@ -6,7 +6,6 @@ local ns = {
 	end,
 }
 assert(loadfile("Tomte/Core/Modules.lua"))("Tomte", ns)
-assert(loadfile("Tomte/Core/Migration.lua"))("Tomte", ns)
 
 local failures = 0
 local function test(name, fn)
@@ -26,7 +25,7 @@ end
 
 -- Fresh registry for each test. Returns a module whose toggle calls are recorded in module.calls.
 local function reset()
-	ns.modules, ns.modulesByKey = {}, {}
+	ns.modules, ns.modulesByKey, ns.homeByKey = {}, {}, {}
 	errors = {}
 end
 local function newModule(key, extra)
@@ -195,25 +194,88 @@ test("AnyCinematicState only asks active modules", function()
 	eq(off.active, false, "off inactive")
 end)
 
-test("CopyFlightData deep-copies and drops FlightTimer's runtime state", function()
-	local src = {
-		routes = { ["1>2"] = 50 },
-		stats = { flights = 3, byMap = { [2214] = 120 } },
-		alert = false,
-		current = { start = 1 },
-		musicVolumeBackup = "0.4",
-	}
-	local copy = ns.CopyFlightData(src)
-	eq(copy.routes["1>2"], 50, "routes")
-	eq(copy.stats.byMap[2214], 120, "nested")
-	eq(copy.alert, false, "false value kept")
-	eq(copy.current, nil, "current dropped")
-	eq(copy.musicVolumeBackup, nil, "backup dropped")
-	copy.stats.flights = 99
-	copy.routes["3>4"] = 1
-	eq(src.stats.flights, 3, "source unchanged")
-	eq(src.routes["3>4"], nil, "source tables not shared")
-	eq(src.current.start, 1, "source keeps current")
+test("HomeEntries lists visible entries of a kind in registration order", function()
+	reset()
+	local hunter = false
+	newModule("a", { enabledByDefault = true, home = {
+		{ kind = "page", key = "pa" },
+		{ kind = "map", key = "ma" },
+	} })
+	newModule("b", { enabledByDefault = true, home = {
+		{ kind = "page", key = "pb", shown = function() return hunter end },
+		{ kind = "page", key = "pb2" },
+	} })
+	newModule("c", { home = { { kind = "page", key = "pc" } } }) -- off by default
+	ns.InitModules({})
+	local pages = ns.HomeEntries("page")
+	eq(#pages, 2, "pages")
+	eq(pages[1].key, "pa", "first")
+	eq(pages[2].key, "pb2", "hidden by shown()")
+	eq(ns.HomeEntries("map")[1].module.key, "a", "entry knows its module")
+	hunter = true
+	eq(#ns.HomeEntries("page"), 3, "shown() true")
+	ns.SetModuleEnabled("c", true)
+	eq(ns.HomeEntries("page")[4].key, "pc", "turned on")
+	eq(ns.homeByKey.pc.module.key, "c", "by key")
+	eq(#ns.ModulePages(ns.modulesByKey.b), 2, "module pages ignore shown()")
+end)
+
+test("RegisterModule rejects a duplicate home entry key", function()
+	reset()
+	newModule("a", { home = { { kind = "page", key = "x" } } })
+	local ok = pcall(newModule, "b", { home = { { kind = "page", key = "x" } } })
+	eq(ok, false, "duplicate")
+end)
+
+test("ModuleDependencies says whether used addons are loaded and conflicting ones aren't", function()
+	reset()
+	local m = newModule("a", {
+		uses = { { addon = "Syndicator", why = "item counts", without = "only this character" } },
+		conflicts = { { addon = "WaypointUI", why = "stays off while it's enabled" } },
+	})
+	local loaded = { Syndicator = true }
+	local lines = ns.ModuleDependencies(m, function(name) return loaded[name] == true end)
+	eq(#lines, 2, "lines")
+	eq(lines[1].ok, true, "uses ok")
+	eq(lines[1].text, "Uses Syndicator: item counts", "uses text")
+	eq(lines[2].ok, true, "no conflict")
+	loaded = { WaypointUI = true }
+	lines = ns.ModuleDependencies(m, function(name) return loaded[name] == true end)
+	eq(lines[1].ok, false, "missing")
+	eq(lines[1].text, "Uses Syndicator: not loaded, only this character", "without text")
+	eq(lines[2].ok, false, "conflict loaded")
+	eq(#ns.ModuleDependencies(newModule("b"), function() return true end), 0, "none")
+end)
+
+test("HomeEntries sorts by order, then registration", function()
+	reset()
+	newModule("a", { enabledByDefault = true, home = { { kind = "page", key = "late" }, { kind = "page", key = "first", order = 1 } } })
+	newModule("b", { enabledByDefault = true, home = { { kind = "page", key = "second", order = 2 } } })
+	ns.InitModules({})
+	local pages = ns.HomeEntries("page")
+	eq(pages[1].key, "first", "1")
+	eq(pages[2].key, "second", "2")
+	eq(pages[3].key, "late", "default last")
+end)
+
+test("an alwaysOn module stays enabled", function()
+	reset()
+	local m = newModule("w", { alwaysOn = true })
+	ns.InitModules({ enabled = { w = false } })
+	eq(ns.ModuleEnabled(m), true, "enabled")
+	eq(m.active, true, "active")
+end)
+
+test("PanelResume reopens where you were for a while, then Home", function()
+	local ok = function(key) return key == "alts" end
+	local view, key = ns.PanelResume({ view = "page", page = "alts", at = 1000 }, 1100, 300, ok)
+	eq(view, "page", "page")
+	eq(key, "alts", "key")
+	eq((ns.PanelResume({ view = "page", page = "alts", at = 1000 }, 1400, 300, ok)), "home", "too long ago")
+	eq((ns.PanelResume({ view = "page", page = "gone", at = 1000 }, 1100, 300, ok)), "home", "page gone")
+	eq((ns.PanelResume({ view = "settings", at = 1000 }, 1100, 300, ok)), "settings", "settings")
+	eq((ns.PanelResume({ view = "page", page = "alts", at = 1000 }, 1100, 0, ok)), "home", "turned off")
+	eq((ns.PanelResume(nil, 1100, 300, ok)), "home", "first time")
 end)
 
 if failures > 0 then

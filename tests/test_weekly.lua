@@ -349,6 +349,38 @@ test("duration", function()
 	eq(ns.Weekly_Duration(-5), "0m")
 end)
 
+test("home summary: vault slots and open knowledge sources", function()
+	local v = ns.Weekly_View(Snap(), NOW)
+	local text = ns.Weekly_HomeSummary(v)
+	assert(text:find("^Vault 1/6"), text)
+	assert(text:find("knowledge left"), text)
+	v.vaultReady = true
+	assert(ns.Weekly_HomeSummary(v):find("^Vault rewards waiting"), "ready")
+	eq(ns.Weekly_HomeSummary({ vault = {}, profs = {} }), "", "nothing")
+end)
+
+test("home todo: open first, then done; knowledge, quests and capped crests", function()
+	local v = ns.Weekly_View(Snap(), NOW)
+	local rows = ns.Weekly_HomeTodo(v, LEARNED)
+	assert(#rows > 3, "rows")
+	local seenDone = false
+	for _, r in ipairs(rows) do
+		if r.done then
+			seenDone = true
+		else
+			assert(not seenDone, "open after done: " .. r.text)
+		end
+	end
+	local found
+	for _, r in ipairs(rows) do
+		if r.text == "Delve weekly" then
+			found = r
+		end
+	end
+	eq(found.done, true, "quest done")
+	eq(ns.Weekly_HomeTodo({ profs = {}, quests = {}, currencies = {} }, {})[1], nil, "empty")
+end)
+
 if failures > 0 then
 	os.exit(1)
 end

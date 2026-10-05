@@ -484,6 +484,11 @@ ns.Toast_Options(options)
 
 module = ns.RegisterModule({
 	key = "whispers",
+	home = {
+		{ kind = "quick", key = "inbox", order = 1, name = "Whisper inbox", open = function()
+			ns.Inbox_Toggle()
+		end, count = UnreadTotal },
+	},
 	name = "Whispers",
 	category = "Social",
 	description = "Whispers you can't miss: a toast for each one (click to reply), an unread recap when you're back from AFK, an inbox with your conversations, and one summary card for whispers that came in combat or during a cinematic.",

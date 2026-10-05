@@ -474,7 +474,15 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "keepFlying", label = "Don't dismount while flying",
 			tooltip = "The key does nothing in the air, so you can't fall off by accident." },
 	},
-	page = ns.MountZonesPage,
+	home = {
+		{ kind = "page", key = "mountzones", order = 5, name = "Mount zones", icon = "Interface\\Icons\\Ability_Mount_Charger",
+			page = ns.MountZonesPage,
+			summary = function()
+				local list = ns.Mount_ZoneList(ns.Mount_Chain(), ns.mountDB.zones)
+				local n = list and #list or 0
+				return n == 1 and "1 zone favorite here" or (n .. " zone favorites here")
+			end },
+	},
 })
 ns.mountModule = module
 

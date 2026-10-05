@@ -155,10 +155,7 @@ local function UpdateThumb()
 	end
 	local thumbH = math.max(viewH * viewH / contentH, 20)
 	local offset = page.scroll:GetVerticalScroll() / (contentH - viewH) * (viewH - thumbH)
-	page.thumb:SetHeight(thumbH)
-	page.thumb:ClearAllPoints()
-	page.thumb:SetPoint("TOPLEFT", page.scroll, "TOPRIGHT", 4, -offset)
-	page.thumb:Show()
+	page.thumb:Place(page.scroll, thumbH, offset)
 end
 
 local function SetScroll(value)
@@ -277,10 +274,7 @@ local function Create(frame)
 	page.scroll:SetScript("OnMouseWheel", function(self, delta)
 		SetScroll(self:GetVerticalScroll() - delta * SCROLL_STEP)
 	end)
-	page.thumb = page:CreateTexture(nil, "OVERLAY")
-	page.thumb:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.45)
-	page.thumb:SetWidth(2)
-	page.thumb:Hide()
+	page.thumb = UI.ScrollThumb(page, page.scroll, SetScroll)
 end
 
 ns.CoveragePage = { title = "Coverage", Create = Create, Refresh = Refresh }

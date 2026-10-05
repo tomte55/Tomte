@@ -229,16 +229,67 @@ end
 -- scroll.onWidthChanged(width) runs when the width changes (for content that lays out by width).
 local SCROLL_STEP = 40
 
+-- Draggable thumb: a 2 px gold bar (4 px while hovered or dragged) in a 10 px wide grab area. The owner positions it
+-- with thumb:Place(scroll, thumbH, offset) and scrolls with setScroll(value) while it's dragged.
+function UI.ScrollThumb(parent, scroll, setScroll)
+	local thumb = CreateFrame("Button", nil, parent)
+	thumb:SetWidth(10)
+	thumb:SetFrameLevel(scroll:GetFrameLevel() + 5)
+	thumb.bar = thumb:CreateTexture(nil, "OVERLAY")
+	thumb.bar:SetPoint("TOPLEFT", 4, 0)
+	thumb.bar:SetPoint("BOTTOMLEFT", 4, 0)
+	thumb:Hide()
+	local function Look(active)
+		thumb.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], active and 0.9 or 0.45)
+		thumb.bar:SetWidth(active and 4 or 2)
+	end
+	Look(false)
+	local function CursorY()
+		return select(2, GetCursorPosition()) / thumb:GetEffectiveScale()
+	end
+	local function Drag(self)
+		local viewH, contentH = scroll:GetHeight(), scroll:GetScrollChild():GetHeight()
+		local track = viewH - self:GetHeight()
+		if track > 0 then
+			setScroll(self.startScroll + (self.startY - CursorY()) * (contentH - viewH) / track)
+		end
+	end
+	thumb:SetScript("OnEnter", function()
+		Look(true)
+	end)
+	thumb:SetScript("OnLeave", function(self)
+		if not self.dragging then
+			Look(false)
+		end
+	end)
+	thumb:SetScript("OnMouseDown", function(self)
+		self.dragging = true
+		self.startY, self.startScroll = CursorY(), scroll:GetVerticalScroll()
+		self:SetScript("OnUpdate", Drag)
+	end)
+	thumb:SetScript("OnMouseUp", function(self)
+		self.dragging = false
+		self:SetScript("OnUpdate", nil)
+		Look(self:IsMouseOver())
+	end)
+	function thumb:Place(owner, height, offset)
+		self:SetHeight(height)
+		self:ClearAllPoints()
+		self:SetPoint("TOPLEFT", owner, "TOPRIGHT", 0, -offset)
+		self:Show()
+	end
+	return thumb
+end
+
 function UI.Scroll(parent)
 	local scroll = CreateFrame("ScrollFrame", nil, parent)
 	scroll:EnableMouseWheel(true)
 	scroll.content = CreateFrame("Frame", nil, scroll)
 	scroll.content:SetSize(1, 1)
 	scroll:SetScrollChild(scroll.content)
-	scroll.thumb = parent:CreateTexture(nil, "OVERLAY")
-	scroll.thumb:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.45)
-	scroll.thumb:SetWidth(2)
-	scroll.thumb:Hide()
+	scroll.thumb = UI.ScrollThumb(parent, scroll, function(value)
+		scroll:SetScroll(value)
+	end)
 
 	function scroll:UpdateThumb()
 		local viewH, contentH = self:GetHeight(), self.content:GetHeight()
@@ -248,10 +299,7 @@ function UI.Scroll(parent)
 		end
 		local thumbH = math.max(viewH * viewH / contentH, 20)
 		local offset = self:GetVerticalScroll() / (contentH - viewH) * (viewH - thumbH)
-		self.thumb:SetHeight(thumbH)
-		self.thumb:ClearAllPoints()
-		self.thumb:SetPoint("TOPLEFT", self, "TOPRIGHT", 4, -offset)
-		self.thumb:Show()
+		self.thumb:Place(self, thumbH, offset)
 	end
 
 	function scroll:SetScroll(value)
