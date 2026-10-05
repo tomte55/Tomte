@@ -327,6 +327,14 @@ function events:PLAYER_EQUIPMENT_CHANGED()
 	ns.GearSheet_Refresh()
 end
 
+-- Modules start on ADDON_LOADED, before the inventory has arrived: read worn gear and bags again once in the world.
+function events:PLAYER_ENTERING_WORLD()
+	ns.GearItems_InvalidateEquipped()
+	ns.GearItems_InvalidateBags()
+	RefreshBags()
+	ns.GearSheet_Refresh()
+end
+
 function events:PLAYER_SPECIALIZATION_CHANGED(unit)
 	if unit == "player" then
 		RefreshBags()
@@ -544,6 +552,7 @@ ns.Gear_PrintSimSteps = PrintSimSteps
 ---------------------------------------------------------------------------------------------------------------
 
 local function Start()
+	events:RegisterEvent("PLAYER_ENTERING_WORLD")
 	events:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 	events:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 	events:RegisterEvent("PLAYER_LEVEL_UP")
