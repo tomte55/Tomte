@@ -181,19 +181,23 @@ function ns.GearItems_Equipped()
 	if equipped then
 		return equipped
 	end
-	local snapshot, complete = {}, true
+	local snapshot, complete, any = {}, true, false
 	for _, slot in ipairs(EQUIP_SLOTS) do
 		local link = GetInventoryItemLink("player", slot)
-		if link then
+		if not link and GetInventoryItemID("player", slot) then
+			return nil -- worn, but its link hasn't arrived yet
+		elseif link then
 			local desc = ns.GearItems_Describe(link)
 			if not desc then
 				return nil
 			end
 			snapshot[slot] = desc
+			any = true
 			complete = complete and not desc.unread
 		end
 	end
-	if complete then
+	-- Nothing worn at all is usually a read at login before the inventory arrived: use it, but don't keep it.
+	if complete and any then
 		equipped = snapshot
 	end
 	return snapshot
