@@ -452,8 +452,10 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 		oldIlvl = equipped[slot] and equipped[slot].ilvl
 	end
 	local new = Score(cand)
-	local empty = target.mode == "empty" or old <= 0
-	local pct = not empty and (new - old) / old * 100 or nil
+	local empty = target.mode == "empty"
+	-- Something is worn but scores nothing (no stats under these weights, or they didn't read): no percentage.
+	local statless = not empty and old <= 0
+	local pct = not (empty or statless) and (new - old) / old * 100 or nil
 	verdict.pct = pct
 
 	-- Set bonuses.
@@ -532,6 +534,10 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 		end
 	elseif empty then
 		verdict.kind = "empty"
+	elseif statless then
+		-- With stats it beats yours; with none either, item level is all there is to go on.
+		verdict.kind = new > 0 and "noStats" or "ilvl"
+		verdict.ilvlDiff = cand.ilvl and oldIlvl and cand.ilvl - oldIlvl or 0
 	elseif target.mode == "single" and cand.ilvl and oldIlvl and math.abs(cand.ilvl - oldIlvl) <= STAT_MIX_ILVL
 		and math.abs(pct) > UPGRADE_PCT and math.abs(pct) <= STAT_MIX_PCT and not completes then
 		verdict.kind = "sidegrade"
@@ -586,12 +592,22 @@ function ns.Gear_Headline(v)
 		return "Replaces your two-hander", "grey"
 	elseif kind == "empty" then
 		return "Upgrade (slot empty): equip it", "green"
+	elseif kind == "noStats" then
+		return "Upgrade (yours has no stats): equip it", "green"
+	elseif kind == "ilvl" then
+		local d = v.ilvlDiff
+		if d > 0 then
+			return ("No stats on either, item level +%d"):format(d), "grey"
+		elseif d < 0 then
+			return ("No stats on either, item level %d: keep yours"):format(d), "red"
+		end
+		return "No stats on either, same item level", "grey"
 	end
 end
 
 -- Only a clean upgrade marks a bag item.
 function ns.Gear_IsCleanUpgrade(v)
-	return v ~= nil and (v.kind == "upgrade" or v.kind == "empty")
+	return v ~= nil and (v.kind == "upgrade" or v.kind == "empty" or v.kind == "noStats")
 end
 
 ---------------------------------------------------------------------------------------------------------------
@@ -610,15 +626,16 @@ function ns.Gear_RevealTier(quality)
 end
 
 -- items = { { verdict, ... } } new to the bags. Keeps clean upgrades of at least minPct (an empty slot always
--- counts), the best one per slot (a ring and a better ring: only the better), biggest first.
+-- counts, and so does replacing an item with no stats), the best one per slot (a ring and a better ring: only the
+-- better), biggest first.
 function ns.Gear_PickReveals(items, minPct)
 	local best = {}
 	local function Value(v)
-		return v.kind == "empty" and math.huge or v.pct
+		return v.pct or math.huge
 	end
 	for _, item in ipairs(items) do
 		local v = item.verdict
-		if ns.Gear_IsCleanUpgrade(v) and v.slot and (v.kind == "empty" or v.pct >= minPct) then
+		if ns.Gear_IsCleanUpgrade(v) and v.slot and Value(v) >= minPct then
 			local held = best[v.slot]
 			if not held or Value(v) > Value(held.verdict) then
 				best[v.slot] = item
@@ -643,6 +660,8 @@ end
 function ns.Gear_RevealLabel(v)
 	if v.kind == "empty" then
 		return "Upgrade for an empty slot"
+	elseif v.kind == "noStats" then
+		return "Upgrade over gear with no stats"
 	end
 	return "Upgrade " .. Pct(v.pct)
 end

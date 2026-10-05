@@ -37,7 +37,7 @@ local VERDICT_WORDS = {
 	upgrade = "Upgrade", upgradeBut = "Upgrade?", sidegrade = "Sidegrade", downgrade = "Downgrade",
 }
 local VERDICT_FIXED = {
-	empty = "Upgrade (empty slot)", notForYou = "Not for you", simIt = "Sim it", pair = "Replaces your two-hander",
+	empty = "Upgrade (empty slot)", noStats = "Upgrade (yours has no stats)", ilvl = "No stats", notForYou = "Not for you", simIt = "Sim it", pair = "Replaces your two-hander",
 }
 
 -- Formatting -----------------------------------------------------------------------------------------------------

@@ -118,6 +118,13 @@ function ns.GearItems_Describe(link)
 		waiting = true
 		return nil
 	end
+	-- No stats at all (not even armor) is usually a read before the item's bonus data arrived: use it, but read it
+	-- again next time instead of keeping it.
+	if not next(desc.stats) then
+		desc.unread = true
+		waiting = true
+		return desc
+	end
 	if cacheSize >= MAX_CACHE then
 		wipe(cache)
 		cacheSize = 0
@@ -174,7 +181,7 @@ function ns.GearItems_Equipped()
 	if equipped then
 		return equipped
 	end
-	local snapshot = {}
+	local snapshot, complete = {}, true
 	for _, slot in ipairs(EQUIP_SLOTS) do
 		local link = GetInventoryItemLink("player", slot)
 		if link then
@@ -183,10 +190,13 @@ function ns.GearItems_Equipped()
 				return nil
 			end
 			snapshot[slot] = desc
+			complete = complete and not desc.unread
 		end
 	end
-	equipped = snapshot
-	return equipped
+	if complete then
+		equipped = snapshot
+	end
+	return snapshot
 end
 
 function ns.GearItems_InvalidateEquipped()
@@ -207,6 +217,7 @@ function ns.GearItems_BagGear()
 				local desc = ns.GearItems_Describe(link)
 				if desc then
 					list[#list + 1] = desc
+					complete = complete and not desc.unread
 				else
 					complete = false
 				end
