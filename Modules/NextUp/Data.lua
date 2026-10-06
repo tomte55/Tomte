@@ -6,7 +6,7 @@ local addonName, ns = ...
 
 -- lists: { { source = entry key, score = default priority, items = { candidates } } }
 -- opts: { enabled = { [source] = false to skip }, priority = { [source] = 0-100 }, dismissed = { [key] = state|true },
---         mode = "login" | "change", limit }
+--         mode = "login" | "change", limit, perSource (optional cap per source) }
 -- "login": a dismissed key stays hidden. "change": it's hidden while its state is the one dismissed.
 function ns.NextUp_Rank(lists, opts)
 	local enabled, priority, dismissed = opts.enabled or {}, opts.priority or {}, opts.dismissed or {}
@@ -34,11 +34,20 @@ function ns.NextUp_Rank(lists, opts)
 		end
 		return order[a] < order[b]
 	end)
-	local limit = opts.limit or 5
-	for i = #all, limit + 1, -1 do
-		all[i] = nil
+	-- At most perSource from one source, so one busy source (achievements) can't fill the list.
+	local limit, perSource = opts.limit or 5, opts.perSource
+	local out, count = {}, {}
+	for _, c in ipairs(all) do
+		if #out >= limit then
+			break
+		end
+		local n = count[c.source] or 0
+		if not perSource or n < perSource then
+			count[c.source] = n + 1
+			out[#out + 1] = c
+		end
 	end
-	return all
+	return out
 end
 
 -- What a dismissal remembers for a candidate (its state, or true).

@@ -20,6 +20,8 @@ local HERO_W, HERO_MIN_CONTENT = 290, 620 -- the hero hides when the content wou
 local WEEK_H = 168
 local PAD = 22
 local ROW_H = 24
+local ROW2_H = 36 -- a row with a second line
+local NEXT_UNDER_MIN = 40 + 2 * ROW2_H -- Next up's heading and two rows: less room under the characters, it moves right
 local RAIL_ROW_H, RAIL_HEADER_H = 24, 30
 ns.RAIL_W = 170
 ns.MAP_BLUE = MAP_BLUE
@@ -60,6 +62,7 @@ end
 local Kit = {}
 ns.HomeKit = Kit
 Kit.DISPLAY_FONT, Kit.NARROW_FONT = DISPLAY_FONT, NARROW_FONT
+Kit.ROW_H, Kit.ROW2_H = ROW_H, ROW2_H
 
 -- Section heading: title (display font), meta (grey, after the title) and an optional link on the right.
 -- heading:Set(title, meta, linkText, onLink, linkColor)
@@ -100,7 +103,8 @@ function Kit.Heading(parent)
 	return h
 end
 
--- List row: icon, text and right-aligned text (narrow font). row:Set(icon, text, color, right, rightColor)
+-- List row: icon, text and right-aligned text (narrow font). row:Set(icon, text, color, right, rightColor, sub)
+-- With sub the row gets a small grey second line and is Kit.ROW2_H tall (else ROW_H); sub "" is tall, one line.
 -- Optional row.onClick / row.onRightClick / row.onEnter(row).
 function Kit.Row(parent)
 	local row = CreateFrame("Button", nil, parent)
@@ -122,6 +126,8 @@ function Kit.Row(parent)
 	row.text:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
 	row.text:SetPoint("RIGHT", row.right, "LEFT", -10, 0)
 	row.text:SetWordWrap(false)
+	row.sub = UI.Text(row, 11, GREY)
+	row.sub:SetWordWrap(false)
 	row:SetScript("OnEnter", function(self)
 		if self.onClick then
 			self.bg:Show()
@@ -144,17 +150,37 @@ function Kit.Row(parent)
 			self.onClick(self)
 		end
 	end)
-	function row:Set(icon, text, color, right, rightColor)
+	function row:Set(icon, text, color, right, rightColor, sub)
+		local two = sub ~= nil and sub ~= ""
+		local tall = sub ~= nil -- "" keeps the tall row (it lines up with two-line ones) with the text centered
+		local size = tall and 26 or 20
+		-- Only touch the height when it changes kind: a caller may have set its own (Weekly's to-do rows).
+		if tall then
+			self:SetHeight(ROW2_H)
+		elseif self.tall then
+			self:SetHeight(ROW_H)
+		end
+		self.tall = tall
+		self.icon:SetSize(size, size)
 		self.icon:SetShown(icon ~= nil)
 		if icon then
 			self.icon:SetTexture(icon)
 		end
 		self.text:ClearAllPoints()
+		self.sub:ClearAllPoints()
+		local anchor, side, x = self, "LEFT", 0
 		if icon then
-			self.text:SetPoint("LEFT", self.icon, "RIGHT", 8, 0)
-		else
-			self.text:SetPoint("LEFT", 0, 0)
+			anchor, side, x = self.icon, "RIGHT", 8
 		end
+		if two then
+			self.text:SetPoint("BOTTOMLEFT", anchor, side, x, 1)
+			self.sub:SetPoint("TOPLEFT", anchor, side, x, -2)
+			self.sub:SetPoint("RIGHT", self.right, "LEFT", -10, 0)
+		else
+			self.text:SetPoint("LEFT", anchor, side, x, 0)
+		end
+		self.sub:SetText(two and sub or "")
+		self.sub:SetShown(two)
 		self.text:SetPoint("RIGHT", self.right, "LEFT", -10, 0)
 		self.text:SetText(text or "")
 		SetColor(self.text, color or WHITE)
@@ -577,7 +603,7 @@ function ns.PanelHome_Create(parent, onOpen)
 		end
 		local week, chars, nextUp = byslot.week, byslot.characters, byslot.next
 		local hasAround = #ns.HomeEntries("around") > 0
-		-- "next" (Next up) goes across under the week strip, or on top of the right column.
+		-- "next" (Next up) goes under the character list, across under the week strip, or on top of the right column.
 		local nextStrip = nextUp and ns.HomeCall(nextUp.place) == "strip"
 
 		local top = 0
@@ -617,16 +643,10 @@ function ns.PanelHome_Create(parent, onOpen)
 
 		local colTop = top + 18
 		local colH = height - colTop - 16
-		local nextInColumn = nextUp ~= nil and not nextStrip
-		-- Sections stacked on top of the right column, above Around you.
-		local stack = {}
-		if nextInColumn then
-			stack[#stack + 1] = nextUp
-		end
-		if byslot.recent then
-			stack[#stack + 1] = byslot.recent
-		end
-		local hasRight = hasAround or #stack > 0
+		-- Next up under the character list (between it and the footer) when there's room for a heading and two rows,
+		-- else on top of the right column.
+		local nextUnder = nextUp ~= nil and chars ~= nil and not nextStrip and ns.HomeCall(nextUp.place) == "characters"
+		local hasRight = hasAround or byslot.recent ~= nil or (nextUp ~= nil and not nextStrip and not nextUnder)
 		local both = chars ~= nil and hasRight
 		local colW = both and Snap((cw - 1) / 2) or cw
 		if chars then
@@ -635,9 +655,27 @@ function ns.PanelHome_Create(parent, onOpen)
 			frame:SetPoint("TOPLEFT", PAD, -colTop)
 			frame:SetSize(colW - 2 * PAD, colH)
 			frame:SetShown(not frame.failed)
-			if not frame.failed then
-				ns.HomeCall(chars.Refresh, frame)
+			local used = not frame.failed and ns.HomeCall(chars.Refresh, frame)
+			local room = type(used) == "number" and colH - used - 18 - (frame.footH or 0) - 12 or 0
+			if nextUnder and (room >= NEXT_UNDER_MIN or not hasRight) then
+				local nf = Section(nextUp)
+				nf:ClearAllPoints()
+				nf:SetPoint("TOPLEFT", PAD, -(colTop + (used or 0) + 18))
+				nf:SetSize(colW - 2 * PAD, math.max(room, 1))
+				nf:SetShown(not nf.failed)
+				local wanted = not nf.failed and ns.HomeCall(nextUp.Refresh, nf)
+				nf:SetHeight(math.max(type(wanted) == "number" and math.min(wanted, room) or 0, 1))
+			else
+				nextUnder = false
 			end
+		end
+		-- Sections stacked on top of the right column, above Around you.
+		local stack = {}
+		if nextUp and not nextStrip and not nextUnder then
+			stack[#stack + 1] = nextUp
+		end
+		if byslot.recent then
+			stack[#stack + 1] = byslot.recent
 		end
 		self.colLine:SetShown(both)
 		self.colLine:ClearAllPoints()

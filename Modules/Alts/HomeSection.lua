@@ -190,6 +190,7 @@ local function Create(frame, Kit)
 		foot.icons[i] = b
 	end
 	frame.foot = foot
+	frame.footH = FOOT_H -- Home puts Next up between the list and the footer
 	frame.hint = UI.Text(frame, 12, GREY)
 	frame.hint:SetPoint("RIGHT")
 	frame.hint:SetWordWrap(true)
@@ -255,6 +256,12 @@ local function Refresh(frame)
 		b:ClearAllPoints()
 		b:SetPoint("BOTTOMLEFT", (i - 1) * step, 2)
 	end
+	-- The height the heading, rows and hint use from the top (the footer sits at the bottom).
+	local used = 40 + shown * ROW_H
+	if frame.hint:IsShown() then
+		used = used + 12 + frame.hint:GetStringHeight()
+	end
+	return used
 end
 
 ns.AltsHomeSection = { kind = "section", slot = "characters", key = "altssection", Create = Create, Refresh = Refresh }

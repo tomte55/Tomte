@@ -7,7 +7,6 @@ local addonName, ns = ...
 
 local UI = ns.UI
 local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
-local ROW_H = 24
 local HEAD_H = 40
 
 local module, db
@@ -36,6 +35,7 @@ function ns.NextUp_Current(limit)
 	end
 	return ns.NextUp_Rank(lists, {
 		enabled = db.sources, priority = db.priority, dismissed = dismissed, mode = db.dismiss, limit = limit or db.rows,
+		perSource = db.perSource,
 	})
 end
 
@@ -88,20 +88,29 @@ end
 local function Refresh(frame)
 	local Kit = frame.Kit
 	local list = ns.NextUp_Current()
-	local n = #list
-	frame.heading:Set("Next up", n > 0 and (n == 1 and "1 thing" or (n .. " things")) or nil)
+	frame.heading:Set("Next up")
+	-- The action on the first line, the reason in grey under it; all rows one height so columns line up.
+	local twoLines = false
+	for _, c in ipairs(list) do
+		if c.why and c.why ~= "" then
+			twoLines = true
+		end
+	end
+	local rowH = twoLines and Kit.ROW2_H or Kit.ROW_H
 	local strip = db.placement == "strip"
 	-- Two columns in the strip when it's wide enough.
 	local cols = strip and frame:GetWidth() >= 760 and 2 or 1
+	-- As many rows as the room Home gives (it can be short under Your characters).
+	local fit = math.max(math.floor((frame:GetHeight() - HEAD_H) / rowH), 1) * cols
+	for i = #list, fit + 1, -1 do
+		list[i] = nil
+	end
+	local n = #list
 	local colW = (frame:GetWidth() - (cols - 1) * 24) / cols
 	local perCol = math.ceil(n / cols)
 	for i, c in ipairs(list) do
 		local row = Kit.PoolRow(frame.rows, i, frame)
-		local text = c.text
-		if c.why and c.why ~= "" and cols == 1 then
-			text = ("%s  |cff9e9e9e%s|r"):format(c.text, c.why)
-		end
-		row:Set(c.icon, text, c.color or WHITE, c.right, c.rightColor)
+		row:Set(c.icon, c.text, c.color or WHITE, c.right, c.rightColor, twoLines and (c.why or "") or nil)
 		row.onClick = c.onClick and function()
 			Run(c)
 		end or function() end
@@ -116,7 +125,7 @@ local function Refresh(frame)
 		local col = math.floor((i - 1) / perCol)
 		local line = (i - 1) % perCol
 		row:ClearAllPoints()
-		row:SetPoint("TOPLEFT", col * (colW + 24), -(HEAD_H + line * ROW_H))
+		row:SetPoint("TOPLEFT", col * (colW + 24), -(HEAD_H + line * rowH))
 		row:SetWidth(colW)
 	end
 	Kit.HideFrom(frame.rows, n + 1)
@@ -124,7 +133,7 @@ local function Refresh(frame)
 	if n == 0 then
 		return HEAD_H + 18
 	end
-	return HEAD_H + perCol * ROW_H
+	return HEAD_H + perCol * rowH
 end
 
 local Section = {
@@ -154,9 +163,13 @@ local function BuildOptions()
 	local options = {
 		{ type = "checkbox", key = "home", label = "Show on Home" },
 		{ type = "dropdown", key = "placement", label = "Placement", choices = function()
-			return { { value = "column", text = "Right column" }, { value = "strip", text = "Strip under This week" } }
-		end, tooltip = "On top of the right column (above Around you), or across Home under This week." },
+			return { { value = "characters", text = "Under Your characters" }, { value = "column", text = "Right column" },
+				{ value = "strip", text = "Strip under This week" } }
+		end, tooltip = "Under the character list (it goes to the right column when there are too many characters to fit), "
+			.. "on top of the right column (above Around you), or across Home under This week." },
 		{ type = "slider", key = "rows", label = "Rows", min = 3, max = 8, step = 1 },
+		{ type = "slider", key = "perSource", label = "Most from one source", min = 1, max = 8, step = 1,
+			tooltip = "So one source (say, achievements) can't fill the whole list." },
 		{ type = "dropdown", key = "dismiss", label = "\"Not now\" lasts", choices = function()
 			return { { value = "login", text = "Until next login" }, { value = "change", text = "Until it changes" } }
 		end, tooltip = "Right-click hides a suggestion. Until it changes: it comes back when it's about something "
@@ -193,8 +206,9 @@ module = ns.RegisterModule({
 	enabledByDefault = true,
 	defaults = {
 		home = true,
-		placement = "column",
+		placement = "characters",
 		rows = 5,
+		perSource = 2,
 		dismiss = "login",
 		minimap = false,
 		sources = {}, -- [entry key] = false when off
@@ -203,6 +217,13 @@ module = ns.RegisterModule({
 	home = { Section },
 	init = function(saved)
 		db = saved
+		-- "Under Your characters" became the default after the first build; move the old default over once.
+		if not db.placedUnderChars then
+			db.placedUnderChars = true
+			if db.placement == "column" then
+				db.placement = "characters"
+			end
+		end
 		-- Every module file has loaded by now, so every source is registered; fill in what's new.
 		for _, entry in ipairs(Sources()) do
 			if db.sources[entry.key] == nil then
