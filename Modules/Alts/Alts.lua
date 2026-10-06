@@ -268,6 +268,7 @@ module = ns.RegisterModule({
 		filterChar = "all",
 		filterProf = "all",
 		filterShow = "learnable",
+		filterFor = "all", -- Crafting tab "Gear for": all | me (whoever is logged in) | a character's guid
 		haveMats = false,
 		collapsed = {},
 		sendMail = true,

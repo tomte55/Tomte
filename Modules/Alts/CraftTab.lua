@@ -89,6 +89,181 @@ local function ProfName(base)
 	return "?"
 end
 
+-- Gear for a character ---------------------------------------------------------------------------------------
+
+-- Item data loads on demand; one redraw once a batch of it has arrived.
+local redraw = UI.Debounce(0.2, function()
+	ns.AltsCraft_Refresh()
+end)
+local waitingFor = {} -- [itemID or link] = true while it loads
+
+local function Loaded(itemID, key)
+	if C_Item.IsItemDataCachedByID(itemID) then
+		return true
+	end
+	key = key or itemID
+	if not waitingFor[key] then
+		waitingFor[key] = true
+		local item = type(key) == "string" and Item:CreateFromItemLink(key) or Item:CreateFromItemID(itemID)
+		item:ContinueOnItemLoad(function()
+			waitingFor[key] = nil
+			redraw()
+		end)
+	end
+	return false
+end
+
+-- The character the "Gear for" filter names, nil for anyone.
+local function ForChar()
+	local v = db.filterFor
+	if v == "me" then
+		return db.chars[UnitGUID("player")]
+	end
+	return v and v ~= "all" and db.chars[v] or nil
+end
+
+-- What Alts_GearFor needs about a recipe's item (classID, subclassID, equipLoc, primaries), nil for recipes that make
+-- no item. Kept once the main stats have read; until then primaries is nil (not held against it).
+local itemInfo = {}
+local function ItemInfo(recipe)
+	local itemID = recipe.item
+	if not itemID then
+		return nil
+	end
+	if itemInfo[itemID] then
+		return itemInfo[itemID]
+	end
+	local _, _, _, equipLoc, _, classID, subclassID = C_Item.GetItemInfoInstant(itemID)
+	if not classID then
+		return nil
+	end
+	local info = { classID = classID, subclassID = subclassID, equipLoc = equipLoc }
+	if equipLoc == "" or equipLoc == "INVTYPE_NON_EQUIP_IGNORE" then
+		info.primaries = {} -- not worn: nothing to load
+		itemInfo[itemID] = info
+		return info
+	end
+	local link = recipe.out and recipe.out[2] or ("item:" .. itemID)
+	if Loaded(itemID, recipe.out and link or nil) then
+		local stats = ns.Gear_NormalizeStats(C_Item.GetItemStats(link))
+		info.primaries = stats.PRIMARY or {}
+		itemInfo[itemID] = info
+	end
+	return info
+end
+
+-- A worn or crafted item's level, false while it loads.
+local function Ilvl(link)
+	local itemID = C_Item.GetItemInfoInstant(link)
+	if not (itemID and Loaded(itemID, link)) then
+		return false
+	end
+	return C_Item.GetDetailedItemLevelInfo(link) or false
+end
+
+-- c's worn item levels for Alts_WornFor ({ [slot] = ilvl | false, twoHand }), kept per gear snapshot.
+local wornCache = {}
+local function Worn(c)
+	local cached = wornCache[c.guid]
+	if cached and cached.at == c.gearAt and cached.complete then
+		return cached.worn
+	end
+	local worn, complete = {}, true
+	for slot, link in pairs(c.gear or {}) do
+		worn[slot] = Ilvl(link)
+		complete = complete and worn[slot] ~= false
+	end
+	local main = c.gear and c.gear[16]
+	if main then
+		local _, _, _, loc, _, _, sub = C_Item.GetItemInfoInstant(main)
+		worn.twoHand = loc == "INVTYPE_2HWEAPON" or loc == "INVTYPE_RANGED" or (loc == "INVTYPE_RANGEDRIGHT" and sub ~= 19)
+	end
+	wornCache[c.guid] = { at = c.gearAt, worn = worn, complete = complete }
+	return worn
+end
+
+-- Everything the row mark, its tooltip and the detail line say about a recipe for c:
+-- { kind ("gear" | "tool"), lo, hi (item levels at the lowest and highest quality; nil: not read yet, or loading),
+--   target (Alts_WornFor), mark, gain (Alts_Upgrade) }, nil when c can't use it.
+local function ForInfo(recipe, c)
+	local kind = ns.Alts_GearFor(ItemInfo(recipe), c)
+	if not kind then
+		return nil
+	end
+	local r = { kind = kind }
+	if recipe.out then
+		local lo, hi = Ilvl(recipe.out[1]), Ilvl(recipe.out[2])
+		r.lo, r.hi = lo or nil, hi or nil
+		r.loading = lo == false or hi == false
+	end
+	if kind == "gear" and c.gear then
+		r.target = ns.Alts_WornFor(ItemInfo(recipe).equipLoc, Worn(c))
+		r.mark, r.gain = ns.Alts_Upgrade(r.lo, r.hi, r.target)
+	end
+	return r
+end
+
+local function IlvlRange(r)
+	if r.lo and r.hi and r.lo ~= r.hi then
+		return ("%d-%d"):format(r.lo, r.hi)
+	end
+	return tostring(r.hi or r.lo)
+end
+
+-- The row mark: "+13" green (an upgrade at every quality), yellow (only at the higher qualities), "new" (empty
+-- slot), a dim "-" when it isn't one.
+local function MarkText(r)
+	if not r or not r.mark then
+		return ""
+	elseif r.mark == "empty" then
+		return "|cff73d973new|r"
+	elseif r.mark == "sure" then
+		return ("|cff73d973+%d|r"):format(r.gain)
+	elseif r.mark == "top" then
+		return ("|cffffbf4d+%d|r"):format(r.gain)
+	end
+	return "|cff6b6b6b-|r"
+end
+
+-- One line on what the craft means for c (row tooltip and the detail). nil when there's nothing to say.
+local function ForText(r, c, recipe)
+	local name = ClassName(c)
+	if not r then
+		return ("%s can't use this."):format(name)
+	elseif not recipe.out then
+		return ("Item level not read yet: open %s on a crafter once."):format(ProfName(recipe.base))
+	elseif r.loading or not r.hi then
+		return "Item level loading..."
+	elseif r.kind == "tool" then
+		return ("Profession gear for %s: item level %s by quality."):format(name, IlvlRange(r))
+	end
+	local t = r.target
+	local where
+	if not t then
+		where = ""
+	elseif t.twoHand then
+		return ("Item level %s by quality. %s wears a two-hander, so an off-hand item can't be compared."):format(
+			IlvlRange(r), name)
+	elseif t.loading then
+		return ("Item level %s by quality (%s's gear is loading)."):format(IlvlRange(r), name)
+	elseif t.ilvl then
+		where = (", %s wears %d (%s)"):format(name, t.ilvl, t.name)
+	else
+		where = (", %s's %s slot is empty"):format(name, t.name)
+	end
+	local verdict = ""
+	if r.mark == "sure" then
+		verdict = (": |cff73d973an upgrade at every quality (+%d to +%d)|r"):format(r.gain, r.hi - t.ilvl)
+	elseif r.mark == "top" then
+		verdict = (": |cffffbf4dan upgrade only at the higher qualities (up to +%d)|r"):format(r.gain)
+	elseif r.mark == "no" then
+		verdict = ": not an upgrade"
+	elseif r.mark == "empty" then
+		verdict = ": |cff73d973fills it|r"
+	end
+	return ("Item level %s by quality%s%s."):format(IlvlRange(r), where, verdict)
+end
+
 -- Results list ---------------------------------------------------------------------------------------------
 
 -- The continent you're on, for putting its expansion's recipes first.
@@ -120,15 +295,32 @@ local function CreateResultRow(parent)
 	row.who = UI.Text(row, 11, GREY)
 	row.who:SetPoint("RIGHT", -4, 0)
 	row.who:SetJustifyH("RIGHT")
+	row.mark = UI.Text(row, 11, WHITE)
+	row.mark:SetPoint("RIGHT", row.who, "LEFT", -6, 0)
+	row.mark:SetJustifyH("RIGHT")
 	row.name = UI.Text(row, 12, WHITE)
 	row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
-	row.name:SetPoint("RIGHT", row.who, "LEFT", -6, 0)
+	row.name:SetPoint("RIGHT", row.mark, "LEFT", -6, 0)
 	row.name:SetWordWrap(false)
 	row:SetScript("OnEnter", function(self)
 		self.bg:Show()
+		local c = ForChar()
+		local recipe = db.recipes[self.id]
+		if c and recipe and self.forInfo then
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			GameTooltip:SetText(RecipeName(recipe))
+			GameTooltip:AddLine(("For %s"):format(ClassName(c)), 1, 0.82, 0)
+			GameTooltip:AddLine(ForText(self.forInfo, c, recipe), 1, 1, 1, true)
+			if self.forInfo.mark then
+				GameTooltip:AddLine("Item level only, without optional reagents (they can raise it). Stats, effects and set "
+					.. "bonuses aren't compared.", 0.62, 0.62, 0.62, true)
+			end
+			GameTooltip:Show()
+		end
 	end)
 	row:SetScript("OnLeave", function(self)
 		self.bg:SetShown(self.id == db.selected)
+		GameTooltip:Hide()
 	end)
 	row:SetScript("OnClick", function(self)
 		db.selected = self.id
@@ -172,7 +364,8 @@ local function CreateGroupRow(parent)
 end
 
 local function SetResultRow(row, r)
-	row.id = r.id
+	row.id, row.forInfo = r.id, r.forInfo
+	row.mark:SetText(MarkText(r.forInfo))
 	row.icon:SetTexture(r.recipe.icon or 134400)
 	row.name:SetText(r.recipe.name or ("recipe " .. r.id))
 	-- Rarity color; recipes nobody knows yet are dimmed.
@@ -304,6 +497,17 @@ local function LayoutResults()
 		base = db.filterProf ~= "all" and db.filterProf or nil,
 		learnable = db.filterShow ~= "known",
 	})
+	local forChar = ForChar()
+	if forChar then
+		local kept = {}
+		for _, r in ipairs(results) do
+			r.forInfo = ForInfo(r.recipe, forChar)
+			if r.forInfo then
+				kept[#kept + 1] = r
+			end
+		end
+		results = kept
+	end
 	if db.haveMats then
 		results = HaveMaterials(results)
 	end
@@ -357,7 +561,9 @@ local function LayoutResults()
 	if next(db.recipes) == nil then
 		tab.hint:SetText("No recipes yet. Log in on each crafter and open their profession window once; Tomte reads the recipes from there.")
 	elseif #results == 0 then
-		tab.hint:SetText(db.haveMats and "Nothing here can be made with what the account has." or "No recipe matches.")
+		tab.hint:SetText(db.haveMats and "Nothing here can be made with what the account has."
+			or forChar and ("No recipe makes gear %s can use. Characters' recipes are read when they open their profession window."):format(forChar.name or "?")
+			or "No recipe matches.")
 	else
 		tab.hint:SetText("")
 	end
@@ -394,6 +600,22 @@ local function ProfChoices()
 	return list
 end
 
+-- "Gear for": anyone, the character you're on (follows whoever is logged in), or one character.
+local function ForChoices()
+	local me = UnitGUID("player")
+	local mine = db.chars[me]
+	local list = {
+		{ value = "all", text = "Gear for: anyone" },
+		{ value = "me", text = ("Gear for: you (%s)"):format(mine and mine.name or "this character") },
+	}
+	for _, c in ipairs(ns.Alts_Roster(db.chars, "name", nil)) do
+		if c.guid ~= me and c.class then
+			list[#list + 1] = { value = c.guid, text = "Gear for: " .. (c.name or "?") }
+		end
+	end
+	return list
+end
+
 local function Filter(parent, key, choices)
 	local d = UI.Dropdown(parent, 120)
 	d.getValue = function()
@@ -418,9 +640,25 @@ local function CreateFilters(frame)
 	frame.filters[1]:SetPoint("TOPLEFT", frame.search, "BOTTOMLEFT", 0, -8)
 	frame.filters[2]:SetPoint("LEFT", frame.filters[1], "RIGHT", 6, 0)
 	frame.filters[3]:SetPoint("LEFT", frame.filters[2], "RIGHT", 6, 0)
+	frame.forFilter = Filter(frame, "filterFor", ForChoices)
+	frame.forFilter.setValue = function(value)
+		db.filterFor = value
+		ns.AltsCraft_Refresh() -- the detail says what the craft means for them too
+	end
+	frame.forFilter:SetPoint("TOPLEFT", frame.filters[1], "BOTTOMLEFT", 0, -6)
+	frame.forFilter:HookScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Gear for")
+		GameTooltip:AddLine("Only what that character can use: armor of their type, weapons their class equips and cloaks, "
+			.. "rings, necks and trinkets with their main stat, plus tools and accessories for their professions. Each row "
+			.. "says how its item level compares with what they wear: green +n is an upgrade at every quality, yellow +n "
+			.. "only at the higher qualities, new fills an empty slot, - isn't an upgrade.", 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	frame.forFilter:HookScript("OnLeave", GameTooltip_Hide)
 	local have = CreateFrame("Button", nil, frame)
 	have:SetSize(260, 20)
-	have:SetPoint("TOPLEFT", frame.filters[1], "BOTTOMLEFT", 0, -8)
+	have:SetPoint("TOPLEFT", frame.forFilter, "BOTTOMLEFT", 0, -8)
 	have.check = UI.Checkbox(have)
 	have.check:SetPoint("LEFT", 2, 0)
 	have.label = UI.Text(have, 12, WHITE)
@@ -471,6 +709,14 @@ local function RefreshFilters()
 		end
 		d:Refresh()
 	end
+	local forOK = false
+	for _, choice in ipairs(ForChoices()) do
+		forOK = forOK or choice.value == db.filterFor
+	end
+	if not forOK then
+		db.filterFor = "all"
+	end
+	tab.forFilter:Refresh()
 	tab.haveMats.check:SetChecked(db.haveMats)
 end
 
@@ -716,7 +962,23 @@ local function LayoutDetail()
 	d.crafts:SetValue(db.crafts or 1)
 
 	local content = d.content
-	local y = Header(1, "Materials (have / need)", 0)
+	local y = 0
+	local forChar = ForChar()
+	if forChar then
+		local fs = headers[5] or UI.Text(content, 12, WHITE)
+		headers[5] = fs
+		fs:SetWordWrap(true)
+		fs:SetJustifyH("LEFT")
+		fs:SetText(("|cffffd100For %s:|r %s"):format(ClassName(forChar), ForText(ForInfo(recipe, forChar), forChar, recipe)))
+		fs:ClearAllPoints()
+		fs:SetPoint("TOPLEFT", 4, -6)
+		fs:SetPoint("RIGHT", -4, 0)
+		fs:Show()
+		y = fs:GetStringHeight() + 8
+	end
+	d.shop:ClearAllPoints()
+	d.shop:SetPoint("TOPRIGHT", -4, -(y + 8)) -- on the materials heading's line
+	y = Header(1, "Materials (have / need)", y)
 	d.shop:Set("Tomte: " .. (recipe.name or "?"), ns.Alts_ShoppingItems(plan, db.chain))
 	for i, m in ipairs(plan.materials) do
 		local row = matRows[i] or CreateMatRow(content)
@@ -909,8 +1171,7 @@ local function CreateDetail(parent)
 	d.scroll:SetPoint("TOPLEFT", d.status, "BOTTOMLEFT", -4, -10)
 	d.scroll:SetPoint("BOTTOMRIGHT", -8, 0)
 	d.content = d.scroll.content
-	d.shop = ns.AltsShop_CreateLink(d.content) -- on the materials heading's line
-	d.shop:SetPoint("TOPRIGHT", -4, -8)
+	d.shop = ns.AltsShop_CreateLink(d.content) -- placed by LayoutDetail
 	d.empty = UI.Text(d, 12, GREY)
 	d.empty:SetPoint("TOPLEFT", 4, -4)
 	d.empty:SetPoint("RIGHT", -4, 0)
@@ -940,6 +1201,7 @@ function ns.AltsCraft_Create(frame, altsDB)
 		for _, d in ipairs(self.filters) do
 			d:SetWidth(third)
 		end
+		self.forFilter:SetWidth(listW - 8)
 		-- Collapse all / Expand all at the right end of the materials row.
 		self.collapseAll:ClearAllPoints()
 		self.collapseAll:SetPoint("RIGHT", self, "LEFT", listW - 8, 0)
