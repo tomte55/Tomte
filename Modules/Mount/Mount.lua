@@ -415,6 +415,53 @@ local function ZoneCommand()
 	end
 end
 
+-- Home's "Around you": the zone favorites for where you stand; a click summons one (out of combat).
+local function ZoneList()
+	return ns.Mount_ZoneList(ns.Mount_Chain(), db.zones) or {}
+end
+
+local function Summon(mountID)
+	if InCombatLockdown() then
+		ns.Print("not in combat.")
+		return
+	end
+	C_MountJournal.SummonByID(mountID)
+end
+
+local AROUND = {
+	kind = "around", key = "mountaround", order = 5, name = "Mount favorites", maxRows = 2,
+	icon = "Interface\\Icons\\Ability_Mount_Charger", openText = "Opens Mount zones",
+	open = function()
+		ns.Panel_OpenPage("mountzones")
+	end,
+	title = function()
+		return ("Mount favorites: %d here"):format(#ZoneList())
+	end,
+	items = function(limit)
+		local list = ZoneList()
+		local rows = {}
+		for i = 1, math.min(limit, #list) do
+			local mountID = list[i]
+			local name, _, icon, active = C_MountJournal.GetMountInfoByID(mountID)
+			local usable = C_MountJournal.GetMountUsabilityByID(mountID, true)
+			rows[i] = {
+				icon = icon, text = name or ("#" .. mountID), right = active and "riding" or (not usable and "not here" or nil),
+				onClick = function()
+					Summon(mountID)
+				end,
+				onEnter = function(row)
+					local gold = ns.UI.GOLD
+					GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+					GameTooltip:SetText(name or ("#" .. mountID), 1, 1, 1)
+					GameTooltip:AddLine("Click: summon it", gold[1], gold[2], gold[3])
+					GameTooltip:Show()
+				end,
+			}
+		end
+		return rows
+	end,
+}
+
 module = ns.RegisterModule({
 	key = "mount",
 	name = "Smart Mount",
@@ -482,6 +529,7 @@ module = ns.RegisterModule({
 				local n = list and #list or 0
 				return n == 1 and "1 zone favorite here" or (n .. " zone favorites here")
 			end },
+		AROUND,
 	},
 })
 ns.mountModule = module

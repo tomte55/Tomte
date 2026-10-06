@@ -17,7 +17,16 @@ local function XPFraction()
 end
 
 local function Baseline()
-	return { money = GetMoney(), level = UnitLevel("player"), xpFraction = XPFraction() }
+	local _, class = UnitClass("player")
+	return { money = GetMoney(), level = UnitLevel("player"), xpFraction = XPFraction(), name = UnitName("player"),
+		class = class }
+end
+
+local function ZoneTick(session)
+	local zone = GetZoneText()
+	if zone and zone ~= "" and zone ~= session.zoneNow then
+		ns.Session_ZoneTick(session, zone, GetServerTime())
+	end
 end
 
 local function Begin(newLogin)
@@ -55,7 +64,14 @@ function ns.Session_Note(kind, entry)
 end
 
 function events:PLAYER_ENTERING_WORLD(isInitialLogin)
-	Begin(isInitialLogin) -- registered before any module's handler, so they see the new session
+	local session = Begin(isInitialLogin) -- registered before any module's handler, so they see the new session
+	session.name = session.name or UnitName("player")
+	session.class = session.class or select(2, UnitClass("player"))
+	ZoneTick(session)
+end
+
+function events:ZONE_CHANGED_NEW_AREA()
+	ZoneTick(ns.Session_Current())
 end
 
 function events:PLAYER_MONEY()
@@ -67,6 +83,34 @@ function events:PLAYER_MONEY()
 	if delta ~= 0 and ns.Session_OnMoney then
 		ns.Session_OnMoney(session, delta)
 	end
+end
+
+-- Warband bank gold only changes at a bank, so it's read when the bank opens and every change while it's open is
+-- a deposit or withdrawal (PLAYER_MONEY already moved moneyNow; this keeps the net as it was).
+local bankOpen, warbandNow
+
+local function WarbandMoney()
+	if not (C_Bank and C_Bank.FetchDepositedMoney and Enum.BankType and Enum.BankType.Account) then
+		return nil
+	end
+	local ok, money = pcall(C_Bank.FetchDepositedMoney, Enum.BankType.Account)
+	return ok and type(money) == "number" and money or nil
+end
+
+function events:BANKFRAME_OPENED()
+	bankOpen, warbandNow = true, WarbandMoney()
+end
+
+function events:BANKFRAME_CLOSED()
+	bankOpen = nil
+end
+
+function events:ACCOUNT_MONEY()
+	local money = WarbandMoney()
+	if bankOpen and money and warbandNow and money ~= warbandNow then
+		ns.Session_WarbandMoved(ns.Session_Current(), money - warbandNow)
+	end
+	warbandNow = money or warbandNow
 end
 
 function events:PLAYER_XP_UPDATE(unit)
@@ -93,7 +137,8 @@ function ns.Session_Init(saved)
 	db = saved
 	ns.Session_Migrate(db)
 	db.sessionLast = db.sessionLast or {}
-	for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "PLAYER_MONEY", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_LOGOUT" }) do
+	for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "PLAYER_MONEY", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_LOGOUT",
+		"ZONE_CHANGED_NEW_AREA", "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "ACCOUNT_MONEY" }) do
 		events:RegisterEvent(event)
 	end
 end

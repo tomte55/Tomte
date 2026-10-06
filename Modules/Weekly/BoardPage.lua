@@ -8,7 +8,7 @@ local UI = ns.UI
 local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
 local GREEN = { 0.45, 0.85, 0.45 }
 local ORANGE = { 1, 0.6, 0.2 }
-local STATE_COLORS = { done = GREEN, open = WHITE, warn = ORANGE, dim = DIM }
+local STATE_COLORS = { done = GREEN, open = WHITE, warn = ORANGE, dim = DIM, gold = GOLD }
 local ROW_H, HEADER_H, BANNER_H = 20, 28, 30
 local LABEL_W, CELL_MIN, CELL_MAX, GRID_HEAD_H = 210, 56, 96, 34
 
@@ -21,14 +21,13 @@ local function ClassColor(class)
 	return color and { color.r, color.g, color.b } or WHITE
 end
 
--- A list of model rows in a UI.Scroll: ns.WeeklyList(parent) -> list; list:Render(items); list.scroll to anchor.
-function ns.WeeklyList(parent)
-	local list = { rows = {}, used = 0 }
-	list.scroll = UI.Scroll(parent)
-	local content = list.scroll.content
+-- Model rows drawn top-down into a frame: ns.WeeklyRows(parent) -> rows; rows:Render(items) returns the height used.
+-- ns.WeeklyList wraps it in a UI.Scroll; the board's week view puts two of them side by side.
+function ns.WeeklyRows(parent)
+	local rows = { rows = {}, used = 0 }
 
 	local function NewRow()
-		local row = CreateFrame("Frame", nil, content)
+		local row = CreateFrame("Frame", nil, parent)
 		row.bg = row:CreateTexture(nil, "BACKGROUND")
 		row.bg:SetAllPoints()
 		row.left = UI.Text(row, 12, WHITE)
@@ -81,7 +80,7 @@ function ns.WeeklyList(parent)
 		return row
 	end
 
-	function list:Render(items)
+	function rows:Render(items)
 		for i = 1, self.used do
 			self.rows[i]:Hide()
 		end
@@ -96,6 +95,8 @@ function ns.WeeklyList(parent)
 			row:SetPoint("RIGHT")
 			row.left:ClearAllPoints()
 			row.left:SetPoint("RIGHT", row.right, "LEFT", -12, 0)
+			row.right:ClearAllPoints()
+			row.right:SetPoint("RIGHT", -8, 0)
 			row.bg:Hide()
 			row.line:Hide()
 			row.bar:Hide()
@@ -103,12 +104,17 @@ function ns.WeeklyList(parent)
 			row.right:SetText("")
 			row.tip, row.loc, row.tipTitle = item.tip, item.loc, item.left
 			row:EnableMouse(item.tip ~= nil or item.loc ~= nil)
+			local color = STATE_COLORS[item.state] or WHITE
 			if item.kind == "header" then
 				row:SetHeight(HEADER_H)
 				row.left:SetFont(STANDARD_TEXT_FONT, 14, "")
 				row.left:SetPoint("BOTTOMLEFT", 8, 6)
 				row.left:SetText(item.text)
 				SetColor(row.left, item.class and ClassColor(item.class) or GOLD)
+				row.right:ClearAllPoints()
+				row.right:SetPoint("BOTTOMRIGHT", -8, 7)
+				row.right:SetText(item.right or "")
+				SetColor(row.right, item.state == "warn" and ORANGE or GREY)
 				row.line:Show()
 			elseif item.kind == "banner" then
 				row:SetHeight(BANNER_H)
@@ -122,9 +128,13 @@ function ns.WeeklyList(parent)
 				row:SetHeight(ROW_H)
 				row.left:SetFont(STANDARD_TEXT_FONT, 12, "")
 				row.left:SetPoint("LEFT", item.indent and 26 or 12, 0)
-				row.left:SetText(item.left or "")
-				local color = STATE_COLORS[item.state] or WHITE
-				SetColor(row.left, item.state == "dim" and DIM or (item.indent and GREY or WHITE))
+				local left = item.left or ""
+				if item.note then
+					left = ("%s  |cff9e9e9e%s|r"):format(left, item.note)
+				end
+				row.left:SetText(left)
+				local dim = item.state == "dim" or item.dimLeft
+				SetColor(row.left, dim and DIM or (item.indent and GREY or WHITE))
 				row.right:SetText(item.right or "")
 				SetColor(row.right, color)
 				if item.frac then
@@ -136,6 +146,24 @@ function ns.WeeklyList(parent)
 			row:Show()
 			y = y + row:GetHeight()
 		end
+		return y
+	end
+
+	function rows:Clear()
+		self:Render({})
+	end
+
+	return rows
+end
+
+-- A list of model rows in a UI.Scroll: ns.WeeklyList(parent) -> list; list:Render(items); list.scroll to anchor.
+function ns.WeeklyList(parent)
+	local list = {}
+	list.scroll = UI.Scroll(parent)
+	local rows = ns.WeeklyRows(list.scroll.content)
+
+	function list:Render(items)
+		local y = rows:Render(items)
 		self.scroll:SetContentHeight(y)
 		return y
 	end
@@ -147,7 +175,7 @@ function ns.WeeklyList(parent)
 	return list
 end
 
-local page, list, grid
+local page, list, grid, week
 local VIEWS = { { key = "week", text = "This week" }, { key = "chars", text = "Characters" }, { key = "profs", text = "Professions" } }
 
 -- The grid draws into its own scroll so the list's rows and the grid's cells never mix.
@@ -283,23 +311,20 @@ local function Layout()
 		b.selected:SetShown(b.key == view)
 	end
 	local now = GetServerTime()
+	page.reset:SetText(ns.Weekly_ResetText(C_DateAndTime.GetSecondsUntilWeeklyReset(), now) or "")
 	page.note:Hide()
-	list.scroll:SetShown(view ~= "chars")
+	list.scroll:SetShown(view == "profs")
 	grid.scroll:SetShown(view == "chars")
+	week.scroll:SetShown(false)
 	if view == "week" then
 		local v = ns.Weekly_CurrentView()
 		if not v then
-			list:Clear()
 			page.note:SetText("The weekly board tracks max-level characters. Nothing to show for this one yet.")
 			page.note:Show()
 			return
 		end
-		local items = ns.Weekly_WeekModel(v, db.quests, now, db.learned)
-		if #items == 0 then
-			page.note:SetText("No weekly data yet. It fills in a moment after login.")
-			page.note:Show()
-		end
-		list:Render(items)
+		week.scroll:Show()
+		week:Render(ns.Weekly_BoardModel(v, db.quests, now, db.learned), week.scroll:GetWidth())
 	elseif view == "profs" then
 		local items = ns.Weekly_ProfModel(ns.Weekly_Views(), now)
 		if #items == 0 then
@@ -357,6 +382,15 @@ ns.WeeklyBoardPage = {
 		grid.scroll.onWidthChanged = function()
 			ns.WeeklyBoard_Refresh()
 		end
+		week = ns.WeeklyWeekView(page)
+		week.scroll:SetPoint("TOPLEFT", 0, -30)
+		week.scroll:SetPoint("BOTTOMRIGHT", -8, 0)
+		week.scroll.onWidthChanged = function()
+			ns.WeeklyBoard_Refresh()
+		end
+		-- When the week resets, on every view.
+		page.reset = UI.Text(page, 13, GREY)
+		page.reset:SetPoint("TOPRIGHT", -12, -6)
 		page.note = UI.Text(page, 12, GREY)
 		page.note:SetPoint("TOPLEFT", 8, -38)
 		page.note:SetPoint("RIGHT", -8, 0)

@@ -218,6 +218,54 @@ local function HaveMaterials(list)
 	return kept
 end
 
+-- /tomte alts why <recipe>: why "Materials on hand" keeps or drops a recipe (each material: need, have and where).
+function ns.AltsCraft_Why(text)
+	text = strtrim(text or ""):lower()
+	if text == "" then
+		ns.Print("usage: /tomte alts why <part of a recipe name>")
+		return
+	end
+	db = db or ns.altsDB -- set when the tab is first built; the command can come before that
+	producers = producers or ns.Alts_Producers(db.recipes)
+	local found = ns.Alts_Search(db.recipes, db.chars, { text = text, learnable = true }, 3)
+	if #found == 0 then
+		ns.Print("no recipe matches \"" .. text .. "\".")
+		return
+	end
+	ns.Print(("Syndicator %s."):format(ns.Alts_HasSyndicator() and "is counting" or "isn't loaded or ready: only this character and the Warband bank"))
+	for _, r in ipairs(found) do
+		local ok, plan = pcall(ns.Alts_Plan, r.id, 1, {
+			recipes = db.recipes, chars = db.chars, producers = producers,
+			maxDepth = db.chain == "one" and 1 or ns.ALTS_FULL_DEPTH,
+			count = function(items)
+				return (ns.Alts_Have(items))
+			end,
+		})
+		if not ok then
+			ns.Print(("%s: plan error %s"):format(r.recipe.name or r.id, tostring(plan)))
+		else
+			local kept = plan.missing == 0 and plan.unknown == 0
+			ns.Print(("%s: %s (missing %d, steps nobody knows %d)"):format(r.recipe.name or r.id,
+				kept and "|cff73d973kept|r" or "|cffff7359dropped|r", plan.missing, plan.unknown))
+			for _, m in ipairs(plan.materials) do
+				local _, where = ns.Alts_Have(m.items)
+				local parts = {}
+				for _, w in ipairs(where) do
+					parts[#parts + 1] = ("%s %d"):format(w.name, w.n)
+				end
+				ns.Print(("   %s: need %d, have %d%s%s"):format(C_Item.GetItemNameByID(m.items[1]) or ("item " .. m.items[1]),
+					m.need, m.have, m.missing > 0 and (", |cffff7359missing %d|r"):format(m.missing) or "",
+					#parts > 0 and (" (" .. table.concat(parts, ", ") .. ")") or ""))
+			end
+			for _, step in ipairs(plan.steps) do
+				if #step.crafters == 0 then
+					ns.Print(("   nobody knows %s"):format(db.recipes[step.recipeID] and db.recipes[step.recipeID].name or step.recipeID))
+				end
+			end
+		end
+	end
+end
+
 -- An expansion skill line's name ("Dragon Isles Blacksmithing"), for recipes read before names were stored.
 local lineNames = {}
 local function LineName(recipe)
@@ -426,6 +474,91 @@ local function RefreshFilters()
 	tab.haveMats.check:SetChecked(db.haveMats)
 end
 
+-- Auctionator shopping list ----------------------------------------------------------------------------------
+
+-- Auctionator.API.v1 (Auctionator 340, Source/API/v1/ShoppingLists.lua): CreateShoppingList(callerID, name,
+-- searchStrings) replaces a list of the same name; ConvertToSearchString(callerID, { searchString, isExact,
+-- quantity }) makes each entry.
+local CALLER = "Tomte"
+
+local function ShoppingAPI()
+	local a = _G.Auctionator
+	local api = a and type(a.API) == "table" and a.API.v1
+	if type(api) == "table" and type(api.CreateShoppingList) == "function" and type(api.ConvertToSearchString) == "function" then
+		return api
+	end
+	return nil
+end
+
+-- Makes (or replaces) the Auctionator shopping list `name` with one exact search per item ({ itemID, qty }).
+local function MakeShoppingList(name, items)
+	local api = ShoppingAPI()
+	if not api then
+		ns.Print("Auctionator isn't loaded.")
+		return
+	end
+	local strings, loadingNames = {}, 0
+	for _, it in ipairs(items) do
+		local itemName = C_Item.GetItemNameByID(it.itemID)
+		if itemName then
+			strings[#strings + 1] = { searchString = itemName, isExact = true, quantity = it.qty }
+		else
+			loadingNames = loadingNames + 1
+			C_Item.RequestLoadItemDataByID(it.itemID)
+		end
+	end
+	if loadingNames > 0 then
+		ns.Print(("%d item name%s still loading: click Shopping list again in a moment."):format(loadingNames,
+			loadingNames == 1 and " is" or "s are"))
+		return
+	end
+	local ok, err = pcall(function()
+		for i, term in ipairs(strings) do
+			strings[i] = api.ConvertToSearchString(CALLER, term)
+		end
+		api.CreateShoppingList(CALLER, name, strings)
+	end)
+	if not ok then
+		ns.Print("Auctionator couldn't make the list: " .. tostring(err))
+		return
+	end
+	ns.Print(("Auctionator list '%s' (%d item%s). It's in the Shopping tab at the Auction House."):format(name, #strings,
+		#strings == 1 and "" or "s"))
+end
+
+-- A "Shopping list" link (Crafting tab and Crafting list tab headings). link:Set(listName, items) shows it when
+-- Auctionator is loaded and something is missing.
+function ns.AltsShop_CreateLink(parent)
+	local link = CreateFrame("Button", nil, parent)
+	link:SetHeight(16)
+	link.text = UI.Text(link, 12, GOLD)
+	link.text:SetPoint("RIGHT")
+	link.text:SetText("Shopping list")
+	link:SetWidth(link.text:GetStringWidth())
+	link:SetScript("OnEnter", function(self)
+		SetColor(self.text, WHITE)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Auctionator shopping list")
+		GameTooltip:AddLine(("Makes the list \"%s\" with the %d missing material%s and how many, replacing an older one "
+			.. "of that name."):format(self.listName, #self.items, #self.items == 1 and "" or "s"), 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	link:SetScript("OnLeave", function(self)
+		SetColor(self.text, GOLD)
+		GameTooltip:Hide()
+	end)
+	link:SetScript("OnClick", function(self)
+		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		MakeShoppingList(self.listName, self.items)
+	end)
+	function link:Set(listName, items)
+		self.listName, self.items = listName, items
+		self:SetShown(#items > 0 and ShoppingAPI() ~= nil)
+	end
+	link:Hide()
+	return link
+end
+
 -- Detail ---------------------------------------------------------------------------------------------------
 
 local function Header(i, text, y)
@@ -463,6 +596,14 @@ local function CreateMatRow(parent)
 		if self.whereFull then
 			GameTooltip:AddLine(" ")
 			GameTooltip:AddLine(self.whereFull, 1, 1, 1, true)
+		end
+		local unit, _, stale
+		if ns.Value_ItemPrice then
+			unit, _, stale = ns.Value_ItemPrice(self.itemID) -- not "a and f()": that keeps only the first value
+		end
+		if unit then
+			GameTooltip:AddLine(("Worth %s each, %s for %d"):format(ns.Value_Text(unit, stale), ns.Value_Text(unit * self.need, stale),
+				self.need), 1, 0.82, 0.45)
 		end
 		GameTooltip:Show()
 	end)
@@ -518,12 +659,14 @@ local function LayoutDetail()
 			row:Hide()
 		end
 	end
+	d.shop:Hide()
 	local recipe = db.selected and db.recipes[db.selected]
 	d.empty:SetShown(not recipe)
 	d.title:SetShown(recipe ~= nil)
 	d.sub:SetShown(recipe ~= nil)
 	d.status:SetShown(recipe ~= nil)
 	d.crafts:SetShown(recipe ~= nil)
+	d.add:SetShown(recipe ~= nil)
 	if not recipe then
 		d.scroll:SetContentHeight(1)
 		return
@@ -556,6 +699,7 @@ local function LayoutDetail()
 		d.scroll:SetContentHeight(1)
 		return
 	end
+	ns.AltsCraft_LastPlan = plan -- Send to alt: materials go to the crafter of their step
 	if plan.missing > 0 then
 		d.status:SetText(("Missing %d material%s"):format(plan.missing, plan.missing == 1 and "" or "s"))
 		SetColor(d.status, RED)
@@ -573,11 +717,12 @@ local function LayoutDetail()
 
 	local content = d.content
 	local y = Header(1, "Materials (have / need)", 0)
+	d.shop:Set("Tomte: " .. (recipe.name or "?"), ns.Alts_ShoppingItems(plan, db.chain))
 	for i, m in ipairs(plan.materials) do
 		local row = matRows[i] or CreateMatRow(content)
 		matRows[i] = row
 		local itemID = m.items[1]
-		row.itemID = itemID
+		row.itemID, row.need = itemID, m.need
 		row.name:SetText(ItemName(itemID))
 		row.count:SetText(("%d / %d"):format(m.have, m.need))
 		local _, where = ns.Alts_Have(m.items)
@@ -601,6 +746,18 @@ local function LayoutDetail()
 	end
 	if #plan.materials == 0 then
 		y = y + MAT_H
+	end
+	-- Gold & value: cost of the materials, what it sells for, the difference.
+	local value = ns.Value_Plan and ns.Value_Plan(plan, recipe, db.crafts or 1)
+	if value then
+		local parts = { ("Materials %s%s"):format(value.complete and "" or "at least ", ns.Alts_Gold(value.cost)) }
+		if value.sells then
+			parts[#parts + 1] = "sells for " .. ns.Alts_Gold(value.sells)
+			local profit = value.profit
+			parts[#parts + 1] = ("|cff%s%s %s|r"):format(profit >= 0 and "73d973" or "ff7359", profit >= 0 and "profit" or "loss",
+				ns.Alts_Gold(math.abs(profit)))
+		end
+		y = Header(4, table.concat(parts, "  ·  ") .. ("  |cff9e9e9e(%s)|r"):format(ns.Value_SourceName()), y + 4)
 	end
 	y = Header(2, "Craft in order", y + 4)
 	for i, step in ipairs(plan.steps) do
@@ -636,10 +793,13 @@ local function CreateSearch(parent)
 	local placeholder = UI.Text(box, 12, DIM)
 	placeholder:SetPoint("LEFT", 8, 0)
 	placeholder:SetText("Search recipes")
+	local refresh = UI.Debounce(UI.SEARCH_DELAY, function()
+		LayoutResults()
+	end)
 	box:SetScript("OnTextChanged", function(self)
 		placeholder:SetShown(self:GetText() == "")
 		searchText = strtrim(self:GetText()):lower()
-		LayoutResults()
+		refresh()
 	end)
 	box:SetScript("OnEscapePressed", function(self)
 		self:SetText("")
@@ -657,11 +817,11 @@ local function CreateDetail(parent)
 	d.title:SetWordWrap(false)
 	d.sub = UI.Text(d, 12, GREY)
 	d.sub:SetPoint("TOPLEFT", d.title, "BOTTOMLEFT", 0, -5)
-	d.sub:SetPoint("RIGHT", -4, 0)
+	d.sub:SetPoint("RIGHT", -114, 0)
 	d.sub:SetWordWrap(false)
 	d.status = UI.Text(d, 12, GREEN)
 	d.status:SetPoint("TOPLEFT", d.sub, "BOTTOMLEFT", 0, -5)
-	d.status:SetPoint("RIGHT", -4, 0)
+	d.status:SetPoint("RIGHT", -114, 0)
 
 	-- How many times to craft it: - x1 +
 	-- How many times to craft it: - [n] + (type a number, Enter or click away to apply).
@@ -722,10 +882,35 @@ local function CreateDetail(parent)
 	end)
 	d.crafts = crafts
 
+	-- Crafting list: this recipe, this many times.
+	local add = UI.Button(d, 104, "Add to list")
+	add:SetHeight(20)
+	add:SetPoint("TOPRIGHT", crafts, "BOTTOMRIGHT", 0, -4)
+	add:SetScript("OnClick", function()
+		box:ClearFocus()
+		if db.selected then
+			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			ns.AltsList_Add(db.selected, db.crafts or 1)
+		end
+	end)
+	add:HookScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Add to the crafting list")
+		GameTooltip:AddLine("Track this craft: the Crafting list tab and the tracker on screen say who needs what "
+			.. "from where, and the mailbox sends it.", 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	add:HookScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
+	d.add = add
+
 	d.scroll = UI.Scroll(d)
 	d.scroll:SetPoint("TOPLEFT", d.status, "BOTTOMLEFT", -4, -10)
 	d.scroll:SetPoint("BOTTOMRIGHT", -8, 0)
 	d.content = d.scroll.content
+	d.shop = ns.AltsShop_CreateLink(d.content) -- on the materials heading's line
+	d.shop:SetPoint("TOPRIGHT", -4, -8)
 	d.empty = UI.Text(d, 12, GREY)
 	d.empty:SetPoint("TOPLEFT", 4, -4)
 	d.empty:SetPoint("RIGHT", -4, 0)

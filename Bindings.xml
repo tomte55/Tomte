@@ -1,4 +1,7 @@
 <Bindings>
+	<Binding name="TOMTE_TOGGLE" category="Tomte">
+		Tomte_Binding("TOGGLE")
+	</Binding>
 	<Binding name="TOMTE_WHISPER_REPLY" category="Tomte">
 		Tomte_Binding("WHISPER_REPLY")
 	</Binding>

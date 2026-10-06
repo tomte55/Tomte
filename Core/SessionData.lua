@@ -7,6 +7,9 @@ local addonName, ns = ...
 function ns.Session_New(guid, now, baseline)
 	return {
 		guid = guid,
+		name = baseline.name,
+		class = baseline.class,
+		zones = {}, -- [zone name] = seconds (the current zone's time since zoneSince isn't in yet)
 		start = now,
 		seen = now,
 		money = baseline.money,
@@ -44,9 +47,45 @@ function ns.Session_Begin(db, guid, newLogin, now, baseline)
 	if type(session) == "table" and session.guid then
 		Fill(session)
 		db.sessionLast[session.guid] = session
+		if ns.Session_OnEnd then
+			ns.Session_OnEnd(session) -- the Sessions page keeps a copy
+		end
 	end
 	db.session = ns.Session_New(guid, now, baseline)
 	return db.session, true
+end
+
+-- Gold moved between this character and the Warband bank (delta > 0 = deposited) isn't earned or spent: the
+-- starting gold moves with it, so the net (moneyNow - money) stays as it was.
+function ns.Session_WarbandMoved(session, delta)
+	session.money = (session.money or 0) - delta
+end
+
+-- Time per zone: the session moves to `zone` at `now`.
+function ns.Session_ZoneTick(session, zone, now)
+	session.zones = session.zones or {}
+	if session.zoneNow and session.zoneSince then
+		session.zones[session.zoneNow] = (session.zones[session.zoneNow] or 0) + math.max(now - session.zoneSince, 0)
+	end
+	session.zoneNow, session.zoneSince = zone, now
+end
+
+-- Where most of the session went (the current zone counted up to endAt), or nil.
+function ns.Session_TopZone(session, endAt)
+	local totals = {}
+	for zone, seconds in pairs(session.zones or {}) do
+		totals[zone] = seconds
+	end
+	if session.zoneNow and session.zoneSince then
+		totals[session.zoneNow] = (totals[session.zoneNow] or 0) + math.max(endAt - session.zoneSince, 0)
+	end
+	local best, bestTime
+	for zone, seconds in pairs(totals) do
+		if not bestTime or seconds > bestTime or (seconds == bestTime and zone < best) then
+			best, bestTime = zone, seconds
+		end
+	end
+	return best
 end
 
 -- The AFK module kept the session until the recap took it over.

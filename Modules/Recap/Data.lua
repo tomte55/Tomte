@@ -268,16 +268,25 @@ function ns.Recap_LootPatterns(formats)
 	return patterns
 end
 
--- The item link in a loot message about yourself, or nil.
+-- The item link in a loot message about yourself and how many (1 unless the message says), or nil.
 function ns.Recap_LootLink(text, patterns)
 	if type(text) ~= "string" then
 		return nil
 	end
 	for _, pattern in ipairs(patterns) do
-		local capture = text:match(pattern)
-		local link = capture and capture:match("(|c[^|]*|Hitem:.-|h|r)")
-		if link then
-			return link
+		local captures = { text:match(pattern) }
+		for _, capture in ipairs(captures) do
+			local link, rest = capture:match("(|c[^|]*|Hitem:.-|h|r)(.*)$")
+			if link then
+				local count
+				for _, other in ipairs(captures) do
+					if other:match("^%d+$") then
+						count = tonumber(other)
+					end
+				end
+				count = count or tonumber(rest:match("^x(%d+)") or "") or 1
+				return link, count
+			end
 		end
 	end
 	return nil

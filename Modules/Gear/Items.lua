@@ -102,6 +102,7 @@ function ns.GearItems_Describe(link)
 		gemIDs = ns.Gear_LinkGemIDs(link),
 		sockets = C_Item.GetItemNumSockets(link) or 0,
 		setID = select(16, C_Item.GetItemInfo(link)),
+		minLevel = select(5, C_Item.GetItemInfo(link)), -- for other characters (their red level line isn't ours)
 	}
 	local up = C_Item.GetItemUpgradeInfo(link)
 	if up and up.currentLevel and up.maxLevel then
@@ -174,6 +175,59 @@ function ns.GearItems_Gems(ids)
 		end
 	end
 	return list
+end
+
+-- Bind state ("warbound", "warboundUntilEquip", "boe", "soulbound", nil while unknown; Advice.lua's
+-- Gear_BindState). location: an ItemLocation you hold (bag, bank, worn), the exact answer from C_Item.IsBound and
+-- C_Item.IsBoundToAccountUntilEquip. Else lines: tooltip data lines, whose bind line is the displayed item's own
+-- ("Soulbound" on a worn Bind on Equip item). Else the item's bind type (GetItemInfo's 14th return), with bound
+-- from the caller when it knows (Baganator's isBound for another character's bags). Lines matched like Syndicator
+-- and Baganator do, against Blizzard's global strings (some don't exist on every client).
+local bindTexts
+local function BindTexts()
+	if bindTexts then
+		return bindTexts
+	end
+	bindTexts = {}
+	local states = {
+		soulbound = { "ITEM_SOULBOUND", "ITEM_BIND_ON_PICKUP", "ITEM_BIND_QUEST" },
+		boe = { "ITEM_BIND_ON_EQUIP", "ITEM_BIND_ON_USE" },
+		warbound = { "ITEM_ACCOUNTBOUND", "ITEM_BNETACCOUNTBOUND", "ITEM_BIND_TO_ACCOUNT", "ITEM_BIND_TO_BNETACCOUNT" },
+		warboundUntilEquip = { "ITEM_ACCOUNTBOUND_UNTIL_EQUIP", "ITEM_BIND_TO_ACCOUNT_UNTIL_EQUIP" },
+	}
+	for state, names in pairs(states) do
+		for _, name in ipairs(names) do
+			local text = _G[name]
+			if type(text) == "string" and text ~= "" then
+				bindTexts[text] = state
+			end
+		end
+	end
+	return bindTexts
+end
+
+function ns.GearItems_BindState(link, location, lines, bound)
+	local bindType = select(14, C_Item.GetItemInfo(link))
+	if location and location.IsValid and location:IsValid() then
+		local ok, exists = pcall(C_Item.DoesItemExist, location)
+		if ok and exists then
+			return ns.Gear_BindState(bindType, C_Item.IsBound(location), C_Item.IsBoundToAccountUntilEquip(location))
+		end
+	end
+	if lines then
+		local texts = {}
+		for _, line in ipairs(lines) do
+			local text = line.leftText
+			if text and not Secret(text) then
+				texts[#texts + 1] = text
+			end
+		end
+		local state = ns.Gear_BindStateFromLines(texts, BindTexts())
+		if state then
+			return state
+		end
+	end
+	return ns.Gear_BindState(bindType, bound, nil)
 end
 
 -- slot -> descriptor of everything worn; nil until every worn item is loaded.

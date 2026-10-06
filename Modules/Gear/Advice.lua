@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
 -- Gear Check advice (pure, unit-tested): which stat weights apply and what to tell the player about them, the best
--- gem for those weights, gem and enchant checks on worn items, and the off-spec line. Built-in scales and the gem
+-- gem for those weights, gem and enchant checks on worn items, the off-spec line, the evaluator context for any
+-- character, and upgrades for alts (bind state, who counts, their verdict and lines). Built-in scales and the gem
 -- list live in Scales.lua.
 
 local GEM_SLACK = 0.05 -- a socketed gem this much below the best one is fine (weights aren't that precise)
@@ -26,11 +27,40 @@ function ns.Gear_ResolveWeights(saved, builtin, primary)
 	return ns.Gear_DefaultWeights(primary), "none", nil
 end
 
--- One-time chat hint for built-in weights. seen is what was already shown for this spec (saved): nil, "builtin",
--- or "stale:<season>". currentSeason is nil when the game can't say. Returns the hint kind and the new seen value,
--- or nil when there's nothing to say.
-function ns.Gear_WeightsHint(source, builtin, seen, currentSeason)
-	if source ~= "builtin" then
+-- The weights for any character and spec: weightsByGuid is the saved db.weights ([guid][specID] = imported),
+-- scales is ns.Gear_Scales. Same order and returns as Gear_ResolveWeights. Works for another character's guid
+-- and spec too (alts).
+function ns.Gear_WeightsFor(weightsByGuid, guid, specID, primary, scales)
+	local mine = weightsByGuid and guid and weightsByGuid[guid]
+	return ns.Gear_ResolveWeights(mine and mine[specID], scales and scales.specs[specID], primary)
+end
+
+-- Built-in weights from class guides rather than sims (healers, Augmentation): their label says so.
+function ns.Gear_IsGuideLabel(label)
+	return type(label) == "string" and label:find("^guide priority") ~= nil
+end
+
+-- Where weights come from, for /tomte gear weights and the settings row: 'imported "Name"', "built-in, <label>"
+-- (guide weights add ": import a sim for better"), or nil for none.
+function ns.Gear_SourceText(source, label)
+	if source == "imported" then
+		return ("imported \"%s\""):format(label or "Raidbots")
+	elseif source == "builtin" then
+		return "built-in, " .. (label or "") .. (ns.Gear_IsGuideLabel(label) and ": import a sim for better" or "")
+	end
+	return nil
+end
+
+local function AtMax(level, maxLevel)
+	return level ~= nil and maxLevel ~= nil and level >= maxLevel
+end
+
+-- One-time chat hint for built-in weights, only at max level (built-in is fine while leveling). seen is what was
+-- already said for this character and spec (saved): nil, "builtin" (the old any-level hint, which doesn't count),
+-- "max", or "stale:<season>". currentSeason is nil when the game can't say. Returns the hint kind ("max" |
+-- "stale") and the new seen value, or nil when there's nothing to say.
+function ns.Gear_WeightsHint(source, builtin, seen, currentSeason, level, maxLevel)
+	if source ~= "builtin" or not AtMax(level, maxLevel) then
 		return nil
 	end
 	if currentSeason and builtin.season and builtin.season < currentSeason then
@@ -40,10 +70,32 @@ function ns.Gear_WeightsHint(source, builtin, seen, currentSeason)
 		end
 		return nil
 	end
-	if seen == nil then
-		return "builtin", "builtin"
+	if seen == nil or seen == "builtin" then
+		return "max", "max"
 	end
 	return nil
+end
+
+-- Next up's "Sim on Raidbots": built-in weights at max level.
+function ns.Gear_SimSuggested(source, level, maxLevel)
+	return source == "builtin" and AtMax(level, maxLevel)
+end
+
+-- db.hinted used to be [specID] = seen for the whole account; now it's [guid][specID]. Moves the old keys for
+-- this character's class (specIDs: { [specID] = true }) to guid; other classes' keys wait for one of theirs.
+-- Returns the character's table.
+function ns.Gear_MigrateHinted(hinted, guid, specIDs)
+	hinted[guid] = hinted[guid] or {}
+	local mine = hinted[guid]
+	for key, seen in pairs(hinted) do
+		if type(key) == "number" and specIDs[key] then
+			if mine[key] == nil then
+				mine[key] = seen
+			end
+			hinted[key] = nil
+		end
+	end
+	return mine
 end
 
 -- "Haste, Mastery": the stats a gem gives, largest first.
@@ -275,4 +327,168 @@ function ns.Gear_OffspecLine(specName, verdict)
 		return ("Also an upgrade for %s %+.1f%%"):format(specName, verdict.pct)
 	end
 	return nil
+end
+
+---------------------------------------------------------------------------------------------------------------
+-- Context for any character
+
+-- The evaluator context for a spec ({ id, name, primary }) of a character (guid, class token): its imported weights
+-- (weightsByGuid = the saved db.weights) or the built-in ones, armor type from the class, best gem out of gems
+-- ({ { itemID, name, stats } }, the loaded ones). nil without spec.id or spec.primary. Gear.lua's ContextFor.
+function ns.Gear_BuildContext(spec, guid, classToken, weightsByGuid, scales, gems)
+	if not (spec and spec.id and spec.primary) then
+		return nil
+	end
+	local weights, source, label = ns.Gear_WeightsFor(weightsByGuid, guid, spec.id, spec.primary, scales)
+	local best, bestValue = ns.Gear_BestGem(gems, weights, spec.primary)
+	return {
+		spec = spec,
+		primary = spec.primary,
+		weights = weights,
+		source = source,
+		label = label,
+		noWeights = source == "none",
+		armorSubclass = ns.Gear_ArmorForClass(classToken),
+		specID = spec.id,
+		best = best,
+		bestValue = bestValue,
+		gemValue = best and bestValue or nil,
+	}
+end
+
+-- The spec of a stored character (Alts' chars[guid]: specID, spec = its name, primary), nil when not read yet.
+function ns.Gear_CharSpec(c)
+	if not (c and c.specID and c.primary) then
+		return nil
+	end
+	return { id = c.specID, name = c.spec or "?", primary = c.primary }
+end
+
+---------------------------------------------------------------------------------------------------------------
+-- Upgrades for alts (Alts.lua): which items can get to another character, which characters count, the verdict for
+-- one of them and the tooltip lines.
+
+ns.GEAR_ALT_STALE_DAYS = 60 -- characters not played for longer are left out (their gear snapshot is old)
+
+-- Enum.ItemBind (GetItemInfo's 14th return): None 0, OnAcquire 1, OnEquip 2, OnUse 3, Quest 4, ToWoWAccount 7,
+-- ToBnetAccount 8, ToBnetAccountUntilEquipped 9.
+local BIND_ACCOUNT = { [7] = true, [8] = true }
+local BIND_FREE = { [0] = true, [2] = true, [3] = true }
+local BIND_UNTIL_EQUIP = 9
+
+-- An item's bind state: "warbound" (bound to the account), "warboundUntilEquip", "boe" (Bind on Equip or Use and not
+-- bound yet, or never binds), "soulbound" (bound to a character, or binds on pickup), nil while unknown.
+-- bindType: Enum.ItemBind, nil while the item isn't loaded. bound: C_Item.IsBound (soul- or account-bound) for an
+-- item you hold; nil for a bare link (vendor, quest reward, auction), which isn't bound to anyone yet.
+-- untilEquip: C_Item.IsBoundToAccountUntilEquip for an item you hold.
+function ns.Gear_BindState(bindType, bound, untilEquip)
+	if untilEquip then
+		return "warboundUntilEquip"
+	elseif bindType == nil then
+		return nil
+	elseif BIND_ACCOUNT[bindType] then
+		return "warbound"
+	elseif bound then
+		return "soulbound" -- includes Bind on Equip and Warbound until equipped items that have been worn
+	elseif bindType == BIND_UNTIL_EQUIP then
+		return "warboundUntilEquip"
+	elseif BIND_FREE[bindType] then
+		return "boe"
+	end
+	return "soulbound"
+end
+
+-- The bind state from tooltip lines (the displayed item's own: a worn Bind on Equip item says "Soulbound").
+-- known: [line text] = state, from Blizzard's global strings (Items.lua). First match, nil when none.
+function ns.Gear_BindStateFromLines(texts, known)
+	for _, text in ipairs(texts) do
+		if known[text] then
+			return known[text]
+		end
+	end
+	return nil
+end
+
+-- How an item gets to another character: "mail" (Bind on Equip, not bound), "warband" (warbound, through the
+-- Warband bank), nil when it can't (soulbound) or the state is unknown.
+function ns.Gear_TransferRoute(state)
+	if state == "boe" then
+		return "mail"
+	elseif state == "warbound" or state == "warboundUntilEquip" then
+		return "warband"
+	end
+	return nil
+end
+
+-- The characters to judge items for, by name: not me, with a stored spec and worn gear, played in the last 60
+-- days; mode "max" only those at maxLevel, "off" nobody. now and seen are server times.
+function ns.Gear_AltsToJudge(chars, me, now, mode, maxLevel)
+	local list = {}
+	if mode == "off" then
+		return list
+	end
+	local oldest = now - ns.GEAR_ALT_STALE_DAYS * 86400
+	for guid, c in pairs(chars or {}) do
+		if guid ~= me and c.gear and ns.Gear_CharSpec(c) and c.seen and c.seen >= oldest
+			and (mode ~= "max" or (maxLevel ~= nil and (c.level or 0) >= maxLevel)) then
+			list[#list + 1] = c
+		end
+	end
+	table.sort(list, function(a, b)
+		return (a.name or "") < (b.name or "")
+	end)
+	return list
+end
+
+-- The verdict for another character. cand's red tooltip text describes the character you're on (its level, its
+-- weapon skills), so it's left out; that character's own level is checked against the item's instead. Armor type,
+-- main stat and spec come from ctx, unique limits and set pieces from equipped (their worn gear).
+function ns.Gear_AltVerdict(cand, equipped, ctx, level)
+	if cand.minLevel and level and cand.minLevel > level then
+		return { kind = "notForYou", why = ("requires level %d"):format(cand.minLevel), reasons = {} }
+	end
+	local copy = {}
+	for k, v in pairs(cand) do
+		copy[k] = v
+	end
+	copy.redText = nil
+	ctx.specOK = cand.specs == nil or cand.specs[ctx.specID] == true
+	return ns.Gear_Evaluate(copy, equipped, ctx)
+end
+
+-- "+8.2%", or why a clean upgrade has no percentage.
+function ns.Gear_AltGain(v)
+	if v.kind == "empty" then
+		return "empty slot"
+	elseif v.kind == "noStats" then
+		return "theirs has no stats"
+	end
+	return ("%+.1f%%"):format(v.pct or 0)
+end
+
+-- results: { { name, spec, verdict } }, sorted in place: biggest first (an empty slot or stat-less gear first of
+-- all), then by name.
+function ns.Gear_SortAltUpgrades(results)
+	local function Value(r)
+		return r.verdict.pct or math.huge
+	end
+	table.sort(results, function(a, b)
+		local va, vb = Value(a), Value(b)
+		if va ~= vb then
+			return va > vb
+		end
+		return (a.name or "") < (b.name or "")
+	end)
+	return results
+end
+
+-- Tooltip lines for sorted results: "Upgrade for Mira (Holy): +8.2%" for the first max, then "+n more" (or nil).
+function ns.Gear_AltLines(results, max)
+	local lines = {}
+	for i = 1, math.min(#results, max) do
+		local r = results[i]
+		lines[i] = ("Upgrade for %s (%s): %s"):format(r.name or "?", r.spec or "?", ns.Gear_AltGain(r.verdict))
+	end
+	local more = #results > max and ("+%d more"):format(#results - max) or nil
+	return lines, more
 end

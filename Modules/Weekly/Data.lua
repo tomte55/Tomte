@@ -4,8 +4,9 @@ local addonName, ns = ...
 -- read (Collect.lua). Weekly_View applies the weekly reset and the Concentration recharge to it for "now"; the model
 -- builders turn views into the rows the page and popup draw. Only `date` is used (tests point it at os.date).
 --
--- Row items: { kind = "header" | "banner" | "row", left, right, state = "done" | "open" | "warn" | "dim",
---   frac (0-1, draws a bar), indent }
+-- Row items: { kind = "header" | "banner" | "row", left, right, state = "done" | "open" | "warn" | "dim" | "gold",
+--   frac (0-1, draws a bar), indent, note (grey, after left), dimLeft (left in grey whatever the state) }
+-- A header has text, and may have right/state too.
 
 local floor, ceil, max, min = math.floor, math.ceil, math.max, math.min
 
@@ -428,72 +429,125 @@ local function CrestRows(v)
 	return rows
 end
 
--- "This week": the current character.
-function ns.Weekly_WeekModel(v, learned, now, showLearned)
-	local items = {}
-	if v.vaultReady then
-		items[#items + 1] = { kind = "banner", text = "Great Vault waiting: open it before you queue" }
+-- "1,250"
+local function Thousands(n)
+	local text = tostring(floor(n or 0))
+	local replaced
+	repeat
+		text, replaced = text:gsub("^(%d+)(%d%d%d)", "%1,%2")
+	until replaced == 0
+	return text
+end
+
+-- "Resets in 11h 23m · Tue 05:00" (local time of the reset), or nil when the client gave no reset time.
+function ns.Weekly_ResetText(seconds, now)
+	if not seconds or seconds <= 0 then
+		return nil
 	end
-	local vault = {}
+	return ("Resets in %s · %s"):format(ns.Weekly_Duration(seconds), date("%a %H:%M", now + seconds))
+end
+
+-- What one more activity of a vault track is: singular, plural.
+local VAULT_UNITS = { raid = { "boss", "bosses" }, dungeons = { "dungeon", "dungeons" },
+	world = { "activity", "activities" } }
+
+-- "This week" on the board for the current character:
+-- { vaultReady, vault = { { key, label, slots, nextSlot, note, done } }, todo = items, progress = items }
+-- todo: weekly quests (open first) and each profession's open knowledge sources; progress: renown (the bar is the
+-- level out of max), crests and lockouts. Items use the row schema at the top of this file.
+function ns.Weekly_BoardModel(v, learned, now, showLearned)
+	local model = { vaultReady = v.vaultReady, vault = {}, todo = {}, progress = {} }
 	for _, track in ipairs(ns.WEEKLY_TRACKS) do
 		local slots = v.vault[track.key]
 		if slots and #slots > 0 then
-			local text, unlocked, n = ns.Weekly_VaultText(slots)
-			vault[#vault + 1] = { left = ("%s  %d/%d"):format(track.label, unlocked, n), right = text,
-				state = unlocked == n and "done" or "open" }
+			local unlocked, nextSlot = ns.Weekly_VaultGoal(slots)
+			local note
+			if nextSlot then
+				local need = slots[nextSlot].threshold - slots[nextSlot].progress
+				local unit = VAULT_UNITS[track.key] or { "more", "more" }
+				note = ("%d more %s for slot %d"):format(need, need == 1 and unit[1] or unit[2], nextSlot)
+			else
+				note = ("All %d slots unlocked"):format(#slots)
+			end
+			model.vault[#model.vault + 1] = { key = track.key, label = track.label, slots = slots, nextSlot = nextSlot,
+				note = note, done = unlocked == #slots }
 		end
 	end
-	Section(items, "Great Vault", vault)
-	Section(items, "Currencies", CrestRows(v))
 
-	local quests = {}
+	local todo = model.todo
 	if showLearned then
+		local open, done = {}, {}
 		for _, q in ipairs(ns.Weekly_Quests(v, learned)) do
-			quests[#quests + 1] = { left = q.title, right = q.done and "done" or "open", state = q.done and "done" or "open" }
-		end
-	end
-	Section(items, "Weekly quests", quests)
-
-	local profs = {}
-	for _, p in ipairs(Profs(v)) do
-		local _, _, left = KnowledgeTotal(p.def, p.prof.knowledge, p.prof.expansion)
-		local right = left > 0 and ("%s of knowledge left"):format(Pts(left)) or "knowledge done"
-		local state = left == 0 and "done" or "open"
-		if p.prof.conc then
-			local text, concState = ConcText(p.prof.conc, now)
-			if text then
-				right = right .. " · " .. text
-				state = concState == "warn" and "warn" or state
+			if q.done then
+				done[#done + 1] = { left = q.title, right = "done", state = "done", dimLeft = true }
+			else
+				open[#open + 1] = { left = q.title, right = "open", state = "open" }
 			end
 		end
-		profs[#profs + 1] = { left = p.prof.name or p.def.name, right = right, state = state }
+		for _, row in ipairs(done) do
+			open[#open + 1] = row
+		end
+		Section(todo, "Weekly quests", open)
 	end
-	Section(items, "Professions", profs)
+	for _, p in ipairs(Profs(v)) do
+		local name = p.prof.name or p.def.name
+		local _, _, left = KnowledgeTotal(p.def, p.prof.knowledge, p.prof.expansion)
+		local concText, concState
+		if p.prof.conc then
+			concText, concState = ConcText(p.prof.conc, now)
+		end
+		if left == 0 then
+			local right = "knowledge done"
+			if concText then
+				right = right .. " · " .. concText
+			end
+			todo[#todo + 1] = { kind = "row", left = name, right = right, state = concState == "warn" and "warn" or "done" }
+		else
+			todo[#todo + 1] = { kind = "header", text = name, right = concText, state = concState }
+			for _, k in ipairs(ns.Weekly_Knowledge(p.def, p.prof.knowledge, p.prof.expansion)) do
+				if k.n < k.of then
+					local status = KnowledgeStatus(k)
+					todo[#todo + 1] = { kind = "row", left = k.label, right = status, state = "open", tip = k.tip, loc = k.loc,
+						indent = true }
+				end
+			end
+		end
+	end
 
+	local progress = model.progress
 	local renown = {}
 	for _, entry in ipairs(Renown(v)) do
 		local r = entry.r
 		local maxed = r.max and r.level >= r.max
+		local toNext = not maxed and r.threshold and r.threshold > 0
+			and ("%s / %s to %d"):format(Thousands(r.earned), Thousands(r.threshold), r.level + 1) or nil
+		local frac
+		if maxed then
+			frac = 1
+		elseif r.max and r.max > 0 then
+			frac = min(r.level / r.max, 1)
+		elseif r.threshold and r.threshold > 0 then
+			frac = min((r.earned or 0) / r.threshold, 1)
+		end
 		renown[#renown + 1] = {
-			left = r.name or ("Faction " .. entry.id),
-			right = maxed and ("%d (max)"):format(r.level) or (r.max and ("%d / %d"):format(r.level, r.max) or tostring(r.level)),
-			state = maxed and "done" or "open",
-			frac = not maxed and r.threshold and r.threshold > 0 and min((r.earned or 0) / r.threshold, 1) or nil,
+			left = r.name or ("Faction " .. entry.id), note = toNext,
+			right = maxed and "max" or (r.max and ("%d / %d"):format(r.level, r.max) or ("level %d"):format(r.level)),
+			state = maxed and "gold" or "open", frac = frac,
 		}
 	end
-	Section(items, "Renown", renown)
-
+	Section(progress, "Renown", renown)
+	Section(progress, "Crests", CrestRows(v))
 	local lockouts = {}
 	for _, l in ipairs(v.lockouts) do
-		local progress = l.worldBoss and "killed" or ("%d/%d"):format(l.killed or 0, l.total or 0)
+		local killed = l.worldBoss and "killed" or ("%d/%d"):format(l.killed or 0, l.total or 0)
 		lockouts[#lockouts + 1] = {
 			left = l.difficulty and (l.name .. " " .. l.difficulty) or l.name,
-			right = ("%s · resets in %s"):format(progress, ns.Weekly_Duration(l.expires - now)),
+			right = ("%s · resets in %s"):format(killed, ns.Weekly_Duration(l.expires - now)),
 			state = (l.worldBoss or l.killed == l.total) and "done" or "open",
 		}
 	end
-	Section(items, "Lockouts", lockouts)
-	return items
+	Section(progress, "Lockouts", lockouts)
+	return model
 end
 
 -- Popup: only what is still open for the current character.
@@ -816,6 +870,20 @@ function ns.Weekly_HomeSummary(v)
 		parts[#parts + 1] = ("%d knowledge left"):format(left)
 	end
 	return table.concat(parts, " · ")
+end
+
+-- Next up: knowledge sources still open this week that have a place to go. { name, icon, label, pts, tip, loc }.
+function ns.Weekly_OpenKnowledge(v)
+	local list = {}
+	for _, p in ipairs(v.profs and Profs(v) or {}) do
+		for _, k in ipairs(ns.Weekly_Knowledge(p.def, p.prof.knowledge or {}, p.prof.expansion)) do
+			if k.n < k.of and k.loc then
+				list[#list + 1] = { name = p.prof.name or p.def.name, icon = p.prof.icon, skillLine = p.skillLine,
+					label = k.label, pts = k.pts, tip = k.tip, loc = k.loc }
+			end
+		end
+	end
+	return list
 end
 
 -- Home "This week" list: what's still open this week, then what's done. { text, right, done }.

@@ -25,6 +25,22 @@ function UI.Text(parent, size, color, font)
 	return fs
 end
 
+-- Search boxes: fn runs once typing pauses for `seconds` (each call restarts the wait).
+UI.SEARCH_DELAY = 0.25
+
+function UI.Debounce(seconds, fn)
+	local timer
+	return function()
+		if timer then
+			timer:Cancel()
+		end
+		timer = C_Timer.NewTimer(seconds, function()
+			timer = nil
+			fn()
+		end)
+	end
+end
+
 -- 1px border inside the frame's edges.
 function UI.Border(frame, r, g, b, a)
 	local edges = {}

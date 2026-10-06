@@ -1,13 +1,14 @@
 local addonName, ns = ...
 
 -- Alts page, Characters tab: every character Tomte has seen, current one first. Two views (toggle saved):
--- compact (one line, sortable columns, details in the row's tooltip) and detailed (two lines, sort dropdown).
--- A pill after a profession is its unspent knowledge.
+-- compact (one line, sortable columns, details in the row's tooltip) and detailed (two lines, sort dropdown; a third
+-- with the Great Vault and Concentration for characters Weekly tracks). A pill after a profession is its unspent
+-- knowledge. The footer's professions count says in its tooltip who has a free slot for the missing ones.
 
 local UI = ns.UI
 local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
 local GREEN = { 0.45, 0.85, 0.45 }
-local COMPACT_H, DETAILED_H, HEAD_H, FOOT_H = 22, 42, 22, 26
+local COMPACT_H, DETAILED_H, WEEKLY_H, HEAD_H, FOOT_H = 22, 42, 18, 22, 26
 
 local tab, db
 local rows = {}
@@ -58,6 +59,20 @@ local function RestText(c)
 	return c.rested and c.rested > 0 and ("rested %d%%"):format(c.rested) or nil
 end
 
+-- Vault and Concentration from Weekly's snapshot of the character (max level ones it tracks), nil without.
+local function WeeklyStatus(c)
+	local wdb = ns.weeklyDB
+	if not (ns.Weekly_Active and ns.Weekly_Active() and wdb and c.guid and ns.Weekly_View) then
+		return nil
+	end
+	local snap = wdb.chars and wdb.chars[c.guid]
+	if not snap or (wdb.hidden and wdb.hidden[c.guid]) then
+		return nil
+	end
+	local now = GetServerTime()
+	return ns.Alts_WeeklyStatus(ns.Weekly_View(snap, now), now)
+end
+
 local function ShowTooltip(row)
 	local c = row.char
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
@@ -86,6 +101,24 @@ local function ShowTooltip(row)
 	if rest then
 		GameTooltip:AddLine(rest, GREEN[1], GREEN[2], GREEN[3])
 	end
+	local weekly = WeeklyStatus(c)
+	if weekly then
+		if weekly.vault then
+			GameTooltip:AddLine(weekly.vault, 1, 1, 1)
+		end
+		for _, conc in ipairs(weekly.conc) do
+			local text = ("%s Concentration %d/%d"):format(conc.name, conc.qty, conc.max)
+			if conc.full then
+				GameTooltip:AddLine(conc.name .. " Concentration full", GOLD[1], GOLD[2], GOLD[3])
+			else
+				GameTooltip:AddLine(conc.text ~= "" and (text .. ", " .. conc.text) or text, 1, 1, 1)
+			end
+		end
+	end
+	local worth = ns.Value_CharWorth and ns.Value_CharWorth(c)
+	if worth then
+		GameTooltip:AddLine(("Carrying %s in bags%s"):format(ns.Alts_Gold(worth), c.worth.bank and " and bank" or ""), 1, 0.82, 0.45)
+	end
 	GameTooltip:Show()
 end
 
@@ -113,12 +146,13 @@ local function CreateRow(parent)
 	row.l1r:SetJustifyH("RIGHT")
 	row.l1:SetPoint("RIGHT", row.l1r, "LEFT", -8, 0)
 	row.l2 = UI.Text(row, 12, GREY)
-	row.l2:SetPoint("BOTTOMLEFT", 6, 6)
 	row.l2:SetWordWrap(false)
 	row.l2r = UI.Text(row, 12, GREY)
-	row.l2r:SetPoint("BOTTOMRIGHT", -6, 6)
 	row.l2r:SetJustifyH("RIGHT")
-	row.l2:SetPoint("RIGHT", row.l2r, "LEFT", -8, 0)
+	row.l3 = UI.Text(row, 12, WHITE)
+	row.l3:SetPoint("BOTTOMLEFT", 6, 6)
+	row.l3:SetPoint("BOTTOMRIGHT", -6, 6)
+	row.l3:SetWordWrap(false)
 	row.line = row:CreateTexture(nil, "ARTWORK")
 	row.line:SetColorTexture(1, 1, 1, 0.06)
 	row.line:SetHeight(1)
@@ -156,13 +190,22 @@ local function FillCompact(row, c, width)
 	SetColor(cells[6], GOLD)
 	cells[7]:SetText(Ago(c))
 	SetColor(cells[7], GREY)
-	for _, fs in ipairs({ row.l1, row.l1r, row.l2, row.l2r }) do
+	for _, fs in ipairs({ row.l1, row.l1r, row.l2, row.l2r, row.l3 }) do
 		fs:Hide()
 	end
 end
 
 local function FillDetailed(row, c)
-	row:SetHeight(DETAILED_H)
+	local weekly = ns.Alts_WeeklyLine(WeeklyStatus(c))
+	local bottom = weekly ~= "" and (6 + WEEKLY_H) or 6
+	row:SetHeight(DETAILED_H + (weekly ~= "" and WEEKLY_H or 0))
+	row.l2:ClearAllPoints()
+	row.l2:SetPoint("BOTTOMLEFT", 6, bottom)
+	row.l2r:ClearAllPoints()
+	row.l2r:SetPoint("BOTTOMRIGHT", -6, bottom)
+	row.l2:SetPoint("RIGHT", row.l2r, "LEFT", -8, 0)
+	row.l3:SetText(weekly)
+	row.l3:SetShown(weekly ~= "")
 	for _, fs in ipairs(row.cells) do
 		fs:Hide()
 	end
@@ -173,7 +216,8 @@ local function FillDetailed(row, c)
 		parts[#parts + 1] = ("iLvl %d"):format(c.ilvl)
 	end
 	row.l1:SetText(table.concat(parts, " · "))
-	row.l1r:SetText(ns.Alts_Gold(c.money))
+	local worth = ns.Value_CharWorth and ns.Value_CharWorth(c)
+	row.l1r:SetText(ns.Alts_Gold(c.money) .. (worth and ("  |cff9e9e9e+ %s in items|r"):format(ns.Alts_Gold(worth)) or ""))
 	row.l2:SetText(ProfsText(c, false))
 	local right = { c.zone or "?", Ago(c) }
 	local rest = RestText(c)
@@ -223,9 +267,15 @@ local function Layout()
 		rows[i]:Hide()
 	end
 	tab.scroll:SetContentHeight(y)
-	tab.footLeft:SetText(#list == 1 and "1 character · log in on the others once to add them"
-		or ("%d characters"):format(#list))
-	tab.footRight:SetText("Total " .. ns.Alts_Gold(ns.Alts_TotalGold(db.chars)))
+	local uncovered = ns.Alts_Uncovered(db.chars)
+	local nProfs = #ns.ALTS_PROFESSIONS
+	tab.footLeft:SetText((#list == 1 and "1 character · log in on the others once to add them"
+		or ("%d characters"):format(#list)) .. ("  ·  %d of %d professions"):format(nProfs - #uncovered, nProfs))
+	tab.footHover:SetWidth(tab.footLeft:GetStringWidth())
+	tab.footHover.uncovered = uncovered
+	local worth = ns.Value_AccountWorth and ns.Value_AccountWorth(db.chars)
+	tab.footRight:SetText("Total " .. ns.Alts_Gold(ns.Alts_TotalGold(db.chars, db.warbandMoney))
+		.. ns.Alts_WarbandText(db.warbandMoney) .. (worth and ("  ·  items worth %s"):format(ns.Alts_Gold(worth)) or ""))
 	tab.mode.label:SetText(compact and "Detailed view" or "Compact view")
 	tab.sort:Refresh()
 end
@@ -299,6 +349,23 @@ function ns.AltsRoster_Create(frame, altsDB)
 	foot:SetPoint("BOTTOMRIGHT", -8, FOOT_H)
 	tab.footLeft = UI.Text(tab, 12, GREY)
 	tab.footLeft:SetPoint("BOTTOMLEFT", 6, 6)
+	-- The footer's tooltip: which professions nobody has, and who has a free slot for them.
+	tab.footHover = CreateFrame("Frame", nil, tab)
+	tab.footHover:SetPoint("BOTTOMLEFT", 6, 4)
+	tab.footHover:SetHeight(18)
+	tab.footHover:EnableMouse(true)
+	tab.footHover:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		GameTooltip:SetText("Professions", 1, 1, 1)
+		if #self.uncovered == 0 then
+			GameTooltip:AddLine("Somebody has each of the eleven.", 0.8, 0.8, 0.8)
+		else
+			GameTooltip:AddLine(ns.Alts_GapText(self.uncovered, ns.Alts_FreeSlots(db.chars)), 0.8, 0.8, 0.8, true)
+		end
+		GameTooltip:Show()
+	end)
+	tab.footHover:SetScript("OnLeave", GameTooltip_Hide)
+	tab.footHover.uncovered = {}
 	tab.footRight = UI.Text(tab, 12, GOLD)
 	tab.footRight:SetPoint("BOTTOMRIGHT", -14, 6)
 end

@@ -148,6 +148,9 @@ local function OnUpdate(self, dt)
 end
 
 function ns.Banner_Show(spec)
+	if ns.Recent_Note then
+		ns.Recent_Note(spec, true)
+	end
 	if not frame then
 		Build()
 		frame:SetScript("OnUpdate", OnUpdate)

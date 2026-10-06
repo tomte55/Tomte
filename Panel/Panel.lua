@@ -230,11 +230,14 @@ local function CreateSearch(parent)
 	local placeholder = UI.Text(box, 12, DIM)
 	placeholder:SetPoint("LEFT", 8, 0)
 	placeholder:SetText("Search")
+	local refresh = UI.Debounce(UI.SEARCH_DELAY, function()
+		RefreshList() -- the page keeps showing the selected module, even when it's filtered out
+	end)
 	box:SetScript("OnTextChanged", function(self)
 		local text = self:GetText()
 		placeholder:SetShown(text == "")
 		searchText = strtrim(text):lower()
-		RefreshList() -- the page keeps showing the selected module, even when it's filtered out
+		refresh()
 	end)
 	box:SetScript("OnEscapePressed", function(self)
 		self:SetText("")
@@ -720,6 +723,21 @@ function ns.Panel_OpenMap(entry)
 		panel:Hide()
 	end
 	entry.open()
+end
+
+function ns.Panel_Hide()
+	if panel then
+		panel:Hide()
+	end
+end
+
+-- Redraw what's shown (a Home section whose height changed, a page whose data changed).
+function ns.Panel_Refresh()
+	Refresh()
+end
+
+function ns.Panel_IsShown()
+	return panel ~= nil and panel:IsShown()
 end
 
 function ns.Panel_Toggle()

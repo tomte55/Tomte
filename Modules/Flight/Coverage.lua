@@ -101,3 +101,33 @@ function ns.Coverage_Summarize(atlas, db)
 	end
 	return result
 end
+
+-- Flight masters on one map you haven't timed a route from (known or still undiscovered), nearest first, then by
+-- name. nodes = { { nodeID, name, undiscovered, x, y } } (x, y 0..1 on the map). px, py: the player on the same
+-- map, w, h: the map's size in yards (any of them nil: no distances, by name only). Returns
+-- { { nodeID, name, x, y, state, yards } }, yards nil when unknown.
+function ns.Coverage_Untimed(nodes, timed, px, py, w, h)
+	local list = {}
+	for _, node in ipairs(nodes) do
+		local state = ns.Coverage_NodeState(node, timed)
+		if state ~= "timed" then
+			local yards
+			if px and py and w and h and node.x and node.y then
+				local dx, dy = (node.x - px) * w, (node.y - py) * h
+				yards = math.sqrt(dx * dx + dy * dy)
+			end
+			list[#list + 1] = { nodeID = node.nodeID, name = node.name, x = node.x, y = node.y, state = state,
+				yards = yards }
+		end
+	end
+	table.sort(list, function(a, b)
+		if (a.yards ~= nil) ~= (b.yards ~= nil) then
+			return a.yards ~= nil
+		end
+		if a.yards and a.yards ~= b.yards then
+			return a.yards < b.yards
+		end
+		return a.name < b.name
+	end)
+	return list
+end

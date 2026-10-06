@@ -105,17 +105,20 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- Loot
 
-local function NoteItem(link, tries)
+local function NoteItem(link, tries, count)
 	local name, _, quality, _, _, _, _, _, _, icon = C_Item.GetItemInfo(link)
 	if not name then
 		if tries < 5 then
 			C_Timer.After(ITEM_RETRY, function()
 				if ns.recapModule.active then
-					NoteItem(link, tries + 1)
+					NoteItem(link, tries + 1, count)
 				end
 			end)
 		end
 		return
+	end
+	if ns.Value_NoteLoot then
+		ns.Value_NoteLoot(link, count) -- Gold & value: every item, priced now
 	end
 	if quality and quality >= ns.recapDB.lootQuality then
 		Note({ kind = "loot", title = name, icon = icon, quality = quality, link = link, itemID = ns.Recap_ItemID(link) })
@@ -133,9 +136,9 @@ function events:CHAT_MSG_LOOT(text)
 		end
 		lootPatterns = ns.Recap_LootPatterns(formats)
 	end
-	local link = ns.Recap_LootLink(text, lootPatterns)
+	local link, count = ns.Recap_LootLink(text, lootPatterns)
 	if link then
-		NoteItem(link, 0)
+		NoteItem(link, 0, count)
 	end
 end
 

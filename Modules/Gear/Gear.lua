@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- nothing it can't value is at stake: set bonuses, embellishments, effects and unique limits are checked, and
 -- items whose value is an effect are sent to a sim instead of guessed. Rules in Data.lua, advice (weights source,
 -- gems, enchants, off-spec) in Advice.lua, built-in weights and gem IDs in Scales.lua, item reading in Items.lua,
--- the character sheet button and panel in Sheet.lua.
+-- the character sheet button and panel in Sheet.lua, upgrades for other characters in Alts.lua.
 -- Weights: imported Pawn string per character and spec > built-in for the spec > primary 1 / secondaries 0.5.
 
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
@@ -18,6 +18,9 @@ local LABEL = "|cff66ccffGear:|r "
 local REASON = "|cff9d9d9d"
 local MAX_REASONS = 3
 local BAGANATOR_ID = "tomte_gear"
+local BAGANATOR_ALT_ID = "tomte_gear_alt"
+local ALT_BLUE = { 0x8F / 255, 0xC7 / 255, 1 } -- the map-blue of Tomte's markers, so it can't pass for your own arrow
+local MAX_ALT_LINES = 2
 
 local module, db
 local events = CreateFrame("Frame")
@@ -33,11 +36,11 @@ for _, id in ipairs(scales.diamonds) do
 end
 
 local function SpecAt(index)
-	local specID, name, _, _, _, primaryStat = GetSpecializationInfo(index)
+	local specID, name, _, icon, _, primaryStat = GetSpecializationInfo(index)
 	if not specID or specID == 0 then
 		return nil
 	end
-	return { index = index, id = specID, name = name, primary = PRIMARY_KEYS[primaryStat] }
+	return { index = index, id = specID, name = name, icon = icon, primary = PRIMARY_KEYS[primaryStat] }
 end
 
 local function Spec()
@@ -57,25 +60,15 @@ local function CurrentSeason()
 	return (id and id > 0) and id or nil
 end
 
-local function ContextFor(spec)
+-- The evaluator context for a spec ({ id, name, primary }, index only for this character's own specs). guid and
+-- class default to this character; another character's guid and class token judge for them (their imported
+-- weights, their armor type).
+local function ContextFor(spec, guid, class)
 	if not (spec and spec.id and spec.primary) then
 		return nil
 	end
-	local weights, source, label = ns.Gear_ResolveWeights(CharWeights()[spec.id], scales.specs[spec.id], spec.primary)
-	local best, bestValue = ns.Gear_BestGem(ns.GearItems_Gems(scales.gems), weights, spec.primary)
-	return {
-		spec = spec,
-		primary = spec.primary,
-		weights = weights,
-		source = source,
-		label = label,
-		noWeights = source == "none",
-		armorSubclass = ns.Gear_ArmorForClass(classToken),
-		specID = spec.id,
-		best = best,
-		bestValue = bestValue,
-		gemValue = best and bestValue or nil,
-	}
+	return ns.Gear_BuildContext(spec, guid or UnitGUID("player"), class or classToken, db.weights, scales,
+		ns.GearItems_Gems(scales.gems))
 end
 
 local function Context()
@@ -129,28 +122,8 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- Tooltip
 
-local function OnItem(tooltip, data)
-	if not (module.active and tooltip.AddLine) then
-		return
-	end
-	if (tooltip == ShoppingTooltip1 or tooltip == ShoppingTooltip2) and not db.compareTooltips then
-		return
-	end
-	local _, link = TooltipUtil.GetDisplayedItem(tooltip)
-	if not link or (issecretvalue and issecretvalue(link)) then
-		return
-	end
-	local ctx = Context()
-	local verdict, cand, equipped = Evaluate(link, ctx)
-	if not (cand and ns.Gear_Slots(cand.equipLoc)) then
-		return
-	end
-	local labeled = false
-	local function Add(text, color)
-		tooltip:AddLine((labeled and "   " or LABEL) .. COLORS[color] .. text .. "|r", nil, nil, nil, true)
-		labeled = true
-	end
-
+-- This character's lines: verdict, reasons, rank, off-spec, gems, enchant.
+local function OwnLines(tooltip, link, ctx, verdict, cand, equipped, Add)
 	if verdict and not (verdict.kind == "downgrade" and not db.showDowngrades) then
 		local headline, color = ns.Gear_Headline(verdict)
 		Add(headline, color)
@@ -221,13 +194,89 @@ local function OnItem(tooltip, data)
 	end
 end
 
+-- "Upgrade for Mira (Holy): +8.2%" for other characters, when the item can get to them (Alts.lua). A bag item is
+-- found by its GUID for its exact bind state; else the tooltip's own bind line, else the item's bind type.
+local function AltLines(link, data, Add)
+	if db.altUpgrades == "off" then
+		return
+	end
+	local equipLoc = select(4, C_Item.GetItemInfoInstant(link))
+	if not (equipLoc and ns.Gear_Slots(equipLoc)) then
+		return
+	end
+	local location
+	local guid = data and data.guid
+	if guid and not (issecretvalue and issecretvalue(guid)) and C_Item.GetItemLocation then
+		local ok, loc = pcall(C_Item.GetItemLocation, guid)
+		location = ok and loc or nil
+	end
+	if not ns.GearAlts_Route(link, location, data and data.lines) then
+		return
+	end
+	local lines, more = ns.Gear_AltLines((ns.GearAlts_Upgrades(link)), MAX_ALT_LINES)
+	for _, line in ipairs(lines) do
+		Add(line, "green")
+	end
+	if more then
+		Add(more, "grey")
+	end
+end
+
+local function OnItem(tooltip, data)
+	if not (module.active and tooltip.AddLine) then
+		return
+	end
+	local compare = tooltip == ShoppingTooltip1 or tooltip == ShoppingTooltip2
+	if compare and not db.compareTooltips then
+		return
+	end
+	local _, link = TooltipUtil.GetDisplayedItem(tooltip)
+	if not link or (issecretvalue and issecretvalue(link)) then
+		return
+	end
+	local labeled = false
+	local function Add(text, color)
+		tooltip:AddLine((labeled and "   " or LABEL) .. COLORS[color] .. text .. "|r", nil, nil, nil, true)
+		labeled = true
+	end
+	local ctx = Context()
+	local verdict, cand, equipped = Evaluate(link, ctx)
+	if cand and ns.Gear_Slots(cand.equipLoc) then
+		OwnLines(tooltip, link, ctx, verdict, cand, equipped, Add)
+	end
+	if not compare then -- comparison tooltips show what you wear: about you only
+		AltLines(link, data, Add)
+	end
+end
+
 ---------------------------------------------------------------------------------------------------------------
--- Chat hints: no weights (once per session and spec), built-in weights (once, and again when the season moves
--- past theirs), missing enchants and empty sockets when the character pane opens.
+-- Chat hints: no weights (once per session and spec), built-in weights at max level (once per character and spec,
+-- and again when the season moves past theirs), missing enchants and empty sockets when the character pane opens.
 
 local noWeightsSaid = {}
 
-local function WeightsHint()
+-- This character's db.hinted table ([specID] = seen), with the old account-wide keys of its class moved in.
+local function CharHinted()
+	local guid = UnitGUID("player")
+	if not db.hinted[guid] then
+		local own = {}
+		for i = 1, C_SpecializationInfo.GetNumSpecializationsForClassID(classID) or 0 do
+			local spec = SpecAt(i)
+			if spec then
+				own[spec.id] = true
+			end
+		end
+		ns.Gear_MigrateHinted(db.hinted, guid, own)
+	end
+	return db.hinted[guid]
+end
+
+local function MaxLevel()
+	return GetMaxLevelForPlayerExpansion and GetMaxLevelForPlayerExpansion()
+end
+
+-- level: PLAYER_LEVEL_UP's new level (UnitLevel can lag behind it).
+local function WeightsHint(level)
 	if not module.active then
 		return
 	end
@@ -244,16 +293,18 @@ local function WeightsHint()
 		end
 		return
 	end
-	local kind, seen = ns.Gear_WeightsHint(ctx.source, scales, db.hinted[ctx.spec.id], CurrentSeason())
-	if kind == "builtin" then
-		ns.Print(("Gear Check: using built-in weights for %s (%s). For weights that fit your gear, sim on "
-			.. "Raidbots and /tomte gear import."):format(name, ctx.label))
+	local hinted = CharHinted()
+	local kind, seen = ns.Gear_WeightsHint(ctx.source, scales, hinted[ctx.spec.id], CurrentSeason(),
+		level or UnitLevel("player"), MaxLevel())
+	if kind == "max" then
+		ns.Print(("%s is max level: sim %s on Raidbots for weights that fit your gear, then /tomte gear import.")
+			:format(UnitName("player"), name))
 	elseif kind == "stale" then
 		ns.Print(("Gear Check: the built-in weights for %s are from %s and may be out of date. Sim on Raidbots "
 			.. "and /tomte gear import."):format(name, scales.seasonName))
 	end
 	if kind then
-		db.hinted[ctx.spec.id] = seen
+		hinted[ctx.spec.id] = seen
 	end
 end
 
@@ -297,25 +348,53 @@ local function RegisterBaganator()
 	-- The upgrade plugin only feeds Baganator's "upgrade" search and category; the arrow is a corner widget. Items
 	-- still loading say false here, and GearItems_OnReady refreshes the bags once they've arrived.
 	Baganator.API.RegisterUpgradePlugin("Tomte Gear Check", BAGANATOR_ID, IsUpgrade)
-	if Baganator.API.RegisterCornerWidget then
-		Baganator.API.RegisterCornerWidget("Tomte Gear Check", BAGANATOR_ID, function(_, details)
-			return IsUpgrade(details.itemLink)
-		end, function(itemButton)
-			-- Bigger than Blizzard's bag arrow, with a dark copy behind it so it reads on bright icons.
-			local widget = CreateFrame("Frame", nil, itemButton)
-			widget:SetSize(22, 24)
-			widget.padding = 0.5
-			local shadow = widget:CreateTexture(nil, "ARTWORK")
-			shadow:SetAtlas("bags-greenarrow")
-			shadow:SetVertexColor(0, 0, 0, 0.9)
-			shadow:SetPoint("TOPLEFT", 1.5, -1.5)
-			shadow:SetPoint("BOTTOMRIGHT", 1.5, -1.5)
-			local arrow = widget:CreateTexture(nil, "OVERLAY")
-			arrow:SetAtlas("bags-greenarrow")
-			arrow:SetAllPoints()
-			return widget
-		end, { corner = "top_left", priority = 1 })
+	if not Baganator.API.RegisterCornerWidget then
+		return
 	end
+	-- Bigger than Blizzard's bag arrow, with a dark copy behind it so it reads on bright icons. color: tint (the
+	-- arrow is desaturated first so the tint is the color), nil for the atlas's own.
+	local function Arrow(itemButton, color)
+		local widget = CreateFrame("Frame", nil, itemButton)
+		widget:SetSize(22, 24)
+		widget.padding = 0.5
+		local shadow = widget:CreateTexture(nil, "ARTWORK")
+		shadow:SetAtlas("bags-greenarrow")
+		shadow:SetVertexColor(0, 0, 0, 0.9)
+		shadow:SetPoint("TOPLEFT", 1.5, -1.5)
+		shadow:SetPoint("BOTTOMRIGHT", 1.5, -1.5)
+		local arrow = widget:CreateTexture(nil, "OVERLAY")
+		arrow:SetAtlas("bags-greenarrow")
+		arrow:SetAllPoints()
+		if color then
+			arrow:SetDesaturated(true)
+			arrow:SetVertexColor(color[1], color[2], color[3])
+		end
+		return widget
+	end
+	Baganator.API.RegisterCornerWidget("Tomte Gear Check", BAGANATOR_ID, function(_, details)
+		return IsUpgrade(details.itemLink)
+	end, function(itemButton)
+		return Arrow(itemButton)
+	end, { corner = "top_left", priority = 1 })
+	-- Upgrade for an alt. Baganator shows only the first widget of a corner that says yes (its array order), so
+	-- right after the arrow above it never shows with it; the check here also covers the two being in different
+	-- corners. Items still loading say false, like the arrow above, and are asked again on GearItems_OnReady.
+	Baganator.API.RegisterCornerWidget("Tomte Gear Check: upgrade for an alt", BAGANATOR_ALT_ID, function(_, details)
+		local link = details.itemLink
+		if not (module.active and db.altBaganator and db.altUpgrades ~= "off" and link) then
+			return false
+		end
+		local equipLoc = select(4, C_Item.GetItemInfoInstant(link))
+		if not (equipLoc and ns.Gear_Slots(equipLoc)) or ns.Gear_IsCleanUpgrade(Evaluate(link)) then
+			return false -- not gear, or an upgrade for you: the arrow above wins
+		end
+		if not ns.GearAlts_Route(link, details.itemLocation, nil, details.isBound) then
+			return false
+		end
+		return #(ns.GearAlts_Upgrades(link)) > 0
+	end, function(itemButton)
+		return Arrow(itemButton, ALT_BLUE)
+	end, { corner = "top_left", priority = 2 })
 end
 
 ---------------------------------------------------------------------------------------------------------------
@@ -347,10 +426,11 @@ function events:BAG_UPDATE_DELAYED()
 	ns.GearItems_InvalidateBags()
 end
 
-function events:PLAYER_LEVEL_UP()
+function events:PLAYER_LEVEL_UP(level)
 	ns.GearItems_ClearCache()
 	RefreshBags()
 	ns.GearSheet_Refresh()
+	WeightsHint(level)
 end
 
 function events:GET_ITEM_INFO_RECEIVED()
@@ -361,6 +441,9 @@ ns.GearItems_OnReady = function()
 	if module.active then
 		RefreshBags()
 		ns.GearSheet_Refresh()
+		if ns.AltsSend_OnGearReady then
+			ns.AltsSend_OnGearReady() -- the mailbox's "Gear for" groups
+		end
 	end
 end
 
@@ -375,13 +458,24 @@ local SIM_STEPS = {
 	"  4. The result at the top is the best set to wear. Equip what it lists.",
 }
 
-local function PrintSimSteps()
-	for _, line in ipairs(SIM_STEPS) do
+local WEIGHT_STEPS = {
+	"How to get stat weights that fit your gear (Raidbots Stat Weights, free):",
+	"  1. Type /simc and press Ctrl+C to copy the text it shows.",
+	"  2. Open raidbots.com/simbot/stats in a browser, paste it into the big box and press Run Stat Weights.",
+	"  3. In the result, copy the Pawn string and paste it into the import box (/tomte gear import).",
+}
+
+local function PrintSteps(steps)
+	for _, line in ipairs(steps) do
 		print(line)
 	end
 	if not (C_AddOns.IsAddOnLoaded("Simulationcraft")) then
 		print("  (/simc needs the SimulationCraft addon, which isn't loaded.)")
 	end
+end
+
+local function PrintSimSteps()
+	PrintSteps(SIM_STEPS)
 end
 
 local function PrintWeights()
@@ -399,8 +493,8 @@ local function PrintWeights()
 			parts[#parts + 1] = ("%s %.2f"):format(key, value)
 		end
 		table.sort(parts)
-		local source = ctx.source == "imported" and ("imported \"" .. ctx.label .. "\"") or ("built-in, " .. ctx.label)
-		ns.Print(("Gear Check (%s): %s - %s"):format(ctx.spec.name, source, table.concat(parts, ", ")))
+		ns.Print(("Gear Check (%s): %s - %s"):format(ctx.spec.name, ns.Gear_SourceText(ctx.source, ctx.label),
+			table.concat(parts, ", ")))
 	end
 	if ctx.best then
 		print(("  Best gem: %s (%s)"):format(ctx.best.name, ns.Gear_StatLabel(ctx.best.stats)))
@@ -414,7 +508,7 @@ local function SourceLabel()
 	if not ctx then
 		return "Weights in use"
 	end
-	local source = ctx.source == "imported" and "imported" or ctx.source == "builtin" and ("built-in, " .. ctx.label)
+	local source = ctx.source == "imported" and "imported" or ns.Gear_SourceText(ctx.source, ctx.label)
 		or "none, item level decides"
 	return ("%s: %s"):format(ctx.spec.name, source)
 end
@@ -423,6 +517,7 @@ local function ClearWeights()
 	local ctx = Context()
 	if ctx then
 		CharWeights()[ctx.spec.id] = nil
+		ns.GearAlts_Invalidate()
 		local after = scales.specs[ctx.spec.id] and "the built-in weights" or "item level"
 		ns.Print(("Gear Check: imported weights for %s cleared, back to %s."):format(ctx.spec.name, after))
 		RefreshBags()
@@ -445,6 +540,7 @@ local function Import(text)
 		return ("That string is for another class or spec. You're %s right now."):format(ctx.spec.name)
 	end
 	CharWeights()[ctx.spec.id] = { name = parsed.name, weights = parsed.weights }
+	ns.GearAlts_Invalidate()
 	ns.Print(("Gear Check: imported \"%s\" for %s."):format(parsed.name, ctx.spec.name))
 	RefreshBags()
 	ns.GearSheet_Refresh()
@@ -542,8 +638,65 @@ local function Command(fn)
 	end
 end
 
+-- Next up "Sim on Raidbots": this character, built-in weights, max level. Not now hides it like any other source.
+local function NextSim()
+	local ctx = Context()
+	if not (ctx and ns.Gear_SimSuggested(ctx.source, UnitLevel("player"), MaxLevel())) then
+		return {}
+	end
+	return { {
+		key = "gearsim:" .. ctx.spec.id,
+		text = ("Sim %s on Raidbots"):format(ctx.spec.name),
+		why = "Built-in weights are a guide; your own sim fits your gear",
+		icon = ctx.spec.icon,
+		hint = "Click: how to sim, and the import box",
+		onClick = function()
+			PrintSteps(WEIGHT_STEPS)
+			OpenImport()
+		end,
+	} }
+end
+
+-- Hidden (/tomte gear specs): every class's specs as the game reports them, against Scales.lua. Lines marked
+-- "check" are a missing spec or a different main stat.
+local function PrintSpecs()
+	local seen, bad = {}, 0
+	ns.Print("Gear Check specs (ID, name, role, main stat):")
+	for cid = 1, GetNumClasses() do
+		local info = C_CreatureInfo.GetClassInfo(cid)
+		for i = 1, C_SpecializationInfo.GetNumSpecializationsForClassID(cid) or 0 do
+			local specID, name, _, _, role, primaryStat = GetSpecializationInfo(i, false, false, nil, nil, nil, cid)
+			if specID and specID ~= 0 then
+				seen[specID] = true
+				local main = PRIMARY_KEYS[primaryStat]
+				local scale = scales.specs[specID]
+				local problem = not scale and "no built-in weights"
+					or (main and not scale.weights[main]) and "built-in has another main stat" or nil
+				bad = bad + (problem and 1 or 0)
+				print(("  %s%d %s %s, %s, %s%s|r"):format(problem and "|cffff9a3c" or "|cffa0a0a0", specID,
+					name or "?", info and info.className or cid, tostring(role), tostring(main),
+					problem and (": check, " .. problem) or ""))
+			end
+		end
+	end
+	for specID in pairs(scales.specs) do
+		if not seen[specID] then
+			bad = bad + 1
+			print(("  |cffff9a3c%d is in Scales.lua but the game has no such spec: check|r"):format(specID))
+		end
+	end
+	ns.Print(bad == 0 and "every spec matches Scales.lua." or (bad .. " to check."))
+end
+
 -- For the character sheet panel (Sheet.lua) and the upgrade reveal (Reveal.lua).
 ns.Gear_Context = Context
+-- For judging gear for another character: ns.Gear_ContextFor({ id, name, primary }, guid, classToken).
+ns.Gear_ContextFor = ContextFor
+-- Another character's context from Alts' stored snapshot (chars[guid]: specID, spec, primary, class token); nil
+-- until their spec has been read. Their level isn't checked here: Gear_AltVerdict does that.
+function ns.Gear_ContextForChar(char)
+	return ContextFor(ns.Gear_CharSpec(char), char.guid, char.class)
+end
 ns.Gear_EvaluateLink = Evaluate
 ns.Gear_OpenImport = OpenImport
 ns.Gear_ClearWeights = ClearWeights
@@ -597,6 +750,10 @@ module = ns.RegisterModule({
 		{ kind = "quick", key = "reveal", order = 3, name = "Reveal upgrades", open = function()
 			ns.GearReveal_ShowBags()
 		end },
+		{ kind = "next", key = "nextsim", name = "Sim on Raidbots", score = 30,
+			description = "This character is max level and uses built-in stat weights: a Raidbots sim fits its gear "
+				.. "better.",
+			candidates = NextSim },
 	},
 	name = "Gear Check",
 	category = "Gear",
@@ -604,7 +761,8 @@ module = ns.RegisterModule({
 		.. "main stat, breaks your tier set, loses an embellishment or effect, unique limits. Trinkets and items "
 		.. "with effects are marked to sim instead of guessed. Also: upgrades for your other specs, the best gem "
 		.. "for empty sockets, and missing enchants. Can mark upgrades in Baganator and reveal new upgrades as a moment "
-		.. "with a click-to-equip toast.",
+		.. "with a click-to-equip toast. Warbound and Bind on Equip gear also says which of your other characters "
+		.. "it's an upgrade for.",
 	enabledByDefault = true,
 	defaults = {
 		showReasons = true,
@@ -616,12 +774,16 @@ module = ns.RegisterModule({
 		gemHints = true,
 		enchantHints = true,
 		weights = {}, -- [playerGUID][specID] = { name, weights = { AGI = 1, ... } }
-		hinted = {}, -- [specID] = which built-in weights hint was shown ("builtin" or "stale:<season>")
+		hinted = {}, -- [playerGUID][specID] = which built-in weights hint was shown ("max" or "stale:<season>";
+		-- "builtin" from before, which was per spec only: [specID] = ..., moved to a character by CharHinted)
 		sheetButton = true,
 		sheetOpen = false, -- the panel next to the character sheet
 		reveal = true,
 		revealToast = true,
 		revealMinPct = 2,
+		altUpgrades = "all", -- all | max | off: other characters judged on tooltips, Baganator and the mailbox
+		altBaganator = true,
+		altMail = true,
 	},
 	init = function(moduleDB)
 		db = moduleDB
@@ -642,6 +804,7 @@ module = ns.RegisterModule({
 		{ "upgrades", "reveal the clean upgrades already in your bags", function()
 			ns.GearReveal_ShowBags()
 		end },
+		{ "specs", "every spec's ID and main stat against the built-in weights", PrintSpecs, hidden = true },
 	},
 	options = {
 		{ type = "header", label = "Tooltip" },
@@ -670,6 +833,24 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "baganator", label = "Mark upgrades in Baganator", onChange = RefreshBags,
 			tooltip = "Only clean upgrades get the arrow. In Baganator's settings (Icons), \"Tomte Gear Check\" is a "
 				.. "corner icon (the arrow) and an upgrade source (the upgrade search and category)." },
+		{ type = "header", label = "Upgrades for alts" },
+		{ type = "dropdown", key = "altUpgrades", label = "Upgrades for alts", onChange = function()
+			ns.GearAlts_Invalidate()
+			RefreshBags()
+		end, choices = function()
+			return { { value = "all", text = "All characters" }, { value = "max", text = "Max level only" },
+				{ value = "off", text = "Off" } }
+		end, tooltip = "\"Upgrade for Mira (Holy): +8.2%\" on gear that can get to another character (warbound, or Bind "
+			.. "on Equip and not bound yet), judged with what they wore, their spec, level and stat weights when you "
+			.. "last played them. Only clean upgrades. Characters not played for 60 days are left out. Needs Alts." },
+		{ type = "checkbox", key = "altBaganator", label = "Mark alt upgrades in Baganator", onChange = RefreshBags,
+			tooltip = "A small blue arrow on gear that's an upgrade for another character and not for you (your own "
+				.. "upgrades keep the gold arrow). In Baganator's settings (Icons) it's \"Tomte Gear Check: upgrade for an "
+				.. "alt\"." },
+		{ type = "checkbox", key = "altMail", label = "Gear for alts at the mailbox",
+			tooltip = "In Send to alt's \"For your alts\" panel: a \"Gear for Mira\" group with the Bind on Equip "
+				.. "upgrades for them. Warbound ones go through the Warband bank instead: \"Deposit for alts\" at the "
+				.. "bank puts them there. Needs Alts' \"For your alts\" at the mailbox." },
 		{ type = "header", label = "Upgrade reveal" },
 		{ type = "checkbox", key = "reveal", label = "Reveal new upgrades",
 			tooltip = "When gear that's new to your bags (loot, quest rewards, the vault, mail) is a clean upgrade, show "
@@ -684,8 +865,8 @@ module = ns.RegisterModule({
 			tooltip = "A toast with the upgrade: click it to equip the item, right-click to dismiss. Not in combat." },
 		{ type = "header", label = "Stat weights" },
 		{ type = "button", label = SourceLabel, text = "Show", onClick = Command(PrintWeights),
-			tooltip = "Imported weights win, then the built-in ones (Beast Mastery, Marksmanship, Protection "
-				.. "Paladin), else main stat 1.0 and secondaries 0.5. Show prints them in chat." },
+			tooltip = "Imported weights win, then the built-in ones (every spec: sims for damage and tanks, guide "
+				.. "priority for healers), else main stat 1.0 and secondaries 0.5. Show prints them in chat." },
 		{ type = "button", label = "Import for your current spec", text = "Import", onClick = Command(OpenImport),
 			tooltip = "Raidbots stat weights fit your character better than the built-in ones." },
 		{ type = "button", label = "Remove for your current spec", text = "Remove", onClick = Command(ClearWeights),

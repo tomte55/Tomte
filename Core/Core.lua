@@ -56,7 +56,9 @@ end
 
 local function PrintModuleCommands(module)
 	for _, cmd in ipairs(module.commands or {}) do
-		PrintCommand(("/tomte %s %s"):format(module.key, cmd[1]), cmd[2])
+		if not cmd.hidden then -- debug commands work but stay out of help
+			PrintCommand(("/tomte %s %s"):format(module.key, cmd[1]), cmd[2])
+		end
 	end
 	if module.fallbackCommand then
 		local cmd = module.fallbackCommand
@@ -91,6 +93,21 @@ local function RunModuleCommand(module, text)
 	ns.Print(module.name .. " commands:")
 	PrintModuleCommands(module)
 end
+
+-- Keybinds (Bindings.xml, Key Bindings > Tomte): the binding scripts need a global. Modules add their own
+-- handlers to ns.bindings (they check that they're on); TOGGLE is the window's.
+ns.bindings = {
+	TOGGLE = function()
+		ns.Panel_Toggle()
+	end,
+}
+function Tomte_Binding(name)
+	local handler = ns.bindings[name]
+	if handler then
+		handler()
+	end
+end
+BINDING_NAME_TOMTE_TOGGLE = "Toggle Tomte"
 
 SLASH_TOMTE1 = "/tomte"
 SlashCmdList.TOMTE = function(msg)

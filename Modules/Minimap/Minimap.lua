@@ -32,6 +32,15 @@ local function ShowTooltip(self)
 	if ns.Weekly_Active and ns.Weekly_Active() then
 		GameTooltip:AddLine("Right-click for this week's open items", 1, 1, 1)
 	end
+	local nextUp = ns.NextUp_TooltipLines and ns.NextUp_TooltipLines()
+	if nextUp and #nextUp > 0 then
+		GameTooltip:AddLine(" ")
+		GameTooltip:AddLine("Next up", 1, 0.82, 0.45)
+		for _, line in ipairs(nextUp) do
+			GameTooltip:AddLine(line, 1, 1, 1, true)
+		end
+		GameTooltip:AddLine(" ")
+	end
 	GameTooltip:AddLine("Drag to move", 0.62, 0.62, 0.62)
 	GameTooltip:Show()
 end
@@ -94,6 +103,27 @@ local function Create()
 	end)
 end
 
+-- A small dot on the button (Recent: something you haven't seen).
+local dotWanted = false
+local function ApplyDot()
+	if not button then
+		return
+	end
+	if not button.dot then
+		button.dot = button:CreateTexture(nil, "OVERLAY", nil, 2)
+		button.dot:SetSize(10, 10)
+		button.dot:SetPoint("TOPRIGHT", -4, -4)
+		button.dot:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
+		button.dot:SetVertexColor(1, 0.82, 0.45)
+	end
+	button.dot:SetShown(dotWanted)
+end
+
+function ns.Minimap_SetDot(shown)
+	dotWanted = shown and true or false
+	ApplyDot()
+end
+
 local function ResetPosition()
 	module.db.angle = DEFAULT_ANGLE
 	if button then
@@ -117,6 +147,7 @@ module = ns.RegisterModule({
 			end
 			Place()
 			button:Show()
+			ApplyDot()
 		elseif button then
 			button:Hide()
 		end

@@ -436,22 +436,76 @@ test("ResolveWeights: imported > built-in > fallback", function()
 	eq(w.HASTE, 0.5)
 end)
 
-test("WeightsHint: once for built-in, again when the season moves on", function()
+test("WeightsHint: only at max level, once per spec, again when the season moves on", function()
 	local b = { season = 1 }
-	local kind, seen = ns.Gear_WeightsHint("builtin", b, nil, 1)
-	eq(kind, "builtin")
-	eq(ns.Gear_WeightsHint("builtin", b, seen, 1), nil)
-	kind, seen = ns.Gear_WeightsHint("builtin", b, seen, 2)
+	-- Below max level (or level unknown): nothing, built-in is fine while leveling.
+	eq(ns.Gear_WeightsHint("builtin", b, nil, 1, 79, 80), nil)
+	eq(ns.Gear_WeightsHint("builtin", b, nil, 1, nil, 80), nil)
+	eq(ns.Gear_WeightsHint("builtin", b, nil, 1, 80, nil), nil)
+	local kind, seen = ns.Gear_WeightsHint("builtin", b, nil, 1, 80, 80)
+	eq(kind, "max")
+	eq(seen, "max")
+	eq(ns.Gear_WeightsHint("builtin", b, seen, 1, 80, 80), nil)
+	-- The old any-level hint doesn't count as told.
+	eq(select(1, ns.Gear_WeightsHint("builtin", b, "builtin", 1, 80, 80)), "max")
+	kind, seen = ns.Gear_WeightsHint("builtin", b, seen, 2, 80, 80)
 	eq(kind, "stale")
 	eq(seen, "stale:2")
-	eq(ns.Gear_WeightsHint("builtin", b, seen, 2), nil)
-	eq(select(1, ns.Gear_WeightsHint("builtin", b, seen, 3)), "stale")
+	eq(ns.Gear_WeightsHint("builtin", b, seen, 2, 80, 80), nil)
+	eq(select(1, ns.Gear_WeightsHint("builtin", b, seen, 3, 80, 80)), "stale")
+	eq(ns.Gear_WeightsHint("builtin", b, nil, 2, 70, 80), nil, "no stale hint below max level")
 	-- Unknown season: only the first-time hint.
-	eq(ns.Gear_WeightsHint("builtin", b, nil, nil), "builtin")
-	eq(ns.Gear_WeightsHint("builtin", b, "builtin", nil), nil)
+	eq(ns.Gear_WeightsHint("builtin", b, nil, nil, 80, 80), "max")
+	eq(ns.Gear_WeightsHint("builtin", b, "max", nil, 80, 80), nil)
 	-- Imported or no weights: never.
-	eq(ns.Gear_WeightsHint("imported", b, nil, 2), nil)
-	eq(ns.Gear_WeightsHint("none", nil, nil, 2), nil)
+	eq(ns.Gear_WeightsHint("imported", b, nil, 2, 80, 80), nil)
+	eq(ns.Gear_WeightsHint("none", nil, nil, 2, 80, 80), nil)
+end)
+
+test("SimSuggested: built-in at max level only", function()
+	eq(ns.Gear_SimSuggested("builtin", 80, 80), true)
+	eq(ns.Gear_SimSuggested("builtin", 79, 80), false)
+	eq(ns.Gear_SimSuggested("imported", 80, 80), false)
+	eq(ns.Gear_SimSuggested("none", 80, 80), false)
+	eq(ns.Gear_SimSuggested("builtin", 80, nil), false)
+end)
+
+test("MigrateHinted: old per-spec keys of this class move to the character", function()
+	local hinted = { [66] = "builtin", [253] = "stale:37", ["Player-1"] = { [70] = "max" } }
+	local mine = ns.Gear_MigrateHinted(hinted, "Player-2", { [65] = true, [66] = true, [70] = true })
+	eq(mine[66], "builtin")
+	eq(hinted["Player-2"], mine)
+	eq(hinted[66], nil)
+	eq(hinted[253], "stale:37", "another class's key waits")
+	eq(hinted["Player-1"][70], "max", "other characters untouched")
+	-- A value already on the character wins.
+	hinted = { [66] = "builtin", ["Player-2"] = { [66] = "max" } }
+	eq(ns.Gear_MigrateHinted(hinted, "Player-2", { [66] = true })[66], "max")
+	eq(hinted[66], nil)
+end)
+
+test("WeightsFor: this or another character's imported weights, else built-in", function()
+	local scales = { specs = { [65] = { label = "guide priority, S2", weights = { INT = 1, MASTERY = 0.7 } } } }
+	local saved = { ["Player-1"] = { [65] = { name = "Mine", weights = { INT = 1, HASTE = 0.9 } } } }
+	local w, source, label = ns.Gear_WeightsFor(saved, "Player-1", 65, "INT", scales)
+	eq(source, "imported")
+	eq(label, "Mine")
+	eq(w.HASTE, 0.9)
+	w, source, label = ns.Gear_WeightsFor(saved, "Player-2", 65, "INT", scales)
+	eq(source, "builtin")
+	eq(label, "guide priority, S2")
+	w, source = ns.Gear_WeightsFor(saved, "Player-2", 999, "AGI", scales)
+	eq(source, "none")
+	eq(w.AGI, 1)
+end)
+
+test("SourceText: guide weights ask for a sim", function()
+	eq(ns.Gear_SourceText("builtin", "guide priority, Midnight S2"),
+		"built-in, guide priority, Midnight S2: import a sim for better")
+	eq(ns.Gear_SourceText("builtin", "sims, Midnight S2"), "built-in, sims, Midnight S2")
+	eq(ns.Gear_SourceText("imported", "Raidbots"), 'imported "Raidbots"')
+	eq(ns.Gear_SourceText("none", nil), nil)
+	eq(ns.Gear_IsGuideLabel("sims, guide priority"), false)
 end)
 
 local GEMS = {
@@ -572,17 +626,50 @@ test("AuditList: one entry per slot with a problem, in slot order", function()
 	eq(#ns.Gear_AuditList({}), 0)
 end)
 
-test("Scales: weights for BM, MM, Prot; gem lists", function()
-	for _, id in ipairs({ 253, 254, 66 }) do
+-- Every spec's main stat (warcraft.wiki.gg SpecializationID, standard retail roles), to check Scales.lua against.
+local SPEC_MAIN = {
+	[71] = "STR", [72] = "STR", [73] = "STR", -- Warrior
+	[65] = "INT", [66] = "STR", [70] = "STR", -- Paladin
+	[253] = "AGI", [254] = "AGI", [255] = "AGI", -- Hunter
+	[259] = "AGI", [260] = "AGI", [261] = "AGI", -- Rogue
+	[256] = "INT", [257] = "INT", [258] = "INT", -- Priest
+	[250] = "STR", [251] = "STR", [252] = "STR", -- Death Knight
+	[262] = "INT", [263] = "AGI", [264] = "INT", -- Shaman
+	[62] = "INT", [63] = "INT", [64] = "INT", -- Mage
+	[265] = "INT", [266] = "INT", [267] = "INT", -- Warlock
+	[268] = "AGI", [269] = "AGI", [270] = "INT", -- Monk
+	[102] = "INT", [103] = "AGI", [104] = "AGI", [105] = "INT", -- Druid
+	[577] = "AGI", [581] = "AGI", [1480] = "INT", -- Demon Hunter
+	[1467] = "INT", [1468] = "INT", [1473] = "INT", -- Evoker
+}
+local HEALERS = { [65] = true, [256] = true, [257] = true, [264] = true, [270] = true, [105] = true, [1468] = true }
+
+test("Scales: every spec, main stat 1 and right, four secondaries in (0, 1]", function()
+	local count = 0
+	for id, main in pairs(SPEC_MAIN) do
+		count = count + 1
 		local scale = ns.Gear_Scales.specs[id]
-		assert(scale and scale.label, "scale " .. id)
-		local primary = 0
-		for key in pairs(scale.weights) do
+		assert(scale and type(scale.label) == "string", "no scale for " .. id)
+		local n = 0
+		for key, value in pairs(scale.weights) do
+			n = n + 1
 			if key == "AGI" or key == "STR" or key == "INT" then
-				primary = primary + 1
+				eq(key, main, "main stat of " .. id)
+				eq(value, 1, "main stat weight of " .. id)
+			else
+				assert(key == "CRIT" or key == "HASTE" or key == "MASTERY" or key == "VERS", "odd key " .. key .. " in " .. id)
+				assert(value > 0 and value <= 1, ("%s %s out of range in %d"):format(key, tostring(value), id))
 			end
 		end
-		eq(primary, 1, "one primary for " .. id)
+		eq(n, 5, "main + four secondaries in " .. id)
+		eq(scale.weights[main], 1, "main stat present in " .. id)
+		if HEALERS[id] then
+			assert(ns.Gear_IsGuideLabel(scale.label), "healer " .. id .. " should be labeled guide priority")
+		end
+	end
+	eq(count, 40)
+	for id in pairs(ns.Gear_Scales.specs) do
+		assert(SPEC_MAIN[id], "unknown spec " .. id .. " in Scales")
 	end
 	eq(#ns.Gear_Scales.gems, 16)
 	eq(#ns.Gear_Scales.diamonds, 8)
@@ -702,6 +789,166 @@ test("RevealLabel and RevealLine", function()
 	eq(ns.Gear_RevealLine(684, "Old Helm", 671), "Item level 684, replaces Old Helm (671)")
 	eq(ns.Gear_RevealLine(684, nil, nil), "Item level 684")
 	eq(ns.Gear_RevealLine(nil, nil, nil), nil)
+end)
+
+-------------------------------------------------------------------------------------------------- upgrades for alts
+
+local SCALES = ns.Gear_Scales
+local GEMS = { { itemID = 1, name = "Quick Gem", stats = { HASTE = 10 } } }
+
+test("CharSpec and BuildContext: armor type, main stat and weight source per alt", function()
+	eq(ns.Gear_CharSpec({ specID = 66 }), nil, "no main stat yet")
+	eq(ns.Gear_CharSpec(nil), nil)
+	local plate = { guid = "P", class = "PALADIN", specID = 66, spec = "Protection", primary = "STR" }
+	local cloth = { guid = "C", class = "PRIEST", specID = 257, spec = "Holy", primary = "INT" }
+	local leather = { guid = "L", class = "DRUID", specID = 105, spec = "Restoration", primary = "INT" }
+	local saved = { L = { [105] = { name = "Resto sim", weights = { INT = 1, HASTE = 0.8 } } },
+		C = { [999] = { name = "other spec", weights = { INT = 1 } } } }
+	local ctx = ns.Gear_BuildContext(ns.Gear_CharSpec(plate), plate.guid, plate.class, saved, SCALES, GEMS)
+	eq(ctx.armorSubclass, 4, "plate")
+	eq(ctx.primary, "STR")
+	eq(ctx.source, "builtin")
+	eq(ctx.spec.name, "Protection")
+	eq(ctx.best.name, "Quick Gem")
+	ctx = ns.Gear_BuildContext(ns.Gear_CharSpec(cloth), cloth.guid, cloth.class, saved, SCALES, GEMS)
+	eq(ctx.armorSubclass, 1, "cloth")
+	eq(ctx.primary, "INT")
+	eq(ctx.source, "builtin", "another spec's import doesn't count")
+	ctx = ns.Gear_BuildContext(ns.Gear_CharSpec(leather), leather.guid, leather.class, saved, SCALES, {})
+	eq(ctx.armorSubclass, 2, "leather")
+	eq(ctx.source, "imported", "their own import")
+	eq(ctx.label, "Resto sim")
+	eq(ctx.best, nil, "no gems loaded")
+	eq(ctx.gemValue, nil)
+	ctx = ns.Gear_BuildContext({ id = 4242, name = "New", primary = "AGI" }, "X", "ROGUE", saved, SCALES, GEMS)
+	eq(ctx.source, "none")
+	eq(ctx.noWeights, true)
+	eq(ns.Gear_BuildContext({ id = 1 }, "X", "ROGUE", saved, SCALES, GEMS), nil)
+end)
+
+test("BindState: from bind type, bound and warbound until equipped", function()
+	eq(ns.Gear_BindState(2, nil, nil), "boe", "BoE link")
+	eq(ns.Gear_BindState(2, false, false), "boe", "BoE in the bags")
+	eq(ns.Gear_BindState(2, true, false), "soulbound", "BoE once worn")
+	eq(ns.Gear_BindState(3, false, false), "boe", "bind on use")
+	eq(ns.Gear_BindState(0, nil, nil), "boe", "never binds")
+	eq(ns.Gear_BindState(1, nil, nil), "soulbound", "bind on pickup")
+	eq(ns.Gear_BindState(1, true, false), "soulbound")
+	eq(ns.Gear_BindState(4, nil, nil), "soulbound", "quest")
+	eq(ns.Gear_BindState(8, true, false), "warbound")
+	eq(ns.Gear_BindState(8, nil, nil), "warbound", "warbound link")
+	eq(ns.Gear_BindState(7, true, false), "warbound", "account bound (heirloom kind)")
+	eq(ns.Gear_BindState(9, false, true), "warboundUntilEquip")
+	eq(ns.Gear_BindState(9, nil, nil), "warboundUntilEquip", "link")
+	eq(ns.Gear_BindState(9, true, false), "soulbound", "warbound until equipped, and worn")
+	eq(ns.Gear_BindState(nil, true, false), nil, "not loaded")
+	eq(ns.Gear_BindState(nil, false, true), "warboundUntilEquip", "the location says so before the item loads")
+end)
+
+test("BindStateFromLines: the tooltip's own bind line", function()
+	local known = { Soulbound = "soulbound", ["Binds when equipped"] = "boe", Warbound = "warbound",
+		["Warbound until equipped"] = "warboundUntilEquip" }
+	eq(ns.Gear_BindStateFromLines({ "Helm", "Soulbound", "Plate" }, known), "soulbound")
+	eq(ns.Gear_BindStateFromLines({ "Helm", "Binds when equipped" }, known), "boe")
+	eq(ns.Gear_BindStateFromLines({ "Helm", "Warbound until equipped" }, known), "warboundUntilEquip")
+	eq(ns.Gear_BindStateFromLines({ "Helm", "Plate" }, known), nil)
+end)
+
+test("TransferRoute: warbound and BoE yes, soulbound no", function()
+	eq(ns.Gear_TransferRoute("boe"), "mail")
+	eq(ns.Gear_TransferRoute("warbound"), "warband")
+	eq(ns.Gear_TransferRoute("warboundUntilEquip"), "warband")
+	eq(ns.Gear_TransferRoute("soulbound"), nil)
+	eq(ns.Gear_TransferRoute(nil), nil)
+end)
+
+test("AltsToJudge: not me, spec and gear stored, seen in 60 days, max level mode", function()
+	local DAY, now = 86400, 1000 * 86400
+	local function char(guid, name, level, seenDaysAgo, extra)
+		local c = { guid = guid, name = name, level = level, seen = now - seenDaysAgo * DAY, gear = {}, specID = 1,
+			primary = "INT" }
+		for k, v in pairs(extra or {}) do
+			c[k] = v
+		end
+		return c
+	end
+	local chars = {
+		Me = char("Me", "Tomten", 80, 0),
+		Mira = char("Mira", "Mira", 80, 10),
+		Bea = char("Bea", "Bea", 42, 59),
+		Old = char("Old", "Old", 80, 61),
+		NoGear = char("NoGear", "Nogear", 80, 1, { gear = false }),
+		NoSpec = char("NoSpec", "Nospec", 80, 1, { primary = false }),
+		NoSeen = char("NoSeen", "Noseen", 80, 1, { seen = false }),
+	}
+	local list = ns.Gear_AltsToJudge(chars, "Me", now, "all", 80)
+	eq(#list, 2)
+	eq(list[1].name, "Bea", "by name")
+	eq(list[2].name, "Mira")
+	list = ns.Gear_AltsToJudge(chars, "Me", now, "max", 80)
+	eq(#list, 1)
+	eq(list[1].name, "Mira")
+	eq(#ns.Gear_AltsToJudge(chars, "Me", now, "max", nil), 0, "max level unknown")
+	eq(#ns.Gear_AltsToJudge(chars, "Me", now, "off", 80), 0)
+end)
+
+test("AltVerdict: the alt's level and worn items, not your red text", function()
+	local ctx = { primary = "INT", weights = ns.Gear_DefaultWeights("INT"), armorSubclass = 1, specID = 257 }
+	local function cloth(loc, int, haste, extra)
+		local d = item(loc, nil, haste, extra)
+		d.subclassID = 1
+		d.stats.PRIMARY = { INT = int }
+		return d
+	end
+	local worn = { [1] = cloth("INVTYPE_HEAD", 100, 100) }
+	-- Red on your tooltip (another class, or too low): doesn't count for them.
+	local cand = cloth("INVTYPE_HEAD", 120, 120, { redText = "Requires level 80", minLevel = 80 })
+	local v = ns.Gear_AltVerdict(cand, worn, ctx, 80)
+	eq(v.kind, "upgrade")
+	eq(cand.redText, "Requires level 80", "the shared descriptor isn't changed")
+	v = ns.Gear_AltVerdict(cand, worn, ctx, 70)
+	eq(v.kind, "notForYou", "below the required level")
+	has({ v.why }, "requires level 80")
+	-- Their worn item is better: a downgrade for them.
+	v = ns.Gear_AltVerdict(cand, { [1] = cloth("INVTYPE_HEAD", 200, 200) }, ctx, 80)
+	eq(v.kind, "downgrade")
+	-- Nothing worn there.
+	v = ns.Gear_AltVerdict(cand, {}, ctx, 80)
+	eq(v.kind, "empty")
+	-- Their armor type and spec.
+	local plate = item("INVTYPE_HEAD", nil, 120, { subclassID = 4 })
+	plate.stats.PRIMARY = { INT = 120 }
+	eq(ns.Gear_AltVerdict(plate, worn, ctx, 80).kind, "notForYou", "plate for a cloth alt")
+	local other = cloth("INVTYPE_HEAD", 120, 120, { specs = { [256] = true } })
+	eq(ns.Gear_AltVerdict(other, worn, ctx, 80).kind, "notForYou", "another spec's item")
+	eq(ctx.specOK, false)
+	local theirs = cloth("INVTYPE_HEAD", 120, 120, { specs = { [257] = true } })
+	eq(ns.Gear_AltVerdict(theirs, worn, ctx, 80).kind, "upgrade")
+	-- Already worn by them.
+	eq(ns.Gear_AltVerdict(worn[1], worn, ctx, 80), nil)
+end)
+
+test("AltLines: best first, two lines, then +n more", function()
+	local results = ns.Gear_SortAltUpgrades({
+		{ name = "Bea", spec = "Fire", verdict = { kind = "upgrade", pct = 3.04 } },
+		{ name = "Mira", spec = "Holy", verdict = { kind = "upgrade", pct = 8.21 } },
+		{ name = "Tolvan", spec = "Arms", verdict = { kind = "empty" } },
+		{ name = "Ada", spec = "Frost", verdict = { kind = "upgrade", pct = 3.04 } },
+	})
+	eq(results[1].name, "Tolvan", "an empty slot first")
+	eq(results[2].name, "Mira")
+	eq(results[3].name, "Ada", "ties by name")
+	local lines, more = ns.Gear_AltLines(results, 2)
+	eq(#lines, 2)
+	eq(lines[1], "Upgrade for Tolvan (Arms): empty slot")
+	eq(lines[2], "Upgrade for Mira (Holy): +8.2%")
+	eq(more, "+2 more")
+	lines, more = ns.Gear_AltLines({ results[2] }, 2)
+	eq(#lines, 1)
+	eq(more, nil)
+	lines = ns.Gear_AltLines({}, 2)
+	eq(#lines, 0)
+	eq(ns.Gear_AltGain({ kind = "noStats" }), "theirs has no stats")
 end)
 
 print(failures == 0 and "all passed" or (failures .. " failed"))

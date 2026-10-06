@@ -54,8 +54,11 @@ local function ForPlayer(info, faction)
 	return true
 end
 
+-- x, y: where it is on the map it was read from (0..1, the position the world map places its pin at).
 local function Node(info)
-	return { nodeID = info.nodeID, name = info.name, undiscovered = info.isUndiscovered }
+	local pos = info.position
+	return { nodeID = info.nodeID, name = info.name, undiscovered = info.isUndiscovered, x = pos and pos.x,
+		y = pos and pos.y }
 end
 
 -- { continents = { { mapID, name, zones = { { mapID, name, nodes = { { nodeID, name, undiscovered } } } } } } },
@@ -92,7 +95,7 @@ function ns.Atlas_Build()
 	return { continents = list }
 end
 
--- Flight masters for the player on one map (any map type), each once.
+-- Flight masters for the player on one map (any map type), each once, with their x, y on that map.
 function ns.Atlas_MapNodes(mapID)
 	local faction = UnitFactionGroup("player")
 	local nodes, seen = {}, {}

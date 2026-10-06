@@ -274,22 +274,65 @@ test("popup: all done is empty, full concentration shows", function()
 	eq(items[1].state, "warn")
 end)
 
-test("week model: sections, banner and empty sections left out", function()
-	local items = ns.Weekly_WeekModel(ns.Weekly_View(Snap(), NOW + 86400), LEARNED, NOW + 86400, true)
-	eq(items[1].kind, "banner")
+local function Headers(items)
 	local headers = {}
 	for _, item in ipairs(items) do
 		if item.kind == "header" then
 			headers[#headers + 1] = item.text
 		end
 	end
-	eq(table.concat(headers, ","), "Great Vault,Currencies,Weekly quests,Professions,Renown", "lockouts expired")
-	eq(Find(items, "Raid  0/3").right, "0/2 to slot 1")
-	eq(Find(items, "World boss").right, "open")
-	eq(Find(items, "Voidspire Heroic"), nil, "expired by then")
-	local fresh = ns.Weekly_WeekModel(ns.Weekly_View(Snap(), NOW), LEARNED, NOW, true)
-	eq(Find(fresh, "Voidspire Heroic").right, "4/8 · resets in 1d 0h")
-	eq(Find(fresh, "Silvermoon Court").frac, 0.5)
+	return table.concat(headers, ",")
+end
+
+test("board model: vault notes, to do and progress", function()
+	local m = ns.Weekly_BoardModel(ns.Weekly_View(Snap(), NOW), LEARNED, NOW, true)
+	eq(m.vaultReady, false)
+	eq(#m.vault, 2, "world has no slots")
+	eq(m.vault[1].note, "1 more boss for slot 2")
+	eq(m.vault[1].nextSlot, 2)
+	eq(m.vault[2].note, "1 more dungeon for slot 1")
+	eq(Headers(m.todo), "Weekly quests,Alchemy,Mining")
+	eq(m.todo[2].left, "World boss", "open quests first")
+	eq(m.todo[3].left, "Delve weekly")
+	eq(m.todo[3].dimLeft, true, "done quest")
+	eq(Find(m.todo, "Treatise") ~= nil, true, "Alchemy's treatise is open")
+	eq(Find(m.todo, "Trainer quest").indent, true)
+	eq(Headers(m.progress), "Renown,Crests,Lockouts")
+	local renown = Find(m.progress, "Silvermoon Court")
+	eq(renown.right, "12 / 20")
+	eq(renown.frac, 0.6, "level out of max")
+	eq(renown.note, "1,250 / 2,500 to 13")
+	eq(Find(m.progress, "Voidspire Heroic").right, "4/8 · resets in 1d 0h")
+end)
+
+test("board model: after the reset the vault waits and lockouts are gone", function()
+	local m = ns.Weekly_BoardModel(ns.Weekly_View(Snap(), NOW + 86400), LEARNED, NOW + 86400, true)
+	eq(m.vaultReady, true)
+	eq(m.vault[1].note, "2 more bosses for slot 1")
+	eq(Headers(m.progress), "Renown,Crests", "lockouts expired")
+end)
+
+test("board model: a maxed faction and a profession with all knowledge", function()
+	local s = Snap({ renown = { [1] = { name = "Done Court", level = 20, max = 20 } } })
+	local def = ns.Weekly_ProfDef(nil, 186)
+	local all = {}
+	for _, id in ipairs(ns.Weekly_ProfQuestIDs(def)) do
+		all[id] = true
+	end
+	s.profs[MINING].knowledge = all
+	local m = ns.Weekly_BoardModel(ns.Weekly_View(s, NOW), LEARNED, NOW, false)
+	eq(Headers(m.todo), "Alchemy", "no quests, Mining collapsed")
+	eq(Find(m.todo, "Mining").right, "knowledge done")
+	eq(Find(m.todo, "Mining").state, "done")
+	local done = Find(m.progress, "Done Court")
+	eq(done.right, "max")
+	eq(done.state, "gold")
+	eq(done.frac, 1)
+end)
+
+test("reset text", function()
+	eq(ns.Weekly_ResetText(nil, NOW), nil)
+	eq(ns.Weekly_ResetText(11 * 3600 + 23 * 60, NOW), "Resets in 11h 23m · " .. os.date("%a %H:%M", NOW + 11 * 3600 + 23 * 60))
 end)
 
 test("prof model: concentration text and knowledge rows", function()

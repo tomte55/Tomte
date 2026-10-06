@@ -243,6 +243,35 @@ module = ns.RegisterModule({
 	description = "A tab in the world map's side panel with the mounts, battle pets and achievements still missing on the map you're looking at (from the journals' source text), toasts when you arrive in a zone with mounts or pets left, and when a rare that drops one is up.",
 	enabledByDefault = true,
 	home = {
+		{ kind = "next", key = "nextrare", name = "Rare up with a missing mount or pet", score = 95,
+			description = "A rare that's up now in your zone drops a mount or battle pet you're missing (click for a waypoint).",
+			candidates = function()
+				local state = ns.Collect_State()
+				if not (state.mounts and state.pets) then
+					return {}
+				end
+				local entries, _, _, mapID = ns.Collect_ForMap(PlayerMap())
+				if not entries then
+					return {}
+				end
+				local list = {}
+				for _, f in ipairs(ns.Collect_ApplyVignettes(entries, mapID)) do
+					local e = f.entry
+					if db.show[e.kind == "mount" and "mounts" or "pets"] ~= false and e.upNow then
+						local upNow = e.upNow
+						list[#list + 1] = {
+							key = "collect:rare:" .. f.name, state = f.guid,
+							text = ("%s is up"):format(f.name),
+							why = ("Drops %s, a %s you're missing."):format(e.name, KIND_WORDS[e.kind] or "drop"),
+							icon = e.icon, bonus = e.kind == "mount" and 9 or 5,
+							onClick = function()
+								ns.Collect_Waypoint(upNow, f.name)
+							end, hint = "Click for a waypoint",
+						}
+					end
+				end
+				return list
+			end },
 		{ kind = "map", key = "collect", order = 1, name = "Collect here", icon = "Interface\\Icons\\Ability_Mount_RidingHorse",
 			open = function()
 				ns.CollectTab_Open()

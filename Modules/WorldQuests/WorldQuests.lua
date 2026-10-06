@@ -225,6 +225,32 @@ module = ns.RegisterModule({
 				end
 				return n == 1 and "1 world quest around here" or (n .. " world quests around here")
 			end },
+		{ kind = "next", key = "nextwq", name = "World quests worth doing", score = 80,
+			description = "A world quest around you rewards a mount, pet or toy you're missing, or a clean gear upgrade "
+				.. "(click to track it).",
+			candidates = function()
+				local quests = HomeQuests()
+				local list = {}
+				for _, section in ipairs(quests and ns.WQ_Sections(quests, ns.WQ_Options()) or {}) do
+					if section.key == "worth" then
+						for _, q in ipairs(section.quests) do
+							if TOAST_REASONS[q.reason] then
+								local main = ns.WQ_RewardText(q)
+								list[#list + 1] = {
+									key = "wq:" .. q.id, text = main,
+									why = q.title .. (q.zone and (", " .. q.zone) or ""),
+									right = (ns.WQ_TimeText(q.seconds)), icon = ns.WQ_RowIcon(q),
+									bonus = q.reason == "collectible" and 9 or 5,
+									onClick = function()
+										ns.WQ_Track(q)
+									end, hint = "Click to track it",
+								}
+							end
+						end
+					end
+				end
+				return list
+			end },
 		{ kind = "around", key = "wqaround", order = 2, name = "World quests",
 			icon = "Interface\\Icons\\INV_Misc_Map_01",
 			open = function()

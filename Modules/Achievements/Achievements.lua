@@ -347,6 +347,33 @@ local function ThresholdChanged()
 	Changed()
 end
 
+-- Next up: the names of where you are (zone up to continent), to put "Treasures of the Isle of Dorn" first in
+-- Dornogal. Achievements have no zone of their own; the name is the best hint there is.
+local function HereNames()
+	local names = {}
+	local mapID = C_Map.GetBestMapForUnit("player")
+	for _ = 1, 6 do
+		local info = mapID and C_Map.GetMapInfo(mapID)
+		if not info or info.mapType < Enum.UIMapType.Continent then
+			break
+		end
+		if info.name and #info.name >= 4 then
+			names[#names + 1] = info.name
+		end
+		mapID = info.parentMapID
+	end
+	return names
+end
+
+local function NamedAfter(name, places)
+	for _, place in ipairs(places) do
+		if name and name:find(place, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
 module = ns.RegisterModule({
 	key = "ach",
 	conflicts = { { addon = "AlmostCompletedAchievements", why = "Almost Done stays off while it's enabled" } },
@@ -366,6 +393,34 @@ module = ns.RegisterModule({
 		tracker = { shown = true, locked = false, hideInCombat = true, scale = 1 },
 		toasts = { almost = true, lastStep = true, pinned = true },
 		preview = true,
+	},
+	home = {
+		{ kind = "next", key = "nextach", name = "Achievements one step from done", score = 65,
+			description = "Achievements with one step left, and your pinned ones (from Almost Done's list and filters). "
+				.. "The ones named after where you are come first.",
+			candidates = function()
+				local list = {}
+				local here = HereNames()
+				for _, r in ipairs(ns.Ach_Top(40)) do
+					local oneLeft = r.total and r.total >= 2 and r.total - r.done == 1
+					if oneLeft or r.pinned then
+						local near = NamedAfter(r.name, here)
+						local id = r.id
+						list[#list + 1] = {
+							key = "ach:" .. id, state = r.done,
+							text = r.name,
+							why = oneLeft and (r.last and ("One step left: " .. r.last) or "One step left.")
+								or ("Pinned, " .. ns.Ach_ProgressText(r, ", ")),
+							right = ("%d/%d"):format(r.have or r.done, r.need or r.total), icon = r.icon,
+							bonus = (near and 6 or 0) + (r.pinned and 2 or 0) + (oneLeft and 1 or 0),
+							onClick = function()
+								ns.Ach_Open(id)
+							end, hint = "Click to open it",
+						}
+					end
+				end
+				return list
+			end },
 	},
 	init = function(saved)
 		db = saved
