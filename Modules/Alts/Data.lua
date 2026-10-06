@@ -337,6 +337,17 @@ function ns.Alts_Gold(copper)
 	return text .. "g"
 end
 
+-- A price: "12g" from a gold up, else "45s" or "80c" (so a cheap reagent isn't "0g").
+function ns.Alts_Price(copper)
+	copper = floor(copper or 0)
+	if copper >= 10000 then
+		return ns.Alts_Gold(copper)
+	elseif copper >= 100 then
+		return floor(copper / 100) .. "s"
+	end
+	return copper .. "c"
+end
+
 -- "now" / "5 min" / "3 h" / "2 days" / "3 weeks"
 function ns.Alts_Ago(seconds)
 	seconds = max(seconds or 0, 0)

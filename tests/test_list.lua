@@ -51,7 +51,7 @@ local function Ctx(me, places)
 			return 10000
 		end,
 		gold = function(c)
-			return (c / 10000) .. "g"
+			return math.floor(c / 10000) .. "g"
 		end,
 	}
 end
@@ -92,6 +92,7 @@ test("gatherer: mail herbs from bags, grab from bank, others' ore, intermediate 
 	eq(mail.text, "Mail 8 Herb to Mira")
 	local fetch = Find(todo, "fetch")
 	eq(fetch.n, 7)
+	eq(fetch.text, "Grab 7 Herb from bank", "only the step in front of you")
 	local craft = Find(todo, "craft")
 	assert(craft.text:find("Tolvan: craft 6 Iron Ingot first"), craft.text)
 	eq(Find(todo, "missing"), nil)
@@ -102,18 +103,28 @@ end)
 test("crafter with everything in bags is ready; bank and warband lines otherwise", function()
 	local places = { [HERB] = { { guid = "Alch", where = "bags", n = 10 } } }
 	local todo = ns.Alts_CraftTodo({ recipeID = 3, crafts = 1 }, Ctx("Alch", places))
-	eq(Find(todo, "ready").text, "Craft 1 Bar: you have everything")
+	eq(Find(todo, "ready").text, "Ready: craft 1 Bar")
 	eq(todo.done, true)
 	places = { [HERB] = { { guid = "Alch", where = "bank", n = 4 }, { where = "warband", n = 6 } } }
 	todo = ns.Alts_CraftTodo({ recipeID = 3, crafts = 1 }, Ctx("Alch", places))
-	eq(Find(todo, "grab").text, "Grab 4 Herb from your bank")
-	eq(Find(todo, "take").text, "Take 6 Herb from the Warband bank")
+	eq(Find(todo, "grab").text, "Grab 4 Herb from bank")
+	eq(Find(todo, "take").text, "Take 6 Herb from Warband bank")
+	eq(todo.done, false)
+end)
+
+test("the crafter's own steps only show on the crafter", function()
+	local places = { [HERB] = { { guid = "Alch", where = "bank", n = 4 }, { where = "warband", n = 6 } } }
+	local todo = ns.Alts_CraftTodo({ recipeID = 3, crafts = 1 }, Ctx("Main", places))
+	eq(Find(todo, "take"), nil, "Mira's Warband bank step")
+	eq(Find(todo, "other"), nil, "Mira's own bank")
+	eq(#todo.lines, 1)
+	eq(Find(todo, "wait").text, "Mira crafts 1 Bar")
 	eq(todo.done, false)
 end)
 
 test("missing materials with a price", function()
 	local todo = ns.Alts_CraftTodo({ recipeID = 3, crafts = 1 }, Ctx("Main", { [HERB] = { { guid = "Main", where = "bags", n = 4 } } }))
-	eq(Find(todo, "missing").text, "Buy or gather 6 Herb (~6g)")
+	eq(Find(todo, "missing").text, "Get 6 Herb (~6g)")
 	eq(Find(todo, "wait").text, "Mira crafts 1 Bar")
 end)
 

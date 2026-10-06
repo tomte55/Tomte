@@ -8,7 +8,7 @@ local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
 local GREEN, RED = { 0.45, 0.85, 0.45 }, { 1, 0.45, 0.35 }
 local ROW_H = 26
 local LINE_H = 18
-local HEADER_H = 28
+local HEADER_H = 34
 
 local tab
 local rows, lines, headers = {}, {}, {}
@@ -20,13 +20,21 @@ end
 local function Header(i, text, y)
 	local fs = headers[i]
 	if not fs then
-		fs = UI.Text(tab.scroll.content, 12, GOLD, ns.HomeKit.DISPLAY_FONT)
+		-- The plain font: the display font is hard to read this small.
+		fs = UI.Text(tab.scroll.content, 15, GOLD)
+		fs.line = tab.scroll.content:CreateTexture(nil, "ARTWORK")
+		fs.line:SetHeight(1)
+		fs.line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.25)
 		headers[i] = fs
 	end
 	fs:SetText(text)
 	fs:ClearAllPoints()
-	fs:SetPoint("TOPLEFT", 4, -(y + 8))
+	fs:SetPoint("TOPLEFT", 4, -(y + 10))
+	fs.line:ClearAllPoints()
+	fs.line:SetPoint("TOPLEFT", 4, -(y + 30))
+	fs.line:SetPoint("RIGHT", tab.scroll.content, "RIGHT", -8, 0)
 	fs:Show()
+	fs.line:Show()
 	return y + HEADER_H
 end
 
@@ -119,6 +127,9 @@ function ns.AltsListTab_Refresh()
 	for _, list in ipairs({ rows, lines, headers }) do
 		for _, f in ipairs(list) do
 			f:Hide()
+			if f.line then
+				f.line:Hide() -- a header's rule
+			end
 		end
 	end
 	local alts = ns.altsDB
@@ -135,7 +146,7 @@ function ns.AltsListTab_Refresh()
 		local row = rows[i] or CreateEntryRow(content)
 		rows[i] = row
 		row.entry = t.entry
-		row.name:SetText(RecipeName(t.entry.recipeID))
+		row.name:SetText(ns.Alts_RecipeLabel(t.entry.recipeID, 18))
 		row.count:SetText(t.entry.crafts)
 		local c = t.crafter and alts.chars[t.crafter]
 		local color = c and c.class and C_ClassColor.GetClassColor(c.class)
@@ -174,7 +185,7 @@ function ns.AltsListTab_Refresh()
 		n = n + 1
 		local l = Line(n)
 		l.itemID = agg.itemID
-		l.text:SetText(C_Item.GetItemNameByID(agg.itemID) or ("item " .. agg.itemID))
+		l.text:SetText(ns.Alts_ItemLabel(agg.itemID, 14))
 		SetColor(l.text, WHITE)
 		l.right:SetText(agg.missing > 0 and ("|cffff7359%d missing|r  ·  %d needed"):format(agg.missing, agg.need)
 			or ("%d needed"):format(agg.need))

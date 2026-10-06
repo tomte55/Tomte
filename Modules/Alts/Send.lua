@@ -20,6 +20,7 @@ local db
 local dock, bankButton
 local groups = {}
 local attached -- { guid, stacks } while a mail is filled in and not sent yet
+local toppingUp -- { c, amount } while a gold top-up is on its way
 local depositing = false
 
 local events = CreateFrame("Frame")
@@ -103,6 +104,32 @@ local function AttachmentCount()
 	return n
 end
 
+-- Tracked crafts that need something from your bags: { { todo, wants, to } }.
+local function CraftMails()
+	if not ns.AltsList_Todos then
+		return {}
+	end
+	local out = {}
+	for _, todo in ipairs(ns.AltsList_Todos()) do
+		local wants, to = ns.Alts_CraftMail(todo)
+		if to and #wants > 0 and ns.altsDB.chars[to] then
+			out[#out + 1] = { todo = todo, wants = wants, to = to }
+		end
+	end
+	return out
+end
+
+-- Bag stacks for the "everything else" groups: what the tracked crafts' mails take is left out (else it shows twice).
+local function FreeStacks()
+	local claims = {}
+	for _, cm in ipairs(CraftMails()) do
+		for _, w in ipairs(cm.wants) do
+			claims[w.itemID] = (claims[w.itemID] or 0) + w.n
+		end
+	end
+	return ns.Alts_Unclaimed(BagStacks(), claims)
+end
+
 local function Attach(g)
 	if Busy() then
 		return
@@ -119,8 +146,20 @@ local function Attach(g)
 		return
 	end
 	local c = ns.altsDB.chars[g.guid]
+	-- Read the bags again: the group's bag slots are from when the panel was drawn, and items may have moved since.
+	local fresh
+	for _, group in ipairs(ns.Alts_SendGroups(FreeStacks(), Context(), Mailable)) do
+		if group.guid == g.guid then
+			fresh = group
+		end
+	end
+	if not fresh then
+		Say(("nothing left in your bags for %s."):format(c and c.name or "?"))
+		ns.AltsSend_Refresh()
+		return
+	end
 	ClearCursor()
-	local mail = ns.Alts_NextMail(g, MAX_ATTACH)
+	local mail = ns.Alts_NextMail(fresh, MAX_ATTACH)
 	local done = {}
 	for i, s in ipairs(mail) do
 		C_Container.PickupContainerItem(s.bag, s.slot)
@@ -182,21 +221,6 @@ local function AttachCraft(cm)
 	ns.AltsSend_Refresh()
 end
 
--- Tracked crafts that need something from your bags: { { todo, wants, to } }.
-local function CraftMails()
-	if not ns.AltsList_Todos then
-		return {}
-	end
-	local out = {}
-	for _, todo in ipairs(ns.AltsList_Todos()) do
-		local wants, to = ns.Alts_CraftMail(todo)
-		if to and #wants > 0 and ns.altsDB.chars[to] then
-			out[#out + 1] = { todo = todo, wants = wants, to = to }
-		end
-	end
-	return out
-end
-
 local function Send()
 	if Busy() or not attached then
 		return
@@ -230,6 +254,7 @@ local function TopUp(c, amount)
 	SendMailSubjectEditBox:SetText(db.sendSubject ~= "" and db.sendSubject or "Tomte")
 	SetSendMailCOD(0)
 	SetSendMailMoney(amount)
+	toppingUp = { c = c, amount = amount }
 	SendMail(SendMailNameEditBox:GetText(), SendMailSubjectEditBox:GetText(), "")
 end
 
@@ -310,8 +335,10 @@ function ns.AltsSend_Refresh()
 		b:SetPoint("TOPLEFT", 12, -y)
 		b:SetPoint("RIGHT", -12, 0)
 		local color = ClassColor(c)
-		b.name:SetText(("|cffffd173%s x%d|r  |cff9e9e9eto|r %s"):format(recipe and recipe.name or "?", cm.todo.entry.crafts,
-			color and ("|cff%02x%02x%02x%s|r"):format(color[1] * 255, color[2] * 255, color[3] * 255, c.name or "?") or c.name))
+		-- Who it's for first (like the rows below), so a long recipe name is what gets cut.
+		b.name:SetText(("%s: |cffffd173%s x%d|r"):format(
+			color and ("|cff%02x%02x%02x%s|r"):format(color[1] * 255, color[2] * 255, color[3] * 255, c.name or "?") or c.name,
+			recipe and recipe.name or "?", cm.todo.entry.crafts))
 		b.name:SetTextColor(1, 1, 1)
 		local isAttached = attached and attached.craft == cm.todo.entry.recipeID
 		b.button.label:SetText(isAttached and "Send" or "Attach")
@@ -441,7 +468,7 @@ local function Rebuild()
 		groups = {}
 		return
 	end
-	groups = ns.Alts_SendGroups(BagStacks(), Context(), Mailable)
+	groups = ns.Alts_SendGroups(FreeStacks(), Context(), Mailable)
 end
 
 local function ShowDock()
@@ -463,7 +490,7 @@ function events:MAIL_SHOW()
 end
 
 function events:MAIL_CLOSED()
-	attached = nil
+	attached, toppingUp = nil, nil
 	if dock then
 		dock:Hide()
 	end
@@ -474,12 +501,16 @@ function events:MAIL_SEND_SUCCESS()
 		local c = ns.altsDB.chars[attached.guid]
 		Say(("sent %d stack%s to %s."):format(#attached.stacks, #attached.stacks == 1 and "" or "s", c and c.name or "?"))
 	end
-	attached = nil
+	if toppingUp then
+		-- The stored gold is from the alt's last login: count the top-up in, so it isn't offered again.
+		toppingUp.c.money = (toppingUp.c.money or 0) + toppingUp.amount
+	end
+	attached, toppingUp = nil, nil
 	C_Timer.After(0.5, ShowDock) -- the bags have changed
 end
 
 function events:MAIL_FAILED()
-	attached = nil
+	attached, toppingUp = nil, nil
 	if dock and dock:IsShown() then
 		ns.AltsSend_Refresh()
 	end
@@ -564,7 +595,10 @@ function ns.AltsSend_Summary()
 	if not (db and (db.sendMail or db.sendWarband) and ns.altsDB) then
 		return nil
 	end
-	local list = ns.Alts_SendGroups(BagStacks(), Context())
+	-- Only stacks the mailbox or the Warband bank can actually move (not soulbound ones).
+	local list = ns.Alts_SendGroups(BagStacks(), Context(), function(s)
+		return (db.sendMail and Mailable(s)) or (db.sendWarband and Warbandable(s))
+	end)
 	if #list == 0 then
 		return nil
 	end

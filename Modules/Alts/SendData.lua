@@ -108,6 +108,24 @@ function ns.Alts_SendGroups(stacks, ctx, filter)
 	return groups
 end
 
+-- Bag stacks left once the tracked crafts' mails have what they need (claims: [itemID] = amount). A stack a craft
+-- draws on is left out whole: attaching it here would mail it twice.
+function ns.Alts_Unclaimed(stacks, claims)
+	local left, out = {}, {}
+	for itemID, n in pairs(claims) do
+		left[itemID] = n
+	end
+	for _, s in ipairs(stacks) do
+		local need = left[s.itemID]
+		if need and need > 0 then
+			left[s.itemID] = need - (s.count or 1)
+		else
+			out[#out + 1] = s
+		end
+	end
+	return out
+end
+
 -- The next mail's stacks: the first `max` (12) of a group.
 function ns.Alts_NextMail(group, max)
 	local list = {}

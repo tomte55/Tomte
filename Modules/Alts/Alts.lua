@@ -341,16 +341,20 @@ module = ns.RegisterModule({
 			.. "Baganator's settings (Icons), \"Tomte Crafting list\" has to be in a corner for it to show." },
 		{ type = "checkbox", key = "listPrice", label = "Price missing materials", onChange = function()
 			ns.AltsList_Changed()
-		end, tooltip = "\"Buy or gather\" lines say what it costs (Gold & value)." },
+		end, tooltip = "\"Get\" lines say what it costs (Gold & value)." },
 	},
 	commands = {
 		{ "open", "open the Alts page", function()
 			ns.Panel_OpenPage("alts")
 		end },
 		{ "forget", "forget a character: /tomte alts forget <name>", Forget },
+		{ "why", "why Materials on hand keeps or drops a recipe: /tomte alts why <recipe>", function(text)
+			ns.AltsCraft_Why(text)
+		end },
 		{ "list", "open the crafting list", function()
 			db.view = "list"
 			ns.Panel_OpenPage("alts")
+			ns.Alts_ShowTab("list") -- the page may already be open on another tab (no OnShow then)
 		end },
 		{ "tracker", "show or hide the craft tracker", function()
 			db.tracker.shown = not db.tracker.shown

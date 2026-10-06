@@ -218,6 +218,54 @@ local function HaveMaterials(list)
 	return kept
 end
 
+-- /tomte alts why <recipe>: why "Materials on hand" keeps or drops a recipe (each material: need, have and where).
+function ns.AltsCraft_Why(text)
+	text = strtrim(text or ""):lower()
+	if text == "" then
+		ns.Print("usage: /tomte alts why <part of a recipe name>")
+		return
+	end
+	db = db or ns.altsDB -- set when the tab is first built; the command can come before that
+	producers = producers or ns.Alts_Producers(db.recipes)
+	local found = ns.Alts_Search(db.recipes, db.chars, { text = text, learnable = true }, 3)
+	if #found == 0 then
+		ns.Print("no recipe matches \"" .. text .. "\".")
+		return
+	end
+	ns.Print(("Syndicator %s."):format(ns.Alts_HasSyndicator() and "is counting" or "isn't loaded or ready: only this character and the Warband bank"))
+	for _, r in ipairs(found) do
+		local ok, plan = pcall(ns.Alts_Plan, r.id, 1, {
+			recipes = db.recipes, chars = db.chars, producers = producers,
+			maxDepth = db.chain == "one" and 1 or ns.ALTS_FULL_DEPTH,
+			count = function(items)
+				return (ns.Alts_Have(items))
+			end,
+		})
+		if not ok then
+			ns.Print(("%s: plan error %s"):format(r.recipe.name or r.id, tostring(plan)))
+		else
+			local kept = plan.missing == 0 and plan.unknown == 0
+			ns.Print(("%s: %s (missing %d, steps nobody knows %d)"):format(r.recipe.name or r.id,
+				kept and "|cff73d973kept|r" or "|cffff7359dropped|r", plan.missing, plan.unknown))
+			for _, m in ipairs(plan.materials) do
+				local _, where = ns.Alts_Have(m.items)
+				local parts = {}
+				for _, w in ipairs(where) do
+					parts[#parts + 1] = ("%s %d"):format(w.name, w.n)
+				end
+				ns.Print(("   %s: need %d, have %d%s%s"):format(C_Item.GetItemNameByID(m.items[1]) or ("item " .. m.items[1]),
+					m.need, m.have, m.missing > 0 and (", |cffff7359missing %d|r"):format(m.missing) or "",
+					#parts > 0 and (" (" .. table.concat(parts, ", ") .. ")") or ""))
+			end
+			for _, step in ipairs(plan.steps) do
+				if #step.crafters == 0 then
+					ns.Print(("   nobody knows %s"):format(db.recipes[step.recipeID] and db.recipes[step.recipeID].name or step.recipeID))
+				end
+			end
+		end
+	end
+end
+
 -- An expansion skill line's name ("Dragon Isles Blacksmithing"), for recipes read before names were stored.
 local lineNames = {}
 local function LineName(recipe)
@@ -464,7 +512,10 @@ local function CreateMatRow(parent)
 			GameTooltip:AddLine(" ")
 			GameTooltip:AddLine(self.whereFull, 1, 1, 1, true)
 		end
-		local unit, _, stale = ns.Value_ItemPrice and ns.Value_ItemPrice(self.itemID)
+		local unit, _, stale
+		if ns.Value_ItemPrice then
+			unit, _, stale = ns.Value_ItemPrice(self.itemID) -- not "a and f()": that keeps only the first value
+		end
 		if unit then
 			GameTooltip:AddLine(("Worth %s each, %s for %d"):format(ns.Value_Text(unit, stale), ns.Value_Text(unit * self.need, stale),
 				self.need), 1, 0.82, 0.45)

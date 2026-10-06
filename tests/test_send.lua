@@ -106,6 +106,20 @@ test("top up and mail names", function()
 	eq(ns.Alts_MailName(chars.Smith, "Silvermoon"), "Tolvan-ArgentDawn")
 end)
 
+test("stacks a tracked craft claims aren't offered again", function()
+	local stacks = {
+		{ itemID = 1, count = 128, slot = 1 }, -- the craft wants 128: all of it
+		{ itemID = 2, count = 20, slot = 2 }, -- wants 5: this stack is drawn on, so it's left out whole
+		{ itemID = 2, count = 20, slot = 3 }, -- not needed: stays
+		{ itemID = 3, count = 7, slot = 4 }, -- not claimed
+	}
+	local left = ns.Alts_Unclaimed(stacks, { [1] = 128, [2] = 5 })
+	eq(#left, 2)
+	eq(left[1].slot, 3)
+	eq(left[2].slot, 4)
+	eq(#ns.Alts_Unclaimed(stacks, {}), 4, "no claims")
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)

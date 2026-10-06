@@ -143,6 +143,11 @@ local function CrafterOf(step)
 	return c and c.guid or nil
 end
 
+-- Getting something of yours out of your bank or mail into your bags.
+local function FetchText(t, name)
+	return (t.where == "mail" and "Collect %d %s from mail" or "Grab %d %s from bank"):format(t.n, name)
+end
+
 -- One tracked craft: its plan, where the materials come from, and the to-do lines for `me`.
 -- ctx = { me, chars, recipes, plan = function(recipeID, crafts, count) -> plan, pool, itemName(itemID),
 --         recipeName(recipeID), price(itemID) -> copper | nil (optional), gold(copper) -> text }
@@ -158,6 +163,15 @@ function ns.Alts_CraftTodo(entry, ctx)
 	local final = plan.steps[#plan.steps]
 	local finalCrafter = CrafterOf(final)
 	local me = ctx.me
+	-- Counted down to 0 ("By hand"): done, nothing to move. (The plan is for one craft, as Alts_Plan never plans 0.)
+	if entry.crafts <= 0 then
+		return {
+			entry = entry, plan = { materials = {}, steps = plan.steps, missing = 0, unknown = 0 },
+			lines = { { kind = "ready", mine = true,
+				text = ("%s done: remove it from the list"):format(ctx.recipeName(entry.recipeID)) } },
+			crafter = finalCrafter, inPlace = 0, needed = 0, done = true,
+		}
+	end
 	local lines, inPlace, needed = {}, 0, 0
 	local outstanding = 0 -- units that still have to move or be found for the final crafter
 	local function Name(guid)
@@ -182,40 +196,43 @@ function ns.Alts_CraftTodo(entry, ctx)
 			else
 				outstanding = outstanding + t.n
 				local line = { itemID = t.itemID, n = t.n, from = t.guid, where = t.where, to = dest }
-				if t.guid == nil then
+				if (t.guid == nil or t.guid == dest) and dest ~= me then
+					-- The crafter's own step (Warband bank, their bank or mail): it shows when you're on them. Here,
+					-- their "crafts" line or craft step says to log over.
+					line = nil
+				elseif t.guid == nil then
 					line.kind = "take"
-					line.text = dest == me and ("Take %d %s from the Warband bank"):format(t.n, name)
-						or ("Take %d %s from the Warband bank for %s"):format(t.n, name, Name(dest))
+					line.text = ("Take %d %s from Warband bank"):format(t.n, name)
 					line.mine = true
 				elseif t.guid == me and dest == me then
 					line.kind = t.where == "mail" and "collect" or "grab"
-					line.text = t.where == "mail" and ("Collect %d %s from your mail"):format(t.n, name)
-						or ("Grab %d %s from your bank"):format(t.n, name)
+					line.text = FetchText(t, name)
 					line.mine = true
 				elseif t.guid == me then
 					if t.where == "bags" then
 						line.kind = "mail"
 						line.text = ("Mail %d %s to %s"):format(t.n, name, Name(dest))
 					else
+						-- Only the step in front of you: once it's in your bags this becomes a "Mail ... to" line.
 						line.kind = "fetch"
-						line.text = ("Grab %d %s from your %s, then mail it to %s"):format(t.n, name,
-							t.where == "mail" and "mail" or "bank", Name(dest))
+						line.text = FetchText(t, name)
 					end
 					line.mine = true
 				else
 					line.kind = "other"
 					local place = t.where == "bags" and "" or (" (%s)"):format(t.where)
-					line.text = t.guid == dest and ("%s has %d %s in the %s"):format(Name(t.guid), t.n, name, t.where)
-						or ("%s has %d %s%s for %s"):format(Name(t.guid), t.n, name, place, Name(dest))
+					line.text = ("%s has %d %s%s for %s"):format(Name(t.guid), t.n, name, place, Name(dest))
 				end
-				Add(line)
+				if line then
+					Add(line)
+				end
 			end
 		end
 		if m.missing > 0 then
 			outstanding = outstanding + m.missing
 			local price = ctx.price and ctx.price(m.items[1])
 			Add({ kind = "missing", itemID = m.items[1], n = m.missing,
-				text = ("Buy or gather %d %s%s"):format(m.missing, ctx.itemName(m.items[1]),
+				text = ("Get %d %s%s"):format(m.missing, ctx.itemName(m.items[1]),
 					price and (" (~%s)"):format(ctx.gold(price * m.missing)) or ""), mine = true })
 		end
 	end
@@ -232,8 +249,8 @@ function ns.Alts_CraftTodo(entry, ctx)
 	local finalText = ("%d %s"):format(entry.crafts, ctx.recipeName(entry.recipeID))
 	if outstanding == 0 and #plan.steps <= 1 then
 		Add({ kind = finalCrafter == me and "ready" or "wait", mine = finalCrafter == me,
-			text = finalCrafter == me and ("Craft %s: you have everything"):format(finalText)
-				or ("%s can craft %s: everything is there"):format(Name(finalCrafter), finalText) })
+			text = finalCrafter == me and ("Ready: craft %s"):format(finalText)
+				or ("%s can craft %s now"):format(Name(finalCrafter), finalText) })
 	elseif finalCrafter ~= me then
 		Add({ kind = "wait", text = ("%s crafts %s"):format(finalCrafter and Name(finalCrafter) or "Nobody", finalText) })
 	end

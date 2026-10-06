@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 -- Crafting list: crafts added from the Crafting tab, an on-screen tracker with the to-do for the character you're
--- on ("Grab 10 Iron Ingot from your bank", "Mail 20 Mycobloom to Mira", "Craft 3 Flask: you have everything"),
+-- on ("Grab 10 Iron Ingot from bank", "Mail 20 Mycobloom to Mira", "Ready: craft 3 Flask"),
 -- crafts counted down as they're made, and marks on the items to move in Baganator's bags and bank. The mailbox rows
 -- are in Send.lua, the List tab in ListTab.lua, the rules in ListData.lua.
 
@@ -70,7 +70,8 @@ local function Where(itemID)
 	if api then
 		local info = api.GetInventoryInfoByItemID(itemID, false, false)
 		for _, c in ipairs(info and info.characters or {}) do
-			local guid = GuidOf(c.character)
+			-- c.character is the bare name; the realm tells same-named characters apart.
+			local guid = GuidOf(c.realmNormalized and (c.character .. "-" .. c.realmNormalized) or c.character)
 			if guid then
 				for _, where in ipairs({ "bags", "bank", "mail" }) do
 					local n = c[where]
@@ -112,6 +113,31 @@ local function RecipeName(recipeID)
 	return r and r.name or "?"
 end
 
+-- Text in an item's rarity colour (as it is until the item's data has loaded).
+local function InQuality(text, itemID)
+	local quality = itemID and C_Item.GetItemQualityByID(itemID)
+	if not quality then
+		return text
+	end
+	local r, g, b = C_Item.GetItemQualityColor(quality)
+	return ("|cff%02x%02x%02x%s|r"):format(r * 255, g * 255, b * 255, text)
+end
+
+local function Icon(icon, size)
+	return icon and size and ("|T%s:%d:%d:0:0:64:64:5:59:5:59|t "):format(icon, size, size) or ""
+end
+
+-- An item as the crafting list shows it: its icon (when size is given) and its name in its rarity colour.
+function ns.Alts_ItemLabel(itemID, size)
+	return Icon(C_Item.GetItemIconByID(itemID), size) .. InQuality(ItemName(itemID), itemID)
+end
+
+-- A recipe: its icon (when size is given) and its name in the rarity colour of what it makes.
+function ns.Alts_RecipeLabel(recipeID, size)
+	local r = ns.altsDB.recipes[recipeID]
+	return Icon(r and r.icon, size) .. InQuality(RecipeName(recipeID), r and r.item)
+end
+
 -- Every tracked craft's to-do for the character you're on (cached for a second).
 function ns.AltsList_Todos()
 	if not (db and ns.altsDB) then
@@ -134,11 +160,17 @@ function ns.AltsList_Todos()
 				maxDepth = alts.chain == "one" and 1 or ns.ALTS_FULL_DEPTH,
 			})
 		end,
-		itemName = ItemName, recipeName = RecipeName,
+		-- Names in the to-do lines: items with their icon, both in rarity colour.
+		itemName = function(itemID)
+			return ns.Alts_ItemLabel(itemID, 13)
+		end,
+		recipeName = function(recipeID)
+			return ns.Alts_RecipeLabel(recipeID)
+		end,
 		price = db.listPrice and ns.Value_ItemPrice and function(itemID)
 			return (ns.Value_ItemPrice(itemID))
 		end or nil,
-		gold = ns.Alts_Gold,
+		gold = ns.Alts_Price,
 	})
 	cache, cacheAt = ok and todos or {}, now
 	return cache
@@ -276,9 +308,11 @@ local function Line(b, i)
 		l:SetHeight(LINE_H)
 		l:EnableMouse(true)
 		l.text = UI.Text(l, 11, WHITE)
-		l.text:SetPoint("LEFT", 8, 0)
-		l.text:SetPoint("RIGHT")
-		l.text:SetWordWrap(false)
+		l.text:SetPoint("TOPLEFT", 8, -1)
+		l.text:SetWidth(WIDTH - 28) -- fixed, so the wrapped height is known right after SetText
+		l.text:SetJustifyH("LEFT")
+		l.text:SetWordWrap(true)
+		l.text:SetMaxLines(2) -- a long line wraps once instead of being cut off
 		l:SetScript("OnEnter", function(self)
 			LineTooltip(self, self.line)
 		end)
@@ -287,8 +321,12 @@ local function Line(b, i)
 		end)
 		l:SetScript("OnMouseUp", function(self, button)
 			local line = self.line
-			if button == "LeftButton" and line and SEARCHABLE[line.kind] and not InCombatLockdown() then
-				ns.AltsList_Search(line.itemID)
+			if button == "LeftButton" and line and SEARCHABLE[line.kind] then
+				if not InCombatLockdown() then
+					ns.AltsList_Search(line.itemID)
+				end
+			elseif button == "LeftButton" or button == "RightButton" then
+				b:Click(button) -- the line takes the mouse: the craft's own click (open the list, right-click remove)
 			end
 		end)
 		b.lines[i] = l
@@ -378,7 +416,7 @@ function ns.AltsList_Refresh()
 		b:ClearAllPoints()
 		b:SetPoint("TOPLEFT", 10, -y)
 		b:SetPoint("RIGHT", -10, 0)
-		b.title:SetText(("%s  |cff9e9e9ex%d|r"):format(RecipeName(t.entry.recipeID), t.entry.crafts))
+		b.title:SetText(("%s  |cff9e9e9ex%d|r"):format(ns.Alts_RecipeLabel(t.entry.recipeID, 15), t.entry.crafts))
 		local c = t.crafter and ns.altsDB.chars[t.crafter]
 		local color = c and c.class and C_ClassColor.GetClassColor(c.class)
 		b.crafter:SetText(c and c.name or "nobody")
@@ -402,7 +440,9 @@ function ns.AltsList_Refresh()
 			l:SetPoint("RIGHT")
 			l.text:SetText(line.text)
 			SetColor(l.text, line.mine and (LINE_COLORS[line.kind] or WHITE) or GREY)
-			ly = ly + LINE_H
+			local h = math.max(LINE_H, math.ceil(l.text:GetStringHeight()) + 3)
+			l:SetHeight(h)
+			ly = ly + h
 		end
 		if #t.lines > MAX_LINES then
 			shown = shown + 1
@@ -413,6 +453,7 @@ function ns.AltsList_Refresh()
 			l:SetPoint("RIGHT")
 			l.text:SetText(("+ %d more (the List tab has them all)"):format(#t.lines - MAX_LINES))
 			SetColor(l.text, GREY)
+			l:SetHeight(LINE_H)
 			ly = ly + LINE_H
 		end
 		for j = shown + 1, #b.lines do
@@ -441,6 +482,16 @@ end
 
 -- Baganator marks -------------------------------------------------------------------------------------------------
 
+-- [itemID] = count to mark, worked out once per to-do (Baganator asks for every item button).
+local marked, markedFor
+local function Marked()
+	local todos = ns.AltsList_Todos()
+	if markedFor ~= todos then
+		marked, markedFor = ns.Alts_MarkedItems(todos), todos
+	end
+	return marked
+end
+
 local function RegisterBaganator()
 	if events.baganator or not (Baganator and Baganator.API and Baganator.API.RegisterCornerWidget) then
 		return
@@ -450,7 +501,7 @@ local function RegisterBaganator()
 		if not (db and db.listBaganator and ns.altsModule.active and details and details.itemID) then
 			return false
 		end
-		local n = ns.Alts_MarkedItems(ns.AltsList_Todos())[details.itemID]
+		local n = Marked()[details.itemID]
 		if not n then
 			return false
 		end
