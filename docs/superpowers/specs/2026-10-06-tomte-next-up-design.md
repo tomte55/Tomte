@@ -1,6 +1,6 @@
 # Tomte: Next up
 
-Date: 2026-10-06. **Draft**, waiting on the user's answers to the open questions at the end. One of five features
+Date: 2026-10-06. Agreed with the user: choices are settings with defaults rather than fixed decisions. One of five features
 picked from the post-Home ideas (Next up, Recent feed, Sessions page, Gold & value, Send to alt).
 
 ## Goal
@@ -56,18 +56,19 @@ Teleports are left out: using one needs a secure button, and a Home row isn't on
 - Right-click: "Not now", which hides that key until the next login (kept in memory only).
 - Hover: tooltip with `why` and the module name.
 
-## Options (Tomte window category)
+## Options (module "Next up", category General)
 
-"Next up on Home" (on), and per-source checkboxes so a source the user doesn't care about can be turned off.
+| Setting | Choices | Default |
+|---|---|---|
+| Show on Home | on/off | on |
+| Placement | Right column (above Around you) / Strip under This week | Right column |
+| Rows | 3-8 | 5 |
+| "Not now" lasts | Until next login / Until it changes (the candidate's key changes, e.g. another rare) | Until next login |
+| Sources | a checkbox per source | all on |
+| Source order | a priority slider (0-100) per source, prefilled with the scores above | the table |
+| On the minimap button tooltip | on/off | off |
 
 ## Testing
 
 - Plain Lua: `NextUp_Rank` (merge, ties, dismissed, limit), each module's pure candidate builder where one exists.
 - In game: Home with vault ready / not, a low-durability character, in a zone with a worth-it WQ, a rare up.
-
-## Open questions for the user
-
-1. Placement: top of the right column (above Around you), or a strip under "This week" across the full width?
-2. Is the score order above right for you? (Especially: rares above Concentration, achievements low.)
-3. Should "Next up" also be a small toast-free list on the minimap button tooltip, or Home only?
-4. "Not now" until next login, or until the candidate changes (e.g. a different rare)?

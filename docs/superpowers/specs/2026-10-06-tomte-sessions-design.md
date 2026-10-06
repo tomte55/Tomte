@@ -1,6 +1,6 @@
 # Tomte: Sessions page
 
-Date: 2026-10-06. **Draft**, waiting on the user's answers to the open questions at the end. Picks up two items
+Date: 2026-10-06. Agreed with the user: choices are settings with defaults rather than fixed decisions. Picks up two items
 the Session recap spec parked: "a panel page" and "cross-session history beyond the last session".
 
 ## Goal
@@ -36,16 +36,17 @@ A Home rail page **Sessions**:
 
 ## Options (Session recap module)
 
-"Keep history" (on), "Sessions per character" slider (10-100, default 30), "Clear history" button (confirm).
+| Setting | Choices | Default |
+|---|---|---|
+| Keep history | on/off | on |
+| Keep by | Count / Days | Count |
+| Sessions per character | 10-100 | 30 |
+| Days kept | 7-90 | 28 |
+| Main number | Gold per hour / Net gold per session | Gold per hour |
+| Group sessions into play nights | on/off (sessions less than an hour apart, any character) | off |
+| Clear history | button (confirm) | |
 
 ## Testing
 
 - Plain Lua: compacting a session, the cap, the 2-minute rule, gold/hour, week totals across the weekly reset.
 - In game: log out and in a few times, check the page and that old cards still open.
-
-## Open questions for the user
-
-1. 30 sessions per character, or count by time (e.g. the last 4 weeks)?
-2. Is gold per hour the main number, or net gold per session?
-3. Should a session that spans a relog on another character stay two sessions (as now), or should the page also
-   show "play nights" that group sessions closer than an hour apart?

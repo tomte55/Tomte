@@ -1,6 +1,6 @@
 # Tomte: Send to alt
 
-Date: 2026-10-06. **Draft**, waiting on the user's answers to the open questions at the end. Builds on Alts
+Date: 2026-10-06. Agreed with the user: choices are settings with defaults rather than fixed decisions. Mail waits on an in-game prototype (below); the Warband bank part doesn't. Builds on Alts
 (`2026-10-05-tomte-alts-design.md`).
 
 ## Goal
@@ -51,19 +51,19 @@ stay under the item lock. Blizzard asks a "no refund" confirmation for refundabl
 The Alts page gets a small "For your alts" line ("38 stacks for Mira, Tolvan") and Next up can suggest "Mail herbs
 to Mira" when you're standing at a mailbox (score 60).
 
-## Options (Alts module)
+## Options (Alts module, "Send to alt" header)
 
-"For your alts at the mailbox" (on), "Use the current craft plan" (on), manual rules editor (list of item → char).
+| Setting | Choices | Default |
+|---|---|---|
+| At the mailbox | on/off | on |
+| At the Warband bank | on/off | on |
+| Use the current craft plan | on/off | on |
+| Manual rules | list of item or item class → character (an input and a dropdown per row) | empty |
+| Keep gold on alts | off / an amount; the mail panel offers "Top up <name> to Xg" | off |
+| Subject | text input | "Tomte" |
 
 ## Testing
 
 - Plain Lua: the recipient rule (ties, plan override, own recipes excluded), grouping into 12-stack mails.
 - In game: **prototype first** (one button that sends one stack to an alt), then the full panel; Warband deposit
   with a mix of warbound and soulbound items.
-
-## Open questions for the user
-
-1. Mail, Warband bank, or both? (Warband bank is simpler and verified; most current reagents are warbound.)
-2. Should Tomte also send gold (e.g. keep each alt topped up for crafting fees)?
-3. Do you want manual rules, or is "who knows recipes using it" enough?
-4. Subject line: something fixed like "Tomte: herbs", or empty?

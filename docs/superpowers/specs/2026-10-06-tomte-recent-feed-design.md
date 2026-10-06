@@ -1,6 +1,6 @@
 # Tomte: Recent feed
 
-Date: 2026-10-06. **Draft**, waiting on the user's answers to the open questions at the end.
+Date: 2026-10-06. Agreed with the user: choices are settings with defaults rather than fixed decisions.
 
 ## Goal
 
@@ -36,18 +36,18 @@ Entry: `{ at, owner, label, title, text, icon, iconAtlas, accent, onClick, count
   ("unseen").
 - Optional: a small unread dot on the minimap button when something was added while you were AFK or in combat.
 
-## Options
+## Options (module "Recent", category General, on by default)
 
-On by default. "Keep after reload" (on), "Include banners" (on), "Dot on minimap button" (off).
+| Setting | Choices | Default |
+|---|---|---|
+| Show as | Rail page + quick action / Block on Home (right column, under Next up) | Rail page + quick action |
+| Scope | This character / Whole account (character name on each row) | Whole account |
+| Include | a checkbox per toast owner (whispers, mentions, friends, loot/upgrades, achievements, collect, world quests, Concentration, durability, vendor) and one for banners | all on |
+| Keep after reload | on/off | on |
+| Entries kept | 20-100 | 50 |
+| Dot on minimap button | on/off | off |
 
 ## Testing
 
 - Plain Lua: add/merge/cap, unseen count, the saved copy dropping closures and secret text.
 - In game: get a whisper in combat, check the entry; reload and check the saved rows are dimmed.
-
-## Open questions for the user
-
-1. A page in the rail, or a section on Home itself (it would compete with Next up and Around you for room)?
-2. Should Vendor summaries and durability warnings be in it, or just "things that happened to you" (whispers,
-   loot, achievements, rares)?
-3. Keep it per character, or one account-wide list (with the character name on each row)?

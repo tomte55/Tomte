@@ -1,6 +1,6 @@
 # Tomte: Gold & value
 
-Date: 2026-10-06. **Draft**, waiting on the user's answers to the open questions at the end.
+Date: 2026-10-06. Agreed with the user: choices are settings with defaults rather than fixed decisions. Auctionator is the price source (it's installed; TSM isn't supported).
 
 ## Goal
 
@@ -51,18 +51,19 @@ Each material row gets a unit price and a total; the plan gets "Materials ~X", "
 auction price), "Profit ~Y-X". Materials you already have still count at market price (opportunity cost); a toggle
 "count owned materials as free".
 
-## Options
+## Options (module "Gold & value", category General)
 
-"Use Auctionator prices" (on), "Count loot value in sessions" (on), "Stale after n days" (7).
+| Setting | Choices | Default |
+|---|---|---|
+| Use Auctionator prices | on/off (off = vendor prices only) | on |
+| Count loot value in sessions | on/off | on |
+| Price loot | When looted / At today's price | When looted |
+| Gear and BoEs | Auction price / Vendor price / Leave out | Vendor price |
+| Carried value in Alts | on/off | on |
+| Owned materials in craft cost | Market price / Free | Market price |
+| Stale after | 1-21 days | 7 |
 
 ## Testing
 
 - Plain Lua: price fallback order, stale marking, value categories, profit sums.
 - In game: farm for a few minutes and check the recap card; open the Crafting tab with and without Auctionator.
-
-## Open questions for the user
-
-1. Is Auctionator the price source you use and scan with? (TSM would need a different reader.)
-2. Value loot at loot time (as above) or always at today's price?
-3. Carried value in Alts: worth it, or only the session and crafting parts?
-4. Gear and BoEs: auction price (often misleading for gear), vendor price, or left out of the value?
