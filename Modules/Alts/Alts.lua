@@ -18,6 +18,7 @@ local function ShowTab(key)
 	db.view = key
 	page.craft:SetShown(key == "craft")
 	page.roster:SetShown(key == "chars")
+	page.list:SetShown(key == "list")
 	page.chain:SetShown(key == "craft")
 	for _, b in ipairs(page.tabs) do
 		local on = b.key == key
@@ -28,8 +29,19 @@ local function ShowTab(key)
 	page.chain.label:SetText(db.chain == "one" and "One step" or "Full chain")
 	if key == "craft" then
 		ns.AltsCraft_Refresh()
+	elseif key == "list" then
+		ns.AltsListTab_Refresh()
 	else
 		ns.AltsRoster_Refresh()
+	end
+end
+
+-- The Alts page on one of its tabs ("craft", "list", "chars"), from the tracker.
+function ns.Alts_ShowTab(key)
+	if page and page:IsVisible() then
+		ShowTab(key)
+	else
+		db.view = key
 	end
 end
 
@@ -68,9 +80,11 @@ local AltsPage = {
 		baseline:SetHeight(1)
 		baseline:SetPoint("BOTTOMLEFT")
 		baseline:SetPoint("BOTTOMRIGHT")
-		page.tabs = { CreateTab(bar, "craft", "Crafting"), CreateTab(bar, "chars", "Characters") }
+		page.tabs = { CreateTab(bar, "craft", "Crafting"), CreateTab(bar, "list", "Crafting list"),
+			CreateTab(bar, "chars", "Characters") }
 		page.tabs[1]:SetPoint("BOTTOMLEFT")
 		page.tabs[2]:SetPoint("BOTTOMLEFT", page.tabs[1], "BOTTOMRIGHT", 20, 0)
+		page.tabs[3]:SetPoint("BOTTOMLEFT", page.tabs[2], "BOTTOMRIGHT", 20, 0)
 		-- Full chain / one step (the Crafting tab's plan depth).
 		page.chain = UI.Button(bar, 100, "")
 		page.chain:SetPoint("BOTTOMRIGHT", 0, 3)
@@ -92,7 +106,7 @@ local AltsPage = {
 			GameTooltip:Hide()
 		end)
 
-		for _, key in ipairs({ "craft", "roster" }) do
+		for _, key in ipairs({ "craft", "roster", "list" }) do
 			local f = CreateFrame("Frame", nil, page)
 			f:SetPoint("TOPLEFT", 8, -(TAB_H + 10))
 			f:SetPoint("BOTTOMRIGHT", -8, 0)
@@ -100,6 +114,7 @@ local AltsPage = {
 		end
 		ns.AltsCraft_Create(page.craft, db)
 		ns.AltsRoster_Create(page.roster, db)
+		ns.AltsListTab_Create(page.list)
 		page:HookScript("OnShow", function()
 			ns.AltsCollect_Request() -- this character's gold and zone are current
 			ShowTab(db.view)
@@ -220,6 +235,12 @@ module = ns.RegisterModule({
 		sendRules = "",
 		sendGold = 0, -- gold to keep on each alt (0 = off)
 		sendSubject = "Tomte",
+		list = {}, -- crafting list: { { recipeID, crafts, added } }
+		tracker = { shown = true, mode = "any", hideInCombat = true, locked = true, scale = 1 },
+		listDone = "auto", -- auto | hand
+		listMail = "exact", -- exact | stacks
+		listBaganator = true,
+		listPrice = true,
 	},
 	home = {
 		ns.AltsHomeSection,
@@ -253,9 +274,11 @@ module = ns.RegisterModule({
 		if active then
 			ns.AltsCollect_Start(db)
 			ns.AltsSend_Start(db)
+			ns.AltsList_Start(db)
 		else
 			ns.AltsCollect_Stop()
 			ns.AltsSend_Stop()
+			ns.AltsList_Stop()
 		end
 	end,
 	options = {
@@ -282,12 +305,58 @@ module = ns.RegisterModule({
 			end,
 			tooltip = "At the mailbox, offer to top up characters below this much gold (from what you have above it). 0 = off." },
 		{ type = "input", key = "sendSubject", label = "Mail subject", placeholder = "Tomte" },
+		{ type = "header", label = "Crafting list" },
+		{ type = "checkbox", key = "tracker.shown", label = "Craft tracker on screen", onChange = function()
+			ns.AltsList_Refresh()
+		end, tooltip = "The tracked crafts with what this character has to do for them: grab, mail, take from the Warband bank, buy, craft." },
+		{ type = "dropdown", key = "tracker.mode", label = "Show the tracker", onChange = function()
+			ns.AltsList_Refresh()
+		end, choices = function()
+			return { { value = "any", text = "While something is tracked" }, { value = "crafter", text = "Only on a crafter" } }
+		end },
+		{ type = "checkbox", key = "tracker.hideInCombat", label = "Hide the tracker in combat", onChange = function()
+			ns.AltsList_Refresh()
+		end },
+		{ type = "checkbox", key = "tracker.locked", label = "Lock the tracker", onChange = function()
+			ns.AltsList_Refresh()
+		end, tooltip = "Unlocked, it shows (also when empty) and can be dragged." },
+		{ type = "slider", key = "tracker.scale", label = "Tracker scale", min = 0.6, max = 1.6, step = 0.05,
+			format = function(v)
+				return ("%d%%"):format(v * 100 + 0.5)
+			end, onChange = function()
+				ns.AltsList_Refresh()
+			end },
+		{ type = "button", label = "Tracker position", text = "Reset", onClick = function()
+			ns.AltsList_ResetPosition()
+		end },
+		{ type = "dropdown", key = "listDone", label = "Crafts come off the list", choices = function()
+			return { { value = "auto", text = "When crafted" }, { value = "hand", text = "By hand" } }
+		end, tooltip = "Each craft of a tracked recipe counts it down. When crafted: it leaves the list at 0." },
+		{ type = "dropdown", key = "listMail", label = "Mail tracked crafts", choices = function()
+			return { { value = "exact", text = "Exact amounts" }, { value = "stacks", text = "Whole stacks" } }
+		end, tooltip = "Exact amounts split stacks so only what the craft needs is sent." },
+		{ type = "checkbox", key = "listBaganator", label = "Mark items in Baganator", onChange = function()
+			ns.AltsList_Changed()
+		end, tooltip = "Items your to-do moves get a gold count on their icon in Baganator's bags and bank. In "
+			.. "Baganator's settings (Icons), \"Tomte Crafting list\" has to be in a corner for it to show." },
+		{ type = "checkbox", key = "listPrice", label = "Price missing materials", onChange = function()
+			ns.AltsList_Changed()
+		end, tooltip = "\"Buy or gather\" lines say what it costs (Gold & value)." },
 	},
 	commands = {
 		{ "open", "open the Alts page", function()
 			ns.Panel_OpenPage("alts")
 		end },
 		{ "forget", "forget a character: /tomte alts forget <name>", Forget },
+		{ "list", "open the crafting list", function()
+			db.view = "list"
+			ns.Panel_OpenPage("alts")
+		end },
+		{ "tracker", "show or hide the craft tracker", function()
+			db.tracker.shown = not db.tracker.shown
+			ns.AltsList_Refresh()
+			ns.Print("craft tracker " .. (db.tracker.shown and "on." or "off."))
+		end },
 		{ "scan", "read the open profession window's recipes now (and say why not)", function()
 			ns.AltsCollect_ScanNow()
 		end },
@@ -296,3 +365,4 @@ module = ns.RegisterModule({
 		ns.Panel_OpenPage("alts")
 	end, pattern = "^$" },
 })
+ns.altsModule = module

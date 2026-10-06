@@ -135,6 +135,68 @@ local function Attach(g)
 	ns.AltsSend_Refresh()
 end
 
+-- Crafting list: attach what one tracked craft needs from your bags (exact amounts by splitting stacks, or whole
+-- stacks), for its crafter.
+local function AttachCraft(cm)
+	if Busy() then
+		return
+	end
+	if not SendTabShown() and MailFrameTab_OnClick then
+		MailFrameTab_OnClick(nil, 2)
+	end
+	if not SendTabShown() then
+		Say("open the Send Mail tab first.")
+		return
+	end
+	if AttachmentCount() > 0 then
+		Say("the Send Mail tab already has items attached: send or remove them first.")
+		return
+	end
+	local stacks = {}
+	for _, st in ipairs(BagStacks()) do
+		if not st.bound then
+			stacks[#stacks + 1] = st
+		end
+	end
+	local plan = ns.Alts_AttachPlan(cm.wants, stacks, db.listMail ~= "stacks", MAX_ATTACH)
+	if #plan == 0 then
+		Say("nothing in your bags for that craft.")
+		return
+	end
+	ClearCursor()
+	for i, a in ipairs(plan) do
+		if a.split then
+			C_Container.SplitContainerItem(a.bag, a.slot, a.split)
+		else
+			C_Container.PickupContainerItem(a.bag, a.slot)
+		end
+		ClickSendMailItemButton(i)
+		ClearCursor()
+	end
+	local c = ns.altsDB.chars[cm.to]
+	SendMailNameEditBox:SetText(ns.Alts_MailName(c, GetRealmName()))
+	local recipe = ns.altsDB.recipes[cm.todo.entry.recipeID]
+	SendMailSubjectEditBox:SetText(("%s: %s"):format(db.sendSubject ~= "" and db.sendSubject or "Tomte", recipe and recipe.name or "craft"))
+	attached = { guid = cm.to, stacks = plan, craft = cm.todo.entry.recipeID }
+	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+	ns.AltsSend_Refresh()
+end
+
+-- Tracked crafts that need something from your bags: { { todo, wants, to } }.
+local function CraftMails()
+	if not ns.AltsList_Todos then
+		return {}
+	end
+	local out = {}
+	for _, todo in ipairs(ns.AltsList_Todos()) do
+		local wants, to = ns.Alts_CraftMail(todo)
+		if to and #wants > 0 and ns.altsDB.chars[to] then
+			out[#out + 1] = { todo = todo, wants = wants, to = to }
+		end
+	end
+	return out
+end
+
 local function Send()
 	if Busy() or not attached then
 		return
@@ -238,6 +300,61 @@ function ns.AltsSend_Refresh()
 	end
 	local y = 36
 	local lines, blocks = 0, 0
+	-- Tracked crafts first.
+	for _, cm in ipairs(CraftMails()) do
+		local c = ns.altsDB.chars[cm.to]
+		local recipe = ns.altsDB.recipes[cm.todo.entry.recipeID]
+		blocks = blocks + 1
+		local b = Block(blocks)
+		b:ClearAllPoints()
+		b:SetPoint("TOPLEFT", 12, -y)
+		b:SetPoint("RIGHT", -12, 0)
+		local color = ClassColor(c)
+		b.name:SetText(("|cffffd173%s x%d|r  |cff9e9e9eto|r %s"):format(recipe and recipe.name or "?", cm.todo.entry.crafts,
+			color and ("|cff%02x%02x%02x%s|r"):format(color[1] * 255, color[2] * 255, color[3] * 255, c.name or "?") or c.name))
+		b.name:SetTextColor(1, 1, 1)
+		local isAttached = attached and attached.craft == cm.todo.entry.recipeID
+		b.button.label:SetText(isAttached and "Send" or "Attach")
+		b.button.onClick = function()
+			if isAttached then
+				Send()
+			else
+				AttachCraft(cm)
+			end
+		end
+		y = y + 24
+		for i, w in ipairs(cm.wants) do
+			if i > MAX_ITEM_ROWS then
+				lines = lines + 1
+				local fs = Line(lines)
+				fs:ClearAllPoints()
+				fs:SetPoint("TOPLEFT", 22, -y)
+				fs:SetPoint("RIGHT", -12, 0)
+				fs:SetText(("|cff9e9e9e+ %d more|r"):format(#cm.wants - MAX_ITEM_ROWS))
+				y = y + ROW_H
+				break
+			end
+			lines = lines + 1
+			local fs = Line(lines)
+			fs:ClearAllPoints()
+			fs:SetPoint("TOPLEFT", 22, -y)
+			fs:SetPoint("RIGHT", -12, 0)
+			local icon = C_Item.GetItemIconByID(w.itemID)
+			fs:SetText(("%s%d %s"):format(icon and ("|T%s:14:14:0:0:64:64:5:59:5:59|t "):format(icon) or "", w.n,
+				C_Item.GetItemNameByID(w.itemID) or ("item " .. w.itemID)))
+			y = y + ROW_H
+		end
+		y = y + 8
+	end
+	if blocks > 0 and #groups > 0 then
+		lines = lines + 1
+		local fs = Line(lines)
+		fs:ClearAllPoints()
+		fs:SetPoint("TOPLEFT", 12, -y)
+		fs:SetPoint("RIGHT", -12, 0)
+		fs:SetText("|cff9e9e9eEverything else your alts craft with|r")
+		y = y + ROW_H + 4
+	end
 	for _, g in ipairs(groups) do
 		local c = ns.altsDB.chars[g.guid]
 		blocks = blocks + 1
@@ -248,7 +365,7 @@ function ns.AltsSend_Refresh()
 		local color = ClassColor(c)
 		b.name:SetText(("%s  |cff9e9e9e%d stack%s|r"):format(c.name or "?", #g.stacks, #g.stacks == 1 and "" or "s"))
 		b.name:SetTextColor(color[1], color[2], color[3])
-		local isAttached = attached and attached.guid == g.guid
+		local isAttached = attached and attached.guid == g.guid and not attached.craft
 		b.button.label:SetText(isAttached and "Send" or "Attach")
 		b.button.onClick = function()
 			if isAttached then
@@ -336,7 +453,7 @@ local function ShowDock()
 	end
 	Rebuild()
 	local hasGold = db.sendGold and db.sendGold > 0
-	dock:SetShown(#groups > 0 or hasGold)
+	dock:SetShown(#groups > 0 or hasGold or #CraftMails() > 0)
 	ns.AltsSend_Refresh()
 end
 

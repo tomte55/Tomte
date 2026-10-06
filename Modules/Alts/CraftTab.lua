@@ -529,6 +529,7 @@ local function LayoutDetail()
 	d.sub:SetShown(recipe ~= nil)
 	d.status:SetShown(recipe ~= nil)
 	d.crafts:SetShown(recipe ~= nil)
+	d.add:SetShown(recipe ~= nil)
 	if not recipe then
 		d.scroll:SetContentHeight(1)
 		return
@@ -675,11 +676,11 @@ local function CreateDetail(parent)
 	d.title:SetWordWrap(false)
 	d.sub = UI.Text(d, 12, GREY)
 	d.sub:SetPoint("TOPLEFT", d.title, "BOTTOMLEFT", 0, -5)
-	d.sub:SetPoint("RIGHT", -4, 0)
+	d.sub:SetPoint("RIGHT", -114, 0)
 	d.sub:SetWordWrap(false)
 	d.status = UI.Text(d, 12, GREEN)
 	d.status:SetPoint("TOPLEFT", d.sub, "BOTTOMLEFT", 0, -5)
-	d.status:SetPoint("RIGHT", -4, 0)
+	d.status:SetPoint("RIGHT", -114, 0)
 
 	-- How many times to craft it: - x1 +
 	-- How many times to craft it: - [n] + (type a number, Enter or click away to apply).
@@ -739,6 +740,29 @@ local function CreateDetail(parent)
 		Set((db.crafts or 1) + 1)
 	end)
 	d.crafts = crafts
+
+	-- Crafting list: this recipe, this many times.
+	local add = UI.Button(d, 104, "Add to list")
+	add:SetHeight(20)
+	add:SetPoint("TOPRIGHT", crafts, "BOTTOMRIGHT", 0, -4)
+	add:SetScript("OnClick", function()
+		box:ClearFocus()
+		if db.selected then
+			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			ns.AltsList_Add(db.selected, db.crafts or 1)
+		end
+	end)
+	add:HookScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Add to the crafting list")
+		GameTooltip:AddLine("Track this craft: the Crafting list tab and the tracker on screen say who needs what "
+			.. "from where, and the mailbox sends it.", 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	add:HookScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
+	d.add = add
 
 	d.scroll = UI.Scroll(d)
 	d.scroll:SetPoint("TOPLEFT", d.status, "BOTTOMLEFT", -4, -10)

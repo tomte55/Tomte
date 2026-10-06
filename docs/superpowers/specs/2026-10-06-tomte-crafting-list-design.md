@@ -1,7 +1,7 @@
 # Tomte: Crafting list, craft tracker and bank highlights
 
-Date: 2026-10-06. Designed with the user; **not built yet**. To be built after the user has tried the Send to alt
-mailbox panel in game (`2026-10-06-tomte-send-to-alt-design.md`), because both use the same attach-and-send step.
+Date: 2026-10-06. Designed with the user; built the same day on the user's request (before the Send to alt mailbox
+panel was tried in game; both use the same attach-and-send step, see `2026-10-06-tomte-send-to-alt-design.md`).
 Choices are settings with defaults. The unknowns are listed under "To verify" at the end and get checked when we can
 test in game and read the addons' code.
 
@@ -121,3 +121,27 @@ are marked:
    them, summed) and the Warband bank, and how soon they update after a mail or a bank move.
 6. **Blizzard bank buttons** (only if the no-Baganator option is wanted): how to find the item buttons of the 12.x
    bank frame and its tabs to overlay a mark.
+
+## As built (2026-10-06)
+
+Not yet tested in game.
+
+- Files: `Modules/Alts/ListData.lua` (pure, `tests/test_list.lua`), `List.lua` (where items are, to-do cache, tracker,
+  craft events, Baganator), `ListTab.lua` (the Alts page's new "Crafting list" tab), rows at the top of Send.lua's
+  mailbox panel, and an "Add to list" button under the amount in the Crafting tab.
+- Where items are: Syndicator's `GetInventoryInfoByItemID` per character `bags` / `bank` / `mail` and `warband[1]`
+  (checked in Syndicator's source); without Syndicator, this character and the Warband bank from `C_Item.GetItemCount`.
+  Crafts take from one pool in list order: the crafter's bags, bank, mail, the Warband bank, you, then everyone else.
+- Crafts done: `TRADE_SKILL_CRAFT_BEGIN(recipeSpellID)` marks the craft, each `TRADE_SKILL_ITEM_CRAFTED_RESULT`
+  (not `bonusCraft`) counts one (both in the 12.1 API docs; recipe IDs are the recipes' spell IDs). Still to see in game
+  that it's one result per craft.
+- Mail: `C_Container.SplitContainerItem` (12.1 API docs: not restricted) then `ClickSendMailItemButton(i)`; still
+  to try in game.
+- Baganator: a corner widget "Tomte Crafting list" (top right, enabled by default through its default position,
+  per Baganator's source) with the count to move, on bag and bank buttons. Clicking a Grab / Take / Mail line runs
+  Baganator's `search` slash command (there's no search API; it opens the bags too, and an open bank view
+  highlights the matches).
+- Not built: marks on Blizzard's own bags and bank (the "without Baganator" option), since the user plays with
+  Baganator; it stays in "To verify" (6).
+- Settings are as in the table, except "Mark items on Blizzard's bags and bank" (not built). Commands:
+  `/tomte alts list`, `/tomte alts tracker`.
