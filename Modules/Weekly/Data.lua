@@ -818,6 +818,20 @@ function ns.Weekly_HomeSummary(v)
 	return table.concat(parts, " · ")
 end
 
+-- Next up: knowledge sources still open this week that have a place to go. { name, icon, label, pts, tip, loc }.
+function ns.Weekly_OpenKnowledge(v)
+	local list = {}
+	for _, p in ipairs(v.profs and Profs(v) or {}) do
+		for _, k in ipairs(ns.Weekly_Knowledge(p.def, p.prof.knowledge or {}, p.prof.expansion)) do
+			if k.n < k.of and k.loc then
+				list[#list + 1] = { name = p.prof.name or p.def.name, icon = p.prof.icon, skillLine = p.skillLine,
+					label = k.label, pts = k.pts, tip = k.tip, loc = k.loc }
+			end
+		end
+	end
+	return list
+end
+
 -- Home "This week" list: what's still open this week, then what's done. { text, right, done }.
 -- Knowledge sources per profession ("Mining treatise"), learned weekly quests, crests with a cap.
 function ns.Weekly_HomeTodo(v, learned)

@@ -63,6 +63,13 @@ local function Track(q)
 	C_SuperTrack.SetSuperTrackedQuestID(q.id)
 end
 
+-- Next up: track it (never toggles it off).
+function ns.WQ_Track(q)
+	if not IsTracked(q) then
+		Track(q)
+	end
+end
+
 local function Untrack(q)
 	if IsTracked(q) then
 		C_SuperTrack.SetSuperTrackedQuestID(0)

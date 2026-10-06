@@ -539,6 +539,9 @@ local function Ensure()
 end
 
 function ns.Toast_Show(spec)
+	if ns.Recent_Note then
+		ns.Recent_Note(spec)
+	end
 	Ensure()
 	anchor:Show()
 	if Busy(spec) then
@@ -550,6 +553,14 @@ end
 
 -- A card that stays on top until unpinned. Showing it again with the same key updates it in place.
 function ns.Toast_Pin(key, spec)
+	if ns.Recent_Note then
+		local copy = {}
+		for k, v in pairs(spec) do
+			copy[k] = v
+		end
+		copy.mergeKey = "pin:" .. key
+		ns.Recent_Note(copy)
+	end
 	Ensure()
 	local card = pinned[key]
 	if card then

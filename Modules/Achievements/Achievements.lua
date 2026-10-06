@@ -367,6 +367,31 @@ module = ns.RegisterModule({
 		toasts = { almost = true, lastStep = true, pinned = true },
 		preview = true,
 	},
+	home = {
+		{ kind = "next", key = "nextach", name = "Achievements one step from done", score = 65,
+			description = "Achievements with one step left, and your pinned ones (from Almost Done's list and filters).",
+			candidates = function()
+				local list = {}
+				for _, r in ipairs(ns.Ach_Top(10)) do
+					local oneLeft = r.total and r.total >= 2 and r.total - r.done == 1
+					if oneLeft or r.pinned then
+						local id = r.id
+						list[#list + 1] = {
+							key = "ach:" .. id, state = r.done,
+							text = r.name,
+							why = oneLeft and (r.last and ("One step left: " .. r.last) or "One step left.")
+								or ("Pinned, " .. ns.Ach_ProgressText(r, ", ")),
+							right = ("%d/%d"):format(r.have or r.done, r.need or r.total), icon = r.icon,
+							bonus = oneLeft and 9 or 0,
+							onClick = function()
+								ns.Ach_Open(id)
+							end, hint = "Click to open it",
+						}
+					end
+				end
+				return list
+			end },
+	},
 	init = function(saved)
 		db = saved
 		ns.achDB = saved

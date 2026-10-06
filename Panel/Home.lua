@@ -101,7 +101,7 @@ function Kit.Heading(parent)
 end
 
 -- List row: icon, text and right-aligned text (narrow font). row:Set(icon, text, color, right, rightColor)
--- Optional row.onClick / row.onEnter(row).
+-- Optional row.onClick / row.onRightClick / row.onEnter(row).
 function Kit.Row(parent)
 	local row = CreateFrame("Button", nil, parent)
 	row:SetHeight(ROW_H)
@@ -134,8 +134,13 @@ function Kit.Row(parent)
 		self.bg:Hide()
 		GameTooltip:Hide()
 	end)
-	row:SetScript("OnClick", function(self)
-		if self.onClick then
+	row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	row:SetScript("OnClick", function(self, button)
+		if button == "RightButton" then
+			if self.onRightClick then
+				self.onRightClick(self)
+			end
+		elseif self.onClick then
 			self.onClick(self)
 		end
 	end)
@@ -167,7 +172,7 @@ function Kit.PoolRow(pool, i, parent)
 		row = Kit.Row(parent)
 		pool[i] = row
 	end
-	row.onClick, row.onEnter = nil, nil
+	row.onClick, row.onRightClick, row.onEnter = nil, nil, nil
 	row:Show()
 	return row
 end
@@ -513,6 +518,7 @@ function ns.PanelHome_Create(parent, onOpen)
 	home.heroLine = VLine(home)
 	home.content = CreateFrame("Frame", nil, home)
 	home.weekLine = HLine(home.content)
+	home.nextLine = HLine(home.content)
 	home.colLine = VLine(home.content)
 	home.around = CreateAround(home.content, onOpen)
 	home.sections = {} -- [entry] = frame
@@ -569,8 +575,10 @@ function ns.PanelHome_Create(parent, onOpen)
 				frame:Hide()
 			end
 		end
-		local week, chars = byslot.week, byslot.characters
+		local week, chars, nextUp = byslot.week, byslot.characters, byslot.next
 		local hasAround = #ns.HomeEntries("around") > 0
+		-- "next" (Next up) goes across under the week strip, or on top of the right column.
+		local nextStrip = nextUp and ns.HomeCall(nextUp.place) == "strip"
 
 		local top = 0
 		if week then
@@ -584,14 +592,42 @@ function ns.PanelHome_Create(parent, onOpen)
 			top = type(wanted) == "number" and math.min(wanted + 24, WEEK_H) or WEEK_H
 			frame:SetHeight(top - 24)
 		end
-		self.weekLine:SetShown(week ~= nil and (chars ~= nil or hasAround))
+		self.weekLine:SetShown(week ~= nil and (chars ~= nil or hasAround or nextUp ~= nil))
 		self.weekLine:ClearAllPoints()
 		self.weekLine:SetPoint("TOPLEFT", 12, -top)
 		self.weekLine:SetPoint("TOPRIGHT", -12, -top)
 
+		self.nextLine:Hide()
+		if nextUp and nextStrip then
+			local frame = Section(nextUp)
+			local y = top + (week and 14 or 16)
+			frame:ClearAllPoints()
+			frame:SetPoint("TOPLEFT", PAD, -y)
+			frame:SetSize(cw - 2 * PAD, height / 2)
+			frame:SetShown(not frame.failed)
+			local wanted = not frame.failed and ns.HomeCall(nextUp.Refresh, frame)
+			local h = type(wanted) == "number" and wanted or 0
+			frame:SetHeight(math.max(h, 1))
+			top = y + h + 6
+			self.nextLine:SetShown(chars ~= nil or hasAround)
+			self.nextLine:ClearAllPoints()
+			self.nextLine:SetPoint("TOPLEFT", 12, -top)
+			self.nextLine:SetPoint("TOPRIGHT", -12, -top)
+		end
+
 		local colTop = top + 18
 		local colH = height - colTop - 16
-		local both = chars ~= nil and hasAround
+		local nextInColumn = nextUp ~= nil and not nextStrip
+		-- Sections stacked on top of the right column, above Around you.
+		local stack = {}
+		if nextInColumn then
+			stack[#stack + 1] = nextUp
+		end
+		if byslot.recent then
+			stack[#stack + 1] = byslot.recent
+		end
+		local hasRight = hasAround or #stack > 0
+		local both = chars ~= nil and hasRight
 		local colW = both and Snap((cw - 1) / 2) or cw
 		if chars then
 			local frame = Section(chars)
@@ -607,15 +643,32 @@ function ns.PanelHome_Create(parent, onOpen)
 		self.colLine:ClearAllPoints()
 		self.colLine:SetPoint("TOPLEFT", colW, -(top + 12))
 		self.colLine:SetPoint("BOTTOMLEFT", colW, 12)
+		local x = both and colW + 1 or 0
+		local rightW = (both and cw - colW - 1 or cw) - 2 * PAD
+		local aroundTop = colTop
+		for _, entry in ipairs(stack) do
+			local frame = Section(entry)
+			local room = colH - (aroundTop - colTop)
+			frame:ClearAllPoints()
+			frame:SetPoint("TOPLEFT", x + PAD, -aroundTop)
+			frame:SetSize(rightW, math.max(room, 1))
+			frame:SetShown(not frame.failed)
+			local wanted = not frame.failed and ns.HomeCall(entry.Refresh, frame)
+			local h = type(wanted) == "number" and math.min(wanted, room) or 0
+			frame:SetHeight(math.max(h, 1))
+			if h <= 0 then
+				frame:Hide()
+			end
+			aroundTop = aroundTop + h + (h > 0 and 14 or 0)
+		end
 		self.around:SetShown(hasAround)
 		if hasAround then
-			local x = both and colW + 1 or 0
 			self.around:ClearAllPoints()
-			self.around:SetPoint("TOPLEFT", x + PAD, -colTop)
-			self.around:SetSize((both and cw - colW - 1 or cw) - 2 * PAD, colH)
+			self.around:SetPoint("TOPLEFT", x + PAD, -aroundTop)
+			self.around:SetSize(rightW, math.max(colH - (aroundTop - colTop), 1))
 			self.around:Refresh()
 		end
-		self.empty:SetShown(not (week or chars or hasAround))
+		self.empty:SetShown(not (week or chars or hasAround or nextUp or byslot.recent))
 	end
 
 	-- Size changes come every frame while the window is dragged bigger; refresh once they settle.

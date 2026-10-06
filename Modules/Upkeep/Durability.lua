@@ -123,6 +123,23 @@ module = ns.RegisterModule({
 		instance = true,
 		instanceThreshold = 50, -- percent
 	},
+	home = {
+		{ kind = "next", key = "nextdura", name = "Low durability", score = 90,
+			description = "Your worst item is under the durability threshold, or something broke.",
+			candidates = function()
+				local lowest, slot, broken = ns.Durability_Summary(Slots())
+				if not lowest or (lowest >= db.threshold / 100 and (broken or 0) == 0) then
+					return {}
+				end
+				local pct = math.floor(lowest * 100 + 0.5)
+				return { {
+					key = "dura:low", state = math.floor(pct / 10),
+					text = (broken or 0) > 0 and "Repair: something broke" or ("Repair: gear at %d%%"):format(pct),
+					why = "Worst: " .. SlotText(slot), right = Percent(pct), icon = ICON,
+					color = (broken or 0) > 0 and RED or nil,
+				} }
+			end },
+	},
 	init = function(moduleDB)
 		db = moduleDB
 	end,

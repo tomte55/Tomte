@@ -67,6 +67,96 @@ local function CheckToasts()
 	end
 end
 
+-- Next up sources -----------------------------------------------------------------------------------------------
+
+local function OpenBoard(view)
+	return function()
+		if view then
+			ns.weeklyDB.view = view
+		end
+		ns.Panel_OpenPage("weekly")
+		if ns.WeeklyBoard_Refresh then
+			ns.WeeklyBoard_Refresh()
+		end
+	end
+end
+
+local function NextVaultReady()
+	local v = ns.Weekly_CurrentView()
+	if not (v and v.vaultReady) then
+		return {}
+	end
+	return { { key = "weekly:vault", text = "Great Vault rewards waiting", why = "Pick your reward before you queue.",
+		icon = "Interface\Icons\INV_Misc_Treasurechest02b", onClick = OpenBoard(), stay = true,
+		hint = "Click for the Weekly board" } }
+end
+
+-- Full Concentration on any tracked character; the one you're playing first.
+local function NextConcentration(now)
+	local list = {}
+	local me = UnitGUID("player")
+	for guid, snap in pairs(Tracked()) do
+		for skillLine, prof in pairs(snap.profs or {}) do
+			local qty = ns.Weekly_ConcNow(prof.conc, now)
+			if qty and prof.conc.max and qty >= prof.conc.max then
+				local mine = guid == me
+				list[#list + 1] = {
+					key = ("weekly:conc:%s:%s"):format(guid, skillLine),
+					text = mine and ("Use your %s Concentration"):format(prof.name or "profession")
+						or ("%s: %s Concentration full"):format(snap.name or "?", prof.name or "profession"),
+					why = "It's full, so it isn't recharging.", icon = prof.icon or CONC_ICON,
+					bonus = mine and 9 or 0, onClick = OpenBoard("profs"), stay = true,
+					hint = "Click for professions on the Weekly board",
+				}
+			end
+		end
+	end
+	return list
+end
+
+-- A vault track one activity from its next slot.
+local function NextVaultSlot()
+	local v = ns.Weekly_CurrentView()
+	if not (v and v.vault) or v.vaultReady then
+		return {}
+	end
+	local list = {}
+	for _, track in ipairs(ns.WEEKLY_TRACKS) do
+		local slots = v.vault[track.key] or {}
+		local _, nextSlot = ns.Weekly_VaultGoal(slots)
+		local s = nextSlot and slots[nextSlot]
+		if s and s.threshold - s.progress == 1 then
+			list[#list + 1] = {
+				key = "weekly:vaultnext:" .. track.key, state = s.progress,
+				text = ("%s: one more for vault slot %d"):format(track.label, nextSlot),
+				why = ("%d/%d done this week."):format(s.progress, s.threshold), right = ("%d/%d"):format(s.progress, s.threshold),
+				icon = "Interface\Icons\INV_Misc_Treasurechest02b", onClick = OpenBoard(), stay = true,
+				hint = "Click for the Weekly board",
+			}
+		end
+	end
+	return list
+end
+
+local function NextKnowledge()
+	local v = ns.Weekly_CurrentView()
+	if not v then
+		return {}
+	end
+	local list = {}
+	for _, k in ipairs(ns.Weekly_OpenKnowledge(v)) do
+		list[#list + 1] = {
+			key = ("weekly:know:%s:%s"):format(k.skillLine, k.label),
+			text = ("%s %s"):format(k.name, k.label:lower()), why = k.tip, right = ns.Weekly_Pts(k.pts),
+			icon = k.icon or CONC_ICON, bonus = math.min(k.pts, 9),
+			onClick = function()
+				ns.Weekly_SetWaypoint(k.loc)
+			end, hint = "Click for a waypoint",
+		}
+	end
+	return list
+end
+
 local BASE_OPTIONS = {
 	{ type = "checkbox", key = "toast", label = "Concentration full toast", onChange = function()
 		CheckToasts()
@@ -233,6 +323,14 @@ module = ns.RegisterModule({
 	end,
 	home = {
 		ns.WeeklyHomeSection,
+		{ kind = "next", key = "nextvault", name = "Great Vault rewards waiting", score = 100, candidates = NextVaultReady,
+			description = "Your Great Vault has rewards to pick." },
+		{ kind = "next", key = "nextconc", name = "Concentration full", score = 85, candidates = NextConcentration,
+			description = "A tracked character's Concentration is full (yours first)." },
+		{ kind = "next", key = "nextvaultslot", name = "Vault slot one activity away", score = 70, candidates = NextVaultSlot,
+			description = "One more raid boss, dungeon or world activity unlocks the next vault slot." },
+		{ kind = "next", key = "nextknowledge", name = "Knowledge sources", score = 50, candidates = NextKnowledge,
+			description = "Profession knowledge sources still open this week that have a place to go (click for a waypoint)." },
 		{ kind = "page", key = "weekly", order = 2, name = "Weekly board", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01",
 			page = ns.WeeklyBoardPage,
 			summary = function()

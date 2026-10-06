@@ -722,6 +722,21 @@ function ns.Panel_OpenMap(entry)
 	entry.open()
 end
 
+function ns.Panel_Hide()
+	if panel then
+		panel:Hide()
+	end
+end
+
+-- Redraw what's shown (a Home section whose height changed, a page whose data changed).
+function ns.Panel_Refresh()
+	Refresh()
+end
+
+function ns.Panel_IsShown()
+	return panel ~= nil and panel:IsShown()
+end
+
 function ns.Panel_Toggle()
 	if panel and panel:IsShown() then
 		panel:Hide()

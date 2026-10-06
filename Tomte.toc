@@ -111,3 +111,7 @@ Modules/WorldQuests/Data.lua
 Modules/WorldQuests/Scan.lua
 Modules/WorldQuests/Tab.lua
 Modules/WorldQuests/WorldQuests.lua
+Modules/NextUp/Data.lua
+Modules/NextUp/NextUp.lua
+Modules/Recent/Data.lua
+Modules/Recent/Recent.lua
