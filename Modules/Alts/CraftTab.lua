@@ -91,27 +91,7 @@ end
 
 -- Gear for a character ---------------------------------------------------------------------------------------
 
--- Item data loads on demand; one redraw once a batch of it has arrived.
-local redraw = UI.Debounce(0.2, function()
-	ns.AltsCraft_Refresh()
-end)
-local waitingFor = {} -- [itemID or link] = true while it loads
-
-local function Loaded(itemID, key)
-	if C_Item.IsItemDataCachedByID(itemID) then
-		return true
-	end
-	key = key or itemID
-	if not waitingFor[key] then
-		waitingFor[key] = true
-		local item = type(key) == "string" and Item:CreateFromItemLink(key) or Item:CreateFromItemID(itemID)
-		item:ContinueOnItemLoad(function()
-			waitingFor[key] = nil
-			redraw()
-		end)
-	end
-	return false
-end
+local Loaded, Ilvl = ns.AltsItem_Loaded, ns.AltsItem_Ilvl -- ProfGear.lua
 
 -- The character the "Gear for" filter names, nil for anyone.
 local function ForChar()
@@ -152,15 +132,6 @@ local function ItemInfo(recipe)
 	return info
 end
 
--- A worn or crafted item's level, false while it loads.
-local function Ilvl(link)
-	local itemID = C_Item.GetItemInfoInstant(link)
-	if not (itemID and Loaded(itemID, link)) then
-		return false
-	end
-	return C_Item.GetDetailedItemLevelInfo(link) or false
-end
-
 -- c's worn item levels for Alts_WornFor ({ [slot] = ilvl | false, twoHand }), kept per gear snapshot.
 local wornCache = {}
 local function Worn(c)
@@ -198,6 +169,12 @@ local function ForInfo(recipe, c)
 	end
 	if kind == "gear" and c.gear then
 		r.target = ns.Alts_WornFor(ItemInfo(recipe).equipLoc, Worn(c))
+	elseif kind == "tool" then
+		local base, profKind = ns.AltsProf_ItemOf(recipe.item)
+		r.target = base and ns.AltsProf_Target(c, base, profKind)
+		r.noProfGear = not c.profGear
+	end
+	if r.target then
 		r.mark, r.gain = ns.Alts_Upgrade(r.lo, r.hi, r.target)
 	end
 	return r
@@ -225,7 +202,7 @@ local function MarkText(r)
 	return "|cff6b6b6b-|r"
 end
 
--- One line on what the craft means for c (row tooltip and the detail). nil when there's nothing to say.
+-- One line on what the craft means for c (row tooltip and the detail).
 local function ForText(r, c, recipe)
 	local name = ClassName(c)
 	if not r then
@@ -234,8 +211,9 @@ local function ForText(r, c, recipe)
 		return ("Item level not read yet: open %s on a crafter once."):format(ProfName(recipe.base))
 	elseif r.loading or not r.hi then
 		return "Item level loading..."
-	elseif r.kind == "tool" then
-		return ("Profession gear for %s: item level %s by quality."):format(name, IlvlRange(r))
+	elseif r.kind == "tool" and r.noProfGear then
+		return ("Item level %s by quality. %s's profession gear hasn't been read yet: log in on them once."):format(
+			IlvlRange(r), name)
 	end
 	local t = r.target
 	local where
@@ -249,7 +227,7 @@ local function ForText(r, c, recipe)
 	elseif t.ilvl then
 		where = (", %s wears %d (%s)"):format(name, t.ilvl, t.name)
 	else
-		where = (", %s's %s slot is empty"):format(name, t.name)
+		where = (", %s has a free %s slot"):format(name, t.name:lower())
 	end
 	local verdict = ""
 	if r.mark == "sure" then
@@ -1216,6 +1194,22 @@ function ns.AltsCraft_Create(frame, altsDB)
 		self.detail:SetPoint("TOPLEFT", listW + 16, -4)
 		self.detail:SetPoint("BOTTOMRIGHT")
 	end)
+end
+
+-- Opens the Crafting tab on a recipe, "Gear for" set to forValue ("me", a guid or nil to keep it). From Next up and
+-- the Profession gear tab.
+function ns.AltsCraft_Open(recipeID, forValue)
+	local adb = db or ns.altsDB
+	adb.selected, adb.crafts = recipeID, 1
+	if forValue then
+		adb.filterFor = forValue
+	end
+	if tab then
+		tab.search:SetText("") -- a search could hide it
+	end
+	adb.view = "craft"
+	ns.Panel_OpenPage("alts")
+	ns.Alts_ShowTab("craft")
 end
 
 -- The recipe index changed (a scan finished, a recipe was learned).

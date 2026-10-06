@@ -6,6 +6,7 @@ local addonName, ns = ...
 --                     gear = { [invSlot] = itemLink } (worn, slots 1-17 without the shirt), gearAt (when the gear
 --                     last changed), profs = { [skillLine] = { name, base, skill, max, unspent, known = { [recipeID] } } } }
 --                   specID, primary and gear are for Gear Check's upgrades for alts (Gear/Alts.lua).
+--                   profGear = { [invSlot] = itemLink } (worn profession tools and accessories, slots 20-30), profGearAt.
 --   recipes[id]   = { name, line (expansion skill line), base (profession skill line), item, qMin, qMax, out =
 --                     { link at the lowest quality, at the highest } (gear and tools, Collect.lua),
 --                     reagents = { { items = { itemID, ... (quality ranks) }, qty } } }
@@ -867,4 +868,104 @@ function ns.Alts_Upgrade(lo, hi, target)
 		return "top", hi - target.ilvl
 	end
 	return "no", hi - target.ilvl
+end
+
+---------------------------------------------------------------------------------------------------------------
+-- Profession gear: each profession has a tool slot and accessory slots (two; cooking one; archaeology none).
+-- Worn profession gear is stored per character (Collect.lua, slots 20-30); an item's profession is its subclass.
+
+local PROF_BY_SUBCLASS = {}
+for base, sub in pairs(PROF_SUBCLASS) do
+	if base ~= 794 then -- archaeology has no gear slots
+		PROF_BY_SUBCLASS[sub] = base
+	end
+end
+local ACCESSORY_SLOTS = { [185] = 1 } -- cooking; every other profession has two
+local KIND_NAMES = { tool = "Tool", acc = "Accessory" }
+
+-- The profession (base skill line) and kind ("tool" | "acc") of a profession item, nil for anything else.
+function ns.Alts_ProfItem(classID, subclassID, equipLoc)
+	if classID ~= PROFESSION then
+		return nil
+	end
+	local base = PROF_BY_SUBCLASS[subclassID]
+	local kind = equipLoc == "INVTYPE_PROFESSION_TOOL" and "tool" or equipLoc == "INVTYPE_PROFESSION_GEAR" and "acc" or nil
+	if base and kind then
+		return base, kind
+	end
+	return nil
+end
+
+-- How many slots of a kind a profession has.
+function ns.Alts_ProfSlots(base, kind)
+	if base == 794 or not PROF_SUBCLASS[base] then
+		return 0
+	end
+	return kind == "tool" and 1 or (ACCESSORY_SLOTS[base] or 2)
+end
+
+-- What a profession item would replace: like Alts_WornFor ({ name, ilvl (nil: a slot is free), loading }).
+-- worn = { { base, kind, ilvl (number | false while loading) } } (all of a character's profession gear). Of two
+-- accessories the lower one. nil when the profession has no such slot.
+function ns.Alts_ProfTarget(worn, base, kind)
+	local slots = ns.Alts_ProfSlots(base, kind)
+	if slots == 0 then
+		return nil
+	end
+	local name = KIND_NAMES[kind]
+	local same = {}
+	for _, w in ipairs(worn) do
+		if w.base == base and w.kind == kind then
+			same[#same + 1] = w
+		end
+	end
+	if #same < slots then
+		return { name = name }
+	end
+	local best
+	for _, w in ipairs(same) do
+		if w.ilvl == false then
+			return { name = name, loading = true }
+		elseif not best or w.ilvl < best.ilvl then
+			best = { name = name, ilvl = w.ilvl }
+		end
+	end
+	return best
+end
+
+-- The best craft for a profession slot: candidates = { { recipeID, lo, hi, known (somebody knows it) } }, target from
+-- Alts_ProfTarget. Known recipes only, highest item level first (then the cheaper lowest quality). Returns the
+-- candidate with mark and gain (Alts_Upgrade) when it's an upgrade ("sure", "top" or "empty"), else nil.
+function ns.Alts_BestProfCraft(candidates, target)
+	local best
+	for _, cand in ipairs(candidates) do
+		if cand.known and cand.hi and (not best or cand.hi > best.hi or (cand.hi == best.hi and (cand.lo or 0) > (best.lo or 0))) then
+			best = cand
+		end
+	end
+	if not best then
+		return nil
+	end
+	local mark, gain = ns.Alts_Upgrade(best.lo, best.hi, target)
+	if mark == "sure" or mark == "top" or mark == "empty" then
+		return { recipeID = best.recipeID, lo = best.lo, hi = best.hi, mark = mark, gain = gain }
+	end
+	return nil
+end
+
+-- A bag item's best home among the characters: items = { ilvl, base, kind }, targets = { { guid, target } } (other
+-- characters that have the profession, with their Alts_ProfTarget). The character it improves most: { guid, gain }
+-- (gain nil for an empty slot, which comes first), nil when it's nobody's upgrade.
+function ns.Alts_ProfBagUpgrade(ilvl, targets)
+	local best
+	for _, t in ipairs(targets) do
+		local mark, gain = ns.Alts_Upgrade(ilvl, ilvl, t.target)
+		if mark == "empty" or mark == "sure" then
+			local better = not best or (best.gain ~= nil and (gain == nil or gain > best.gain))
+			if better then
+				best = { guid = t.guid, gain = gain }
+			end
+		end
+	end
+	return best
 end

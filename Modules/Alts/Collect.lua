@@ -97,6 +97,31 @@ local function ReadGear(c)
 	end
 end
 
+-- Worn profession gear (tool and accessories, slots 20-30; Blizzard_ProfessionsCrafting.xml), for the Profession
+-- gear tab. Read only once the worn gear has (at login neither has arrived yet), and not while a link is missing.
+local PROF_SLOTS = { 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 }
+local function ReadProfGear(c)
+	if not c.gear then
+		return
+	end
+	local gear = {}
+	for _, slot in ipairs(PROF_SLOTS) do
+		local link = GetInventoryItemLink("player", slot)
+		if not link and GetInventoryItemID("player", slot) then
+			return
+		end
+		gear[slot] = link
+	end
+	local old, same = c.profGear, c.profGear ~= nil
+	for _, slot in ipairs(PROF_SLOTS) do
+		same = same and old[slot] == gear[slot]
+	end
+	if not same then
+		c.profGear = gear
+		c.profGearAt = GetServerTime()
+	end
+end
+
 local function ReadRest(c)
 	local maxLevel = GetMaxLevelForPlayerExpansion and GetMaxLevelForPlayerExpansion()
 	if maxLevel and c.level and c.level >= maxLevel then
@@ -158,6 +183,7 @@ local function Refresh()
 	Try(ReadBasics, c)
 	Try(ReadSpec, c)
 	Try(ReadGear, c)
+	Try(ReadProfGear, c)
 	Try(ReadRest, c)
 	Try(ReadProfs, c)
 	ns.Alts_Changed()

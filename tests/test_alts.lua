@@ -433,6 +433,54 @@ test("what a craft replaces and the upgrade mark", function()
 	eq(ns.Alts_Upgrade(nil, 610, t), "sure", "one quality")
 end)
 
+test("profession gear: item kind, slots, what it replaces", function()
+	eq(select(1, ns.Alts_ProfItem(19, 0, "INVTYPE_PROFESSION_TOOL")), 164, "Blacksmithing tool")
+	eq(select(2, ns.Alts_ProfItem(19, 5, "INVTYPE_PROFESSION_GEAR")), "acc", "Mining accessory")
+	eq(ns.Alts_ProfItem(19, 13, "INVTYPE_PROFESSION_TOOL"), nil, "archaeology")
+	eq(ns.Alts_ProfItem(4, 0, "INVTYPE_PROFESSION_TOOL"), nil, "not a profession item")
+	eq(ns.Alts_ProfSlots(185, "acc"), 1, "cooking has one accessory")
+	eq(ns.Alts_ProfSlots(164, "acc"), 2, "two accessories")
+	eq(ns.Alts_ProfSlots(794, "tool"), 0, "archaeology")
+	local worn = {
+		{ base = 164, kind = "tool", ilvl = 590 },
+		{ base = 164, kind = "acc", ilvl = 580 },
+		{ base = 186, kind = "acc", ilvl = 600 },
+		{ base = 186, kind = "acc", ilvl = 570 },
+	}
+	eq(ns.Alts_ProfTarget(worn, 164, "tool").ilvl, 590, "the worn tool")
+	eq(ns.Alts_ProfTarget(worn, 164, "acc").ilvl, nil, "a free accessory slot")
+	eq(ns.Alts_ProfTarget(worn, 186, "acc").ilvl, 570, "the weaker accessory")
+	eq(ns.Alts_ProfTarget(worn, 186, "tool").name, "Tool", "no tool")
+	eq(ns.Alts_ProfTarget(worn, 794, "tool"), nil, "no such slot")
+	worn[1].ilvl = false
+	eq(ns.Alts_ProfTarget(worn, 164, "tool").loading, true, "loading")
+end)
+
+test("profession gear: best craft and best home for a bag item", function()
+	local cands = {
+		{ recipeID = 1, lo = 580, hi = 610, known = true },
+		{ recipeID = 2, lo = 600, hi = 640, known = false },
+		{ recipeID = 3, lo = 595, hi = 610, known = true },
+	}
+	local best = ns.Alts_BestProfCraft(cands, { ilvl = 590 })
+	eq(best.recipeID, 3, "known, highest, then the better lowest quality")
+	eq(best.mark, "sure", "an upgrade at every quality")
+	eq(best.gain, 5, "gain")
+	eq(ns.Alts_BestProfCraft(cands, { ilvl = 620 }), nil, "nothing better")
+	eq(ns.Alts_BestProfCraft(cands, { name = "Tool" }).mark, "empty", "a free slot")
+	eq(ns.Alts_BestProfCraft({}, { ilvl = 1 }), nil, "no recipes")
+	local home = ns.Alts_ProfBagUpgrade(600, {
+		{ guid = "a", target = { ilvl = 590 } },
+		{ guid = "b", target = { ilvl = 560 } },
+		{ guid = "c", target = { ilvl = 620 } },
+	})
+	eq(home.guid, "b", "the biggest gain")
+	eq(home.gain, 40, "gain")
+	eq(ns.Alts_ProfBagUpgrade(600, { { guid = "a", target = { ilvl = 590 } }, { guid = "d", target = { name = "Tool" } } }).guid,
+		"d", "a free slot first")
+	eq(ns.Alts_ProfBagUpgrade(500, { { guid = "a", target = { ilvl = 590 } } }), nil, "nobody's upgrade")
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)

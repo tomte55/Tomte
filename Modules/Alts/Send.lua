@@ -91,16 +91,24 @@ local function GearOn()
 end
 
 -- Bag gear that's a clean upgrade for another character and can get to them, marked with to (the character it
--- helps most), route ("mail" | "warband") and verdict. Your own upgrades stay with you. Items still loading are
--- left out; AltsSend_OnGearReady draws the panel again once they've arrived.
+-- helps most), route ("mail" | "warband") and verdict (gainText instead for profession gear, ProfGear.lua). Your
+-- own upgrades stay with you. Items still loading are left out; AltsSend_OnGearReady draws the panel again once
+-- they've arrived.
 local function GearStacks()
 	local out = {}
-	if not GearOn() then
-		return out
-	end
+	local gearOn = GearOn()
 	for _, s in ipairs(BagStacks()) do
 		local equipLoc = s.link and select(4, C_Item.GetItemInfoInstant(s.link))
-		if equipLoc and ns.Gear_Slots(equipLoc) then
+		local up = equipLoc and ns.AltsProf_ItemOf(s.link) and ns.AltsProf_BagUpgrade(s.link)
+		if up then
+			-- Profession gear: by item level against what they wear (ProfGear.lua), with or without Gear Check.
+			local route = ns.GearAlts_Route and ns.GearAlts_Route(s.link, ItemLocation:CreateFromBagAndSlot(s.bag, s.slot))
+			if route then
+				s.to, s.route = up.guid, route
+				s.gainText = ns.AltsProf_GainText(up.gain == nil and "empty" or nil, up.gain)
+				out[#out + 1] = s
+			end
+		elseif gearOn and equipLoc and ns.Gear_Slots(equipLoc) then
 			local route = ns.GearAlts_Route(s.link, ItemLocation:CreateFromBagAndSlot(s.bag, s.slot))
 			local best = route and ns.GearAlts_Upgrades(s.link)[1]
 			if best and not ns.Gear_IsCleanUpgrade(ns.Gear_EvaluateLink(s.link)) then
@@ -465,7 +473,7 @@ function ns.AltsSend_Refresh()
 				break
 			end
 			local icon = s.icon and ("|T%s:14:14:0:0:64:64:5:59:5:59|t "):format(s.icon) or ""
-			fs:SetText(("%s%s |cff4fe06a%s|r"):format(icon, s.link or s.name or "?", ns.Gear_AltGain(s.verdict)))
+			fs:SetText(("%s%s |cff4fe06a%s|r"):format(icon, s.link or s.name or "?", s.gainText or ns.Gear_AltGain(s.verdict)))
 		end
 		y = y + 8
 	end
@@ -641,18 +649,16 @@ end
 -- What "Deposit for alts" puts in the Warband bank: materials, then warbound gear for alts ("Gear for" groups).
 local function DepositGroups()
 	local gear = {}
-	if GearOn() then
-		for _, g in ipairs(ns.Alts_GearGroups(GearStacks(), "warband", ns.altsDB.chars)) do
-			local allowed = {}
-			for _, s in ipairs(g.stacks) do
-				if Warbandable(s) then
-					allowed[#allowed + 1] = s
-				end
+	for _, g in ipairs(ns.Alts_GearGroups(GearStacks(), "warband", ns.altsDB.chars)) do
+		local allowed = {}
+		for _, s in ipairs(g.stacks) do
+			if Warbandable(s) then
+				allowed[#allowed + 1] = s
 			end
-			if #allowed > 0 then
-				g.stacks = allowed
-				gear[#gear + 1] = g
-			end
+		end
+		if #allowed > 0 then
+			g.stacks = allowed
+			gear[#gear + 1] = g
 		end
 	end
 	local list = ns.Alts_SendGroups(Without(BagStacks(), Slots(gear)), Context(), Warbandable)
@@ -694,7 +700,8 @@ local function CreateBankButton()
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
 		GameTooltip:SetText("Deposit for alts", 1, 1, 1)
 		GameTooltip:AddLine("Puts what your other characters craft with (and you don't) into the Warband bank"
-			.. (GearOn() and ", and warbound gear that's an upgrade for them." or "."), nil, nil, nil, true)
+			.. (GearOn() and ", and warbound gear that's an upgrade for them." or ", and warbound profession gear that's an "
+			.. "upgrade for them."), nil, nil, nil, true)
 		for _, g in ipairs(self.groups or {}) do
 			local c = ns.altsDB.chars[g.guid]
 			GameTooltip:AddDoubleLine((g.gear and "Gear for " or "") .. (c.name or "?"), ("%d stack%s"):format(#g.stacks, #g.stacks == 1 and "" or "s"),
