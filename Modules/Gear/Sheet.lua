@@ -123,7 +123,7 @@ local function SourceText(ctx)
 	if ctx.source == "imported" then
 		return ("Imported: %s"):format(ctx.label or "Raidbots")
 	elseif ctx.source == "builtin" then
-		return ("Built-in: %s"):format(ctx.label)
+		return ("Built-in: %s%s"):format(ctx.label, ns.Gear_IsGuideLabel(ctx.label) and ": import a sim for better" or "")
 	end
 	return "None: item level decides. Import Raidbots weights for better verdicts."
 end
@@ -329,6 +329,19 @@ function ns.GearSheet_Refresh()
 	if wanted then
 		Layout()
 	end
+end
+
+-- The character pane on its Character tab with the Gear Check panel open (Home's Item level). ToggleCharacter's
+-- second argument only shows (it doesn't close a pane that's already on that tab). Not in combat, where showing a
+-- UI panel from addon code can be blocked.
+function ns.GearSheet_Open()
+	if InCombatLockdown() then
+		ns.Print("not in combat.")
+		return
+	end
+	DB().sheetOpen = true
+	ToggleCharacter("PaperDollFrame", true)
+	ns.GearSheet_Refresh()
 end
 
 -- From the module's Start: build once the character frame exists.

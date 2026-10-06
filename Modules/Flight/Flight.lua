@@ -411,6 +411,86 @@ local function Seconds(value)
 	return value .. "s"
 end
 
+-- Home's "Around you": flight masters in your zone you haven't timed a route from ---------------------------------
+
+local COVERAGE_ICON = "Interface\\Icons\\Ability_Mount_Wyvern_01"
+
+local function Secret(value)
+	return issecretvalue ~= nil and issecretvalue(value)
+end
+
+-- Untimed flight masters in the zone you're in, nearest first (Coverage_Untimed), and that zone's map ID.
+local function UntimedHere()
+	local zone = ns.Atlas_PlayerZone()
+	if not zone then
+		return {}, nil
+	end
+	local px, py
+	local pos = C_Map.GetPlayerMapPosition(zone.mapID, "player")
+	if pos and not Secret(pos.x) then
+		px, py = pos.x, pos.y
+	end
+	local w, h = C_Map.GetMapWorldSize(zone.mapID)
+	return ns.Coverage_Untimed(ns.Atlas_MapNodes(zone.mapID), ns.Coverage_Timed(ns.flightDB), px, py, w, h), zone.mapID
+end
+
+-- Map pin + super-track (Waypoints and Blizzard's arrow pick it up), as Weekly's knowledge waypoints.
+local function Waypoint(node, mapID)
+	if not (node.x and C_Map.CanSetUserWaypointOnMap(mapID)) then
+		ns.Print("can't place a map pin there.")
+		return
+	end
+	C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, node.x, node.y))
+	C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	ns.Print(("waypoint: %s."):format(node.name))
+end
+
+local function DistanceText(yards)
+	local way = ns.modulesByKey.way
+	return ns.Way_FormatDistance(yards, way and way.db and way.db.metric)
+end
+
+local AROUND = {
+	kind = "around", key = "flightaround", order = 4, name = "Flight masters", maxRows = 2, icon = COVERAGE_ICON,
+	openText = "Opens the world map on this zone",
+	open = function()
+		if InCombatLockdown() then
+			ns.Print("not in combat.")
+			return
+		end
+		local zone = ns.Atlas_PlayerZone()
+		OpenWorldMap(zone and zone.mapID or C_Map.GetBestMapForUnit("player"))
+	end,
+	title = function()
+		return ("Flight masters: %d not timed here"):format(#(UntimedHere()))
+	end,
+	items = function(limit)
+		local list, mapID = UntimedHere()
+		local rows = {}
+		for i = 1, math.min(limit, #list) do
+			local node = list[i]
+			local hidden = node.state == "undiscovered"
+			rows[i] = {
+				icon = COVERAGE_ICON, text = node.name, color = hidden and ns.UI.GREY or nil,
+				right = DistanceText(node.yards),
+				onClick = function()
+					Waypoint(node, mapID)
+				end,
+				onEnter = function(row)
+					local gold = ns.UI.GOLD
+					GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+					GameTooltip:SetText(node.name, 1, 1, 1)
+					GameTooltip:AddLine(hidden and "Not discovered yet." or "No timed flight from or to here yet.",
+						0.8, 0.8, 0.8)
+					GameTooltip:AddLine("Click: waypoint", gold[1], gold[2], gold[3])
+					GameTooltip:Show()
+				end,
+			}
+		end
+		return rows
+	end,
+}
+
 module = ns.RegisterModule({
 	key = "flight",
 	name = "Flight Timer",
@@ -441,6 +521,7 @@ module = ns.RegisterModule({
 				end
 				return n == 1 and "1 flight master timed" or (n .. " flight masters timed")
 			end },
+		AROUND,
 	},
 	panelClosed = StopPreview,
 	commands = {

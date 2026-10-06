@@ -25,6 +25,17 @@ local BASE = { money = 1000, level = 80, xpFraction = 0.5 }
 ---------------------------------------------------------------------------------------------------------------
 -- Session
 
+test("WarbandMoved keeps the net through a deposit and a withdrawal", function()
+	local s = ns.Session_New("Player-1", 100, BASE)
+	s.moneyNow = 1500 -- earned 500
+	s.moneyNow = s.moneyNow - 1200 -- deposit 1200
+	ns.Session_WarbandMoved(s, 1200)
+	eq(s.moneyNow - s.money, 500, "after deposit")
+	s.moneyNow = s.moneyNow + 300 -- withdraw 300
+	ns.Session_WarbandMoved(s, -300)
+	eq(s.moneyNow - s.money, 500, "after withdrawal")
+end)
+
 test("Begin starts a session on a fresh db", function()
 	local db = {}
 	local s, new = ns.Session_Begin(db, "Player-1", true, 100, BASE)

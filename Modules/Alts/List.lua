@@ -535,12 +535,16 @@ end
 
 -- One result per craft (a multicraft is still one craft). Recipe IDs are the recipes' spell IDs.
 function events:TRADE_SKILL_ITEM_CRAFTED_RESULT(data)
-	if not pending or (data and data.bonusCraft) then
+	if not data or data.bonusCraft then
 		return
 	end
-	local entry = ns.Alts_ListCrafted(ns.altsDB.list, pending, db.listDone == "auto")
+	local recipeID = ns.Alts_ListCraftedRecipe(ns.altsDB.list, ns.altsDB.recipes, pending, data.itemID)
+	if not recipeID then
+		return
+	end
+	local entry = ns.Alts_ListCrafted(ns.altsDB.list, recipeID, db.listDone == "auto")
 	if entry and entry.crafts <= 0 then
-		ns.Print(("%s done: %s."):format(RecipeName(pending), db.listDone == "auto" and "off the crafting list" or "right-click it in the tracker to remove it"))
+		ns.Print(("%s done: %s."):format(RecipeName(recipeID), db.listDone == "auto" and "off the crafting list" or "right-click it in the tracker to remove it"))
 	end
 	ns.AltsList_Changed()
 end

@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
 -- Alts page, List tab: the crafting list. Every tracked craft (amount - n +, remove), all their materials added
--- up, and the full to-do: yours first, then what other characters have to do. Data from List.lua.
+-- up (with an Auctionator shopping list link for what's missing), and the full to-do: yours first, then what other
+-- characters have to do. Data from List.lua.
 
 local UI = ns.UI
 local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
@@ -132,6 +133,7 @@ function ns.AltsListTab_Refresh()
 			end
 		end
 	end
+	tab.shop:Hide()
 	local alts = ns.altsDB
 	local todos = ns.AltsList_Todos()
 	local content = tab.scroll.content
@@ -178,6 +180,13 @@ function ns.AltsListTab_Refresh()
 			agg.missing = agg.missing + m.missing
 		end
 	end
+	local plans = {}
+	for _, t in ipairs(todos) do
+		plans[#plans + 1] = t.plan
+	end
+	tab.shop:ClearAllPoints()
+	tab.shop:SetPoint("TOPRIGHT", -8, -(y + 6 + 12))
+	tab.shop:Set("Tomte: Crafting list", ns.Alts_ShoppingItems(plans, alts.chain))
 	y = Header(2, "Materials (all crafts)", y + 6)
 	local n = 0
 	for _, key in ipairs(order) do
@@ -249,6 +258,7 @@ function ns.AltsListTab_Create(frame)
 	frame.scroll = UI.Scroll(frame)
 	frame.scroll:SetPoint("TOPLEFT")
 	frame.scroll:SetPoint("BOTTOMRIGHT", -10, 0)
+	frame.shop = ns.AltsShop_CreateLink(frame.scroll.content) -- on the materials heading's line
 	frame.empty = UI.Text(frame, 13, GREY)
 	frame.empty:SetPoint("TOPLEFT", 8, -8)
 	frame.empty:SetPoint("RIGHT", -8, 0)

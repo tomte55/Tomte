@@ -3,8 +3,10 @@ local addonName, ns = ...
 -- Send to alt: at a mailbox, a panel beside the mail frame lists what this character carries that another
 -- character uses (reagents of recipes they know, the Crafting tab's plan, manual rules), grouped by who gets it.
 -- Per group: "Attach" fills the Send Mail tab (recipient, subject, up to 12 stacks), then "Send" sends it. At the
--- bank, "Deposit for alts" puts the suggested items that may go into the Warband bank there. Every move is one click;
--- nothing happens in combat. Rules in SendData.lua.
+-- bank, "Deposit for alts" puts the suggested items that may go into the Warband bank there. With Gear Check's
+-- upgrades for alts, Bind on Equip gear that's a clean upgrade for another character gets a "Gear for <name>" group
+-- at the mailbox, and warbound gear goes in the Warband bank with the rest. Every move is one click; nothing happens
+-- in combat. Rules in SendData.lua.
 
 local UI = ns.UI
 local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
@@ -19,6 +21,7 @@ local QUEST = 12
 local db
 local dock, bankButton
 local groups = {}
+local gearGroups = {}
 local attached -- { guid, stacks } while a mail is filled in and not sent yet
 local toppingUp -- { c, amount } while a gold top-up is on its way
 local depositing = false
@@ -78,6 +81,60 @@ local function Warbandable(s)
 	local ok, allowed = pcall(C_Bank.IsItemAllowedInBankType, Enum.BankType.Account,
 		ItemLocation:CreateFromBagAndSlot(s.bag, s.slot))
 	return ok and allowed == true
+end
+
+-- Gear Check's "Gear for alts at the mailbox": its module on, the setting on, upgrades for alts not off.
+local function GearOn()
+	local gear = ns.gearDB
+	return ns.gearModule and ns.gearModule.active and gear and gear.altMail and gear.altUpgrades ~= "off"
+		and ns.GearAlts_Upgrades ~= nil
+end
+
+-- Bag gear that's a clean upgrade for another character and can get to them, marked with to (the character it
+-- helps most), route ("mail" | "warband") and verdict. Your own upgrades stay with you. Items still loading are
+-- left out; AltsSend_OnGearReady draws the panel again once they've arrived.
+local function GearStacks()
+	local out = {}
+	if not GearOn() then
+		return out
+	end
+	for _, s in ipairs(BagStacks()) do
+		local equipLoc = s.link and select(4, C_Item.GetItemInfoInstant(s.link))
+		if equipLoc and ns.Gear_Slots(equipLoc) then
+			local route = ns.GearAlts_Route(s.link, ItemLocation:CreateFromBagAndSlot(s.bag, s.slot))
+			local best = route and ns.GearAlts_Upgrades(s.link)[1]
+			if best and not ns.Gear_IsCleanUpgrade(ns.Gear_EvaluateLink(s.link)) then
+				s.to, s.route, s.verdict = best.guid, route, best.verdict
+				out[#out + 1] = s
+			end
+		end
+	end
+	return out
+end
+
+-- Stacks not in skip ([bag .. ":" .. slot] = true): what a gear group takes isn't offered twice.
+local function Without(stacks, skip)
+	local out = {}
+	for _, s in ipairs(stacks) do
+		if not skip[s.bag .. ":" .. s.slot] then
+			out[#out + 1] = s
+		end
+	end
+	return out
+end
+
+local function Slots(groupList)
+	local set = {}
+	for _, g in ipairs(groupList) do
+		for _, s in ipairs(g.stacks) do
+			set[s.bag .. ":" .. s.slot] = true
+		end
+	end
+	return set
+end
+
+local function GearMailGroups()
+	return ns.Alts_GearGroups(GearStacks(), "mail", ns.altsDB.chars)
 end
 
 local function Busy()
@@ -148,7 +205,9 @@ local function Attach(g)
 	local c = ns.altsDB.chars[g.guid]
 	-- Read the bags again: the group's bag slots are from when the panel was drawn, and items may have moved since.
 	local fresh
-	for _, group in ipairs(ns.Alts_SendGroups(FreeStacks(), Context(), Mailable)) do
+	local gear = GearMailGroups()
+	local list = g.gear and gear or ns.Alts_SendGroups(Without(FreeStacks(), Slots(gear)), Context(), Mailable)
+	for _, group in ipairs(list) do
 		if group.guid == g.guid then
 			fresh = group
 		end
@@ -169,7 +228,7 @@ local function Attach(g)
 	end
 	SendMailNameEditBox:SetText(ns.Alts_MailName(c, GetRealmName()))
 	SendMailSubjectEditBox:SetText(db.sendSubject ~= "" and db.sendSubject or "Tomte")
-	attached = { guid = g.guid, stacks = done }
+	attached = { guid = g.guid, stacks = done, gear = g.gear }
 	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
 	ns.AltsSend_Refresh()
 end
@@ -373,6 +432,43 @@ function ns.AltsSend_Refresh()
 		end
 		y = y + 8
 	end
+	-- Gear for alts (Bind on Equip upgrades), one group per character.
+	for _, g in ipairs(gearGroups) do
+		local c = ns.altsDB.chars[g.guid]
+		blocks = blocks + 1
+		local b = Block(blocks)
+		b:ClearAllPoints()
+		b:SetPoint("TOPLEFT", 12, -y)
+		b:SetPoint("RIGHT", -12, 0)
+		local color = ClassColor(c)
+		b.name:SetText("Gear for " .. (c.name or "?"))
+		b.name:SetTextColor(color[1], color[2], color[3])
+		local isAttached = attached and attached.gear and attached.guid == g.guid
+		b.button.label:SetText(isAttached and "Send" or "Attach")
+		b.button.onClick = function()
+			if isAttached then
+				Send()
+			else
+				Attach(g)
+			end
+		end
+		y = y + 24
+		for i, s in ipairs(g.stacks) do
+			lines = lines + 1
+			local fs = Line(lines)
+			fs:ClearAllPoints()
+			fs:SetPoint("TOPLEFT", 22, -y)
+			fs:SetPoint("RIGHT", -12, 0)
+			y = y + ROW_H
+			if i > MAX_ITEM_ROWS then
+				fs:SetText(("|cff9e9e9e+ %d more|r"):format(#g.stacks - MAX_ITEM_ROWS))
+				break
+			end
+			local icon = s.icon and ("|T%s:14:14:0:0:64:64:5:59:5:59|t "):format(s.icon) or ""
+			fs:SetText(("%s%s |cff4fe06a%s|r"):format(icon, s.link or s.name or "?", ns.Gear_AltGain(s.verdict)))
+		end
+		y = y + 8
+	end
 	if blocks > 0 and #groups > 0 then
 		lines = lines + 1
 		local fs = Line(lines)
@@ -392,7 +488,7 @@ function ns.AltsSend_Refresh()
 		local color = ClassColor(c)
 		b.name:SetText(("%s  |cff9e9e9e%d stack%s|r"):format(c.name or "?", #g.stacks, #g.stacks == 1 and "" or "s"))
 		b.name:SetTextColor(color[1], color[2], color[3])
-		local isAttached = attached and attached.guid == g.guid and not attached.craft
+		local isAttached = attached and attached.guid == g.guid and not attached.craft and not attached.gear
 		b.button.label:SetText(isAttached and "Send" or "Attach")
 		b.button.onClick = function()
 			if isAttached then
@@ -465,10 +561,11 @@ end
 
 local function Rebuild()
 	if not (db.sendMail and ns.altsDB) then
-		groups = {}
+		groups, gearGroups = {}, {}
 		return
 	end
-	groups = ns.Alts_SendGroups(FreeStacks(), Context(), Mailable)
+	gearGroups = GearMailGroups()
+	groups = ns.Alts_SendGroups(Without(FreeStacks(), Slots(gearGroups)), Context(), Mailable)
 end
 
 local function ShowDock()
@@ -480,7 +577,7 @@ local function ShowDock()
 	end
 	Rebuild()
 	local hasGold = db.sendGold and db.sendGold > 0
-	dock:SetShown(#groups > 0 or hasGold or #CraftMails() > 0)
+	dock:SetShown(#groups > 0 or #gearGroups > 0 or hasGold or #CraftMails() > 0)
 	ns.AltsSend_Refresh()
 end
 
@@ -516,13 +613,60 @@ function events:MAIL_FAILED()
 	end
 end
 
+-- Bags changed with the mailbox open (taking items from the inbox, for one): what there is to send may have too.
+-- Not while something is attached: the attached stacks left the bags and the Send button must stay.
+local bagsPending
+function events:BAG_UPDATE_DELAYED()
+	if bagsPending or attached or toppingUp or not (MailFrame and MailFrame:IsShown()) then
+		return
+	end
+	bagsPending = true
+	C_Timer.After(0.3, function()
+		bagsPending = nil
+		if db and not attached and not toppingUp and MailFrame and MailFrame:IsShown() then
+			ShowDock()
+		end
+	end)
+end
+
+-- Gear Check's items have loaded: the mailbox's gear groups may have changed.
+function ns.AltsSend_OnGearReady()
+	if db and dock and MailFrame and MailFrame:IsShown() then
+		ShowDock()
+	end
+end
+
 -- Warband bank ----------------------------------------------------------------------------------------------------
+
+-- What "Deposit for alts" puts in the Warband bank: materials, then warbound gear for alts ("Gear for" groups).
+local function DepositGroups()
+	local gear = {}
+	if GearOn() then
+		for _, g in ipairs(ns.Alts_GearGroups(GearStacks(), "warband", ns.altsDB.chars)) do
+			local allowed = {}
+			for _, s in ipairs(g.stacks) do
+				if Warbandable(s) then
+					allowed[#allowed + 1] = s
+				end
+			end
+			if #allowed > 0 then
+				g.stacks = allowed
+				gear[#gear + 1] = g
+			end
+		end
+	end
+	local list = ns.Alts_SendGroups(Without(BagStacks(), Slots(gear)), Context(), Warbandable)
+	for _, g in ipairs(gear) do
+		list[#list + 1] = g
+	end
+	return list
+end
 
 local function Deposit()
 	if Busy() or depositing then
 		return
 	end
-	local list = ns.Alts_SendGroups(BagStacks(), Context(), Warbandable)
+	local list = DepositGroups()
 	local n = 0
 	depositing = true
 	for _, g in ipairs(list) do
@@ -549,10 +693,11 @@ local function CreateBankButton()
 		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 1)
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
 		GameTooltip:SetText("Deposit for alts", 1, 1, 1)
-		GameTooltip:AddLine("Puts what your other characters craft with (and you don't) into the Warband bank.", nil, nil, nil, true)
+		GameTooltip:AddLine("Puts what your other characters craft with (and you don't) into the Warband bank"
+			.. (GearOn() and ", and warbound gear that's an upgrade for them." or "."), nil, nil, nil, true)
 		for _, g in ipairs(self.groups or {}) do
 			local c = ns.altsDB.chars[g.guid]
-			GameTooltip:AddDoubleLine(c.name or "?", ("%d stack%s"):format(#g.stacks, #g.stacks == 1 and "" or "s"),
+			GameTooltip:AddDoubleLine((g.gear and "Gear for " or "") .. (c.name or "?"), ("%d stack%s"):format(#g.stacks, #g.stacks == 1 and "" or "s"),
 				unpack(ClassColor(c)))
 		end
 		GameTooltip:Show()
@@ -562,7 +707,7 @@ local function CreateBankButton()
 		GameTooltip:Hide()
 	end)
 	function bankButton:Update()
-		self.groups = ns.Alts_SendGroups(BagStacks(), Context(), Warbandable)
+		self.groups = DepositGroups()
 		local n = 0
 		for _, g in ipairs(self.groups) do
 			n = n + #g.stacks
@@ -612,7 +757,8 @@ function ns.AltsSend_Summary()
 	return ("%d stack%s for %s"):format(stacks, stacks == 1 and "" or "s", table.concat(names, ", "))
 end
 
-local EVENTS = { "MAIL_SHOW", "MAIL_CLOSED", "MAIL_SEND_SUCCESS", "MAIL_FAILED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED" }
+local EVENTS = { "MAIL_SHOW", "MAIL_CLOSED", "MAIL_SEND_SUCCESS", "MAIL_FAILED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED",
+	"BAG_UPDATE_DELAYED" }
 
 function ns.AltsSend_Start(moduleDB)
 	db = moduleDB

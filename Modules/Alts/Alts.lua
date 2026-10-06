@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Alts module: every character's snapshot (level, spec, item level, gold, zone, rest, professions) and their
 -- recipes, so the Alts page can answer "who makes this, and do we have the materials?" and list the characters.
 -- Data.lua holds the logic, Collect.lua reads the game, CraftTab.lua and RosterTab.lua draw the page's two tabs.
--- This file wires them up and adds "Crafted by" lines to item tooltips.
+-- This file wires them up and adds "Crafted by" lines to item tooltips ("Known by" / "Learnable by" on recipe items).
 
 local UI = ns.UI
 local GOLD, GREY = UI.GOLD, UI.GREY
@@ -13,6 +13,7 @@ local TAB_H = 22
 local module, db
 local page
 local producers -- [itemID] = recipeIDs, for tooltips; rebuilt when recipes change
+local recipesByName -- [lower-case name] = recipeIDs, for recipe items; rebuilt when recipes change
 
 local function ShowTab(key)
 	db.view = key
@@ -131,6 +132,7 @@ end
 
 function ns.Alts_RecipesChanged()
 	producers = nil
+	recipesByName = nil
 	ns.AltsCraft_RecipesChanged()
 	ns.AltsCraft_Refresh()
 	ns.AltsRoster_Refresh()
@@ -143,12 +145,50 @@ local function ProfName(c, base)
 	return prof and prof.name or "?"
 end
 
+local function BaseName(base)
+	for _, c in pairs(db.chars) do
+		local prof = c.profs and c.profs[base]
+		if prof and prof.name then
+			return prof.name
+		end
+	end
+	return "?"
+end
+
+-- A recipe item (pattern, plans, formula...): who knows the recipe it teaches, or who could learn it. No API maps
+-- the item to its recipe (C_TradeSkillUI has nothing by item; C_Item.GetItemSpell gives the "learn" spell, not the
+-- recipe), so its name is matched against the stored recipes ("Plans: Charged Runeaxe" -> "Charged Runeaxe").
+-- Every recipe of a profession somebody has is stored, so a miss means nobody has the profession: no line.
+local function OnRecipeItem(tooltip, data, itemID)
+	local name = C_Item.GetItemNameByID(itemID) or (data.lines and data.lines[1] and data.lines[1].leftText)
+	local key = ns.Alts_RecipeItemName(name)
+	if not key then
+		return
+	end
+	recipesByName = recipesByName or ns.Alts_RecipesByName(db.recipes)
+	local ids = recipesByName[key]
+	if not ids then
+		return
+	end
+	local status, names, base = ns.Alts_RecipeItemStatus(db.chars, db.recipes, ids)
+	if status == "known" then
+		tooltip:AddLine(("%s|cff9e9e9eKnown by %s|r"):format(LABEL, names), 1, 1, 1, true)
+	elseif status == "learnable" then
+		tooltip:AddLine(("%s|cff73d973Learnable by %s (%s)|r"):format(LABEL, names, BaseName(base)), 1, 1, 1, true)
+	end
+end
+
 local function OnItem(tooltip, data)
 	if not (module.active and db.tooltip and tooltip.AddLine and data) then
 		return
 	end
 	local itemID = data.id
 	if not itemID or (issecretvalue and issecretvalue(itemID)) or type(itemID) ~= "number" then
+		return
+	end
+	local classID = select(6, C_Item.GetItemInfoInstant(itemID))
+	if classID == Enum.ItemClass.Recipe then
+		OnRecipeItem(tooltip, data, itemID)
 		return
 	end
 	producers = producers or ns.Alts_Producers(db.recipes)
@@ -214,7 +254,8 @@ module = ns.RegisterModule({
 		.. "opens its profession window.",
 	enabledByDefault = true,
 	uses = { { addon = "Syndicator", why = "item counts on every character and the Warband bank",
-		without = "only this character's bags, bank and the Warband bank are counted" } },
+		without = "only this character's bags, bank and the Warband bank are counted" },
+		{ addon = "Auctionator", why = "shopping lists for missing materials" } },
 	defaults = {
 		chars = {},
 		recipes = {},
@@ -251,8 +292,22 @@ module = ns.RegisterModule({
 				for _ in pairs(db.chars) do
 					n = n + 1
 				end
-				return ("%d character%s · %s"):format(n, n == 1 and "" or "s", ns.Alts_Gold(ns.Alts_TotalGold(db.chars)))
-			end },
+				return ("%d character%s · %s%s"):format(n, n == 1 and "" or "s",
+					ns.Alts_Gold(ns.Alts_TotalGold(db.chars, db.warbandMoney)), ns.Alts_WarbandText(db.warbandMoney))
+			end,
+			-- Rail pill: crafting list lines for the character you're on (not the grey ones about other characters).
+			pill = function()
+				local n = 0
+				for _, todo in ipairs(ns.AltsList_Todos()) do
+					for _, line in ipairs(todo.lines) do
+						if line.mine then
+							n = n + 1
+						end
+					end
+				end
+				return n
+			end,
+			pillTip = "Crafting list steps for this character" },
 		{ kind = "next", key = "nextsend", name = "Materials for your alts", score = 40,
 			description = "You carry materials another character crafts with: the mailbox and the bank have a \"For your alts\" panel.",
 			candidates = function()

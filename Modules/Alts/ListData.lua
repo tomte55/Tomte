@@ -33,6 +33,25 @@ function ns.Alts_ListRemove(list, recipeID)
 	end
 end
 
+-- Which listed recipe a craft result belongs to: the recipe that started the craft, else the listed recipe that makes
+-- the item (the start event can be missed, e.g. the profession window closed before the result came). Or nil.
+function ns.Alts_ListCraftedRecipe(list, recipes, recipeID, itemID)
+	for _, e in ipairs(list) do
+		if recipeID and e.recipeID == recipeID then
+			return recipeID
+		end
+	end
+	if itemID and itemID ~= 0 then
+		for _, e in ipairs(list) do
+			local recipe = recipes[e.recipeID]
+			if recipe and recipe.item == itemID then
+				return e.recipeID
+			end
+		end
+	end
+	return nil
+end
+
 -- One craft of a listed recipe was made: counts it down, drops it at 0 when auto. Returns the entry (or nil).
 function ns.Alts_ListCrafted(list, recipeID, auto)
 	for i, e in ipairs(list) do

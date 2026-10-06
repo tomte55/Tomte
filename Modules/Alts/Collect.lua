@@ -1,13 +1,16 @@
 local addonName, ns = ...
 
 -- Alts: reads the game into TomteDB.alts (layout in Data.lua). The character snapshot is refreshed on entering the
--- world and on level, spec, gear, zone, gold, rest and profession events, debounced to one read per second and
--- never in combat. Recipes are read while this character's own profession window is open (not a linked, guild or
+-- world and on level, spec, gear (the worn items too, for Gear Check), zone, gold, rest and profession events,
+-- debounced to one read per second and never in combat. Recipes are read while this character's own profession window is open (not a linked, guild or
 -- NPC one): every recipe of the player's expansion for that profession, in small batches so the window doesn't
--- hitch. Each part is read on its own, so one failing API leaves the others working.
+-- hitch. The Warband bank's gold is read once per account. Each part is read on its own, so one failing API leaves
+-- the others working.
 -- APIs: Blizzard UI source 12.1.0 (69933) + warcraft.wiki.gg, see the Alts spec.
 
 local DEBOUNCE = 1
+local GEAR_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 } -- worn gear without shirt (4) and tabard
+local PRIMARY_KEYS = { [1] = "STR", [2] = "AGI", [4] = "INT" } -- LE_UNIT_STAT_*, GetSpecializationInfo's primaryStat
 local BATCH = 30 -- recipes read per frame
 local RESCAN_AFTER = 30 -- seconds before the same profession is read again (the list event also fires on filters)
 local RECIPE_VERSION = 2 -- bump to re-read stored recipes (2: category and expansion name)
@@ -55,12 +58,42 @@ end
 local function ReadSpec(c)
 	local index = C_SpecializationInfo.GetSpecialization()
 	if index and index > 0 then
-		local _, name = C_SpecializationInfo.GetSpecializationInfo(index)
+		local specID, name, _, _, _, primaryStat = C_SpecializationInfo.GetSpecializationInfo(index)
 		c.spec = name
+		if specID and specID > 0 then
+			c.specID = specID
+			c.primary = PRIMARY_KEYS[primaryStat]
+		end
 	end
 	local _, equipped = GetAverageItemLevel()
 	if equipped and equipped > 0 then
 		c.ilvl = math.floor(equipped)
+	end
+end
+
+-- Worn gear for Gear Check's upgrades for alts (links work on any character). Not stored while a worn item's link
+-- hasn't arrived, or nothing at all is worn (a read at login before the inventory has); gearAt changes only when
+-- the gear does (Gear Check's cache for the character goes with it).
+local function ReadGear(c)
+	local gear, any = {}, false
+	for _, slot in ipairs(GEAR_SLOTS) do
+		local link = GetInventoryItemLink("player", slot)
+		if not link and GetInventoryItemID("player", slot) then
+			return
+		end
+		gear[slot] = link
+		any = any or link ~= nil
+	end
+	if not any then
+		return
+	end
+	local old, same = c.gear, c.gear ~= nil
+	for _, slot in ipairs(GEAR_SLOTS) do
+		same = same and old[slot] == gear[slot]
+	end
+	if not same then
+		c.gear = gear
+		c.gearAt = GetServerTime()
 	end
 end
 
@@ -124,6 +157,7 @@ local function Refresh()
 	local c = Me()
 	Try(ReadBasics, c)
 	Try(ReadSpec, c)
+	Try(ReadGear, c)
 	Try(ReadRest, c)
 	Try(ReadProfs, c)
 	ns.Alts_Changed()
@@ -341,10 +375,38 @@ function ns.Alts_Have(items)
 	return total, list
 end
 
+-- Warband bank gold -----------------------------------------------------------------------------------------
+
+-- Once per account: TomteDB.alts.warbandMoney (copper) and warbandAt (when read). Read like Syndicator does: only
+-- while this client holds the account inventory lock (another logged-in client may be changing it). Blizzard's
+-- own money frame reads it on ACCOUNT_MONEY (Blizzard_MoneyFrame, MoneyTypeInfo.ACCOUNT). On entering the world a
+-- 0 isn't stored, as the bank data may not be there yet; ACCOUNT_MONEY and the bank frame store anything.
+local function ReadWarband(keepZero)
+	if not (db and C_Bank and C_Bank.FetchDepositedMoney and Enum.BankType and Enum.BankType.Account) then
+		return
+	end
+	if C_PlayerInfo.HasAccountInventoryLock and not C_PlayerInfo.HasAccountInventoryLock() then
+		return
+	end
+	local ok, money = pcall(C_Bank.FetchDepositedMoney, Enum.BankType.Account)
+	if not ok or type(money) ~= "number" or (issecretvalue and issecretvalue(money)) then
+		return
+	end
+	if money == 0 and not keepZero then
+		return
+	end
+	local changed = db.warbandMoney ~= money
+	db.warbandMoney, db.warbandAt = money, GetServerTime()
+	if changed then
+		ns.Alts_Changed()
+	end
+end
+
 -- Events ---------------------------------------------------------------------------------------------------
 
 local REFRESH_EVENTS = {
-	"ACTIVE_PLAYER_SPECIALIZATION_CHANGED", "PLAYER_AVG_ITEM_LEVEL_UPDATE", "ZONE_CHANGED_NEW_AREA", "PLAYER_MONEY",
+	"ACTIVE_PLAYER_SPECIALIZATION_CHANGED", "PLAYER_AVG_ITEM_LEVEL_UPDATE", "PLAYER_EQUIPMENT_CHANGED",
+	"ZONE_CHANGED_NEW_AREA", "PLAYER_MONEY",
 	"UPDATE_EXHAUSTION", "SKILL_LINES_CHANGED", "TRAIT_TREE_CURRENCY_INFO_UPDATED", "TRADE_SKILL_SHOW",
 }
 for _, event in ipairs(REFRESH_EVENTS) do
@@ -353,6 +415,19 @@ end
 
 function events:PLAYER_ENTERING_WORLD()
 	ns.AltsCollect_Request()
+	ReadWarband(false)
+end
+
+function events:ACCOUNT_MONEY()
+	ReadWarband(true)
+end
+
+function events:BANKFRAME_OPENED()
+	ReadWarband(true)
+end
+
+function events:BANKFRAME_CLOSED()
+	ReadWarband(true)
 end
 
 -- UnitLevel can still be the old level here.
@@ -419,11 +494,12 @@ function ns.AltsCollect_Start(moduleDB)
 		events:RegisterEvent(event)
 	end
 	for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "PLAYER_LEVEL_UP", "TRADE_SKILL_LIST_UPDATE", "TRADE_SKILL_CLOSE",
-		"NEW_RECIPE_LEARNED", "PLAYER_LOGOUT" }) do
+		"NEW_RECIPE_LEARNED", "PLAYER_LOGOUT", "ACCOUNT_MONEY", "BANKFRAME_OPENED", "BANKFRAME_CLOSED" }) do
 		events:RegisterEvent(event)
 	end
 	if ns.inWorld then
 		ns.AltsCollect_Request()
+		ReadWarband(false)
 	end
 end
 

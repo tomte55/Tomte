@@ -120,6 +120,27 @@ test("stacks a tracked craft claims aren't offered again", function()
 	eq(#ns.Alts_Unclaimed(stacks, {}), 4, "no claims")
 end)
 
+test("GearGroups: by who gets it, one route only, sorted by name", function()
+	local stacks = {
+		{ bag = 0, slot = 1, to = "Smith", route = "mail" },
+		{ bag = 0, slot = 2, to = "Alch", route = "mail" },
+		{ bag = 0, slot = 3, to = "Alch", route = "warband" },
+		{ bag = 0, slot = 4, to = "Alch", route = "mail", count = 1 },
+		{ bag = 0, slot = 5, route = "mail" },
+		{ bag = 0, slot = 6, to = "Gone", route = "mail" },
+	}
+	local groups = ns.Alts_GearGroups(stacks, "mail", chars)
+	eq(#groups, 2)
+	eq(groups[1].guid, "Alch", "Mira before Tolvan")
+	eq(#groups[1].stacks, 2)
+	eq(groups[1].gear, true)
+	eq(groups[2].guid, "Smith")
+	groups = ns.Alts_GearGroups(stacks, "warband", chars)
+	eq(#groups, 1)
+	eq(groups[1].stacks[1].slot, 3)
+	eq(#ns.Alts_GearGroups({}, "mail", chars), 0)
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)

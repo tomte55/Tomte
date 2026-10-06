@@ -474,6 +474,91 @@ local function RefreshFilters()
 	tab.haveMats.check:SetChecked(db.haveMats)
 end
 
+-- Auctionator shopping list ----------------------------------------------------------------------------------
+
+-- Auctionator.API.v1 (Auctionator 340, Source/API/v1/ShoppingLists.lua): CreateShoppingList(callerID, name,
+-- searchStrings) replaces a list of the same name; ConvertToSearchString(callerID, { searchString, isExact,
+-- quantity }) makes each entry.
+local CALLER = "Tomte"
+
+local function ShoppingAPI()
+	local a = _G.Auctionator
+	local api = a and type(a.API) == "table" and a.API.v1
+	if type(api) == "table" and type(api.CreateShoppingList) == "function" and type(api.ConvertToSearchString) == "function" then
+		return api
+	end
+	return nil
+end
+
+-- Makes (or replaces) the Auctionator shopping list `name` with one exact search per item ({ itemID, qty }).
+local function MakeShoppingList(name, items)
+	local api = ShoppingAPI()
+	if not api then
+		ns.Print("Auctionator isn't loaded.")
+		return
+	end
+	local strings, loadingNames = {}, 0
+	for _, it in ipairs(items) do
+		local itemName = C_Item.GetItemNameByID(it.itemID)
+		if itemName then
+			strings[#strings + 1] = { searchString = itemName, isExact = true, quantity = it.qty }
+		else
+			loadingNames = loadingNames + 1
+			C_Item.RequestLoadItemDataByID(it.itemID)
+		end
+	end
+	if loadingNames > 0 then
+		ns.Print(("%d item name%s still loading: click Shopping list again in a moment."):format(loadingNames,
+			loadingNames == 1 and " is" or "s are"))
+		return
+	end
+	local ok, err = pcall(function()
+		for i, term in ipairs(strings) do
+			strings[i] = api.ConvertToSearchString(CALLER, term)
+		end
+		api.CreateShoppingList(CALLER, name, strings)
+	end)
+	if not ok then
+		ns.Print("Auctionator couldn't make the list: " .. tostring(err))
+		return
+	end
+	ns.Print(("Auctionator list '%s' (%d item%s). It's in the Shopping tab at the Auction House."):format(name, #strings,
+		#strings == 1 and "" or "s"))
+end
+
+-- A "Shopping list" link (Crafting tab and Crafting list tab headings). link:Set(listName, items) shows it when
+-- Auctionator is loaded and something is missing.
+function ns.AltsShop_CreateLink(parent)
+	local link = CreateFrame("Button", nil, parent)
+	link:SetHeight(16)
+	link.text = UI.Text(link, 12, GOLD)
+	link.text:SetPoint("RIGHT")
+	link.text:SetText("Shopping list")
+	link:SetWidth(link.text:GetStringWidth())
+	link:SetScript("OnEnter", function(self)
+		SetColor(self.text, WHITE)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Auctionator shopping list")
+		GameTooltip:AddLine(("Makes the list \"%s\" with the %d missing material%s and how many, replacing an older one "
+			.. "of that name."):format(self.listName, #self.items, #self.items == 1 and "" or "s"), 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	link:SetScript("OnLeave", function(self)
+		SetColor(self.text, GOLD)
+		GameTooltip:Hide()
+	end)
+	link:SetScript("OnClick", function(self)
+		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		MakeShoppingList(self.listName, self.items)
+	end)
+	function link:Set(listName, items)
+		self.listName, self.items = listName, items
+		self:SetShown(#items > 0 and ShoppingAPI() ~= nil)
+	end
+	link:Hide()
+	return link
+end
+
 -- Detail ---------------------------------------------------------------------------------------------------
 
 local function Header(i, text, y)
@@ -574,6 +659,7 @@ local function LayoutDetail()
 			row:Hide()
 		end
 	end
+	d.shop:Hide()
 	local recipe = db.selected and db.recipes[db.selected]
 	d.empty:SetShown(not recipe)
 	d.title:SetShown(recipe ~= nil)
@@ -631,6 +717,7 @@ local function LayoutDetail()
 
 	local content = d.content
 	local y = Header(1, "Materials (have / need)", 0)
+	d.shop:Set("Tomte: " .. (recipe.name or "?"), ns.Alts_ShoppingItems(plan, db.chain))
 	for i, m in ipairs(plan.materials) do
 		local row = matRows[i] or CreateMatRow(content)
 		matRows[i] = row
@@ -706,10 +793,13 @@ local function CreateSearch(parent)
 	local placeholder = UI.Text(box, 12, DIM)
 	placeholder:SetPoint("LEFT", 8, 0)
 	placeholder:SetText("Search recipes")
+	local refresh = UI.Debounce(UI.SEARCH_DELAY, function()
+		LayoutResults()
+	end)
 	box:SetScript("OnTextChanged", function(self)
 		placeholder:SetShown(self:GetText() == "")
 		searchText = strtrim(self:GetText()):lower()
-		LayoutResults()
+		refresh()
 	end)
 	box:SetScript("OnEscapePressed", function(self)
 		self:SetText("")
@@ -819,6 +909,8 @@ local function CreateDetail(parent)
 	d.scroll:SetPoint("TOPLEFT", d.status, "BOTTOMLEFT", -4, -10)
 	d.scroll:SetPoint("BOTTOMRIGHT", -8, 0)
 	d.content = d.scroll.content
+	d.shop = ns.AltsShop_CreateLink(d.content) -- on the materials heading's line
+	d.shop:SetPoint("TOPRIGHT", -4, -8)
 	d.empty = UI.Text(d, 12, GREY)
 	d.empty:SetPoint("TOPLEFT", 4, -4)
 	d.empty:SetPoint("RIGHT", -4, 0)

@@ -2,9 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** planned, not started. The user builds it later. Start only after this branch's earlier features (Next up,
-Recent, Sessions, Gold & value, Send to alt, Crafting list) have been tried in game, so new work isn't stacked on
-untested code.
+**Status:** built 2026-10-06 (all four phases, plain-Lua tests pass), waiting for the in-game check. Not committed.
 
 **Specs:**
 - `docs/superpowers/specs/2026-10-06-tomte-home-polish-design.md`

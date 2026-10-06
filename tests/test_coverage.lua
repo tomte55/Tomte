@@ -96,6 +96,41 @@ test("Summarize counts a leg once per continent even when both ends are inside",
 	eq(s.continents[1].zones[2].legs, 1)
 end)
 
+local function At(id, name, x, y, undiscovered)
+	return { nodeID = id, name = name, x = x, y = y, undiscovered = undiscovered }
+end
+
+test("Untimed keeps known and undiscovered flight masters, nearest first", function()
+	local nodes = {
+		At(1, "Far", 0.9, 0.5),
+		At(2, "Timed", 0.5, 0.5),
+		At(3, "Near", 0.6, 0.5),
+		At(4, "Hidden", 0.5, 0.8, true),
+	}
+	local list = ns.Coverage_Untimed(nodes, { [2] = true }, 0.5, 0.5, 1000, 500)
+	eq(#list, 3, "timed one left out")
+	eq(list[1].name, "Near", "1")
+	eq(math.floor(list[1].yards + 0.5), 100, "near yards")
+	eq(list[2].name, "Hidden", "2")
+	eq(math.floor(list[2].yards + 0.5), 150, "uses the map height for y")
+	eq(list[2].state, "undiscovered", "state")
+	eq(list[3].name, "Far", "3")
+	eq(list[3].state, "known", "known")
+	eq(list[3].x, 0.9, "keeps the position for the waypoint")
+end)
+
+test("Untimed without the player's position or a node's goes by name, unknown distances last", function()
+	local nodes = { At(1, "Beta", 0.2, 0.2), At(2, "Alpha", 0.3, 0.3), At(3, "Gamma") }
+	local list = ns.Coverage_Untimed(nodes, {})
+	eq(list[1].name, "Alpha", "by name 1")
+	eq(list[2].name, "Beta", "by name 2")
+	eq(list[1].yards, nil, "no distance")
+	list = ns.Coverage_Untimed(nodes, {}, 0.2, 0.2, 100, 100)
+	eq(list[1].name, "Beta", "nearest")
+	eq(list[3].name, "Gamma", "no position last")
+	eq(#ns.Coverage_Untimed(nodes, { [1] = true, [2] = true, [3] = true }), 0, "all timed")
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)

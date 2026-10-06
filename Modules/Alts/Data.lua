@@ -1,8 +1,11 @@
 local addonName, ns = ...
 
 -- Alts: pure logic (no WoW API calls; tested with plain Lua). Collect.lua reads the game into TomteDB.alts:
---   chars[guid]   = { guid, name, realm, class, race, level, spec, ilvl, money, zone, seen, rested (0-150 %, nil at
---                     max level), profs = { [skillLine] = { name, base, skill, max, unspent, known = { [recipeID] } } } }
+--   chars[guid]   = { guid, name, realm, class (token, "PRIEST"), race, level, spec (name), specID, primary ("STR" |
+--                     "AGI" | "INT", the spec's main stat), ilvl, money, zone, seen, rested (0-150 %, nil at max level),
+--                     gear = { [invSlot] = itemLink } (worn, slots 1-17 without the shirt), gearAt (when the gear
+--                     last changed), profs = { [skillLine] = { name, base, skill, max, unspent, known = { [recipeID] } } } }
+--                   specID, primary and gear are for Gear Check's upgrades for alts (Gear/Alts.lua).
 --   recipes[id]   = { name, line (expansion skill line), base (profession skill line), item, qMin, qMax,
 --                     reagents = { { items = { itemID, ... (quality ranks) }, qty } } }
 -- A plan answers "what does it take to craft this recipe with what the account has": a shopping list of materials
@@ -241,7 +244,8 @@ end
 -- ctx = { recipes, chars, producers (Alts_Producers), count = function(itemIDs) -> total the account has,
 --         maxDepth (ALTS_FULL_DEPTH or 1) }
 -- Returns {
---   materials = { { items, name?, need, have, missing, crafted = recipeID? } },  -- in first-seen order
+--   materials = { { items, name?, need, have, missing, crafted = recipeID?, top = true when the recipe itself uses
+--                   it, craftShort = units its craft makes } },  -- in first-seen order
 --   steps     = { { recipeID, crafts, crafters = { char }, learnable = { char } } }, -- do them in this order
 --   missing   = total units still missing (0 = everything can be made), unknown = steps nobody knows yet }
 function ns.Alts_Plan(recipeID, crafts, ctx)
@@ -268,6 +272,9 @@ function ns.Alts_Plan(recipeID, crafts, ctx)
 		stack[id] = true
 		for _, slot in ipairs(recipe and recipe.reagents or {}) do
 			local m, key = Material(slot.items)
+			if depth == 0 then
+				m.top = true
+			end
 			local need = slot.qty * n
 			m.need = m.need + need
 			local free = max(m.have + (made[key] or 0) - (reserved[key] or 0), 0)
@@ -278,6 +285,7 @@ function ns.Alts_Plan(recipeID, crafts, ctx)
 				local sub = depth < ctx.maxDepth and PickProducer(slot.items, ctx.producers, ctx.recipes, ctx.chars, stack)
 				if sub then
 					m.crafted = sub
+					m.craftShort = (m.craftShort or 0) + short
 					local count = ceil(short / ns.Alts_Yield(ctx.recipes[sub]))
 					made[key] = (made[key] or 0) + count * ns.Alts_Yield(ctx.recipes[sub])
 					reserved[key] = reserved[key] + short
@@ -319,6 +327,110 @@ function ns.Alts_Plan(recipeID, crafts, ctx)
 	end
 	Place(recipeID)
 	return plan
+end
+
+-- What to buy for one plan or a list of plans (the Crafting list): { { itemID, qty } } in first-seen order, one per
+-- material (its first quality rank). "full": only what's missing (crafted materials are made from their own,
+-- which are listed). "one": the recipe's own materials, a crafted one too (bought instead of made).
+function ns.Alts_ShoppingItems(plans, mode)
+	if plans.materials then
+		plans = { plans }
+	end
+	local list, byItem = {}, {}
+	for _, plan in ipairs(plans) do
+		for _, m in ipairs(plan.materials or {}) do
+			local qty
+			if mode == "one" then
+				qty = m.top and (m.missing + (m.craftShort or 0)) or 0
+			else
+				qty = m.missing
+			end
+			if qty > 0 then
+				local itemID = m.items[1]
+				local entry = byItem[itemID]
+				if not entry then
+					entry = { itemID = itemID, qty = 0 }
+					byItem[itemID] = entry
+					list[#list + 1] = entry
+				end
+				entry.qty = entry.qty + qty
+			end
+		end
+	end
+	return list
+end
+
+-- Recipe items ----------------------------------------------------------------------------------------------
+
+-- The recipe a recipe item teaches, by name: "Plans: Charged Runeaxe" -> "charged runeaxe" (the part after the
+-- "Recipe:", "Pattern:", "Formula:"... prefix; the whole name without one), lower case.
+function ns.Alts_RecipeItemName(itemName)
+	if type(itemName) ~= "string" or itemName == "" then
+		return nil
+	end
+	local rest = itemName:match("^[^:]+:%s*(.+)$")
+	return (rest or itemName):lower()
+end
+
+-- [lower-case recipe name] = { recipeID, ... }
+function ns.Alts_RecipesByName(recipes)
+	local byName = {}
+	for id, r in pairs(recipes) do
+		if r.name then
+			local key = r.name:lower()
+			byName[key] = byName[key] or {}
+			table.insert(byName[key], id)
+		end
+	end
+	for _, ids in pairs(byName) do
+		table.sort(ids)
+	end
+	return byName
+end
+
+-- The tooltip line for a recipe item teaching one of these recipes (same name, so maybe several):
+-- "known", "Tomten" | "learnable", "Tomten, Mira, Bob, +2", profession base | nil (nobody has the profession).
+function ns.Alts_RecipeItemStatus(chars, recipes, ids)
+	local known, learnable, seen, base = {}, {}, {}, nil
+	for _, id in ipairs(ids or {}) do
+		local k, l = ns.Alts_Crafters(chars, recipes[id], id)
+		for _, c in ipairs(k) do
+			if not seen[c] then
+				seen[c] = true
+				known[#known + 1] = c
+			end
+		end
+		if #l > 0 then
+			base = base or recipes[id].base
+		end
+		for _, c in ipairs(l) do
+			if not seen[c] then
+				seen[c] = true
+				learnable[#learnable + 1] = c
+			end
+		end
+	end
+	local function Names(list)
+		table.sort(list, function(a, b)
+			return (a.name or "") < (b.name or "")
+		end)
+		local parts = {}
+		for i, c in ipairs(list) do
+			if i > 3 then
+				parts[#parts + 1] = "+" .. (#list - 3)
+				break
+			end
+			parts[#parts + 1] = c.name or "?"
+		end
+		return table.concat(parts, ", ")
+	end
+	if #known > 0 then
+		return "known", Names(known)
+	end
+	if #learnable > 0 then
+		return "learnable", Names(learnable), base
+	end
+	return nil
 end
 
 -- Roster ------------------------------------------------------------------------------------------------------
@@ -395,12 +507,168 @@ function ns.Alts_Roster(chars, sortKey, currentGuid)
 	return list
 end
 
-function ns.Alts_TotalGold(chars)
-	local total = 0
+-- Every character's gold, plus the Warband bank's when it's known (copper, optional).
+function ns.Alts_TotalGold(chars, warband)
+	local total = warband or 0
 	for _, c in pairs(chars) do
 		total = total + (c.money or 0)
 	end
 	return total
+end
+
+-- " (Warband 300,000g)" after a total, "" when the Warband bank is empty or was never read.
+function ns.Alts_WarbandText(warband)
+	if not warband or warband < 10000 then
+		return ""
+	end
+	return (" (Warband %s)"):format(ns.Alts_Gold(warband))
+end
+
+-- The eleven main professions (base skill lines) in name order, with a stand-in icon.
+ns.ALTS_PROFESSIONS = {
+	{ 171, "Alchemy", "Interface\\Icons\\Trade_Alchemy" },
+	{ 164, "Blacksmithing", "Interface\\Icons\\Trade_BlackSmithing" },
+	{ 333, "Enchanting", "Interface\\Icons\\Trade_Engraving" },
+	{ 202, "Engineering", "Interface\\Icons\\Trade_Engineering" },
+	{ 182, "Herbalism", "Interface\\Icons\\Trade_Herbalism" },
+	{ 773, "Inscription", "Interface\\Icons\\INV_Inscription_Tradeskill01" },
+	{ 755, "Jewelcrafting", "Interface\\Icons\\INV_Misc_Gem_01" },
+	{ 165, "Leatherworking", "Interface\\Icons\\Trade_LeatherWorking" },
+	{ 186, "Mining", "Interface\\Icons\\Trade_Mining" },
+	{ 393, "Skinning", "Interface\\Icons\\INV_Misc_Pelt_Wolf_01" },
+	{ 197, "Tailoring", "Interface\\Icons\\Trade_Tailoring" },
+}
+
+-- Names of the main professions none of the characters has, in name order.
+function ns.Alts_Uncovered(chars)
+	local list = {}
+	for _, p in ipairs(ns.ALTS_PROFESSIONS) do
+		local has = false
+		for _, c in pairs(chars) do
+			if c.profs and c.profs[p[1]] then
+				has = true
+			end
+		end
+		if not has then
+			list[#list + 1] = p[2]
+		end
+	end
+	return list
+end
+
+-- Characters with a free main profession slot (fewer than two), highest level first (so max level first), then
+-- by name.
+function ns.Alts_FreeSlots(chars)
+	local list = {}
+	for _, c in pairs(chars) do
+		if #ns.Alts_Profs(c) < 2 then
+			list[#list + 1] = c
+		end
+	end
+	table.sort(list, function(a, b)
+		if (a.level or 0) ~= (b.level or 0) then
+			return (a.level or 0) > (b.level or 0)
+		end
+		return (a.name or "") < (b.name or "")
+	end)
+	return list
+end
+
+-- "Nobody has Inscription. Free profession slot: Tomtis (lvl 80), Mira (lvl 34)." for one or more missing
+-- professions ("Inscription or Skinning"); at most 4 names, then "+n".
+function ns.Alts_GapText(missing, free)
+	local what = #missing > 1 and (table.concat(missing, ", ", 1, #missing - 1) .. " or " .. missing[#missing])
+		or (missing[1] or "?")
+	if #free == 0 then
+		return ("Nobody has %s, and every character has two professions."):format(what)
+	end
+	local names = {}
+	for i, c in ipairs(free) do
+		if i > 4 then
+			names[#names + 1] = "+" .. (#free - 4)
+			break
+		end
+		names[#names + 1] = ("%s (lvl %d)"):format(c.name or "?", c.level or 0)
+	end
+	return ("Nobody has %s. Free profession slot: %s."):format(what, table.concat(names, ", "))
+end
+
+-- "6h" / "2d 3h" / "25m"
+local function Until(seconds)
+	seconds = max(floor(seconds), 0)
+	local d, h = floor(seconds / 86400), floor(seconds % 86400 / 3600)
+	if d > 0 then
+		return ("%dd %dh"):format(d, h)
+	elseif h > 0 then
+		return h .. "h"
+	end
+	return max(floor(seconds / 60), 1) .. "m"
+end
+
+-- Great Vault and Concentration of a character, from Weekly's view of it (ns.Weekly_View at `now`):
+-- { vault = "Vault 4/9" | "Vault rewards waiting" | nil,
+--   conc = { { name, qty, max, full, text = "full" | "full in 6h" | "" } } (by name) }, nil when there's neither.
+function ns.Alts_WeeklyStatus(view, now)
+	if not view then
+		return nil
+	end
+	local status = { conc = {} }
+	if view.vaultReady then
+		status.vault = "Vault rewards waiting"
+	else
+		local unlocked, total = 0, 0
+		for _, slots in pairs(view.vault or {}) do
+			for _, s in ipairs(slots) do
+				total = total + 1
+				if (s.progress or 0) >= (s.threshold or 1) then
+					unlocked = unlocked + 1
+				end
+			end
+		end
+		if total > 0 then
+			status.vault = ("Vault %d/%d"):format(unlocked, total)
+		end
+	end
+	for _, p in pairs(view.profs or {}) do
+		local conc = p.conc
+		if conc and conc.qty and (conc.max or 0) > 0 then
+			local text = ""
+			if conc.full then
+				text = "full"
+			elseif conc.fullAt and conc.fullAt > now then
+				text = "full in " .. Until(conc.fullAt - now)
+			end
+			status.conc[#status.conc + 1] = { name = p.name or "?", qty = conc.qty, max = conc.max, full = conc.full == true,
+				text = text }
+		end
+	end
+	table.sort(status.conc, function(a, b)
+		return a.name < b.name
+	end)
+	if not status.vault and #status.conc == 0 then
+		return nil
+	end
+	return status
+end
+
+-- "Vault 4/9 · Concentration: Blacksmithing full, Alchemy full in 6h" (a full one in gold), "" for nil.
+function ns.Alts_WeeklyLine(status)
+	if not status then
+		return ""
+	end
+	local parts = {}
+	if status.vault then
+		parts[1] = status.vault
+	end
+	local concs = {}
+	for _, c in ipairs(status.conc) do
+		local text = c.text ~= "" and (c.name .. " " .. c.text) or ("%s %d/%d"):format(c.name, c.qty, c.max)
+		concs[#concs + 1] = c.full and ("|cffffd100%s|r"):format(text) or text
+	end
+	if #concs > 0 then
+		parts[#parts + 1] = "Concentration: " .. table.concat(concs, ", ")
+	end
+	return table.concat(parts, " · ")
 end
 
 -- A character's main professions by name (secondary=true: archaeology, fishing and cooking instead). { prof }.

@@ -37,8 +37,27 @@ end
 
 -- Home entries (module.home): kind "page" (a page in the Tomte window), "map" (opens a world map tab) or "quick"
 -- (an action button). An entry shows while its module is active and its optional shown() is true.
+-- A page entry may have pill() -> n: a count on its rail row (same contract as a quick action's count: cheap,
+-- existing state only, called through ns.HomeCall); shown above 0 while "Counts on the rail" is on, pillTip says
+-- what it counts in the row's tooltip.
 function ns.HomeEntryVisible(entry)
 	return entry.module.active and (not entry.shown or entry.shown() == true)
+end
+
+-- "Around you shows" (Tomte window settings): an "around" entry the user unticked stays off Home.
+local function AroundHidden(entry)
+	local window = ns.db and ns.db.window
+	local around = window and window.around
+	return type(around) == "table" and around[entry.key] == false
+end
+
+-- A rail pill's text: "" at 0 (or no count), "99+" above two digits.
+function ns.Home_PillText(n)
+	if type(n) ~= "number" or n < 1 then
+		return ""
+	end
+	n = math.floor(n)
+	return n > 99 and "99+" or tostring(n)
 end
 
 -- Sorted by entry.order (lowest first, default 100), then registration order.
@@ -46,7 +65,7 @@ function ns.HomeEntries(kind)
 	local list, index = {}, {}
 	for _, module in ipairs(ns.modules) do
 		for _, entry in ipairs(module.home or {}) do
-			if entry.kind == kind and ns.HomeEntryVisible(entry) then
+			if entry.kind == kind and ns.HomeEntryVisible(entry) and not (kind == "around" and AroundHidden(entry)) then
 				list[#list + 1] = entry
 				index[entry] = #list
 			end

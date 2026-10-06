@@ -175,3 +175,26 @@ function ns.Alts_MailName(c, myRealm)
 	end
 	return c.name .. "-" .. realm
 end
+
+-- Gear for alts (Gear Check's upgrades for alts): stacks the caller marked with s.to (the character it's the best
+-- upgrade for) and s.route ("mail" for Bind on Equip, "warband" for warbound), only those going by route, grouped by
+-- who gets them. Same shape as Alts_SendGroups plus gear = true, sorted by name.
+function ns.Alts_GearGroups(stacks, route, chars)
+	local byGuid, groups = {}, {}
+	for _, s in ipairs(stacks) do
+		if s.to and s.route == route and chars[s.to] then
+			local g = byGuid[s.to]
+			if not g then
+				g = { guid = s.to, stacks = {}, count = 0, gear = true }
+				byGuid[s.to] = g
+				groups[#groups + 1] = g
+			end
+			g.stacks[#g.stacks + 1] = s
+			g.count = g.count + (s.count or 1)
+		end
+	end
+	table.sort(groups, function(a, b)
+		return (chars[a.guid].name or "") < (chars[b.guid].name or "")
+	end)
+	return groups
+end

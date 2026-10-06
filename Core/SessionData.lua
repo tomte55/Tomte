@@ -55,6 +55,12 @@ function ns.Session_Begin(db, guid, newLogin, now, baseline)
 	return db.session, true
 end
 
+-- Gold moved between this character and the Warband bank (delta > 0 = deposited) isn't earned or spent: the
+-- starting gold moves with it, so the net (moneyNow - money) stays as it was.
+function ns.Session_WarbandMoved(session, delta)
+	session.money = (session.money or 0) - delta
+end
+
 -- Time per zone: the session moves to `zone` at `now`.
 function ns.Session_ZoneTick(session, zone, now)
 	session.zones = session.zones or {}

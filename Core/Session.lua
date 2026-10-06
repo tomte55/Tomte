@@ -85,6 +85,34 @@ function events:PLAYER_MONEY()
 	end
 end
 
+-- Warband bank gold only changes at a bank, so it's read when the bank opens and every change while it's open is
+-- a deposit or withdrawal (PLAYER_MONEY already moved moneyNow; this keeps the net as it was).
+local bankOpen, warbandNow
+
+local function WarbandMoney()
+	if not (C_Bank and C_Bank.FetchDepositedMoney and Enum.BankType and Enum.BankType.Account) then
+		return nil
+	end
+	local ok, money = pcall(C_Bank.FetchDepositedMoney, Enum.BankType.Account)
+	return ok and type(money) == "number" and money or nil
+end
+
+function events:BANKFRAME_OPENED()
+	bankOpen, warbandNow = true, WarbandMoney()
+end
+
+function events:BANKFRAME_CLOSED()
+	bankOpen = nil
+end
+
+function events:ACCOUNT_MONEY()
+	local money = WarbandMoney()
+	if bankOpen and money and warbandNow and money ~= warbandNow then
+		ns.Session_WarbandMoved(ns.Session_Current(), money - warbandNow)
+	end
+	warbandNow = money or warbandNow
+end
+
 function events:PLAYER_XP_UPDATE(unit)
 	if unit and unit ~= "player" then
 		return
@@ -110,7 +138,7 @@ function ns.Session_Init(saved)
 	ns.Session_Migrate(db)
 	db.sessionLast = db.sessionLast or {}
 	for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "PLAYER_MONEY", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_LOGOUT",
-		"ZONE_CHANGED_NEW_AREA" }) do
+		"ZONE_CHANGED_NEW_AREA", "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "ACCOUNT_MONEY" }) do
 		events:RegisterEvent(event)
 	end
 end

@@ -279,6 +279,111 @@ test("professions: main ones listed, secondary ones only in their own line", fun
 	eq(ns.Alts_SecondaryText({ profs = {} }), nil, "none")
 end)
 
+test("shopping list: full chain only what's missing, one step the recipe's own materials", function()
+	-- Full chain: Alloy is crafted, Flux crafted from Herb; nothing of anything on hand.
+	local full = ns.Alts_Plan(1, 1, Ctx({}))
+	local items = ns.Alts_ShoppingItems(full, "full")
+	local byItem = {}
+	for _, it in ipairs(items) do
+		byItem[it.itemID] = it.qty
+	end
+	eq(byItem[2001], nil, "crafted Alloy not bought")
+	eq(byItem[4001], 8, "ore for 2 alloy (first rank)")
+	eq(byItem[5001], nil, "crafted Flux not bought")
+	eq(byItem[6001], 1, "herb for one Flux craft (makes 2)")
+	eq(byItem[3001], 5, "dust")
+	eq(#items, 3, "three items")
+	-- Only the missing part: 3 ore on hand.
+	local some = ns.Alts_ShoppingItems(ns.Alts_Plan(1, 1, Ctx({ [4002] = 3 })), "full")
+	eq(some[1].itemID, 4001, "ore first")
+	eq(some[1].qty, 5, "8 - 3 ore")
+	-- One step: the recipe's own materials, Alloy itself bought (2), its ore and flux left off.
+	local one = ns.Alts_ShoppingItems(ns.Alts_Plan(1, 1, Ctx({ [2001] = 1 }, 1)), "one")
+	eq(#one, 2, "alloy and dust")
+	eq(one[1].itemID, 2001, "alloy")
+	eq(one[1].qty, 1, "2 needed - 1 on hand")
+	eq(one[2].qty, 5, "dust")
+	-- Several plans (the Crafting list) add up per item.
+	local both = ns.Alts_ShoppingItems({ ns.Alts_Plan(3, 1, Ctx({})), ns.Alts_Plan(3, 3, Ctx({})) }, "full")
+	eq(#both, 1, "one entry")
+	eq(both[1].qty, 4, "1 + 3 herbs")
+	eq(#ns.Alts_ShoppingItems(ns.Alts_Plan(3, 1, Ctx({ [6001] = 9 })), "full"), 0, "nothing missing")
+end)
+
+test("recipe items: name, known by, learnable by with +n", function()
+	eq(ns.Alts_RecipeItemName("Plans: Charged Runeaxe"), "charged runeaxe", "prefix")
+	eq(ns.Alts_RecipeItemName("Formula: Enchant Weapon - Authority"), "enchant weapon - authority", "dash kept")
+	eq(ns.Alts_RecipeItemName("Flux"), "flux", "no prefix")
+	eq(ns.Alts_RecipeItemName(nil), nil, "no name")
+	local byName = ns.Alts_RecipesByName(RECIPES)
+	eq(byName["flux"][1], 3, "by name")
+	local status, names = ns.Alts_RecipeItemStatus(CHARS, RECIPES, byName["flux"])
+	eq(status, "known", "Alchy knows Flux")
+	eq(names, "Alchy", "known by")
+	status, names = ns.Alts_RecipeItemStatus(CHARS, RECIPES, byName["unknown thing"])
+	eq(status, "learnable", "nobody knows it")
+	eq(names, "Alchy, Bob", "both alchemists")
+	local chars = {}
+	for i, n in ipairs({ "E", "D", "C", "B", "A" }) do
+		chars[i] = { name = n, profs = { [1] = { base = ALCH, known = {} } } }
+	end
+	local _, five, base = ns.Alts_RecipeItemStatus(chars, RECIPES, { 4 })
+	eq(five, "A, B, C, +2", "three names then +n")
+	eq(base, ALCH, "its profession")
+	eq(ns.Alts_RecipeItemStatus({ x = { name = "X", profs = {} } }, RECIPES, { 4 }), nil, "nobody has the profession")
+end)
+
+test("free profession slots and gap text", function()
+	local chars = {
+		a = { name = "Tomten", level = 80, profs = { [164] = { name = "Blacksmithing" }, [186] = { name = "Mining" } } },
+		b = { name = "Mira", level = 34, profs = { [171] = { name = "Alchemy" } } },
+		c = { name = "Tomtis", level = 80, profs = { [185] = { name = "Cooking", secondary = true } } },
+		d = { name = "Zed", level = 80 },
+	}
+	local free = ns.Alts_FreeSlots(chars)
+	eq(#free, 3, "three with a free slot")
+	eq(free[1].name, "Tomtis", "max level first, by name")
+	eq(free[2].name, "Zed", "then the next max level one")
+	eq(free[3].name, "Mira", "then lower levels")
+	eq(ns.Alts_GapText({ "Inscription" }, { free[1], free[3] }),
+		"Nobody has Inscription. Free profession slot: Tomtis (lvl 80), Mira (lvl 34).", "hint")
+	eq(ns.Alts_GapText({ "Inscription", "Skinning" }, {}),
+		"Nobody has Inscription or Skinning, and every character has two professions.", "no slot")
+	local uncovered = ns.Alts_Uncovered(chars)
+	eq(#uncovered, 8, "eleven minus three")
+	eq(uncovered[1], "Enchanting", "in name order")
+end)
+
+test("total gold with and without the Warband bank", function()
+	local chars = { a = { money = 10000 }, b = { money = 20000 } }
+	eq(ns.Alts_TotalGold(chars), 30000, "characters only")
+	eq(ns.Alts_TotalGold(chars, 3000000000), 3000030000, "plus Warband")
+	eq(ns.Alts_WarbandText(3000000000), " (Warband 300,000g)", "warband part")
+	eq(ns.Alts_WarbandText(0), "", "empty")
+	eq(ns.Alts_WarbandText(nil), "", "never read")
+end)
+
+test("weekly status: vault and Concentration line", function()
+	local now = 1000000
+	local view = {
+		vault = { raid = { { progress = 2, threshold = 2 }, { progress = 2, threshold = 4 } },
+			world = { { progress = 3, threshold = 2 } } },
+		profs = {
+			[2872] = { name = "Blacksmithing", conc = { qty = 1000, max = 1000, full = true } },
+			[2871] = { name = "Alchemy", conc = { qty = 400, max = 1000, full = false, fullAt = now + 6 * 3600 } },
+			[2881] = { name = "Mining" },
+		},
+	}
+	local status = ns.Alts_WeeklyStatus(view, now)
+	eq(status.vault, "Vault 2/3", "unlocked of all slots")
+	eq(#status.conc, 2, "only professions with Concentration")
+	eq(ns.Alts_WeeklyLine(status), "Vault 2/3 · Concentration: Alchemy full in 6h, |cffffd100Blacksmithing full|r", "line")
+	view.vaultReady = true
+	eq(ns.Alts_WeeklyStatus(view, now).vault, "Vault rewards waiting", "ready")
+	eq(ns.Alts_WeeklyStatus({ vault = {}, profs = {} }, now), nil, "nothing to say")
+	eq(ns.Alts_WeeklyLine(nil), "", "no Weekly")
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)

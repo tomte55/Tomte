@@ -161,6 +161,23 @@ local function NextKnowledge()
 	return list
 end
 
+-- Rail pill: Great Vault rewards waiting here (1) plus every tracked character with a full Concentration.
+local function Pill()
+	local v = ns.Weekly_CurrentView()
+	local n = v and v.vaultReady and 1 or 0
+	local now = GetServerTime()
+	for _, snap in pairs(Tracked()) do
+		for _, prof in pairs(snap.profs or {}) do
+			local qty = ns.Weekly_ConcNow(prof.conc, now)
+			if qty and prof.conc.max and qty >= prof.conc.max then
+				n = n + 1
+				break
+			end
+		end
+	end
+	return n
+end
+
 local BASE_OPTIONS = {
 	{ type = "checkbox", key = "toast", label = "Concentration full toast", onChange = function()
 		CheckToasts()
@@ -340,7 +357,9 @@ module = ns.RegisterModule({
 			summary = function()
 				local v = ns.Weekly_CurrentView()
 				return v and ns.Weekly_HomeSummary(v) or "Max-level characters only"
-			end },
+			end,
+			pill = Pill,
+			pillTip = "Great Vault rewards waiting and characters with full Concentration" },
 	},
 	options = {},
 	commands = {

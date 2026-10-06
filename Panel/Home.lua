@@ -2,8 +2,9 @@ local addonName, ns = ...
 
 -- The panel's Home view and the rail beside every view but Settings. Home shows real content instead of
 -- launcher tiles:
---   hero     the current character in 3D (drag to turn) with its name, item level, gold, durability and location,
---            and the quick actions (module.home entries of kind "quick") under it
+--   hero     the current character in 3D (drag to turn) with its name, item level, gold, durability and location
+--            (each a button: a tooltip with more, and a click while the module behind it is on), and the quick
+--            actions (module.home entries of kind "quick") under it
 --   week     a module section in slot "week" across the top (Weekly board)
 --   columns  a section in slot "characters" (Alts) on the left, and "Around you" on the right: every entry of kind
 --            "around" as a blue heading (it opens the world map) with a few rows
@@ -13,6 +14,7 @@ local addonName, ns = ...
 local UI = ns.UI
 local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
 local MAP_BLUE = { 0.56, 0.78, 1 }
+local RED = { 1, 0.45, 0.35 }
 local DISPLAY_FONT = "Fonts\\MORPHEUS.TTF"
 local NARROW_FONT = "Fonts\\ARIALN.TTF"
 
@@ -239,6 +241,157 @@ local function Durability()
 	return lowest and math.floor(lowest * 100 + 0.5) or nil
 end
 
+local function ModuleOn(key)
+	local module = ns.modulesByKey[key]
+	return module ~= nil and module.active
+end
+
+local function Signed(copper)
+	return (copper < 0 and "-" or "+") .. ns.Alts_Gold(math.abs(copper))
+end
+
+local function TipPair(tip, left, right, color)
+	color = color or WHITE
+	tip:AddDoubleLine(left, right, GREY[1], GREY[2], GREY[3], color[1], color[2], color[3])
+end
+
+local function Secret(value)
+	return issecretvalue ~= nil and issecretvalue(value)
+end
+
+local function Capitalized(text)
+	return (text:gsub("^%l", string.upper))
+end
+
+-- The hero's facts. tooltip(GameTooltip) adds the lines under the label; click runs while clickable() is true (the
+-- module behind it is on), and only then does the tooltip end with clickText.
+local FACTS = {
+	{
+		label = "Item level",
+		tooltip = function(tip)
+			local overall, equipped = GetAverageItemLevel()
+			TipPair(tip, "Equipped", ("%.1f"):format(equipped or 0))
+			TipPair(tip, "Overall", ("%.1f"):format(overall or 0))
+			if ModuleOn("gear") then
+				local worn = ns.GearItems_Equipped()
+				local text = worn and ns.Gear_AuditText(ns.Gear_Audit(worn))
+				if text then
+					tip:AddLine(Capitalized(text), RED[1], RED[2], RED[3])
+				end
+			end
+		end,
+		clickable = function()
+			return ModuleOn("gear")
+		end,
+		clickText = "Click: character pane with Gear Check",
+		click = function()
+			if InCombatLockdown() then
+				ns.Print("not in combat.")
+				return
+			end
+			ns.Panel_Hide()
+			ns.GearSheet_Open()
+		end,
+	},
+	{
+		label = "Gold",
+		-- This session's change (by source while Session recap books it), loot worth (Gold & value), every
+		-- character's gold and the Warband bank (Alts) and what they carry (Gold & value with Alts).
+		tooltip = function(tip)
+			local session = ns.Session_Current()
+			local net = GetMoney() - (session.money or GetMoney())
+			TipPair(tip, "This session", Signed(net), net < 0 and RED or GOLD)
+			if ModuleOn("recap") and net ~= 0 then
+				for i, src in ipairs(ns.Recap_GoldSources(session.gold, net)) do
+					if i > 4 then
+						break
+					end
+					TipPair(tip, "   " .. ns.RECAP_SOURCE_NAMES[src.source], Signed(src.amount), GREY)
+				end
+			end
+			local loot = ns.Value_SessionLootText and ns.Value_SessionLootText(session)
+			if loot then
+				tip:AddLine(Capitalized(loot), GREY[1], GREY[2], GREY[3])
+			end
+			if ModuleOn("alts") and ns.altsDB then
+				TipPair(tip, "Account total", ns.Alts_Gold(ns.Alts_TotalGold(ns.altsDB.chars, ns.altsDB.warbandMoney)), GOLD)
+				local worth = ns.Value_AccountWorth and ns.Value_AccountWorth(ns.altsDB.chars)
+				if worth then
+					TipPair(tip, "Carried value (bags and banks)", ns.Alts_Gold(worth), GOLD)
+				end
+			end
+		end,
+		clickable = function()
+			local entry = ns.homeByKey.sessions
+			return entry ~= nil and ns.HomeEntryVisible(entry)
+		end,
+		clickText = "Click: Sessions",
+		click = function()
+			ns.Panel_OpenPage("sessions")
+		end,
+	},
+	{
+		label = "Durability",
+		tooltip = function(tip)
+			local worst = ns.Durability_WorstSlots(3)
+			if #worst == 0 then
+				tip:AddLine("Nothing equipped has durability.", GREY[1], GREY[2], GREY[3])
+			end
+			for _, w in ipairs(worst) do
+				tip:AddDoubleLine(w.text, w.percent, 1, 1, 1, WHITE[1], WHITE[2], WHITE[3])
+			end
+		end,
+		clickable = function()
+			return ModuleOn("dura")
+		end,
+		clickText = "Click: every item's durability in chat",
+		click = function()
+			ns.Durability_List()
+		end,
+	},
+	{
+		label = "Location",
+		tooltip = function(tip)
+			TipPair(tip, "Zone", GetZoneText())
+			if GetSubZoneText() ~= "" then
+				TipPair(tip, "Subzone", GetSubZoneText())
+			end
+			local mapID = C_Map.GetBestMapForUnit("player")
+			local pos = mapID and C_Map.GetPlayerMapPosition(mapID, "player")
+			if pos and not Secret(pos.x) then
+				local info = C_Map.GetMapInfo(mapID)
+				TipPair(tip, info and info.name or "Map", ("%.1f, %.1f"):format(pos.x * 100, pos.y * 100))
+			end
+		end,
+		clickText = "Click: world map",
+		-- Not in combat, like the modules' map tabs.
+		click = function()
+			if InCombatLockdown() then
+				ns.Print("not in combat.")
+				return
+			end
+			ns.Panel_Hide()
+			OpenWorldMap(C_Map.GetBestMapForUnit("player"))
+		end,
+	},
+}
+
+local function FactClickable(fact)
+	return fact.click ~= nil and (not fact.clickable or ns.HomeCall(fact.clickable) == true)
+end
+
+local function FactEnter(self)
+	self.bg:Show()
+	local fact = self.fact
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+	GameTooltip:SetText(fact.label, GOLD[1], GOLD[2], GOLD[3])
+	ns.HomeCall(fact.tooltip, GameTooltip)
+	if FactClickable(fact) then
+		GameTooltip:AddLine(fact.clickText, GOLD[1], GOLD[2], GOLD[3])
+	end
+	GameTooltip:Show()
+end
+
 local function CreateHero(parent, onOpen)
 	local hero = CreateFrame("Frame", nil, parent)
 	hero:SetWidth(HERO_W)
@@ -292,16 +445,38 @@ local function CreateHero(parent, onOpen)
 	hero.who:SetPoint("TOP", stage, "BOTTOM", 0, -4)
 	hero.who:SetJustifyH("CENTER")
 
+	-- Each fact is a button (placed in Layout) with the faint row highlight on hover.
 	hero.facts = {}
-	for i, label in ipairs({ "Item level", "Gold", "Durability", "Location" }) do
-		local l = UI.Text(hero, 13, GREY)
-		l:SetText(label)
-		local v = hero:CreateFontString(nil, "OVERLAY")
+	for i, fact in ipairs(FACTS) do
+		local b = CreateFrame("Button", nil, hero)
+		b:SetHeight(21)
+		b.fact = fact
+		b.bg = b:CreateTexture(nil, "BACKGROUND")
+		b.bg:SetAllPoints()
+		b.bg:SetColorTexture(1, 1, 1, 0.04)
+		b.bg:Hide()
+		local l = UI.Text(b, 13, GREY)
+		l:SetText(fact.label)
+		l:SetPoint("BOTTOMLEFT", 4, 3)
+		local v = b:CreateFontString(nil, "OVERLAY")
 		v:SetFont(NARROW_FONT, 15, "")
 		v:SetShadowOffset(1, -1)
 		v:SetJustifyH("RIGHT")
-		l:SetPoint("TOPLEFT", hero.who, "BOTTOMLEFT", 0, 0) -- placed in Layout
-		hero.facts[i] = { label = l, value = v }
+		v:SetPoint("BOTTOMRIGHT", -4, 3)
+		v:SetPoint("BOTTOMLEFT", l, "BOTTOMRIGHT", 10, 0)
+		b:SetScript("OnEnter", FactEnter)
+		b:SetScript("OnLeave", function(self)
+			self.bg:Hide()
+			GameTooltip:Hide()
+		end)
+		b:SetScript("OnClick", function(self)
+			if FactClickable(self.fact) then
+				PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+				GameTooltip:Hide()
+				ns.HomeCall(self.fact.click)
+			end
+		end)
+		hero.facts[i] = { button = b, label = l, value = v }
 	end
 
 	hero.actions = {}
@@ -351,12 +526,10 @@ local function CreateHero(parent, onOpen)
 		end
 		y = y + 8
 		for i = #self.facts, 1, -1 do
-			local f = self.facts[i]
-			f.label:ClearAllPoints()
-			f.label:SetPoint("BOTTOMLEFT", PAD, y)
-			f.value:ClearAllPoints()
-			f.value:SetPoint("BOTTOMRIGHT", -PAD, y)
-			f.value:SetPoint("BOTTOMLEFT", f.label, "BOTTOMRIGHT", 10, 0)
+			local b = self.facts[i].button
+			b:ClearAllPoints()
+			b:SetPoint("BOTTOMLEFT", PAD - 4, y - 3)
+			b:SetPoint("BOTTOMRIGHT", -(PAD - 4), y - 3)
 			y = y + 21
 		end
 		self.who:ClearAllPoints()
@@ -393,7 +566,7 @@ local function CreateHero(parent, onOpen)
 		end
 		local dura = Durability()
 		if dura and dura < 30 then
-			SetColor(self.facts[3].value, { 1, 0.45, 0.35 })
+			SetColor(self.facts[3].value, RED)
 		end
 		self.model:SetUnit("player")
 		self.model:SetFacing(self.model.facing)
@@ -442,7 +615,7 @@ local function CreateAround(parent, onOpen)
 				SetColor(btn.text, WHITE)
 				btn.bg:SetColorTexture(MAP_BLUE[1], MAP_BLUE[2], MAP_BLUE[3], 0.16)
 				GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-				GameTooltip:SetText("Opens the world map on this tab", 1, 1, 1)
+				GameTooltip:SetText(btn.entry.openText or "Opens the world map on this tab", 1, 1, 1)
 				GameTooltip:Show()
 			end)
 			block:SetScript("OnLeave", function(btn)
@@ -511,7 +684,8 @@ local function CreateAround(parent, onOpen)
 				row:Set(item.icon, item.text, item.color, item.right, item.rightColor)
 				row.onEnter = item.onEnter
 				local entry = bl.entry
-				row.onClick = function()
+				-- An item's own click (a waypoint, a summon), else the block's.
+				row.onClick = item.onClick or function()
 					onOpen(entry)
 				end
 				row:ClearAllPoints()
@@ -531,7 +705,7 @@ local function CreateAround(parent, onOpen)
 	around.none:SetPoint("TOPLEFT", 0, -40)
 	around.none:SetPoint("RIGHT")
 	around.none:SetWordWrap(true)
-	around.none:SetText("Nothing to collect, no world quests and no teleports ready here.")
+	around.none:SetText("Nothing around you right now.")
 	return around
 end
 
@@ -745,6 +919,29 @@ local function CreateRailRow(parent, onSelect)
 	row.text:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
 	row.text:SetPoint("RIGHT", -6, 0)
 	row.text:SetWordWrap(false)
+	-- Count pill at the right end: gold digits on a dark backing (the text ends at it while it shows).
+	row.pill = CreateFrame("Frame", nil, row)
+	row.pill:SetHeight(16)
+	row.pill:SetPoint("RIGHT", -8, 0)
+	local pillBg = row.pill:CreateTexture(nil, "BACKGROUND")
+	pillBg:SetAllPoints()
+	pillBg:SetColorTexture(0, 0, 0, 0.6)
+	UI.Border(row.pill, GOLD[1], GOLD[2], GOLD[3], 0.3)
+	row.pill.text = row.pill:CreateFontString(nil, "OVERLAY")
+	row.pill.text:SetFont(NARROW_FONT, 12, "")
+	row.pill.text:SetPoint("CENTER", 0, 0)
+	SetColor(row.pill.text, GOLD)
+	row.pill:Hide()
+	function row:SetPill(text, tip)
+		self.pillTip = text ~= "" and tip or nil
+		self.pill:SetShown(text ~= "")
+		self.text:SetPoint("RIGHT", self, "RIGHT", -6, 0)
+		if text ~= "" then
+			self.pill.text:SetText(text)
+			self.pill:SetWidth(math.max(Snap(self.pill.text:GetUnboundedStringWidth()) + 10, 18))
+			self.text:SetPoint("RIGHT", self.pill, "LEFT", -6, 0)
+		end
+	end
 	row:SetScript("OnEnter", function(self)
 		self.bg:Show()
 		local entry = self.entry
@@ -754,6 +951,9 @@ local function CreateRailRow(parent, onSelect)
 			GameTooltip:SetText(entry.name, GOLD[1], GOLD[2], GOLD[3])
 			if type(summary) == "string" and summary ~= "" then
 				GameTooltip:AddLine(summary, 1, 1, 1)
+			end
+			if self.pillTip then
+				GameTooltip:AddLine(self.pillTip, GOLD[1], GOLD[2], GOLD[3])
 			end
 			if entry.kind == "map" then
 				GameTooltip:AddLine("Opens the world map on this tab", MAP_BLUE[1], MAP_BLUE[2], MAP_BLUE[3])
@@ -791,6 +991,20 @@ function ns.PanelRail_Create(parent, onSelect)
 		return row
 	end
 
+	-- A page's pill (entry.pill, "Counts on the rail"); map entries never have one.
+	local function Pill(entry)
+		local window = ns.db.window
+		if not (entry and entry.kind == "page" and entry.pill and (not window or window.pills ~= false)) then
+			return ""
+		end
+		local n = ns.HomeCall(entry.pill)
+		local tip = entry.pillTip
+		if type(tip) == "function" then
+			tip = ns.HomeCall(tip, n)
+		end
+		return ns.Home_PillText(n), tip
+	end
+
 	local function Place(row, entry, y, selected)
 		row.entry = entry
 		row.selected = selected
@@ -801,6 +1015,7 @@ function ns.PanelRail_Create(parent, onSelect)
 			row.icon:SetTexture(ns.ICON)
 			row.text:SetText("Home")
 		end
+		row:SetPill(Pill(entry))
 		local c = selected and GOLD or (entry and entry.kind == "map" and MAP_BLUE or WHITE)
 		SetColor(row.text, c)
 		row.bar:SetShown(selected)

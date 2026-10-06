@@ -111,6 +111,40 @@ local function Percent(v)
 	return ("%d%%"):format(v)
 end
 
+-- Equipped items with durability, worst first.
+local function Worst()
+	local slots = Slots()
+	table.sort(slots, function(a, b)
+		return a.cur / a.max < b.cur / b.max
+	end)
+	return slots
+end
+
+-- The worst n slots as { { percent = "45%", text = "Legs: [Item]" } } (Home's Durability tooltip).
+function ns.Durability_WorstSlots(n)
+	local list = {}
+	for i, s in ipairs(Worst()) do
+		if i > n then
+			break
+		end
+		list[i] = { percent = ns.Durability_Percent(s.cur / s.max), text = SlotText(s.slot) }
+	end
+	return list
+end
+
+-- /tomte dura list (and a click on Home's Durability).
+function ns.Durability_List()
+	local slots = Worst()
+	if #slots == 0 then
+		ns.Print("nothing equipped has durability.")
+		return
+	end
+	ns.Print("durability:")
+	for _, s in ipairs(slots) do
+		print(("  %s  %s"):format(ns.Durability_Percent(s.cur / s.max), SlotText(s.slot)))
+	end
+end
+
 module = ns.RegisterModule({
 	key = "dura",
 	name = "Durability",
@@ -145,20 +179,7 @@ module = ns.RegisterModule({
 	end,
 	toggle = Toggle,
 	commands = {
-		{ "list", "durability of every equipped item, worst first", function()
-			local slots = Slots()
-			if #slots == 0 then
-				ns.Print("nothing equipped has durability.")
-				return
-			end
-			table.sort(slots, function(a, b)
-				return a.cur / a.max < b.cur / b.max
-			end)
-			ns.Print("durability:")
-			for _, s in ipairs(slots) do
-				print(("  %s  %s"):format(ns.Durability_Percent(s.cur / s.max), SlotText(s.slot)))
-			end
-		end },
+		{ "list", "durability of every equipped item, worst first", ns.Durability_List },
 	},
 	options = {
 		{ type = "header", label = "Toasts" },

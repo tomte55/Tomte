@@ -1,27 +1,15 @@
 local addonName, ns = ...
 
 -- Alts on Tomte's Home ("characters" slot): every character with level, profession icons (unspent knowledge in a
--- gold box) and gold, then the account's total gold and which of the eleven professions somebody has.
+-- gold box) and gold, then the account's total gold (the Warband bank's included) and which of the eleven professions
+-- somebody has (an unlit one's tooltip says who has a free slot for it).
 
 local UI = ns.UI
 local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
 local ROW_H = 24
 local FOOT_H = 84
 
--- The eleven professions (base skill lines) in name order, with a stand-in icon until a character has one.
-local PROFESSIONS = {
-	{ 171, "Alchemy", "Interface\\Icons\\Trade_Alchemy" },
-	{ 164, "Blacksmithing", "Interface\\Icons\\Trade_BlackSmithing" },
-	{ 333, "Enchanting", "Interface\\Icons\\Trade_Engraving" },
-	{ 202, "Engineering", "Interface\\Icons\\Trade_Engineering" },
-	{ 182, "Herbalism", "Interface\\Icons\\Trade_Herbalism" },
-	{ 773, "Inscription", "Interface\\Icons\\INV_Inscription_Tradeskill01" },
-	{ 755, "Jewelcrafting", "Interface\\Icons\\INV_Misc_Gem_01" },
-	{ 165, "Leatherworking", "Interface\\Icons\\Trade_LeatherWorking" },
-	{ 186, "Mining", "Interface\\Icons\\Trade_Mining" },
-	{ 393, "Skinning", "Interface\\Icons\\INV_Misc_Pelt_Wolf_01" },
-	{ 197, "Tailoring", "Interface\\Icons\\Trade_Tailoring" },
-}
+local PROFESSIONS = ns.ALTS_PROFESSIONS -- the eleven, with stand-in icons (Data.lua)
 
 local function SetColor(fs, c)
 	fs:SetTextColor(c[1], c[2], c[3])
@@ -179,7 +167,8 @@ local function Create(frame, Kit)
 					GameTooltip:AddLine(line, 0.8, 0.8, 0.8)
 				end
 			else
-				GameTooltip:AddLine("None of your characters has it yet.", 0.62, 0.62, 0.62)
+				-- Who could pick it up: characters with a free profession slot.
+				GameTooltip:AddLine(ns.Alts_GapText({ p[2] }, ns.Alts_FreeSlots(ns.altsDB.chars)), 0.62, 0.62, 0.62, true)
 			end
 			GameTooltip:Show()
 		end)
@@ -227,7 +216,8 @@ local function Refresh(frame)
 	frame.hint:SetPoint("RIGHT")
 
 	local foot = frame.foot
-	foot.total:SetText(ns.Alts_Gold(ns.Alts_TotalGold(db.chars)))
+	foot.total:SetText(ns.Alts_Gold(ns.Alts_TotalGold(db.chars, db.warbandMoney)))
+	foot.totalLabel:SetText("Total gold" .. ns.Alts_WarbandText(db.warbandMoney))
 	local covered = 0
 	for i, p in ipairs(PROFESSIONS) do
 		local b = foot.icons[i]

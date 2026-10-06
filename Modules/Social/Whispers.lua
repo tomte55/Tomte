@@ -437,14 +437,14 @@ local function ClearHistory()
 	ns.Print("whisper history cleared.")
 end
 
--- Keybinds (Bindings.xml, Key Bindings > Tomte): the binding scripts need a global.
-function Tomte_Binding(name)
-	if not (module and module.active) then
-		return
-	end
-	if name == "WHISPER_REPLY" then
+-- Keybinds (Bindings.xml, Key Bindings > Tomte), through Core's Tomte_Binding.
+ns.bindings.WHISPER_REPLY = function()
+	if module and module.active then
 		ns.Whispers_ReplyNewest()
-	elseif name == "WHISPER_INBOX" then
+	end
+end
+ns.bindings.WHISPER_INBOX = function()
+	if module and module.active then
 		ns.Inbox_Toggle()
 	end
 end

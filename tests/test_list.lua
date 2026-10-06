@@ -79,6 +79,16 @@ test("list add, remove, crafted", function()
 	eq(#list, 0)
 end)
 
+test("ListCraftedRecipe: the started recipe, else the listed recipe making the item", function()
+	local list = { { recipeID = 1, crafts = 1 }, { recipeID = 2, crafts = 1 } }
+	local recipes = { [1] = { item = 100 }, [2] = { item = 200 } }
+	eq(ns.Alts_ListCraftedRecipe(list, recipes, 2, 100), 2, "started recipe wins")
+	eq(ns.Alts_ListCraftedRecipe(list, recipes, nil, 200), 2, "missed start: by item")
+	eq(ns.Alts_ListCraftedRecipe(list, recipes, 99, 100), 1, "other recipe started: by item")
+	eq(ns.Alts_ListCraftedRecipe(list, recipes, 99, 300), nil, "not listed")
+	eq(ns.Alts_ListCraftedRecipe(list, recipes, nil, 0), nil)
+end)
+
 test("gatherer: mail herbs from bags, grab from bank, others' ore, intermediate craft", function()
 	local places = {
 		[HERB] = { { guid = "Main", where = "bags", n = 8 }, { guid = "Main", where = "bank", n = 10 } },
