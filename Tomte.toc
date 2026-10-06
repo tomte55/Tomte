@@ -115,3 +115,5 @@ Modules/NextUp/Data.lua
 Modules/NextUp/NextUp.lua
 Modules/Recent/Data.lua
 Modules/Recent/Recent.lua
+Modules/Value/Data.lua
+Modules/Value/Value.lua

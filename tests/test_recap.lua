@@ -317,6 +317,8 @@ test("LootLink matches self loot messages only", function()
 	local link = "|cnIQ4:|Hitem:19019::::::::80:::::|h[Thunderfury]|h|r"
 	eq(ns.Recap_LootLink("You receive loot: " .. link .. ".", patterns), link)
 	eq(ns.Recap_LootLink("You receive loot: " .. link .. "x2.", patterns), link)
+	eq(select(2, ns.Recap_LootLink("You receive loot: " .. link .. "x2.", patterns)), 2, "count")
+	eq(select(2, ns.Recap_LootLink("You receive loot: " .. link .. ".", patterns)), 1, "count 1")
 	eq(ns.Recap_LootLink("You receive item: " .. link .. ".", patterns), link)
 	eq(ns.Recap_LootLink("Thrall receives loot: " .. link .. ".", patterns), nil)
 	eq(ns.Recap_LootLink(nil, patterns), nil)

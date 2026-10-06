@@ -464,6 +464,11 @@ local function CreateMatRow(parent)
 			GameTooltip:AddLine(" ")
 			GameTooltip:AddLine(self.whereFull, 1, 1, 1, true)
 		end
+		local unit, _, stale = ns.Value_ItemPrice and ns.Value_ItemPrice(self.itemID)
+		if unit then
+			GameTooltip:AddLine(("Worth %s each, %s for %d"):format(ns.Value_Text(unit, stale), ns.Value_Text(unit * self.need, stale),
+				self.need), 1, 0.82, 0.45)
+		end
 		GameTooltip:Show()
 	end)
 	row:SetScript("OnLeave", function()
@@ -577,7 +582,7 @@ local function LayoutDetail()
 		local row = matRows[i] or CreateMatRow(content)
 		matRows[i] = row
 		local itemID = m.items[1]
-		row.itemID = itemID
+		row.itemID, row.need = itemID, m.need
 		row.name:SetText(ItemName(itemID))
 		row.count:SetText(("%d / %d"):format(m.have, m.need))
 		local _, where = ns.Alts_Have(m.items)
@@ -601,6 +606,18 @@ local function LayoutDetail()
 	end
 	if #plan.materials == 0 then
 		y = y + MAT_H
+	end
+	-- Gold & value: cost of the materials, what it sells for, the difference.
+	local value = ns.Value_Plan and ns.Value_Plan(plan, recipe, db.crafts or 1)
+	if value then
+		local parts = { ("Materials %s%s"):format(value.complete and "" or "at least ", ns.Alts_Gold(value.cost)) }
+		if value.sells then
+			parts[#parts + 1] = "sells for " .. ns.Alts_Gold(value.sells)
+			local profit = value.profit
+			parts[#parts + 1] = ("|cff%s%s %s|r"):format(profit >= 0 and "73d973" or "ff7359", profit >= 0 and "profit" or "loss",
+				ns.Alts_Gold(math.abs(profit)))
+		end
+		y = Header(4, table.concat(parts, "  ·  ") .. ("  |cff9e9e9e(%s)|r"):format(ns.Value_SourceName()), y + 4)
 	end
 	y = Header(2, "Craft in order", y + 4)
 	for i, step in ipairs(plan.steps) do

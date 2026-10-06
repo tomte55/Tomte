@@ -86,6 +86,10 @@ local function ShowTooltip(row)
 	if rest then
 		GameTooltip:AddLine(rest, GREEN[1], GREEN[2], GREEN[3])
 	end
+	local worth = ns.Value_CharWorth and ns.Value_CharWorth(c)
+	if worth then
+		GameTooltip:AddLine(("Carrying %s in bags%s"):format(ns.Alts_Gold(worth), c.worth.bank and " and bank" or ""), 1, 0.82, 0.45)
+	end
 	GameTooltip:Show()
 end
 
@@ -173,7 +177,8 @@ local function FillDetailed(row, c)
 		parts[#parts + 1] = ("iLvl %d"):format(c.ilvl)
 	end
 	row.l1:SetText(table.concat(parts, " · "))
-	row.l1r:SetText(ns.Alts_Gold(c.money))
+	local worth = ns.Value_CharWorth and ns.Value_CharWorth(c)
+	row.l1r:SetText(ns.Alts_Gold(c.money) .. (worth and ("  |cff9e9e9e+ %s in items|r"):format(ns.Alts_Gold(worth)) or ""))
 	row.l2:SetText(ProfsText(c, false))
 	local right = { c.zone or "?", Ago(c) }
 	local rest = RestText(c)
@@ -225,7 +230,9 @@ local function Layout()
 	tab.scroll:SetContentHeight(y)
 	tab.footLeft:SetText(#list == 1 and "1 character · log in on the others once to add them"
 		or ("%d characters"):format(#list))
-	tab.footRight:SetText("Total " .. ns.Alts_Gold(ns.Alts_TotalGold(db.chars)))
+	local worth = ns.Value_AccountWorth and ns.Value_AccountWorth(db.chars)
+	tab.footRight:SetText("Total " .. ns.Alts_Gold(ns.Alts_TotalGold(db.chars))
+		.. (worth and ("  ·  items worth %s"):format(ns.Alts_Gold(worth)) or ""))
 	tab.mode.label:SetText(compact and "Detailed view" or "Compact view")
 	tab.sort:Refresh()
 end

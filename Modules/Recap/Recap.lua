@@ -64,6 +64,7 @@ local function Summarize(session, label, live)
 		levelLine = gain and ("Level %d  -  %s"):format(level, gain) or ("Level %d"):format(level),
 		entries = #session.log,
 		xp = gain ~= nil,
+		lootText = ns.Value_SessionLootText and ns.Value_SessionLootText(session) or nil,
 	}
 	if live then
 		summary.titleNow = function()

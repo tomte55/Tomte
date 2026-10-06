@@ -144,7 +144,11 @@ local function ShowSummary()
 	SetText(card.title, summary.title)
 	SetText(card.subtitle, summary.subtitle)
 	SetText(card.gold, Signed(summary.net))
-	SetText(card.sources, summary.net == 0 and #summary.sources == 0 and "no gold change" or SourcesLine(summary.sources))
+	local sources = summary.net == 0 and #summary.sources == 0 and "no gold change" or SourcesLine(summary.sources)
+	if summary.lootText then
+		sources = sources .. "  -  " .. summary.lootText
+	end
+	SetText(card.sources, sources)
 	SetText(card.statTitle, summary.levelLine)
 	SetText(card.statLine, summary.countsLine ~= "" and summary.countsLine or "a quiet session")
 	ShowHighlights()
