@@ -45,7 +45,7 @@ local function Summarize(session, label, live)
 	local endAt = live and now or (session.seen or session.start)
 	local duration = endAt - session.start
 	local net = (session.moneyNow or session.money) - session.money
-	local counts = ns.Recap_Counts(session.log)
+	local counts = session.trimmed and session.counts or ns.Recap_Counts(session.log)
 	local shown, more = ns.Recap_Highlights(session.log, ROWS)
 	local level = live and UnitLevel("player") or (session.levelNow or session.level)
 	local xp = live and XPFraction() or (session.xpNow or session.xpFraction)
@@ -64,7 +64,8 @@ local function Summarize(session, label, live)
 		levelLine = gain and ("Level %d  -  %s"):format(level, gain) or ("Level %d"):format(level),
 		entries = #session.log,
 		xp = gain ~= nil,
-		lootText = ns.Value_SessionLootText and ns.Value_SessionLootText(session) or nil,
+		lootText = ns.Value_SessionLootText and ns.Value_SessionLootText(session)
+			or (session.lootValue and session.lootValue > 0 and ("loot worth " .. ns.Alts_Gold(session.lootValue))) or nil,
 	}
 	if live then
 		summary.titleNow = function()
@@ -183,6 +184,32 @@ local function ShowLast()
 		return
 	end
 	PlayOrSay({ summary = Summarize(last, "Last session", false), left = CARD_TIME })
+end
+
+-- A session from the history (Sessions page).
+function ns.Recap_ShowStored(h)
+	if not module.active then
+		ns.Print("Session recap is off.")
+		return
+	end
+	local label = ("%s, %s"):format(h.name or "Session", date("%a %d %b", h.start))
+	PlayOrSay({ summary = Summarize(h, label, false), left = CARD_TIME })
+end
+
+-- The finished session goes into the history (SessionData.lua calls this when the next one starts).
+function ns.Session_OnEnd(session)
+	if not (module.active and db.keepHistory) then
+		return
+	end
+	local endAt = session.seen or session.start
+	local value, by
+	if ns.Value_SessionLoot then
+		value, by = ns.Value_SessionLoot(session)
+	end
+	local copy = ns.Recap_Compact(session, { zone = ns.Session_TopZone(session, endAt), lootValue = value, lootBy = by })
+	if copy then
+		ns.Recap_Archive(db.history, copy, { by = db.keepBy, count = db.keepCount, days = db.keepDays }, GetServerTime())
+	end
 end
 
 local SAMPLE_LOG = {
@@ -331,6 +358,19 @@ end
 module = ns.RegisterModule({
 	key = "recap",
 	home = {
+		{ kind = "page", key = "sessions", order = 7, name = "Sessions", icon = "Interface\\Icons\\INV_Misc_Coin_02",
+			page = ns.RecapSessionsPage,
+			shown = function()
+				return db.keepHistory
+			end,
+			summary = function()
+				local list = ns.Recap_HistoryFilter(db.history, "char", UnitGUID("player"))
+				if #list == 0 then
+					return "No sessions kept yet"
+				end
+				local n = ns.Recap_HistoryNumbers(list[1])
+				return ("Last: %s, %s%s"):format(ns.Recap_Duration(n.duration), n.net < 0 and "-" or "+", ns.Alts_Gold(math.abs(n.net)))
+			end },
 		{ kind = "quick", key = "lastrecap", order = 2, name = "Last session recap", open = ShowLast, shown = function()
 			return ns.Session_Last(UnitGUID("player")) ~= nil
 		end },
@@ -344,6 +384,15 @@ module = ns.RegisterModule({
 		loginToast = true,
 		lootQuality = 4,
 		afkPage = true,
+		history = {}, -- finished sessions, newest first (History.lua)
+		keepHistory = true,
+		keepBy = "count", -- count | days
+		keepCount = 30, -- per character
+		keepDays = 28,
+		mainNumber = "perHour", -- perHour | net
+		nights = false,
+		pageScope = "all", -- char | all
+		pageRange = "all", -- week | all
 	},
 	init = function(moduleDB)
 		db = moduleDB
@@ -376,6 +425,24 @@ module = ns.RegisterModule({
 			tooltip = "Items you receive at this quality or better are listed. Achievements, new mounts, pets, toys and renown come from Moments (also when their style is off, but not with Moments turned off)." },
 		{ type = "button", label = "Preview", text = "Show", onClick = Preview,
 			tooltip = "Show the recap card with sample data. Any key or click closes it." },
+		{ type = "header", label = "Sessions page" },
+		{ type = "checkbox", key = "keepHistory", label = "Keep history",
+			tooltip = "Keep finished sessions (2 minutes or longer) for the Sessions page. A session is kept when the next one starts." },
+		{ type = "dropdown", key = "keepBy", label = "Keep by", choices = function()
+			return { { value = "count", text = "Number of sessions" }, { value = "days", text = "Days" } }
+		end },
+		{ type = "slider", key = "keepCount", label = "Sessions per character", min = 10, max = 100, step = 5 },
+		{ type = "slider", key = "keepDays", label = "Days kept", min = 7, max = 90, step = 7 },
+		{ type = "dropdown", key = "mainNumber", label = "Chart shows", choices = function()
+			return { { value = "perHour", text = "Gold per hour" }, { value = "net", text = "Net gold per session" } }
+		end },
+		{ type = "checkbox", key = "nights", label = "Group into play nights",
+			tooltip = "Sessions less than an hour apart (any character) are grouped under one line with their totals." },
+		{ type = "button", label = "History", text = "Clear", confirm = "Clear the session history on every character?",
+			onClick = function()
+				wipe(db.history)
+				ns.Print("session history cleared.")
+			end },
 	},
 })
 ns.recapModule = module

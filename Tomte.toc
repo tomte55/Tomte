@@ -100,6 +100,8 @@ Modules/Alts/RosterTab.lua
 Modules/Alts/HomeSection.lua
 Modules/Alts/Alts.lua
 Modules/Recap/Data.lua
+Modules/Recap/History.lua
+Modules/Recap/SessionsPage.lua
 Modules/Recap/Track.lua
 Modules/Recap/Scene.lua
 Modules/Recap/Recap.lua

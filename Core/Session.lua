@@ -17,7 +17,16 @@ local function XPFraction()
 end
 
 local function Baseline()
-	return { money = GetMoney(), level = UnitLevel("player"), xpFraction = XPFraction() }
+	local _, class = UnitClass("player")
+	return { money = GetMoney(), level = UnitLevel("player"), xpFraction = XPFraction(), name = UnitName("player"),
+		class = class }
+end
+
+local function ZoneTick(session)
+	local zone = GetZoneText()
+	if zone and zone ~= "" and zone ~= session.zoneNow then
+		ns.Session_ZoneTick(session, zone, GetServerTime())
+	end
 end
 
 local function Begin(newLogin)
@@ -55,7 +64,14 @@ function ns.Session_Note(kind, entry)
 end
 
 function events:PLAYER_ENTERING_WORLD(isInitialLogin)
-	Begin(isInitialLogin) -- registered before any module's handler, so they see the new session
+	local session = Begin(isInitialLogin) -- registered before any module's handler, so they see the new session
+	session.name = session.name or UnitName("player")
+	session.class = session.class or select(2, UnitClass("player"))
+	ZoneTick(session)
+end
+
+function events:ZONE_CHANGED_NEW_AREA()
+	ZoneTick(ns.Session_Current())
 end
 
 function events:PLAYER_MONEY()
@@ -93,7 +109,8 @@ function ns.Session_Init(saved)
 	db = saved
 	ns.Session_Migrate(db)
 	db.sessionLast = db.sessionLast or {}
-	for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "PLAYER_MONEY", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_LOGOUT" }) do
+	for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "PLAYER_MONEY", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_LOGOUT",
+		"ZONE_CHANGED_NEW_AREA" }) do
 		events:RegisterEvent(event)
 	end
 end
