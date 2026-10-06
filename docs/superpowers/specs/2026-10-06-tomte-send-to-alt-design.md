@@ -67,3 +67,15 @@ to Mira" when you're standing at a mailbox (score 60).
 - Plain Lua: the recipient rule (ties, plan override, own recipes excluded), grouping into 12-stack mails.
 - In game: **prototype first** (one button that sends one stack to an alt), then the full panel; Warband deposit
   with a mix of warbound and soulbound items.
+
+## As built (2026-10-06)
+
+Built in one go with the other four; not yet tested in game.
+
+- Mail is two clicks per mail: **Attach** (opens the Send Mail tab if needed, fills recipient and subject, attaches up
+  to 12 stacks with `PickupContainerItem` + `ClickSendMailItemButton`) then **Send** (`SendMail`), so the client has
+  attached the items before sending. Still needs the in-game check that `SendMail` from our button works.
+- Mail only offers unbound stacks; the Warband button offers what `C_Bank.IsItemAllowedInBankType(Account, ...)`
+  allows, deposited in the click with `UseContainerItem(bag, slot, nil, Enum.BankType.Account, false)`.
+- Manual rules are one text setting ("210796 = Mira, mycobloom = Tolvan"). Gold top-up is a slider in thousands.
+- Next up gets a "Materials for your alts" source (score 40).

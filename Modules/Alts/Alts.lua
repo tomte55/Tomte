@@ -214,6 +214,12 @@ module = ns.RegisterModule({
 		filterShow = "learnable",
 		haveMats = false,
 		collapsed = {},
+		sendMail = true,
+		sendWarband = true,
+		sendPlan = true,
+		sendRules = "",
+		sendGold = 0, -- gold to keep on each alt (0 = off)
+		sendSubject = "Tomte",
 	},
 	home = {
 		ns.AltsHomeSection,
@@ -226,6 +232,17 @@ module = ns.RegisterModule({
 				end
 				return ("%d character%s · %s"):format(n, n == 1 and "" or "s", ns.Alts_Gold(ns.Alts_TotalGold(db.chars)))
 			end },
+		{ kind = "next", key = "nextsend", name = "Materials for your alts", score = 40,
+			description = "You carry materials another character crafts with: the mailbox and the bank have a \"For your alts\" panel.",
+			candidates = function()
+				local text = ns.AltsSend_Summary()
+				if not text then
+					return {}
+				end
+				return { { key = "alts:send", state = text, text = "Send " .. text,
+					why = "At a mailbox (or the Warband bank), the \"For your alts\" panel sends them.",
+					icon = "Interface\\Icons\\INV_Letter_15" } }
+			end },
 	},
 	init = function(saved)
 		db = saved
@@ -235,8 +252,10 @@ module = ns.RegisterModule({
 	toggle = function(active)
 		if active then
 			ns.AltsCollect_Start(db)
+			ns.AltsSend_Start(db)
 		else
 			ns.AltsCollect_Stop()
+			ns.AltsSend_Stop()
 		end
 	end,
 	options = {
@@ -248,6 +267,21 @@ module = ns.RegisterModule({
 			return { { value = "full", text = "Full chain" }, { value = "one", text = "One step" } }
 		end, tooltip = "How far the Crafting tab works out crafted materials: all the way down to what you gather, "
 			.. "or only the recipe's own materials." },
+		{ type = "header", label = "Send to alt" },
+		{ type = "checkbox", key = "sendMail", label = "\"For your alts\" at the mailbox",
+			tooltip = "Beside the mail frame: what you carry that another character crafts with (and you don't), grouped by who gets it. Attach fills the Send Mail tab, Send sends it (12 stacks a mail)." },
+		{ type = "checkbox", key = "sendWarband", label = "\"Deposit for alts\" at the bank",
+			tooltip = "At the bank, a button that puts those items into the Warband bank when they're allowed there." },
+		{ type = "checkbox", key = "sendPlan", label = "Use the Crafting tab's plan",
+			tooltip = "Materials for the recipe picked in the Crafting tab go to the character who crafts that step." },
+		{ type = "input", key = "sendRules", label = "Always send", placeholder = "item ID or name = character, ...",
+			tooltip = "Manual rules that win over the rest, e.g. \"210796 = Mira, mycobloom = Tolvan\". Separate them with commas." },
+		{ type = "slider", key = "sendGold", label = "Keep gold on alts (thousands)", min = 0, max = 100, step = 1,
+			format = function(v)
+				return v == 0 and "off" or (v .. "k")
+			end,
+			tooltip = "At the mailbox, offer to top up characters below this much gold (from what you have above it). 0 = off." },
+		{ type = "input", key = "sendSubject", label = "Mail subject", placeholder = "Tomte" },
 	},
 	commands = {
 		{ "open", "open the Alts page", function()

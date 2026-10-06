@@ -67,3 +67,15 @@ auction price), "Profit ~Y-X". Materials you already have still count at market 
 
 - Plain Lua: price fallback order, stale marking, value categories, profit sums.
 - In game: farm for a few minutes and check the recap card; open the Crafting tab with and without Auctionator.
+
+## As built (2026-10-06)
+
+Built in one go with the other four; not yet tested in game.
+
+- Module `value` (Modules/Value). TSM is supported too (user asked): "Prices from" Auto (TSM, else Auctionator) /
+  Auctionator / TSM / Vendor only, and a TSM price source (DBMarket default). TSM calls: `TSM_API.ToItemString`,
+  `TSM_API.GetCustomPriceValue(source, itemString)` (checked against TSM 4.12 source and current consumers), in pcall.
+- Carried value is read by Tomte itself, not Syndicator: bags on every bag change, the character bank tabs and
+  the Warband bank when the bank is open (`Enum.BagIndex` 0-5, 6-11, 12-16 per the 12.1 API docs).
+- Loot value needs Session recap on (it parses the loot messages); `Recap_LootLink` now also returns the count.
+- `/tomte value price <item link or ID>`.

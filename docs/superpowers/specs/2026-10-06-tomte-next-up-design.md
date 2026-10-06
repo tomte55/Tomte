@@ -72,3 +72,14 @@ Teleports are left out: using one needs a secure button, and a Home row isn't on
 
 - Plain Lua: `NextUp_Rank` (merge, ties, dismissed, limit), each module's pure candidate builder where one exists.
 - In game: Home with vault ready / not, a low-durability character, in a zone with a worth-it WQ, a rare up.
+
+## As built (2026-10-06)
+
+Built in one go with the other four; not yet tested in game.
+
+- Module `next` (Modules/NextUp). Each candidate type is its own source (own checkbox and priority slider):
+  vault rewards (100), rare up (95), durability (90), Concentration (85), world quests (80), vault slot (70),
+  achievements (65), knowledge (50) and one more, "Materials for your alts" (40, from Send to alt).
+- Home: new section slot `next`; the right column stacks Next up and Recent's block above Around you. `Kit.Row`
+  takes `onRightClick`. Panel gained `ns.Panel_Hide`, `ns.Panel_Refresh`, `ns.Panel_IsShown`.
+- `/tomte next list` (with source and score) and `/tomte next reset`.

@@ -561,6 +561,7 @@ local function LayoutDetail()
 		d.scroll:SetContentHeight(1)
 		return
 	end
+	ns.AltsCraft_LastPlan = plan -- Send to alt: materials go to the crafter of their step
 	if plan.missing > 0 then
 		d.status:SetText(("Missing %d material%s"):format(plan.missing, plan.missing == 1 and "" or "s"))
 		SetColor(d.status, RED)

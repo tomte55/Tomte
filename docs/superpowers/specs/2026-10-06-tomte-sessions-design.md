@@ -50,3 +50,13 @@ A Home rail page **Sessions**:
 
 - Plain Lua: compacting a session, the cap, the 2-minute rule, gold/hour, week totals across the weekly reset.
 - In game: log out and in a few times, check the page and that old cards still open.
+
+## As built (2026-10-06)
+
+Built in one go with the other four; not yet tested in game.
+
+- History is `TomteDB.recap.history` (account-wide, each copy has the character's name and class; the session now
+  records them). `ns.Session_OnEnd` (Recap) copies a session when the next one starts; History.lua is the pure part.
+- The newest 5 copies keep their whole log and loot list, older ones their highlights and counts.
+- Time per zone: Core/Session.lua ticks on `ZONE_CHANGED_NEW_AREA`; "Mostly in" is `ns.Session_TopZone`.
+- Clicking a session shows its recap card (labelled with the character and date).

@@ -94,10 +94,12 @@ Modules/Weekly/Popup.lua
 Modules/Weekly/HomeSection.lua
 Modules/Weekly/Weekly.lua
 Modules/Alts/Data.lua
+Modules/Alts/SendData.lua
 Modules/Alts/Collect.lua
 Modules/Alts/CraftTab.lua
 Modules/Alts/RosterTab.lua
 Modules/Alts/HomeSection.lua
+Modules/Alts/Send.lua
 Modules/Alts/Alts.lua
 Modules/Recap/Data.lua
 Modules/Recap/History.lua

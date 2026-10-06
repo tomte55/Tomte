@@ -51,3 +51,11 @@ Entry: `{ at, owner, label, title, text, icon, iconAtlas, accent, onClick, count
 
 - Plain Lua: add/merge/cap, unseen count, the saved copy dropping closures and secret text.
 - In game: get a whisper in combat, check the entry; reload and check the saved rows are dimmed.
+
+## As built (2026-10-06)
+
+Built in one go with the other four; not yet tested in game.
+
+- Module `recent` (Modules/Recent). `Toast_Show`, `Toast_Pin` (merged per pin key) and `Banner_Show` call
+  `ns.Recent_Note`. Entries live in `TomteDB.recent.entries`; click actions in a weak table for this session only.
+- The minimap dot is `ns.Minimap_SetDot`. `/tomte recent open` / `clear`.
