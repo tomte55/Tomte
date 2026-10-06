@@ -87,7 +87,7 @@ local function NextVaultReady()
 		return {}
 	end
 	return { { key = "weekly:vault", text = "Great Vault rewards waiting", why = "Pick your reward before you queue.",
-		icon = "Interface\Icons\INV_Misc_Treasurechest02b", onClick = OpenBoard(), stay = true,
+		icon = "Interface\\Icons\\INV_Misc_Treasurechest02b", onClick = OpenBoard(), stay = true,
 		hint = "Click for the Weekly board" } }
 end
 
@@ -114,6 +114,9 @@ local function NextConcentration(now)
 	return list
 end
 
+-- What one more activity of a vault track is.
+local VAULT_ACTIVITY = { raid = "Kill a raid boss", dungeons = "Run a Heroic or Mythic dungeon", world = "Do a delve or world activity" }
+
 -- A vault track one activity from its next slot.
 local function NextVaultSlot()
 	local v = ns.Weekly_CurrentView()
@@ -128,9 +131,10 @@ local function NextVaultSlot()
 		if s and s.threshold - s.progress == 1 then
 			list[#list + 1] = {
 				key = "weekly:vaultnext:" .. track.key, state = s.progress,
-				text = ("%s: one more for vault slot %d"):format(track.label, nextSlot),
-				why = ("%d/%d done this week."):format(s.progress, s.threshold), right = ("%d/%d"):format(s.progress, s.threshold),
-				icon = "Interface\Icons\INV_Misc_Treasurechest02b", onClick = OpenBoard(), stay = true,
+				text = ("%s for vault slot %d"):format(VAULT_ACTIVITY[track.key] or ("One more " .. track.label:lower()),
+					nextSlot),
+				right = ("%d/%d"):format(s.progress, s.threshold),
+				icon = "Interface\\Icons\\INV_Misc_Treasurechest02b", onClick = OpenBoard(), stay = true,
 				hint = "Click for the Weekly board",
 			}
 		end

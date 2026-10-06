@@ -89,6 +89,8 @@ Modules/Upkeep/Vendor.lua
 Modules/Upkeep/Durability.lua
 Modules/Weekly/Data.lua
 Modules/Weekly/Collect.lua
+Modules/Weekly/Vault.lua
+Modules/Weekly/WeekView.lua
 Modules/Weekly/BoardPage.lua
 Modules/Weekly/Popup.lua
 Modules/Weekly/HomeSection.lua

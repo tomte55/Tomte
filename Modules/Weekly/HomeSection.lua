@@ -25,32 +25,6 @@ local function ResetText()
 	return ("resets in %d h"):format(math.max(hours, 1))
 end
 
-local function CreateSlot(parent)
-	local slot = CreateFrame("Frame", nil, parent)
-	slot:SetSize(SLOT_W, SLOT_H)
-	slot.bg = slot:CreateTexture(nil, "BACKGROUND")
-	slot.bg:SetAllPoints()
-	UI.Border(slot, 1, 1, 1, 0.12)
-	slot.text = slot:CreateFontString(nil, "OVERLAY")
-	slot.text:SetFont(ns.HomeKit.NARROW_FONT, 13, "")
-	slot.text:SetPoint("CENTER")
-	return slot
-end
-
-local function SetSlot(slot, s, isNext)
-	if s and s.progress >= s.threshold then
-		slot.bg:SetColorTexture(0.17, 0.14, 0.07, 1)
-		UI.SetBorderColor(slot, GOLD[1], GOLD[2], GOLD[3], 0.75)
-		slot.text:SetText(s.ilvl and tostring(s.ilvl) or "done")
-		SetColor(slot.text, GOLD)
-	else
-		slot.bg:SetColorTexture(0.09, 0.09, 0.11, 1)
-		UI.SetBorderColor(slot, 1, 1, 1, 0.12)
-		slot.text:SetText(s and isNext and ("%d/%d"):format(s.progress, s.threshold) or "")
-		SetColor(slot.text, GREY)
-	end
-end
-
 local function Create(frame, Kit)
 	frame.heading = Kit.Heading(frame)
 	frame.heading:SetPoint("TOPLEFT")
@@ -64,7 +38,7 @@ local function Create(frame, Kit)
 		frame.labels[t] = label
 		frame.slots[t] = {}
 		for i = 1, 3 do
-			local slot = CreateSlot(frame)
+			local slot = ns.WeeklySlot_Create(frame, SLOT_W, SLOT_H)
 			slot:SetPoint("TOPLEFT", 96 + (i - 1) * (SLOT_W + SLOT_GAP), y)
 			frame.slots[t][i] = slot
 		end
@@ -95,7 +69,7 @@ local function Refresh(frame)
 		local _, nextSlot = ns.Weekly_VaultGoal(slots)
 		for i, slot in ipairs(frame.slots[t]) do
 			slot:SetShown(hasView)
-			SetSlot(slot, slots[i], i == nextSlot)
+			ns.WeeklySlot_Set(slot, slots[i], i == nextSlot)
 		end
 	end
 	frame.todoHead:SetShown(hasView)
