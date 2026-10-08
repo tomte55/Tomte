@@ -63,8 +63,29 @@ A World of Warcraft addon used by the user and a few friends. Shared through Git
 
 ## Git and releases
 
+- Repo: https://github.com/tomte55/Tomte (public; renamed from `wow-addons` on 2026-10-08, when the old monorepo
+  was rewritten so this folder is the root). Friends download from https://github.com/tomte55/Tomte/releases/latest.
+- Start Claude from `Interface\AddOns\Tomte` (this folder), so this file and the project memory load.
 - Commit after each working step the user has confirmed in game, and add a line for it under **Unreleased** in
-  `CHANGELOG.md` (player-facing wording).
-- Commits use the noreply email set in this repo's git config.
-- Release only when the user asks: follow "Releasing" in README.md (changelog section, TOC version, tag, push).
-  The workflow in `.github/workflows/release.yml` builds and publishes the zip.
+  `CHANGELOG.md` in player-facing wording (what a friend notices, not internals).
+- Commits use the GitHub noreply email set in this repo's git config; never the user's personal email. The repo is
+  public, so nothing private goes into commits, docs or code comments.
+- Versions follow semver: patch for fixes, minor for new features or modules, major for changes that reset or
+  break settings.
+
+### Releasing (only when the user asks)
+
+1. In `CHANGELOG.md`, move the **Unreleased** lines into a new `## vX.Y.Z - YYYY-MM-DD` section right below it
+   (leave an empty **Unreleased** heading).
+2. Set `## Version: X.Y.Z` in `Tomte.toc`.
+3. Run the unit tests (see README "Tests"), commit (`Tomte vX.Y.Z`), then `git tag -a vX.Y.Z -m "Tomte vX.Y.Z"`
+   and `git push origin main vX.Y.Z`.
+4. Watch the run (`gh run list --workflow release.yml`) and check the release has `Tomte-vX.Y.Z.zip`
+   (`gh release view vX.Y.Z`). Give the user the release link.
+
+`.github/workflows/release.yml` runs on `v*` tags. It runs the unit tests with Lua 5.1, fails if the tag doesn't
+match the TOC version or `CHANGELOG.md` has no `## vX.Y.Z` section, builds the zip with
+`git archive --prefix=Tomte/` and publishes the release with that changelog section as its notes.
+`.gitattributes` (`export-ignore`) keeps `tests/`, `docs/`, `CLAUDE.md`, `.github/` and `Media/Logo.svg` out of
+the zip: add any new dev-only file there. If a run fails, fix it, delete the tag locally and on GitHub
+(`git tag -d vX.Y.Z`, `git push origin :refs/tags/vX.Y.Z`) and tag again.
