@@ -17,6 +17,8 @@ local UNREAD_GRACE = 10 -- seconds an item without stats is read again before it
 local EFFECT_CHARS = 60
 
 local BAGS = { 0, 1, 2, 3, 4 } -- backpack and the four bags (gear never goes in the reagent bag)
+-- "Durability 0 / 120", in the client's language: red on a broken item, which is still usable gear.
+local DURABILITY = ns.Gear_FormatPattern(DURABILITY_TEMPLATE, true)
 
 local cache, cacheSize = {}, 0
 local equipped -- slot -> descriptor; nil when it has to be rebuilt
@@ -57,7 +59,7 @@ local function ReadTooltip(desc, link)
 			elseif line.type == GEM_TEXT then
 				desc.gemStats = ns.Gear_ParseStatText(text, desc.gemStats)
 				desc.gemText = desc.gemText or Short(text)
-			elseif not SKIP_RED[line.type] and IsRed(line.leftColor) and not text:find("^Durability") then
+			elseif not SKIP_RED[line.type] and IsRed(line.leftColor) and not text:find(DURABILITY) then
 				desc.redText = desc.redText or Short(text)
 			end
 		end
@@ -108,7 +110,8 @@ function ns.GearItems_Describe(link)
 	}
 	local up = C_Item.GetItemUpgradeInfo(link)
 	if up and up.currentLevel and up.maxLevel then
-		desc.upgrade = { cur = up.currentLevel, max = up.maxLevel, maxIlvl = up.maxItemLevel, track = up.trackString }
+		desc.upgrade = { cur = up.currentLevel, max = up.maxLevel, maxIlvl = up.maxItemLevel, track = up.trackString,
+			trackID = up.trackStringID }
 	end
 	local specs = C_Item.GetItemSpecInfo and C_Item.GetItemSpecInfo(link)
 	if type(specs) == "table" and #specs > 0 then
@@ -161,7 +164,7 @@ function ns.GearItems_GemStats(itemID)
 		local data = C_TooltipInfo.GetItemByID(itemID)
 		for _, line in ipairs(data and data.lines or {}) do
 			local text = line.leftText
-			if text and not Secret(text) and text:find("^%+") then
+			if text and not Secret(text) and text:find("%+%d") then -- Korean puts the stat first: "가속 +13"
 				ns.Gear_ParseStatText(text, stats)
 			end
 		end

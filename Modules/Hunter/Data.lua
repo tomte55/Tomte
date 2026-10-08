@@ -214,6 +214,8 @@ function ns.Hunter_ContentKind(instanceType, difficultyID)
 end
 
 ns.HUNTER_CONTENT_LABEL = { dungeon = "dungeon", raid = "raid", delve = "delve" }
+-- Pet specialization IDs to the names the settings store, so the check works on any client language.
+ns.HUNTER_PET_SPEC = { [74] = "Ferocity", [79] = "Cunning", [81] = "Tenacity" }
 
 -- The readiness warnings for a situation. s = {
 --   specID, hasPet, petDead, petSpec ("Ferocity"...), content ("dungeon"...), passive, growl (nil = no Growl

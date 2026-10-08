@@ -130,6 +130,27 @@ test("ExpansionFromChain finds the first expansion name", function()
 	eq(ns.Ach_ExpansionFromChain({}), nil)
 end)
 
+test("ExpansionFromChain by category ID, in any client language", function()
+	-- Dungeons & Raids (168) > Midnight (15542) > Midnight Dungeon (15541), as a German client names them
+	eq(ns.Ach_ExpansionFromChain({ "Dungeons von Mitternacht", "Mitternacht", "Dungeons & Schlachtzüge" },
+		{ 15541, 15542, 168 }), "Midnight")
+	eq(ns.Ach_ExpansionFromChain({ "Ruf", "Klassisch" }, { 14864, 201 }), "Classic", "nearest first")
+	eq(ns.Ach_ExpansionFromChain({ "Haustierkämpfe" }, { 15117 }), nil)
+	eq(ns.Ach_ExpansionFromChain({ "Legion Remix" }, { 999999 }), "Legion", "unknown ID: English name")
+	-- the ID and the English name agree on an English client
+	eq(ns.Ach_ExpansionFromChain({ "Cataclysm Raid", "Dungeons & Raids" }, { 15068, 168 }), "Cataclysm")
+end)
+
+test("RewardTypeFromText in the client's language", function()
+	_G.HONOR_REWARD_TITLE_TOOLTIP = "Titel"
+	local de = {}
+	assert(loadfile("Tomte/Modules/Achievements/Data.lua"))("Tomte", de)
+	_G.HONOR_REWARD_TITLE_TOOLTIP = nil
+	eq(de.Ach_RewardTypeFromText("Titel: Der/Die Geduldige"), "title")
+	eq(de.Ach_RewardTypeFromText("Title: Dämonentöter(in)"), "title", "some German texts keep the English word")
+	eq(de.Ach_RewardTypeFromText("Belohnung: Zügel des Bronzedrachen"), "other")
+end)
+
 -- Filters --------------------------------------------------------------------------------------------------
 
 local function settings(extra)

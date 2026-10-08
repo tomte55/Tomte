@@ -16,8 +16,8 @@ local function PetSpecName()
 	if not index then
 		return nil
 	end
-	local _, name = GetSpecializationInfo(index, false, true)
-	return name
+	local id, name = GetSpecializationInfo(index, false, true)
+	return ns.HUNTER_PET_SPEC[id] or name
 end
 
 -- Passive mode and Growl autocast, from the pet action bar.

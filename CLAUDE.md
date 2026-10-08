@@ -1,15 +1,14 @@
-# WoW Addons Monorepo
+# Tomte
 
-Personal World of Warcraft addons. Only the user (plus maybe a friend or two) uses them, so there's no publishing, no localization, and no CurseForge packaging.
+A World of Warcraft addon used by the user and a few friends. Shared through GitHub releases from a **public** repo
+(tomte55/Tomte). English only, no CurseForge packaging.
 
 ## Environment
 
 - Client: retail **12.1.0** (Midnight), build 69933. TOC `## Interface: 120100`.
-- This directory is the live `Interface\AddOns` folder. The git repo here is a **monorepo**:
-  `.gitignore` ignores everything and whitelists only our own addons. Every new addon folder
-  **must be added to the whitelist in `.gitignore`**.
-- All other folders (DBM, Auctionator, Baganator, etc.) are third-party CurseForge addons. Never modify them.
-  Reading them for reference is fine.
+- This repo **is** the live addon folder `Interface\AddOns\Tomte`; the repo root is the addon root.
+- Every other folder in `Interface\AddOns` (DBM, Auctionator, Baganator, etc.) is a third-party CurseForge addon
+  outside this repo. Never modify them. Reading them for reference is fine; never paste their code in (see Sharing).
 - The user has BugSack + BugGrabber installed for Lua errors.
 
 ## Working with the user
@@ -41,7 +40,7 @@ Personal World of Warcraft addons. Only the user (plus maybe a friend or two) us
 
 ## Conventions
 
-- One folder per addon: `<AddonName>/<AddonName>.toc` plus Lua files. Use XML only when templates really need it.
+- Lua files listed in `Tomte.toc`. Use XML only when templates really need it.
 - TOC basics: `Interface`, `Title`, `Notes`, `Author`, `Version`, `IconTexture`/`IconAtlas`,
   `SavedVariables`, and `AddonCompartmentFunc` if it has a minimap/compartment entry.
 - Use the addon namespace: `local addonName, ns = ...`. No globals except SavedVariables and anything the TOC
@@ -52,9 +51,20 @@ Personal World of Warcraft addons. Only the user (plus maybe a friend or two) us
 - Slash commands: `/<shortname>`, with a `help` subcommand.
 - Settings UI: use the native `Settings` API (`Settings.RegisterVerticalLayoutCategory` etc.) when an addon
   needs options. No Ace3 or other libraries unless clearly worth it.
-- Keep addons small and self-contained. Shared code between our addons isn't needed yet. Don't add it speculatively.
 
-## Git
+## Sharing
 
-- Commit after each working step the user has confirmed in game.
-- Any remote must be a **private** GitHub repo.
+- Friends may play other classes, specs and client languages. Don't hardcode the user's characters or specs, and
+  match game text through Blizzard's localized globals or IDs, not English strings.
+- Defaults must be safe for someone who didn't choose them (e.g. nothing spends guild or other shared resources).
+- Optional addons (Baganator, Syndicator, Auctionator, TSM, Mount Journal Enhanced) are always checked before use.
+- License is GPL-3.0. Game IDs are facts and fine to take from other addons; code, curated lists and layouts are
+  not, unless the source's license allows it. Credit any source in a comment and in README's Credits.
+
+## Git and releases
+
+- Commit after each working step the user has confirmed in game, and add a line for it under **Unreleased** in
+  `CHANGELOG.md` (player-facing wording).
+- Commits use the noreply email set in this repo's git config.
+- Release only when the user asks: follow "Releasing" in README.md (changelog section, TOC version, tag, push).
+  The workflow in `.github/workflows/release.yml` builds and publishes the zip.

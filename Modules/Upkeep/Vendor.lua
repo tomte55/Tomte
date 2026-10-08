@@ -182,7 +182,7 @@ module = ns.RegisterModule({
 	enabledByDefault = true,
 	defaults = {
 		repair = true,
-		guild = true,
+		guild = false,
 		junk = true,
 		toast = true,
 	},

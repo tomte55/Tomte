@@ -5,6 +5,14 @@ local addonName, ns = ...
 -- the spellbook's flyouts (Hero's Path and any flyout whose spells teleport), so they need no data. Rebuilt lazily
 -- after anything that changes ownership (Teleports.lua marks it dirty).
 
+-- Flyouts by ID (SpellFlyout game data, 12.1.0), so any client language finds them: the Hero's Path flyouts, and
+-- the other flyouts whose spells teleport (mage Teleport and Portal, one each per faction). A flyout added later
+-- is still found by its English name or spell text.
+local HERO_PATH_FLYOUTS = {
+	[84] = true, [96] = true, [220] = true, [222] = true, [223] = true, [224] = true, [227] = true, [230] = true,
+	[231] = true, [232] = true, [242] = true, [244] = true, [246] = true, [274] = true,
+}
+local TELEPORT_FLYOUTS = { [1] = true, [8] = true, [11] = true, [12] = true }
 local HERO_PATH = "Hero's Path"
 
 local entries
@@ -66,7 +74,8 @@ end
 local function AddFlyouts(list, seasonNames)
 	for index, flyout in ipairs(Flyouts()) do
 		local _, _, numSlots = GetFlyoutInfo(flyout.id)
-		local slots, teleports = {}, flyout.name:find(HERO_PATH, 1, true) ~= nil
+		local dungeon = HERO_PATH_FLYOUTS[flyout.id] or flyout.name:find(HERO_PATH, 1, true) ~= nil
+		local slots, teleports = {}, dungeon or TELEPORT_FLYOUTS[flyout.id] == true
 		for s = 1, numSlots or 0 do
 			local spellID, overrideID, isKnown, spellName = GetFlyoutSlotInfo(flyout.id, s)
 			local id = overrideID and overrideID ~= 0 and overrideID or spellID
@@ -77,7 +86,6 @@ local function AddFlyouts(list, seasonNames)
 			slots[#slots + 1] = { id = id, known = isKnown, name = spellName, desc = desc }
 		end
 		if teleports then
-			local dungeon = flyout.name:find(HERO_PATH, 1, true) ~= nil
 			for s, slot in ipairs(slots) do
 				local info = C_Spell.GetSpellInfo(slot.id)
 				Add(list, {

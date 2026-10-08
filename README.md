@@ -1,12 +1,19 @@
-# wow-addons
+# Tomte
 
-Personal World of Warcraft addons for retail **12.1.0** (Midnight, `## Interface: 120100`).
-Not published anywhere: no CurseForge packaging, no localization.
+A World of Warcraft addon for retail **12.1.0** (`## Interface: 120100`), made for a few friends. English only.
 
-This repo lives directly in `World of Warcraft\_retail_\Interface\AddOns`. The `.gitignore` ignores
-everything and whitelists only our own folders, so third-party addons installed alongside are never tracked.
+## Install
 
-## Tomte
+1. Download `Tomte-vX.Y.Z.zip` from the latest [release](../../releases/latest).
+2. Unzip it into `World of Warcraft\_retail_\Interface\AddOns` so you get `AddOns\Tomte\Tomte.toc`.
+3. Start the game (or `/reload`) and type `/tomte`.
+
+To update, delete the old `Tomte` folder and unzip the new one. Your settings are kept (they live in `WTF`).
+What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
+
+Works better with (all optional): Baganator + Syndicator, Auctionator or TradeSkillMaster, Mount Journal Enhanced.
+
+## What it does
 
 One addon with toggleable modules. Type `/tomte` to open the settings panel (also from the minimap
 button, the addon compartment or a key binding), or `/tomte help` for all commands. The panel is resizable and remembers its
@@ -71,36 +78,60 @@ Each module's commands are `/tomte <module> <command>`, for example:
 
 Key bindings for toggling the Tomte window, Smart Mount, whisper reply and the whisper inbox are under **Tomte** in the game's Key Bindings menu.
 
-### Migrating from FlightTimer
-
-Tomte replaces the old standalone FlightTimer addon. If FlightTimer is still installed, Tomte copies its
-recorded flight times and keeps its own flight module off. Disable FlightTimer once you've logged in with
-Tomte at least once.
-
 ## Layout
 
 ```
-Tomte/
-  Tomte.toc, Bindings.xml
-  Core/        saved variables, module registry, /tomte, FlightTimer migration, play session
-  Cinematic/   shared cinematic engine and banners
-  Panel/       settings panel and widgets
-  Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements, Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value)
-  tests/       plain-Lua unit tests for the parts that don't touch the WoW API
-docs/          design specs and implementation plans
+Tomte.toc, Bindings.xml
+Core/        saved variables, module registry, /tomte, play session
+Cinematic/   shared cinematic engine and banners
+Panel/       Tomte window, settings and widgets
+Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements,
+             Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value, Minimap)
+tests/       plain-Lua unit tests for the parts that don't touch the WoW API
+docs/        design specs and implementation plans
 ```
+
+`tests/`, `docs/`, `CLAUDE.md` and `.github/` are left out of the release zip (`.gitattributes`).
 
 ## Tests
 
-Run from the `AddOns` folder with a standalone Lua interpreter:
+Run from the folder above the repo (the `AddOns` folder) with a standalone Lua interpreter:
 
 ```sh
 for t in Tomte/tests/test_*.lua; do lua "$t"; done
 ```
 
-Everything else is tested in game: `/reload`, then check behavior and BugSack for errors.
+Everything else is tested in game: `/reload`, then check behavior and BugSack for errors. The release workflow runs
+the unit tests too.
 
-## Adding a new addon
+## Releasing
 
-Create `<AddonName>/<AddonName>.toc`, then add `!/<AddonName>/` to the whitelist in `.gitignore`.
-See `CLAUDE.md` for conventions.
+1. Move the lines under **Unreleased** in `CHANGELOG.md` into a new `## vX.Y.Z - <date>` section.
+2. Set `## Version: X.Y.Z` in `Tomte.toc`.
+3. Commit, then `git tag vX.Y.Z` and `git push --follow-tags`.
+
+The GitHub Action checks that the tag matches the TOC and the changelog, runs the tests, zips the `Tomte` folder and
+publishes the release with that changelog section as its notes. Versions: patch for fixes, minor for new features
+or modules, major for changes that reset or break settings.
+
+## Credits
+
+- Minimap button placement is adapted from [LibDBIcon-1.0](https://www.wowace.com/projects/libdbicon-1-0) (Ace3-style
+  BSD license).
+- The Weekly board's Factions, Activities and Raids tabs are modelled on [Plumber](https://github.com/Peterodox/Plumber)'s
+  Expansion Summary (GPLv3); the progress-ring setup, the Resources list and several ID tables come from Plumber.
+- Almost Done follows [Almost Completed Achievements](https://www.curseforge.com/wow/addons/almost-completed-achievements);
+  Waypoints follows [WaypointUI](https://github.com/Adaptvx/Waypoint-UI); Gear Check reads the
+  [Pawn](https://www.curseforge.com/wow/addons/pawn) scale string format that Raidbots exports. No code from them.
+- Profession weekly IDs and places from WeeklyKnowledge.
+- Built-in stat weights: SimulationCraft sims published by mythicsim.com for damage and tank specs; healer priorities
+  from the Icy Veins and Method guides.
+- Mount rarity in Moments comes from the MountsRarity library bundled with Mount Journal Enhanced.
+- Upgrade track IDs (Gear Check's Catalyst note) as used by [AllTheThings](https://github.com/ATTWoWAddon/AllTheThings)
+  and [SpartanUI](https://github.com/spartanui-wow/SpartanUI); the G-99 Breakneck's spell IDs from
+  [LiteMount](https://github.com/xod-wow/LiteMount)'s notes. Flyout and achievement category IDs from the game data
+  on [wago.tools](https://wago.tools).
+
+## License
+
+GPL-3.0, see [LICENSE](LICENSE).

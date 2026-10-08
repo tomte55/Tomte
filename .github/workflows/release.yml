@@ -1,0 +1,42 @@
+# Push a tag like v1.2.0 to build Tomte-v1.2.0.zip and publish it as a GitHub release.
+# The tag must match "## Version:" in Tomte.toc, and CHANGELOG.md must have a "## v1.2.0" section
+# (its text becomes the release notes).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: Tomte
+
+      - name: Unit tests
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq lua5.1
+          for t in Tomte/tests/test_*.lua; do lua5.1 "$t"; done
+
+      - name: Check version and changelog
+        working-directory: Tomte
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          toc="v$(sed -n 's/^## Version: *//p' Tomte.toc | tr -d '\r')"
+          if [ "$tag" != "$toc" ]; then echo "Tag $tag doesn't match Tomte.toc ($toc)"; exit 1; fi
+          awk -v v="## $tag" '$0 ~ "^## " { if (found) exit; if (index($0, v) == 1) { found = 1; next } } found' CHANGELOG.md > ../notes.md
+          if [ ! -s ../notes.md ]; then echo "CHANGELOG.md has no '## $tag' section"; exit 1; fi
+
+      - name: Build zip
+        working-directory: Tomte
+        run: git archive --format=zip --prefix=Tomte/ -o "../Tomte-${GITHUB_REF_NAME}.zip" HEAD
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "Tomte-${GITHUB_REF_NAME}.zip" --repo "$GITHUB_REPOSITORY" --title "Tomte $GITHUB_REF_NAME" --notes-file notes.md

@@ -104,7 +104,9 @@ ns.TP_SECTIONS = {
 
 -- The place a teleport's description names, or nil: "Teleport to the entrance to The Stonevault." -> "The Stonevault",
 -- "Teleports the caster to Stormwind." -> "Stormwind", "Creates a portal, teleporting group members ... to
--- Orgrimmar." -> "Orgrimmar".
+-- Orgrimmar." -> "Orgrimmar". English text only: no API names a teleport spell's destination, and descriptions in
+-- other languages word it differently. There it's nil, the row shows its flyout name, and "To this map" matches
+-- the whole description instead.
 function ns.Tp_Destination(desc)
 	if not desc or desc == "" then
 		return nil

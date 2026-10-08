@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 -- Almost Done, pure logic: no WoW API calls (unit-tested with plain Lua). Percent from criteria, milestones,
--- filters, sorting, the tracker's top N, reward type from text and expansion from category names.
+-- filters, sorting, the tracker's top N, reward type from text and expansion from category IDs and names.
 
 -- Newest first: "Classic" is last so "Wrath of the Lich King Classic"-style names still match their expansion.
 ns.ACH_EXPANSIONS = {
@@ -10,6 +10,29 @@ ns.ACH_EXPANSIONS = {
 	"Classic",
 }
 ns.ACH_OTHER = "Other"
+
+-- Categories whose own name names an expansion, by ID, so any client language groups them. Made from the
+-- Achievement_Category game data of 12.1.0 with the English name matching below; a category added later is still
+-- matched by its English name. The English expansion names stay the keys (saved filters and the menu use them).
+local CATEGORY_EXPANSION = {}
+for expansion, ids in pairs({
+	Midnight = { 15541, 15542, 15547, 15553, 15566, 15569, 15570, 15571, 15572, 15600 },
+	["The War Within"] = { 15520, 15523, 15534 },
+	Dragonflight = { 15455, 15466, 15467, 15468, 15469, 15470, 15471 },
+	Shadowlands = { 15422, 15428, 15429, 15430, 15436, 15438, 15439, 15442 },
+	["Battle for Azeroth"] = { 15284, 15298, 15305, 15409 },
+	Legion = { 15252, 15254, 15255, 15257, 15258, 15262, 15263, 15264, 15304, 15562, 15604 },
+	["Warlords of Draenor"] = { 15233 },
+	["Mists of Pandaria"] = { 15164, 15536 },
+	Cataclysm = { 15067, 15068, 15069, 15070, 15072, 15083, 15087, 15096 },
+	["Wrath of the Lich King"] = { 14823, 14866 },
+	["The Burning Crusade"] = { 14805, 14822, 14865, 15084 },
+	Classic = { 14808, 14821, 14864, 15082 },
+}) do
+	for _, id in ipairs(ids) do
+		CATEGORY_EXPANSION[id] = expansion
+	end
+end
 
 -- criteria: list of { name, completed, quantity, required }. Every criterion counts equally: a completed one 1,
 -- an incomplete one quantity / required. Returns percent (0-100), done, total, the name of the one left (when
@@ -67,21 +90,37 @@ function ns.Ach_Milestone(before, after, threshold, pinned, fired)
 	return nil
 end
 
+-- Reward text starts with the word "Title" in the client's language (HONOR_REWARD_TITLE_TOOLTIP: "Title", "Titel",
+-- "Titre", ...). Checked against the game's achievement reward texts (12.1.0): of the 426 English title rewards it
+-- finds 422 in German, 425 in French and Korean, 402 in Russian.
+local TITLE_WORDS = { "Title" }
+if type(HONOR_REWARD_TITLE_TOOLTIP) == "string" and HONOR_REWARD_TITLE_TOOLTIP ~= "" and HONOR_REWARD_TITLE_TOOLTIP
+	~= "Title" then
+	TITLE_WORDS[2] = HONOR_REWARD_TITLE_TOOLTIP
+end
+
 -- "title" for title rewards, "other" for any other reward text, nil for none. Item rewards are typed from the
--- item itself (Rewards.lua); this is the fallback.
+-- item itself (Rewards.lua); this is the fallback. No API says whether an achievement rewards a title.
 function ns.Ach_RewardTypeFromText(text)
 	if not text or text == "" then
 		return nil
 	end
-	if text:find("^Title") then
-		return "title"
+	for _, word in ipairs(TITLE_WORDS) do
+		if text:sub(1, #word) == word then
+			return "title"
+		end
 	end
 	return "other"
 end
 
--- names: a category and its ancestors, nearest first. The first expansion name found in any of them.
-function ns.Ach_ExpansionFromChain(names)
-	for _, name in ipairs(names) do
+-- names: a category and its ancestors, nearest first; ids: their category IDs (optional). The expansion of the
+-- first that names one, by ID or else by English name.
+function ns.Ach_ExpansionFromChain(names, ids)
+	for i, name in ipairs(names) do
+		local byID = ids and CATEGORY_EXPANSION[ids[i]]
+		if byID then
+			return byID
+		end
 		for _, expansion in ipairs(ns.ACH_EXPANSIONS) do
 			if name:find(expansion, 1, true) then
 				return expansion

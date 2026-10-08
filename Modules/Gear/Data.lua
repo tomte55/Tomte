@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Gear Check pure logic (unit-tested with plain Lua): Pawn weight strings, stat tables, scores, what a candidate
 -- is compared against, set/unique/effect checks and the verdict. Items come in as descriptors built by Items.lua:
 -- { link, equipLoc, classID, subclassID, stats, gemStats, gemText (first gem's line), gems, sockets, enchanted,
---   setID, unique = {category, max}, effect (text), upgrade = {cur, max, maxIlvl, track}, redText }.
+--   setID, unique = {category, max}, effect (text), upgrade = {cur, max, maxIlvl, track, trackID}, redText }.
 -- Stat keys: STR AGI INT (only inside stats.PRIMARY), STA CRIT HASTE MASTERY VERS DPS ARMOR.
 
 local UPGRADE_PCT = 1 -- above +1% is an upgrade, within +-1% a sidegrade
@@ -66,14 +66,54 @@ local ONE_HAND = {
 }
 local OFFHAND_WEAPON = { INVTYPE_WEAPON = true, INVTYPE_WEAPONOFFHAND = true }
 local TIER_SLOTS = { [1] = true, [3] = true, [5] = true, [7] = true, [10] = true }
--- The Catalyst takes Veteran track or higher (GetItemUpgradeInfo's trackString, English client).
+-- The Catalyst takes Veteran track or higher. GetItemUpgradeInfo's trackStringID works in any client language:
+-- Veteran 972, Champion 973, Hero 974, Myth 978 (Blizzard doesn't document them; the IDs AllTheThings and SpartanUI
+-- use). The English trackString stays as the fallback for an item without one.
+local CATALYST_TRACK_IDS = { [972] = true, [973] = true, [974] = true, [978] = true }
 local CATALYST_TRACKS = { Veteran = true, Champion = true, Hero = true, Myth = true }
 local ENCHANT_SLOTS = { [1] = true, [3] = true, [5] = true, [8] = true, [11] = true, [12] = true, [16] = true }
 
-local STAT_NAMES = {
-	["critical strike"] = "CRIT", haste = "HASTE", mastery = "MASTERY", versatility = "VERS", stamina = "STA",
-	strength = "STR", agility = "AGI", intellect = "INT",
-}
+-- A Blizzard global string in the client's language; the English text where it's missing (plain-Lua tests).
+local function G(name, english)
+	local text = _G[name]
+	return type(text) == "string" and text ~= "" and text or english
+end
+
+-- Stat names in gem and enchant text, lower-case: the item stat names and the character sheet's (they differ in
+-- some languages, e.g. German critical strike).
+local STAT_NAMES = {}
+for key, names in pairs({
+	CRIT = { ITEM_MOD_CRIT_RATING_SHORT = "Critical Strike", STAT_CRITICAL_STRIKE = "Critical Strike" },
+	HASTE = { ITEM_MOD_HASTE_RATING_SHORT = "Haste", STAT_HASTE = "Haste" },
+	MASTERY = { ITEM_MOD_MASTERY_RATING_SHORT = "Mastery", STAT_MASTERY = "Mastery" },
+	VERS = { ITEM_MOD_VERSATILITY = "Versatility", STAT_VERSATILITY = "Versatility" },
+	STA = { ITEM_MOD_STAMINA_SHORT = "Stamina", SPELL_STAT3_NAME = "Stamina" },
+	STR = { ITEM_MOD_STRENGTH_SHORT = "Strength", SPELL_STAT1_NAME = "Strength" },
+	AGI = { ITEM_MOD_AGILITY_SHORT = "Agility", SPELL_STAT2_NAME = "Agility" },
+	INT = { ITEM_MOD_INTELLECT_SHORT = "Intellect", SPELL_STAT4_NAME = "Intellect" },
+}) do
+	for global, english in pairs(names) do
+		STAT_NAMES[G(global, english):lower()] = key
+	end
+end
+
+-- A Lua pattern for a Blizzard format string: magic characters escaped, %s -> (.-), %d -> (%d+) (positional %1$d
+-- too; captures come in written order). Anchored at the start, and at the end unless open.
+function ns.Gear_FormatPattern(fmt, open)
+	local p = fmt:gsub("%%%%", "\2"):gsub("%%%d*%$?([sd])", "\1%1")
+	p = p:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0")
+	p = p:gsub("\1s", "(.-)"):gsub("\1d", "(%%d+)"):gsub("\2", "%%%%")
+	return "^" .. p .. (open and "" or "$")
+end
+
+-- "Unique-Equipped: Embellished (2)" and "Unique-Equipped" / "Unique", in the client's language.
+local UNIQUE_CATEGORY = ns.Gear_FormatPattern(G("ITEM_LIMIT_CATEGORY_MULTIPLE", "Unique-Equipped: %s (%d)"))
+local UNIQUE_PLAIN = { [G("ITEM_UNIQUE_EQUIPPABLE", "Unique-Equipped")] = true, [G("ITEM_UNIQUE", "Unique")] = true }
+
+-- Whether the Catalyst takes an item with this upgrade info ({ track, trackID }).
+function ns.Gear_CatalystTrack(upgrade)
+	return upgrade ~= nil and (CATALYST_TRACK_IDS[upgrade.trackID] or CATALYST_TRACKS[upgrade.track]) == true
+end
 
 function ns.Gear_ArmorForClass(classToken)
 	return ARMOR_FOR_CLASS[classToken]
@@ -161,15 +201,54 @@ function ns.Gear_NormalizeStats(raw)
 	return stats
 end
 
--- Gem and enchant text: "+13 Haste", "+12 Haste and +5 Mastery", "+10 Critical Strike, +4 Versatility".
+-- Longest first, so a name inside a longer one ("crit" in "crit rating") never wins over it.
+local STAT_NAME_LIST = {}
+for name in pairs(STAT_NAMES) do
+	STAT_NAME_LIST[#STAT_NAME_LIST + 1] = name
+end
+table.sort(STAT_NAME_LIST, function(a, b)
+	return #a > #b or (#a == #b and a < b)
+end)
+
+-- The stat a piece of text names, anywhere in it: other languages put words around the name ("à la Hâte et",
+-- "p. de celeridad y", "急速，").
+local function StatIn(text)
+	text = text:lower()
+	for _, name in ipairs(STAT_NAME_LIST) do
+		if text:find(name, 1, true) then
+			return STAT_NAMES[name]
+		end
+	end
+	return nil
+end
+
+-- Gem and enchant text: "+13 Haste", "+12 Haste and +5 Mastery", "+10 Critical Strike & +4 Versatility", in any
+-- client language. Each "+N" takes the stat named between it and the next one; when the text doesn't start with
+-- an amount (Korean "가속 +13 / 체력 +5"), the one between it and the previous one. Percentages ("+5% Speed") aren't
+-- stats. Checked against every enchantment text in the game data (12.1.0): the stats come out the same in German,
+-- French, Spanish, Korean and Chinese as in English; Russian misses critical strike (its gem text doesn't use the
+-- stat's short name).
 function ns.Gear_ParseStatText(text, into)
 	local stats = into or {}
 	text = (text or ""):gsub(" and ", ","):gsub("\n", ",")
 	for part in (text .. ","):gmatch("([^,]*),") do
-		local amount, name = part:match("^%s*%+([%d]+)%s+(.-)%s*$")
-		local key = name and STAT_NAMES[name:lower()]
-		if key then
-			Add(stats, key, tonumber(amount))
+		local marks = {} -- every "+N": amount and where it starts and ends
+		for from, amount, to in part:gmatch("()%+(%d+)()") do
+			marks[#marks + 1] = { amount = tonumber(amount), from = from, to = to, pct = part:find("^[%%%.]", to) }
+		end
+		local nameFirst = marks[1] and part:sub(1, marks[1].from - 1):find("%S") ~= nil
+		for i, m in ipairs(marks) do
+			local key
+			if m.pct then
+				key = nil
+			elseif nameFirst then
+				key = StatIn(part:sub(i > 1 and marks[i - 1].to or 1, m.from - 1))
+			else
+				key = StatIn(part:sub(m.to, marks[i + 1] and marks[i + 1].from - 1 or -1))
+			end
+			if key then
+				Add(stats, key, m.amount)
+			end
 		end
 	end
 	return stats
@@ -247,16 +326,17 @@ function ns.Gear_EnchantSlot(slot, equipLoc)
 	return ENCHANT_SLOTS[slot] == true
 end
 
--- "Unique-Equipped: Embellished (2)" -> { category = "Embellished", max = 2 }; "Unique-Equipped" -> max 1.
+-- "Unique-Equipped: Embellished (2)" -> { category = "Embellished", max = 2 }; "Unique-Equipped" -> max 1. The
+-- tooltip line is in the client's language, and so is the category.
 function ns.Gear_ParseUnique(text)
 	if type(text) ~= "string" then
 		return nil
 	end
-	local category, max = text:match("^Unique%-Equipped: (.-) %((%d+)%)$")
+	local category, max = text:match(UNIQUE_CATEGORY)
 	if category then
 		return { category = category, max = tonumber(max) }
 	end
-	if text == "Unique-Equipped" or text == "Unique" then
+	if UNIQUE_PLAIN[text] then
 		return { max = 1 }
 	end
 	return nil
@@ -475,7 +555,7 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 		info[#info + 1] = ("Completes your %d-set"):format(completes)
 	end
 	local slot = target.slots[1]
-	if not cand.setID and TIER_SLOTS[slot] and cand.upgrade and CATALYST_TRACKS[cand.upgrade.track] then
+	if not cand.setID and TIER_SLOTS[slot] and ns.Gear_CatalystTrack(cand.upgrade) then
 		local main = MainSet(equipped)
 		if main then
 			local skip = { [slot] = true }

@@ -44,7 +44,7 @@ function ns.Ach_CategoryInfo(categoryID)
 		return info
 	end
 	local name, parent = GetCategoryInfo(categoryID)
-	local chain, topID, top = { name or "" }, categoryID, name
+	local chain, ids, topID, top = { name or "" }, { categoryID }, categoryID, name
 	local guard = 0
 	while parent and parent > 0 and guard < 10 do
 		local parentName, nextParent = GetCategoryInfo(parent)
@@ -52,10 +52,11 @@ function ns.Ach_CategoryInfo(categoryID)
 			break
 		end
 		chain[#chain + 1] = parentName
+		ids[#ids + 1] = parent
 		topID, top = parent, parentName
 		parent, guard = nextParent, guard + 1
 	end
-	info = { name = name, topID = topID, top = top, expansion = ns.Ach_ExpansionFromChain(chain) }
+	info = { name = name, topID = topID, top = top, expansion = ns.Ach_ExpansionFromChain(chain, ids) }
 	catInfo[categoryID] = info
 	return info
 end

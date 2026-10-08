@@ -154,7 +154,121 @@ test("ParseUnique", function()
 	eq(u.category, "Embellished")
 	eq(u.max, 2)
 	eq(ns.Gear_ParseUnique("Unique-Equipped").max, 1)
+	eq(ns.Gear_ParseUnique("Unique").max, 1)
+	eq(ns.Gear_ParseUnique("Unique: Thing (3)"), nil, "carry limit, not equip")
 	eq(ns.Gear_ParseUnique("Binds when picked up"), nil)
+end)
+
+test("FormatPattern: Blizzard format strings to patterns", function()
+	eq(ns.Gear_FormatPattern("Unique-Equipped: %s (%d)"), "^Unique%-Equipped: (.-) %((%d+)%)$")
+	eq(ns.Gear_FormatPattern("Durability %d / %d", true), "^Durability (%d+) / (%d+)")
+	local cur, max = ("Haltbarkeit 0 / 120"):match(ns.Gear_FormatPattern("Haltbarkeit %1$d / %2$d"))
+	eq(cur, "0")
+	eq(max, "120")
+	eq(("Durabilité : 3 / 90"):find(ns.Gear_FormatPattern("Durabilité : %d / %d", true)), 1)
+	eq(("Durability 3 / 90"):find(ns.Gear_FormatPattern("Durability %d / %d", true)), 1)
+	eq(("Item Level 3"):find(ns.Gear_FormatPattern("Durability %d / %d", true)), nil)
+	eq(("100% done"):match(ns.Gear_FormatPattern("%d%% done")), "100")
+	eq(("装备唯一：精良 （2）"):match(ns.Gear_FormatPattern("装备唯一：%s （%d）")), "精良")
+end)
+
+test("ParseStatText: game texts the old parser missed, and what isn't a stat", function()
+	eq(next(ns.Gear_ParseStatText("Socket Bonus: +5 Haste")), nil)
+	local s = ns.Gear_ParseStatText("+12 Critical Strike & +5 Haste")
+	eq(s.CRIT, 12)
+	eq(s.HASTE, 5)
+	s = ns.Gear_ParseStatText("+12 Agility / +5 Stamina")
+	eq(s.PRIMARY.AGI, 12)
+	eq(s.STA, 5)
+	s = ns.Gear_ParseStatText("+12 Mastery |A:Professions-ChatIcon-Quality-Tier3:20:20|a")
+	eq(s.MASTERY, 12, "crafted quality icon")
+	s = ns.Gear_ParseStatText("+12 Haste & +5% Speed")
+	eq(s.HASTE, 12)
+	s = ns.Gear_ParseStatText("+12 Primary Stat and +5.3% critical strike effectiveness")
+	eq(next(s), nil, "percentages aren't stats")
+	eq(ns.Gear_ParseStatText("+8 Haste\n+3 Stamina").STA, 3)
+	s = ns.Gear_ParseStatText("+12 Haste", { HASTE = 1 })
+	eq(s.HASTE, 13, "adds into")
+end)
+
+-- Data.lua loaded again with a client language's globals (values from that client's GlobalStrings).
+local function LoadWith(globals)
+	for k, v in pairs(globals) do
+		_G[k] = v
+	end
+	local loc = {}
+	assert(loadfile("Tomte/Modules/Gear/Data.lua"))("Tomte", loc)
+	for k in pairs(globals) do
+		_G[k] = nil
+	end
+	return loc
+end
+
+test("Other client languages: German", function()
+	local de = LoadWith({
+		ITEM_MOD_CRIT_RATING_SHORT = "Kritischer Trefferwert", STAT_CRITICAL_STRIKE = "Kritische Trefferchance",
+		ITEM_MOD_HASTE_RATING_SHORT = "Tempo", STAT_HASTE = "Tempo", ITEM_MOD_MASTERY_RATING_SHORT = "Meisterschaft",
+		ITEM_MOD_VERSATILITY = "Vielseitigkeit", ITEM_MOD_AGILITY_SHORT = "Beweglichkeit",
+		ITEM_LIMIT_CATEGORY_MULTIPLE = "Einzigartig angelegt: %s (%d)", ITEM_UNIQUE_EQUIPPABLE = "Einzigartig anlegbar",
+		ITEM_UNIQUE = "Einzigartig",
+	})
+	local s = de.Gear_ParseStatText("+12 Tempo und +5 Meisterschaft")
+	eq(s.HASTE, 12)
+	eq(s.MASTERY, 5)
+	s = de.Gear_ParseStatText("+13 Kritischer Trefferwert")
+	eq(s.CRIT, 13)
+	s = de.Gear_ParseStatText("+13 Kritische Trefferchance")
+	eq(s.CRIT, 13, "character sheet name")
+	s = de.Gear_ParseStatText("+20 Beweglichkeit, +4 Vielseitigkeit")
+	eq(s.PRIMARY.AGI, 20)
+	eq(s.VERS, 4)
+	eq(next(de.Gear_ParseStatText("+12 Haste")), nil, "English names don't count on a German client")
+	local u = de.Gear_ParseUnique("Einzigartig angelegt: Verschönert (2)")
+	eq(u.category, "Verschönert")
+	eq(u.max, 2)
+	eq(de.Gear_ParseUnique("Einzigartig anlegbar").max, 1)
+	eq(de.Gear_ParseUnique("Einzigartig").max, 1)
+	eq(de.Gear_ParseUnique("Unique-Equipped"), nil)
+end)
+
+-- The gem texts below are the game's own (SpellItemEnchantment, 12.1.0) for "+N Haste and +N Stamina" and the like.
+test("Other client languages: French, Spanish, Russian, Korean, Chinese", function()
+	local fr = LoadWith({
+		ITEM_MOD_HASTE_RATING_SHORT = "Hâte", ITEM_MOD_STAMINA_SHORT = "Endurance", STAT_CRITICAL_STRIKE = "Coup critique",
+		ITEM_MOD_CRIT_RATING_SHORT = "Score de crit.",
+	})
+	local s = fr.Gear_ParseStatText("+12 à la Hâte et +5 à l’Endurance")
+	eq(s.HASTE, 12)
+	eq(s.STA, 5)
+	eq(fr.Gear_ParseStatText("+13 au score de Coup critique").CRIT, 13)
+	local es = LoadWith({ ITEM_MOD_HASTE_RATING_SHORT = "celeridad", ITEM_MOD_MASTERY_RATING_SHORT = "maestría" })
+	s = es.Gear_ParseStatText("+12 p. de celeridad y +5 p. de maestría")
+	eq(s.HASTE, 12)
+	eq(s.MASTERY, 5)
+	local ru = LoadWith({ ITEM_MOD_HASTE_RATING_SHORT = "к скорости", ITEM_MOD_STAMINA_SHORT = "к выносливости" })
+	s = ru.Gear_ParseStatText("+12 к скорости и +5 к выносливости")
+	eq(s.HASTE, 12)
+	eq(s.STA, 5)
+	local ko = LoadWith({
+		ITEM_MOD_CRIT_RATING_SHORT = "치명타 및 극대화", ITEM_MOD_HASTE_RATING_SHORT = "가속",
+		ITEM_MOD_STAMINA_SHORT = "체력",
+	})
+	s = ko.Gear_ParseStatText("가속 +12 / 체력 +5")
+	eq(s.HASTE, 12)
+	eq(s.STA, 5)
+	s = ko.Gear_ParseStatText("치명타 및 극대화 +12 / 체력 +5")
+	eq(s.CRIT, 12, "name with its own 'and' in it")
+	eq(s.STA, 5)
+	s = ko.Gear_ParseStatText("회피 +12 / 체력 +5")
+	eq(s.STA, 5, "starts with a stat that isn't scored")
+	eq(s.HASTE, nil)
+	local zh = LoadWith({ ITEM_MOD_HASTE_RATING_SHORT = "急速", ITEM_MOD_STAMINA_SHORT = "耐力", ITEM_MOD_CRIT_RATING_SHORT = "爆击" })
+	s = zh.Gear_ParseStatText("+12 急速，+5 耐力")
+	eq(s.HASTE, 12)
+	eq(s.STA, 5)
+	s = zh.Gear_ParseStatText("+12 急速，+5% 爆击效果")
+	eq(s.HASTE, 12)
+	eq(s.CRIT, nil, "a percentage")
 end)
 
 -------------------------------------------------------------------------------------------------- targets
@@ -407,6 +521,21 @@ test("Catalyst note on a non-set tier-slot item with an upgrade track", function
 			assert(not r:find("catalysed"), tostring(track) .. ": " .. r)
 		end
 	end
+end)
+
+test("Catalyst track by trackStringID, in any client language", function()
+	eq(ns.Gear_CatalystTrack({ track = "Held", trackID = 974 }), true, "German Hero")
+	eq(ns.Gear_CatalystTrack({ track = "Champion", trackID = 973 }), true)
+	eq(ns.Gear_CatalystTrack({ track = "Veteran", trackID = 972 }), true)
+	eq(ns.Gear_CatalystTrack({ track = "Mythos", trackID = 978 }), true)
+	eq(ns.Gear_CatalystTrack({ track = "Abenteurer", trackID = 971 }), false, "Adventurer")
+	eq(ns.Gear_CatalystTrack({ track = "Forscher", trackID = 970 }), false, "Explorer")
+	eq(ns.Gear_CatalystTrack({ track = "Hero" }), true, "English name without an ID")
+	eq(ns.Gear_CatalystTrack({}), false)
+	eq(ns.Gear_CatalystTrack(nil), false)
+	local cand = item("INVTYPE_LEGS", 150, 150, { ilvl = 330, upgrade = { cur = 2, max = 6, maxIlvl = 308, track = "Held",
+		trackID = 974 } })
+	has(ns.Gear_Evaluate(cand, gearset(), CTX).reasons, "^Can be catalysed into tier$")
 end)
 
 test("Enchant and socket reasons", function()

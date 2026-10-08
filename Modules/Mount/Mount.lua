@@ -162,7 +162,9 @@ local function CombatMacro()
 end
 
 -- The G-99 Breakneck's spell name when you can call it here (Undermine): its zone ability, or the journal mount of
--- that name if it's usable. Matched by name because neither has a stable ID we can check against.
+-- that name if it's usable. The zone ability is spell 1215279 (D.R.I.V.E.), which Undermine overrides with 460013
+-- and the Liberation of Undermine raid with 1218373 (IDs from LiteMount's notes); the English name is the fallback.
+local G99_SPELLS = { [1215279] = true, [460013] = true, [1218373] = true }
 local G99_PATTERN = "^G%-99"
 local G99_RECHECK = 60 -- seconds before looking through the journal again when it isn't collected
 local g99Mount, g99LookedAt -- its journal ID once found
@@ -188,7 +190,7 @@ end
 local function G99Spell()
 	for _, ability in ipairs(C_ZoneAbility.GetActiveAbilities() or {}) do
 		local name = C_Spell.GetSpellName(ability.spellID)
-		if name and name:find(G99_PATTERN) then
+		if name and (G99_SPELLS[ability.spellID] or name:find(G99_PATTERN)) then
 			return name
 		end
 	end
