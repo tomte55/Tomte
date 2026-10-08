@@ -132,6 +132,21 @@ function ns.Alts_ItemLabel(itemID, size)
 	return Icon(C_Item.GetItemIconByID(itemID), size) .. InQuality(ItemName(itemID), itemID)
 end
 
+-- What a plan is short of: "Missing 5 Echoing Flux" for one material, "Missing 3 materials" for more
+-- (plan.missing counts units, not materials).
+function ns.Alts_MissingText(plan)
+	local short, count = nil, 0
+	for _, m in ipairs(plan.materials) do
+		if m.missing > 0 then
+			short, count = m, count + 1
+		end
+	end
+	if count == 1 then
+		return ("Missing %d %s"):format(short.missing, ItemName(short.items[1]))
+	end
+	return ("Missing %d materials"):format(count)
+end
+
 -- A recipe: its icon (when size is given) and its name in the rarity colour of what it makes.
 function ns.Alts_RecipeLabel(recipeID, size)
 	local r = ns.altsDB.recipes[recipeID]

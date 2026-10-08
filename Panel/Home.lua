@@ -1026,6 +1026,23 @@ function ns.PanelRail_Create(parent, onSelect)
 		row:Show()
 	end
 
+	-- Counts change without the rail redrawing (a craft made, the vault, Concentration filling over time), so the
+	-- pills alone are re-read once a second while the rail shows.
+	local PILL_EVERY = 1
+	local since = 0
+	rail:SetScript("OnUpdate", function(_, elapsed)
+		since = since + elapsed
+		if since < PILL_EVERY then
+			return
+		end
+		since = 0
+		for _, row in ipairs(rail.rows) do
+			if row:IsShown() and row.entry then
+				row:SetPill(Pill(row.entry))
+			end
+		end
+	end)
+
 	-- selected: the open page's entry, or nil on Home.
 	function rail:Refresh(selected)
 		local n, y = 1, 10

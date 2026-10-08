@@ -1,24 +1,52 @@
 local addonName, ns = ...
 
--- Alts page, List tab: the crafting list. Every tracked craft (amount - n +, remove), all their materials added
--- up (with an Auctionator shopping list link for what's missing), and the full to-do: yours first, then what other
--- characters have to do. Data from List.lua.
+-- Alts page, List tab: the crafting list as a planning and shopping board. Left, a card per tracked craft (amount
+-- - n +, remove, what it costs and sells for, how far along it is) and the whole list's totals; right, every
+-- material the list needs with what's missing and what that costs, and the Auctionator shopping list. The to-do
+-- lines fold away underneath (the tracker and the mailbox walk you through them). Narrow, the columns stack.
+-- Data from List.lua.
 
 local UI = ns.UI
 local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
-local GREEN, RED = { 0.45, 0.85, 0.45 }, { 1, 0.45, 0.35 }
-local ROW_H = 26
-local LINE_H = 18
+local GREEN, RED, YELLOW = { 0.45, 0.85, 0.45 }, { 1, 0.45, 0.35 }, { 1, 0.75, 0.3 }
 local HEADER_H = 34
+local CARD_H = 84
+local CARD_GAP = 8
+local MAT_H = 22
+local LINE_H = 18
+local GAP = 28 -- between the columns
+local STACK_W = 760 -- narrower than this, the columns stack
+local COL_COST, COL_MISSING, COL_HAVE = 84, 70, 96 -- shopping columns, widths from the right edge
+local STEP_BIG = 5 -- shift-click on - or +
 
 local tab
-local rows, lines, headers = {}, {}, {}
+local cards, matRows, lines, headers = {}, {}, {}, {}
+local totals, tableHead, buyText, todoToggle
 
 local function SetColor(fs, c)
 	fs:SetTextColor(c[1], c[2], c[3])
 end
 
-local function Header(i, text, y)
+local function Hex(c)
+	return ("%02x%02x%02x"):format(c[1] * 255, c[2] * 255, c[3] * 255)
+end
+
+local function RecipeName(id)
+	local r = ns.altsDB.recipes[id]
+	return r and r.name or "?"
+end
+
+local function CharName(guid)
+	local c = guid and ns.altsDB.chars[guid]
+	if not c then
+		return nil
+	end
+	local color = c.class and C_ClassColor.GetClassColor(c.class)
+	return color and color:WrapTextInColorCode(c.name) or c.name
+end
+
+-- A section heading with its rule, x and w being the column.
+local function Header(i, text, x, y, w)
 	local fs = headers[i]
 	if not fs then
 		-- The plain font: the display font is hard to read this small.
@@ -30,53 +58,439 @@ local function Header(i, text, y)
 	end
 	fs:SetText(text)
 	fs:ClearAllPoints()
-	fs:SetPoint("TOPLEFT", 4, -(y + 10))
+	fs:SetPoint("TOPLEFT", x + 4, -(y + 10))
 	fs.line:ClearAllPoints()
-	fs.line:SetPoint("TOPLEFT", 4, -(y + 30))
-	fs.line:SetPoint("RIGHT", tab.scroll.content, "RIGHT", -8, 0)
+	fs.line:SetPoint("TOPLEFT", x, -(y + 30)) -- as wide as the cards and rows under it
+	fs.line:SetWidth(math.max(w, 1))
 	fs:Show()
 	fs.line:Show()
 	return y + HEADER_H
 end
 
-local function CreateEntryRow(parent)
-	local row = CreateFrame("Frame", nil, parent)
-	row:SetHeight(ROW_H)
-	row.name = UI.Text(row, 13, WHITE)
-	row.name:SetPoint("LEFT", 4, 0)
-	row.name:SetWordWrap(false)
-	row.remove = UI.Button(row, 22, "x")
-	row.remove:SetHeight(20)
-	row.remove:SetPoint("RIGHT", -4, 0)
-	row.plus = UI.Button(row, 22, "+")
-	row.plus:SetHeight(20)
-	row.plus:SetPoint("RIGHT", row.remove, "LEFT", -10, 0)
-	row.count = UI.Text(row, 13, WHITE)
-	row.count:SetPoint("RIGHT", row.plus, "LEFT", -6, 0)
-	row.count:SetWidth(36)
-	row.count:SetJustifyH("CENTER")
-	row.minus = UI.Button(row, 22, "-")
-	row.minus:SetHeight(20)
-	row.minus:SetPoint("RIGHT", row.count, "LEFT", -6, 0)
-	row.crafter = UI.Text(row, 12, GREY)
-	row.crafter:SetPoint("RIGHT", row.minus, "LEFT", -12, 0)
-	row.crafter:SetJustifyH("RIGHT")
-	row.name:SetPoint("RIGHT", row.crafter, "LEFT", -10, 0)
-	row.plus:SetScript("OnClick", function()
-		row.entry.crafts = row.entry.crafts + 1
+local function Panel(frame, alpha)
+	local bg = frame:CreateTexture(nil, "BACKGROUND")
+	bg:SetAllPoints()
+	bg:SetColorTexture(UI.BOX[1], UI.BOX[2], UI.BOX[3], alpha or 0.85)
+	UI.Border(frame, GOLD[1], GOLD[2], GOLD[3], 0.2)
+end
+
+-- "Materials 148g · sells for 5g · loss 142g" (value from ns.Value_Plan, or summed for the list).
+local function ValueText(value)
+	local parts = { ("Materials %s%s"):format(value.complete and "" or "at least ", ns.Alts_Gold(value.cost)) }
+	if value.sells then
+		parts[#parts + 1] = "sells for " .. ns.Alts_Gold(value.sells)
+		local profit = value.sells - value.cost
+		parts[#parts + 1] = ("|cff%s%s %s|r"):format(Hex(profit >= 0 and GREEN or RED), profit >= 0 and "profit" or "loss",
+			ns.Alts_Gold(math.abs(profit)))
+	end
+	return table.concat(parts, "  ·  ")
+end
+
+-- Crafts (left) ---------------------------------------------------------------------------------------------------
+
+local function Step(card, delta)
+	local entry = card.entry
+	if delta < 0 and entry.crafts <= 1 then
+		return
+	end
+	local n = math.max(entry.crafts + delta, 1)
+	if n ~= entry.crafts then
+		entry.crafts = n
 		ns.AltsList_Changed()
+	end
+end
+
+local function StepButton(card, text, tip)
+	local b = UI.Button(card, 22, text)
+	b:SetHeight(20)
+	b:HookScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		GameTooltip:SetText(tip, 1, 1, 1)
+		if text ~= "x" then
+			GameTooltip:AddLine(("Shift-click: %d at a time"):format(STEP_BIG), GREY[1], GREY[2], GREY[3])
+		end
+		GameTooltip:Show()
 	end)
-	row.minus:SetScript("OnClick", function()
-		if row.entry.crafts > 1 then
-			row.entry.crafts = row.entry.crafts - 1
-			ns.AltsList_Changed()
+	b:HookScript("OnLeave", GameTooltip_Hide)
+	return b
+end
+
+local function CreateCard(parent)
+	local card = CreateFrame("Frame", nil, parent)
+	card:SetHeight(CARD_H)
+	card:EnableMouse(true)
+	Panel(card)
+	card.icon = card:CreateTexture(nil, "ARTWORK")
+	card.icon:SetSize(32, 32)
+	card.icon:SetPoint("TOPLEFT", 10, -10)
+	card.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	card.status = UI.Text(card, 12, GREY)
+	card.status:SetPoint("TOPRIGHT", -10, -12)
+	card.status:SetJustifyH("RIGHT")
+	card.status:SetWordWrap(false)
+	card.name = UI.Text(card, 14, WHITE)
+	card.name:SetPoint("TOPLEFT", 52, -11)
+	card.name:SetPoint("TOPRIGHT", card.status, "TOPLEFT", -12, 1)
+	card.name:SetJustifyH("LEFT")
+	card.name:SetWordWrap(false)
+	card.crafter = UI.Text(card, 12, GREY)
+	card.crafter:SetPoint("TOPLEFT", 52, -32)
+	card.crafter:SetPoint("TOPRIGHT", -10, -32)
+	card.crafter:SetJustifyH("LEFT")
+	card.crafter:SetWordWrap(false)
+
+	card.remove = StepButton(card, "x", "Remove from the list")
+	card.remove:SetPoint("BOTTOMRIGHT", -10, 12)
+	card.plus = StepButton(card, "+", "One more")
+	card.plus:SetPoint("RIGHT", card.remove, "LEFT", -14, 0)
+	card.count = UI.Text(card, 14, WHITE)
+	card.count:SetWidth(36)
+	card.count:SetJustifyH("CENTER")
+	card.count:SetPoint("RIGHT", card.plus, "LEFT", -2, 0)
+	card.minus = StepButton(card, "-", "One less")
+	card.minus:SetPoint("RIGHT", card.count, "LEFT", -2, 0)
+	card.value = UI.Text(card, 12, GREY)
+	card.value:SetPoint("LEFT", card, "BOTTOMLEFT", 10, 22) -- level with the buttons' middle
+	card.value:SetPoint("RIGHT", card.minus, "LEFT", -12, 0)
+	card.value:SetJustifyH("LEFT")
+	card.value:SetWordWrap(false)
+
+	-- How much of the material is in the crafter's bags, along the bottom edge.
+	card.track = card:CreateTexture(nil, "ARTWORK")
+	card.track:SetColorTexture(1, 1, 1, 0.06)
+	card.track:SetPoint("BOTTOMLEFT", 1, 1)
+	card.track:SetPoint("BOTTOMRIGHT", -1, 1)
+	card.track:SetHeight(2)
+	card.fill = card:CreateTexture(nil, "ARTWORK", nil, 1)
+	card.fill:SetPoint("BOTTOMLEFT", 1, 1)
+	card.fill:SetHeight(2)
+
+	card.plus:SetScript("OnClick", function()
+		Step(card, IsShiftKeyDown() and STEP_BIG or 1)
+	end)
+	card.minus:SetScript("OnClick", function()
+		Step(card, -(IsShiftKeyDown() and STEP_BIG or 1))
+	end)
+	card.remove:SetScript("OnClick", function()
+		ns.AltsList_Remove(card.entry.recipeID)
+	end)
+	card:SetScript("OnEnter", function(self)
+		local r = ns.altsDB.recipes[self.entry.recipeID]
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		if r and r.item then
+			GameTooltip:SetItemByID(r.item)
+		else
+			GameTooltip:SetText(RecipeName(self.entry.recipeID))
+		end
+		GameTooltip:AddLine(" ")
+		GameTooltip:AddLine("Click: open it in the Crafting tab", GREY[1], GREY[2], GREY[3])
+		GameTooltip:Show()
+	end)
+	card:SetScript("OnLeave", GameTooltip_Hide)
+	card:SetScript("OnMouseUp", function(self, button)
+		if button == "LeftButton" then
+			ns.AltsCraft_Open(self.entry.recipeID)
 		end
 	end)
-	row.remove:SetScript("OnClick", function()
-		ns.AltsList_Remove(row.entry.recipeID)
+	return card
+end
+
+-- The card's tag: what stands between you and the craft.
+local function Status(t)
+	local plan = t.plan
+	if t.entry.crafts <= 0 then
+		return "Done: remove it", GREEN
+	elseif plan.missing > 0 then
+		return ns.Alts_MissingText(plan), RED
+	elseif plan.unknown > 0 then
+		for _, l in ipairs(t.lines) do
+			if l.kind == "craft" and l.nobody then
+				return ("Nobody knows %s"):format(RecipeName(l.recipeID)), YELLOW
+			end
+		end
+		return "A recipe on the way isn't known", YELLOW
+	elseif t.done then
+		return t.crafter == UnitGUID("player") and "Ready to craft" or "Ready on " .. (CharName(t.crafter) or "?"), GREEN
+	end
+	return ("%d%% in place"):format(math.floor(ns.Alts_CraftProgress(t) * 100)), GREY
+end
+
+local function PlaceCard(i, t, x, y, w)
+	local card = cards[i] or CreateCard(tab.scroll.content)
+	cards[i] = card
+	local entry = t.entry
+	local r = ns.altsDB.recipes[entry.recipeID]
+	card.entry = entry
+	card.icon:SetTexture(r and r.icon or 134400) -- the question mark
+	card.name:SetText(ns.Alts_RecipeLabel(entry.recipeID))
+	card.count:SetText(entry.crafts)
+	local status, color = Status(t)
+	card.status:SetText(status)
+	SetColor(card.status, color)
+
+	local who = CharName(t.crafter)
+	local crafter = who and (who .. " crafts it") or ("|cff%snobody knows it|r"):format(Hex(RED))
+	-- Crafts that come before it: "2 Core Alloy first", or how many when there are several.
+	local before = #t.plan.steps - 1
+	if before == 1 then
+		local step = t.plan.steps[1]
+		crafter = crafter .. ("  ·  %d %s first"):format(step.crafts, RecipeName(step.recipeID))
+	elseif before > 1 then
+		crafter = crafter .. ("  ·  %d crafts first"):format(before)
+	end
+	card.crafter:SetText(crafter)
+
+	local value = entry.crafts > 0 and ns.Value_Plan and ns.Value_Plan(t.plan, r, entry.crafts)
+	if value then
+		card.value:SetText(ValueText(value))
+	elseif t.needed > 0 then
+		card.value:SetText(("%d of %d materials in the crafter's bags"):format(t.inPlace, t.needed))
+	else
+		card.value:SetText("")
+	end
+
+	local progress = entry.crafts <= 0 and 1 or ns.Alts_CraftProgress(t)
+	local barColor = t.done and GREEN or GOLD
+	card.fill:SetColorTexture(barColor[1], barColor[2], barColor[3], 0.8)
+	card.fill:SetWidth(math.max((w - 2) * progress, 0.01))
+	card.fill:SetShown(progress > 0)
+
+	card:ClearAllPoints()
+	card:SetPoint("TOPLEFT", x, -y)
+	card:SetWidth(w)
+	card:Show()
+	return value
+end
+
+local function PlaceTotals(x, y, w, sum, n)
+	if not totals then
+		totals = CreateFrame("Frame", nil, tab.scroll.content)
+		totals:SetHeight(48)
+		Panel(totals, 0.5)
+		totals.title = UI.Text(totals, 12, GOLD)
+		totals.title:SetPoint("TOPLEFT", 10, -9)
+		totals.text = UI.Text(totals, 12, WHITE)
+		totals.text:SetPoint("TOPLEFT", totals.title, "BOTTOMLEFT", 0, -5)
+		totals.text:SetPoint("RIGHT", -10, 0)
+		totals.text:SetJustifyH("LEFT")
+		totals.text:SetWordWrap(false)
+	end
+	totals.title:SetText(("Whole list: %d craft%s"):format(n, n == 1 and "" or "s"))
+	totals.text:SetText(ValueText(sum))
+	totals:ClearAllPoints()
+	totals:SetPoint("TOPLEFT", x, -y)
+	totals:SetWidth(w)
+	totals:Show()
+	return y + 48
+end
+
+-- Shopping (right) -----------------------------------------------------------------------------------------------
+
+-- [itemID] = quality rank, from every recipe slot with more than one rank.
+local function Ranks()
+	local rank = {}
+	for _, r in pairs(ns.altsDB.recipes) do
+		for _, slot in ipairs(r.reagents or {}) do
+			if #slot.items > 1 then
+				for i, itemID in ipairs(slot.items) do
+					rank[itemID] = i
+				end
+			end
+		end
+	end
+	return rank
+end
+
+-- The rank icon Blizzard puts in chat links, or "R2" when the atlas isn't there.
+local RANK_ATLASES = { "Professions-ChatIcon-Quality-Tier%d", "Professions-Icon-Quality-Tier%d-Small" }
+local function RankMarkup(rank)
+	for _, fmt in ipairs(RANK_ATLASES) do
+		local atlas = fmt:format(rank)
+		if C_Texture.GetAtlasInfo(atlas) then
+			return CreateAtlasMarkup(atlas, 16, 16)
+		end
+	end
+	return ("|cff9e9e9eR%d|r"):format(rank)
+end
+
+local function CreateMatRow(parent)
+	local row = CreateFrame("Frame", nil, parent)
+	row:SetHeight(MAT_H)
+	row:EnableMouse(true)
+	row.stripe = row:CreateTexture(nil, "BACKGROUND")
+	row.stripe:SetAllPoints()
+	row.stripe:SetColorTexture(1, 1, 1, 0.03)
+	row.cost = UI.Text(row, 12, WHITE)
+	row.cost:SetPoint("RIGHT", -6, 0)
+	row.cost:SetWidth(COL_COST - 6)
+	row.cost:SetJustifyH("RIGHT")
+	row.missing = UI.Text(row, 12, RED)
+	row.missing:SetPoint("RIGHT", -COL_COST, 0)
+	row.missing:SetWidth(COL_MISSING - 6)
+	row.missing:SetJustifyH("RIGHT")
+	row.have = UI.Text(row, 12, WHITE)
+	row.have:SetPoint("RIGHT", -(COL_COST + COL_MISSING), 0)
+	row.have:SetWidth(COL_HAVE - 6)
+	row.have:SetJustifyH("RIGHT")
+	row.name = UI.Text(row, 12, WHITE)
+	row.name:SetPoint("LEFT", 6, 0)
+	row.name:SetPoint("RIGHT", row.have, "LEFT", -8, 0)
+	row.name:SetJustifyH("LEFT")
+	row.name:SetWordWrap(false)
+	row:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetItemByID(self.agg.itemID)
+		local _, where = ns.Alts_Have(self.agg.items)
+		if #where > 0 then
+			GameTooltip:AddLine(" ")
+			GameTooltip:AddLine("Where you have it", GOLD[1], GOLD[2], GOLD[3])
+			for i, w in ipairs(where) do
+				if i > 8 then
+					break
+				end
+				local color = w.class and C_ClassColor.GetClassColor(w.class)
+				local r, g, b = 1, 1, 1
+				if color then
+					r, g, b = color:GetRGB()
+				end
+				GameTooltip:AddDoubleLine(w.name, w.n, r, g, b, 1, 1, 1)
+			end
+		end
+		GameTooltip:Show()
+	end)
+	row:SetScript("OnLeave", GameTooltip_Hide)
+	row:SetScript("OnMouseUp", function(self, button)
+		if button == "LeftButton" and not InCombatLockdown() then
+			ns.AltsList_Search(self.agg.itemID)
+		end
 	end)
 	return row
 end
+
+-- Every material across the list ({ itemID, items, need, missing, unit, cost }), missing ones first by cost.
+local function Materials(todos)
+	local byKey, list = {}, {}
+	for _, t in ipairs(todos) do
+		for _, m in ipairs(t.plan.materials) do
+			local key = table.concat(m.items, ",")
+			local agg = byKey[key]
+			if not agg then
+				agg = { itemID = m.items[1], items = m.items, need = 0, missing = 0, order = #list + 1 }
+				byKey[key] = agg
+				list[#list + 1] = agg
+			end
+			agg.need = agg.need + m.need
+			agg.missing = agg.missing + m.missing
+		end
+	end
+	for _, agg in ipairs(list) do
+		agg.unit = ns.Value_ItemPrice and (ns.Value_ItemPrice(agg.itemID)) or nil
+		agg.cost = agg.unit and agg.unit * agg.missing or nil
+	end
+	table.sort(list, function(a, b)
+		if (a.missing > 0) ~= (b.missing > 0) then
+			return a.missing > 0
+		end
+		if a.missing > 0 and (a.cost or -1) ~= (b.cost or -1) then
+			return (a.cost or -1) > (b.cost or -1)
+		end
+		return a.order < b.order
+	end)
+	return list
+end
+
+local function PlaceShopping(todos, x, y, w)
+	local content = tab.scroll.content
+	y = Header(2, "Shopping", x, y, w)
+	local list = Materials(todos)
+	if not tableHead then
+		tableHead = CreateMatRow(content)
+		tableHead:EnableMouse(false)
+		tableHead.stripe:Hide()
+		for _, fs in ipairs({ tableHead.name, tableHead.have, tableHead.missing, tableHead.cost }) do
+			SetColor(fs, GREY)
+		end
+		tableHead.name:SetText("Material")
+		tableHead.have:SetText("Have / need")
+		tableHead.missing:SetText("Missing")
+		tableHead.cost:SetText("Cost")
+	end
+	tableHead:ClearAllPoints()
+	tableHead:SetPoint("TOPLEFT", x, -(y - 6))
+	tableHead:SetWidth(w)
+	tableHead:Show()
+	y = y + MAT_H - 4
+
+	-- Two rows of one item (a single rank somewhere, any rank elsewhere) say which is which.
+	local ranks = Ranks()
+	local nameCount = {}
+	for _, agg in ipairs(list) do
+		local name = C_Item.GetItemNameByID(agg.itemID) or agg.itemID
+		nameCount[name] = (nameCount[name] or 0) + 1
+	end
+
+	local buy, complete, missingCount = 0, true, 0
+	for i, agg in ipairs(list) do
+		local row = matRows[i] or CreateMatRow(content)
+		matRows[i] = row
+		row.agg = agg
+		local label = ns.Alts_ItemLabel(agg.itemID, 16)
+		if #agg.items == 1 and ranks[agg.itemID] then
+			label = label .. " " .. RankMarkup(ranks[agg.itemID])
+		elseif #agg.items > 1 and nameCount[C_Item.GetItemNameByID(agg.itemID) or agg.itemID] > 1 then
+			label = label .. " |cff9e9e9e(any rank)|r"
+		end
+		row.name:SetText(label)
+		row.have:SetText(("%d / %d"):format(agg.need - agg.missing, agg.need))
+		if agg.missing > 0 then
+			missingCount = missingCount + 1
+			row.missing:SetText(agg.missing)
+			row.cost:SetText(agg.cost and ns.Alts_Price(agg.cost) or "|cff9e9e9e?|r")
+			if agg.cost then
+				buy = buy + agg.cost
+			else
+				complete = false
+			end
+			row:SetAlpha(1)
+		else
+			row.missing:SetText("|cff6b6b6b-|r")
+			row.cost:SetText("")
+			row:SetAlpha(0.55)
+		end
+		row.stripe:SetShown(i % 2 == 1)
+		row:ClearAllPoints()
+		row:SetPoint("TOPLEFT", x, -y)
+		row:SetWidth(w)
+		row:Show()
+		y = y + MAT_H
+	end
+
+	-- Footer: what buying the rest costs, and the shopping list.
+	if not buyText then
+		buyText = UI.Text(content, 13, WHITE)
+		buyText:SetJustifyH("LEFT")
+	end
+	if missingCount == 0 then
+		buyText:SetText(("|cff%sEverything's covered.|r"):format(Hex(GREEN)))
+	elseif ns.Value_ItemPrice and buy > 0 then
+		buyText:SetText(("Buy what's missing: %s~%s"):format(complete and "" or "at least ", ns.Alts_Gold(buy)))
+	else
+		buyText:SetText(("%d material%s to get"):format(missingCount, missingCount == 1 and "" or "s"))
+	end
+	buyText:ClearAllPoints()
+	buyText:SetPoint("TOPLEFT", x + 6, -(y + 16))
+	buyText:Show()
+	local plans = {}
+	for _, t in ipairs(todos) do
+		plans[#plans + 1] = t.plan
+	end
+	tab.shop:Set("Tomte: Crafting list", ns.Alts_ShoppingItems(plans, ns.altsDB.chain))
+	tab.shop:ClearAllPoints()
+	tab.shop:SetPoint("TOPRIGHT", content, "TOPLEFT", x + w - 4, -(y + 10))
+	return y + 44
+end
+
+-- To do (under both) ---------------------------------------------------------------------------------------------
 
 local function CreateLine(parent)
 	local l = CreateFrame("Frame", nil, parent)
@@ -96,9 +510,7 @@ local function CreateLine(parent)
 			GameTooltip:Show()
 		end
 	end)
-	l:SetScript("OnLeave", function()
-		GameTooltip:Hide()
-	end)
+	l:SetScript("OnLeave", GameTooltip_Hide)
 	l:SetScript("OnMouseUp", function(self, button)
 		if button == "LeftButton" and self.search and not InCombatLockdown() then
 			ns.AltsList_Search(self.itemID)
@@ -107,150 +519,219 @@ local function CreateLine(parent)
 	return l
 end
 
-local function Line(i)
+local function Line(i, y)
 	local l = lines[i] or CreateLine(tab.scroll.content)
 	lines[i] = l
 	l.itemID, l.search = nil, nil
 	l.right:SetText("")
+	l:ClearAllPoints()
+	l:SetPoint("TOPLEFT", 0, -y)
+	l:SetPoint("RIGHT")
 	l:Show()
 	return l
 end
 
-local function RecipeName(id)
-	local r = ns.altsDB.recipes[id]
-	return r and r.name or "?"
+local function CreateTodoToggle(parent)
+	local b = CreateFrame("Button", nil, parent)
+	b:SetHeight(HEADER_H - 4)
+	b.text = UI.Text(b, 15, GOLD)
+	b.text:SetPoint("TOPLEFT", 4, -10)
+	b.meta = UI.Text(b, 12, GREY)
+	b.meta:SetPoint("LEFT", b.text, "RIGHT", 12, 0)
+	b.line = b:CreateTexture(nil, "ARTWORK")
+	b.line:SetHeight(1)
+	b.line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.25)
+	b.line:SetPoint("TOPLEFT", 0, -30)
+	b.line:SetPoint("TOPRIGHT", 0, -30)
+	b:SetScript("OnEnter", function(self)
+		SetColor(self.text, WHITE)
+	end)
+	b:SetScript("OnLeave", function(self)
+		SetColor(self.text, GOLD)
+	end)
+	b:SetScript("OnClick", function()
+		ns.altsDB.listTodoOpen = not ns.altsDB.listTodoOpen or nil
+		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		ns.AltsListTab_Refresh()
+	end)
+	return b
 end
+
+-- Lines that move the same item the same way (Mail 10, Mail 15 and Mail 6 Bismuth to Tomten) are one trip: their
+-- counts are added up ("Mail 31 ..."), and a missing material's price is worked out again for the total.
+local MERGE = { mail = true, take = true, grab = true, collect = true, fetch = true, missing = true }
+
+local function Merged(todos)
+	local mine, others, byKey = {}, {}, {}
+	for _, t in ipairs(todos) do
+		for _, line in ipairs(t.lines) do
+			-- "Tomten crafts 1 ..." lines: the card already says who crafts it and whether it's ready.
+			if line.kind ~= "wait" then
+				local key = MERGE[line.kind] and line.itemID
+					and table.concat({ line.kind, line.itemID, tostring(line.from), tostring(line.where), tostring(line.to) }, ":")
+				local item = key and byKey[key]
+				if item then
+					item.n = item.n + line.n
+					item.recipes[t.entry.recipeID] = true
+				else
+					item = { line = line, n = line.n, recipes = { [t.entry.recipeID] = true }, first = t.entry.recipeID }
+					if key then
+						byKey[key] = item
+					end
+					table.insert(line.mine and mine or others, item)
+				end
+			end
+		end
+	end
+	return mine, others
+end
+
+local function ItemText(item)
+	local line = item.line
+	if item.n == line.n then
+		return line.text
+	end
+	local text = line.text:gsub("^(%D-)%d+", "%1" .. item.n, 1)
+	if line.kind == "missing" then
+		text = text:gsub(" %(~[^)]*%)$", "")
+		local unit = ns.Value_ItemPrice and ns.altsDB and (ns.Value_ItemPrice(line.itemID))
+		if unit then
+			text = text .. (" (~%s)"):format(ns.Alts_Price(unit * item.n))
+		end
+	end
+	return text
+end
+
+local function CraftsText(item)
+	local n = 0
+	for _ in pairs(item.recipes) do
+		n = n + 1
+	end
+	return n == 1 and RecipeName(item.first) or ("%d crafts"):format(n)
+end
+
+local function PlaceTodo(todos, y)
+	local mine, others = Merged(todos)
+	local open = ns.altsDB.listTodoOpen
+	todoToggle = todoToggle or CreateTodoToggle(tab.scroll.content)
+	todoToggle.text:SetText(("%s  To do on %s"):format(open and "-" or "+", UnitName("player")))
+	local meta = ("%d step%s here"):format(#mine, #mine == 1 and "" or "s")
+	if #others > 0 then
+		meta = meta .. ("  ·  %d elsewhere"):format(#others)
+	end
+	todoToggle.meta:SetText(meta .. (open and "" or "  ·  the tracker and the mailbox walk you through them"))
+	todoToggle:ClearAllPoints()
+	todoToggle:SetPoint("TOPLEFT", 0, -y)
+	todoToggle:SetPoint("RIGHT")
+	todoToggle:Show()
+	y = y + HEADER_H
+	if not open then
+		return y
+	end
+	-- Which craft a line is for only matters with more than one.
+	local showCraft = #todos > 1
+	local n = 0
+	if #mine == 0 then
+		n = n + 1
+		local l = Line(n, y)
+		l.text:SetText("Nothing here: this character has nothing to move or craft.")
+		SetColor(l.text, GREY)
+		y = y + LINE_H
+	end
+	for _, item in ipairs(mine) do
+		n = n + 1
+		local l = Line(n, y)
+		l.itemID = item.line.itemID
+		l.search = item.line.kind ~= "missing" and item.line.itemID ~= nil
+		l.text:SetText(ItemText(item))
+		SetColor(l.text, item.line.kind == "missing" and RED or (item.line.kind == "ready" and GREEN or WHITE))
+		l.right:SetText(showCraft and CraftsText(item) or "")
+		y = y + LINE_H
+	end
+	if #others > 0 then
+		n = n + 1
+		local l = Line(n, y + 6)
+		l.text:SetText("Elsewhere")
+		SetColor(l.text, GOLD)
+		y = y + LINE_H + 6
+		for _, item in ipairs(others) do
+			n = n + 1
+			local l = Line(n, y)
+			l.itemID = item.line.itemID
+			l.text:SetText(ItemText(item))
+			SetColor(l.text, GREY)
+			l.right:SetText(showCraft and CraftsText(item) or "")
+			y = y + LINE_H
+		end
+	end
+	return y
+end
+
+-- Refresh --------------------------------------------------------------------------------------------------------
 
 function ns.AltsListTab_Refresh()
 	if not (tab and tab:IsVisible()) then
 		return
 	end
-	for _, list in ipairs({ rows, lines, headers }) do
-		for _, f in ipairs(list) do
+	for _, list in ipairs({ cards, matRows, lines, headers }) do
+		for _, f in pairs(list) do
 			f:Hide()
 			if f.line then
 				f.line:Hide() -- a header's rule
 			end
 		end
 	end
+	for _, f in pairs({ totals = totals, tableHead = tableHead, buyText = buyText, todoToggle = todoToggle }) do
+		f:Hide() -- made on first use
+	end
 	tab.shop:Hide()
 	local alts = ns.altsDB
-	local todos = ns.AltsList_Todos()
-	local content = tab.scroll.content
 	tab.empty:SetShown(#alts.list == 0)
-	local y = 0
 	if #alts.list == 0 then
 		tab.scroll:SetContentHeight(1)
 		return
 	end
-	y = Header(1, "Tracked crafts", y)
+	local todos = ns.AltsList_Todos()
+
+	local width = tab.scroll.content:GetWidth()
+	if width <= 1 then
+		width = tab:GetWidth() - 10
+	end
+	local stacked = width < STACK_W
+	local leftW = stacked and width or math.floor((width - GAP) * 0.42)
+	local rightX = stacked and 0 or leftW + GAP
+	local rightW = stacked and width or width - rightX
+
+	-- Crafts.
+	local y = Header(1, "Your crafts", 0, 0, leftW)
+	local sum, priced, allSell = { cost = 0, sells = 0, complete = true }, false, true
 	for i, t in ipairs(todos) do
-		local row = rows[i] or CreateEntryRow(content)
-		rows[i] = row
-		row.entry = t.entry
-		row.name:SetText(ns.Alts_RecipeLabel(t.entry.recipeID, 18))
-		row.count:SetText(t.entry.crafts)
-		local c = t.crafter and alts.chars[t.crafter]
-		local color = c and c.class and C_ClassColor.GetClassColor(c.class)
-		row.crafter:SetText(c and c.name or "nobody knows it")
-		if color then
-			row.crafter:SetTextColor(color.r, color.g, color.b)
-		else
-			SetColor(row.crafter, RED)
-		end
-		row:ClearAllPoints()
-		row:SetPoint("TOPLEFT", 0, -y)
-		row:SetPoint("RIGHT")
-		row:Show()
-		y = y + ROW_H
-	end
-
-	-- Materials across the list.
-	local mats, order = {}, {}
-	for _, t in ipairs(todos) do
-		for _, m in ipairs(t.plan.materials) do
-			local key = table.concat(m.items, ",")
-			local agg = mats[key]
-			if not agg then
-				agg = { itemID = m.items[1], need = 0, missing = 0 }
-				mats[key] = agg
-				order[#order + 1] = key
+		local value = PlaceCard(i, t, 0, y, leftW)
+		if value then
+			priced = true
+			sum.cost = sum.cost + value.cost
+			sum.complete = sum.complete and value.complete
+			if value.sells then
+				sum.sells = sum.sells + value.sells
+			else
+				allSell = false
 			end
-			agg.need = agg.need + m.need
-			agg.missing = agg.missing + m.missing
 		end
+		y = y + CARD_H + CARD_GAP
 	end
-	local plans = {}
-	for _, t in ipairs(todos) do
-		plans[#plans + 1] = t.plan
+	if not allSell then
+		sum.sells = nil -- a craft without an auction price: a list profit would be made up
 	end
-	tab.shop:ClearAllPoints()
-	tab.shop:SetPoint("TOPRIGHT", -8, -(y + 6 + 12))
-	tab.shop:Set("Tomte: Crafting list", ns.Alts_ShoppingItems(plans, alts.chain))
-	y = Header(2, "Materials (all crafts)", y + 6)
-	local n = 0
-	for _, key in ipairs(order) do
-		local agg = mats[key]
-		n = n + 1
-		local l = Line(n)
-		l.itemID = agg.itemID
-		l.text:SetText(ns.Alts_ItemLabel(agg.itemID, 14))
-		SetColor(l.text, WHITE)
-		l.right:SetText(agg.missing > 0 and ("|cffff7359%d missing|r  ·  %d needed"):format(agg.missing, agg.need)
-			or ("%d needed"):format(agg.need))
-		l:ClearAllPoints()
-		l:SetPoint("TOPLEFT", 0, -y)
-		l:SetPoint("RIGHT")
-		y = y + LINE_H
+	if priced and #todos > 1 then
+		y = PlaceTotals(0, y, leftW, sum, #todos) + CARD_GAP
 	end
 
-	-- To do: yours, then everyone else's.
-	local mine, others = {}, {}
-	for _, t in ipairs(todos) do
-		for _, line in ipairs(t.lines) do
-			table.insert(line.mine and mine or others, { line = line, todo = t })
-		end
-	end
-	y = Header(3, ("To do on %s"):format(UnitName("player")), y + 6)
-	if #mine == 0 then
-		n = n + 1
-		local l = Line(n)
-		l.text:SetText("Nothing here: this character has nothing to move or craft.")
-		SetColor(l.text, GREY)
-		l:ClearAllPoints()
-		l:SetPoint("TOPLEFT", 0, -y)
-		l:SetPoint("RIGHT")
-		y = y + LINE_H
-	end
-	for _, item in ipairs(mine) do
-		n = n + 1
-		local l = Line(n)
-		l.itemID = item.line.itemID
-		l.search = item.line.kind ~= "missing" and item.line.itemID ~= nil
-		l.text:SetText(item.line.text)
-		SetColor(l.text, item.line.kind == "missing" and RED or (item.line.kind == "ready" and GREEN or WHITE))
-		l.right:SetText(RecipeName(item.todo.entry.recipeID))
-		l:ClearAllPoints()
-		l:SetPoint("TOPLEFT", 0, -y)
-		l:SetPoint("RIGHT")
-		y = y + LINE_H
-	end
-	if #others > 0 then
-		y = Header(4, "Elsewhere", y + 6)
-		for _, item in ipairs(others) do
-			n = n + 1
-			local l = Line(n)
-			l.itemID = item.line.itemID
-			l.text:SetText(item.line.text)
-			SetColor(l.text, GREY)
-			l.right:SetText(RecipeName(item.todo.entry.recipeID))
-			l:ClearAllPoints()
-			l:SetPoint("TOPLEFT", 0, -y)
-			l:SetPoint("RIGHT")
-			y = y + LINE_H
-		end
-	end
-	tab.scroll:SetContentHeight(y + 8)
+	-- Shopping, beside the crafts or under them.
+	local rightY = PlaceShopping(todos, rightX, stacked and y + 6 or 0, rightW)
+	y = math.max(y, rightY)
+
+	y = PlaceTodo(todos, y + 10)
+	tab.scroll:SetContentHeight(y + 12)
 end
 
 function ns.AltsListTab_Create(frame)
@@ -258,7 +739,19 @@ function ns.AltsListTab_Create(frame)
 	frame.scroll = UI.Scroll(frame)
 	frame.scroll:SetPoint("TOPLEFT")
 	frame.scroll:SetPoint("BOTTOMRIGHT", -10, 0)
-	frame.shop = ns.AltsShop_CreateLink(frame.scroll.content) -- on the materials heading's line
+	frame.scroll.onWidthChanged = function()
+		ns.AltsListTab_Refresh()
+	end
+	-- The Auctionator shopping list, as a button under the shopping table.
+	local shop = ns.AltsShop_CreateLink(frame.scroll.content)
+	shop:SetSize(124, 22)
+	local bg = shop:CreateTexture(nil, "BACKGROUND")
+	bg:SetAllPoints()
+	bg:SetColorTexture(UI.BOX[1], UI.BOX[2], UI.BOX[3], UI.BOX[4])
+	UI.Border(shop, GOLD[1], GOLD[2], GOLD[3], 0.45)
+	shop.text:ClearAllPoints()
+	shop.text:SetPoint("CENTER")
+	frame.shop = shop
 	frame.empty = UI.Text(frame, 13, GREY)
 	frame.empty:SetPoint("TOPLEFT", 8, -8)
 	frame.empty:SetPoint("RIGHT", -8, 0)

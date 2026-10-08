@@ -879,7 +879,7 @@ end
 local function LayoutDetail()
 	local d = tab.detail
 	for _, list in ipairs({ matRows, stepRows, headers }) do
-		for _, row in ipairs(list) do
+		for _, row in pairs(list) do -- pairs: headers has gaps (3 only exists without Syndicator)
 			row:Hide()
 		end
 	end
@@ -925,7 +925,7 @@ local function LayoutDetail()
 	end
 	ns.AltsCraft_LastPlan = plan -- Send to alt: materials go to the crafter of their step
 	if plan.missing > 0 then
-		d.status:SetText(("Missing %d material%s"):format(plan.missing, plan.missing == 1 and "" or "s"))
+		d.status:SetText(ns.Alts_MissingText(plan))
 		SetColor(d.status, RED)
 	elseif plan.unknown > 0 then
 		d.status:SetText("You have the materials, but a recipe on the way isn't known yet")
