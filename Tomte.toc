@@ -100,8 +100,10 @@ Modules/Alts/Data.lua
 Modules/Alts/SendData.lua
 Modules/Alts/ListData.lua
 Modules/Alts/Collect.lua
+Modules/Alts/ProfGear.lua
 Modules/Alts/CraftTab.lua
 Modules/Alts/RosterTab.lua
+Modules/Alts/ProfTab.lua
 Modules/Alts/HomeSection.lua
 Modules/Alts/Send.lua
 Modules/Alts/List.lua

@@ -2,7 +2,8 @@ local addonName, ns = ...
 
 -- Alts module: every character's snapshot (level, spec, item level, gold, zone, rest, professions) and their
 -- recipes, so the Alts page can answer "who makes this, and do we have the materials?" and list the characters.
--- Data.lua holds the logic, Collect.lua reads the game, CraftTab.lua and RosterTab.lua draw the page's two tabs.
+-- Data.lua holds the logic, Collect.lua reads the game, CraftTab.lua, ListTab.lua, RosterTab.lua and ProfTab.lua draw
+-- the page's tabs (ProfGear.lua: profession tools and accessories across characters).
 -- This file wires them up and adds "Crafted by" lines to item tooltips ("Known by" / "Learnable by" on recipe items).
 
 local UI = ns.UI
@@ -20,6 +21,7 @@ local function ShowTab(key)
 	page.craft:SetShown(key == "craft")
 	page.roster:SetShown(key == "chars")
 	page.list:SetShown(key == "list")
+	page.prof:SetShown(key == "prof")
 	page.chain:SetShown(key == "craft")
 	for _, b in ipairs(page.tabs) do
 		local on = b.key == key
@@ -32,12 +34,14 @@ local function ShowTab(key)
 		ns.AltsCraft_Refresh()
 	elseif key == "list" then
 		ns.AltsListTab_Refresh()
+	elseif key == "prof" then
+		ns.AltsProfTab_Refresh()
 	else
 		ns.AltsRoster_Refresh()
 	end
 end
 
--- The Alts page on one of its tabs ("craft", "list", "chars"), from the tracker.
+-- The Alts page on one of its tabs ("craft", "list", "chars", "prof"), from the tracker and Next up.
 function ns.Alts_ShowTab(key)
 	if page and page:IsVisible() then
 		ShowTab(key)
@@ -82,10 +86,11 @@ local AltsPage = {
 		baseline:SetPoint("BOTTOMLEFT")
 		baseline:SetPoint("BOTTOMRIGHT")
 		page.tabs = { CreateTab(bar, "craft", "Crafting"), CreateTab(bar, "list", "Crafting list"),
-			CreateTab(bar, "chars", "Characters") }
+			CreateTab(bar, "chars", "Characters"), CreateTab(bar, "prof", "Profession gear") }
 		page.tabs[1]:SetPoint("BOTTOMLEFT")
-		page.tabs[2]:SetPoint("BOTTOMLEFT", page.tabs[1], "BOTTOMRIGHT", 20, 0)
-		page.tabs[3]:SetPoint("BOTTOMLEFT", page.tabs[2], "BOTTOMRIGHT", 20, 0)
+		for i = 2, #page.tabs do
+			page.tabs[i]:SetPoint("BOTTOMLEFT", page.tabs[i - 1], "BOTTOMRIGHT", 20, 0)
+		end
 		-- Full chain / one step (the Crafting tab's plan depth).
 		page.chain = UI.Button(bar, 100, "")
 		page.chain:SetPoint("BOTTOMRIGHT", 0, 3)
@@ -107,7 +112,7 @@ local AltsPage = {
 			GameTooltip:Hide()
 		end)
 
-		for _, key in ipairs({ "craft", "roster", "list" }) do
+		for _, key in ipairs({ "craft", "roster", "list", "prof" }) do
 			local f = CreateFrame("Frame", nil, page)
 			f:SetPoint("TOPLEFT", 8, -(TAB_H + 10))
 			f:SetPoint("BOTTOMRIGHT", -8, 0)
@@ -116,6 +121,7 @@ local AltsPage = {
 		ns.AltsCraft_Create(page.craft, db)
 		ns.AltsRoster_Create(page.roster, db)
 		ns.AltsListTab_Create(page.list)
+		ns.AltsProfTab_Create(page.prof, db)
 		page:HookScript("OnShow", function()
 			ns.AltsCollect_Request() -- this character's gold and zone are current
 			ShowTab(db.view)
@@ -128,14 +134,17 @@ local AltsPage = {
 
 function ns.Alts_Changed()
 	ns.AltsRoster_Refresh()
+	ns.AltsProfTab_Refresh()
 end
 
 function ns.Alts_RecipesChanged()
 	producers = nil
 	recipesByName = nil
 	ns.AltsCraft_RecipesChanged()
+	ns.AltsProf_RecipesChanged()
 	ns.AltsCraft_Refresh()
 	ns.AltsRoster_Refresh()
+	ns.AltsProfTab_Refresh()
 end
 
 -- Tooltip --------------------------------------------------------------------------------------------------
@@ -268,6 +277,7 @@ module = ns.RegisterModule({
 		filterChar = "all",
 		filterProf = "all",
 		filterShow = "learnable",
+		filterFor = "all", -- Crafting tab "Gear for": all | me (whoever is logged in) | a character's guid
 		haveMats = false,
 		collapsed = {},
 		sendMail = true,
@@ -285,6 +295,12 @@ module = ns.RegisterModule({
 	},
 	home = {
 		ns.AltsHomeSection,
+		{ kind = "next", key = "nextprofgear", name = "Better profession gear", score = 40,
+			description = "Somebody can craft a better profession tool or accessory for one of your characters, and the "
+				.. "materials are on hand (yours first).",
+			candidates = function()
+				return ns.AltsProf_NextUp()
+			end },
 		{ kind = "page", key = "alts", order = 1, name = "Alts", icon = "Interface\\Icons\\Achievement_Character_Human_Male",
 			page = AltsPage,
 			summary = function()

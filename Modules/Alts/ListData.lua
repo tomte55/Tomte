@@ -259,7 +259,7 @@ function ns.Alts_CraftTodo(entry, ctx)
 		if step ~= final then
 			local crafter = CrafterOf(step)
 			local what = ("%d %s"):format(step.crafts, ctx.recipeName(step.recipeID))
-			Add({ kind = "craft", recipeID = step.recipeID, mine = crafter == me,
+			Add({ kind = "craft", recipeID = step.recipeID, mine = crafter == me, nobody = crafter == nil,
 				text = crafter == me and ("Craft %s first"):format(what)
 					or crafter and ("%s: craft %s first"):format(Name(crafter), what)
 					or ("Nobody knows how to craft %s"):format(what) })

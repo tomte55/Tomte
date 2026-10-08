@@ -13,7 +13,7 @@ local GEAR_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 } --
 local PRIMARY_KEYS = { [1] = "STR", [2] = "AGI", [4] = "INT" } -- LE_UNIT_STAT_*, GetSpecializationInfo's primaryStat
 local BATCH = 30 -- recipes read per frame
 local RESCAN_AFTER = 30 -- seconds before the same profession is read again (the list event also fires on filters)
-local RECIPE_VERSION = 2 -- bump to re-read stored recipes (2: category and expansion name)
+local RECIPE_VERSION = 3 -- bump to re-read stored recipes (2: category and expansion name, 3: gear output links)
 
 local db, guid
 local pending
@@ -97,6 +97,31 @@ local function ReadGear(c)
 	end
 end
 
+-- Worn profession gear (tool and accessories, slots 20-30; Blizzard_ProfessionsCrafting.xml), for the Profession
+-- gear tab. Read only once the worn gear has (at login neither has arrived yet), and not while a link is missing.
+local PROF_SLOTS = { 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 }
+local function ReadProfGear(c)
+	if not c.gear then
+		return
+	end
+	local gear = {}
+	for _, slot in ipairs(PROF_SLOTS) do
+		local link = GetInventoryItemLink("player", slot)
+		if not link and GetInventoryItemID("player", slot) then
+			return
+		end
+		gear[slot] = link
+	end
+	local old, same = c.profGear, c.profGear ~= nil
+	for _, slot in ipairs(PROF_SLOTS) do
+		same = same and old[slot] == gear[slot]
+	end
+	if not same then
+		c.profGear = gear
+		c.profGearAt = GetServerTime()
+	end
+end
+
 local function ReadRest(c)
 	local maxLevel = GetMaxLevelForPlayerExpansion and GetMaxLevelForPlayerExpansion()
 	if maxLevel and c.level and c.level >= maxLevel then
@@ -158,6 +183,7 @@ local function Refresh()
 	Try(ReadBasics, c)
 	Try(ReadSpec, c)
 	Try(ReadGear, c)
+	Try(ReadProfGear, c)
 	Try(ReadRest, c)
 	Try(ReadProfs, c)
 	ns.Alts_Changed()
@@ -206,6 +232,33 @@ local function ReadReagents(schematic)
 	return reagents
 end
 
+-- Gear and profession tools: the output's link at the lowest and the highest crafting quality, without optional
+-- reagents (what Customer Orders shows: Blizzard_ProfessionsTemplates.lua, GetRecipeOutputItemData(spellID, {},
+-- nil, qualityID)). For the Crafting tab's item levels; nil for things that aren't worn.
+local function ReadOutputLinks(id, info, itemID)
+	local equipLoc = itemID and select(4, C_Item.GetItemInfoInstant(itemID))
+	if not equipLoc or equipLoc == "" or equipLoc == "INVTYPE_NON_EQUIP_IGNORE" or not info.hasSingleItemOutput then
+		return nil
+	end
+	local function Link(qualityID)
+		local out = C_TradeSkillUI.GetRecipeOutputItemData(id, {}, nil, qualityID)
+		return out and out.hyperlink
+	end
+	local q = info.qualityIDs
+	if q and #q > 0 then
+		local lo, hi = Link(q[1]), Link(q[#q])
+		return lo and hi and { lo, hi } or nil
+	end
+	local link = Link(nil)
+	return link and { link, link } or nil
+end
+
+-- An error there costs only the item levels, not the recipe.
+local function OutputLinks(...)
+	local ok, links = pcall(ReadOutputLinks, ...)
+	return ok and type(links) == "table" and links or nil
+end
+
 local function ReadRecipe(id, prof)
 	local info = C_TradeSkillUI.GetRecipeInfo(id)
 	if not info or info.isDummyRecipe or info.isRecraft or info.isSalvageRecipe or info.isGatheringRecipe then
@@ -227,6 +280,7 @@ local function ReadRecipe(id, prof)
 		lineName = scan.lineName, category = category and category.name or nil,
 		item = schematic.outputItemID, qMin = schematic.quantityMin, qMax = schematic.quantityMax,
 		reagents = ReadReagents(schematic),
+		out = OutputLinks(id, info, schematic.outputItemID),
 	}
 end
 

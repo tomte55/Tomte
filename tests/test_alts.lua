@@ -384,6 +384,103 @@ test("weekly status: vault and Concentration line", function()
 	eq(ns.Alts_WeeklyLine(nil), "", "no Weekly")
 end)
 
+test("gear for a character: armor type, weapons, main stat, profession tools", function()
+	local hunter = { class = "HUNTER", primary = "AGI", profs = { [164] = { base = 164 } } }
+	local mage = { class = "MAGE", primary = "INT", profs = {} }
+	local function item(classID, sub, loc, prim)
+		return { classID = classID, subclassID = sub, equipLoc = loc, primaries = prim }
+	end
+	eq(ns.Alts_GearFor(item(4, 3, "INVTYPE_CHEST", { AGI = true, INT = true }), hunter), "gear", "mail chest, hybrid stat")
+	eq(ns.Alts_GearFor(item(4, 4, "INVTYPE_CHEST"), hunter), false, "plate")
+	eq(ns.Alts_GearFor(item(4, 3, "INVTYPE_HEAD", { STR = true }), hunter), false, "wrong main stat")
+	eq(ns.Alts_GearFor(item(4, 3, "INVTYPE_HEAD", nil), hunter), "gear", "stats still loading")
+	eq(ns.Alts_GearFor(item(4, 1, "INVTYPE_CLOAK", { AGI = true }), hunter), "gear", "cloak")
+	eq(ns.Alts_GearFor(item(4, 0, "INVTYPE_FINGER", {}), hunter), "gear", "ring without main stat")
+	eq(ns.Alts_GearFor(item(4, 6, "INVTYPE_SHIELD"), hunter), false, "shield")
+	eq(ns.Alts_GearFor(item(4, 0, "INVTYPE_HOLDABLE", { INT = true }), mage), "gear", "off-hand for a mage")
+	eq(ns.Alts_GearFor(item(2, 2, "INVTYPE_RANGED", { AGI = true }), hunter), "gear", "bow")
+	eq(ns.Alts_GearFor(item(2, 19, "INVTYPE_RANGEDRIGHT", { INT = true }), hunter), false, "wand")
+	eq(ns.Alts_GearFor(item(2, 19, "INVTYPE_RANGEDRIGHT", { INT = true }), mage), "gear", "wand for a mage")
+	eq(ns.Alts_GearFor(item(19, 0, "INVTYPE_PROFESSION_TOOL"), hunter), "tool", "Blacksmithing hammer")
+	eq(ns.Alts_GearFor(item(19, 6, "INVTYPE_PROFESSION_TOOL"), hunter), false, "not a tailor")
+	eq(ns.Alts_GearFor(item(0, 0, ""), hunter), false, "a flask")
+	eq(ns.Alts_GearFor(item(4, 3, "INVTYPE_CHEST"), { primary = "AGI" }), false, "class unknown")
+end)
+
+test("what a craft replaces and the upgrade mark", function()
+	local worn = { [1] = 600, [11] = 610, [12] = 590, [16] = 605 }
+	local t = ns.Alts_WornFor("INVTYPE_HEAD", worn)
+	eq(t.ilvl, 600, "head")
+	eq(t.name, "Head", "slot name")
+	eq(ns.Alts_WornFor("INVTYPE_FINGER", worn).ilvl, 590, "the weaker ring")
+	eq(ns.Alts_WornFor("INVTYPE_WEAPON", worn).slot, 16, "one-hander without an off hand: main hand")
+	eq(ns.Alts_WornFor("INVTYPE_FEET", worn).ilvl, nil, "empty slot")
+	eq(ns.Alts_WornFor("INVTYPE_PROFESSION_TOOL", worn), nil, "not worn gear")
+	worn.twoHand = true
+	eq(ns.Alts_Upgrade(590, 620, ns.Alts_WornFor("INVTYPE_HOLDABLE", worn)), nil, "off hand next to a two-hander")
+	eq(ns.Alts_Upgrade(590, 620, { ilvl = 600, loading = true }), nil, "loading")
+	local kind, gain = ns.Alts_Upgrade(605, 620, t)
+	eq(kind, "sure", "every quality")
+	eq(gain, 5, "gain at the lowest")
+	kind, gain = ns.Alts_Upgrade(590, 620, t)
+	eq(kind, "top", "top quality only")
+	eq(gain, 20, "gain at the highest")
+	kind, gain = ns.Alts_Upgrade(580, 595, t)
+	eq(kind, "no", "never")
+	eq(gain, -5, "how far short")
+	eq(ns.Alts_Upgrade(580, 595, { name = "Feet" }), "empty", "empty slot")
+	eq(ns.Alts_Upgrade(nil, nil, t), nil, "item level unknown")
+	eq(ns.Alts_Upgrade(nil, 610, t), "sure", "one quality")
+end)
+
+test("profession gear: item kind, slots, what it replaces", function()
+	eq(select(1, ns.Alts_ProfItem(19, 0, "INVTYPE_PROFESSION_TOOL")), 164, "Blacksmithing tool")
+	eq(select(2, ns.Alts_ProfItem(19, 5, "INVTYPE_PROFESSION_GEAR")), "acc", "Mining accessory")
+	eq(ns.Alts_ProfItem(19, 13, "INVTYPE_PROFESSION_TOOL"), nil, "archaeology")
+	eq(ns.Alts_ProfItem(4, 0, "INVTYPE_PROFESSION_TOOL"), nil, "not a profession item")
+	eq(ns.Alts_ProfSlots(185, "acc"), 1, "cooking has one accessory")
+	eq(ns.Alts_ProfSlots(164, "acc"), 2, "two accessories")
+	eq(ns.Alts_ProfSlots(794, "tool"), 0, "archaeology")
+	local worn = {
+		{ base = 164, kind = "tool", ilvl = 590 },
+		{ base = 164, kind = "acc", ilvl = 580 },
+		{ base = 186, kind = "acc", ilvl = 600 },
+		{ base = 186, kind = "acc", ilvl = 570 },
+	}
+	eq(ns.Alts_ProfTarget(worn, 164, "tool").ilvl, 590, "the worn tool")
+	eq(ns.Alts_ProfTarget(worn, 164, "acc").ilvl, nil, "a free accessory slot")
+	eq(ns.Alts_ProfTarget(worn, 186, "acc").ilvl, 570, "the weaker accessory")
+	eq(ns.Alts_ProfTarget(worn, 186, "tool").name, "Tool", "no tool")
+	eq(ns.Alts_ProfTarget(worn, 794, "tool"), nil, "no such slot")
+	worn[1].ilvl = false
+	eq(ns.Alts_ProfTarget(worn, 164, "tool").loading, true, "loading")
+end)
+
+test("profession gear: best craft and best home for a bag item", function()
+	local cands = {
+		{ recipeID = 1, lo = 580, hi = 610, known = true },
+		{ recipeID = 2, lo = 600, hi = 640, known = false },
+		{ recipeID = 3, lo = 595, hi = 610, known = true },
+	}
+	local best = ns.Alts_BestProfCraft(cands, { ilvl = 590 })
+	eq(best.recipeID, 3, "known, highest, then the better lowest quality")
+	eq(best.mark, "sure", "an upgrade at every quality")
+	eq(best.gain, 5, "gain")
+	eq(ns.Alts_BestProfCraft(cands, { ilvl = 620 }), nil, "nothing better")
+	eq(ns.Alts_BestProfCraft(cands, { name = "Tool" }).mark, "empty", "a free slot")
+	eq(ns.Alts_BestProfCraft({}, { ilvl = 1 }), nil, "no recipes")
+	local home = ns.Alts_ProfBagUpgrade(600, {
+		{ guid = "a", target = { ilvl = 590 } },
+		{ guid = "b", target = { ilvl = 560 } },
+		{ guid = "c", target = { ilvl = 620 } },
+	})
+	eq(home.guid, "b", "the biggest gain")
+	eq(home.gain, 40, "gain")
+	eq(ns.Alts_ProfBagUpgrade(600, { { guid = "a", target = { ilvl = 590 } }, { guid = "d", target = { name = "Tool" } } }).guid,
+		"d", "a free slot first")
+	eq(ns.Alts_ProfBagUpgrade(500, { { guid = "a", target = { ilvl = 590 } } }), nil, "nobody's upgrade")
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)

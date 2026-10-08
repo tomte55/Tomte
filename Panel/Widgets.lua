@@ -55,10 +55,11 @@ function UI.Border(frame, r, g, b, a)
 		t:SetColorTexture(r, g, b, a or 1)
 		t:SetPoint(points[1])
 		t:SetPoint(points[2])
+		-- At least one screen pixel: below a UI scale of 1 a 1-unit edge can round to nothing (clipped-looking buttons).
 		if i <= 2 then
-			t:SetHeight(1)
+			PixelUtil.SetHeight(t, 1, 1)
 		else
-			t:SetWidth(1)
+			PixelUtil.SetWidth(t, 1, 1)
 		end
 		edges[i] = t
 	end

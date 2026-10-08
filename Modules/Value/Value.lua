@@ -273,8 +273,9 @@ function ns.Value_Plan(plan, recipe, crafts)
 	local cost, complete = ns.Value_CraftCost(materials, db.owned)
 	local sells
 	if recipe and recipe.item then
-		local unit = ns.Value_ItemPrice(recipe.item)
-		if unit then
+		-- Only an auction price: a soulbound result's vendor price made every gear craft a big "loss".
+		local unit, kind = ns.Value_ItemPrice(recipe.item)
+		if unit and kind == "auction" then
 			local per = ((recipe.qMin or 1) + (recipe.qMax or recipe.qMin or 1)) / 2
 			sells = math.floor(unit * per * (crafts or 1))
 		end
