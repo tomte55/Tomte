@@ -66,6 +66,8 @@ local ONE_HAND = {
 }
 local OFFHAND_WEAPON = { INVTYPE_WEAPON = true, INVTYPE_WEAPONOFFHAND = true }
 local TIER_SLOTS = { [1] = true, [3] = true, [5] = true, [7] = true, [10] = true }
+-- The Catalyst takes Veteran track or higher (GetItemUpgradeInfo's trackString, English client).
+local CATALYST_TRACKS = { Veteran = true, Champion = true, Hero = true, Myth = true }
 local ENCHANT_SLOTS = { [1] = true, [3] = true, [5] = true, [8] = true, [11] = true, [12] = true, [16] = true }
 
 local STAT_NAMES = {
@@ -473,7 +475,7 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 		info[#info + 1] = ("Completes your %d-set"):format(completes)
 	end
 	local slot = target.slots[1]
-	if not cand.setID and TIER_SLOTS[slot] and cand.upgrade then
+	if not cand.setID and TIER_SLOTS[slot] and cand.upgrade and CATALYST_TRACKS[cand.upgrade.track] then
 		local main = MainSet(equipped)
 		if main then
 			local skip = { [slot] = true }
@@ -608,6 +610,15 @@ end
 -- Only a clean upgrade marks a bag item.
 function ns.Gear_IsCleanUpgrade(v)
 	return v ~= nil and (v.kind == "upgrade" or v.kind == "empty" or v.kind == "noStats")
+end
+
+-- Stats say upgrade but something else needs checking: an effect or trinket to sim, same level with different
+-- stats, or an upgrade with a warning (breaks a set, loses an embellishment). Never true for a clean upgrade.
+function ns.Gear_IsMaybeUpgrade(v)
+	if not (v and v.pct and v.pct > UPGRADE_PCT) then
+		return false
+	end
+	return v.kind == "simIt" or v.kind == "upgradeBut" or (v.kind == "sidegrade" and v.statMix == true)
 end
 
 ---------------------------------------------------------------------------------------------------------------

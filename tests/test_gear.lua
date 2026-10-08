@@ -399,6 +399,14 @@ test("Catalyst note on a non-set tier-slot item with an upgrade track", function
 	-- no set worn: plain note
 	v = ns.Gear_Evaluate(cand, gearset(), CTX)
 	has(v.reasons, "^Can be catalysed into tier$")
+	-- below Veteran (Explorer, Adventurer, leveling gear without a track): the Catalyst won't take it
+	for _, track in ipairs({ "Explorer", "Adventurer", false }) do
+		cand.upgrade.track = track or nil
+		v = ns.Gear_Evaluate(cand, gearset(), CTX)
+		for _, r in ipairs(v.reasons) do
+			assert(not r:find("catalysed"), tostring(track) .. ": " .. r)
+		end
+	end
 end)
 
 test("Enchant and socket reasons", function()
@@ -949,6 +957,29 @@ test("AltLines: best first, two lines, then +n more", function()
 	lines = ns.Gear_AltLines({}, 2)
 	eq(#lines, 0)
 	eq(ns.Gear_AltGain({ kind = "noStats" }), "theirs has no stats")
+end)
+
+test("Maybe an upgrade: unsure, but stats say upgrade", function()
+	local e = gearset()
+	-- effect item with better stats: maybe; with worse stats: no
+	local v = ns.Gear_Evaluate(item("INVTYPE_HEAD", 150, 150, { ilvl = 320, effect = "Use: things" }), e, CTX)
+	eq(v.kind, "simIt")
+	eq(ns.Gear_IsMaybeUpgrade(v), true)
+	eq(ns.Gear_IsCleanUpgrade(v), false)
+	v = ns.Gear_Evaluate(item("INVTYPE_HEAD", 50, 50, { ilvl = 290, effect = "Use: things" }), e, CTX)
+	eq(ns.Gear_IsMaybeUpgrade(v), false)
+	-- trinket for an empty slot: no percentage, no arrow
+	eq(ns.Gear_IsMaybeUpgrade(ns.Gear_Evaluate(item("INVTYPE_TRINKET", 300, nil), e, CTX)), false)
+	-- clean upgrades and downgrades aren't maybes
+	eq(ns.Gear_IsMaybeUpgrade(ns.Gear_Evaluate(item("INVTYPE_HEAD", 120, 120, { ilvl = 310 }), e, CTX)), false)
+	eq(ns.Gear_IsMaybeUpgrade(ns.Gear_Evaluate(item("INVTYPE_HEAD", 80, 80, { ilvl = 290 }), e, CTX)), false)
+	-- stat mix and upgrade-with-warning, by verdict
+	eq(ns.Gear_IsMaybeUpgrade({ kind = "sidegrade", statMix = true, pct = 2.5 }), true)
+	eq(ns.Gear_IsMaybeUpgrade({ kind = "sidegrade", statMix = true, pct = -2.5 }), false)
+	eq(ns.Gear_IsMaybeUpgrade({ kind = "sidegrade", pct = 0.5 }), false)
+	eq(ns.Gear_IsMaybeUpgrade({ kind = "upgradeBut", pct = 4 }), true)
+	eq(ns.Gear_IsMaybeUpgrade({ kind = "upgradeBut", pct = 0.2 }), false) -- set bonus, stats flat
+	eq(ns.Gear_IsMaybeUpgrade(nil), false)
 end)
 
 print(failures == 0 and "all passed" or (failures .. " failed"))

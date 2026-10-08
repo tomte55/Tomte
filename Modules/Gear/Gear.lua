@@ -19,7 +19,9 @@ local REASON = "|cff9d9d9d"
 local MAX_REASONS = 3
 local BAGANATOR_ID = "tomte_gear"
 local BAGANATOR_ALT_ID = "tomte_gear_alt"
+local BAGANATOR_MAYBE_ID = "tomte_gear_maybe"
 local ALT_BLUE = { 0x8F / 255, 0xC7 / 255, 1 } -- the map-blue of Tomte's markers, so it can't pass for your own arrow
+local MAYBE_ORANGE = { 1, 0x9A / 255, 0x3C / 255 } -- the tooltip's "Can't judge" orange
 local MAX_ALT_LINES = 2
 
 local module, db
@@ -394,8 +396,23 @@ local function RegisterBaganator()
 	end, function(itemButton)
 		return Arrow(itemButton)
 	end, { corner = "top_left", priority = 1 })
+	-- Maybe an upgrade: stats say so, but there's an effect to sim or a warning. Never the same item as the clean
+	-- arrow above, and before the alt arrow so a maybe for you wins over an alt's upgrade.
+	Baganator.API.RegisterCornerWidget("Tomte Gear Check: maybe an upgrade", BAGANATOR_MAYBE_ID, function(_, details)
+		local link = details.itemLink
+		if not (module.active and db.baganator and db.maybeBaganator and link) then
+			return false
+		end
+		local equipLoc = select(4, C_Item.GetItemInfoInstant(link))
+		if not (equipLoc and ns.Gear_Slots(equipLoc)) then
+			return false
+		end
+		return ns.Gear_IsMaybeUpgrade(Evaluate(link))
+	end, function(itemButton)
+		return Arrow(itemButton, MAYBE_ORANGE)
+	end, { corner = "top_left", priority = 2 })
 	-- Upgrade for an alt. Baganator shows only the first widget of a corner that says yes (its array order), so
-	-- right after the arrow above it never shows with it; the check here also covers the two being in different
+	-- after the arrows above it never shows with them; the check here also covers them being in different
 	-- corners. Items still loading say false, like the arrow above, and are asked again on GearItems_OnReady.
 	Baganator.API.RegisterCornerWidget("Tomte Gear Check: upgrade for an alt", BAGANATOR_ALT_ID, function(_, details)
 		local link = details.itemLink
@@ -403,8 +420,12 @@ local function RegisterBaganator()
 			return false
 		end
 		local equipLoc = select(4, C_Item.GetItemInfoInstant(link))
-		if not (equipLoc and ns.Gear_Slots(equipLoc)) or ns.Gear_IsCleanUpgrade(Evaluate(link)) then
-			return false -- not gear, or an upgrade for you: the arrow above wins
+		if not (equipLoc and ns.Gear_Slots(equipLoc)) then
+			return false
+		end
+		local own = Evaluate(link)
+		if ns.Gear_IsCleanUpgrade(own) or (db.baganator and db.maybeBaganator and ns.Gear_IsMaybeUpgrade(own)) then
+			return false -- an upgrade or maybe one for you: the arrows above win
 		end
 		if not ns.GearAlts_Route(link, details.itemLocation, nil, details.isBound) then
 			return false
@@ -786,6 +807,7 @@ module = ns.RegisterModule({
 		showDowngrades = true,
 		compareTooltips = false,
 		baganator = true,
+		maybeBaganator = true,
 		offspec = true,
 		rank = true,
 		gemHints = true,
@@ -850,6 +872,10 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "baganator", label = "Mark upgrades in Baganator", onChange = RefreshBags,
 			tooltip = "Only clean upgrades get the arrow. In Baganator's settings (Icons), \"Tomte Gear Check\" is a "
 				.. "corner icon (the arrow) and an upgrade source (the upgrade search and category)." },
+		{ type = "checkbox", key = "maybeBaganator", label = "Mark maybe-upgrades in Baganator", onChange = RefreshBags,
+			tooltip = "An orange arrow on gear whose stats say upgrade but that needs checking: a trinket or effect to "
+				.. "sim, same item level with different stats, or a warning like breaking your set. Not in the upgrade "
+				.. "search. In Baganator's settings (Icons) it's \"Tomte Gear Check: maybe an upgrade\"." },
 		{ type = "header", label = "Upgrades for alts" },
 		{ type = "dropdown", key = "altUpgrades", label = "Upgrades for alts", onChange = function()
 			ns.GearAlts_Invalidate()
