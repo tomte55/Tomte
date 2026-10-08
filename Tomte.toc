@@ -91,7 +91,14 @@ Modules/Upkeep/Durability.lua
 Modules/Weekly/Data.lua
 Modules/Weekly/Collect.lua
 Modules/Weekly/Vault.lua
+Modules/Weekly/Ring.lua
+Modules/Weekly/FactionData.lua
+Modules/Weekly/ActivityData.lua
+Modules/Weekly/RaidData.lua
 Modules/Weekly/WeekView.lua
+Modules/Weekly/Factions.lua
+Modules/Weekly/Activities.lua
+Modules/Weekly/Raids.lua
 Modules/Weekly/BoardPage.lua
 Modules/Weekly/Popup.lua
 Modules/Weekly/HomeSection.lua

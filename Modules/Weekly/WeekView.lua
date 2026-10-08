@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 -- The board's "This week" view: a Great Vault band (three slot boxes per track and what the next slot needs) over two
--- columns, To do (weekly quests, open knowledge sources) and Progress (renown, crests, lockouts). Side by side when
+-- columns, To do (weekly quests, open knowledge sources) and Progress (crests, lockouts). Side by side when
 -- the page is wide enough, else stacked; all in one scroll. Draws Data.lua's Weekly_BoardModel.
 
 local UI = ns.UI

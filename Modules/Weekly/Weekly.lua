@@ -313,7 +313,7 @@ module = ns.RegisterModule({
 	key = "weekly",
 	name = "Weekly board",
 	category = "General",
-	description = "What you haven't done this week: Great Vault, crests, weekly quests, profession knowledge and Concentration, renown and lockouts, for every max-level character (alts roll over at the weekly reset without logging in). Right-click the minimap button for a quick list.",
+	description = "What you haven't done this week and where the expansion stands: Great Vault, crests, weekly quests, profession knowledge and Concentration, lockouts, renown factions with their reward tracks, weekly activities and raid kills, for every max-level character (alts roll over at the weekly reset without logging in). Right-click the minimap button for a quick list.",
 	enabledByDefault = true,
 	defaults = {
 		chars = {}, -- [guid] = snapshot (Collect.lua)
@@ -323,6 +323,9 @@ module = ns.RegisterModule({
 		popup = {},
 		toast = true,
 		learned = true,
+		hideCompleted = true, -- Activities tab
+		raidCollapsed = {}, -- Raids tab: [journalInstanceID] = true
+		-- faction: the Factions tab's selected faction ID (nil = the first one)
 	},
 	init = function(moduleDB)
 		db = moduleDB

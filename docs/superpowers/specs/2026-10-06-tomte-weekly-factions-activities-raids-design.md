@@ -49,3 +49,25 @@ week and Characters code stays, except Renown leaving This week.
 ## Testing
 
 Plain Lua tests for the models; in game: each tab on a max-level character, a ring probe before building on it.
+
+## As built (2026-10-08, not yet checked in game)
+
+Built in one go (the user delegated), so the plan's in-game gates (ring probe, per-tab checks) are folded into one
+final in-game check. Differences from the plan:
+
+- **No `/tomte weekly ring` probe.** The ring copies Plumber's proven setup instead of guessing: Cooldown reversed,
+  rotated 180° so the swipe starts and ends at the level badge, `Pause()` before `SetCooldown`, and the progress
+  remapped past the badge (Plumber's 0.06 `visualOffset`). Still unmeasured; if a 25% ring shows 75%, flip
+  `SetReverse` in `Ring.lua`.
+- **Sub-factions**: Darkfuse Solutions only shows after its unlock quest 86961 (Plumber does the same). Friendship
+  ranks are read with `friendshipFactionID`; a sub-faction at its top rank (or a plain reputation at its last
+  standing) gets `maxed` and shows a full gold ring with "Max rank".
+- **Paragon**: a full paragon round shows full (not empty), and a waiting reward shows a full ring plus the glow.
+- **Raids**: the boss list is only cached once every raid read with bosses (journal data can be missing right after
+  login). `BOSS_KILL` calls `RequestRaidInfo()`, whose `UPDATE_INSTANCE_INFO` refreshes the board, instead of adding
+  `BOSS_KILL` to the refresh events (the lock data only updates after that request). Columns have their difficulty
+  name as a header instead of a one-line legend.
+- **Tabs** are sized to their labels; the reset text drops its weekday/time and then hides when the window is too
+  narrow for both.
+- Renown stays in the Characters grid (only This week lost it). `Data.lua`'s unused `Renown` and `Thousands`
+  helpers were removed.

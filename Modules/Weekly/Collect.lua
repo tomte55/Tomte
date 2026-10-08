@@ -104,12 +104,16 @@ end
 -- Weekly quests in the log are learned (account-wide); every learned quest is checked for this character.
 local function ReadQuests(snap, now)
 	local quests = {}
+	local header -- the quest log header above each quest (its zone or faction): the Activities tab groups by it
 	for i = 1, C_QuestLog.GetNumQuestLogEntries() do
 		local info = C_QuestLog.GetInfo(i)
-		if info and not info.isHeader and not info.isHidden and info.frequency == Enum.QuestFrequency.Weekly
+		if info and info.isHeader then
+			header = info.title
+		elseif info and not info.isHidden and info.frequency == Enum.QuestFrequency.Weekly
 			and not ns.Weekly_IsProfQuest(info.questID) then
 			local q = db.quests[info.questID] or { firstSeen = now }
 			q.title = info.title
+			q.group = header or q.group
 			db.quests[info.questID] = q
 			quests[info.questID] = "log"
 		end
@@ -234,6 +238,11 @@ function events:PLAYER_ENTERING_WORLD()
 	ns.WeeklyCollect_Request()
 end
 
+-- Raids tab dots: the lock info only updates after asking (answers with UPDATE_INSTANCE_INFO).
+function events:BOSS_KILL()
+	RequestRaidInfo()
+end
+
 function events:QUEST_TURNED_IN(questID)
 	turnedIn[questID] = true
 	ns.WeeklyCollect_Request()
@@ -259,6 +268,7 @@ function ns.WeeklyCollect_Start(moduleDB)
 	end
 	events:RegisterEvent("PLAYER_ENTERING_WORLD")
 	events:RegisterEvent("QUEST_TURNED_IN")
+	events:RegisterEvent("BOSS_KILL")
 	events:RegisterEvent("PLAYER_LOGOUT")
 	if ns.inWorld then
 		events:PLAYER_ENTERING_WORLD()

@@ -55,7 +55,11 @@ function UI.Border(frame, r, g, b, a)
 		t:SetColorTexture(r, g, b, a or 1)
 		t:SetPoint(points[1])
 		t:SetPoint(points[2])
-		-- At least one screen pixel: below a UI scale of 1 a 1-unit edge can round to nothing (clipped-looking buttons).
+		-- Exactly one screen pixel: below a UI scale of 1 a 1-unit edge can round to nothing (clipped-looking buttons),
+		-- and pixel-grid snapping rounds an edge's two sides on their own, so boxes off the pixel grid got edges of 0, 1
+		-- or 2 pixels (measured 2026-10-08 on the vault slots). Unsnapped, a solid 1-pixel quad always fills one row.
+		t:SetTexelSnappingBias(0)
+		t:SetSnapToPixelGrid(false)
 		if i <= 2 then
 			PixelUtil.SetHeight(t, 1, 1)
 		else

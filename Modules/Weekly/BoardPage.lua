@@ -1,8 +1,9 @@
 local addonName, ns = ...
 
--- Weekly tab of the panel: three views behind buttons at the top. This week (the current character), Characters
--- (a grid, one column per character) and Professions (knowledge and Concentration per character). The rows come
--- from Data.lua's models; ns.WeeklyList draws a list of them and is shared with the popup.
+-- Weekly tab of the panel: six views behind buttons at the top. This week (the current character), Factions,
+-- Activities and Raids (each its own view object: .scroll and :Render(width), in Factions.lua, Activities.lua and
+-- Raids.lua), Characters (a grid, one column per character) and Professions (knowledge and Concentration per
+-- character). The rows come from Data.lua's models; ns.WeeklyList draws a list of them and is shared with the popup.
 
 local UI = ns.UI
 local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
@@ -175,8 +176,12 @@ function ns.WeeklyList(parent)
 	return list
 end
 
-local page, list, grid, week
-local VIEWS = { { key = "week", text = "This week" }, { key = "chars", text = "Characters" }, { key = "profs", text = "Professions" } }
+local page, list, grid, week, tabViews
+local VIEWS = {
+	{ key = "week", text = "This week" }, { key = "factions", text = "Factions" },
+	{ key = "activities", text = "Activities" }, { key = "raids", text = "Raids" },
+	{ key = "chars", text = "Characters" }, { key = "profs", text = "Professions" },
+}
 
 -- The grid draws into its own scroll so the list's rows and the grid's cells never mix.
 local function NewGrid(parent)
@@ -311,11 +316,25 @@ local function Layout()
 		b.selected:SetShown(b.key == view)
 	end
 	local now = GetServerTime()
-	page.reset:SetText(ns.Weekly_ResetText(C_DateAndTime.GetSecondsUntilWeeklyReset(), now) or "")
+	-- The reset text gives way to the tabs on a narrow window: first the weekday and time go, then all of it.
+	local untilReset = C_DateAndTime.GetSecondsUntilWeeklyReset()
+	local room = page:GetWidth() - (page.tabsW or 0) - 28
+	page.reset:SetText(ns.Weekly_ResetText(untilReset, now) or "")
+	if page.reset:GetStringWidth() > room then
+		page.reset:SetText(untilReset and untilReset > 0 and ("Resets in " .. ns.Weekly_Duration(untilReset)) or "")
+	end
+	page.reset:SetShown(page.reset:GetStringWidth() <= room)
 	page.note:Hide()
 	list.scroll:SetShown(view == "profs")
 	grid.scroll:SetShown(view == "chars")
 	week.scroll:SetShown(false)
+	for key, tv in pairs(tabViews) do
+		tv.scroll:SetShown(key == view)
+	end
+	if tabViews[view] then
+		tabViews[view]:Render(tabViews[view].scroll:GetWidth())
+		return
+	end
 	if view == "week" then
 		local v = ns.Weekly_CurrentView()
 		if not v then
@@ -355,7 +374,8 @@ ns.WeeklyBoardPage = {
 		page.buttons = {}
 		local prev
 		for _, view in ipairs(VIEWS) do
-			local b = UI.Button(page, 100, view.text)
+			local b = UI.Button(page, 80, view.text)
+			b:SetWidth(math.max(math.ceil(b.label:GetUnboundedStringWidth()) + 22, 56))
 			b.key = view.key
 			b.selected = b:CreateTexture(nil, "ARTWORK")
 			b.selected:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.9)
@@ -372,6 +392,7 @@ ns.WeeklyBoardPage = {
 			end
 			prev = b
 			page.buttons[#page.buttons + 1] = b
+			page.tabsW = (page.tabsW or 0) + b:GetWidth() + 8
 		end
 		list = ns.WeeklyList(page)
 		list.scroll:SetPoint("TOPLEFT", 0, -30)
@@ -387,6 +408,21 @@ ns.WeeklyBoardPage = {
 		week.scroll:SetPoint("BOTTOMRIGHT", -8, 0)
 		week.scroll.onWidthChanged = function()
 			ns.WeeklyBoard_Refresh()
+		end
+		-- A view whose file isn't loaded is left out rather than breaking the board.
+		tabViews = {}
+		local makers = { factions = ns.WeeklyFactionsView, activities = ns.WeeklyActivitiesView, raids = ns.WeeklyRaidsView }
+		for key, make in pairs(makers) do
+			if make then
+				local tv = make(page)
+				tv.scroll:SetPoint("TOPLEFT", 0, -30)
+				tv.scroll:SetPoint("BOTTOMRIGHT", -8, 0)
+				tv.scroll:Hide()
+				tv.scroll.onWidthChanged = function()
+					ns.WeeklyBoard_Refresh()
+				end
+				tabViews[key] = tv
+			end
 		end
 		-- When the week resets, on every view.
 		page.reset = UI.Text(page, 13, GREY)

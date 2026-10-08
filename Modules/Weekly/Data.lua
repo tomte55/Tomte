@@ -401,17 +401,6 @@ local function Section(items, title, rows)
 	end
 end
 
-local function Renown(v)
-	local list = {}
-	for id, r in pairs(v.renown) do
-		list[#list + 1] = { id = id, r = r }
-	end
-	table.sort(list, function(a, b)
-		return (a.r.name or "") < (b.r.name or "")
-	end)
-	return list
-end
-
 local function CrestRows(v)
 	local rows = {}
 	for _, id in ipairs(ns.WEEKLY_CRESTS) do
@@ -429,16 +418,6 @@ local function CrestRows(v)
 	return rows
 end
 
--- "1,250"
-local function Thousands(n)
-	local text = tostring(floor(n or 0))
-	local replaced
-	repeat
-		text, replaced = text:gsub("^(%d+)(%d%d%d)", "%1,%2")
-	until replaced == 0
-	return text
-end
-
 -- "Resets in 11h 23m · Tue 05:00" (local time of the reset), or nil when the client gave no reset time.
 function ns.Weekly_ResetText(seconds, now)
 	if not seconds or seconds <= 0 then
@@ -453,8 +432,8 @@ local VAULT_UNITS = { raid = { "boss", "bosses" }, dungeons = { "dungeon", "dung
 
 -- "This week" on the board for the current character:
 -- { vaultReady, vault = { { key, label, slots, nextSlot, note, done } }, todo = items, progress = items }
--- todo: weekly quests (open first) and each profession's open knowledge sources; progress: renown (the bar is the
--- level out of max), crests and lockouts. Items use the row schema at the top of this file.
+-- todo: weekly quests (open first) and each profession's open knowledge sources; progress: crests and lockouts
+-- (renown is on the Factions tab). Items use the row schema at the top of this file.
 function ns.Weekly_BoardModel(v, learned, now, showLearned)
 	local model = { vaultReady = v.vaultReady, vault = {}, todo = {}, progress = {} }
 	for _, track in ipairs(ns.WEEKLY_TRACKS) do
@@ -515,27 +494,6 @@ function ns.Weekly_BoardModel(v, learned, now, showLearned)
 	end
 
 	local progress = model.progress
-	local renown = {}
-	for _, entry in ipairs(Renown(v)) do
-		local r = entry.r
-		local maxed = r.max and r.level >= r.max
-		local toNext = not maxed and r.threshold and r.threshold > 0
-			and ("%s / %s to %d"):format(Thousands(r.earned), Thousands(r.threshold), r.level + 1) or nil
-		local frac
-		if maxed then
-			frac = 1
-		elseif r.max and r.max > 0 then
-			frac = min(r.level / r.max, 1)
-		elseif r.threshold and r.threshold > 0 then
-			frac = min((r.earned or 0) / r.threshold, 1)
-		end
-		renown[#renown + 1] = {
-			left = r.name or ("Faction " .. entry.id), note = toNext,
-			right = maxed and "max" or (r.max and ("%d / %d"):format(r.level, r.max) or ("level %d"):format(r.level)),
-			state = maxed and "gold" or "open", frac = frac,
-		}
-	end
-	Section(progress, "Renown", renown)
 	Section(progress, "Crests", CrestRows(v))
 	local lockouts = {}
 	for _, l in ipairs(v.lockouts) do
