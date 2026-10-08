@@ -343,6 +343,12 @@ local function RegisterBaganator()
 		if not (module.active and db.baganator and link) then
 			return false
 		end
+		-- Baganator asks for every item on every refresh. Anything that isn't gear stops here: Evaluate would build a
+		-- context and read the item's tooltip, and items without stats are never cached, so they'd be read every time.
+		local equipLoc = select(4, C_Item.GetItemInfoInstant(link))
+		if not (equipLoc and ns.Gear_Slots(equipLoc)) then
+			return false
+		end
 		return ns.Gear_IsCleanUpgrade(Evaluate(link))
 	end
 	-- The upgrade plugin only feeds Baganator's "upgrade" search and category; the arrow is a corner widget. Items

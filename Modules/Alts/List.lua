@@ -191,6 +191,8 @@ function ns.AltsList_Todos()
 	return cache
 end
 
+local MarksChanged -- Baganator marks, below
+
 function ns.AltsList_Changed()
 	cache = nil
 	guidByName = nil
@@ -206,7 +208,9 @@ function ns.AltsList_Changed()
 		if ns.AltsSend_Refresh then
 			ns.AltsSend_Refresh()
 		end
-		if Baganator and Baganator.API and Baganator.API.RequestItemButtonsRefresh and db.listBaganator then
+		-- A full Baganator refresh runs every corner widget and upgrade plugin on every item: only when our marks moved.
+		if Baganator and Baganator.API and Baganator.API.RequestItemButtonsRefresh and db.listBaganator
+			and MarksChanged() then
 			Baganator.API.RequestItemButtonsRefresh()
 		end
 	end)
@@ -505,6 +509,27 @@ local function Marked()
 		marked, markedFor = ns.Alts_MarkedItems(todos), todos
 	end
 	return marked
+end
+
+-- Whether the marks differ from the ones the item buttons last showed (and remembers the new ones).
+local shownMarks
+function MarksChanged()
+	local now, before = Marked(), shownMarks
+	shownMarks = now
+	if not before then
+		return true
+	end
+	for itemID, n in pairs(now) do
+		if before[itemID] ~= n then
+			return true
+		end
+	end
+	for itemID in pairs(before) do
+		if not now[itemID] then
+			return true
+		end
+	end
+	return false
 end
 
 local function RegisterBaganator()
