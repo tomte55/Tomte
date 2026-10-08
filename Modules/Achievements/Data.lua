@@ -188,10 +188,11 @@ function ns.Ach_Passes(record, settings, ctx)
 			return false
 		end
 	end
-	if not RewardPasses(record, settings.reward, ctx.rewardInfo) then
+	-- Threshold first: the reward lookup asks several journals, and most records are below it.
+	if record.percent < settings.threshold then
 		return false
 	end
-	return record.percent >= settings.threshold
+	return RewardPasses(record, settings.reward, ctx.rewardInfo)
 end
 
 local function ByName(a, b)

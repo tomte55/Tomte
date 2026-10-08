@@ -13,6 +13,7 @@ local GEM_TEXT = LINE.GemSocketEnchantment
 local SKIP_RED = { [LINE.ItemName] = true, [LINE.FlavorText] = true, [LINE.ItemSpellTriggerLearn] = true }
 local EQUIP_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 }
 local MAX_CACHE = 1000
+local UNREAD_GRACE = 10 -- seconds an item without stats is read again before it's taken as it is
 local EFFECT_CHARS = 60
 
 local BAGS = { 0, 1, 2, 3, 4 } -- backpack and the four bags (gear never goes in the reagent bag)
@@ -21,6 +22,7 @@ local cache, cacheSize = {}, 0
 local equipped -- slot -> descriptor; nil when it has to be rebuilt
 local bagGear -- descriptors of the gear in the bags; nil when it has to be rebuilt
 local waiting = false -- something we asked for hasn't loaded yet
+local unreadSince = {} -- [link] = when it was first read without stats
 
 local function Secret(v)
 	return issecretvalue ~= nil and issecretvalue(v)
@@ -121,13 +123,20 @@ function ns.GearItems_Describe(link)
 	end
 	-- No stats at all (not even armor) is usually a read before the item's bonus data arrived: use it, but read it
 	-- again next time instead of keeping it.
+	-- Some gear really has no stats (cosmetic armor): after UNREAD_GRACE it's kept as it is, or every bag refresh
+	-- and every burst of item data would read it again.
 	if not next(desc.stats) then
-		desc.unread = true
-		waiting = true
-		return desc
+		local now = GetTime()
+		unreadSince[link] = unreadSince[link] or now
+		if now - unreadSince[link] < UNREAD_GRACE then
+			desc.unread = true
+			waiting = true
+			return desc
+		end
 	end
 	if cacheSize >= MAX_CACHE then
 		wipe(cache)
+		wipe(unreadSince)
 		cacheSize = 0
 	end
 	cache[link] = desc

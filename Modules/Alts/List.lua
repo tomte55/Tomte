@@ -16,7 +16,9 @@ local LINE_H = 15
 local MAX_LINES = 6 -- per craft in the tracker
 local DEFAULT_POINT = { "TOPRIGHT", "TOPRIGHT", -40, -260 }
 local BAGANATOR_ID = "tomte_craftlist"
-local CACHE = 1 -- seconds the to-do is kept before it's worked out again
+-- Seconds the to-do is kept. AltsList_Changed drops it on bag, bank, mail, craft and recipe changes; this only
+-- catches what has no event (item names and prices arriving). The rail polls the pill every second.
+local CACHE = 15
 local LINE_COLORS = {
 	grab = WHITE, collect = WHITE, take = WHITE, mail = WHITE, fetch = WHITE, missing = RED, craft = GOLD,
 	ready = GREEN, wait = GREY, other = GREY,
@@ -153,7 +155,7 @@ function ns.Alts_RecipeLabel(recipeID, size)
 	return Icon(r and r.icon, size) .. InQuality(RecipeName(recipeID), r and r.item)
 end
 
--- Every tracked craft's to-do for the character you're on (cached for a second).
+-- Every tracked craft's to-do for the character you're on (cached, see CACHE).
 function ns.AltsList_Todos()
 	if not (db and ns.altsDB) then
 		return {}
@@ -163,6 +165,10 @@ function ns.AltsList_Todos()
 		return cache
 	end
 	local alts = ns.altsDB
+	if #alts.list == 0 then
+		cache, cacheAt = {}, now
+		return cache
+	end
 	local producers = ns.Alts_Producers(alts.recipes)
 	local ok, todos = xpcall(ns.Alts_ListTodo, function(err)
 		return ns.errorHandler(err)
@@ -386,13 +392,15 @@ local function Build()
 	frame.mover = mover
 end
 
-local function WantShown(todos)
+-- The checks that don't need the to-do, so a hidden tracker never works it out.
+local function MayShow()
 	if not (ns.altsModule and ns.altsModule.active and db.tracker.shown) then
 		return false
 	end
-	if db.tracker.hideInCombat and inCombat then
-		return false
-	end
+	return not (db.tracker.hideInCombat and inCombat)
+end
+
+local function WantShown(todos)
 	if not db.tracker.locked then
 		return true
 	end
@@ -415,8 +423,8 @@ function ns.AltsList_Refresh()
 	if not db then
 		return
 	end
-	local todos = ns.AltsList_Todos()
-	if not WantShown(todos) then
+	local todos = MayShow() and ns.AltsList_Todos()
+	if not (todos and WantShown(todos)) then
 		if frame then
 			frame:Hide()
 		end

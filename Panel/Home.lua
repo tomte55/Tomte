@@ -933,6 +933,10 @@ local function CreateRailRow(parent, onSelect)
 	SetColor(row.pill.text, GOLD)
 	row.pill:Hide()
 	function row:SetPill(text, tip)
+		if self.pillSet and text == self.pillText and tip == self.pillTipGiven then
+			return -- polled every second: only lay out a change
+		end
+		self.pillSet, self.pillText, self.pillTipGiven = true, text, tip
 		self.pillTip = text ~= "" and tip or nil
 		self.pill:SetShown(text ~= "")
 		self.text:SetPoint("RIGHT", self, "RIGHT", -6, 0)

@@ -98,13 +98,16 @@ function ns.Value_ItemPrice(item, bound)
 		return nil
 	end
 	local _, _, _, _, _, _, _, _, _, _, sell, _, _, bindType = C_Item.GetItemInfo(item)
+	local category = ns.Value_Category(classID)
+	bound = bound or bindType == 1 -- Enum.ItemBind.OnAcquire
+	-- Value_Pick ignores the auction price of bound items and of gear unless gear is priced at auction: don't ask.
 	local auction, stale
-	if db.source ~= "vendor" then
+	if db.source ~= "vendor" and not bound and not (category == "gear" and db.gear ~= "auction") then
 		auction, stale = AuctionPrice(itemID, link)
 	end
 	local price, kind = ns.Value_Pick({
-		category = ns.Value_Category(classID),
-		bound = bound or bindType == 1, -- Enum.ItemBind.OnAcquire
+		category = category,
+		bound = bound,
 		auction = auction,
 		vendor = sell,
 	}, db.gear)
@@ -251,6 +254,9 @@ function events:BANKFRAME_OPENED()
 end
 
 function events:BANKFRAME_CLOSED()
+	if worthTimer then
+		worthTimer:Cancel() -- read now instead
+	end
 	ReadWorth() -- the bank's contents are still readable now
 	bankOpen = false
 end

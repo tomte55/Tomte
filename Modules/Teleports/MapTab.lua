@@ -332,8 +332,27 @@ local function ViewedMapNames()
 	return ns.Tp_MapNames(mapID)
 end
 
+-- IsVisible: the tab stays selected (and shown) while the map is closed; bag and spell events mustn't redraw it then.
+-- [mapNames][text] = whether it goes there: matching every entry against every name under a continent is a lot of
+-- string work, and the answer only changes with the map.
+local mentions = setmetatable({}, { __mode = "k" })
+local function Mentions(text, mapNames)
+	if not text then
+		return false
+	end
+	local known = mentions[mapNames]
+	if not known then
+		known = {}
+		mentions[mapNames] = known
+	end
+	if known[text] == nil then
+		known[text] = ns.Tp_Mentions(text, mapNames.names)
+	end
+	return known[text]
+end
+
 function Refresh()
-	if not panel or not panel:IsShown() then
+	if not panel or not panel:IsVisible() then
 		return
 	end
 	Detach()
@@ -346,7 +365,7 @@ function Refresh()
 	local entries = ns.Tp_Entries(db)
 	for _, e in ipairs(entries) do
 		e.favorite = db.favorites[e.key] == true
-		e.here = mapNames ~= nil and ns.Tp_Mentions(e.dest or e.desc, mapNames.names)
+		e.here = mapNames ~= nil and Mentions(e.dest or e.desc, mapNames)
 		e.pinPos = mapNames and ns.Tp_PinPosition(e, mapNames) or nil
 	end
 	local hidden = {}
@@ -415,6 +434,10 @@ local function Build()
 	if not panel then
 		return
 	end
+	-- Reopening the map on the same map isn't a map change: redraw what was skipped while it was closed.
+	panel:HookScript("OnShow", function()
+		Refresh()
+	end)
 	panel.note = UI.Text(panel, 11, GREY)
 	panel.note:SetPoint("TOPLEFT", panel.title, "BOTTOMLEFT", 0, -4)
 	panel.note:SetPoint("RIGHT", -10, 0)

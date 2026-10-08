@@ -71,8 +71,17 @@ local function ContextFor(spec, guid, class)
 		ns.GearItems_Gems(scales.gems))
 end
 
+-- This character's context, kept until RefreshBags (spec, level, weights, items arrived): Baganator and tooltips ask
+-- for one per item. Not kept while the gems load (no best gem yet), like Alts.lua does.
+local ownCtx
 local function Context()
-	return ContextFor(Spec())
+	local spec = Spec()
+	if ownCtx and spec and ownCtx.spec.id == spec.id then
+		return ownCtx
+	end
+	local ctx = ContextFor(spec)
+	ownCtx = ctx and ctx.best and ctx or nil
+	return ctx
 end
 
 -- The class's other specs, for off-spec verdicts.
@@ -95,7 +104,9 @@ local function Evaluate(link, ctx)
 		return nil
 	end
 	ctx.specOK = cand.specs == nil or cand.specs[ctx.spec.id] == true
-	return ns.Gear_Evaluate(cand, equipped, ctx), cand, equipped
+	local verdict = ns.Gear_Evaluate(cand, equipped, ctx)
+	ctx.specOK = nil -- the context is shared: don't let this item's answer reach the next one
+	return verdict, cand, equipped
 end
 
 -- For other modules (World quests): the context to judge many items with (nil while Gear Check is off or there's
@@ -329,6 +340,7 @@ end
 -- Baganator
 
 local function RefreshBags()
+	ownCtx = nil
 	if Baganator and Baganator.API and Baganator.API.RequestItemButtonsRefresh then
 		Baganator.API.RequestItemButtonsRefresh()
 	end
@@ -694,8 +706,7 @@ local function PrintSpecs()
 	ns.Print(bad == 0 and "every spec matches Scales.lua." or (bad .. " to check."))
 end
 
--- For the character sheet panel (Sheet.lua) and the upgrade reveal (Reveal.lua).
-ns.Gear_Context = Context
+-- ns.Gear_Context (above, nil while Gear Check is off) is for the character sheet panel and the upgrade reveal too.
 -- For judging gear for another character: ns.Gear_ContextFor({ id, name, primary }, guid, classToken).
 ns.Gear_ContextFor = ContextFor
 -- Another character's context from Alts' stored snapshot (chars[guid]: specID, spec, primary, class token); nil

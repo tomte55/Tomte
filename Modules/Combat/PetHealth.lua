@@ -189,7 +189,7 @@ end)
 
 local UNIT_EVENTS = { "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_FLAGS" }
 local EVENTS = {
-	"PLAYER_ENTERING_WORLD", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "UNIT_PET",
+	"PLAYER_ENTERING_WORLD", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
 	"SPELL_UPDATE_COOLDOWN", "PLAYER_SPECIALIZATION_CHANGED", "UNIT_ENTERED_VEHICLE", "UNIT_EXITED_VEHICLE",
 	"PET_BATTLE_OPENING_START", "PET_BATTLE_CLOSE", "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST",
 	"PLAYER_MOUNT_DISPLAY_CHANGED",
@@ -250,6 +250,7 @@ local function Start()
 		events:RegisterUnitEvent(event, "pet")
 	end
 	events:RegisterUnitEvent("UNIT_AURA", "pet")
+	events:RegisterUnitEvent("UNIT_PET", "player") -- not every raid member's pet
 	previewDriver:SetShown(not db.frame.locked)
 	if ns.inWorld then
 		events:PLAYER_ENTERING_WORLD()

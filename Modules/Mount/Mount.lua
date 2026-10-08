@@ -164,6 +164,27 @@ end
 -- The G-99 Breakneck's spell name when you can call it here (Undermine): its zone ability, or the journal mount of
 -- that name if it's usable. Matched by name because neither has a stable ID we can check against.
 local G99_PATTERN = "^G%-99"
+local G99_RECHECK = 60 -- seconds before looking through the journal again when it isn't collected
+local g99Mount, g99LookedAt -- its journal ID once found
+local function G99Mount()
+	if g99Mount then
+		return g99Mount
+	end
+	local now = GetTime()
+	if g99LookedAt and now - g99LookedAt < G99_RECHECK then
+		return nil
+	end
+	g99LookedAt = now
+	for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
+		local name, _, _, _, _, _, _, _, _, _, isCollected = C_MountJournal.GetMountInfoByID(mountID)
+		if name and isCollected and name:find(G99_PATTERN) then
+			g99Mount = mountID
+			return mountID
+		end
+	end
+	return nil
+end
+
 local function G99Spell()
 	for _, ability in ipairs(C_ZoneAbility.GetActiveAbilities() or {}) do
 		local name = C_Spell.GetSpellName(ability.spellID)
@@ -171,11 +192,13 @@ local function G99Spell()
 			return name
 		end
 	end
-	for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
-		local name, spellID, _, _, isUsable, _, _, _, _, _, isCollected = C_MountJournal.GetMountInfoByID(mountID)
-		if name and isCollected and isUsable and name:find(G99_PATTERN) and C_MountJournal.GetMountUsabilityByID(mountID, true) then
-			return C_Spell.GetSpellName(spellID) or name
-		end
+	local mountID = G99Mount()
+	if not mountID then
+		return nil
+	end
+	local name, spellID, _, _, isUsable = C_MountJournal.GetMountInfoByID(mountID)
+	if name and isUsable and C_MountJournal.GetMountUsabilityByID(mountID, true) then
+		return C_Spell.GetSpellName(spellID) or name
 	end
 	return nil
 end

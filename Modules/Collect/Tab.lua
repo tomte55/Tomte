@@ -254,7 +254,7 @@ end
 -- Layout --------------------------------------------------------------------------------------------------------
 
 function Refresh()
-	if not panel or not panel:IsShown() then
+	if not panel or not panel:IsVisible() then -- the tab stays shown while the map is closed
 		return
 	end
 	-- Only our own tooltip goes (map pins use GameTooltip too); it comes back for the hovered row below. The model

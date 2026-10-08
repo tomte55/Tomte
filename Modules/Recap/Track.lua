@@ -187,7 +187,8 @@ local function NoteUnit(unit)
 		return
 	end
 	if UnitCanAttack("player", unit) and not UnitIsDead(unit) then
-		AddCandidate(guid, UnitName(unit))
+		local name = UnitName(unit)
+		AddCandidate(guid, Readable(name) and name or nil)
 	end
 end
 

@@ -11,6 +11,8 @@ local RAID_H, BOSS_H, DOT, COL_W = 30, 24, 10, 52
 local CIRCLE = "Interface\\CHARACTERFRAME\\TempPortraitAlphaMask"
 
 local raids -- read once per session
+local partial, partialAt -- an incomplete read, kept a few seconds so redraws don't touch the journal each time
+local RETRY = 5
 
 local function MuteJournal()
 	local journal = EncounterJournal
@@ -28,6 +30,9 @@ end
 local function ReadRaids()
 	if raids then
 		return raids
+	end
+	if partial and GetTime() - partialAt < RETRY then
+		return partial
 	end
 	local list, complete = {}, true
 	MuteJournal()
@@ -56,6 +61,8 @@ local function ReadRaids()
 	-- Journal data can be missing right after login; only keep a full read.
 	if complete then
 		raids = list
+	else
+		partial, partialAt = list, GetTime()
 	end
 	return list
 end

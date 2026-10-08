@@ -310,10 +310,17 @@ local function StepScan()
 			prof.unspent = ReadUnspent(scan.line) or prof.unspent
 		end
 		lastScan[scan.line] = GetTime()
-		ns.Print(("Alts: read %d recipes from %s (%d new or updated)."):format(#scan.ids,
-			scan.lineName or "this profession", scan.updated))
+		-- The window re-reads every RESCAN_AFTER while open: only say so (and redraw) when it found something, on
+		-- the first read or when asked to.
+		local tell = scan.updated > 0 or scan.force or scan.first
+		if tell then
+			ns.Print(("Alts: read %d recipes from %s (%d new or updated)."):format(#scan.ids,
+				scan.lineName or "this profession", scan.updated))
+		end
 		StopScan()
-		ns.Alts_RecipesChanged()
+		if tell then
+			ns.Alts_RecipesChanged()
+		end
 	end
 end
 
@@ -358,7 +365,8 @@ local function StartScan(force)
 	if #ids == 0 then
 		return ("none of the %d recipes belong to skill line %d"):format(#all, line)
 	end
-	scan = { ids = ids, i = 1, prof = prof, line = line, lineName = child and child.professionName or nil, updated = 0 }
+	scan = { ids = ids, i = 1, prof = prof, line = line, lineName = child and child.professionName or nil, updated = 0,
+		force = force, first = not lastScan[line] }
 	scan.ticker = C_Timer.NewTicker(0, StepScan)
 	return nil, #ids, child and child.professionName
 end

@@ -14,6 +14,7 @@ local GetCategoryNumAchievements = GetCategoryNumAchievements
 local BUDGET_MS = 4 -- work per frame
 local WATCH_MARGIN = 20 -- percent below the threshold that's still watched
 local DEBOUNCE = 1 -- seconds after the last CRITERIA_UPDATE
+local MIN_GAP = 5 -- seconds between re-reads of the watched achievements (CRITERIA_UPDATE fires all the time)
 local CRITERIA_TYPE_ACHIEVEMENT = 8
 local SKIPPED_TOP = { [81] = true, [15234] = true } -- Feats of Strength, Legacy: can't be done
 
@@ -345,13 +346,21 @@ local function WatchedIDs()
 	return ids
 end
 
+-- One re-read pending at a time: a steady stream of updates can't keep pushing it back.
+local lastRecalc = 0
 function ns.Ach_OnCriteriaUpdate()
 	if debounceTimer then
-		debounceTimer:Cancel()
+		return
 	end
-	debounceTimer = C_Timer.NewTimer(DEBOUNCE, function()
+	local wait = math.max(DEBOUNCE, MIN_GAP - (GetTime() - lastRecalc))
+	debounceTimer = C_Timer.NewTimer(wait, function()
 		debounceTimer = nil
+		if InCombatLockdown() then
+			ns.Ach_OnCriteriaUpdate() -- after the fight
+			return
+		end
 		if ready and not scan then
+			lastRecalc = GetTime()
 			RecalculateMany(WatchedIDs())
 		end
 	end)

@@ -5,7 +5,7 @@ local addonName, ns = ...
 -- debounced to one per second. Each part is read on its own, so one failing API leaves the others working.
 -- Weekly.lua starts and stops it; ns.Weekly_Changed runs after every refresh.
 
-local DEBOUNCE = 1
+local DEBOUNCE = 3 -- currency and loot events come in bursts while farming; one full read per burst
 local RESET_SLACK = 30 -- seconds after the weekly reset before reading again
 
 local db, guid

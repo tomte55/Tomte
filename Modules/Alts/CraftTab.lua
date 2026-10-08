@@ -38,7 +38,11 @@ local function Names(chars, limit)
 	return table.concat(parts, ", ")
 end
 
--- Item names load on demand; the tab redraws once a missing one arrives.
+-- Item names load on demand; the tab redraws once a batch of missing ones has arrived.
+local redrawSoon = ns.UI.Debounce(0.2, function()
+	ns.AltsCraft_Refresh()
+end)
+
 local function ItemName(itemID)
 	local name = C_Item.GetItemNameByID(itemID)
 	if name then
@@ -48,7 +52,7 @@ local function ItemName(itemID)
 		loading[itemID] = true
 		Item:CreateFromItemID(itemID):ContinueOnItemLoad(function()
 			loading[itemID] = nil
-			ns.AltsCraft_Refresh()
+			redrawSoon()
 		end)
 	end
 	return ("item %d"):format(itemID)

@@ -165,12 +165,21 @@ function ns.WeeklyFactionsView(parent)
 	view.none:SetPoint("TOPLEFT", 16, -16)
 	view.none:SetText("No renown factions unlocked for this character's expansion yet.")
 
+	-- Rings of another size wait in spare[size] for a layout that needs them again.
+	local spare = {}
 	local function Ring(i, size)
 		local ring = view.rings[i]
-		if not ring or ring.size ~= size then
-			if ring then
-				ring:Hide()
-			end
+		if ring and ring.size ~= size then
+			ring:Hide()
+			spare[ring.size] = spare[ring.size] or {}
+			table.insert(spare[ring.size], ring)
+			ring = nil
+		end
+		if not ring and spare[size] and #spare[size] > 0 then
+			ring = table.remove(spare[size])
+			view.rings[i] = ring
+		end
+		if not ring then
 			ring = ns.WeeklyRing_Create(c, size)
 			ring.size = size
 			ring:SetScript("OnEnter", function(self)

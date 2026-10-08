@@ -231,6 +231,8 @@ function ns.WayMarker_SetAlpha(alpha)
 	holder:SetAlpha(alpha)
 end
 
+local anchoredTo -- the navigation frame the far and card views are anchored to (AnchorTo below)
+
 function ns.WayMarker_Hide()
 	if holder then
 		anchoredTo = nil -- a new navigation frame may come with the next target
@@ -255,7 +257,6 @@ end
 -- Far and card views are anchored straight to Blizzard's navigation frame, so the layout engine keeps them on it
 -- in the same frame the engine moves it (reading GetCenter and copying it lags a frame behind camera turns).
 -- Re-anchored only when the navigation frame changes.
-local anchoredTo
 local function AnchorTo(navFrame)
 	if anchoredTo == navFrame then
 		return
@@ -291,8 +292,14 @@ function ns.WayMarker_Show(state, navFrame, sx, sy, footer, distanceText, scale)
 			far.footer:SetText(footer or "")
 		end
 	elseif state == "card" then
-		card:SetScale(db.scale)
-		card.distance:SetText(distanceText or "")
+		if card.lastScale ~= db.scale then
+			card.lastScale = db.scale
+			card:SetScale(db.scale)
+		end
+		if card.lastDistance ~= distanceText then
+			card.lastDistance = distanceText
+			card.distance:SetText(distanceText or "")
+		end
 	elseif state == "offscreen" then
 		local w, h = holder:GetSize()
 		local hs = holder:GetEffectiveScale()

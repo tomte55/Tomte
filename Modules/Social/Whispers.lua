@@ -26,6 +26,7 @@ local SAMPLES = {
 }
 
 local module
+local MAX_RESTRICTED = 50 -- instance whispers kept this session
 local restricted = { key = RESTRICTED, name = "In instance", restricted = true, unread = 0, messages = {} }
 local bnTokens = {} -- [conversation key] = this session's |K account name, for replies
 local recapUp = false -- the unread card is showing
@@ -303,6 +304,9 @@ local function Incoming(info)
 	if info.secret then
 		local messages = restricted.messages
 		messages[#messages + 1] = { at = time(), text = info.text, sender = info.name }
+		if #messages > MAX_RESTRICTED then
+			table.remove(messages, 1)
+		end
 		restricted.last = time()
 		if not viewing then
 			restricted.unread = restricted.unread + 1
@@ -323,7 +327,9 @@ end
 
 function events:CHAT_MSG_WHISPER(text, sender, _, _, _, flags, _, _, _, _, _, guid)
 	if not Readable(text, sender) then
-		Incoming({ key = RESTRICTED, name = Ambiguate(sender, "short"), text = text, secret = true })
+		-- Ambiguate on a secret sender isn't known to be allowed: fall back to the full name.
+		local ok, short = pcall(Ambiguate, sender, "short")
+		Incoming({ key = RESTRICTED, name = ok and short or sender, text = text, secret = true })
 		return
 	end
 	local class

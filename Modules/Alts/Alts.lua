@@ -145,6 +145,7 @@ function ns.Alts_RecipesChanged()
 	ns.AltsCraft_Refresh()
 	ns.AltsRoster_Refresh()
 	ns.AltsProfTab_Refresh()
+	ns.AltsList_Changed() -- the to-do's plans use the recipes
 end
 
 -- Tooltip --------------------------------------------------------------------------------------------------

@@ -142,7 +142,9 @@ function ns.WeeklyRing_Create(parent, size)
 	function ring:SetGlow(on)
 		self.glow:SetShown(on)
 		if on then
-			self.pulse:Play()
+			if not self.pulse:IsPlaying() then -- a redraw mustn't restart it
+				self.pulse:Play()
+			end
 		else
 			self.pulse:Stop()
 		end

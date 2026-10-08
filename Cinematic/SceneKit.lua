@@ -52,7 +52,7 @@ end
 
 -- "Now flying to" -> "N O W   F L Y I N G   T O"
 function ns.Spaced(text)
-	return (text:upper():gsub(".", "%0 "):sub(1, -2))
+	return (text:upper():gsub("[%z\1-\127\194-\244][\128-\191]*", "%0 "):sub(1, -2)) -- whole UTF-8 characters
 end
 
 -- A 1px gold line that fades out to both ends. Returns the left half; anchor that.
