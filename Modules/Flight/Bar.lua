@@ -93,7 +93,8 @@ local function OnUpdate(self)
 end
 
 local function ShowPreview()
-	ns.Bar_Start("Drag me, then /tomte flight lock", PREVIEW_SECONDS, false, GetTime(), PREVIEW_STOPS)
+	local text = ns.EditMode_Active() and "Flight Timer" or "Drag me, then /tomte flight lock"
+	ns.Bar_Start(text, PREVIEW_SECONDS, false, GetTime(), PREVIEW_STOPS)
 	active.preview = true
 end
 
@@ -216,7 +217,7 @@ function ns.Bar_Stop()
 	end
 	active = nil
 	bar.pulse:Stop()
-	if ns.flightDB.frame.locked then
+	if ns.flightDB.frame.locked and not ns.EditMode_Active() then
 		bar.fadeIn:Stop()
 		bar.fadeOut:Play()
 	else
@@ -253,4 +254,26 @@ function ns.Bar_SetLocked(locked)
 	elseif not active then
 		ShowPreview()
 	end
+end
+
+-- Edit Mode opened (on) or closed: the preview while it's open, unless a real flight is showing.
+function ns.Bar_EditMode(on)
+	if on then
+		if not bar then
+			CreateBar()
+		end
+		if not active or active.preview then
+			ShowPreview()
+		end
+	elseif bar and active and active.preview then
+		ns.Bar_Stop() -- fades out when locked, else back to the unlocked preview
+	end
+end
+
+function ns.Bar_Frame()
+	return bar
+end
+
+function ns.Bar_SavePosition()
+	SavePosition()
 end

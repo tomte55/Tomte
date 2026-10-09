@@ -491,6 +491,17 @@ local AROUND = {
 	end,
 }
 
+ns.EditMode_Register({
+	name = "Flight Timer",
+	frame = ns.Bar_Frame,
+	refresh = function()
+		if module.active then
+			ns.Bar_EditMode(ns.EditMode_Active())
+		end
+	end,
+	saved = ns.Bar_SavePosition,
+})
+
 module = ns.RegisterModule({
 	key = "flight",
 	name = "Flight Timer",
@@ -546,7 +557,7 @@ module = ns.RegisterModule({
 	options = {
 		{ type = "header", label = "Timer" },
 		{ type = "checkbox", key = "frame.locked", label = "Lock timer bar",
-			tooltip = "Unlock to drag the timer bar somewhere else.",
+			tooltip = "Unlock to drag the timer bar somewhere else. Blizzard's Edit Mode moves it too.",
 			onChange = function(value)
 				if module.active then
 					ns.Bar_SetLocked(value)

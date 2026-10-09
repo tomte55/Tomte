@@ -44,10 +44,15 @@ local function PetHurt()
 	return health < max
 end
 
+-- Locked, and Blizzard's Edit Mode isn't open (it shows the preview too).
+local function Locked()
+	return db.frame.locked and not ns.EditMode_Active()
+end
+
 local function Situation()
 	local hasPet = UnitExists("pet")
 	return {
-		unlocked = not db.frame.locked,
+		unlocked = not Locked(),
 		hasPet = hasPet,
 		dead = hasPet and PetDead(),
 		hurt = hasPet and PetHurt() or nil,
@@ -215,7 +220,7 @@ function events:PLAYER_ENTERING_WORLD()
 end
 
 function events:UNIT_AURA()
-	if bar and bar:IsShown() and UnitExists("pet") and (db.frame.locked or inCombat) then
+	if bar and bar:IsShown() and UnitExists("pet") and (Locked() or inCombat) then
 		bar:RefreshBuff("pet")
 	end
 end
@@ -251,7 +256,7 @@ local function Start()
 	end
 	events:RegisterUnitEvent("UNIT_AURA", "pet")
 	events:RegisterUnitEvent("UNIT_PET", "player") -- not every raid member's pet
-	previewDriver:SetShown(not db.frame.locked)
+	previewDriver:SetShown(not Locked())
 	if ns.inWorld then
 		events:PLAYER_ENTERING_WORLD()
 	end
@@ -268,12 +273,29 @@ end
 
 local function SetLocked(locked)
 	db.frame.locked = locked
-	previewDriver:SetShown(not locked)
+	previewDriver:SetShown(not Locked())
 	if bar then
 		bar:SetLocked(locked)
 	end
 	Update()
 end
+
+ns.EditMode_Register({
+	name = "Pet Health",
+	frame = function()
+		return bar
+	end,
+	refresh = function()
+		if module.active then
+			previewDriver:SetShown(not Locked())
+			Update()
+		end
+	end,
+	saved = function()
+		local point, _, relPoint, x, y = bar:GetPoint()
+		SavePosition(point, relPoint, x, y)
+	end,
+})
 
 local function Relayout()
 	if bar then
@@ -357,7 +379,7 @@ module = ns.RegisterModule({
 	options = {
 		{ type = "header", label = "Bar" },
 		{ type = "checkbox", key = "frame.locked", label = "Lock pet bar", onChange = SetLocked,
-			tooltip = "Unlock to drag the bar. While unlocked it shows a preview that sweeps through the colors and the warning glow." },
+			tooltip = "Unlock to drag the bar. While unlocked it shows a preview that sweeps through the colors and the warning glow. Blizzard's Edit Mode moves it too." },
 		{ type = "dropdown", key = "visibility", label = "Show", choices = function()
 			return VISIBILITY
 		end, onChange = Update,

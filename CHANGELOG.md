@@ -5,6 +5,10 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Blizzard's Edit Mode moves Tomte's widgets too: the Almost Done tracker, the Crafting list, the Flight Timer bar,
+  the Pet Health bar and the toasts show with a blue box while it's open, ready to drag. The Lock options and
+  unlock commands still work.
+
 ## v1.1.0 - 2026-10-09
 
 Works whatever expansion you own, plus resets, forgetting old characters and fixes for non-English clients. The

@@ -10,6 +10,7 @@
 
 Core/Core.lua
 Core/Modules.lua
+Core/EditMode.lua
 Core/SessionData.lua
 Core/Session.lua
 Core/Content.lua

@@ -424,7 +424,7 @@ module = ns.RegisterModule({
 		end },
 		{ type = "checkbox", key = "tracker.locked", label = "Lock the tracker", onChange = function()
 			ns.AltsList_Refresh()
-		end, tooltip = "Unlocked, it shows (also when empty) and can be dragged." },
+		end, tooltip = "Unlocked, it shows (also when empty) and can be dragged. Blizzard's Edit Mode moves it too." },
 		{ type = "slider", key = "tracker.scale", label = "Tracker scale", min = 0.6, max = 1.6, step = 0.05,
 			format = function(v)
 				return ("%d%%"):format(v * 100 + 0.5)

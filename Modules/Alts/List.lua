@@ -401,7 +401,7 @@ local function MayShow()
 end
 
 local function WantShown(todos)
-	if not db.tracker.locked then
+	if not db.tracker.locked or ns.EditMode_Active() then
 		return true
 	end
 	if #todos == 0 then
@@ -435,7 +435,7 @@ function ns.AltsList_Refresh()
 		Place()
 	end
 	frame:SetScale(db.tracker.scale or 1)
-	frame.mover:SetShown(not db.tracker.locked)
+	frame.mover:SetShown(not db.tracker.locked and not ns.EditMode_Active())
 	local y = TITLE_H
 	for i, t in ipairs(todos) do
 		local b = Block(i)
@@ -499,6 +499,17 @@ function ns.AltsList_Refresh()
 	frame:SetHeight(y + 4)
 	frame:Show()
 end
+
+ns.EditMode_Register({
+	name = "Crafting list",
+	frame = function()
+		return frame
+	end,
+	refresh = function()
+		ns.AltsList_Refresh()
+	end,
+	saved = SavePoint,
+})
 
 function ns.AltsList_ResetPosition()
 	db.tracker.point = nil

@@ -65,6 +65,11 @@ local function OffscreenOffset()
 	return toRight + WIDTH
 end
 
+-- Being placed: the handle is up, or Blizzard's Edit Mode is open. Cards wait and the stack stays put.
+local function Moving()
+	return (mover and mover:IsShown()) or ns.EditMode_Active()
+end
+
 local function SavePoint()
 	local point, _, relativePoint, x, y = anchor:GetPoint(1)
 	ns.db.toast.point = { point, relativePoint, x, y }
@@ -384,7 +389,7 @@ end
 
 -- x offset that moves the stack beside any panel covering it: away from the screen edge the stack sits at.
 local function DodgeOffset()
-	if #shown == 0 or mover:IsShown() then
+	if #shown == 0 or Moving() then
 		return 0
 	end
 	local left, top = anchor:GetLeft(), anchor:GetTop()
@@ -488,7 +493,7 @@ function OnUpdate(dt)
 			if card.leaving >= FADE_OUT then
 				Remove(card)
 			end
-		elseif not card.pinKey and not card.hovered and not mover:IsShown() then
+		elseif not card.pinKey and not card.hovered and not Moving() then
 			card.age = card.age + dt
 			if card.age >= card.life then
 				Dismiss(card)
@@ -499,7 +504,7 @@ function OnUpdate(dt)
 		Place(table.remove(queue, 1))
 	end
 	Layout(dt)
-	if #shown == 0 and #held == 0 and #queue == 0 and not mover:IsShown() then
+	if #shown == 0 and #held == 0 and #queue == 0 and not Moving() then
 		anchor:Hide()
 	end
 end
@@ -618,6 +623,30 @@ function ns.Toast_Unlock(unlock)
 	end
 end
 
+-- A sample card while Edit Mode is open (straight to the screen: not a toast for Recent).
+ns.EditMode_Register({
+	name = "Toasts",
+	frame = function()
+		return anchor
+	end,
+	refresh = function()
+		if ns.EditMode_Active() then
+			Ensure()
+			anchor:Show()
+			if Unpinned() == 0 then
+				Display({ owner = "editmode", label = "Toast", title = "Sample", text = "Toasts show up here." })
+			end
+		elseif anchor then
+			ns.Toast_Clear("editmode")
+		end
+	end,
+	saved = SavePoint,
+	place = function(box, frame)
+		box:SetPoint("TOPLEFT", frame, "TOPLEFT")
+		box:SetSize(WIDTH, 70)
+	end,
+})
+
 function ns.Toast_ResetPosition()
 	ns.db.toast.point = nil
 	if anchor then
@@ -646,7 +675,7 @@ function ns.Toast_Options(options)
 	options[#options + 1] = { type = "header", label = "Toast position" }
 	options[#options + 1] = { type = "button", label = "Move toasts", text = "Unlock", onClick = function()
 		ns.Toast_Unlock()
-	end, tooltip = "Show a handle above the toasts: drag it to move them, right-click it (or click this again) to lock. Shared by all social modules." }
+	end, tooltip = "Show a handle above the toasts: drag it to move them, right-click it (or click this again) to lock. Shared by all social modules. Blizzard's Edit Mode moves them too." }
 	options[#options + 1] = { type = "button", label = "Reset position", text = "Reset", onClick = ns.Toast_ResetPosition,
 		tooltip = "Put the toasts back on the left side of the screen, above the chat." }
 	return options

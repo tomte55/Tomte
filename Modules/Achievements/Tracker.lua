@@ -210,9 +210,21 @@ function ns.AchTracker_Apply(combat)
 		return
 	end
 	frame:SetScale(db.scale)
-	frame.mover:SetShown(not db.locked)
+	local editMode = ns.EditMode_Active()
+	frame.mover:SetShown(not db.locked and not editMode)
 	local hasRows = (frame.count or 0) > 0
-	local show = active and db.shown and (hasRows or not db.locked)
+	local show = active and db.shown and (hasRows or not db.locked or editMode)
 		and not (db.hideInCombat and inCombat)
 	frame:SetShown(show)
 end
+
+ns.EditMode_Register({
+	name = "Almost Done",
+	frame = function()
+		return frame
+	end,
+	refresh = function()
+		ns.AchTracker_Apply()
+	end,
+	saved = SavePoint,
+})

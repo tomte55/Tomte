@@ -494,7 +494,7 @@ module = ns.RegisterModule({
 		end, tooltip = "Pinned achievements first, then the closest ones." },
 		{ type = "checkbox", key = "tracker.locked", label = "Locked", onChange = function()
 			ns.AchTracker_Apply()
-		end, tooltip = "Unlock to drag the tracker." },
+		end, tooltip = "Unlock to drag the tracker. Blizzard's Edit Mode moves it too." },
 		{ type = "checkbox", key = "tracker.hideInCombat", label = "Hide in combat", onChange = function()
 			ns.AchTracker_Apply()
 		end },
