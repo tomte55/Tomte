@@ -38,8 +38,9 @@ local function Ctx(me, places)
 		pool = ns.Alts_Pool(function(itemID)
 			return places[itemID] or {}
 		end),
-		plan = function(recipeID, crafts, count)
-			return ns.Alts_Plan(recipeID, crafts, { recipes = recipes, chars = chars, producers = producers, count = count, maxDepth = 3 })
+		plan = function(recipeID, crafts, count, entry)
+			return ns.Alts_Plan(recipeID, crafts, { recipes = recipes, chars = chars, producers = producers, count = count,
+				maxDepth = 3, ranks = entry and entry.ranks })
 		end,
 		itemName = function(id)
 			return ({ [HERB] = "Herb", [ORE] = "Ore", [INGOT] = "Ingot" })[id] or tostring(id)
@@ -160,6 +161,54 @@ test("mail plan and attach plan", function()
 	eq(#whole, 2)
 	eq(whole[2].split, nil)
 	eq(ns.Alts_MarkedItems({ todo })[HERB], 10)
+end)
+
+test("list add keeps and replaces the picked quality and ranks", function()
+	local list = {}
+	local ranks = { ["1,2"] = 2 }
+	ns.Alts_ListAdd(list, 1, 1, 0, { quality = 3, ranks = ranks })
+	eq(list[1].quality, 3)
+	eq(list[1].ranks["1,2"], 2)
+	ranks["1,2"] = 1
+	eq(list[1].ranks["1,2"], 2, "copied, not shared")
+	ns.Alts_ListAdd(list, 1, 2, 0)
+	eq(list[1].quality, 3, "adding without picks keeps them")
+	eq(list[1].crafts, 3)
+	ns.Alts_ListAdd(list, 1, 1, 0, { quality = nil, ranks = {} })
+	eq(list[1].quality, nil, "new picks replace them")
+	eq(list[1].ranks, nil)
+end)
+
+test("set a rank on every craft that uses the slot", function()
+	local list = { { recipeID = 1, crafts = 1 }, { recipeID = 2, crafts = 1 }, { recipeID = 3, crafts = 1, ranks = { k = 7 } } }
+	local n = ns.Alts_ListSetRank(list, "k", 9, function(e)
+		return e.recipeID ~= 2
+	end)
+	eq(n, 2)
+	eq(list[1].ranks.k, 9)
+	eq(list[2].ranks, nil)
+	eq(list[3].ranks.k, 9)
+	ns.Alts_ListSetRank(list, "k", nil, function()
+		return true
+	end)
+	eq(list[1].ranks, nil, "cleared to any rank")
+end)
+
+test("a picked rank: the to-do counts only that rank and still finds the crafter", function()
+	local HERB2 = 101
+	local saved = recipes[3]
+	recipes[3] = { name = "Bar", base = 1, item = BAR, qMin = 1, reagents = { { items = { HERB, HERB2 }, qty = 10 } } }
+	local ctx = Ctx("Main", {
+		[HERB] = { { guid = "Main", where = "bags", n = 30 } },
+		[HERB2] = { { guid = "Main", where = "bags", n = 4 } },
+	})
+	local todo = ns.Alts_CraftTodo({ recipeID = 3, crafts = 1, ranks = { [HERB .. "," .. HERB2] = HERB2 } }, ctx)
+	recipes[3] = saved
+	local mail = Find(todo, "mail")
+	eq(mail.itemID, HERB2, "mails rank 2")
+	eq(mail.n, 4)
+	eq(mail.to, "Alch", "to the crafter")
+	eq(Find(todo, "missing").n, 6, "6 more of rank 2")
 end)
 
 if failures > 0 then

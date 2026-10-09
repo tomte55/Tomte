@@ -8,7 +8,8 @@ local addonName, ns = ...
 --                   specID, primary and gear are for Gear Check's upgrades for alts (Gear/Alts.lua).
 --                   profGear = { [invSlot] = itemLink } (worn profession tools and accessories, slots 20-30), profGearAt.
 --   recipes[id]   = { name, line (expansion skill line), base (profession skill line), item, qMin, qMax, out =
---                     { link at the lowest quality, at the highest } (gear and tools, Collect.lua),
+--                     { link at the lowest quality, at the highest } (gear and tools, Collect.lua), outQ = { link
+--                     at each quality, lowest first } (gear and tools), nq (how many qualities, nil for one),
 --                     reagents = { { items = { itemID, ... (quality ranks) }, qty } } }
 -- A plan answers "what does it take to craft this recipe with what the account has": a shopping list of materials
 -- (needed, have, missing) and the crafts in order, crafted materials worked out from other known recipes.
@@ -242,13 +243,28 @@ local function PickProducer(itemIDs, producers, recipes, chars, stack)
 	return fallback
 end
 
+-- The rank picked for a reagent slot: its item ID and position, nil for any rank. ranks = { [slot key] = itemID }.
+local function PickedRank(ranks, items)
+	local itemID = ranks and ranks[SlotKey(items)]
+	if itemID then
+		for i, id in ipairs(items) do
+			if id == itemID then
+				return itemID, i
+			end
+		end
+	end
+	return nil
+end
+
 -- Builds the plan to craft `crafts` times recipeID.
 -- ctx = { recipes, chars, producers (Alts_Producers), count = function(itemIDs) -> total the account has,
---         maxDepth (ALTS_FULL_DEPTH or 1) }
+--         maxDepth (ALTS_FULL_DEPTH or 1), ranks = { [slot key] = itemID } (optional: a reagent's chosen rank) }
+-- A slot with a chosen rank is a material of that item alone, apart from the same reagent at any rank.
 -- Returns {
---   materials = { { items, name?, need, have, missing, crafted = recipeID?, top = true when the recipe itself uses
---                   it, craftShort = units its craft makes } },  -- in first-seen order
---   steps     = { { recipeID, crafts, crafters = { char }, learnable = { char } } }, -- do them in this order
+--   materials = { { items, slot (the slot's full rank list), name?, need, have, missing, crafted = recipeID?,
+--                   top = true when the recipe itself uses it, craftShort = units its craft makes } },  -- first-seen order
+--   steps     = { { recipeID, crafts, crafters = { char }, learnable = { char }, quality = the rank its material was
+--                   picked at (nil: any) } }, -- do them in this order
 --   missing   = total units still missing (0 = everything can be made), unknown = steps nobody knows yet }
 function ns.Alts_Plan(recipeID, crafts, ctx)
 	local materials, byKey = {}, {}
@@ -258,18 +274,21 @@ function ns.Alts_Plan(recipeID, crafts, ctx)
 	local stepFor, subs = {}, {} -- [recipeID] = step; [recipeID] = { sub recipeIDs } in first-use order
 	local plan = { materials = materials, steps = steps, missing = 0, unknown = 0 }
 
-	local function Material(items)
-		local key = SlotKey(items)
+	local function Material(slotItems)
+		local picked = PickedRank(ctx.ranks, slotItems)
+		local items = picked and { picked } or slotItems
+		-- A picked rank keeps its slot in the key: the same item can be a slot of its own elsewhere in the chain.
+		local key = picked and (SlotKey(slotItems) .. "=" .. picked) or SlotKey(items)
 		local m = byKey[key]
 		if not m then
-			m = { items = items, need = 0, have = ctx.count(items) or 0, missing = 0 }
+			m = { items = items, slot = slotItems, need = 0, have = ctx.count(items) or 0, missing = 0 }
 			byKey[key] = m
 			materials[#materials + 1] = m
 		end
 		return m, key
 	end
 
-	local function Craft(id, n, depth, stack)
+	local function Craft(id, n, depth, stack, quality)
 		local recipe = ctx.recipes[id]
 		stack[id] = true
 		for _, slot in ipairs(recipe and recipe.reagents or {}) do
@@ -284,6 +303,7 @@ function ns.Alts_Plan(recipeID, crafts, ctx)
 			reserved[key] = (reserved[key] or 0) + use
 			local short = need - use
 			if short > 0 then
+				-- By the slot's full rank list: recipes are indexed by the item they make, not each rank of it.
 				local sub = depth < ctx.maxDepth and PickProducer(slot.items, ctx.producers, ctx.recipes, ctx.chars, stack)
 				if sub then
 					m.crafted = sub
@@ -293,7 +313,7 @@ function ns.Alts_Plan(recipeID, crafts, ctx)
 					reserved[key] = reserved[key] + short
 					subs[id] = subs[id] or {}
 					table.insert(subs[id], sub)
-					Craft(sub, count, depth + 1, stack)
+					Craft(sub, count, depth + 1, stack, (select(2, PickedRank(ctx.ranks, slot.items))))
 				else
 					m.missing = m.missing + short
 					plan.missing = plan.missing + short
@@ -304,10 +324,13 @@ function ns.Alts_Plan(recipeID, crafts, ctx)
 		local step = stepFor[id]
 		if step then
 			step.crafts = step.crafts + n
+			if quality and (step.quality or 0) < quality then
+				step.quality = quality -- made at two ranks: the higher one
+			end
 			return
 		end
 		local known, learnable = ns.Alts_Crafters(ctx.chars, recipe, id)
-		stepFor[id] = { recipeID = id, crafts = n, crafters = known, learnable = learnable }
+		stepFor[id] = { recipeID = id, crafts = n, crafters = known, learnable = learnable, quality = quality }
 		if #known == 0 then
 			plan.unknown = plan.unknown + 1
 		end
@@ -868,6 +891,38 @@ function ns.Alts_Upgrade(lo, hi, target)
 		return "top", hi - target.ilvl
 	end
 	return "no", hi - target.ilvl
+end
+
+-- Crafting quality ------------------------------------------------------------------------------------------------
+
+-- How many qualities a recipe can be crafted at (1 when it has none).
+function ns.Alts_Qualities(recipe)
+	return max(recipe and recipe.nq or 1, recipe and recipe.outQ and #recipe.outQ or 1)
+end
+
+-- A quality the recipe has: q (1, 2, ...) brought within the recipe's qualities; nil for "any" (nil or "range").
+function ns.Alts_ClampQuality(recipe, q)
+	q = tonumber(q)
+	if not q then
+		return nil
+	end
+	return min(max(floor(q), 1), ns.Alts_Qualities(recipe))
+end
+
+-- The links to compare a craft by: lo, hi = the output at the lowest and highest quality, or both at quality q
+-- (Alts_ClampQuality) once every quality's link has been read. Third value: true when q was applied.
+function ns.Alts_QualityLinks(recipe, q)
+	local out = recipe and recipe.out
+	if not out then
+		return nil, nil, false
+	end
+	q = ns.Alts_ClampQuality(recipe, q)
+	local all = recipe.outQ
+	if q and all and #all > 0 then
+		local link = all[min(q, #all)]
+		return link, link, true
+	end
+	return out[1], out[2], false
 end
 
 ---------------------------------------------------------------------------------------------------------------

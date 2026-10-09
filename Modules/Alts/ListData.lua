@@ -12,17 +12,52 @@ local max, min = math.max, math.min
 
 -- List ------------------------------------------------------------------------------------------------------------
 
--- Adds crafts of a recipe (to the existing entry when it's listed already). Returns the entry.
-function ns.Alts_ListAdd(list, recipeID, crafts, now)
+-- The quality and reagent ranks picked for a craft, copied ({ quality, ranks }, both optional).
+local function Choices(e, choice)
+	e.quality = choice.quality
+	local ranks
+	for key, itemID in pairs(choice.ranks or {}) do
+		ranks = ranks or {}
+		ranks[key] = itemID
+	end
+	e.ranks = ranks
+end
+
+-- Adds crafts of a recipe (to the existing entry when it's listed already). choice (optional) = { quality, ranks }
+-- replaces the entry's picks. Returns the entry.
+function ns.Alts_ListAdd(list, recipeID, crafts, now, choice)
 	for _, e in ipairs(list) do
 		if e.recipeID == recipeID then
 			e.crafts = e.crafts + max(crafts or 1, 1)
+			if choice then
+				Choices(e, choice)
+			end
 			return e
 		end
 	end
 	local e = { recipeID = recipeID, crafts = max(crafts or 1, 1), added = now }
+	if choice then
+		Choices(e, choice)
+	end
 	list[#list + 1] = e
 	return e
+end
+
+-- Sets (itemID) or clears (nil) a reagent slot's rank on every listed craft whose plan uses that slot.
+-- uses(entry) -> true when the entry's plan has the slot. Returns how many entries changed.
+function ns.Alts_ListSetRank(list, slotKey, itemID, uses)
+	local n = 0
+	for _, e in ipairs(list) do
+		if uses(e) then
+			e.ranks = e.ranks or {}
+			e.ranks[slotKey] = itemID
+			if next(e.ranks) == nil then
+				e.ranks = nil
+			end
+			n = n + 1
+		end
+	end
+	return n
 end
 
 function ns.Alts_ListRemove(list, recipeID)
@@ -144,7 +179,8 @@ local function SlotKey(items)
 	return table.concat(items, ",")
 end
 
--- [slotKey] = the step (and so the crafter) that uses this material first.
+-- [slotKey] = the step (and so the crafter) that uses this material first (by the slot's full rank list, the
+-- material's `slot`).
 function ns.Alts_StepOf(plan, recipes)
 	local out = {}
 	for _, step in ipairs(plan.steps) do
@@ -168,8 +204,8 @@ local function FetchText(t, name)
 end
 
 -- One tracked craft: its plan, where the materials come from, and the to-do lines for `me`.
--- ctx = { me, chars, recipes, plan = function(recipeID, crafts, count) -> plan, pool, itemName(itemID),
---         recipeName(recipeID), price(itemID) -> copper | nil (optional), gold(copper) -> text }
+-- ctx = { me, chars, recipes, plan = function(recipeID, crafts, count, entry) -> plan, pool, itemName(itemID, noRank),
+--         recipeName(recipeID, quality?), price(itemID) -> copper | nil (optional), gold(copper) -> text }
 -- Line kinds: "grab" (your bank), "collect" (your mail), "take" (Warband bank), "mail" (from your bags to the
 -- crafter), "fetch" (your bank or mail, then mail it), "other" (someone else has it), "missing", "craft" (a step
 -- someone does), "ready" (you can craft it now), "wait" (the crafter crafts it, not you).
@@ -177,7 +213,7 @@ function ns.Alts_CraftTodo(entry, ctx)
 	local pool = ctx.pool
 	local plan = ctx.plan(entry.recipeID, entry.crafts, function(items)
 		return ns.Alts_PoolTotal(pool, items)
-	end)
+	end, entry)
 	local stepOf = ns.Alts_StepOf(plan, ctx.recipes)
 	local final = plan.steps[#plan.steps]
 	local finalCrafter = CrafterOf(final)
@@ -187,7 +223,7 @@ function ns.Alts_CraftTodo(entry, ctx)
 		return {
 			entry = entry, plan = { materials = {}, steps = plan.steps, missing = 0, unknown = 0 },
 			lines = { { kind = "ready", mine = true,
-				text = ("%s done: remove it from the list"):format(ctx.recipeName(entry.recipeID)) } },
+				text = ("%s done: remove it from the list"):format(ctx.recipeName(entry.recipeID, entry.quality)) } },
 			crafter = finalCrafter, inPlace = 0, needed = 0, done = true,
 		}
 	end
@@ -202,7 +238,7 @@ function ns.Alts_CraftTodo(entry, ctx)
 	end
 
 	for _, m in ipairs(plan.materials) do
-		local step = stepOf[SlotKey(m.items)]
+		local step = stepOf[SlotKey(m.slot or m.items)]
 		local dest = CrafterOf(step) or finalCrafter
 		-- The part that comes from what we have (a crafted shortfall is made by its own step).
 		local fromStock = m.crafted and min(m.have, m.need) or (m.need - m.missing)
@@ -251,21 +287,21 @@ function ns.Alts_CraftTodo(entry, ctx)
 			outstanding = outstanding + m.missing
 			local price = ctx.price and ctx.price(m.items[1])
 			Add({ kind = "missing", itemID = m.items[1], n = m.missing,
-				text = ("Get %d %s%s"):format(m.missing, ctx.itemName(m.items[1]),
+				text = ("Get %d %s%s"):format(m.missing, ctx.itemName(m.items[1], #m.items > 1),
 					price and (" (~%s)"):format(ctx.gold(price * m.missing)) or ""), mine = true })
 		end
 	end
 	for _, step in ipairs(plan.steps) do
 		if step ~= final then
 			local crafter = CrafterOf(step)
-			local what = ("%d %s"):format(step.crafts, ctx.recipeName(step.recipeID))
+			local what = ("%d %s"):format(step.crafts, ctx.recipeName(step.recipeID, step.quality))
 			Add({ kind = "craft", recipeID = step.recipeID, mine = crafter == me, nobody = crafter == nil,
 				text = crafter == me and ("Craft %s first"):format(what)
 					or crafter and ("%s: craft %s first"):format(Name(crafter), what)
 					or ("Nobody knows how to craft %s"):format(what) })
 		end
 	end
-	local finalText = ("%d %s"):format(entry.crafts, ctx.recipeName(entry.recipeID))
+	local finalText = ("%d %s"):format(entry.crafts, ctx.recipeName(entry.recipeID, entry.quality))
 	if outstanding == 0 and #plan.steps <= 1 then
 		Add({ kind = finalCrafter == me and "ready" or "wait", mine = finalCrafter == me,
 			text = finalCrafter == me and ("Ready: craft %s"):format(finalText)

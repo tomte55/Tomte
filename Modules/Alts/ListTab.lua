@@ -149,6 +149,34 @@ local function CreateCard(parent)
 	card.count:SetPoint("RIGHT", card.plus, "LEFT", -2, 0)
 	card.minus = StepButton(card, "-", "One less")
 	card.minus:SetPoint("RIGHT", card.count, "LEFT", -2, 0)
+	-- Quality, for recipes with more than one: at the end of the crafter's line.
+	card.quality = UI.Dropdown(card, 112)
+	card.quality:SetHeight(20)
+	card.quality:SetPoint("TOPRIGHT", -10, -28)
+	card.quality.getValue = function()
+		local r = ns.altsDB.recipes[card.entry.recipeID]
+		return ns.Alts_ClampQuality(r, card.entry.quality) or 0
+	end
+	card.quality.setValue = function(value)
+		card.entry.quality = value ~= 0 and value or nil
+		ns.AltsList_Changed()
+	end
+	card.quality.choices = function()
+		local id = card.entry.recipeID
+		local list = { { value = 0, text = "Any quality" } }
+		for q = 1, ns.Alts_Qualities(ns.altsDB.recipes[id]) do
+			list[#list + 1] = { value = q, text = ("%s Quality %d"):format(ns.Alts_QualityMarkup(id, q), q) }
+		end
+		return list
+	end
+	card.quality:HookScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		GameTooltip:SetText("Quality", 1, 1, 1)
+		GameTooltip:AddLine("The quality you mean to make, shown with the craft here and in the tracker.", GREY[1], GREY[2],
+			GREY[3], true)
+		GameTooltip:Show()
+	end)
+	card.quality:HookScript("OnLeave", GameTooltip_Hide)
 	card.value = UI.Text(card, 12, GREY)
 	card.value:SetPoint("LEFT", card, "BOTTOMLEFT", 10, 22) -- level with the buttons' middle
 	card.value:SetPoint("RIGHT", card.minus, "LEFT", -12, 0)
@@ -189,7 +217,7 @@ local function CreateCard(parent)
 	card:SetScript("OnLeave", GameTooltip_Hide)
 	card:SetScript("OnMouseUp", function(self, button)
 		if button == "LeftButton" then
-			ns.AltsCraft_Open(self.entry.recipeID)
+			ns.AltsCraft_Open(self.entry.recipeID, nil, self.entry)
 		end
 	end)
 	return card
@@ -222,8 +250,18 @@ local function PlaceCard(i, t, x, y, w)
 	local r = ns.altsDB.recipes[entry.recipeID]
 	card.entry = entry
 	card.icon:SetTexture(r and r.icon or 134400) -- the question mark
-	card.name:SetText(ns.Alts_RecipeLabel(entry.recipeID))
+	card.name:SetText(ns.Alts_RecipeLabel(entry.recipeID, nil, entry.quality))
 	card.count:SetText(entry.crafts)
+	local hasQuality = ns.Alts_Qualities(r) > 1
+	card.quality:SetShown(hasQuality)
+	if hasQuality then
+		card.crafter:SetPoint("TOPRIGHT", card.quality, "TOPLEFT", -10, -4) -- the dropdown's top is 4 above the text's
+	else
+		card.crafter:SetPoint("TOPRIGHT", -10, -32)
+	end
+	if hasQuality then
+		card.quality:Refresh()
+	end
 	local status, color = Status(t)
 	card.status:SetText(status)
 	SetColor(card.status, color)
@@ -234,7 +272,8 @@ local function PlaceCard(i, t, x, y, w)
 	local before = #t.plan.steps - 1
 	if before == 1 then
 		local step = t.plan.steps[1]
-		crafter = crafter .. ("  ·  %d %s first"):format(step.crafts, RecipeName(step.recipeID))
+		crafter = crafter .. ("  ·  %d %s first"):format(step.crafts, step.quality
+			and ns.Alts_RecipeLabel(step.recipeID, nil, step.quality) or RecipeName(step.recipeID))
 	elseif before > 1 then
 		crafter = crafter .. ("  ·  %d crafts first"):format(before)
 	end
@@ -286,31 +325,37 @@ end
 
 -- Shopping (right) -----------------------------------------------------------------------------------------------
 
--- [itemID] = quality rank, from every recipe slot with more than one rank.
-local function Ranks()
-	local rank = {}
-	for _, r in pairs(ns.altsDB.recipes) do
-		for _, slot in ipairs(r.reagents or {}) do
-			if #slot.items > 1 then
-				for i, itemID in ipairs(slot.items) do
-					rank[itemID] = i
-				end
+-- Right-click on a ranked material: its rank for every craft on the list that uses it (Alts_ListSetRank).
+local function RankMenu(row)
+	local slot = row.agg.slot
+	local key = table.concat(slot, ",")
+	local users = {} -- [entry] = true: the crafts whose plan has this slot
+	for _, t in ipairs(ns.AltsList_Todos()) do
+		for _, m in ipairs(t.plan.materials) do
+			if m.slot and table.concat(m.slot, ",") == key then
+				users[t.entry] = true
 			end
 		end
 	end
-	return rank
-end
-
--- The rank icon Blizzard puts in chat links, or "R2" when the atlas isn't there.
-local RANK_ATLASES = { "Professions-ChatIcon-Quality-Tier%d", "Professions-Icon-Quality-Tier%d-Small" }
-local function RankMarkup(rank)
-	for _, fmt in ipairs(RANK_ATLASES) do
-		local atlas = fmt:format(rank)
-		if C_Texture.GetAtlasInfo(atlas) then
-			return CreateAtlasMarkup(atlas, 16, 16)
+	local current = #row.agg.items == 1 and row.agg.items[1] or 0
+	MenuUtil.CreateContextMenu(row, function(_, root)
+		root:CreateTitle("Use which rank? (every craft on the list)")
+		local function IsSelected(itemID)
+			return current == itemID
 		end
-	end
-	return ("|cff9e9e9eR%d|r"):format(rank)
+		local function Select(itemID)
+			ns.Alts_ListSetRank(ns.altsDB.list, key, itemID ~= 0 and itemID or nil, function(e)
+				return users[e]
+			end)
+			ns.AltsList_Changed()
+		end
+		root:CreateRadio("Any rank", IsSelected, Select, 0)
+		for i, itemID in ipairs(slot) do
+			local mark = ns.Alts_RankMarkup(itemID)
+			root:CreateRadio(("%s %s"):format(mark ~= "" and mark or ("Rank %d"):format(i),
+				C_Item.GetItemNameByID(itemID) or ("item " .. itemID)), IsSelected, Select, itemID)
+		end
+	end)
 end
 
 local function CreateMatRow(parent)
@@ -356,12 +401,18 @@ local function CreateMatRow(parent)
 				GameTooltip:AddDoubleLine(w.name, w.n, r, g, b, 1, 1, 1)
 			end
 		end
+		if self.agg.slot then
+			GameTooltip:AddLine(" ")
+			GameTooltip:AddLine("Right-click: choose the rank for the whole list", GREY[1], GREY[2], GREY[3])
+		end
 		GameTooltip:Show()
 	end)
 	row:SetScript("OnLeave", GameTooltip_Hide)
 	row:SetScript("OnMouseUp", function(self, button)
 		if button == "LeftButton" and not InCombatLockdown() then
 			ns.AltsList_Search(self.agg.itemID)
+		elseif button == "RightButton" and self.agg and self.agg.slot then
+			RankMenu(self)
 		end
 	end)
 	return row
@@ -375,7 +426,8 @@ local function Materials(todos)
 			local key = table.concat(m.items, ",")
 			local agg = byKey[key]
 			if not agg then
-				agg = { itemID = m.items[1], items = m.items, need = 0, missing = 0, order = #list + 1 }
+				agg = { itemID = m.items[1], items = m.items, need = 0, missing = 0, order = #list + 1,
+					slot = m.slot and #m.slot > 1 and m.slot or nil }
 				byKey[key] = agg
 				list[#list + 1] = agg
 			end
@@ -421,23 +473,14 @@ local function PlaceShopping(todos, x, y, w)
 	tableHead:Show()
 	y = y + MAT_H - 4
 
-	-- Two rows of one item (a single rank somewhere, any rank elsewhere) say which is which.
-	local ranks = Ranks()
-	local nameCount = {}
-	for _, agg in ipairs(list) do
-		local name = C_Item.GetItemNameByID(agg.itemID) or agg.itemID
-		nameCount[name] = (nameCount[name] or 0) + 1
-	end
-
 	local buy, complete, missingCount = 0, true, 0
 	for i, agg in ipairs(list) do
 		local row = matRows[i] or CreateMatRow(content)
 		matRows[i] = row
 		row.agg = agg
-		local label = ns.Alts_ItemLabel(agg.itemID, 16)
-		if #agg.items == 1 and ranks[agg.itemID] then
-			label = label .. " " .. RankMarkup(ranks[agg.itemID])
-		elseif #agg.items > 1 and nameCount[C_Item.GetItemNameByID(agg.itemID) or agg.itemID] > 1 then
+		-- A ranked material shows its rank, or "any rank".
+		local label = ns.Alts_ItemLabel(agg.itemID, 16, #agg.items > 1)
+		if #agg.items > 1 and agg.slot then
 			label = label .. " |cff9e9e9e(any rank)|r"
 		end
 		row.name:SetText(label)

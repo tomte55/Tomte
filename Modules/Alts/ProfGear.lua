@@ -128,25 +128,42 @@ local function Index()
 	return index
 end
 
--- The best craft somebody knows for c's tool or accessory slot of a profession: { recipeID, lo, hi, mark, gain },
--- nil when none is an upgrade (or c's profession gear or the item levels haven't been read).
+-- The quality crafted gear is compared at ("Compare crafted gear at"): 1, 2, ... or nil for the range.
+function ns.AltsProf_GearQuality()
+	return tonumber(ns.altsDB and ns.altsDB.gearQuality)
+end
+
+-- The best craft somebody knows for c's tool or accessory slot of a profession: { recipeID, lo, hi, mark, gain,
+-- quality (the quality lo and hi are at, nil: the range) }, nil when none is an upgrade (or c's profession gear or
+-- the item levels haven't been read).
 function ns.AltsProf_BestCraft(c, base, kind)
 	local target = ns.AltsProf_Target(c, base, kind)
 	if not target then
 		return nil
 	end
 	local db = ns.altsDB
+	local q = ns.AltsProf_GearQuality()
 	local cands = {}
 	for _, id in ipairs(Index()[base .. ":" .. kind] or {}) do
 		local r = db.recipes[id]
-		if r.out then
-			local lo, hi = ns.AltsItem_Ilvl(r.out[1]), ns.AltsItem_Ilvl(r.out[2])
+		local loLink, hiLink, exact = ns.Alts_QualityLinks(r, q)
+		if loLink then
+			local lo, hi = ns.AltsItem_Ilvl(loLink), ns.AltsItem_Ilvl(hiLink)
 			if lo and hi then
-				cands[#cands + 1] = { recipeID = id, lo = lo, hi = hi, known = ns.Alts_RecipeStatus(db.chars, r, id) == "known" }
+				cands[#cands + 1] = { recipeID = id, lo = lo, hi = hi, known = ns.Alts_RecipeStatus(db.chars, r, id) == "known",
+					quality = exact and ns.Alts_ClampQuality(r, q) or nil }
 			end
 		end
 	end
-	return ns.Alts_BestProfCraft(cands, target)
+	local best = ns.Alts_BestProfCraft(cands, target)
+	if best then
+		for _, cand in ipairs(cands) do
+			if cand.recipeID == best.recipeID then
+				best.quality = cand.quality
+			end
+		end
+	end
+	return best
 end
 
 -- Whether the account has every material for one craft of a recipe and somebody knows each step.
@@ -214,11 +231,13 @@ local function ProfName(c, base)
 	return c.profs and c.profs[base] and c.profs[base].name or "?"
 end
 
--- "an upgrade at every quality (+12 item level)", "an upgrade at the higher qualities (up to +12 item level)",
--- "fills an empty slot".
+-- "an upgrade at every quality (+12 item level)", "an upgrade at quality 3 (+12 item level)", "an upgrade at the
+-- higher qualities (up to +12 item level)", "fills an empty slot".
 local function UpgradeText(best)
 	if best.mark == "empty" then
 		return "fills an empty slot"
+	elseif best.mark == "sure" and best.quality then
+		return ("an upgrade at quality %d (+%d item level)"):format(best.quality, best.gain)
 	elseif best.mark == "sure" then
 		return ("an upgrade at every quality (+%d item level)"):format(best.gain)
 	end

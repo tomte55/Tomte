@@ -84,10 +84,12 @@ local function ShowProfTooltip(row)
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddLine(("Better %s: %s"):format(b.kind == "tool" and "tool" or "accessory", recipe.name or "?"), GOLD[1],
 			GOLD[2], GOLD[3])
-		GameTooltip:AddLine(("Item level %d-%d by quality: %s."):format(b.best.lo, b.best.hi, ns.AltsProf_UpgradeText(b.best)),
-			1, 1, 1, true)
-		for _, line in ipairs(ns.AltsItem_StatLines(recipe.out and recipe.out[2])) do
-			GameTooltip:AddLine("   " .. line .. " (highest quality)", 0.8, 0.8, 0.8)
+		local ilvl = b.best.quality and ("Item level %d at quality %d"):format(b.best.hi, b.best.quality)
+			or ("Item level %d-%d by quality"):format(b.best.lo, b.best.hi)
+		GameTooltip:AddLine(("%s: %s."):format(ilvl, ns.AltsProf_UpgradeText(b.best)), 1, 1, 1, true)
+		local _, link = ns.Alts_QualityLinks(recipe, b.best.quality)
+		for _, line in ipairs(ns.AltsItem_StatLines(link)) do
+			GameTooltip:AddLine("   " .. line .. (b.best.quality and "" or " (highest quality)"), 0.8, 0.8, 0.8)
 		end
 	end
 	GameTooltip:AddLine(" ")
@@ -218,11 +220,33 @@ end
 
 function ns.AltsProfTab_Create(frame, altsDB)
 	tab, db = frame, altsDB
+	-- Compare at: the "Compare crafted gear at" setting.
+	tab.quality = UI.Dropdown(tab, 180)
+	tab.quality:SetPoint("TOPRIGHT", -8, -4)
+	tab.quality.getValue = function()
+		return db.gearQuality
+	end
+	tab.quality.setValue = function(value)
+		db.gearQuality = value
+		ns.Alts_GearQualityChanged()
+	end
+	tab.quality.choices = ns.Alts_GearQualityChoices
+	tab.quality:HookScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Compare crafted gear at")
+		GameTooltip:AddLine("The crafting quality you expect to make. Every quality shows the range: green is an upgrade "
+			.. "even at the lowest, yellow only at the higher ones. Also the \"Gear for\" marks and Next up.", 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	tab.quality:HookScript("OnLeave", GameTooltip_Hide)
+	tab.qualityLabel = UI.Text(tab, 12, GREY)
+	tab.qualityLabel:SetPoint("RIGHT", tab.quality, "LEFT", -8, 0)
+	tab.qualityLabel:SetText("Compare crafts at")
 	tab.scroll = UI.Scroll(tab)
-	tab.scroll:SetPoint("TOPLEFT", 0, -4)
+	tab.scroll:SetPoint("TOPLEFT", 0, -32)
 	tab.scroll:SetPoint("BOTTOMRIGHT", -8, 0)
 	tab.hint = UI.Text(tab, 12, GREY)
-	tab.hint:SetPoint("TOPLEFT", 4, -8)
+	tab.hint:SetPoint("TOPLEFT", 4, -36)
 	tab.hint:SetPoint("RIGHT", -8, 0)
 	tab.hint:SetWordWrap(true)
 	tab.hint:SetText("No character with a profession yet. Log in on each one once; Tomte reads their professions and the "
@@ -231,6 +255,7 @@ end
 
 function ns.AltsProfTab_Refresh()
 	if tab and tab:IsVisible() then
+		tab.quality:Refresh()
 		Layout()
 	end
 end

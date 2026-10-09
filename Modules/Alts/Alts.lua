@@ -142,10 +142,25 @@ function ns.Alts_RecipesChanged()
 	recipesByName = nil
 	ns.AltsCraft_RecipesChanged()
 	ns.AltsProf_RecipesChanged()
+	ns.AltsList_RecipesChanged()
 	ns.AltsCraft_Refresh()
 	ns.AltsRoster_Refresh()
 	ns.AltsProfTab_Refresh()
 	ns.AltsList_Changed() -- the to-do's plans use the recipes
+end
+
+-- "Compare crafted gear at" (the setting, and the Profession gear tab's dropdown).
+function ns.Alts_GearQualityChoices()
+	local list = { { value = "range", text = "Every quality (a range)" } }
+	for q = 1, 5 do
+		list[#list + 1] = { value = q, text = ("Quality %d"):format(q) }
+	end
+	return list
+end
+
+function ns.Alts_GearQualityChanged()
+	ns.AltsCraft_Refresh()
+	ns.AltsProfTab_Refresh()
 end
 
 -- Tooltip --------------------------------------------------------------------------------------------------
@@ -305,6 +320,7 @@ module = ns.RegisterModule({
 		view = "craft",
 		chain = "full",
 		crafts = 1,
+		gearQuality = "range", -- crafted gear compared at: range (every quality) | 1..5
 		roster = "compact",
 		sort = "level",
 		tooltip = true,
@@ -395,6 +411,14 @@ module = ns.RegisterModule({
 			return { { value = "full", text = "Full chain" }, { value = "one", text = "One step" } }
 		end, tooltip = "How far the Crafting tab works out crafted materials: all the way down to what you gather, "
 			.. "or only the recipe's own materials." },
+		{ type = "dropdown", key = "gearQuality", label = "Compare crafted gear at", onChange = function()
+			ns.Alts_GearQualityChanged()
+		end, choices = function()
+			return ns.Alts_GearQualityChoices()
+		end, tooltip = "The crafting quality the \"Gear for\" marks, the Profession gear tab and Next up compare "
+			.. "crafted gear and tools at. Every quality shows the range (green: an upgrade even at the lowest, yellow: "
+			.. "only at the higher ones). A recipe with fewer qualities uses its highest. A craft's own Quality in the "
+			.. "Crafting tab or the Crafting list wins over this." },
 		{ type = "header", label = "Send to alt" },
 		{ type = "checkbox", key = "sendMail", label = "\"For your alts\" at the mailbox",
 			tooltip = "Beside the mail frame: what you carry that another character crafts with (and you don't), grouped by who gets it. Attach fills the Send Mail tab, Send sends it (12 stacks a mail)." },

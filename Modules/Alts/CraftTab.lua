@@ -8,7 +8,7 @@ local UI = ns.UI
 local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
 local GREEN, RED, YELLOW = { 0.45, 0.85, 0.45 }, { 1, 0.45, 0.35 }, { 1, 0.75, 0.3 }
 local LIST_W = 0.38 -- of the tab's width
-local RESULT_H, MAT_H, STEP_H, HEADER_H = 22, 20, 20, 26
+local RESULT_H, MAT_H, STEP_H, HEADER_H, QUALITY_H = 22, 20, 20, 26, 28
 
 local tab, db
 local results, resultRows, groupRows = {}, {}, {}
@@ -157,19 +157,28 @@ local function Worn(c)
 	return worn
 end
 
--- Everything the row mark, its tooltip and the detail line say about a recipe for c:
--- { kind ("gear" | "tool"), lo, hi (item levels at the lowest and highest quality; nil: not read yet, or loading),
---   target (Alts_WornFor), mark, gain (Alts_Upgrade) }, nil when c can't use it.
-local function ForInfo(recipe, c)
+-- The quality a craft is compared at: the craft's own pick, else "Compare crafted gear at" (nil: the range).
+local function CompareQuality(own)
+	return own or ns.AltsProf_GearQuality()
+end
+
+-- Everything the row mark, its tooltip and the detail line say about a recipe for c, compared at quality q (nil:
+-- every quality): { kind ("gear" | "tool"), lo, hi (item levels at the lowest and highest quality, or both at q;
+-- nil: not read yet, or loading), quality (q when it applied), unread (q asked for but only the range is stored),
+-- target (Alts_WornFor), mark, gain (Alts_Upgrade) }, nil when c can't use it.
+local function ForInfo(recipe, c, q)
 	local kind = ns.Alts_GearFor(ItemInfo(recipe), c)
 	if not kind then
 		return nil
 	end
 	local r = { kind = kind }
-	if recipe.out then
-		local lo, hi = Ilvl(recipe.out[1]), Ilvl(recipe.out[2])
+	local loLink, hiLink, exact = ns.Alts_QualityLinks(recipe, q)
+	if loLink then
+		local lo, hi = Ilvl(loLink), Ilvl(hiLink)
 		r.lo, r.hi = lo or nil, hi or nil
 		r.loading = lo == false or hi == false
+		r.quality = exact and ns.Alts_ClampQuality(recipe, q) or nil
+		r.unread = q ~= nil and not exact and (recipe.v or 0) < 4 -- read before every quality's link was stored
 	end
 	if kind == "gear" and c.gear then
 		r.target = ns.Alts_WornFor(ItemInfo(recipe).equipLoc, Worn(c))
@@ -215,26 +224,31 @@ local function ForText(r, c, recipe)
 		return ("Item level not read yet: open %s on a crafter once."):format(ProfName(recipe.base))
 	elseif r.loading or not r.hi then
 		return "Item level loading..."
-	elseif r.kind == "tool" and r.noProfGear then
-		return ("Item level %s by quality. %s's profession gear hasn't been read yet: log in on them once."):format(
-			IlvlRange(r), name)
+	end
+	-- "Item level 606 at quality 5", or the range when no quality is picked (or only the range has been read).
+	local ilvl = r.quality and ("Item level %d at quality %d"):format(r.hi, r.quality)
+		or ("Item level %s by quality"):format(IlvlRange(r))
+	local unread = r.unread and (" Open %s on a crafter once to read every quality."):format(ProfName(recipe.base)) or ""
+	if r.kind == "tool" and r.noProfGear then
+		return ("%s. %s's profession gear hasn't been read yet: log in on them once.%s"):format(ilvl, name, unread)
 	end
 	local t = r.target
 	local where
 	if not t then
 		where = ""
 	elseif t.twoHand then
-		return ("Item level %s by quality. %s wears a two-hander, so an off-hand item can't be compared."):format(
-			IlvlRange(r), name)
+		return ("%s. %s wears a two-hander, so an off-hand item can't be compared.%s"):format(ilvl, name, unread)
 	elseif t.loading then
-		return ("Item level %s by quality (%s's gear is loading)."):format(IlvlRange(r), name)
+		return ("%s (%s's gear is loading).%s"):format(ilvl, name, unread)
 	elseif t.ilvl then
 		where = (", %s wears %d (%s)"):format(name, t.ilvl, t.name)
 	else
 		where = (", %s has a free %s slot"):format(name, t.name:lower())
 	end
 	local verdict = ""
-	if r.mark == "sure" then
+	if r.mark == "sure" and r.quality then
+		verdict = (": |cff73d973an upgrade (+%d)|r"):format(r.gain)
+	elseif r.mark == "sure" then
 		verdict = (": |cff73d973an upgrade at every quality (+%d to +%d)|r"):format(r.gain, r.hi - t.ilvl)
 	elseif r.mark == "top" then
 		verdict = (": |cffffbf4dan upgrade only at the higher qualities (up to +%d)|r"):format(r.gain)
@@ -243,7 +257,7 @@ local function ForText(r, c, recipe)
 	elseif r.mark == "empty" then
 		verdict = ": |cff73d973fills it|r"
 	end
-	return ("Item level %s by quality%s%s."):format(IlvlRange(r), where, verdict)
+	return ("%s%s%s.%s"):format(ilvl, where, verdict, unread)
 end
 
 -- Results list ---------------------------------------------------------------------------------------------
@@ -306,7 +320,7 @@ local function CreateResultRow(parent)
 	end)
 	row:SetScript("OnClick", function(self)
 		db.selected = self.id
-		db.crafts = 1
+		db.crafts, db.quality, db.ranks = 1, nil, nil
 		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
 		ns.AltsCraft_Refresh()
 	end)
@@ -483,7 +497,7 @@ local function LayoutResults()
 	if forChar then
 		local kept = {}
 		for _, r in ipairs(results) do
-			r.forInfo = ForInfo(r.recipe, forChar)
+			r.forInfo = ForInfo(r.recipe, forChar, CompareQuality())
 			if r.forInfo then
 				kept[#kept + 1] = r
 			end
@@ -634,7 +648,8 @@ local function CreateFilters(frame)
 		GameTooltip:AddLine("Only what that character can use: armor of their type, weapons their class equips and cloaks, "
 			.. "rings, necks and trinkets with their main stat, plus tools and accessories for their professions. Each row "
 			.. "says how its item level compares with what they wear: green +n is an upgrade at every quality, yellow +n "
-			.. "only at the higher qualities, new fills an empty slot, - isn't an upgrade.", 1, 1, 1, true)
+			.. "only at the higher qualities, new fills an empty slot, - isn't an upgrade. With a quality picked under "
+			.. "\"Compare crafts at\" (Profession gear tab or Settings), at that quality.", 1, 1, 1, true)
 		GameTooltip:Show()
 	end)
 	frame.forFilter:HookScript("OnLeave", GameTooltip_Hide)
@@ -789,6 +804,8 @@ end
 
 -- Detail ---------------------------------------------------------------------------------------------------
 
+local LayoutDetail -- below
+
 local function Header(i, text, y)
 	local fs = headers[i]
 	if not fs then
@@ -802,13 +819,50 @@ local function Header(i, text, y)
 	return y + HEADER_H
 end
 
+-- A reagent slot's rank for this craft: db.ranks[slot key] = itemID, nil for any rank.
+local function SetRank(slot, itemID)
+	local key = table.concat(slot, ",")
+	db.ranks = db.ranks or {}
+	db.ranks[key] = itemID
+	if next(db.ranks) == nil then
+		db.ranks = nil
+	end
+	LayoutDetail()
+end
+
+-- The rank menu of a material row: any rank, or one of the slot's ranks.
+local function RankMenu(row)
+	local slot = row.slot
+	local key = table.concat(slot, ",")
+	MenuUtil.CreateContextMenu(row, function(_, root)
+		root:CreateTitle("Use which rank?")
+		local function IsSelected(itemID)
+			return (db.ranks and db.ranks[key] or 0) == itemID
+		end
+		local function Select(itemID)
+			SetRank(slot, itemID ~= 0 and itemID or nil)
+		end
+		root:CreateRadio("Any rank", IsSelected, Select, 0)
+		for i, itemID in ipairs(slot) do
+			local mark = ns.Alts_RankMarkup(itemID)
+			root:CreateRadio(("%s %s"):format(mark ~= "" and mark or ("Rank %d"):format(i), ItemName(itemID)), IsSelected,
+				Select, itemID)
+		end
+	end)
+end
+
 local function CreateMatRow(parent)
-	local row = CreateFrame("Frame", nil, parent)
+	local row = CreateFrame("Button", nil, parent)
 	row:SetHeight(MAT_H)
-	row:EnableMouse(true)
+	row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	row:SetScript("OnClick", function(self)
+		if self.slot then
+			RankMenu(self)
+		end
+	end)
 	row.name = UI.Text(row, 12, WHITE)
 	row.name:SetPoint("LEFT", 4, 0)
-	row.name:SetWidth(170)
+	row.name:SetWidth(190)
 	row.name:SetWordWrap(false)
 	row.count = UI.Text(row, 12, WHITE)
 	row.count:SetPoint("LEFT", row.name, "RIGHT", 6, 0)
@@ -832,6 +886,11 @@ local function CreateMatRow(parent)
 		if unit then
 			GameTooltip:AddLine(("Worth %s each, %s for %d"):format(ns.Value_Text(unit, stale), ns.Value_Text(unit * self.need, stale),
 				self.need), 1, 0.82, 0.45)
+		end
+		if self.slot then
+			GameTooltip:AddLine(" ")
+			GameTooltip:AddLine("Click: choose the rank (counted, bought and sent only at that rank)", GREY[1], GREY[2], GREY[3],
+				true)
 		end
 		GameTooltip:Show()
 	end)
@@ -869,9 +928,11 @@ local function WhereText(list, limit)
 	return table.concat(parts, "  ")
 end
 
-local function StepText(step)
-	local recipe = db.recipes[step.recipeID]
-	local what = ("%dx %s"):format(step.crafts, RecipeName(recipe))
+-- quality: the final craft's picked quality (a material's step has its own).
+local function StepText(step, quality)
+	local q = step.quality or quality
+	local what = ("%dx %s"):format(step.crafts, q and ns.Alts_RecipeLabel(step.recipeID, nil, q)
+		or RecipeName(db.recipes[step.recipeID]))
 	if #step.crafters > 0 then
 		return ("%s crafts %s"):format(Names(step.crafters, 2), what)
 	elseif #step.learnable > 0 then
@@ -880,7 +941,7 @@ local function StepText(step)
 	return ("|cffff7359nobody can make|r %s"):format(what)
 end
 
-local function LayoutDetail()
+function LayoutDetail()
 	local d = tab.detail
 	for _, list in ipairs({ matRows, stepRows, headers }) do
 		for _, row in pairs(list) do -- pairs: headers has gaps (3 only exists without Syndicator)
@@ -896,6 +957,7 @@ local function LayoutDetail()
 	d.crafts:SetShown(recipe ~= nil)
 	d.add:SetShown(recipe ~= nil)
 	if not recipe then
+		d.quality:Hide()
 		d.scroll:SetContentHeight(1)
 		return
 	end
@@ -915,7 +977,7 @@ local function LayoutDetail()
 		return ns.errorHandler(err)
 	end, db.selected, db.crafts or 1, {
 		recipes = db.recipes, chars = db.chars, producers = producers,
-		maxDepth = db.chain == "one" and 1 or ns.ALTS_FULL_DEPTH,
+		maxDepth = db.chain == "one" and 1 or ns.ALTS_FULL_DEPTH, ranks = db.ranks,
 		count = function(items)
 			return (ns.Alts_Have(items))
 		end,
@@ -945,18 +1007,26 @@ local function LayoutDetail()
 
 	local content = d.content
 	local y = 0
+	-- Quality: what you mean to make (recipes with more than one).
+	local quality = ns.Alts_ClampQuality(recipe, db.quality)
+	d.quality:SetShown(ns.Alts_Qualities(recipe) > 1)
+	if d.quality:IsShown() then
+		d.quality:Refresh()
+		y = QUALITY_H
+	end
 	local forChar = ForChar()
 	if forChar then
 		local fs = headers[5] or UI.Text(content, 12, WHITE)
 		headers[5] = fs
 		fs:SetWordWrap(true)
 		fs:SetJustifyH("LEFT")
-		fs:SetText(("|cffffd100For %s:|r %s"):format(ClassName(forChar), ForText(ForInfo(recipe, forChar), forChar, recipe)))
+		fs:SetText(("|cffffd100For %s:|r %s"):format(ClassName(forChar),
+			ForText(ForInfo(recipe, forChar, CompareQuality(quality)), forChar, recipe)))
 		fs:ClearAllPoints()
-		fs:SetPoint("TOPLEFT", 4, -6)
+		fs:SetPoint("TOPLEFT", 4, -(y + 6))
 		fs:SetPoint("RIGHT", -4, 0)
 		fs:Show()
-		y = fs:GetStringHeight() + 8
+		y = y + fs:GetStringHeight() + 8
 	end
 	d.shop:ClearAllPoints()
 	d.shop:SetPoint("TOPRIGHT", -4, -(y + 8)) -- on the materials heading's line
@@ -967,7 +1037,12 @@ local function LayoutDetail()
 		matRows[i] = row
 		local itemID = m.items[1]
 		row.itemID, row.need = itemID, m.need
-		row.name:SetText(ItemName(itemID))
+		row.slot = m.slot and #m.slot > 1 and m.slot or nil
+		local rank = ""
+		if row.slot then
+			rank = #m.items == 1 and ns.Alts_RankMarkup(itemID) or "|cff9e9e9eany rank|r"
+		end
+		row.name:SetText(rank ~= "" and (ItemName(itemID) .. " " .. rank) or ItemName(itemID))
 		row.count:SetText(("%d / %d"):format(m.have, m.need))
 		local _, where = ns.Alts_Have(m.items)
 		row.whereFull = #where > 0 and WhereText(where, 20) or nil
@@ -1008,7 +1083,7 @@ local function LayoutDetail()
 		local row = stepRows[i] or CreateStepRow(content)
 		stepRows[i] = row
 		row.num:SetText(i .. ".")
-		row.text:SetText(StepText(step))
+		row.text:SetText(StepText(step, i == #plan.steps and quality or nil))
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", 0, -y)
 		row:SetPoint("RIGHT")
@@ -1134,14 +1209,15 @@ local function CreateDetail(parent)
 		box:ClearFocus()
 		if db.selected then
 			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
-			ns.AltsList_Add(db.selected, db.crafts or 1)
+			ns.AltsList_Add(db.selected, db.crafts or 1, { quality = db.quality, ranks = db.ranks })
 		end
 	end)
 	add:HookScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		GameTooltip:SetText("Add to the crafting list")
 		GameTooltip:AddLine("Track this craft: the Crafting list tab and the tracker on screen say who needs what "
-			.. "from where, and the mailbox sends it.", 1, 1, 1, true)
+			.. "from where, and the mailbox sends it. The quality and ranks picked here go with it (and replace them "
+			.. "when it's listed already).", 1, 1, 1, true)
 		GameTooltip:Show()
 	end)
 	add:HookScript("OnLeave", function()
@@ -1154,6 +1230,46 @@ local function CreateDetail(parent)
 	d.scroll:SetPoint("BOTTOMRIGHT", -8, 0)
 	d.content = d.scroll.content
 	d.shop = ns.AltsShop_CreateLink(d.content) -- placed by LayoutDetail
+
+	-- Quality: the first line of the detail, for recipes with more than one quality.
+	local quality = CreateFrame("Frame", nil, d.content)
+	quality:SetHeight(QUALITY_H)
+	quality:SetPoint("TOPLEFT", 0, 0)
+	quality:SetPoint("RIGHT")
+	quality.label = UI.Text(quality, 12, GREY)
+	quality.label:SetPoint("LEFT", 4, 0)
+	quality.label:SetText("Quality")
+	local pick = UI.Dropdown(quality, 150)
+	pick:SetPoint("LEFT", quality.label, "RIGHT", 10, 0)
+	pick.getValue = function()
+		return ns.Alts_ClampQuality(db.recipes[db.selected], db.quality) or 0
+	end
+	pick.setValue = function(value)
+		db.quality = value ~= 0 and value or nil
+		LayoutDetail()
+	end
+	pick.choices = function()
+		local recipe = db.recipes[db.selected]
+		local list = { { value = 0, text = "Any quality" } }
+		for q = 1, ns.Alts_Qualities(recipe) do
+			list[#list + 1] = { value = q, text = ("%s Quality %d"):format(ns.Alts_QualityMarkup(db.selected, q), q) }
+		end
+		return list
+	end
+	pick:HookScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Quality")
+		GameTooltip:AddLine("The quality you mean to make. Gear and tools are compared at it (Any quality: at \"Compare "
+			.. "crafts at\"), and the crafting list and tracker show it. It doesn't pick the reagents: click a material "
+			.. "to choose its rank.", 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	pick:HookScript("OnLeave", GameTooltip_Hide)
+	function quality:Refresh()
+		pick:Refresh()
+	end
+	quality:Hide()
+	d.quality = quality
 	d.empty = UI.Text(d, 12, GREY)
 	d.empty:SetPoint("TOPLEFT", 4, -4)
 	d.empty:SetPoint("RIGHT", -4, 0)
@@ -1200,11 +1316,19 @@ function ns.AltsCraft_Create(frame, altsDB)
 	end)
 end
 
--- Opens the Crafting tab on a recipe, "Gear for" set to forValue ("me", a guid or nil to keep it). From Next up and
--- the Profession gear tab.
-function ns.AltsCraft_Open(recipeID, forValue)
+-- Opens the Crafting tab on a recipe, "Gear for" set to forValue ("me", a guid or nil to keep it). From Next up, the
+-- Profession gear tab and the Crafting list (entry: a listed craft, whose quality and ranks it takes; the amount
+-- starts at 1, as Add to list adds to the listed one).
+function ns.AltsCraft_Open(recipeID, forValue, entry)
 	local adb = db or ns.altsDB
-	adb.selected, adb.crafts = recipeID, 1
+	adb.selected, adb.crafts, adb.quality, adb.ranks = recipeID, 1, nil, nil
+	if entry then
+		adb.quality = entry.quality
+		for key, itemID in pairs(entry.ranks or {}) do
+			adb.ranks = adb.ranks or {}
+			adb.ranks[key] = itemID
+		end
+	end
 	if forValue then
 		adb.filterFor = forValue
 	end

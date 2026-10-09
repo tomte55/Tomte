@@ -8,6 +8,11 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Blizzard's Edit Mode moves Tomte's widgets too: the Almost Done tracker, the Crafting list, the Flight Timer bar,
   the Pet Health bar and the toasts show with a blue box while it's open, ready to drag. The Lock options and
   unlock commands still work.
+- Crafting quality: pick the quality you mean to make in the Crafting tab or on a Crafting list card, and gear and
+  tools show one item level and a clear upgrade verdict for it. "Compare crafts at" (Profession gear tab and
+  Settings) does the same for the Gear for marks, the Profession gear tab and Next up. Click a material to use only
+  one rank of it: counts, the to-do, the mailbox and the shopping list follow it. Open each crafter's profession
+  window once so every quality's item level is read.
 
 ## v1.1.0 - 2026-10-09
 

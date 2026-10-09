@@ -403,9 +403,11 @@ function ns.AltsSend_Refresh()
 		b:SetPoint("RIGHT", -12, 0)
 		local color = ClassColor(c)
 		-- Who it's for first (like the rows below), so a long recipe name is what gets cut.
-		b.name:SetText(("%s: |cffffd173%s x%d|r"):format(
+		local quality = recipe and ns.Alts_Qualities(recipe) > 1 and ns.Alts_ClampQuality(recipe, cm.todo.entry.quality)
+		b.name:SetText(("%s: |cffffd173%s x%d|r%s"):format(
 			color and ("|cff%02x%02x%02x%s|r"):format(color[1] * 255, color[2] * 255, color[3] * 255, c.name or "?") or c.name,
-			recipe and recipe.name or "?", cm.todo.entry.crafts))
+			recipe and recipe.name or "?", cm.todo.entry.crafts,
+			quality and (" " .. ns.Alts_QualityMarkup(cm.todo.entry.recipeID, quality)) or ""))
 		b.name:SetTextColor(1, 1, 1)
 		local isAttached = attached and attached.craft == cm.todo.entry.recipeID
 		b.button.label:SetText(isAttached and "Send" or "Attach")

@@ -552,6 +552,81 @@ test("ForgetEverywhere clears every per-character store", function()
 	eq(ns.Alts_ForgetEverywhere({}, "g"), 0, "missing modules are fine")
 end)
 
+-- Crafting quality --------------------------------------------------------------------------------------------
+
+local function RankCtx(have, ranks)
+	local ctx = Ctx(have)
+	ctx.ranks = ranks
+	return ctx
+end
+
+test("ranks: a picked rank counts only that item", function()
+	local have = { [2001] = 0, [3001] = 5, [4001] = 8, [4003] = 2, [5001] = 2 }
+	local any = ns.Alts_Plan(2, 1, RankCtx(have))
+	eq(Material(any, 4001).have, 10, "any rank adds them up")
+	eq(Material(any, 4001).missing, 0)
+	local r3 = ns.Alts_Plan(2, 1, RankCtx(have, { ["4001,4002,4003"] = 4003 }))
+	local m = Material(r3, 4003)
+	eq(#m.items, 1, "one item")
+	eq(m.have, 2, "only rank 3")
+	eq(m.missing, 2)
+	eq(m.slot[1], 4001, "keeps the full slot")
+	eq(#m.slot, 3)
+	eq(Material(r3, 4001), nil, "no any-rank material")
+end)
+
+test("ranks: an item that isn't in the slot is ignored", function()
+	local plan = ns.Alts_Plan(2, 1, RankCtx({ [4001] = 4 }, { ["4001,4002,4003"] = 9999 }))
+	eq(#Material(plan, 4001).items, 3)
+end)
+
+test("ranks: a crafted material is still found and its step gets the rank", function()
+	local recipes = {
+		[1] = { name = "Axe", base = BS, item = 1001, reagents = { { items = { 2001, 2002, 2003 }, qty = 2 } } },
+		[2] = { name = "Alloy", base = BS, item = 2001, qMin = 1, nq = 3, reagents = { { items = { 4001 }, qty = 3 } } },
+	}
+	local chars = { a = { guid = "a", name = "T", profs = { [1] = { base = BS, known = { [1] = true, [2] = true } } } } }
+	local plan = ns.Alts_Plan(1, 1, {
+		recipes = recipes, chars = chars, producers = ns.Alts_Producers(recipes), maxDepth = ns.ALTS_FULL_DEPTH,
+		ranks = { ["2001,2002,2003"] = 2003 },
+		count = function(items)
+			return items[1] == 4001 and 6 or 0
+		end,
+	})
+	eq(#plan.steps, 2, "alloy first, then the axe")
+	eq(plan.steps[1].recipeID, 2)
+	eq(plan.steps[1].quality, 3, "made at rank 3")
+	eq(plan.steps[2].quality, nil, "the top craft has no picked rank")
+	eq(plan.missing, 0)
+end)
+
+test("quality: clamp, count and links", function()
+	local gear = { nq = 5, out = { "lo", "hi" }, outQ = { "q1", "q2", "q3", "q4", "q5" } }
+	eq(ns.Alts_Qualities(gear), 5)
+	eq(ns.Alts_Qualities({}), 1, "none")
+	eq(ns.Alts_ClampQuality(gear, "range"), nil, "range")
+	eq(ns.Alts_ClampQuality(gear, nil), nil)
+	eq(ns.Alts_ClampQuality(gear, 3), 3)
+	eq(ns.Alts_ClampQuality({ nq = 2 }, 5), 2, "a recipe with fewer qualities uses its highest")
+	local lo, hi, exact = ns.Alts_QualityLinks(gear, 4)
+	eq(lo, "q4")
+	eq(hi, "q4")
+	eq(exact, true)
+	lo, hi, exact = ns.Alts_QualityLinks(gear, nil)
+	eq(lo, "lo")
+	eq(hi, "hi")
+	eq(exact, false)
+	lo, hi, exact = ns.Alts_QualityLinks({ out = { "lo", "hi" } }, 3)
+	eq(hi, "hi", "read before every quality was stored: the range")
+	eq(exact, false)
+	eq((ns.Alts_QualityLinks({}, 3)), nil, "no output")
+end)
+
+test("quality: one item level is a sure upgrade or none", function()
+	eq((ns.Alts_Upgrade(600, 600, { ilvl = 590 })), "sure")
+	eq((ns.Alts_Upgrade(580, 580, { ilvl = 590 })), "no")
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)
