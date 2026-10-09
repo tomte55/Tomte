@@ -5,6 +5,12 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.1.0 - 2026-10-09
+
+Works whatever expansion you own, plus resets, forgetting old characters and fixes for non-English clients. The
+Midnight data hasn't been checked in game yet: if you own Midnight, run `/tomte data` on a level 90 character and
+send the output.
+
 - Tomte follows the expansion your character is in (by level, up to what your account owns), so it works whether
   you own Midnight or not, and a Midnight owner's level-80 alts get War Within data:
   - Weekly board: the snapshot is taken at that expansion's max level; Raids come from the Encounter Journal for
