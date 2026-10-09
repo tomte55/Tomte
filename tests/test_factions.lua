@@ -1,5 +1,8 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_factions.lua
 local ns = {}
+assert(loadfile("Tomte/Core/Content.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Data/WarWithin/Weekly.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Data/Midnight/Weekly.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Weekly/FactionData.lua"))("Tomte", ns)
 
 local failures = 0
@@ -129,8 +132,8 @@ test("layout: parents by name, subs attached, subs not listed on their own", fun
 end)
 
 test("sub-faction table for The War Within", function()
-	eq(#ns.WEEKLY_SUBFACTIONS[10][2653], 5)
-	eq(#ns.WEEKLY_SUBFACTIONS[10][2600], 3)
+	eq(#ns.Content_Get(10, "subfactions")[2653], 5)
+	eq(#ns.Content_Get(10, "subfactions")[2600], 3)
 end)
 
 if failures > 0 then

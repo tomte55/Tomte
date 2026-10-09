@@ -50,7 +50,7 @@ are Tomte window settings.
 | Mentions | Social | A toast when someone says your name or a keyword in guild, group, say or channel chat. |
 | Friends Online | Social | Who's online at login, and toasts when friends (or watched people and guildmates) come online. |
 | Group Alerts | Social | Invites, queue pops, ready checks and summons: a repeating sound on the Master channel until answered, plus a taskbar flash for summons. |
-| Gear Check | Gear | Upgrade verdict on item tooltips that checks what Pawn ignores: armor type and main stat, tier set count (and catalyst), lost embellishments and effects, unique limits, upgrade track. Trinkets and items with effects say "sim it" instead of guessing. Built-in stat weights for every spec (sims for damage and tanks, guide priority for healers; a Raidbots import per character overrides), and at max level a one-time hint and a Next up suggestion to sim your own. Also upgrades for your other specs, "your best" rank on worn items, best gem for empty sockets, missing enchants. A Gear button on the character sheet opens a panel with the weights in use, the best gem and every worn item missing an enchant or gem. Marks clean upgrades in Baganator. New upgrades (loot, quest rewards, vault, mail) get a reveal moment with the item, and a toast you click to equip it. Upgrades for alts: warbound and Bind on Equip gear says on its tooltip which of your other characters it's a clean upgrade for ("Upgrade for Mira (Holy): +8.2%", judged with what they wore, their spec, level and weights when last played; all characters, max level only or off), gets a blue arrow in Baganator when it isn't an upgrade for you, and Bind on Equip pieces show up at the mailbox in Send to alt. Replaces Pawn. |
+| Gear Check | Gear | Upgrade verdict on item tooltips that checks what Pawn ignores: armor type and main stat, tier set count (and catalyst), lost embellishments and effects, unique limits, upgrade track. Trinkets and items with effects say "sim it" instead of guessing. Built-in stat weights for every spec, for the expansion your character is in (Midnight: sims for damage and tanks, guide priority for healers; The War Within: guide priority; a Raidbots import per character overrides), and at max level a one-time hint and a Next up suggestion to sim your own. Also upgrades for your other specs, "your best" rank on worn items, best gem for empty sockets, missing enchants. A Gear button on the character sheet opens a panel with the weights in use, the best gem and every worn item missing an enchant or gem. Marks clean upgrades in Baganator. New upgrades (loot, quest rewards, vault, mail) get a reveal moment with the item, and a toast you click to equip it. Upgrades for alts: warbound and Bind on Equip gear says on its tooltip which of your other characters it's a clean upgrade for ("Upgrade for Mira (Holy): +8.2%", judged with what they wore, their spec, level and weights when last played; all characters, max level only or off), gets a blue arrow in Baganator when it isn't an upgrade for you, and Bind on Equip pieces show up at the mailbox in Send to alt. Replaces Pawn. |
 | Almost Done | Achievements | Near-complete achievements in a list docked to the Achievements window: search, threshold, category/expansion/reward filters, reward icons (owned ones greyed out) with a model preview, and a meta browser. A Top 5 tracker (pins first) and toasts when something reaches the threshold, has one step left, or a pinned one moves. Replaces AlmostCompletedAchievements. |
 | Vendor Helper | Upkeep | At a vendor: repairs (guild funds first when the withdraw limit covers it) and sells grey items, then one summary toast. Hold Shift while opening the vendor to skip it. |
 | Durability | Upkeep | A toast when your worst item drops below a threshold (once per drop) or an item breaks, and a warning when you enter a dungeon, raid or delve with low gear. |
@@ -83,7 +83,8 @@ Key bindings for toggling the Tomte window, Smart Mount, whisper reply and the w
 
 ```
 Tomte.toc, Bindings.xml
-Core/        saved variables, module registry, /tomte, play session
+Core/        saved variables, module registry, /tomte, play session, which expansion's content a character is in
+Data/        hand-kept data per expansion (WarWithin/, Midnight/): weekly activities, crests, raids, gear weights
 Cinematic/   shared cinematic engine and banners
 Panel/       Tomte window, settings and widgets
 Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements,
@@ -121,13 +122,15 @@ or modules, major for changes that reset or break settings.
 - Minimap button placement is adapted from [LibDBIcon-1.0](https://www.wowace.com/projects/libdbicon-1-0) (Ace3-style
   BSD license).
 - The Weekly board's Factions, Activities and Raids tabs are modelled on [Plumber](https://github.com/Peterodox/Plumber)'s
-  Expansion Summary (GPLv3); the progress-ring setup, the Resources list and several ID tables come from Plumber.
+  Expansion Summary (GPLv3); the progress-ring setup, the Resources list and several ID tables come from Plumber,
+  including the Midnight raid, delve, resource, crest and sub-faction IDs.
 - Almost Done follows [Almost Completed Achievements](https://www.curseforge.com/wow/addons/almost-completed-achievements);
   Waypoints follows [WaypointUI](https://github.com/Adaptvx/Waypoint-UI); Gear Check reads the
   [Pawn](https://www.curseforge.com/wow/addons/pawn) scale string format that Raidbots exports. No code from them.
 - Profession weekly IDs and places from WeeklyKnowledge.
-- Built-in stat weights: SimulationCraft sims published by mythicsim.com for damage and tank specs; healer priorities
-  from the Icy Veins and Method guides.
+- Built-in stat weights: Midnight from SimulationCraft sims published by mythicsim.com for damage and tank specs and
+  the Icy Veins and Method guides for healers; The War Within (Season 3) from the Icy Veins stat priority guides.
+  Algari gem and Blasphemite IDs and the display season IDs from [wago.tools](https://wago.tools).
 - Mount rarity in Moments comes from the MountsRarity library bundled with Mount Journal Enhanced.
 - Upgrade track IDs (Gear Check's Catalyst note) as used by [AllTheThings](https://github.com/ATTWoWAddon/AllTheThings)
   and [SpartanUI](https://github.com/spartanui-wow/SpartanUI); the G-99 Breakneck's spell IDs from

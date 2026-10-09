@@ -5,27 +5,9 @@ local addonName, ns = ...
 --   icon, display, standing, parent }
 -- (standing is the text for non-renown reputations, like "Rank 3" or "Honored"; maxed is set for those at their top).
 -- Sub-factions (Undermine cartels, Severed Threads' three) aren't renown factions, so they're listed by hand per
--- expansion (GetExpansionLevel()); IDs and icons from Plumber's table, checked 2026-10-08. unlock = an account quest
--- that has to be done before the sub-faction shows.
+-- expansion (`subfactions` in Data/<Expansion>/Weekly.lua).
 
 local floor, min, max = math.floor, math.min, math.max
-
-ns.WEEKLY_SUBFACTIONS = {
-	[10] = {
-		[2653] = { -- Cartels of Undermine
-			{ id = 2669, icon = 6439629, unlock = 86961 }, -- Darkfuse Solutions, after "Diversified Investments"
-			{ id = 2673, icon = 6439627 }, -- Bilgewater
-			{ id = 2677, icon = 6439630 }, -- Steamwheedle
-			{ id = 2675, icon = 6439628 }, -- Blackwater
-			{ id = 2671, icon = 6439631 }, -- Venture Company
-		},
-		[2600] = { -- The Severed Threads
-			{ id = 2601, display = 116208 }, -- The Weaver
-			{ id = 2605, display = 114775 }, -- The General
-			{ id = 2607, display = 114268 }, -- The Vizier
-		},
-	},
-}
 
 local function Thousands(n)
 	local text = tostring(floor(n or 0))

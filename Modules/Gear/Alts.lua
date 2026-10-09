@@ -56,7 +56,7 @@ local function Verdict(c, link, cand, e)
 	if not ctx then
 		return false
 	end
-	if ctx.best then
+	if ctx.complete then
 		e.ctx = ctx -- without a best gem the gems hadn't loaded yet: build it again next time
 	end
 	local equipped = Equipped(c, e)
@@ -93,9 +93,10 @@ function ns.GearAlts_Upgrades(link)
 	if not ns.Gear_Slots(cand.equipLoc) then
 		return {}, false
 	end
-	local maxLevel = GetMaxLevelForPlayerExpansion and GetMaxLevelForPlayerExpansion()
 	local list, loading = {}, false
-	for _, c in ipairs(ns.Gear_AltsToJudge(alts.chars, UnitGUID("player"), GetServerTime(), db.altUpgrades, maxLevel)) do
+	-- "Max level only": each character at its own content expansion's max level (a War Within 80 counts).
+	for _, c in ipairs(ns.Gear_AltsToJudge(alts.chars, UnitGUID("player"), GetServerTime(), db.altUpgrades,
+		ns.ContentAtMax)) do
 		local v = Verdict(c, link, cand, Entry(c))
 		if v == nil then
 			loading = true

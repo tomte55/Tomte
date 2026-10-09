@@ -337,6 +337,8 @@ function ns.WQ_ForMap(viewedMapID)
 	return quests, info.name, kind, mapID, pending
 end
 
+-- XP-only rewards are worthless only at the account's level cap (not the content expansion's: a Midnight owner's 80
+-- still levels), so this stays on GetMaxLevelForPlayerExpansion.
 function ns.WQ_MaxLevel()
 	return UnitLevel("player") >= GetMaxLevelForPlayerExpansion()
 end

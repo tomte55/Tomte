@@ -17,9 +17,14 @@ local function Completed(id, account)
 end
 
 -- The hand-kept list with this week's state filled in.
-local function ReadCurated()
+-- nil when the expansion has no list.
+local function ReadCurated(expansion)
+	local curated = ns.Content_Get(expansion, "activities")
+	if not curated then
+		return nil
+	end
 	local out = {}
-	for _, g in ipairs(ns.WEEKLY_ACTIVITIES[GetExpansionLevel()] or {}) do
+	for _, g in ipairs(curated) do
 		local entries = {}
 		for _, e in ipairs(g.entries) do
 			local item = { label = e.label }
@@ -54,7 +59,7 @@ local function ReadCurated()
 end
 
 -- Resources: { { name, icon, text, dim } }, crests first.
-local function ReadResources()
+local function ReadResources(expansion)
 	local list = {}
 	local function Add(id, crest)
 		local info = C_CurrencyInfo.GetCurrencyInfo(id)
@@ -73,10 +78,11 @@ local function ReadResources()
 		end
 		list[#list + 1] = { name = info.name, icon = info.iconFileID, text = text, dim = (info.quantity or 0) == 0 }
 	end
-	for _, id in ipairs(ns.WEEKLY_CRESTS) do
+	local crests = ns.WeeklyCollect_CrestSet(expansion)
+	for _, id in ipairs(crests and crests.ids or {}) do
 		Add(id, true)
 	end
-	for _, id in ipairs(ns.WEEKLY_RESOURCES[GetExpansionLevel()] or {}) do
+	for _, id in ipairs(ns.Content_Get(expansion, "resources") or {}) do
 		Add(id, false)
 	end
 	return list
@@ -131,8 +137,9 @@ function ns.WeeklyActivitiesView(parent)
 		for _, row in ipairs(self.res) do
 			row:Hide()
 		end
+		local expansion = ns.ContentExpansion()
 		local y = 8 + 38
-		for i, r in ipairs(ReadResources()) do
+		for i, r in ipairs(ReadResources(expansion)) do
 			local row = ResRow(i)
 			row:ClearAllPoints()
 			row:SetPoint("TOPLEFT", 8, -y)
@@ -150,8 +157,9 @@ function ns.WeeklyActivitiesView(parent)
 		-- Activities (right).
 		local v = ns.Weekly_CurrentView()
 		local x = SIDE_W + 24
-		local model = ns.Weekly_ActivityModel(ReadCurated(), ns.weeklyDB.quests, v or { quests = {} },
-			ns.weeklyDB.hideCompleted)
+		local curated = ReadCurated(expansion)
+		local model = ns.Weekly_ActivityModel(curated, ns.weeklyDB.quests, v or { quests = {} },
+			ns.weeklyDB.hideCompleted, not curated and ns.Weekly_NoDataText("activities", expansion) or nil)
 		self.hide:ClearAllPoints()
 		self.hide:SetPoint("TOPLEFT", x + 8, -16)
 		self.hide:SetChecked(ns.weeklyDB.hideCompleted)

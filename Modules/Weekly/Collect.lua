@@ -1,8 +1,9 @@
 local addonName, ns = ...
 
 -- Weekly board: reads the game into the current character's snapshot (TomteDB.weekly.chars[guid]) and learns weekly
--- quests from the quest log. Only max-level characters get a snapshot. Nothing is read in combat; refreshes are
--- debounced to one per second. Each part is read on its own, so one failing API leaves the others working.
+-- quests from the quest log. Only characters at their content expansion's max level get a snapshot (ns.ContentAtMax:
+-- a Midnight owner's level 80 alt gets a War Within one), and it stores that expansion. Nothing is read in combat;
+-- refreshes are debounced to one per second. Each part is read on its own, so one failing API leaves the others working.
 -- Weekly.lua starts and stops it; ns.Weekly_Changed runs after every refresh.
 
 local DEBOUNCE = 3 -- currency and loot events come in bursts while farming; one full read per burst
@@ -22,8 +23,18 @@ local function Completed(id)
 end
 
 local function IsTracked()
-	local maxLevel = GetMaxLevelForPlayerExpansion and GetMaxLevelForPlayerExpansion()
-	return not maxLevel or UnitLevel("player") >= maxLevel
+	return ns.ContentAtMax()
+end
+
+local function HasCurrency(id)
+	local info = C_CurrencyInfo.GetCurrencyInfo(id)
+	return info ~= nil and info.name ~= nil and info.name ~= ""
+		and (info.discovered or (info.quantity or 0) > 0 or (info.totalEarned or 0) > 0)
+end
+
+-- The expansion's crest set the character has any of (newest first), else its newest; nil when it has none.
+function ns.WeeklyCollect_CrestSet(expansion)
+	return ns.Weekly_PickCrestSet(ns.Content_Get(expansion, "crests"), HasCurrency)
 end
 
 local function ReadVault(snap)
@@ -51,10 +62,12 @@ local function ReadVault(snap)
 end
 
 local function ReadCurrencies(snap)
-	local currencies = {}
-	for _, id in ipairs(ns.WEEKLY_CRESTS) do
+	local currencies, ids = {}, {}
+	local set = ns.WeeklyCollect_CrestSet(snap.expansion)
+	for _, id in ipairs(set and set.ids or {}) do
+		ids[#ids + 1] = id
 		local info = C_CurrencyInfo.GetCurrencyInfo(id)
-		if info and info.name and info.name ~= "" and (info.discovered or (info.quantity or 0) > 0 or (info.totalEarned or 0) > 0) then
+		if HasCurrency(id) then
 			currencies[id] = {
 				name = info.name, qty = info.quantity, earnedWeek = info.quantityEarnedThisWeek,
 				weeklyCap = info.maxWeeklyQuantity, total = info.totalEarned, seasonCap = info.maxQuantity,
@@ -63,12 +76,13 @@ local function ReadCurrencies(snap)
 		end
 	end
 	snap.currencies = currencies
+	snap.crests = ids
 end
 
 local function ReadRenown(snap)
 	local renown = {}
 	local hidden = C_MajorFactions.IsMajorFactionHiddenFromExpansionPage
-	for _, id in ipairs(C_MajorFactions.GetMajorFactionIDs(GetExpansionLevel()) or {}) do
+	for _, id in ipairs(C_MajorFactions.GetMajorFactionIDs(snap.expansion) or {}) do
 		local data = C_MajorFactions.GetMajorFactionData(id)
 		if data and data.isUnlocked and not (hidden and hidden(id)) then
 			renown[id] = {
@@ -129,7 +143,7 @@ end
 local function ReadProfs(snap, now)
 	local old = snap.profs or {}
 	local profs = {}
-	local expansion = ns.Weekly_Expansion(GetExpansionLevel())
+	local expansion = snap.expansion
 	local first, second = GetProfessions()
 	for _, index in pairs({ first, second }) do
 		local name, icon, _, _, _, _, base = GetProfessionInfo(index)
@@ -198,6 +212,7 @@ local function Refresh()
 	snap.realm = GetNormalizedRealmName()
 	snap.class = select(2, UnitClass("player"))
 	snap.level = UnitLevel("player")
+	snap.expansion = ns.ContentExpansion()
 	snap.at, snap.seen = now, now
 	local untilReset = C_DateAndTime.GetSecondsUntilWeeklyReset()
 	if snap.nextReset and now >= snap.nextReset then

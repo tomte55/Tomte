@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Gear Check: an upgrade verdict on item tooltips (and Baganator's upgrade arrows) that only says "upgrade" when
 -- nothing it can't value is at stake: set bonuses, embellishments, effects and unique limits are checked, and
 -- items whose value is an effect are sent to a sim instead of guessed. Rules in Data.lua, advice (weights source,
--- gems, enchants, off-spec) in Advice.lua, built-in weights and gem IDs in Scales.lua, item reading in Items.lua,
+-- gems, enchants, off-spec) in Advice.lua, built-in weights and gem IDs per expansion in Data/<Expansion>/Gear.lua
+-- (picked by the character's content expansion, Scales.lua), item reading in Items.lua,
 -- the character sheet button and panel in Sheet.lua, upgrades for other characters in Alts.lua.
 -- Weights: imported Pawn string per character and spec > built-in for the spec > primary 1 / secondaries 0.5.
 
@@ -31,11 +32,6 @@ events:SetScript("OnEvent", function(self, event, ...)
 end)
 
 local _, classToken, classID = UnitClass("player")
-local scales = ns.Gear_Scales
-local diamondIDs = {}
-for _, id in ipairs(scales.diamonds) do
-	diamondIDs[id] = true
-end
 
 local function SpecAt(index)
 	local specID, name, _, icon, _, primaryStat = GetSpecializationInfo(index)
@@ -62,15 +58,22 @@ local function CurrentSeason()
 	return (id and id > 0) and id or nil
 end
 
--- The evaluator context for a spec ({ id, name, primary }, index only for this character's own specs). guid and
--- class default to this character; another character's guid and class token judge for them (their imported
--- weights, their armor type).
-local function ContextFor(spec, guid, class)
+-- The evaluator context for a spec ({ id, name, primary }, index only for this character's own specs). guid, class
+-- and level default to this character; another character's guid, class token and level judge for them (their
+-- imported weights, their armor type, their content expansion's built-in set). ctx.scales is that set;
+-- ctx.complete once the best gem is known (or the set has no gems).
+local function ContextFor(spec, guid, class, level)
 	if not (spec and spec.id and spec.primary) then
 		return nil
 	end
-	return ns.Gear_BuildContext(spec, guid or UnitGUID("player"), class or classToken, db.weights, scales,
-		ns.GearItems_Gems(scales.gems))
+	local set = ns.Gear_ScalesForLevel(level)
+	local ctx = ns.Gear_BuildContext(spec, guid or UnitGUID("player"), class or classToken, db.weights, set,
+		ns.GearItems_Gems(set.gems))
+	if ctx then
+		ctx.scales = set
+		ctx.complete = ctx.best ~= nil or #set.gems == 0
+	end
+	return ctx
 end
 
 -- This character's context, kept until RefreshBags (spec, level, weights, items arrived): Baganator and tooltips ask
@@ -78,11 +81,11 @@ end
 local ownCtx
 local function Context()
 	local spec = Spec()
-	if ownCtx and spec and ownCtx.spec.id == spec.id then
+	if ownCtx and spec and ownCtx.spec.id == spec.id and ownCtx.scales == ns.Gear_ScalesForLevel() then
 		return ownCtx
 	end
 	local ctx = ContextFor(spec)
-	ownCtx = ctx and ctx.best and ctx or nil
+	ownCtx = ctx and ctx.complete and ctx or nil
 	return ctx
 end
 
@@ -195,7 +198,7 @@ local function OwnLines(tooltip, link, ctx, verdict, cand, equipped, Add)
 	end
 
 	if db.gemHints then
-		local diamond = not ns.Gear_WearsGem(equipped, diamondIDs) and scales.diamondName or nil
+		local diamond = not ns.Gear_WearsGem(equipped, ctx.scales.diamondIDs) and ctx.scales.diamondName or nil
 		local lines = ns.Gear_GemLines(cand, ctx.best, ctx.bestValue, worn ~= nil, ns.GearItems_GemStats,
 			ctx.weights, ctx.primary, diamond)
 		for _, line in ipairs(lines) do
@@ -284,8 +287,9 @@ local function CharHinted()
 	return db.hinted[guid]
 end
 
-local function MaxLevel()
-	return GetMaxLevelForPlayerExpansion and GetMaxLevelForPlayerExpansion()
+-- The max level of the content expansion of level (nil: this character's).
+local function MaxLevel(level)
+	return ns.ContentMaxLevel(ns.ContentExpansion(level))
 end
 
 -- level: PLAYER_LEVEL_UP's new level (UnitLevel can lag behind it).
@@ -307,14 +311,15 @@ local function WeightsHint(level)
 		return
 	end
 	local hinted = CharHinted()
-	local kind, seen = ns.Gear_WeightsHint(ctx.source, scales, hinted[ctx.spec.id], CurrentSeason(),
-		level or UnitLevel("player"), MaxLevel())
+	level = level or UnitLevel("player")
+	local kind, seen = ns.Gear_WeightsHint(ctx.source, ctx.scales, hinted[ctx.spec.id], CurrentSeason(), level,
+		MaxLevel(level))
 	if kind == "max" then
 		ns.Print(("%s is max level: sim %s on Raidbots for weights that fit your gear, then /tomte gear import.")
 			:format(UnitName("player"), name))
 	elseif kind == "stale" then
 		ns.Print(("Gear Check: the built-in weights for %s are from %s and may be out of date. Sim on Raidbots "
-			.. "and /tomte gear import."):format(name, scales.seasonName))
+			.. "and /tomte gear import."):format(name, ctx.scales.seasonName))
 	end
 	if kind then
 		hinted[ctx.spec.id] = seen
@@ -538,7 +543,8 @@ local function PrintWeights()
 	if ctx.best then
 		print(("  Best gem: %s (%s)"):format(ctx.best.name, ns.Gear_StatLabel(ctx.best.stats)))
 	end
-	print(("  Season ID: %s (built-in weights are for %s)"):format(tostring(CurrentSeason()), scales.seasonName))
+	print(("  Built-in set: %s. Season ID: %s."):format(ns.Gear_ScalesName(ctx.scales, ns.ContentExpansion()),
+		tostring(CurrentSeason())))
 end
 
 -- Panel row label: where the current spec's weights come from.
@@ -557,7 +563,7 @@ local function ClearWeights()
 	if ctx then
 		CharWeights()[ctx.spec.id] = nil
 		ns.GearAlts_Invalidate()
-		local after = scales.specs[ctx.spec.id] and "the built-in weights" or "item level"
+		local after = ctx.scales.specs[ctx.spec.id] and "the built-in weights" or "item level"
 		ns.Print(("Gear Check: imported weights for %s cleared, back to %s."):format(ctx.spec.name, after))
 		RefreshBags()
 		ns.GearSheet_Refresh()
@@ -696,11 +702,13 @@ local function NextSim()
 	} }
 end
 
--- Hidden (/tomte gear specs): every class's specs as the game reports them, against Scales.lua. Lines marked
--- "check" are a missing spec or a different main stat.
+-- Hidden (/tomte gear specs): every class's specs as the game reports them, against the built-in set of this
+-- character's content expansion. Lines marked "check" are a missing spec or a different main stat.
 local function PrintSpecs()
 	local seen, bad = {}, 0
-	ns.Print("Gear Check specs (ID, name, role, main stat):")
+	local scales = ns.Gear_ScalesForLevel()
+	ns.Print(("Gear Check specs (ID, name, role, main stat) against the built-in set %s:"):format(
+		ns.Gear_ScalesName(scales, ns.ContentExpansion())))
 	for cid = 1, GetNumClasses() do
 		local info = C_CreatureInfo.GetClassInfo(cid)
 		for i = 1, C_SpecializationInfo.GetNumSpecializationsForClassID(cid) or 0 do
@@ -721,19 +729,20 @@ local function PrintSpecs()
 	for specID in pairs(scales.specs) do
 		if not seen[specID] then
 			bad = bad + 1
-			print(("  |cffff9a3c%d is in Scales.lua but the game has no such spec: check|r"):format(specID))
+			print(("  |cffff9a3c%d is in the built-in set but the game has no such spec: check|r"):format(specID))
 		end
 	end
-	ns.Print(bad == 0 and "every spec matches Scales.lua." or (bad .. " to check."))
+	ns.Print(bad == 0 and "every spec matches the built-in set." or (bad .. " to check."))
 end
 
 -- ns.Gear_Context (above, nil while Gear Check is off) is for the character sheet panel and the upgrade reveal too.
--- For judging gear for another character: ns.Gear_ContextFor({ id, name, primary }, guid, classToken).
+-- For judging gear for another character: ns.Gear_ContextFor({ id, name, primary }, guid, classToken, level).
 ns.Gear_ContextFor = ContextFor
 -- Another character's context from Alts' stored snapshot (chars[guid]: specID, spec, primary, class token); nil
--- until their spec has been read. Their level isn't checked here: Gear_AltVerdict does that.
+-- until their spec has been read. Their level picks their built-in set (content expansion); whether they can wear an
+-- item is Gear_AltVerdict's.
 function ns.Gear_ContextForChar(char)
-	return ContextFor(ns.Gear_CharSpec(char), char.guid, char.class)
+	return ContextFor(ns.Gear_CharSpec(char), char.guid, char.class, char.level)
 end
 ns.Gear_EvaluateLink = Evaluate
 ns.Gear_OpenImport = OpenImport

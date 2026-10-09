@@ -122,6 +122,7 @@ local function ReadProfGear(c)
 	end
 end
 
+-- Rested XP matters until the account's level cap (not the content expansion's: a Midnight owner's 80 still levels).
 local function ReadRest(c)
 	local maxLevel = GetMaxLevelForPlayerExpansion and GetMaxLevelForPlayerExpansion()
 	if maxLevel and c.level and c.level >= maxLevel then
@@ -133,9 +134,23 @@ local function ReadRest(c)
 	c.rested = xpMax and xpMax > 0 and math.min(math.floor(rested / xpMax * 100 + 0.5), 150) or nil
 end
 
--- The player's expansion skill line of a profession (War Within for War Within players), from the Weekly table.
+-- The skill line of a profession for the character's content expansion (Core/Content.lua), from Weekly's data.
+-- Professions aren't tied to level: a low-level alt (no data for its level band) gets the newest expansion the
+-- account owns that has data.
 local function ExpansionLine(base)
-	local def = ns.Weekly_ProfDef(ns.Weekly_Expansion(GetExpansionLevel()), base)
+	local def = ns.Weekly_ProfDef(ns.ContentExpansion(), base)
+	if not def then
+		local owned = GetExpansionLevel()
+		local expansions = ns.Content_Expansions()
+		for i = #expansions, 1, -1 do
+			if expansions[i] <= owned then
+				def = ns.Weekly_ProfDef(expansions[i], base)
+				if def then
+					break
+				end
+			end
+		end
+	end
 	return def and def.child
 end
 ns.Alts_ExpansionLine = ExpansionLine

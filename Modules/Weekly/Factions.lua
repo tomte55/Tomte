@@ -62,9 +62,9 @@ local function SubRecord(sub, parentID)
 end
 
 function ns.Weekly_ReadFactions()
-	local expansion = GetExpansionLevel()
+	local expansion = ns.ContentExpansion()
 	local hidden = C_MajorFactions.IsMajorFactionHiddenFromExpansionPage
-	local subs = ns.WEEKLY_SUBFACTIONS[expansion] or {}
+	local subs = ns.Content_Get(expansion, "subfactions") or {}
 	local recs = {}
 	for _, id in ipairs(C_MajorFactions.GetMajorFactionIDs(expansion) or {}) do
 		local data = C_MajorFactions.GetMajorFactionData(id)

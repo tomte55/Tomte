@@ -5,6 +5,17 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Tomte follows the expansion your character is in (by level, up to what your account owns), so it works whether
+  you own Midnight or not, and a Midnight owner's level-80 alts get War Within data:
+  - Weekly board: the snapshot is taken at that expansion's max level; Raids come from the Encounter Journal for
+    that expansion; Activities, Resources, sub-factions, crests and profession knowledge have Midnight data too. A
+    tab without data says so instead of showing nothing.
+  - Crests: War Within characters see their Ethereal crests (Mistcrests, which a War Within account never gets,
+    used to be the only ones listed).
+  - Gear Check: War Within characters get War Within stat weights and Algari gems / Blasphemite advice instead of
+    Midnight's; Midnight characters keep theirs. `/tomte gear weights` says which set is used.
+- `/tomte data` shows which expansion Tomte follows for you and checks what it knows about it (paste it when
+  something looks empty).
 - The Tomte window's title bar shows the version, and `/tomte version` prints it with the game build (handy when
   reporting a bug).
 - Moments: below max level, cinematic moments (level up, new zone, campaign chapter, gear upgrade) show as banners,

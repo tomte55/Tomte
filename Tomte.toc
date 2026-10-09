@@ -12,6 +12,11 @@ Core/Core.lua
 Core/Modules.lua
 Core/SessionData.lua
 Core/Session.lua
+Core/Content.lua
+Data/WarWithin/Weekly.lua
+Data/WarWithin/Gear.lua
+Data/Midnight/Weekly.lua
+Data/Midnight/Gear.lua
 Cinematic/Engine.lua
 Cinematic/SceneKit.lua
 Cinematic/Showcase.lua

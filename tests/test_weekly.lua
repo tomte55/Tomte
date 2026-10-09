@@ -1,6 +1,9 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_weekly.lua
 date = os.date
 local ns = {}
+assert(loadfile("Tomte/Core/Content.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Data/WarWithin/Weekly.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Data/Midnight/Weekly.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Weekly/Data.lua"))("Tomte", ns)
 
 local failures = 0
@@ -174,12 +177,12 @@ test("currency: season, weekly and plain caps", function()
 end)
 
 test("knowledge: gathering and crafting sources", function()
-	local mining = ns.Weekly_Knowledge(ns.WEEKLY_PROFS[11][186], { [93707] = true, [88673] = true, [88674] = true })
+	local mining = ns.Weekly_Knowledge(ns.Content_Get(11, "profs")[186], { [93707] = true, [88673] = true, [88674] = true })
 	eq(#mining, 4, "trainer, treatise, drops, big drop")
 	eq(mining[1].n, 1, "any trainer quest counts")
 	eq(mining[3].n, 2, "drops")
 	eq(mining[3].of, 5)
-	local alch = ns.Weekly_Knowledge(ns.WEEKLY_PROFS[11][171], { [93528] = true })
+	local alch = ns.Weekly_Knowledge(ns.Content_Get(11, "profs")[171], { [93528] = true })
 	eq(alch[3].label, "Treasures")
 	eq(alch[3].n, 1)
 	eq(ns.Weekly_IsProfQuest(95135), true)
@@ -187,23 +190,75 @@ test("knowledge: gathering and crafting sources", function()
 end)
 
 test("knowledge: every quest ID is checked, also without treasures", function()
-	local ids = ns.Weekly_ProfQuestIDs(ns.WEEKLY_PROFS[11][182])
+	local ids = ns.Weekly_ProfQuestIDs(ns.Content_Get(11, "profs")[182])
 	eq(#ids, 5 + 5 + 2, "trainer, drops, treatise, big drop")
 	local seen = {}
 	for _, id in ipairs(ids) do
 		seen[id] = true
 	end
 	eq(seen[81425] and seen[81429] and seen[81430] and seen[95130] and seen[93704], true)
-	eq(#ns.Weekly_ProfQuestIDs(ns.WEEKLY_PROFS[11][171]), 1 + 2 + 1, "alchemy: trainer, treasures, treatise")
-	eq(#ns.Weekly_ProfQuestIDs(ns.WEEKLY_PROFS[11][333]), 3 + 2 + 5 + 2, "enchanting has both")
+	eq(#ns.Weekly_ProfQuestIDs(ns.Content_Get(11, "profs")[171]), 1 + 2 + 1, "alchemy: trainer, treasures, treatise")
+	eq(#ns.Weekly_ProfQuestIDs(ns.Content_Get(11, "profs")[333]), 3 + 2 + 5 + 2, "enchanting has both")
 	eq(ns.Weekly_IsProfQuest(81427), true, "drops are not learned as weekly quests")
 end)
 
-test("expansion: newest data the character reaches", function()
-	eq(ns.Weekly_Expansion(10), 10, "War Within account")
-	eq(ns.Weekly_Expansion(11), 11, "Midnight")
-	eq(ns.Weekly_Expansion(12), 11, "next expansion, no data yet")
-	eq(ns.Weekly_Expansion(9), nil, "older")
+test("snapshot expansion: stored, else the level's content expansion, else The War Within", function()
+	eq(ns.Weekly_SnapExpansion({ expansion = 11, level = 80 }), 11, "stored wins")
+	eq(ns.Weekly_SnapExpansion({}), 10, "nothing known: War Within")
+	local saved = ns.ContentExpansion
+	ns.ContentExpansion = function(level)
+		return level >= 81 and 11 or 10
+	end
+	eq(ns.Weekly_SnapExpansion({ level = 90 }), 11, "old Midnight snapshot")
+	eq(ns.Weekly_SnapExpansion({ level = 80 }), 10, "old War Within snapshot")
+	ns.ContentExpansion = saved
+	eq(ns.Weekly_View(Snap({ expansion = 11 }), NOW).expansion, 11, "view carries it")
+	eq(ns.Weekly_View(Snap(), NOW).expansion, 10, "view of an old snapshot")
+end)
+
+test("crest sets: the first one the character has, else the newest", function()
+	local sets = ns.Content_Get(11, "crests")
+	local function Has(list)
+		return function(id)
+			return list[id] == true
+		end
+	end
+	eq(ns.Weekly_PickCrestSet(sets, Has({})).label, "Mistcrests", "none: newest")
+	eq(ns.Weekly_PickCrestSet(sets, Has({ [3345] = true })).label, "Dawncrests", "only last season's")
+	eq(ns.Weekly_PickCrestSet(sets, Has({ [3345] = true, [3442] = true })).label, "Mistcrests", "both: newest")
+	eq(ns.Weekly_PickCrestSet(nil, Has({})), nil, "no sets")
+	eq(ns.Content_Get(10, "crests")[1].ids[4], 3290, "War Within: Gilded Ethereal")
+end)
+
+test("crest IDs of a view: stored set, else the expansion's set it has, else what it stored", function()
+	local v = ns.Weekly_View(Snap({ crests = { 3442, 3443 } }), NOW)
+	eq(table.concat(ns.Weekly_CrestIDs(v), ","), "3442,3443", "stored")
+	v = ns.Weekly_View(Snap({ expansion = 11 }), NOW) -- old snapshot holding a Hero Mistcrest
+	eq(table.concat(ns.Weekly_CrestIDs(v), ","), "3442,3443,3444,3445,3446", "Midnight set it has")
+	v = ns.Weekly_View(Snap(), NOW) -- War Within, holding a Mistcrest (old data): what it stored
+	eq(table.concat(ns.Weekly_CrestIDs(v), ","), "3445", "stored currencies")
+	v = ns.Weekly_View(Snap({ crests = {}, currencies = {} }), NOW)
+	eq(ns.Weekly_BoardModel(v, {}, NOW, false).progress[1].text, "Lockouts", "no crests, no section")
+end)
+
+test("grid: crests of every character", function()
+	local a = Snap({ crests = { 3284 }, currencies = { [3284] = { name = "Weathered Ethereal Crest", qty = 5 } } })
+	local b = Snap({ guid = "Player-2", crests = { 3442 }, currencies = { [3442] = { name = "Adventurer Mistcrest", qty = 7 } } })
+	local labels = {}
+	for _, row in ipairs(ns.Weekly_GridModel({ ns.Weekly_View(a, NOW), ns.Weekly_View(b, NOW) }, {}, NOW).rows) do
+		labels[#labels + 1] = row.label or ("#" .. row.header)
+	end
+	local text = table.concat(labels, "|")
+	eq(text:find("Weathered Ethereal Crest", 1, true) ~= nil and text:find("Adventurer Mistcrest", 1, true) ~= nil, true,
+		text)
+end)
+
+test("no data text", function()
+	eq(ns.Weekly_NoDataText("raids", 11), "No raids data for Midnight yet.")
+	eq(ns.Weekly_NoDataText("activities", 12), "No activities data for expansion 12 yet.")
+end)
+
+test("profession data per expansion", function()
 	eq(ns.Weekly_ProfDef(10, 186).child, 2881, "Khaz Algar Mining")
 	eq(ns.Weekly_ProfDef(nil, 186).child, 2916, "old snapshots are Midnight")
 	eq(ns.Weekly_IsProfQuest(83733), true, "War Within treatise")

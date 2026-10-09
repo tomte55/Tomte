@@ -1,5 +1,8 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_activities.lua
 local ns = {}
+assert(loadfile("Tomte/Core/Content.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Data/WarWithin/Weekly.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Data/Midnight/Weekly.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Weekly/ActivityData.lua"))("Tomte", ns)
 
 local failures = 0
@@ -92,9 +95,25 @@ test("no data at all", function()
 	eq(m.groups[1].items[1].left, "Nothing tracked yet. Weekly quests are learned when they're in your quest log.")
 end)
 
+test("no hand-kept list for the expansion: a grey line on top", function()
+	local m = ns.Weekly_ActivityModel(nil, {}, { quests = {} }, false, "No activities data for Midnight yet.")
+	eq(m.groups[1].items[1].left, "No activities data for Midnight yet.")
+	eq(m.groups[1].items[1].state, "dim")
+	eq(m.groups[2].items[1].left, "Nothing tracked yet. Weekly quests are learned when they're in your quest log.")
+	m = ns.Weekly_ActivityModel(Curated(), LEARNED, VIEW, false)
+	eq(m.groups[1].title ~= "", true, "with a list: no extra line")
+end)
+
+test("Midnight tables exist", function()
+	eq(#ns.Content_Get(11, "activities") > 0, true)
+	eq(#ns.Content_Get(11, "resources") > 0, true)
+	eq(#ns.Content_Get(11, "subfactions")[2710], 4)
+	eq(#ns.Content_Get(11, "crests"), 2)
+end)
+
 test("curated and resource tables exist for The War Within", function()
-	eq(#ns.WEEKLY_ACTIVITIES[10] > 0, true)
-	eq(#ns.WEEKLY_RESOURCES[10] > 0, true)
+	eq(#ns.Content_Get(10, "activities") > 0, true)
+	eq(#ns.Content_Get(10, "resources") > 0, true)
 end)
 
 if failures > 0 then

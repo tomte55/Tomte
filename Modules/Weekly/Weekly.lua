@@ -261,19 +261,22 @@ end
 
 -- Prints every hard-coded ID with what the game says about it, to check the third-party data in game.
 local function PrintIDs()
-	ns.Print("crests:")
-	for _, id in ipairs(ns.WEEKLY_CRESTS) do
-		local info = C_CurrencyInfo.GetCurrencyInfo(id)
-		if info and info.name and info.name ~= "" then
-			print(("  %d  %s  qty %s, max %s, weekly max %s, season total %s, useTotal %s"):format(id, info.name,
-				tostring(info.quantity), tostring(info.maxQuantity), tostring(info.maxWeeklyQuantity),
-				tostring(info.totalEarned), tostring(info.useTotalEarnedForMaxQty)))
-		else
-			print(("  %d  |cffff6060unknown|r"):format(id))
+	local expansion = ns.ContentExpansion()
+	for _, set in ipairs(ns.Content_Get(expansion, "crests") or {}) do
+		ns.Print(set.label .. ":")
+		for _, id in ipairs(set.ids) do
+			local info = C_CurrencyInfo.GetCurrencyInfo(id)
+			if info and info.name and info.name ~= "" then
+				print(("  %d  %s  qty %s, max %s, weekly max %s, season total %s, useTotal %s"):format(id, info.name,
+					tostring(info.quantity), tostring(info.maxQuantity), tostring(info.maxWeeklyQuantity),
+					tostring(info.totalEarned), tostring(info.useTotalEarnedForMaxQty)))
+			else
+				print(("  %d  |cffff6060unknown|r"):format(id))
+			end
 		end
 	end
-	local expansion = ns.Weekly_Expansion(GetExpansionLevel())
-	ns.Print(("expansion level %s, profession data for %s"):format(tostring(GetExpansionLevel()), tostring(expansion)))
+	ns.Print(("content expansion %s, profession data for %s"):format(ns.ExpansionName(expansion),
+		ns.Content_Get(expansion, "profs") and ns.ExpansionName(expansion) or "none"))
 	local first, second = GetProfessions()
 	for _, index in pairs({ first, second }) do
 		local name, _, _, _, _, _, base = GetProfessionInfo(index)
@@ -295,6 +298,132 @@ local function PrintIDs()
 		end
 	end
 end
+
+-- /tomte data checks (Core/Content.lua): does this expansion's Weekly data resolve in game?
+local function CurrencyName(id)
+	local info = C_CurrencyInfo.GetCurrencyInfo(id)
+	return info and info.name ~= nil and info.name ~= "" and info.name or nil, info
+end
+
+local function Missing(key, expansion)
+	return { ("!no %s data for %s"):format(key, ns.ExpansionName(expansion)) }
+end
+
+ns.Content_AddCheck("crests", function(expansion)
+	local sets = ns.Content_Get(expansion, "crests")
+	if not sets then
+		return Missing("crest", expansion)
+	end
+	local picked, lines = ns.WeeklyCollect_CrestSet(expansion), {}
+	for _, set in ipairs(sets) do
+		local names, bad = {}, false
+		for _, id in ipairs(set.ids) do
+			local name, info = CurrencyName(id)
+			names[#names + 1] = name and ("%s %d"):format(name, info.quantity or 0) or (id .. " unknown")
+			bad = bad or not name
+		end
+		lines[#lines + 1] = ("%s%s%s: %s"):format(bad and "!" or "", set.label, set == picked and " (shown)" or "",
+			table.concat(names, ", "))
+	end
+	return lines
+end)
+
+ns.Content_AddCheck("resources", function(expansion)
+	local ids = ns.Content_Get(expansion, "resources")
+	if not ids then
+		return Missing("resources", expansion)
+	end
+	local n, bad = 0, {}
+	for _, id in ipairs(ids) do
+		if CurrencyName(id) then
+			n = n + 1
+		else
+			bad[#bad + 1] = tostring(id)
+		end
+	end
+	local lines = { ("%d of %d currencies known"):format(n, #ids) }
+	if #bad > 0 then
+		lines[2] = "!unknown: " .. table.concat(bad, ", ")
+	end
+	return lines
+end)
+
+ns.Content_AddCheck("raids", function(expansion)
+	local list, source = ns.WeeklyRaids_Read(expansion)
+	if #list == 0 then
+		return { ("!none (from the %s)"):format(source == "journal" and "journal" or "table") }
+	end
+	local names = {}
+	for _, raid in ipairs(list) do
+		names[#names + 1] = ("%s (%d bosses)"):format(raid.name, #raid.bosses)
+	end
+	return { ("from the %s: %s"):format(source == "journal" and "Encounter Journal" or "hand-kept table",
+		table.concat(names, ", ")) }
+end)
+
+ns.Content_AddCheck("activities", function(expansion)
+	local groups = ns.Content_Get(expansion, "activities")
+	if not groups then
+		return Missing("activities", expansion)
+	end
+	local quests, lines, untitled = 0, 0, {}
+	for _, g in ipairs(groups) do
+		for _, e in ipairs(g.entries) do
+			if e.questLine then
+				lines = lines + 1
+			end
+			for _, id in ipairs(e.flags or { e.quest }) do
+				quests = quests + 1
+				if e.quest and not C_QuestLog.GetTitleForQuestID(id) then
+					untitled[#untitled + 1] = tostring(id)
+				end
+			end
+		end
+	end
+	local out = { ("%d groups, %d quest IDs, %d quest lines"):format(#groups, quests, lines) }
+	if #untitled > 0 then
+		out[2] = "no title cached (fine if never seen): " .. table.concat(untitled, ", ")
+	end
+	return out
+end)
+
+ns.Content_AddCheck("factions", function(expansion)
+	local renown = C_MajorFactions.GetMajorFactionIDs(expansion) or {}
+	local subs, n, bad = ns.Content_Get(expansion, "subfactions") or {}, 0, {}
+	for _, list in pairs(subs) do
+		for _, sub in ipairs(list) do
+			local data = C_Reputation.GetFactionDataByID(sub.id)
+			if data and data.name and data.name ~= "" then
+				n = n + 1
+			else
+				bad[#bad + 1] = tostring(sub.id)
+			end
+		end
+	end
+	local lines = { ("%d renown factions, %d sub-factions known"):format(#renown, n) }
+	if #bad > 0 then
+		lines[2] = "!unknown sub-factions: " .. table.concat(bad, ", ")
+	end
+	return lines
+end)
+
+ns.Content_AddCheck("profs", function(expansion)
+	if not ns.Content_Get(expansion, "profs") then
+		return Missing("profession", expansion)
+	end
+	local lines = {}
+	local first, second = GetProfessions()
+	for _, index in pairs({ first, second }) do
+		local name, _, _, _, _, _, base = GetProfessionInfo(index)
+		local def = base and ns.Weekly_ProfDef(expansion, base)
+		lines[#lines + 1] = def and ("%s: skill line %d, %d knowledge quests"):format(name or "?", def.child,
+			#ns.Weekly_ProfQuestIDs(def)) or ("!%s: not in the table"):format(name or "?")
+	end
+	if #lines == 0 then
+		lines[1] = "no professions"
+	end
+	return lines
+end)
 
 module = ns.RegisterModule({
 	key = "weekly",

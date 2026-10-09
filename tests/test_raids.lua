@@ -1,5 +1,8 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_raids.lua
 local ns = {}
+assert(loadfile("Tomte/Core/Content.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Data/WarWithin/Weekly.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Data/Midnight/Weekly.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Weekly/RaidData.lua"))("Tomte", ns)
 
 local failures = 0
@@ -56,8 +59,23 @@ test("no raids", function()
 	eq(#ns.Weekly_RaidModel({}, Killed, {}), 0)
 end)
 
+test("raid order: the hand-kept order, newer journal raids on top, world bosses already left out", function()
+	local listed = { 1302, 1296, 1273 }
+	eq(table.concat(ns.Weekly_RaidOrder({ 1273, 1296, 1302 }, listed), ","), "1302,1296,1273", "same raids: list order")
+	eq(table.concat(ns.Weekly_RaidOrder({ 1273, 1296, 1302, 1400 }, listed), ","), "1400,1302,1296,1273", "a newer one")
+	eq(table.concat(ns.Weekly_RaidOrder({ 1296, 1302 }, listed), ","), "1302,1296", "journal lacks one")
+	eq(table.concat(ns.Weekly_RaidOrder(nil, listed), ","), "1302,1296,1273", "no journal: the list")
+	eq(table.concat(ns.Weekly_RaidOrder({}, listed), ","), "1302,1296,1273", "empty journal: the list")
+	eq(table.concat(ns.Weekly_RaidOrder({ 1305, 1308 }, nil), ","), "1308,1305", "no list: journal, newest first")
+	eq(#ns.Weekly_RaidOrder(nil, nil), 0, "nothing")
+end)
+
+test("Midnight raid list", function()
+	eq(#ns.Content_Get(11, "raids"), 6)
+end)
+
 test("War Within raid list and four difficulties", function()
-	eq(ns.WEEKLY_RAIDS[10][1], 1302)
+	eq(ns.Content_Get(10, "raids")[1], 1302)
 	eq(#ns.WEEKLY_RAID_DIFFICULTIES, 4)
 end)
 

@@ -1,5 +1,8 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_gear.lua
 local ns = {}
+assert(loadfile("Tomte/Core/Content.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Data/WarWithin/Gear.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Data/Midnight/Gear.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Gear/Data.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Gear/Advice.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Gear/Scales.lua"))("Tomte", ns)
@@ -597,6 +600,10 @@ test("WeightsHint: only at max level, once per spec, again when the season moves
 	-- Imported or no weights: never.
 	eq(ns.Gear_WeightsHint("imported", b, nil, 2, 80, 80), nil)
 	eq(ns.Gear_WeightsHint("none", nil, nil, 2, 80, 80), nil)
+	-- A final set (its expansion's last season) never goes stale: the display season is global.
+	local final = { season = 1, final = true }
+	eq(ns.Gear_WeightsHint("builtin", final, "max", 5, 80, 80), nil, "final: no stale hint")
+	eq(select(1, ns.Gear_WeightsHint("builtin", final, nil, 5, 80, 80)), "max", "final: still the max hint")
 end)
 
 test("SimSuggested: built-in at max level only", function()
@@ -781,35 +788,94 @@ local SPEC_MAIN = {
 }
 local HEALERS = { [65] = true, [256] = true, [257] = true, [264] = true, [270] = true, [105] = true, [1468] = true }
 
-test("Scales: every spec, main stat 1 and right, four secondaries in (0, 1]", function()
+-- Every registered set: specs known with the right main stat and four secondaries in (0, 1], healers labeled guide.
+local function CheckSet(set, name)
 	local count = 0
-	for id, main in pairs(SPEC_MAIN) do
+	for id, scale in pairs(set.specs) do
 		count = count + 1
-		local scale = ns.Gear_Scales.specs[id]
-		assert(scale and type(scale.label) == "string", "no scale for " .. id)
+		local main = SPEC_MAIN[id]
+		assert(main, "unknown spec " .. id .. " in " .. name)
+		assert(type(scale.label) == "string", "no label for " .. id .. " in " .. name)
 		local n = 0
 		for key, value in pairs(scale.weights) do
 			n = n + 1
 			if key == "AGI" or key == "STR" or key == "INT" then
-				eq(key, main, "main stat of " .. id)
+				eq(key, main, "main stat of " .. id .. " in " .. name)
 				eq(value, 1, "main stat weight of " .. id)
 			else
 				assert(key == "CRIT" or key == "HASTE" or key == "MASTERY" or key == "VERS", "odd key " .. key .. " in " .. id)
 				assert(value > 0 and value <= 1, ("%s %s out of range in %d"):format(key, tostring(value), id))
 			end
 		end
-		eq(n, 5, "main + four secondaries in " .. id)
+		eq(n, 5, "main + four secondaries in " .. id .. " in " .. name)
 		eq(scale.weights[main], 1, "main stat present in " .. id)
 		if HEALERS[id] then
 			assert(ns.Gear_IsGuideLabel(scale.label), "healer " .. id .. " should be labeled guide priority")
 		end
 	end
-	eq(count, 40)
-	for id in pairs(ns.Gear_Scales.specs) do
-		assert(SPEC_MAIN[id], "unknown spec " .. id .. " in Scales")
+	assert(type(set.seasonName) == "string", name .. " has no seasonName")
+	return count
+end
+
+test("Scales: Midnight has every spec, main stat 1 and right, four secondaries in (0, 1]", function()
+	local set = ns.Gear_ScalesFor(11)
+	eq(set.expansion, 11)
+	eq(CheckSet(set, "Midnight"), 40)
+	for id in pairs(SPEC_MAIN) do
+		assert(set.specs[id], "no Midnight scale for " .. id)
 	end
-	eq(#ns.Gear_Scales.gems, 16)
-	eq(#ns.Gear_Scales.diamonds, 8)
+	eq(#set.gems, 16)
+	eq(#set.diamonds, 8)
+	assert(set.diamondIDs[240982], "diamond lookup")
+	eq(set.final, false, "Midnight is live")
+end)
+
+test("Scales: War Within set, final, no Devourer", function()
+	local set = ns.Gear_ScalesFor(10)
+	if set.missing then
+		print("     (War Within set not filled in yet: skipped)")
+		return
+	end
+	eq(set.expansion, 10)
+	eq(set.missing, nil)
+	eq(set.final, true, "War Within's last season")
+	assert(CheckSet(set, "War Within") > 0, "War Within has weights")
+	eq(set.specs[1480], nil, "Devourer didn't exist in War Within")
+	eq(#set.gems, 16)
+	assert(#set.diamonds > 0, "War Within diamonds")
+	for _, id in ipairs(set.gems) do
+		assert(not ns.Gear_ScalesFor(11).diamondIDs[id], "gem shared with Midnight")
+	end
+end)
+
+test("Scales: missing expansion gives the empty set and neutral weights", function()
+	local set = ns.Gear_ScalesFor(12)
+	eq(set, ns.GEAR_NO_SCALES)
+	eq(set.missing, true)
+	eq(ns.Gear_ScalesFor(nil), ns.GEAR_NO_SCALES)
+	eq(ns.Gear_ScalesName(set, 12), "none for expansion 12")
+	local ctx = ns.Gear_BuildContext({ id = 66, name = "Protection", primary = "STR" }, "X", "PALADIN", {}, set, {})
+	eq(ctx.source, "none")
+	eq(ctx.weights.STR, 1)
+	eq(ctx.weights.CRIT, 0.5)
+	eq(ctx.best, nil)
+	eq(ns.Gear_WeightsHint(ctx.source, set, nil, 50, 90, 90), nil)
+end)
+
+test("Scales: a character's level picks its content expansion's set", function()
+	local owned = 11
+	_G.GetExpansionLevel = function()
+		return owned
+	end
+	_G.GetExpansionForLevel = function(level)
+		return level <= 80 and 10 or 11
+	end
+	eq(ns.Gear_ScalesForLevel(80), ns.Gear_ScalesFor(10), "80 on a Midnight account: War Within")
+	eq(ns.Gear_ScalesForLevel(85).expansion, 11)
+	owned = 10
+	eq(ns.Gear_ScalesForLevel(80), ns.Gear_ScalesFor(10), "War Within owner")
+	eq(ns.Gear_ScalesForLevel(85), ns.Gear_ScalesFor(10), "capped at what's owned")
+	_G.GetExpansionLevel, _G.GetExpansionForLevel = nil, nil
 end)
 
 test("OffspecLine: only plain upgrades", function()
@@ -930,7 +996,7 @@ end)
 
 -------------------------------------------------------------------------------------------------- upgrades for alts
 
-local SCALES = ns.Gear_Scales
+local SCALES = ns.Gear_ScalesFor(11)
 local GEMS = { { itemID = 1, name = "Quick Gem", stats = { HASTE = 10 } } }
 
 test("CharSpec and BuildContext: armor type, main stat and weight source per alt", function()
@@ -1018,15 +1084,20 @@ test("AltsToJudge: not me, spec and gear stored, seen in 60 days, max level mode
 		NoSpec = char("NoSpec", "Nospec", 80, 1, { primary = false }),
 		NoSeen = char("NoSeen", "Noseen", 80, 1, { seen = false }),
 	}
-	local list = ns.Gear_AltsToJudge(chars, "Me", now, "all", 80)
+	local function atMax(level)
+		return level >= 80
+	end
+	local list = ns.Gear_AltsToJudge(chars, "Me", now, "all", atMax)
 	eq(#list, 2)
 	eq(list[1].name, "Bea", "by name")
 	eq(list[2].name, "Mira")
-	list = ns.Gear_AltsToJudge(chars, "Me", now, "max", 80)
+	list = ns.Gear_AltsToJudge(chars, "Me", now, "max", atMax)
 	eq(#list, 1)
 	eq(list[1].name, "Mira")
 	eq(#ns.Gear_AltsToJudge(chars, "Me", now, "max", nil), 0, "max level unknown")
-	eq(#ns.Gear_AltsToJudge(chars, "Me", now, "off", 80), 0)
+	eq(#ns.Gear_AltsToJudge(chars, "Me", now, "off", atMax), 0)
+	chars.Mira.level = nil
+	eq(#ns.Gear_AltsToJudge(chars, "Me", now, "max", atMax), 0, "level unknown")
 end)
 
 test("AltVerdict: the alt's level and worn items, not your red text", function()

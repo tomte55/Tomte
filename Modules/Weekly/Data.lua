@@ -16,97 +16,65 @@ ns.WEEKLY_TRACKS = {
 	{ key = "world", enum = "World", type = 6, label = "World" },
 }
 
--- Season 2 Mistcrests, lowest first. Adventurer and Hero are wiki-verified; Veteran, Champion and Myth come from
--- Wowhead (one source says Myth is 3441). /tomte weekly ids checks them in game.
-ns.WEEKLY_CRESTS = { 3442, 3443, 3444, 3445, 3446 }
+-- Hand-kept data per expansion lives in Data/<Expansion>/Weekly.lua (Core/Content.lua): crests, profs (profession
+-- knowledge: base skill line -> that expansion's skill line, its weekly knowledge quests and their points) and
+-- profPlaces (where the profession weeklies happen). Each profession snapshot stores the expansion it was read for.
+local DEFAULT_EXPANSION = 11 -- profession snapshots from before the expansion was stored (only Midnight data then)
+local DEFAULT_SNAP_EXPANSION = 10 -- weekly snapshots from before the expansion was stored, when the level says nothing
 
--- Per expansion (Enum.ExpansionLevel: 10 The War Within, 11 Midnight): base skill line (GetProfessionInfo) -> that
--- expansion's skill line, its weekly knowledge quests and what each is worth. trainerPts / treasurePts (each) /
--- bigPts are knowledge points (drops and treatises give 1). at = { x, y, who } for a trainer quest that isn't from
--- the Artisan's Consortium. Third-party data (WeeklyKnowledge, checked 2026-10-04); /tomte weekly ids shows the
--- quest IDs in game.
-ns.WEEKLY_PROFS = {
-	[10] = {
-		[171] = { name = "Alchemy", child = 2871, trainer = { 84133 }, trainerPts = 2, treatise = 83725,
-			treasures = { 83253, 83255 }, treasurePts = 2 },
-		[164] = { name = "Blacksmithing", child = 2872, trainer = { 84127 }, trainerPts = 2, treatise = 83726,
-			treasures = { 83256, 83257 }, treasurePts = 1 },
-		[333] = { name = "Enchanting", child = 2874, trainer = { 84084, 84085, 84086 }, trainerPts = 3,
-			at = { 52.8, 71.2, "your Enchanting trainer" }, treatise = 83727, treasures = { 83258, 83259 }, treasurePts = 1,
-			drops = { 84290, 84291, 84292, 84293, 84294 }, bigDrop = 84295, bigPts = 4, from = "disenchanting" },
-		[202] = { name = "Engineering", child = 2875, trainer = { 84128 }, trainerPts = 1, treatise = 83728,
-			treasures = { 83260, 83261 }, treasurePts = 1 },
-		[182] = { name = "Herbalism", child = 2877, gathering = true, trainer = { 82916, 82958, 82962, 82965, 82970 },
-			trainerPts = 3, at = { 44.8, 69.4, "your Herbalism trainer" }, treatise = 83729,
-			drops = { 81416, 81417, 81418, 81419, 81420 }, bigDrop = 81421, bigPts = 4, from = "picking herbs" },
-		[773] = { name = "Inscription", child = 2878, trainer = { 84129 }, trainerPts = 2, treatise = 83730,
-			treasures = { 83262, 83264 }, treasurePts = 2 },
-		[755] = { name = "Jewelcrafting", child = 2879, trainer = { 84130 }, trainerPts = 2, treatise = 83731,
-			treasures = { 83265, 83266 }, treasurePts = 2 },
-		[165] = { name = "Leatherworking", child = 2880, trainer = { 84131 }, trainerPts = 2, treatise = 83732,
-			treasures = { 83267, 83268 }, treasurePts = 1 },
-		[186] = { name = "Mining", child = 2881, gathering = true, trainer = { 83102, 83103, 83104, 83105, 83106 },
-			trainerPts = 3, at = { 52.6, 52.6, "your Mining trainer" }, treatise = 83733,
-			drops = { 83050, 83051, 83052, 83053, 83054 }, bigDrop = 83049, bigPts = 3, from = "mining" },
-		[393] = { name = "Skinning", child = 2882, gathering = true, trainer = { 82992, 82993, 83097, 83098, 83100 },
-			trainerPts = 3, at = { 54.4, 57.6, "your Skinning trainer" }, treatise = 83734,
-			drops = { 81459, 81460, 81461, 81462, 81463 }, bigDrop = 81464, bigPts = 2, from = "skinning" },
-		[197] = { name = "Tailoring", child = 2883, trainer = { 84132 }, trainerPts = 2, treatise = 83735,
-			treasures = { 83269, 83270 }, treasurePts = 1 },
-	},
-	[11] = {
-		[171] = { name = "Alchemy", child = 2906, trainer = { 93690 }, trainerPts = 1, treatise = 95127,
-			treasures = { 93528, 93529 }, treasurePts = 1 },
-		[164] = { name = "Blacksmithing", child = 2907, trainer = { 93691 }, trainerPts = 2, treatise = 95128,
-			treasures = { 93530, 93531 }, treasurePts = 2 },
-		[333] = { name = "Enchanting", child = 2909, trainer = { 93697, 93698, 93699 }, trainerPts = 3,
-			at = { 47.8, 53.8, "Dolothos, the Enchanting trainer" }, treatise = 95129, treasures = { 93532, 93533 },
-			treasurePts = 2, drops = { 95048, 95049, 95050, 95051, 95052 }, bigDrop = 95053, bigPts = 4,
-			from = "disenchanting" },
-		[202] = { name = "Engineering", child = 2910, trainer = { 93692 }, trainerPts = 1, treatise = 95138,
-			treasures = { 93534, 93535 }, treasurePts = 1 },
-		[182] = { name = "Herbalism", child = 2912, gathering = true, trainer = { 93700, 93701, 93702, 93703, 93704 },
-			trainerPts = 3, at = { 48.2, 51.6, "Botanist Nathera, the Herbalism trainer" }, treatise = 95130,
-			drops = { 81425, 81426, 81427, 81428, 81429 }, bigDrop = 81430, bigPts = 4, from = "picking herbs" },
-		[773] = { name = "Inscription", child = 2913, trainer = { 93693 }, trainerPts = 4, treatise = 95131,
-			treasures = { 93536, 93537 }, treasurePts = 2 },
-		[755] = { name = "Jewelcrafting", child = 2914, trainer = { 93694 }, trainerPts = 3, treatise = 95133,
-			treasures = { 93538, 93539 }, treasurePts = 2 },
-		[165] = { name = "Leatherworking", child = 2915, trainer = { 93695 }, trainerPts = 2, treatise = 95134,
-			treasures = { 93540, 93541 }, treasurePts = 2 },
-		[186] = { name = "Mining", child = 2916, gathering = true, trainer = { 93705, 93706, 93707, 93708, 93709 },
-			trainerPts = 3, at = { 42.6, 52.8, "Belil, the Mining trainer" }, treatise = 95135,
-			drops = { 88673, 88674, 88675, 88676, 88677 }, bigDrop = 88678, bigPts = 3, from = "mining" },
-		[393] = { name = "Skinning", child = 2917, gathering = true, trainer = { 93710, 93711, 93712, 93713, 93714 },
-			trainerPts = 3, at = { 43.2, 55.6, "Tyn, the Skinning trainer" }, treatise = 95136,
-			drops = { 88534, 88549, 88537, 88536, 88530 }, bigDrop = 88529, bigPts = 3, from = "skinning" },
-		[197] = { name = "Tailoring", child = 2918, trainer = { 93696 }, trainerPts = 2, treatise = 95137,
-			treasures = { 93542, 93543 }, treasurePts = 2 },
-	},
-}
+-- The expansion a weekly snapshot was taken for. Older snapshots: their level's content expansion (they were only
+-- taken at the account's max level), else The War Within.
+function ns.Weekly_SnapExpansion(snap)
+	if snap.expansion then
+		return snap.expansion
+	end
+	local fromLevel = snap.level and ns.ContentExpansion and ns.ContentExpansion(snap.level)
+	return fromLevel or DEFAULT_SNAP_EXPANSION
+end
 
--- Where an expansion's profession weeklies happen (map IDs from WeeklyKnowledge; coordinates in percent).
-ns.WEEKLY_EXPANSIONS = {
-	[10] = { city = "Dornogal", map = 2339, zone = "Khaz Algar", treatise = "Algari Treatise on %s",
-		consortium = { 59.2, 55.6, "Kala Clayhoof at the Artisan's Consortium" }, orders = { 58.0, 56.4 } },
-	[11] = { city = "Silvermoon City", map = 2393, zone = "Midnight's zones", treatise = "Thalassian Treatise on %s",
-		consortium = { 45.0, 55.2, "the Artisan's Consortium" }, orders = { 45.0, 55.6 } },
-}
-local DEFAULT_EXPANSION = 11 -- snapshots from before the expansion was stored
-
--- The newest expansion with data that the character's expansion level reaches (GetExpansionLevel()).
-function ns.Weekly_Expansion(level)
-	local best
-	for expansion in pairs(ns.WEEKLY_PROFS) do
-		if expansion <= (level or 0) and (not best or expansion > best) then
-			best = expansion
+-- The first crest set (newest first) the character has any of, else the newest. has(id) -> bool.
+function ns.Weekly_PickCrestSet(sets, has)
+	for _, set in ipairs(sets or {}) do
+		for _, id in ipairs(set.ids) do
+			if has(id) then
+				return set
+			end
 		end
 	end
-	return best
+	return sets and sets[1] or nil
+end
+
+-- The crest currency IDs of a view: the set stored with the snapshot; older snapshots stored crests only, so the
+-- set of its expansion it has any of, else whatever it stored.
+function ns.Weekly_CrestIDs(v)
+	if v.crests then
+		return v.crests
+	end
+	local set = ns.Weekly_PickCrestSet(ns.Content_Get(v.expansion, "crests"), function(id)
+		return v.currencies[id] ~= nil
+	end)
+	if set then
+		for _, id in ipairs(set.ids) do
+			if v.currencies[id] then
+				return set.ids
+			end
+		end
+	end
+	local ids = {}
+	for id in pairs(v.currencies or {}) do
+		ids[#ids + 1] = id
+	end
+	table.sort(ids)
+	return ids
+end
+
+-- "No raids data for The War Within yet."
+function ns.Weekly_NoDataText(what, expansion)
+	return ("No %s data for %s yet."):format(what, ns.ExpansionName(expansion))
 end
 
 function ns.Weekly_ProfDef(expansion, base)
-	local profs = ns.WEEKLY_PROFS[expansion or DEFAULT_EXPANSION]
+	local profs = ns.Content_Get(expansion or DEFAULT_EXPANSION, "profs")
 	return profs and profs[base]
 end
 
@@ -124,8 +92,8 @@ function ns.Weekly_ProfQuestIDs(def)
 end
 
 local profQuest = {}
-for _, profs in pairs(ns.WEEKLY_PROFS) do
-	for _, def in pairs(profs) do
+for _, expansion in ipairs(ns.Content_Expansions()) do
+	for _, def in pairs(ns.Content_Get(expansion, "profs") or {}) do
 		for _, id in ipairs(ns.Weekly_ProfQuestIDs(def)) do
 			profQuest[id] = true
 		end
@@ -198,6 +166,7 @@ function ns.Weekly_View(snap, now)
 	local v = {
 		guid = snap.guid, name = snap.name, realm = snap.realm, class = snap.class, at = snap.at, seen = snap.seen,
 		stale = stale, vault = {}, currencies = {}, quests = {}, renown = snap.renown or {}, lockouts = {}, profs = {},
+		expansion = ns.Weekly_SnapExpansion(snap), crests = snap.crests,
 	}
 	v.vaultReady = snap.vaultReady == true or (stale and AnyUnlocked(snap.vault))
 	for _, track in ipairs(ns.WEEKLY_TRACKS) do
@@ -297,7 +266,7 @@ function ns.Weekly_Knowledge(def, done, expansion)
 		end
 		return n
 	end
-	local exp = ns.WEEKLY_EXPANSIONS[expansion or DEFAULT_EXPANSION]
+	local exp = ns.Content_Get(expansion or DEFAULT_EXPANSION, "profPlaces")
 	local trainer = def.at or exp.consortium
 	local rows = {
 		{
@@ -403,7 +372,7 @@ end
 
 local function CrestRows(v)
 	local rows = {}
-	for _, id in ipairs(ns.WEEKLY_CRESTS) do
+	for _, id in ipairs(ns.Weekly_CrestIDs(v)) do
 		local c = v.currencies[id]
 		if c then
 			local have, cap = ns.Weekly_CurrencyProgress(c)
@@ -621,7 +590,16 @@ function ns.Weekly_GridModel(views, learned, now)
 	end
 
 	Header("Currencies")
-	for _, id in ipairs(ns.WEEKLY_CRESTS) do
+	local crests, seenCrest = {}, {} -- every character's crests (they may be in different expansions or seasons)
+	for _, v in ipairs(views) do
+		for _, id in ipairs(ns.Weekly_CrestIDs(v)) do
+			if not seenCrest[id] then
+				seenCrest[id] = true
+				crests[#crests + 1] = id
+			end
+		end
+	end
+	for _, id in ipairs(crests) do
 		local name
 		for _, v in ipairs(views) do
 			name = name or (v.currencies[id] and v.currencies[id].name)

@@ -1,27 +1,8 @@
 local addonName, ns = ...
 
 -- Activities tab: pure logic (tested with plain Lua). Learned weekly quests (Collect.lua) grouped by their quest log
--- header, after a short hand-kept list per expansion for what never shows in the log. Quest IDs from Plumber's
--- tables (checked 2026-10-08): Coffer Key flags 91175-91178, Coffer Key Shard flags 84736-84739, "The Key to Success"
--- 84370 (account-wide), Worldsoul weekly quest line 5572.
-
-ns.WEEKLY_ACTIVITIES = {
-	[10] = {
-		{ group = "Delves", entries = {
-			{ label = "The Key to Success", quest = 84370, account = true },
-			{ label = "Restored Coffer Keys", flags = { 91175, 91176, 91177, 91178 } },
-			{ label = "Coffer Key Shards", flags = { 84736, 84737, 84738, 84739 } },
-		} },
-		{ group = "Dornogal", entries = {
-			{ label = "Worldsoul weekly", questLine = 5572 },
-		} },
-	},
-}
-
--- Currencies for the Resources list (shown when discovered), after the crests. From Plumber's War Within list.
-ns.WEEKLY_RESOURCES = {
-	[10] = { 3269, 3028, 3149, 2815, 3218, 3226, 3090, 3056, 2803, 2123, 2797 },
-}
+-- header, after a short hand-kept list per expansion for what never shows in the log (`activities`, and the
+-- Resources list's `resources`, in Data/<Expansion>/Weekly.lua).
 
 local OTHER = "Other weekly quests"
 
@@ -43,8 +24,8 @@ end
 -- curated: { { group, entries = { { label, state = "done" | "open" | "progress", n, of, title } } } } (the reader
 -- fills the state); learned: db.quests; v: the character's view (v.quests[questID] = "log" | "done").
 -- Returns { groups = { { title, items } }, hidden = n }; items use the board row schema, hidden counts done items
--- left out by hideCompleted.
-function ns.Weekly_ActivityModel(curated, learned, v, hideCompleted)
+-- left out by hideCompleted. noData: a grey line on top (the expansion has no hand-kept list).
+function ns.Weekly_ActivityModel(curated, learned, v, hideCompleted, noData)
 	local groups, hidden = {}, 0
 	local function Add(title, items)
 		local kept = {}
@@ -59,7 +40,7 @@ function ns.Weekly_ActivityModel(curated, learned, v, hideCompleted)
 			groups[#groups + 1] = { title = title, items = kept }
 		end
 	end
-	for _, g in ipairs(curated) do
+	for _, g in ipairs(curated or {}) do
 		local items = {}
 		for _, e in ipairs(g.entries) do
 			items[#items + 1] = CuratedItem(e)
@@ -98,6 +79,9 @@ function ns.Weekly_ActivityModel(curated, learned, v, hideCompleted)
 		local text = hidden > 0 and "Everything here is done this week."
 			or "Nothing tracked yet. Weekly quests are learned when they're in your quest log."
 		groups[1] = { title = "", items = { { kind = "row", left = text, state = hidden > 0 and "done" or "dim" } } }
+	end
+	if noData then
+		table.insert(groups, 1, { title = "", items = { { kind = "row", left = noData, state = "dim" } } })
 	end
 	return { groups = groups, hidden = hidden }
 end

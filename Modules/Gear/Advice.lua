@@ -2,8 +2,8 @@ local addonName, ns = ...
 
 -- Gear Check advice (pure, unit-tested): which stat weights apply and what to tell the player about them, the best
 -- gem for those weights, gem and enchant checks on worn items, the off-spec line, the evaluator context for any
--- character, and upgrades for alts (bind state, who counts, their verdict and lines). Built-in scales and the gem
--- list live in Scales.lua.
+-- character, and upgrades for alts (bind state, who counts, their verdict and lines). Built-in sets (weights, gems)
+-- live in Data/<Expansion>/Gear.lua, read through Scales.lua.
 
 local GEM_SLACK = 0.05 -- a socketed gem this much below the best one is fine (weights aren't that precise)
 local STAT_LABELS = { -- also ns.GEAR_STAT_LABELS (Sheet.lua)
@@ -28,7 +28,7 @@ function ns.Gear_ResolveWeights(saved, builtin, primary)
 end
 
 -- The weights for any character and spec: weightsByGuid is the saved db.weights ([guid][specID] = imported),
--- scales is ns.Gear_Scales. Same order and returns as Gear_ResolveWeights. Works for another character's guid
+-- scales is the character's built-in set (Gear_ScalesFor). Same order and returns as Gear_ResolveWeights. Works for another character's guid
 -- and spec too (alts).
 function ns.Gear_WeightsFor(weightsByGuid, guid, specID, primary, scales)
 	local mine = weightsByGuid and guid and weightsByGuid[guid]
@@ -59,11 +59,13 @@ end
 -- already said for this character and spec (saved): nil, "builtin" (the old any-level hint, which doesn't count),
 -- "max", or "stale:<season>". currentSeason is nil when the game can't say. Returns the hint kind ("max" |
 -- "stale") and the new seen value, or nil when there's nothing to say.
+-- Stale only for a set that isn't final: the display season is global (a War Within character on a Midnight
+-- client sees Midnight's season), and a final set is its expansion's last season, so nothing newer exists for it.
 function ns.Gear_WeightsHint(source, builtin, seen, currentSeason, level, maxLevel)
 	if source ~= "builtin" or not AtMax(level, maxLevel) then
 		return nil
 	end
-	if currentSeason and builtin.season and builtin.season < currentSeason then
+	if currentSeason and builtin.season and not builtin.final and builtin.season < currentSeason then
 		local key = "stale:" .. currentSeason
 		if seen ~= key then
 			return "stale", key
@@ -421,8 +423,9 @@ function ns.Gear_TransferRoute(state)
 end
 
 -- The characters to judge items for, by name: not me, with a stored spec and worn gear, played in the last 60
--- days; mode "max" only those at maxLevel, "off" nobody. now and seen are server times.
-function ns.Gear_AltsToJudge(chars, me, now, mode, maxLevel)
+-- days; mode "max" only those atMax(level) says are at max level (their content expansion's), "off" nobody. now and
+-- seen are server times.
+function ns.Gear_AltsToJudge(chars, me, now, mode, atMax)
 	local list = {}
 	if mode == "off" then
 		return list
@@ -430,7 +433,7 @@ function ns.Gear_AltsToJudge(chars, me, now, mode, maxLevel)
 	local oldest = now - ns.GEAR_ALT_STALE_DAYS * 86400
 	for guid, c in pairs(chars or {}) do
 		if guid ~= me and c.gear and ns.Gear_CharSpec(c) and c.seen and c.seen >= oldest
-			and (mode ~= "max" or (maxLevel ~= nil and (c.level or 0) >= maxLevel)) then
+			and (mode ~= "max" or (atMax ~= nil and c.level ~= nil and atMax(c.level))) then
 			list[#list + 1] = c
 		end
 	end

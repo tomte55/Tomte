@@ -91,6 +91,7 @@ local function PrintHelp()
 	PrintCommand("/tomte", "open Tomte (Home)")
 	PrintCommand("/tomte help", "this list")
 	PrintCommand("/tomte version", "which Tomte version you have (say it when you report a bug)")
+	PrintCommand("/tomte data", "which expansion's content Tomte follows for you, and what it knows about it")
 	for _, module in ipairs(ns.modules) do
 		PrintModuleCommands(module)
 	end
@@ -140,6 +141,8 @@ SlashCmdList.TOMTE = function(msg)
 		PrintHelp()
 	elseif word == "version" then
 		ns.Print(("version %s, game %s (%s)."):format(ns.VERSION, GetBuildInfo(), select(2, GetBuildInfo())))
+	elseif word == "data" then
+		ns.Content_Report()
 	else
 		local module = ns.modulesByKey[word]
 		if module and module.commands then

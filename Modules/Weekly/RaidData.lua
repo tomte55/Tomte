@@ -1,11 +1,7 @@
 local addonName, ns = ...
 
--- Raids tab: pure logic (tested with plain Lua). Journal instance IDs per expansion, newest first (Plumber's list,
--- checked 2026-10-08), and the four difficulties (DifficultyUtil.ID.PrimaryRaidLFR/Normal/Heroic/Mythic).
-
-ns.WEEKLY_RAIDS = {
-	[10] = { 1302, 1296, 1273 }, -- Manaforge Omega, Liberation of Undermine, Nerub-ar Palace
-}
+-- Raids tab: pure logic (tested with plain Lua). The four difficulties (DifficultyUtil.ID.PrimaryRaidLFR/Normal/
+-- Heroic/Mythic); the raids come from the Encounter Journal, else `raids` in Data/<Expansion>/Weekly.lua.
 
 ns.WEEKLY_RAID_DIFFICULTIES = {
 	{ id = 17, short = "L", name = "LFR" },
@@ -13,6 +9,33 @@ ns.WEEKLY_RAID_DIFFICULTIES = {
 	{ id = 15, short = "H", name = "Heroic" },
 	{ id = 16, short = "M", name = "Mythic" },
 }
+
+-- The raids to show, newest first. journal: the Encounter Journal tier's raids in its order (oldest first, world
+-- bosses left out), or nil when it couldn't be read; listed: the hand-kept list, newest first. Raids the list knows
+-- keep its order; newer ones only the journal has go on top (newest first).
+function ns.Weekly_RaidOrder(journal, listed)
+	if not journal or #journal == 0 then
+		return listed or {}
+	end
+	local inJournal, known, list = {}, {}, {}
+	for _, id in ipairs(journal) do
+		inJournal[id] = true
+	end
+	for _, id in ipairs(listed or {}) do
+		known[id] = true
+	end
+	for i = #journal, 1, -1 do
+		if not known[journal[i]] then
+			list[#list + 1] = journal[i]
+		end
+	end
+	for _, id in ipairs(listed or {}) do
+		if inJournal[id] then
+			list[#list + 1] = id
+		end
+	end
+	return list
+end
 
 -- raids = { { id, name, mapID, bosses = { { name, encounterID } } } }; isKilled(mapID, encounterID, difficultyID);
 -- collapsed[id] = true. Returns { kind = "raid", id, name, totals = { "3/8", ... }, collapsed } and
