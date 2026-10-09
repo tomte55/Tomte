@@ -5,6 +5,10 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.2.0 - 2026-10-10
+
+Routes to other continents, guard directions as map pins, crafting quality picks and Edit Mode support.
+
 - Blizzard's Edit Mode moves Tomte's widgets too: the Almost Done tracker, the Crafting list, the Flight Timer bar,
   the Pet Health bar and the toasts show with a blue box while it's open, ready to drag. The Lock options and
   unlock commands still work.

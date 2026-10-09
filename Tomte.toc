@@ -2,7 +2,7 @@
 ## Title: Tomte
 ## Notes: Personal quality-of-life modules.
 ## Author: tomte55
-## Version: 1.1.0
+## Version: 1.2.0
 ## IconTexture: Interface\AddOns\Tomte\Media\Logo
 ## SavedVariables: TomteDB
 ## OptionalDeps: Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI
