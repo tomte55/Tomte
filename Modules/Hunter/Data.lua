@@ -6,7 +6,29 @@ local addonName, ns = ...
 local SPEC_BM, SPEC_MM, SPEC_SV = 253, 254, 255
 local DELVE_DIFFICULTY = 208
 
--- Creature families that aren't hunter pets (warlock demons, DK ghouls, mage elementals).
+-- Creature families that aren't hunter pets (warlock demons, DK ghouls, mage elementals), by CreatureFamily ID
+-- (UnitCreatureFamily's second return), so any client language works.
+local NOT_HUNTER_FAMILY_IDS = {
+	[23] = true, -- Imp
+	[100] = true, -- Fel Imp
+	[16] = true, -- Voidwalker
+	[101] = true, -- Voidlord
+	[17] = true, -- Succubus
+	[302] = true, -- Incubus
+	[102] = true, -- Shivarra
+	[15] = true, -- Felhunter
+	[103] = true, -- Observer
+	[29] = true, -- Felguard
+	[104] = true, -- Wrathguard
+	[108] = true, -- Infernal
+	[148] = true, -- Abyssal
+	[19] = true, -- Doomguard
+	[147] = true, -- Terrorguard
+	[40] = true, -- Ghoul
+	[155] = true, -- Abomination
+	[49] = true, -- Water Elemental
+}
+-- The same by enUS name, for a caller that has no ID.
 local NOT_HUNTER_FAMILIES = {
 	Imp = true, ["Fel Imp"] = true, Voidwalker = true, Voidlord = true, Succubus = true, Incubus = true,
 	Shivarra = true, Felhunter = true, Observer = true, Felguard = true, Wrathguard = true, Infernal = true,
@@ -26,8 +48,15 @@ function ns.Hunter_NpcID(guid)
 	return tonumber(id)
 end
 
-function ns.Hunter_IsPetFamily(name)
-	return type(name) == "string" and name ~= "" and not NOT_HUNTER_FAMILIES[name]
+-- name, id: UnitCreatureFamily's returns. With the ID the check works on any client; by name only on English ones.
+function ns.Hunter_IsPetFamily(name, id)
+	if type(name) ~= "string" or name == "" then
+		return false
+	end
+	if type(id) == "number" then
+		return not NOT_HUNTER_FAMILY_IDS[id]
+	end
+	return not NOT_HUNTER_FAMILIES[name]
 end
 
 -- The fields of a C_StableInfo PetInfo we keep in the saved cache.

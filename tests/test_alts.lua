@@ -481,6 +481,77 @@ test("profession gear: best craft and best home for a bag item", function()
 	eq(ns.Alts_ProfBagUpgrade(500, { { guid = "a", target = { ilvl = 590 } } }), nil, "nobody's upgrade")
 end)
 
+test("ForgetMatches skips the character being played and finds its stale twin", function()
+	local alts = {
+		new = { name = "Tomten", realm = "Silvermoon" }, -- transferred: new GUID, same name
+		old = { name = "Tomten", realm = "ArgentDawn" },
+		x = { name = "Other", realm = "ArgentDawn" },
+	}
+	local r = ns.Alts_ForgetMatches({ alts }, "tomten", "new")
+	eq(#r.matches, 1, "matches")
+	eq(r.matches[1].guid, "old", "the stale one")
+	eq(r.playing, true, "playing")
+	eq(r.ambiguous, false, "one realm left")
+	r = ns.Alts_ForgetMatches({ alts }, "Other", "new")
+	eq(r.matches[1].guid, "x")
+	eq(r.playing, false)
+	r = ns.Alts_ForgetMatches({ { new = alts.new } }, "TOMTEN", "new")
+	eq(#r.matches, 0, "only the current one")
+	eq(r.playing, true)
+	eq(#ns.Alts_ForgetMatches({ alts }, "nobody", "new").matches, 0)
+end)
+
+test("ForgetMatches: name on several realms is ambiguous, name-realm picks one", function()
+	local alts = {
+		a = { name = "Bob", realm = "ArgentDawn" },
+		b = { name = "Bob", realm = "Silvermoon" },
+		c = { name = "Bob", realm = "Silvermoon" }, -- deleted and remade on the same realm
+	}
+	local r = ns.Alts_ForgetMatches({ alts }, "bob", "me")
+	eq(#r.matches, 3)
+	eq(r.ambiguous, true)
+	r = ns.Alts_ForgetMatches({ alts }, "bob-silvermoon", "me")
+	eq(#r.matches, 2, "both on that realm")
+	eq(r.ambiguous, false)
+	r = ns.Alts_ForgetMatches({ alts }, " Bob-Argent Dawn ", "me")
+	eq(#r.matches, 1, "realm with a space")
+	eq(r.matches[1].guid, "a")
+end)
+
+test("ForgetMatches merges Alts and Weekly characters", function()
+	local alts = { a = { name = "Bob", realm = "R" } }
+	local weekly = { a = { name = "Bob", realm = "R" }, w = { name = "Bob", realm = "R" } }
+	local r = ns.Alts_ForgetMatches({ alts, weekly, nil }, "bob", "me")
+	eq(#r.matches, 2)
+	eq(r.ambiguous, false)
+end)
+
+test("ForgetEverywhere clears every per-character store", function()
+	local function Root()
+		return {
+			alts = { chars = { g = {}, k = {} } },
+			weekly = { chars = { g = {} }, hidden = { g = true } },
+			ach = { cache = { g = {} }, pins = { g = { 1 } } },
+			gear = { weights = { g = {} }, hinted = { g = {} } },
+			hunter = { chars = { g = {} } },
+			moments = { zones = { g = { [1] = true } } },
+			sessionLast = { g = {}, k = {} },
+			recap = { history = { { guid = "g" }, { guid = "k" }, { guid = "g" } } },
+		}
+	end
+	local root = Root()
+	eq(ns.Alts_ForgetEverywhere(root, "g"), 12, "entries removed")
+	for _, t in ipairs({ root.alts.chars, root.weekly.chars, root.weekly.hidden, root.ach.cache, root.ach.pins,
+		root.gear.weights, root.gear.hinted, root.hunter.chars, root.moments.zones, root.sessionLast }) do
+		eq(t.g, nil, "cleared")
+	end
+	eq(root.alts.chars.k ~= nil, true, "others stay")
+	eq(root.sessionLast.k ~= nil, true, "others' sessions stay")
+	eq(#root.recap.history, 1, "history")
+	eq(root.recap.history[1].guid, "k")
+	eq(ns.Alts_ForgetEverywhere({}, "g"), 0, "missing modules are fine")
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)

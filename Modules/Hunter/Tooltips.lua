@@ -70,8 +70,8 @@ local function OnUnit(tooltip, data)
 	if Secret(controlled) or controlled then
 		return
 	end
-	local family = UnitCreatureFamily(unit)
-	if Secret(family) or not ns.Hunter_IsPetFamily(family) then
+	local family, familyID = UnitCreatureFamily(unit)
+	if Secret(family, familyID) or not ns.Hunter_IsPetFamily(family, familyID) then
 		return
 	end
 	local guid, name = UnitGUID(unit), UnitName(unit)

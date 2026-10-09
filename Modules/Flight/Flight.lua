@@ -498,6 +498,7 @@ module = ns.RegisterModule({
 	description = "Times flight paths account-wide and shows a countdown while flying, with an optional cinematic flight mode.",
 	enabledByDefault = true,
 	defaults = ns.defaults,
+	keep = { "calibration", "stats" }, -- collected data: a settings reset keeps it
 	init = function(db)
 		ns.flightDB = db
 	end,

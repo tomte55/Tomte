@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Alts page, Characters tab: every character Tomte has seen, current one first. Two views (toggle saved):
 -- compact (one line, sortable columns, details in the row's tooltip) and detailed (two lines, sort dropdown; a third
 -- with the Great Vault and Concentration for characters Weekly tracks). A pill after a profession is its unspent
--- knowledge. The footer's professions count says in its tooltip who has a free slot for the missing ones.
+-- knowledge. The footer's professions count says in its tooltip who has a free slot for the missing ones. Right-click
+-- a row to forget that character.
 
 local UI = ns.UI
 local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
@@ -119,7 +120,32 @@ local function ShowTooltip(row)
 	if worth then
 		GameTooltip:AddLine(("Carrying %s in bags%s"):format(ns.Alts_Gold(worth), c.worth.bank and " and bank" or ""), 1, 0.82, 0.45)
 	end
+	if c.guid ~= UnitGUID("player") then
+		GameTooltip:AddLine("Right-click to forget this character", 0.5, 0.5, 0.5)
+	end
 	GameTooltip:Show()
+end
+
+-- Right-click menu: forget the character everywhere (Alts.lua), behind a confirm. Not the one being played.
+local function RowMenu(owner, c)
+	if not c.guid or c.guid == UnitGUID("player") then
+		return
+	end
+	local name = ("%s-%s"):format(c.name or "?", c.realm or "?")
+	MenuUtil.CreateContextMenu(owner, function(_, root)
+		root:CreateTitle(name)
+		root:CreateButton("Forget " .. (c.name or "?"), function()
+			local dialog = StaticPopup_Show("TOMTE_CONFIRM", ("Forget %s? Tomte drops everything it saved for this "
+				.. "character (Alts, Weekly board, session history, stat weights, ...). Logging in on it adds it again.")
+				:format(name))
+			if dialog then
+				local guid = c.guid
+				dialog.data = function()
+					ns.Alts_ForgetCharacter(guid)
+				end
+			end
+		end)
+	end)
 end
 
 local function CreateRow(parent)
@@ -165,6 +191,12 @@ local function CreateRow(parent)
 	row:SetScript("OnLeave", function(self)
 		self.bg:Hide()
 		GameTooltip:Hide()
+	end)
+	row:SetScript("OnMouseUp", function(self, button)
+		if button == "RightButton" and self.char then
+			GameTooltip:Hide()
+			RowMenu(self, self.char)
+		end
 	end)
 	return row
 end

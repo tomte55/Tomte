@@ -25,6 +25,18 @@ test("DefaultStyles has every type", function()
 	end
 end)
 
+test("LevelStyle: cinematics become banners below max level, except mounts and tames", function()
+	eq(ns.Moments_LevelStyle("cinematic", "zone", 30, 80, true), "banner", "levelling")
+	eq(ns.Moments_LevelStyle("cinematic", "levelup", 80, 80, true), "cinematic", "reaching max")
+	eq(ns.Moments_LevelStyle("cinematic", "zone", 80, 80, true), "cinematic", "at max")
+	eq(ns.Moments_LevelStyle("cinematic", "mount", 30, 80, true), "cinematic", "mount")
+	eq(ns.Moments_LevelStyle("cinematic", "tame", 30, 80, true), "cinematic", "tame")
+	eq(ns.Moments_LevelStyle("cinematic", "zone", 30, 80, false), "cinematic", "setting off")
+	eq(ns.Moments_LevelStyle("off", "zone", 30, 80, true), "off", "off stays off")
+	eq(ns.Moments_LevelStyle("banner", "zone", 30, 80, true), "banner", "banner stays")
+	eq(ns.Moments_LevelStyle("cinematic", "zone", nil, 80, true), "cinematic", "unknown level")
+end)
+
 test("Decide waits, then falls back to a banner", function()
 	eq(ns.Moments_Decide(true, 0, 10), "cinematic")
 	eq(ns.Moments_Decide(false, 3, 10), "wait")

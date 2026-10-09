@@ -137,8 +137,8 @@ local function BuildRecord(id, categoryID, pinned, links)
 	local cat = ns.Ach_CategoryInfo(categoryID)
 	return {
 		id = id, name = name, icon = icon, points = points, category = categoryID, catName = cat.name, top = cat.top,
-		expansion = cat.expansion or ns.Ach_MetaExpansion(id), percent = percent, done = done, total = total, last = last,
-		have = have, need = need, reward = rewardText or "",
+		topID = cat.topID, expansion = cat.expansion or ns.Ach_MetaExpansion(id), percent = percent, done = done,
+		total = total, last = last, have = have, need = need, reward = rewardText or "",
 	}, criteria
 end
 
@@ -410,8 +410,8 @@ end
 
 -- Cache ------------------------------------------------------------------------------------------------------
 
-local CACHED_FIELDS = { "id", "name", "icon", "points", "category", "catName", "top", "expansion", "percent", "done",
-	"total", "last", "reward" }
+local CACHED_FIELDS = { "id", "name", "icon", "points", "category", "catName", "top", "topID", "expansion", "percent",
+	"done", "total", "last", "reward" }
 
 function ns.Ach_SaveCache()
 	local guid = UnitGUID("player")
@@ -440,6 +440,10 @@ function ns.Ach_LoadCache()
 	wipe(records)
 	wipe(watch)
 	for _, record in ipairs(entry.records or {}) do
+		-- Caches from before topID was saved.
+		if not record.topID and record.category then
+			record.topID = ns.Ach_CategoryInfo(record.category).topID
+		end
 		records[record.id] = record
 		watch[record.id] = true
 	end

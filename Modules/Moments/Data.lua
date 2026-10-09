@@ -33,6 +33,22 @@ function ns.Moments_DefaultStyles()
 	return styles
 end
 
+-- "Cinematics only at max level": below the expansion's max level a cinematic plays as a banner, so levelling
+-- (a level, zone and chapter every few minutes) isn't a string of 7-second cutscenes. New mounts and tames stay
+-- cinematic: they're rare, and the creature reveal is the point of them. The level-up that reaches max level
+-- passes its new level, so it still gets its cinematic. level or maxLevel nil (unknown) = no change.
+ns.MOMENT_ALWAYS_CINEMATIC = { mount = true, tame = true }
+
+function ns.Moments_LevelStyle(style, kind, level, maxLevel, onlyAtMax)
+	if style ~= "cinematic" or not onlyAtMax or ns.MOMENT_ALWAYS_CINEMATIC[kind] then
+		return style
+	end
+	if type(level) == "number" and type(maxLevel) == "number" and level < maxLevel then
+		return "banner"
+	end
+	return style
+end
+
 -- A cinematic moment waits for a safe moment, then shows; after maxWait seconds it becomes a banner.
 -- Returns "cinematic", "banner" or "wait".
 function ns.Moments_Decide(canPlay, waited, maxWait)

@@ -355,6 +355,7 @@ module = ns.RegisterModule({
 		.. "a fight, in a cinematic) can be read later and clicked like the toast.",
 	enabledByDefault = true,
 	defaults = Defaults(),
+	keep = { "seenAt" }, -- collected data: a settings reset keeps it
 	home = {
 		{ kind = "page", key = "recentpage", order = 6, name = "Recent", icon = "Interface\\Icons\\INV_Letter_15",
 			page = RecentPage,

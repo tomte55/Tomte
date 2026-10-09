@@ -105,10 +105,15 @@ ns.TP_SECTIONS = {
 -- The place a teleport's description names, or nil: "Teleport to the entrance to The Stonevault." -> "The Stonevault",
 -- "Teleports the caster to Stormwind." -> "Stormwind", "Creates a portal, teleporting group members ... to
 -- Orgrimmar." -> "Orgrimmar". English text only: no API names a teleport spell's destination, and descriptions in
--- other languages word it differently. There it's nil, the row shows its flyout name, and "To this map" matches
--- the whole description instead.
-function ns.Tp_Destination(desc)
-	if not desc or desc == "" then
+-- other languages word it differently. On other clients it's always nil rather than a wrong guess: the row shows
+-- its flyout name (or Tp_NamedPlace's dungeon), and "To this map" matches the whole description instead.
+local ENGLISH = not GetLocale or (GetLocale() or ""):find("^en") ~= nil
+
+function ns.Tp_Destination(desc, english)
+	if english == nil then
+		english = ENGLISH
+	end
+	if not english or not desc or desc == "" then
 		return nil
 	end
 	local place = desc:match("entrance to (.-)%.%s") or desc:match("entrance to (.-)%.$")
@@ -118,6 +123,21 @@ function ns.Tp_Destination(desc)
 		place = place:gsub("^the entrance to ", "")
 	end
 	return place
+end
+
+-- The longest of the names (4+ characters) that the text contains, ignoring case, or nil. For any client language:
+-- a Hero's Path description names its dungeon the way C_ChallengeMode does.
+function ns.Tp_NamedPlace(text, names)
+	if not text or not names then
+		return nil
+	end
+	local lower, best = text:lower(), nil
+	for _, name in ipairs(names) do
+		if #name >= 4 and (not best or #name > #best) and lower:find(name:lower(), 1, true) then
+			best = name
+		end
+	end
+	return best
 end
 
 -- true when text names one of the places, or is part of one ("Stormwind" for "Stormwind City"). Case-insensitive;

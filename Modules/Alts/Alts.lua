@@ -233,25 +233,57 @@ end
 
 -- Commands -------------------------------------------------------------------------------------------------
 
-local function Forget(name)
-	name = strtrim(name or ""):lower()
-	if name == "" then
-		ns.Print("usage: /tomte alts forget <name>")
+-- One character out of every module's saved data (Alts, Weekly, Almost Done, Gear Check, Hunter Pets, Moments,
+-- the last session, the Recap history and the Recent feed), then the open views redrawn. Never the character being played.
+function ns.Alts_ForgetCharacter(guid)
+	if not guid or guid == UnitGUID("player") then
+		ns.Print("can't forget the character you're playing.")
+		return false
+	end
+	local c = db.chars[guid] or (ns.weeklyDB and ns.weeklyDB.chars[guid]) or {}
+	ns.Alts_ForgetEverywhere(ns.db, guid)
+	ns.Print(("forgot %s%s."):format(c.name or "?", c.realm and ("-" .. c.realm) or ""))
+	ns.Alts_RecipesChanged()
+	if ns.AltsSend_Refresh then
+		ns.AltsSend_Refresh()
+	end
+	if ns.weeklyDB and ns.Weekly_Changed then
+		ns.Weekly_Changed()
+	end
+	return true
+end
+
+-- /tomte alts forget and /tomte weekly forget: "name" or "name-realm". Every stale character by that name goes
+-- (a realm transfer or a deleted and remade character leaves one behind under the old GUID); when they're on
+-- more than one realm, it asks for the realm instead.
+function ns.Alts_ForgetByName(input, command)
+	input = strtrim(input or "")
+	local usage = ("usage: /tomte %s forget <name> or <name>-<realm>"):format(command or "alts")
+	if input == "" then
+		ns.Print(usage)
 		return
 	end
-	for guid, c in pairs(db.chars) do
-		if (c.name or ""):lower() == name then
-			if guid == UnitGUID("player") then
-				ns.Print("can't forget the character you're playing.")
-				return
-			end
-			db.chars[guid] = nil
-			ns.Print(("forgot %s."):format(c.name))
-			ns.Alts_RecipesChanged()
-			return
-		end
+	local result = ns.Alts_ForgetMatches({ db.chars, ns.weeklyDB and ns.weeklyDB.chars }, input, UnitGUID("player"))
+	if #result.matches == 0 then
+		ns.Print(result.playing and "can't forget the character you're playing."
+			or ("no character called %s."):format(input))
+		return
 	end
-	ns.Print(("no character called %s."):format(name))
+	if result.ambiguous then
+		local names = {}
+		for _, m in ipairs(result.matches) do
+			names[#names + 1] = ("%s-%s"):format(m.name or "?", m.realm or "?")
+		end
+		ns.Print(("more than one %s: %s. Add the realm: %s"):format(result.matches[1].name or input, table.concat(names, ", "), usage))
+		return
+	end
+	for _, m in ipairs(result.matches) do
+		ns.Alts_ForgetCharacter(m.guid)
+	end
+end
+
+local function Forget(name)
+	ns.Alts_ForgetByName(name, "alts")
 end
 
 module = ns.RegisterModule({
@@ -266,6 +298,7 @@ module = ns.RegisterModule({
 	uses = { { addon = "Syndicator", why = "item counts on every character and the Warband bank",
 		without = "only this character's bags, bank and the Warband bank are counted" },
 		{ addon = "Auctionator", why = "shopping lists for missing materials" } },
+	keep = { "sendRules" }, -- typed by the user: a settings reset keeps it
 	defaults = {
 		chars = {},
 		recipes = {},
@@ -419,7 +452,7 @@ module = ns.RegisterModule({
 		{ "open", "open the Alts page", function()
 			ns.Panel_OpenPage("alts")
 		end },
-		{ "forget", "forget a character: /tomte alts forget <name>", Forget },
+		{ "forget", "forget a character everywhere: /tomte alts forget <name>[-<realm>]", Forget },
 		{ "why", "why Materials on hand keeps or drops a recipe: /tomte alts why <recipe>", function(text)
 			ns.AltsCraft_Why(text)
 		end },

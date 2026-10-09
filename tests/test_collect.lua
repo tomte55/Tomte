@@ -186,5 +186,38 @@ test("counts by kind", function()
 	eq(c.achievements, 1)
 end)
 
+-- A non-English client: the labels come from Blizzard's globals (fake esES and zhCN texts here).
+local function LoadWith(globals)
+	for k, v in pairs(globals) do
+		_G[k] = v
+	end
+	local loc = {}
+	assert(loadfile("Tomte/Modules/Collect/Data.lua"))("Tomte", loc)
+	for k in pairs(globals) do
+		_G[k] = nil
+	end
+	return loc
+end
+
+test("localized labels map to the same keys", function()
+	local es = LoadWith({ ZONE_COLON = "Zona:", BATTLE_PET_SOURCE_1 = "Botín", BATTLE_PET_SOURCE_5 = "Duelo de mascotas",
+		COSTS_LABEL = "Coste:", PLAYER_DIFFICULTY2 = "Heroico", TRANSMOG_SOURCE_4 = "Botín mundial" })
+	local s = es.Collect_ParseSource("|cFFFFD200Botín: |rKazzak|n|cFFFFD200Zona: |rRuinas de Lordaeron (Heroico)"
+		.. "|n|cFFFFD200Coste:|r 5" .. GOLD)
+	eq(s.lines[1].label, "drop")
+	eq(s.lines[2].label, "zone")
+	has(s.zones, "ruinas de lordaeron")
+	eq(s.drop, "Kazzak")
+	eq(s.line, "Botín: Kazzak (Heroico) · 5" .. GOLD)
+	local p = es.Collect_ParseSource("|cFFFFD200Duelo de mascotas: |rNagrand, Tanaris")
+	has(p.zones, "nagrand")
+	eq(p.line, "Wild pet battle")
+	eq(es.Collect_ParseSource("|cFFFFD200Botín: |rBotín mundial|n|cFFFFD200Zona: |rX").drop, nil, "world drop")
+	eq(es.Collect_ParseSource("|cFFFFD200Drop: |rDoomwalker|n|cFFFFD200Zone: |rTanaris").zones[1], "tanaris",
+		"English labels still work")
+	local zh = LoadWith({ ZONE_COLON = "区域：" })
+	has(zh.Collect_ParseSource("|cFFFFD200区域：|r塔纳利斯").zones, "塔纳利斯", "full-width colon")
+end)
+
 print(failures == 0 and "all passed" or (failures .. " failed"))
 os.exit(failures == 0 and 0 or 1)

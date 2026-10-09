@@ -56,6 +56,111 @@ test("MergeDefaults does not share default tables", function()
 	eq(defaults.t.z, nil, "defaults.t.z")
 end)
 
+test("MergeDefaults replaces a saved table where the default is a plain value now", function()
+	local dst = ns.MergeDefaults({ a = "x", b = 2, t = { c = true } }, { a = { old = 1 }, b = 5, t = "old" })
+	eq(dst.a, "x", "a")
+	eq(dst.b, 5, "b kept")
+	eq(type(dst.t), "table", "t")
+	eq(dst.t.c, true, "t.c")
+end)
+
+test("RunMigrations runs each pending migration once, in order", function()
+	local order = {}
+	local migrations = {
+		function(db) order[#order + 1] = 1; db.a = nil end,
+		function(db) order[#order + 1] = 2; db.b = (db.b or 0) + 1 end,
+	}
+	local db = { a = true }
+	ns.RunMigrations(db, migrations)
+	eq(table.concat(order, ","), "1,2", "order")
+	eq(db.schema, 2, "schema")
+	eq(db.a, nil, "a removed")
+	ns.RunMigrations(db, migrations)
+	eq(#order, 2, "not run again")
+	eq(db.b, 1, "b once")
+	migrations[3] = function(db) order[#order + 1] = 3 end
+	ns.RunMigrations(db, migrations)
+	eq(table.concat(order, ","), "1,2,3", "only the new one")
+	eq(db.schema, 3, "schema 3")
+end)
+
+test("RunMigrations stops at an error and retries it later", function()
+	reset()
+	local fail = true
+	local runs = 0
+	local migrations = {
+		function() end,
+		function() runs = runs + 1; if fail then error("boom") end end,
+		function(db) db.third = true end,
+	}
+	local db = {}
+	ns.RunMigrations(db, migrations)
+	eq(db.schema, 1, "schema after error")
+	eq(db.third, nil, "later one not run")
+	eq(#errors, 1, "error reported")
+	fail = false
+	ns.RunMigrations(db, migrations)
+	eq(runs, 2, "retried")
+	eq(db.schema, 3, "schema")
+	eq(db.third, true, "third")
+end)
+
+test("ResetModuleSettings resets settings and keeps collections, keep keys and unknown keys", function()
+	reset()
+	local m = newModule("flight", { defaults = {
+		alert = true, frame = { x = 0, locked = true }, routes = {}, store = { convos = {} },
+		stats = { flights = 0 }, styles = { zone = "cinematic" },
+	}, keep = { "stats" } })
+	ns.InitModules({ flight = {
+		alert = false, frame = { x = 50, locked = false }, routes = { r = 1 }, store = { convos = { c = 1 } },
+		stats = { flights = 9 }, styles = { zone = "off", extra = "x" }, faction = 7,
+	} })
+	local db = m.db
+	ns.ResetModuleSettings(m)
+	eq(m.db, db, "same table")
+	eq(db.alert, true, "alert")
+	eq(db.frame.x, 0, "frame.x")
+	eq(db.frame.locked, true, "frame.locked")
+	eq(db.styles.zone, "cinematic", "styles.zone")
+	eq(db.styles.extra, nil, "styles.extra")
+	eq(db.routes.r, 1, "collection kept")
+	eq(db.store.convos.c, 1, "nested collection kept")
+	eq(db.stats.flights, 9, "keep key")
+	eq(db.faction, 7, "key outside defaults kept")
+end)
+
+test("ResetModuleSettings uses module.keep", function()
+	reset()
+	local m = newModule("a", { defaults = { seen = 0, on = true }, keep = { "seen" } })
+	ns.InitModules({ a = { seen = 42, on = false } })
+	ns.ResetModuleSettings(m)
+	eq(m.db.seen, 42, "seen")
+	eq(m.db.on, true, "on")
+end)
+
+test("ResetAllSettings resets modules, enabled state and the window, keeps the engine's backup", function()
+	reset()
+	local m = newModule("a", { defaults = { on = true } })
+	local db = { a = { on = false }, enabled = { a = true }, panel = { layout = { x = 1 }, collapsed = { G = true } },
+		toast = { point = {} }, cinematic = { musicVolumeBackup = "0.5" }, schema = 1 }
+	ns.InitModules(db)
+	ns.ResetAllSettings(db, { enabled = {}, panel = { collapsed = {} }, cinematic = {}, toast = {} })
+	eq(m.db.on, true, "module setting")
+	eq(next(db.enabled), nil, "enabled")
+	eq(db.panel.layout, nil, "layout")
+	eq(next(db.panel.collapsed), nil, "collapsed")
+	eq(db.toast.point, nil, "toast")
+	eq(db.cinematic.musicVolumeBackup, "0.5", "backup")
+	eq(db.schema, 1, "schema")
+end)
+
+test("ChoiceOrDefault falls back when the value isn't a choice", function()
+	local choices = { { value = "a", text = "A" }, { value = "b", text = "B" } }
+	eq(ns.ChoiceOrDefault("b", choices, "a"), "b", "valid")
+	eq(ns.ChoiceOrDefault("gone", choices, "a"), "a", "invalid")
+	eq(ns.ChoiceOrDefault(nil, choices, "a"), "a", "nil")
+end)
+
 test("RegisterModule rejects a duplicate key", function()
 	reset()
 	newModule("a")

@@ -40,6 +40,18 @@ local function GetOption(module, key)
 	return tbl[field]
 end
 
+-- The default for an options key ("frame.locked" -> defaults.frame.locked), or nil.
+local function DefaultOption(module, key)
+	local value = module.defaults
+	for part in key:gmatch("[^.]+") do
+		if type(value) ~= "table" then
+			return nil
+		end
+		value = value[part]
+	end
+	return value
+end
+
 local function SetOption(module, spec, value)
 	local tbl, field = Resolve(module.db, spec.key)
 	tbl[field] = value
@@ -160,8 +172,11 @@ function Factory.dropdown()
 	local row = NewRow("dropdown")
 	local d = UI.Dropdown(row, 170)
 	d:SetPoint("RIGHT", -6, 0)
+	-- A saved value that's no longer a choice (renamed or removed) shows as the default. Display only: choices can
+	-- depend on what's loaded right now (characters, addons), so the saved value isn't overwritten.
 	d.getValue = function()
-		return GetOption(row.module, row.spec.key)
+		local spec = row.spec
+		return ns.ChoiceOrDefault(GetOption(row.module, spec.key), spec.choices(), DefaultOption(row.module, spec.key))
 	end
 	d.setValue = function(value)
 		SetOption(row.module, row.spec, value)
@@ -277,6 +292,36 @@ function ns.PanelOptions_Release()
 	wipe(used)
 end
 
+-- Reset rows added below every module's own options. Both reload the UI: modules keep state in closures.
+local function ResetSpecs(module)
+	local specs = {}
+	if not module.defaults then
+		return specs
+	end
+	local kept = "\n\nKept: what Tomte collected (history, alt data, flight times, tame log, caches) and lists you "
+		.. "built (favorites, pins, hidden entries). Your UI reloads."
+	specs[1] = { type = "header", label = "Reset" }
+	specs[2] = { type = "button", label = "Reset " .. module.name .. " to defaults", text = "Reset",
+		confirm = "Reset " .. module.name .. "'s settings to their defaults?" .. kept,
+		onClick = function()
+			ns.ResetModuleSettings(module)
+			C_UI.Reload() -- needs a hardware event: the popup's Yes click is one
+		end,
+		tooltip = "Puts this module's settings back to how they start. Collected data and your lists stay." }
+	if module.key == "window" then -- the Tomte window's page is the general one
+		specs[3] = { type = "button", label = "Reset all Tomte settings", text = "Reset all",
+			confirm = "Reset every Tomte setting to its default, including which modules are on and where the window "
+				.. "sits?" .. kept,
+			onClick = function()
+				ns.ResetAll()
+				C_UI.Reload() -- needs a hardware event: the popup's Yes click is one
+			end,
+			tooltip = "Every module's settings, which modules are on, and the window's size and place back to "
+				.. "defaults. Collected data and your lists stay." }
+	end
+	return specs
+end
+
 -- Builds module's options into scroll.content (a UI.Scroll). Rebuilding the same module keeps the scroll offset.
 function ns.PanelOptions_Build(scroll, module)
 	parent = scroll.content
@@ -284,7 +329,14 @@ function ns.PanelOptions_Build(scroll, module)
 	ns.PanelOptions_Release()
 	builtFor = module
 	local y = 0
-	for _, spec in ipairs(module.options) do
+	local specs = {}
+	for _, spec in ipairs(module.options or {}) do
+		specs[#specs + 1] = spec
+	end
+	for _, spec in ipairs(ResetSpecs(module)) do
+		specs[#specs + 1] = spec
+	end
+	for _, spec in ipairs(specs) do
 		local row = Acquire(spec.type)
 		row.module, row.spec = module, spec
 		row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -y)

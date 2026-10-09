@@ -6,14 +6,36 @@ local addonName, ns = ...
 -- after anything that changes ownership (Teleports.lua marks it dirty).
 
 -- Flyouts by ID (SpellFlyout game data, 12.1.0), so any client language finds them: the Hero's Path flyouts, and
--- the other flyouts whose spells teleport (mage Teleport and Portal, one each per faction). A flyout added later
--- is still found by its English name or spell text.
+-- the other flyouts whose spells teleport (mage Teleport and Portal, one each per faction). A Hero's Path flyout
+-- added later is still found by its name ("Hero's Path: ..." as this client writes it, read from a known one);
+-- another new teleport flyout only by English or German spell text ("eleport"): no API says a spell teleports.
 local HERO_PATH_FLYOUTS = {
 	[84] = true, [96] = true, [220] = true, [222] = true, [223] = true, [224] = true, [227] = true, [230] = true,
 	[231] = true, [232] = true, [242] = true, [244] = true, [246] = true, [274] = true,
 }
 local TELEPORT_FLYOUTS = { [1] = true, [8] = true, [11] = true, [12] = true }
 local HERO_PATH = "Hero's Path"
+local heroPath -- this client's "Hero's Path", once a known flyout has answered
+
+-- The known Hero's Path flyouts' name up to its colon ("Hero's Path: Dragonflight" -> "Hero's Path"), once two of
+-- them agree (so one oddly named flyout can't set it).
+local function HeroPath()
+	if not heroPath then
+		local seen = {}
+		for id in pairs(HERO_PATH_FLYOUTS) do
+			local name = GetFlyoutInfo(id)
+			local prefix = type(name) == "string" and (name:match("^(.-)%s*:") or name:match("^(.-)%s*\239\188\154"))
+			if prefix and #prefix >= 4 then
+				if seen[prefix] then
+					heroPath = prefix
+					break
+				end
+				seen[prefix] = true
+			end
+		end
+	end
+	return heroPath or HERO_PATH
+end
 
 local entries
 local houses = {} -- from PLAYER_HOUSE_LIST_UPDATED
@@ -74,7 +96,8 @@ end
 local function AddFlyouts(list, seasonNames)
 	for index, flyout in ipairs(Flyouts()) do
 		local _, _, numSlots = GetFlyoutInfo(flyout.id)
-		local dungeon = HERO_PATH_FLYOUTS[flyout.id] or flyout.name:find(HERO_PATH, 1, true) ~= nil
+		local dungeon = HERO_PATH_FLYOUTS[flyout.id] or flyout.name:find(HeroPath(), 1, true) ~= nil
+			or flyout.name:find(HERO_PATH, 1, true) ~= nil
 		local slots, teleports = {}, dungeon or TELEPORT_FLYOUTS[flyout.id] == true
 		for s = 1, numSlots or 0 do
 			local spellID, overrideID, isKnown, spellName = GetFlyoutSlotInfo(flyout.id, s)
@@ -92,6 +115,8 @@ local function AddFlyouts(list, seasonNames)
 					key = "spell:" .. slot.id, kind = "spell", id = slot.id,
 					section = dungeon and "dungeon" or "class",
 					name = slot.name or (info and info.name), icon = info and info.iconID, desc = slot.desc,
+					-- Off English clients: the current-season dungeon its description names.
+					dest = ns.Tp_Destination(slot.desc) or (dungeon and ns.Tp_NamedPlace(slot.desc, seasonNames)) or nil,
 					known = slot.known == true,
 					current = dungeon and ns.Tp_Mentions(slot.desc, seasonNames),
 					order = index * 100 + s, group = flyout.name,

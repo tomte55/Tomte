@@ -11,6 +11,10 @@ ns.ACH_EXPANSIONS = {
 }
 ns.ACH_OTHER = "Other"
 
+-- Top-level category IDs (Achievement_Category, 12.1.0), so the filters work in any client language.
+ns.ACH_TOP_PROFESSIONS = 169
+ns.ACH_TOP_WORLD_EVENTS = 155
+
 -- Categories whose own name names an expansion, by ID, so any client language groups them. Made from the
 -- Achievement_Category game data of 12.1.0 with the English name matching below; a category added later is still
 -- matched by its English name. The English expansion names stay the keys (saved filters and the menu use them).
@@ -214,13 +218,13 @@ function ns.Ach_Passes(record, settings, ctx)
 	if settings.expansions[record.expansion or ns.ACH_OTHER] == false then
 		return false
 	end
-	if record.top == "Professions" then
+	if record.topID == ns.ACH_TOP_PROFESSIONS then
 		if settings.professions == "none" then
 			return false
 		elseif settings.professions == "mine" and not IsMyProfession(record, ctx.professions) then
 			return false
 		end
-	elseif record.top == "World Events" then
+	elseif record.topID == ns.ACH_TOP_WORLD_EVENTS then
 		if settings.events == "none" then
 			return false
 		elseif settings.events == "running" and not IsRunningEvent(record, ctx.holidays) then

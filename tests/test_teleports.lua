@@ -28,6 +28,20 @@ test("destination from descriptions", function()
 	eq(ns.Tp_Destination(nil), nil)
 end)
 
+test("destination: nothing off English clients", function()
+	eq(ns.Tp_Destination("Teleport to the entrance to The Stonevault.", false), nil)
+	eq(ns.Tp_Destination("Teletransporta al lanzador a la entrada de El Arca de Piedra.", false), nil)
+end)
+
+test("named place: longest season name in the text", function()
+	local names = { "Tazavesh", "Tazavesh: Gambito de So'leah", "Ara" }
+	eq(ns.Tp_NamedPlace("Te teletransporta a la entrada de Tazavesh: Gambito de So'leah.", names),
+		"Tazavesh: Gambito de So'leah")
+	eq(ns.Tp_NamedPlace("Teletransporte a la entrada de Ara-Kara.", names), nil, "short names skipped")
+	eq(ns.Tp_NamedPlace("Teletransporte a la entrada de el arca de piedra.", { "El Arca de Piedra" }), "El Arca de Piedra")
+	eq(ns.Tp_NamedPlace(nil, names), nil)
+end)
+
 test("mentions: case-insensitive, skips short names", function()
 	eq(ns.Tp_Mentions("Teleport to the entrance to The Stonevault.", { "Isle of Dorn", "the stonevault" }), true)
 	eq(ns.Tp_Mentions("Teleports the caster to Stormwind.", { "Orgrimmar" }), false)

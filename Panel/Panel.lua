@@ -564,6 +564,9 @@ local function CreateTitleBar()
 		Refresh()
 	end)
 	titleBar.nav = nav
+	local version = UI.Text(titleBar, 12, GREY)
+	version:SetPoint("RIGHT", nav, "LEFT", -12, 0)
+	version:SetText("v" .. ns.VERSION)
 	panel.titleBar = titleBar
 	local line = UI.Hairline(titleBar, 100, 0.5)
 	line:ClearAllPoints()

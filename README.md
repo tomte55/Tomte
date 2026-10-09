@@ -16,7 +16,8 @@ Works better with (all optional): Baganator + Syndicator, Auctionator or TradeSk
 ## What it does
 
 One addon with toggleable modules. Type `/tomte` to open the settings panel (also from the minimap
-button, the addon compartment or a key binding), or `/tomte help` for all commands. The panel is resizable and remembers its
+button, the addon compartment or a key binding), or `/tomte help` for all commands. `/tomte version` (also in the window's title bar) says which version you
+have: mention it when you report a bug. The panel is resizable and remembers its
 size and position.
 
 Home shows your character with its item level, gold, durability and location (hover each for more: missing
@@ -66,7 +67,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte afk preview`, `/tomte whispers inbox`, `/tomte hunter check`, `/tomte pet unlock`
 - `/tomte alerts test`
 - `/tomte gear sim` (how to check an item on Raidbots), `/tomte gear import` / `weights` (source, best gem, season) / `clear`, `/tomte gear upgrades` (reveal the upgrades already in your bags)
-- `/tomte way test` (pin ahead of you), `/tomte way clear`
+- `/tomte way test` (pin ahead of you), `/tomte way clear`, `/tomte way <x> <y>` (also `/way <x> <y>` when TomTom isn't loaded)
 - `/tomte ach scan`, `/tomte ach tracker`, `/tomte ach lock` / `unlock`, `/tomte ach test`
 - `/tomte vendor last`, `/tomte dura list`
 - `/tomte mount why` (context, pool and pick of the last press), `/tomte mount zone`
@@ -108,7 +109,8 @@ the unit tests too.
 
 1. Move the lines under **Unreleased** in `CHANGELOG.md` into a new `## vX.Y.Z - <date>` section.
 2. Set `## Version: X.Y.Z` in `Tomte.toc`.
-3. Commit, then `git tag vX.Y.Z` and `git push --follow-tags`.
+3. Run the unit tests (see Tests), commit (`Tomte vX.Y.Z`), then `git tag -a vX.Y.Z -m "Tomte vX.Y.Z"` and
+   `git push origin main vX.Y.Z`.
 
 The GitHub Action checks that the tag matches the TOC and the changelog, runs the tests, zips the `Tomte` folder and
 publishes the release with that changelog section as its notes. Versions: patch for fixes, minor for new features

@@ -171,6 +171,7 @@ module = ns.RegisterModule({
 	category = "Social",
 	description = "A toast when someone says your name (or one of your keywords) in guild, group, say or channel chat. Click it to answer in that channel.",
 	enabledByDefault = true,
+	keep = { "keywords" }, -- typed by the user: a settings reset keeps it
 	defaults = {
 		ownName = true,
 		keywords = "",

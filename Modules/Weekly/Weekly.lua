@@ -254,22 +254,9 @@ local function ListQuests()
 	end
 end
 
+-- The same forget as Alts (Alts.lua): the character goes from every module, not just the board.
 local function Forget(name)
-	if name == "" then
-		ns.Print("usage: /tomte weekly forget <name>")
-		return
-	end
-	local forgotten = 0
-	for guid, snap in pairs(db.chars) do
-		if (snap.name or ""):lower() == name then
-			db.chars[guid] = nil
-			db.hidden[guid] = nil
-			forgotten = forgotten + 1
-		end
-	end
-	ns.Print(forgotten > 0 and ("forgot %d character(s) named %s."):format(forgotten, name)
-		or ("no tracked character named %s."):format(name))
-	ns.Weekly_Changed()
+	ns.Alts_ForgetByName(name, "weekly")
 end
 
 -- Prints every hard-coded ID with what the game says about it, to check the third-party data in game.
@@ -371,7 +358,7 @@ module = ns.RegisterModule({
 			ns.Panel_OpenPage("weekly")
 		end },
 		{ "quests", "list the learned weekly quests", ListQuests },
-		{ "forget", "forget a character: /tomte weekly forget <name>", Forget },
+		{ "forget", "forget a character everywhere: /tomte weekly forget <name>[-<realm>]", Forget },
 		{ "ids", "check the crest and knowledge quest IDs in game", PrintIDs },
 	},
 })

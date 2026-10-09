@@ -2,7 +2,47 @@ local addonName, ns = ...
 
 -- Collect here, pure logic (unit-tested with plain Lua): reading the journals' source text, matching its zone names
 -- against a map's names, whole-word achievement matching, the tab's sections and the toast text. The game has no
--- zone data for collectibles, only these labelled source lines ("Drop: Doomwalker|nZone: Tanaris"), in English here.
+-- zone data for collectibles, only these labelled source lines ("Drop: Doomwalker|nZone: Tanaris"), written in the
+-- client's language. The labels are recognised through Blizzard's localized globals (the ones the journals' own
+-- source filters use), with the English text as the fallback (plain Lua tests, and labels without a global).
+
+local G = _G or {}
+
+-- A global's text without its trailing colon, lower case; nil when the global isn't there.
+local function GlobalLabel(name)
+	local text = type(G[name]) == "string" and G[name] or nil
+	if not text then
+		return nil
+	end
+	text = text:gsub("%s*:%s*$", ""):gsub("%s*：%s*$", "") -- ":" or the full-width "：" (zhCN/zhTW)
+	return text ~= "" and text:lower() or nil
+end
+
+-- Canonical label key (the enUS label, lower case) -> globals that hold its text on this client.
+-- treasure and holiday have no global: English only.
+local LABEL_GLOBALS = {
+	zone = { "ZONE_COLON", "ZONE" }, location = { "LOCATION_COLON" }, cost = { "COSTS_LABEL" },
+	drop = { "BATTLE_PET_SOURCE_1" }, quest = { "BATTLE_PET_SOURCE_2" }, vendor = { "BATTLE_PET_SOURCE_3" },
+	profession = { "BATTLE_PET_SOURCE_4" }, ["pet battle"] = { "BATTLE_PET_SOURCE_5" },
+	achievement = { "BATTLE_PET_SOURCE_6" }, ["world event"] = { "BATTLE_PET_SOURCE_7" },
+	promotion = { "BATTLE_PET_SOURCE_8" }, ["trading card game"] = { "BATTLE_PET_SOURCE_9" },
+	["in-game shop"] = { "BATTLE_PET_SOURCE_10" }, discovery = { "BATTLE_PET_SOURCE_11" },
+	["trading post"] = { "BATTLE_PET_SOURCE_12" }, treasure = {}, holiday = {},
+}
+
+-- [lower-case label as written on this client] = canonical key. English first, so a localized text wins a clash.
+local LABEL_KEYS = {}
+for key in pairs(LABEL_GLOBALS) do
+	LABEL_KEYS[key] = key
+end
+for key, globals in pairs(LABEL_GLOBALS) do
+	for _, name in ipairs(globals) do
+		local text = GlobalLabel(name)
+		if text then
+			LABEL_KEYS[text] = key
+		end
+	end
+end
 
 local ZONE_LABELS = { zone = true, location = true, ["pet battle"] = true }
 
@@ -12,13 +52,28 @@ local LINE_LABELS = {
 	"discovery", "trading post", "in-game shop", "promotion", "trading card game",
 }
 
--- A qualifier on a zone value that's worth showing next to the source line.
+-- A qualifier on a zone value that's worth showing next to the source line: the localized difficulty names, plus
+-- the English ones.
 local DIFFICULTIES = {
 	normal = true, heroic = true, mythic = true, ["raid finder"] = true, lfr = true, timewalking = true,
 	["10 player"] = true, ["25 player"] = true,
 }
+for _, name in ipairs({ "PLAYER_DIFFICULTY1", "PLAYER_DIFFICULTY2", "PLAYER_DIFFICULTY3", "PLAYER_DIFFICULTY6",
+	"PLAYER_DIFFICULTY_TIMEWALKER", "RAID_FINDER", "RAID_DIFFICULTY_10PLAYER", "RAID_DIFFICULTY_25PLAYER" }) do
+	local text = GlobalLabel(name)
+	if text then
+		DIFFICULTIES[text] = true
+	end
+end
 
--- Source names that aren't map names.
+-- "World Drop" names no creature.
+local WORLD_DROP = { ["world drop"] = true }
+if GlobalLabel("TRANSMOG_SOURCE_4") then
+	WORLD_DROP[GlobalLabel("TRANSMOG_SOURCE_4")] = true
+end
+
+-- Source names that aren't map names. English source text only: no global or ID names these groupings, so on other
+-- clients they just don't match.
 local ALIASES = {
 	["capital cities"] = { "stormwind city", "orgrimmar", "ironforge", "darnassus", "undercity", "thunder bluff",
 		"the exodar", "silvermoon city" },
@@ -78,8 +133,29 @@ function ns.Collect_Candidates(value)
 	return out
 end
 
+local FULL_WIDTH_COLON = "\239\188\154"
+
+-- "Zone: Tanaris" -> "Zone", "Tanaris". Splits at the first ":" or full-width colon; frFR's "Zone : " is trimmed.
+local function SplitLabel(plain)
+	local s, e = plain:find(":", 1, true)
+	local fs, fe = plain:find(FULL_WIDTH_COLON, 1, true)
+	if fs and (not s or fs < s) then
+		s, e = fs, fe
+	end
+	if not s then
+		return nil
+	end
+	local label = Trim(plain:sub(1, s - 1))
+	if label == "" then
+		return nil
+	end
+	return label, Trim(plain:sub(e + 1))
+end
+
 -- raw journal source text -> { lines = { { label, display, value, raw } }, zones, drop, line }.
--- label: lower case without the colon; value: cleaned; raw: colors stripped, textures kept (the gold icon).
+-- label: the canonical key (the enUS label in lower case: "zone", "drop", ...) when the label is known on this
+-- client, else the label in lower case; display: the label as written; value: cleaned; raw: colors stripped,
+-- textures kept (the gold icon).
 function ns.Collect_ParseSource(raw)
 	local result = { lines = {}, zones = {} }
 	if not raw or raw == "" then
@@ -90,10 +166,10 @@ function ns.Collect_ParseSource(raw)
 	raw = raw:gsub("\r?\n", "|n") -- a few sources break lines for real
 	for segment in (raw .. "|n"):gmatch("(.-)|n") do
 		local plain = StripColors(segment)
-		local label, rest = plain:match("^%s*([^:]+):%s*(.-)%s*$")
+		local label, rest = SplitLabel(plain)
 		if label then
-			local key = Trim(label):lower()
-			local entry = { label = key, display = Trim(label), value = ns.Collect_Clean(rest), raw = rest }
+			local key = LABEL_KEYS[label:lower()] or label:lower()
+			local entry = { label = key, display = label, value = ns.Collect_Clean(rest), raw = rest }
 			result.lines[#result.lines + 1] = entry
 			if ZONE_LABELS[key] then
 				for _, c in ipairs(ns.Collect_Candidates(entry.value)) do
@@ -114,7 +190,7 @@ function ns.Collect_ParseSource(raw)
 		byLabel[entry.label] = byLabel[entry.label] or entry
 	end
 	local drop = byLabel.drop and DropQualifier(byLabel.drop.value)
-	if drop and drop ~= "" and drop:lower() ~= "world drop" then
+	if drop and drop ~= "" and not WORLD_DROP[drop:lower()] then
 		result.drop = drop
 	end
 	local first

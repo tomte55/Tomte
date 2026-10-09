@@ -154,7 +154,7 @@ local function PlaceOver(row)
 end
 
 local function Attach(row)
-	if InCombat() or not row.entry or not row.entry.known then
+	if not secure or InCombat() or not row.entry or not row.entry.known then
 		return false
 	end
 	if not PlaceOver(row) then
@@ -212,6 +212,29 @@ local function CreateSecure()
 	end)
 end
 
+-- Setting attributes on a secure button isn't allowed in combat: a tab built in combat (the module turned on, or a
+-- /reload mid-fight) gets its button when combat ends. Until then rows just show their tooltip.
+local waitForCombat
+local function EnsureSecure()
+	if secure then
+		return
+	end
+	if not InCombat() then
+		CreateSecure()
+		return
+	end
+	if not waitForCombat then
+		waitForCombat = CreateFrame("Frame")
+		waitForCombat:SetScript("OnEvent", function(self)
+			self:UnregisterAllEvents()
+			if not secure then
+				CreateSecure()
+			end
+		end)
+	end
+	waitForCombat:RegisterEvent("PLAYER_REGEN_ENABLED")
+end
+
 -- Rows --------------------------------------------------------------------------------------------------------------
 
 local function NewRow()
@@ -254,7 +277,7 @@ local function NewRow()
 		ShowPin(self.entry)
 	end)
 	row:SetScript("OnLeave", function(self)
-		if secure.row == self then
+		if secure and secure.row == self then
 			return
 		end
 		SetHover(self, false)
@@ -454,7 +477,7 @@ local function Build()
 		HidePin()
 	end)
 	panel.scroll:HookScript("OnMouseWheel", Detach)
-	CreateSecure()
+	EnsureSecure()
 end
 
 -- API for Teleports.lua ---------------------------------------------------------------------------------------------

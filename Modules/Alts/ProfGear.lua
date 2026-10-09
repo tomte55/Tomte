@@ -43,13 +43,17 @@ function ns.AltsItem_Ilvl(link)
 	return C_Item.GetDetailedItemLevelInfo(link) or false
 end
 
--- "+45 Multicraft", "+12 Blacksmithing Skill": the item's "+n" tooltip lines, for showing what it gives.
+-- "+45 Multicraft", "+12 Blacksmithing Skill": the item's "+n" tooltip lines, for showing what it gives. After the
+-- number: a space (optional, for CJK) and a letter in any script, i.e. a byte that isn't space, digit or ASCII
+-- punctuation (UTF-8 lead bytes aren't), so "+45 Мастерство" and "+45 产能" count and "+5%" or "+1-2" don't.
+local STAT_LINE = "^%+[%d,%.]+%s?[^%s%d%p]"
+
 function ns.AltsItem_StatLines(link)
 	local data = link and C_TooltipInfo.GetHyperlink(link)
 	local out = {}
 	for _, line in ipairs(data and data.lines or {}) do
 		local text = line.leftText
-		if text and not (issecretvalue and issecretvalue(text)) and text:find("^%+[%d,%.]+ %a") then
+		if text and not (issecretvalue and issecretvalue(text)) and text:find(STAT_LINE) then
 			out[#out + 1] = text
 		end
 	end

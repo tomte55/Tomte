@@ -6,6 +6,8 @@ local addonName, ns = ...
 ns.modules = {} -- in registration order
 ns.modulesByKey = {}
 
+-- Adds what's missing from src (the defaults) to dst. A saved value whose shape changed is replaced: a table where
+-- the default is a table now, the default where a table was saved but the default is a plain value now.
 function ns.MergeDefaults(src, dst)
 	for k, v in pairs(src) do
 		if type(v) == "table" then
@@ -13,11 +15,84 @@ function ns.MergeDefaults(src, dst)
 				dst[k] = {}
 			end
 			ns.MergeDefaults(v, dst[k])
-		elseif dst[k] == nil then
+		elseif dst[k] == nil or type(dst[k]) == "table" then
 			dst[k] = v
 		end
 	end
 	return dst
+end
+
+-- Settings schema: db.schema = how many of the ordered migrations (Core.lua) have run on these saved variables.
+-- Each runs once, in order, before defaults are merged; a fresh install runs them all on an empty table, so a
+-- migration must cope with missing keys. One that errors stops the run (reported, retried next login).
+function ns.RunMigrations(db, migrations)
+	local done = type(db.schema) == "number" and db.schema or 0
+	for i = done + 1, #migrations do
+		local ok = xpcall(function()
+			migrations[i](db)
+		end, function(err)
+			return ns.errorHandler(err)
+		end)
+		if not ok then
+			return
+		end
+		db.schema = i
+	end
+end
+
+-- Reset to defaults ---------------------------------------------------------------------------------------
+-- A module's db mixes settings with what it collected (history, caches, alt snapshots, flight times, tame log)
+-- and lists the user built (favorites, pins, hidden entries). A reset only touches keys in module.defaults, and
+-- of those keeps every collection (a default that is an empty table, or tables of only empty tables) and the
+-- keys in module.keep (data whose default isn't a collection). Keys not in the defaults are never touched.
+
+local function IsCollection(v)
+	if type(v) ~= "table" then
+		return false
+	end
+	for _, child in pairs(v) do
+		if not IsCollection(child) then
+			return false
+		end
+	end
+	return true
+end
+
+function ns.ResetModuleSettings(module)
+	local defaults, db = module.defaults, module.db
+	if not (defaults and db) then
+		return
+	end
+	local keep = {}
+	for _, key in ipairs(module.keep or {}) do
+		keep[key] = true
+	end
+	for key, value in pairs(defaults) do
+		if not keep[key] and not IsCollection(value) then
+			db[key] = nil
+		end
+	end
+	ns.MergeDefaults(defaults, db) -- in place: modules keep their reference to module.db
+end
+
+-- Every module's settings, which modules are on, and the window's place and layout. coreDefaults: Core.lua's.
+-- TomteDB.cinematic (the engine's music volume backup) is kept.
+function ns.ResetAllSettings(db, coreDefaults)
+	for _, module in ipairs(ns.modules) do
+		ns.ResetModuleSettings(module)
+	end
+	db.enabled, db.panel, db.toast = {}, {}, {}
+	ns.MergeDefaults(coreDefaults, db)
+end
+
+-- A dropdown's value when it's one of choices ({ value, text }), otherwise the default.
+function ns.ChoiceOrDefault(value, choices, default)
+	for _, choice in ipairs(choices) do
+		if choice.value == value then
+			return value
+		end
+	end
+	return default
 end
 
 ns.homeByKey = {} -- [entry key] = home entry

@@ -230,7 +230,8 @@ local function PinAt(text)
 	local x, y = (rest or text):match("^([%d.]+)[%s,]+([%d.]+)")
 	x, y = tonumber(x), tonumber(y)
 	if not x or not y or x < 0 or x > 100 or y < 0 or y > 100 then
-		ns.Print("usage: /way <x> <y>, for example /way 45.2 67.8 (or /way #mapID <x> <y>).")
+		local cmd = SlashCmdList.TOMTEWAY and "/way" or "/tomte way"
+		ns.Print(("usage: %s <x> <y>, for example %s 45.2 67.8 (or %s #mapID <x> <y>)."):format(cmd, cmd, cmd))
 		return
 	end
 	if not mapID or not C_Map.CanSetUserWaypointOnMap(mapID) then
@@ -243,9 +244,35 @@ local function PinAt(text)
 	ns.Print(("tracking %.1f, %.1f in %s."):format(x, y, info and info.name or ("map " .. mapID)))
 end
 
-SLASH_TOMTEWAY1 = "/way"
-SlashCmdList.TOMTEWAY = function(msg)
-	PinAt(strtrim(msg or ""))
+-- /way is TomTom's: Tomte claims it only when TomTom isn't loaded, and only once Waypoints is on (an off or blocked
+-- module doesn't take a command name). TomTom loads after Tomte, so the check waits for PLAYER_LOGIN. A slash command
+-- can't be taken back, so turning Waypoints off later leaves /way saying it's off. /tomte way <x> <y> always works.
+local wayClaimed, waitingForLogin
+local function ClaimWay()
+	if wayClaimed or waitingForLogin then
+		return
+	end
+	if not IsLoggedIn() then
+		waitingForLogin = true
+		local login = CreateFrame("Frame")
+		login:RegisterEvent("PLAYER_LOGIN")
+		login:SetScript("OnEvent", function(self)
+			self:UnregisterAllEvents()
+			waitingForLogin = false
+			if module.active then
+				ClaimWay()
+			end
+		end)
+		return
+	end
+	wayClaimed = true
+	if C_AddOns.IsAddOnLoaded("TomTom") then
+		return
+	end
+	SLASH_TOMTEWAY1 = "/way"
+	SlashCmdList.TOMTEWAY = function(msg)
+		PinAt(strtrim(msg or ""))
+	end
 end
 
 local function Clear()
@@ -321,6 +348,7 @@ module = ns.RegisterModule({
 			end
 			HideBlizzard()
 			Start()
+			ClaimWay()
 		else
 			events:UnregisterAllEvents()
 			ticker:Hide()
@@ -335,7 +363,7 @@ module = ns.RegisterModule({
 		{ "test", "place a map pin ahead of you and track it", TestPin },
 		{ "clear", "stop tracking (and remove the map pin)", Clear },
 	},
-	fallbackCommand = { "<x> <y>", "pin and track a spot on this map (also /way <x> <y>)", PinAt, pattern = "^[#%d.]" },
+	fallbackCommand = { "<x> <y>", "pin and track a spot on this map (also /way <x> <y> when TomTom isn't loaded)", PinAt, pattern = "^[#%d.]" },
 	options = {
 		{ type = "header", label = "Look" },
 		{ type = "dropdown", key = "style", label = "Style",
