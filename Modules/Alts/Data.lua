@@ -1081,6 +1081,7 @@ local FORGET_STORES = {
 	{ "gear", "weights" }, { "gear", "hinted" },
 	{ "hunter", "chars" },
 	{ "moments", "zones" },
+	{ "way", "routes" },
 }
 
 -- Removes a character from every store in TomteDB: the ones above, the last session (sessionLast) and its finished

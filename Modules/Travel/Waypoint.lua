@@ -2,7 +2,8 @@ local addonName, ns = ...
 
 -- Waypoints module: replaces WaypointUI. Follows Blizzard's navigation frame (C_Navigation.GetFrame) with our own
 -- marker, close-up card and edge arrow, hides Blizzard's SuperTrackedFrame while on, and super-tracks map pins as
--- soon as they're placed. Pure logic is in Data.lua, target info in Target.lua, frames in Marker.lua.
+-- soon as they're placed. Pure logic is in Data.lua, target info in Target.lua, frames in Marker.lua, guard
+-- directions in Guard.lua, portal routes to other continents in Router.lua (Route.lua, Network.lua).
 -- The update frame only runs while a navigation frame exists.
 
 local TICK = 0.1 -- seconds between distance/state/text updates (position updates every frame)
@@ -142,6 +143,7 @@ local function MarkDirty()
 	elapsed = TICK -- don't leave the old name up while the navigation frame already moved
 end
 
+ns.Way_TargetChanged = MarkDirty
 events.SUPER_TRACKING_CHANGED = MarkDirty
 events.SUPER_TRACKING_PATH_UPDATED = MarkDirty
 events.QUEST_LOG_UPDATE = MarkDirty
@@ -326,6 +328,9 @@ module = ns.RegisterModule({
 		arrowScale = 1,
 		metric = true,
 		autoTrack = true,
+		guard = "ask",
+		portals = true,
+		routes = {}, -- per character GUID: the real map pin while a portal route has the pin on a step
 		showWhenHidden = false,
 	},
 	init = function(saved)
@@ -349,7 +354,11 @@ module = ns.RegisterModule({
 			HideBlizzard()
 			Start()
 			ClaimWay()
+			ns.WayGuard_Toggle(true, db)
+			ns.WayRouter_Toggle(db.portals, db)
 		else
+			ns.WayGuard_Toggle(false, db)
+			ns.WayRouter_Toggle(false, db)
 			events:UnregisterAllEvents()
 			ticker:Hide()
 			ns.WayMarker_Hide()
@@ -362,6 +371,11 @@ module = ns.RegisterModule({
 	commands = {
 		{ "test", "place a map pin ahead of you and track it", TestPin },
 		{ "clear", "stop tracking (and remove the map pin)", Clear },
+		{ "route", "show the portal route to a map pin on another continent", function()
+			if RequireActive() then
+				ns.WayRouter_Print()
+			end
+		end },
 	},
 	fallbackCommand = { "<x> <y>", "pin and track a spot on this map (also /way <x> <y> when TomTom isn't loaded)", PinAt, pattern = "^[#%d.]" },
 	options = {
@@ -415,6 +429,22 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "metric", label = "Use meters", onChange = Refresh },
 		{ type = "checkbox", key = "autoTrack", label = "Track map pins when placed",
 			tooltip = "Placing a pin on the world map tracks it right away." },
+		{ type = "checkbox", key = "portals", label = "Route to other continents",
+			onChange = function()
+				ns.WayRouter_Toggle(module.active and db.portals, db)
+			end,
+			tooltip = "A map pin on another continent gets no navigation from the game. Tomte moves the pin to each "
+				.. "portal, zeppelin or boat on the way, using the same network the game uses for quests, and puts "
+				.. "your pin back once you're on its continent. /tomte way route shows the whole route." },
+		{ type = "dropdown", key = "guard", label = "Waypoint for guard directions",
+			tooltip = "When a guard shows you the way, place and track a map pin there. Ask: a Yes/No question first.",
+			choices = function()
+				local list = {}
+				for i, key in ipairs(ns.WAY_GUARD_MODES) do
+					list[i] = { value = key, text = ns.WAY_GUARD_NAMES[key] }
+				end
+				return list
+			end },
 		{ type = "checkbox", key = "showWhenHidden", label = "Show when the UI is hidden", onChange = ApplyLook,
 			tooltip = "Keep the marker visible after Alt+Z." },
 		{ type = "button", label = "Pin ahead of you", text = "Test", onClick = TestPin,

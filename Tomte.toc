@@ -42,8 +42,12 @@ Modules/Flight/ZoneText.lua
 Modules/Flight/Scene.lua
 Modules/Flight/Flight.lua
 Modules/Travel/Data.lua
+Modules/Travel/Network.lua
+Modules/Travel/Route.lua
 Modules/Travel/Target.lua
 Modules/Travel/Marker.lua
+Modules/Travel/Guard.lua
+Modules/Travel/Router.lua
 Modules/Travel/Waypoint.lua
 Modules/Mount/Data.lua
 Modules/Mount/Journal.lua

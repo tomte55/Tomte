@@ -38,7 +38,7 @@ are Tomte window settings.
 | Weekly board | General | What you haven't done this week: Great Vault, crests, weekly quests, profession knowledge and Concentration (toast when full), lockouts. Tabs: This week, Factions (renown emblems in progress rings with sub-factions, paragon glow, next rewards on hover, click for the reward track), Activities (Delves keys and shards, Worldsoul weekly, learned weekly quests by zone, Hide completed, a Resources list), Raids (each boss's kills this week per difficulty, collapsible raids), Characters (an alt grid) and Professions; alts roll over at the weekly reset without logging in. |
 | Alts | General | Every character at a glance and crafting across them (who makes it, materials and where, crafts in order). Send to alt: at a mailbox a "For your alts" panel attaches and sends what your other characters craft with (12 stacks a mail), and at the bank "Deposit for alts" puts it in the Warband bank. Manual rules and gold top-ups are settings. Crafting list: add a craft with its amount from the Crafting tab, and a tracker on screen says what the character you're on has to do ("Grab 10 Iron Ingot from your bank", "Mail 20 Mycobloom to Mira", "Craft 3 Flask: you have everything"); the mailbox sends each craft's exact materials, Baganator marks the items to move, and crafts count down as you make them. With Auctionator, a "Shopping list" link on the materials headings makes an Auctionator shopping list of what's missing. Recipe items (patterns, plans...) say on their tooltip who knows the recipe or who could learn it. "Gear for" in the Crafting tab keeps only what one character can use (their armor type, weapons their class equips, their main stat, tools for their professions), "you" follows whoever is logged in, and each row marks how the craft's item level compares with what they wear (green +n at every quality, yellow +n only at the higher qualities). Profession gear: a Profession gear tab shows each character's tool and accessories per profession with the best one somebody can craft when it's an upgrade (click to open it in the Crafting tab), "Gear for" marks tools and accessories too, the mailbox's "Gear for <name>" groups include profession gear from your bags that's an upgrade for another character, and a Next up suggestion says when a better tool or accessory can be crafted with the materials on hand. Profession gear is compared by item level; its stats are shown, not weighed. The detailed Characters view shows each max-level character's Great Vault and Concentration (from Weekly); an unlit profession icon says who has a free profession slot; totals include the Warband bank's gold. Each character's worn gear and spec are stored for Gear Check's upgrades for alts: at the mailbox a "Gear for Mira" group attaches the Bind on Equip upgrades for that character, and "Deposit for alts" puts warbound ones in the Warband bank. |
 | Flight Timer | Travel | Times flight paths account-wide and shows a countdown while flying, with an optional cinematic flight mode. Coverage tab and a flight master map show which routes you've timed. |
-| Waypoints | Travel | An in-world marker for whatever you track (quest, map pin, POI, rare, corpse): icon, optional beam, name, distance and arrival time. Up close it turns into a card with the objectives; off-screen, an arrow at the edge points to it. Classic or Minimal style. Map pins are tracked as soon as you place them. Replaces WaypointUI. |
+| Waypoints | Travel | An in-world marker for whatever you track (quest, map pin, POI, rare, corpse): icon, optional beam, name, distance and arrival time. Up close it turns into a card with the objectives; off-screen, an arrow at the edge points to it. Classic or Minimal style. Map pins are tracked as soon as you place them, a map pin on another continent is routed through the portals, zeppelins and boats on the way, and a guard's directions can become a map pin (Never, Ask or Always). Replaces WaypointUI. |
 | Smart Mount | Travel | One key (Key Bindings > Tomte > Smart Mount) that summons a mount that fits where you are (underwater, flying or ground) from your zone favorites, then journal favorites, then all usable mounts (a favorite list is skipped when nothing in it suits the spot). Pressed again it dismounts (not while flying), leaves a vehicle or leaves travel form / Ghost Wolf. In Undermine it calls the G-99 Breakneck instead (hold Shift for a normal mount). A star in the Mount Journal makes the selected mount a favorite for the zone or continent you're in; the Zones tab lists them. |
 | Teleports | Travel | A Teleports tab in the world map's side panel: Hearthstone, a random hearthstone toy, your house, dungeon teleports (this season first, unearned ones greyed out), class teleports and teleport items, with cooldowns. Teleports to the map you're viewing float to the top, with a pin on dungeon entrances. Click to use (out of combat), right-click to favorite. |
 | AFK Screen | Ambience | A cinematic screen while you're AFK: orbiting camera, your character, time away, clock, session stats and missed whispers. |
@@ -67,7 +67,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte afk preview`, `/tomte whispers inbox`, `/tomte hunter check`, `/tomte pet unlock`
 - `/tomte alerts test`
 - `/tomte gear sim` (how to check an item on Raidbots), `/tomte gear import` / `weights` (source, best gem, season) / `clear`, `/tomte gear upgrades` (reveal the upgrades already in your bags)
-- `/tomte way test` (pin ahead of you), `/tomte way clear`, `/tomte way <x> <y>` (also `/way <x> <y>` when TomTom isn't loaded)
+- `/tomte way test` (pin ahead of you), `/tomte way clear`, `/tomte way route` (the portal route to a pin on another continent), `/tomte way <x> <y>` (also `/way <x> <y>` when TomTom isn't loaded)
 - `/tomte ach scan`, `/tomte ach tracker`, `/tomte ach lock` / `unlock`, `/tomte ach test`
 - `/tomte vendor last`, `/tomte dura list`
 - `/tomte mount why` (context, pool and pick of the last press), `/tomte mount zone`
@@ -90,10 +90,11 @@ Panel/       Tomte window, settings and widgets
 Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements,
              Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value, Minimap)
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
+tools/       dev scripts (waynet.py builds Modules/Travel/Network.lua from Blizzard's waypoint tables)
 docs/        design specs and implementation plans
 ```
 
-`tests/`, `docs/`, `CLAUDE.md` and `.github/` are left out of the release zip (`.gitattributes`).
+`tests/`, `tools/`, `docs/`, `CLAUDE.md` and `.github/` are left out of the release zip (`.gitattributes`).
 
 ## Tests
 
@@ -131,6 +132,9 @@ or modules, major for changes that reset or break settings.
 - Built-in stat weights: Midnight from SimulationCraft sims published by mythicsim.com for damage and tank specs and
   the Icy Veins and Method guides for healers; The War Within (Season 3) from the Icy Veins stat priority guides.
   Algari gem and Blasphemite IDs and the display season IDs from [wago.tools](https://wago.tools).
+- Waypoints' portal routes use Blizzard's own waypoint network (the WaypointNode, WaypointEdge, WaypointSafeLocs,
+  WaypointMapVolume, PlayerCondition and ModifierTree tables) as exported by [wago.tools](https://wago.tools);
+  condition logic as documented by TrinityCore and wowdev.wiki.
 - Mount rarity in Moments comes from the MountsRarity library bundled with Mount Journal Enhanced.
 - Upgrade track IDs (Gear Check's Catalyst note) as used by [AllTheThings](https://github.com/ATTWoWAddon/AllTheThings)
   and [SpartanUI](https://github.com/spartanui-wow/SpartanUI); the G-99 Breakneck's spell IDs from

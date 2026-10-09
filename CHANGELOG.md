@@ -13,6 +13,11 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
   Settings) does the same for the Gear for marks, the Profession gear tab and Next up. Click a material to use only
   one rank of it: counts, the to-do, the mailbox and the shopping list follow it. Open each crafter's profession
   window once so every quality's item level is read.
+- Waypoints: a map pin on another continent now gets a route. The marker leads you to each portal, zeppelin or boat on
+  the way (the same network the game uses for quests, for your faction), then back to your own pin once you're on
+  its continent. `/tomte way route` lists the steps; "Route to other continents" turns it off.
+- Waypoints: when a guard gives you directions, Tomte can place and track a map pin there. "Waypoint for guard
+  directions": Never, Ask (a Yes/No question, the default) or Always.
 
 ## v1.1.0 - 2026-10-09
 

@@ -28,6 +28,10 @@ ns.WAY_FOOTER_NAMES = {
 	none = "Nothing",
 }
 
+-- Guard directions: what a guard's directions do (Guard.lua).
+ns.WAY_GUARD_MODES = { "never", "ask", "always" }
+ns.WAY_GUARD_NAMES = { never = "Never", ask = "Ask", always = "Always" }
+
 function ns.Way_ApplyStyle(db, style)
 	local preset = ns.WAY_STYLES[style]
 	if not preset then

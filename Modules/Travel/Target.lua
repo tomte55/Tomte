@@ -13,6 +13,7 @@ local ICON_DEFAULT = { atlas = "Navigation-Tracked-Icon" }
 local ICON_CORPSE = { atlas = "Navigation-Tombstone-Icon" }
 local ICON_TAXI = { atlas = "Crosshair_Taxi_128" }
 local ICON_DIG = { atlas = "ArchBlob" }
+local PORTAL_ATLAS = { Horde = "MagePortalHorde", Alliance = "MagePortalAlliance" }
 local OWNER = Enum.HousingPlotOwnerType or {}
 local HOUSING_DEFAULT = "housing-map-plot-unoccupied"
 local HOUSING_ATLAS = {}
@@ -79,7 +80,26 @@ local function Quest(questID)
 	}
 end
 
+-- A step of a portal route (Router.lua) stands in for the pin: the step, the next way on, and where it ends.
+local function RouteStep(step)
+	local icon = ICON_DEFAULT
+	local atlas = PORTAL_ATLAS[UnitFactionGroup("player")]
+	if atlas and step.text:lower():find("portal") and C_Texture.GetAtlasInfo(atlas) then
+		icon = { atlas = atlas }
+	end
+	local target = { kind = "route", name = step.text, icon = icon, lines = {} }
+	if step.nextText then
+		AddLine(target.lines, "Then: " .. step.nextText)
+	end
+	AddLine(target.lines, "On the way to your pin in " .. step.destName)
+	return target
+end
+
 local function UserWaypoint()
+	local step = ns.WayRouter_Step and ns.WayRouter_Step()
+	if step and step.text then
+		return RouteStep(step)
+	end
 	return { kind = "pin", name = ItemName() or "Map pin", icon = ICON_PIN, lines = {} }
 end
 

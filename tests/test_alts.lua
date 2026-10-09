@@ -535,14 +535,15 @@ test("ForgetEverywhere clears every per-character store", function()
 			gear = { weights = { g = {} }, hinted = { g = {} } },
 			hunter = { chars = { g = {} } },
 			moments = { zones = { g = { [1] = true } } },
+			way = { routes = { g = {} } },
 			sessionLast = { g = {}, k = {} },
 			recap = { history = { { guid = "g" }, { guid = "k" }, { guid = "g" } } },
 		}
 	end
 	local root = Root()
-	eq(ns.Alts_ForgetEverywhere(root, "g"), 12, "entries removed")
+	eq(ns.Alts_ForgetEverywhere(root, "g"), 13, "entries removed")
 	for _, t in ipairs({ root.alts.chars, root.weekly.chars, root.weekly.hidden, root.ach.cache, root.ach.pins,
-		root.gear.weights, root.gear.hinted, root.hunter.chars, root.moments.zones, root.sessionLast }) do
+		root.gear.weights, root.gear.hinted, root.hunter.chars, root.moments.zones, root.way.routes, root.sessionLast }) do
 		eq(t.g, nil, "cleared")
 	end
 	eq(root.alts.chars.k ~= nil, true, "others stay")
