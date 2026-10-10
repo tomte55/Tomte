@@ -31,6 +31,7 @@ are Tomte window settings.
 
 | Module | Category | What it does |
 | --- | --- | --- |
+| Pet Battles | General | Help to win pet battles. In a battle, a helper shows the enemy team, which attack types hit the active enemy hard, its attack types, your best pet against it ("Swap to X?") and, in wild battles, rare pets you don't own yet. Talking to a pet tamer shows a card with the team Tomte will use, whether your pets are ready (dead, hurt, too low, missing), Load team, Heal (Revive Battle Pets or a bandage) and Xu-Fu's Pet Guides and Wowhead links. Paste strategies from Xu-Fu (a strategy's "Rematch string"): Load team picks your best copy of each pet and sets the abilities, the steps show during the fight, and a Next move button (key in Key Bindings > Tomte) plays the strategy's script, one press per action. A leveling slot swaps in the next pet from a queue once one reaches 25. A Pet Battles page lists every tamer fight (524, from Xu-Fu), your teams, the leveling queue and a type chart. |
 | Minimap Button | General | A button on the minimap's edge that opens the panel (right-click: the Weekly board popup). Drag it to move it. |
 | Next up | General | A short ranked list on Home of the best things to do right now: Great Vault rewards waiting, a rare up that drops a mount or pet you're missing, low durability, full Concentration, world quests worth doing, a vault slot one activity away, achievements one step from done, open knowledge sources, materials for your alts. Click one to start it (waypoint, track, open), right-click for "not now". Placement, rows, sources and their priority are settings. |
 | Recent | General | Every toast and banner also goes into a Recent list (a rail page with a quick action that counts what's new, or a block on Home), so one you missed can be read and clicked later. Saved across reloads, account-wide or per character, per-toast-type filters, optional dot on the minimap button. |
@@ -76,9 +77,10 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte next list` (what Next up suggests and why), `/tomte next reset` (bring back everything you hid)
 - `/tomte alts list` (the crafting list), `/tomte alts tracker` (show/hide the craft tracker)
 - `/tomte recent open` / `clear`, `/tomte value price <item link or ID>`
+- `/tomte pets open`, `/tomte pets import` (paste Xu-Fu strategies), `/tomte pets types` (type chart), `/tomte pets load` (the team for the tamer you're talking to)
 - `/tomte weekly popup` / `board`, `/tomte weekly quests` (learned weekly quests), `/tomte weekly forget <name>`, `/tomte weekly ids` (check crest and knowledge quest IDs)
 
-Key bindings for toggling the Tomte window, Smart Mount, whisper reply and the whisper inbox are under **Tomte** in the game's Key Bindings menu.
+Key bindings for toggling the Tomte window, Smart Mount, whisper reply, the whisper inbox, Next pet battle move and Heal battle pets are under **Tomte** in the game's Key Bindings menu.
 
 ## Layout
 
@@ -89,7 +91,7 @@ Data/        hand-kept data per expansion (WarWithin/, Midnight/): weekly activi
 Cinematic/   shared cinematic engine and banners
 Panel/       Tomte window, settings and widgets
 Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements,
-             Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value, Minimap)
+             Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value, Minimap, Pets)
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 tools/       dev scripts (waynet.py builds Modules/Travel/Network.lua from Blizzard's waypoint tables)
 docs/        design specs and implementation plans
@@ -141,6 +143,12 @@ or modules, major for changes that reset or break settings.
   and [SpartanUI](https://github.com/spartanui-wow/SpartanUI); the G-99 Breakneck's spell IDs from
   [LiteMount](https://github.com/xod-wow/LiteMount)'s notes. Flyout and achievement category IDs from the game data
   on [wago.tools](https://wago.tools).
+
+- Pet Battles: the tamer list maps NPC ids to encounter pages of [Xu-Fu's Pet Guides](https://www.wow-petguide.com)
+  (ids only; Tomte links to the site and never ships its strategies, which you paste in yourself). Team strings follow
+  the format [Rematch](https://www.curseforge.com/wow/addons/rematch) and Xu-Fu share. The script interpreter is Tomte's
+  own implementation of the [Pet Battle Scripts](https://github.com/axc450/pbs) language (MIT; formerly
+  tdBattlePetScript), written from its documented behavior. No code from either addon.
 
 - Fonts: [Cinzel](https://github.com/NDISCOVER/Cinzel) by Natanael Gama and
   [Alegreya](https://github.com/huertatipografica/Alegreya) by Juan Pablo del Peral (Huerta Tipográfica), both under

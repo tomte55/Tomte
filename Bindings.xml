@@ -11,4 +11,6 @@
 	<Binding name="CLICK TomteSmartMount:LeftButton" category="Tomte"/>
 	<Binding name="CLICK TomteSmartMount:RightButton" category="Tomte"/>
 	<Binding name="CLICK TomtePoison1:LeftButton" category="Tomte"/>
+	<Binding name="CLICK TomtePetNext:LeftButton" category="Tomte"/>
+	<Binding name="CLICK TomtePetHeal:LeftButton" category="Tomte"/>
 </Bindings>

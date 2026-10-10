@@ -5,6 +5,13 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- New **Pet Battles** module. In pet battles a helper shows what hits the enemy hard, its attacks and your best pet
+  ("Swap to X?"). Talking to a pet tamer shows a card: your team for the fight, whether your pets are ready, Load
+  team, Heal and links to the fight on Xu-Fu's Pet Guides and Wowhead. Paste a strategy from Xu-Fu (its "Rematch
+  string") and Tomte loads the team, shows the steps during the fight and plays its script with a Next move button
+  or key, one press per move. Optional leveling slot with a queue, and a Pet Battles page with every tamer fight,
+  your teams and a type chart.
+
 ## v1.3.0 - 2026-10-10
 
 - Five more themes in Settings > Tomte window > Theme: **Tomte classic** (the look Tomte had before 1.2: flat
