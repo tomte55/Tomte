@@ -47,7 +47,7 @@ local module = ns.RegisterModule({
 		{ type = "header", label = "Window" },
 		{ type = "slider", key = "opacity", label = "Background opacity", min = 0.5, max = 1, step = 0.02,
 			shown = function()
-				return ns.Theme.panel ~= "blizzard" -- Blizzard default always looks like a tooltip
+				return ns.Theme.panel == "art" and ns.Theme.art.opacity -- Blizzard default always looks like a tooltip
 			end,
 			format = function(value)
 				return ("%d%%"):format(math.floor(value * 100 + 0.5))

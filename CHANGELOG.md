@@ -5,6 +5,11 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Five more themes in Settings > Tomte window > Theme: **Tomte classic** (the look Tomte had before 1.2: flat
+  near-black panels with gold borders and headings), **Northrend** (blue slate, frost-white text, rime in the corner),
+  **Forge** (dark iron, ember-orange accent, bronze frames, faint runes), **Emerald Dream** (moss green, jade accent,
+  curling vines) and **Void** (indigo night with faint stars, a vivid violet accent). After installing, restart the
+  game once (not just a reload) so the new fonts and textures load.
 - Pick Tomte's look in Settings > Tomte window > Theme. **Blizzard default** (new, and now the default) looks like
   the game's own tooltips: gold headings, white text, the game's font and tooltip borders. **Cartographer** is the
   map-paper look. "Reload now" switches right away. Background opacity is a Cartographer setting.

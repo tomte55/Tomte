@@ -135,7 +135,7 @@ local function CreateCategoryHeader(parent)
 	b.toggle = UI.Text(b, 12, "textMuted")
 	b.toggle:SetPoint("BOTTOMLEFT", 10, 6)
 	b.toggle:SetWidth(10)
-	b.text = UI.Text(b, 11, "textMuted", "title")
+	b.text = UI.Text(b, 11, "textMuted", "label")
 	b.text:SetPoint("BOTTOMLEFT", b.toggle, "BOTTOMRIGHT", 4, 0)
 	b.count = UI.Text(b, 11, "textFaint", "number")
 	b.count:SetPoint("BOTTOMRIGHT", -10, 6)
@@ -654,11 +654,12 @@ local function Build()
 	end)
 end
 
--- Background opacity from the "Tomte window" settings (Panel/Window.lua).
+-- Background opacity from the "Tomte window" settings (Panel/Window.lua), for themes that offer it (Theme.art.opacity).
 function ns.Panel_ApplyLook()
 	if panel then
 		local window = ns.db.window
-		panel.look:SetAlpha(window and window.opacity or 0.96)
+		local opacity = ns.Theme.art.opacity and window and window.opacity or 0.96
+		panel.look:SetAlpha(opacity)
 	end
 end
 

@@ -32,7 +32,7 @@ local function ColorObject(role, alpha)
 end
 UI.ColorObject = ColorObject
 
--- color: a role ("text" by default); fontRole: "body" (default), "title", "number" or "chat".
+-- color: a role ("text" by default); fontRole: "body" (default), "title", "label", "number" or "chat".
 function UI.Text(parent, size, color, fontRole)
 	local fs = parent:CreateFontString(nil, "OVERLAY")
 	Theme.SetFont(fs, fontRole or "body", size)
@@ -151,10 +151,7 @@ end
 
 -- Panel art ---------------------------------------------------------------------------------------------------
 
-local CONTOUR_SIZE = 512
-local CONTOUR_ALPHA = 0.06
-local GRAIN_ALPHA = 0.06
-local GLOW_ALPHA = 0.05
+-- Layer alphas, the rule's inset and so on come from the theme (Theme.art; defaults in Core/Theme.lua).
 local VIGNETTE = 26
 local LARGE_W, LARGE_H = 600, 400 -- contours from this size up
 local SMALL_H = 60 -- below this: no inner rule, no vignette
@@ -162,7 +159,8 @@ local SMALL_H = 60 -- below this: no inner rule, no vignette
 -- Texcoords that show the `w` x `h` part of the contour file nearest its origin corner (bottom-right in the file),
 -- mirrored to `corner`. Cropped, not scaled, so the rings keep their size on every panel.
 local function ContourCoords(corner, w, h)
-	local fw, fh = math.min(w / CONTOUR_SIZE, 1), math.min(h / CONTOUR_SIZE, 1)
+	local size = Theme.art.contourSize
+	local fw, fh = math.min(w / size, 1), math.min(h / size, 1)
 	local l, r, t, b = 1 - fw, 1, 1 - fh, 1
 	if corner == "BOTTOMLEFT" or corner == "TOPLEFT" then
 		l, r = r, l
@@ -214,19 +212,21 @@ local function BlizzardPanel(frame, size)
 	return p
 end
 
--- The theme's panel look on `frame`: gradient fill, soft light top-left, grain, contour rings in one corner (large
--- panels), an inner vignette, a 2 px dark outer edge and a thin rule inset 5 px.
+-- The theme's panel look on `frame`: gradient fill, soft light top-left, grain, corner art (large panels), an inner
+-- vignette, a dark outer edge and a thin rule inset from the edge. Theme.art sets each layer's strength (0 = off).
 -- opts.size: "large" | "medium" | "small", or nil to pick from the frame's size whenever it changes.
 -- opts.corner: where the contours sit (default "BOTTOMRIGHT"). opts.alpha: fill opacity (default 1).
 -- opts.subtle: for widgets and toasts over the game world (Almost Done, Crafting list, flight bar, toasts): only the
 -- fill and a faint rule on the edge; no grain, glow, contours, vignette or dark outer edge.
 -- Returns a handle: handle:SetAlpha(a) changes the fill's opacity (the Tomte window's Background opacity).
--- The Blizzard theme (Theme.panel == "blizzard") draws the game's tooltip border and fill instead (BlizzardPanel).
+-- A theme whose panel is "blizzard" draws the game's tooltip border and fill instead (BlizzardPanel).
 function UI.Panel(frame, opts)
 	opts = opts or {}
 	if Theme.panel == "blizzard" and not opts.subtle then
 		return BlizzardPanel(frame, opts.size)
 	end
+	local art = Theme.art
+	local GLOW_ALPHA, CONTOUR_ALPHA, GRAIN_ALPHA = art.glow, art.contours, art.grain
 	local p = { frame = frame, corner = opts.corner or "BOTTOMRIGHT" }
 
 	p.fill = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
@@ -238,6 +238,9 @@ function UI.Panel(frame, opts)
 	p.glow:SetPoint("TOPLEFT")
 	p.glow:SetTexCoord(0.5, 1, 0.5, 1) -- the quarter of the spot whose center is the panel's top-left corner
 	p.glow:SetAlpha(GLOW_ALPHA)
+	if art.glowTint then
+		p.glow:SetVertexColor(Theme.RGB(art.glowTint))
+	end
 
 	p.contours = frame:CreateTexture(nil, "BACKGROUND", nil, -6)
 	p.contours:SetTexture(Theme.media.contours)
@@ -253,7 +256,7 @@ function UI.Panel(frame, opts)
 	p.grain:SetAlpha(GRAIN_ALPHA)
 
 	p.vignette = {}
-	local dark, clear = CreateColor(0, 0, 0, 0.45), CreateColor(0, 0, 0, 0)
+	local dark, clear = CreateColor(0, 0, 0, art.vignette), CreateColor(0, 0, 0, 0)
 	for i, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
 		local t = frame:CreateTexture(nil, "BACKGROUND", nil, -4)
 		t:SetColorTexture(1, 1, 1, 1)
@@ -272,9 +275,10 @@ function UI.Panel(frame, opts)
 	end
 
 	local r, g, b = Theme.Color("frameDark")
-	p.outer = Edges(frame, 0, "BORDER", 1, r, g, b, 1, 2)
+	p.outer = Edges(frame, 0, "BORDER", 1, r, g, b, 1, math.max(art.outer, 1))
 	local fr, fg, fb = Theme.Color("frame")
-	p.inner = Edges(frame, opts.subtle and 0 or 5, "BORDER", 2, fr, fg, fb, opts.subtle and 0.22 or 0.45)
+	p.inner = Edges(frame, opts.subtle and 0 or art.inset, "BORDER", 2, fr, fg, fb,
+		opts.subtle and art.subtleRule or art.rule)
 	frame.borderEdges = p.inner -- so UI.SetBorderColor recolors the visible rule
 
 	-- The opacity setting fades every layer, so a see-through panel doesn't keep opaque edges and grain.
@@ -312,17 +316,21 @@ function UI.Panel(frame, opts)
 			end
 			return
 		end
-		self.contours:SetShown(large)
+		self.contours:SetShown(large and CONTOUR_ALPHA > 0)
+		self.grain:SetShown(GRAIN_ALPHA > 0)
+		for _, t in ipairs(self.outer) do
+			t:SetShown(art.outer > 0)
+		end
 		if large then
-			local cw, ch = math.min(w, CONTOUR_SIZE), math.min(h, CONTOUR_SIZE)
+			local cw, ch = math.min(w, art.contourSize), math.min(h, art.contourSize)
 			self.contours:SetSize(cw, ch)
 			self.contours:SetTexCoord(ContourCoords(self.corner, cw, ch))
 		end
 		self.glow:SetSize(math.min(w * 0.7, 700), math.min(h * 0.8, 500))
-		self.glow:SetShown(not small)
+		self.glow:SetShown(not small and GLOW_ALPHA > 0)
 		local depth = math.min(VIGNETTE, math.floor(math.min(w, h) * 0.2))
 		for i, t in ipairs(self.vignette) do
-			t:SetShown(not small)
+			t:SetShown(not small and art.vignette > 0)
 			if i <= 2 then
 				t:SetHeight(depth)
 			else
@@ -461,7 +469,7 @@ function UI.Button(parent, width, text)
 	bg:SetColorTexture(Theme.Color("surface"))
 	UI.Border(b, "frame", BUTTON_RULE)
 	local single = text ~= nil and #text == 1
-	b.label = single and UI.Text(b, 13, "heading") or UI.Text(b, 11, "heading", "title")
+	b.label = single and UI.Text(b, 13, "heading") or UI.Text(b, 11, "heading", "label")
 	b.label:SetJustifyH("CENTER")
 	b.label:SetPoint("CENTER", 0, single and 0 or LABEL_Y)
 	b.label:SetText(text)

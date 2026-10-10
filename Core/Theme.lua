@@ -1,174 +1,192 @@
 local addonName, ns = ...
 
--- The theme: every color and font Tomte draws with, by role (docs/superpowers/specs/2026-10-10-redesign-design.md).
--- Code asks for a role (ns.UI.Color("accent"), ns.Theme.Font("title")), never for a number or a font path.
--- Core.lua calls Theme.Apply with the saved choice on ADDON_LOADED, before any frame is built; nothing reads a
--- color while the files load (tests/test_theme.lua checks). Switching themes means a reload: there's no repaint.
+-- The theme: every color and font Tomte draws with, by role (docs/superpowers/specs/2026-10-10-redesign-design.md,
+-- 2026-10-10-tomte-themes-design.md). Code asks for a role (ns.UI.Color("accent"), ns.Theme.Font("title")), never
+-- for a number or a font path. Each theme is one file in Themes/ that calls Theme.Register; Core.lua calls
+-- Theme.Apply with the saved choice on ADDON_LOADED, before any frame is built. Nothing reads a color while the files
+-- load (tests/test_theme.lua checks). Switching themes means a reload: there's no repaint.
 
 local MEDIA = "Interface\\AddOns\\Tomte\\Media\\"
 
-local function Hex(hex, alpha)
-	local r, g, b = hex:match("^#(%x%x)(%x%x)(%x%x)$")
-	return { tonumber(r, 16) / 255, tonumber(g, 16) / 255, tonumber(b, 16) / 255, alpha }
-end
-
--- A Blizzard color global (a ColorMixin like NORMAL_FONT_COLOR), or `hex` where it's missing (the unit tests).
-local function Global(name, hex, alpha)
-	local c = _G[name]
-	if type(c) == "table" and type(c.r) == "number" then
-		return { c.r, c.g, c.b, alpha }
-	end
-	return Hex(hex, alpha)
-end
-
-local CINZEL = MEDIA .. "Fonts\\Cinzel-Medium.ttf"
-local ALEGREYA = MEDIA .. "Fonts\\Alegreya-Regular.ttf"
-local NUMBERS = MEDIA .. "Fonts\\AlegreyaNumbers-Regular.ttf"
-
--- Cinzel has no Cyrillic; neither font has Korean or Chinese. Those clients keep their own fonts for what's missing.
-local CLIENT_FONTS = { koKR = true, zhCN = true, zhTW = true }
-
-local function CartographerFonts(locale)
-	if CLIENT_FONTS[locale] then
-		return { title = STANDARD_TEXT_FONT, body = STANDARD_TEXT_FONT, number = STANDARD_TEXT_FONT }
-	end
-	local title = CINZEL
-	if locale == "ruRU" then
-		title = GameFontNormalHuge:GetFont()
-	end
-	return { title = title, body = ALEGREYA, number = NUMBERS }
-end
-
--- The game's own font in every role: STANDARD_TEXT_FONT already is the right one for each client language.
-local function ClientFonts()
-	return { title = STANDARD_TEXT_FONT, body = STANDARD_TEXT_FONT, number = STANDARD_TEXT_FONT }
-end
-
--- Each theme: label (the Settings dropdown), colors by role, fonts(locale), and panel = how UI.Panel draws:
--- "cartographer" (grain, contours, glow, vignette, ruled frame, ink flourishes) or "blizzard" (the tooltip border).
-local THEMES = {
-	cartographer = {
-		label = "Cartographer",
-		panel = "cartographer",
-		fonts = CartographerFonts,
-		colors = {
-			bg = Hex("#191a1e"),
-			bgTop = Hex("#1d2026"),
-			bgBottom = Hex("#15171b"),
-			surface = { 0, 0, 0, 0.19 },
-			hover = Hex("#a99be0", 0.14),
-			text = Hex("#e6dcc4"),
-			heading = Hex("#eadbb5"),
-			textMuted = Hex("#9c9480"),
-			textFaint = Hex("#6b6658"),
-			accent = Hex("#a99be0"),
-			accentDeep = Hex("#5d4f9a"),
-			frame = Hex("#8a7b5a"),
-			frameDark = Hex("#0a0b0d"),
-			rule = Hex("#a8956a", 0.15),
-			contour = Hex("#d9c79a"),
-			success = Hex("#8fbf7a"),
-			warning = Hex("#d9a55b"),
-			danger = Hex("#d0654f"),
-		},
-	},
-	-- The stock UI: gold headings, white text, the tooltip's navy fill and grey border, the game's fonts.
-	blizzard = {
-		label = "Blizzard default",
-		panel = "blizzard",
-		fonts = ClientFonts,
-		colors = {
-			bg = Global("TOOLTIP_DEFAULT_BACKGROUND_COLOR", "#171730"),
-			bgTop = Global("TOOLTIP_DEFAULT_BACKGROUND_COLOR", "#171730"),
-			bgBottom = Hex("#0e0e1e"),
-			surface = { 0, 0, 0, 0.3 },
-			hover = Hex("#ffffff", 0.09), -- a light wash, as Blizzard's list highlights
-			text = Global("HIGHLIGHT_FONT_COLOR", "#ffffff"),
-			heading = Global("NORMAL_FONT_COLOR", "#ffd100"),
-			textMuted = Hex("#b4b4b4"),
-			textFaint = Global("GRAY_FONT_COLOR", "#808080"),
-			accent = Global("NORMAL_FONT_COLOR", "#ffd100"),
-			accentDeep = Hex("#a66b00"),
-			frame = Hex("#7f7f7f"),
-			frameDark = { 0, 0, 0, 0.35 }, -- see-through like the tooltip fill (Home's character backdrop)
-			rule = Hex("#ffffff", 0.12),
-			contour = Hex("#ffffff"),
-			success = Global("GREEN_FONT_COLOR", "#19ff19"),
-			warning = Global("ORANGE_FONT_COLOR", "#ff8040"),
-			danger = Global("RED_FONT_COLOR", "#ff2020"),
-		},
-	},
-}
-local ORDER = { "blizzard", "cartographer" }
+local THEMES = {}
 local DEFAULT = "blizzard"
 
+-- How UI.Panel draws a theme whose `panel` is "art" (Panel/Widgets.lua). A theme's `art` table overrides any of these.
+-- Alphas of 0 turn a layer off. Textures are white art tinted by a color role.
+local ART_DEFAULTS = {
+	glow = 0.05, -- soft light from the top-left corner (media.glow)
+	glowTint = false, -- a color role that tints the glow (false = white light)
+	contours = 0.06, -- corner art on large panels (media.contours, tinted "contour"), cropped not scaled
+	contourSize = 512, -- the corner art file's size in px
+	grain = 0.06, -- tiled texture over the whole panel (media.grain)
+	vignette = 0.45, -- dark inner edge, black at this alpha
+	outer = 2, -- px of frameDark edge outside the rule (0 = none)
+	inset = 5, -- px from the edge to the thin "frame" rule
+	rule = 0.45, -- the rule's alpha
+	subtleRule = 0.22, -- the rule's alpha on subtle panels (widgets and toasts over the game world)
+	ornaments = false, -- the flourish under titles and on the title line (media.flourish, tinted "frame")
+	opacity = true, -- the Tomte window's Background opacity setting applies
+}
+
+-- The art every theme gets unless it names its own (Cartographer's, made by tools/theme_art.py).
+local MEDIA_DEFAULTS = {
+	grain = MEDIA .. "Theme\\Grain",
+	contours = MEDIA .. "Theme\\Contours",
+	flourish = MEDIA .. "Theme\\Flourish",
+	glow = MEDIA .. "Theme\\Glow",
+}
+
 local Theme = {
+	MEDIA = MEDIA,
 	colors = {},
-	media = {
-		grain = MEDIA .. "Theme\\Grain",
-		contours = MEDIA .. "Theme\\Contours",
-		flourish = MEDIA .. "Theme\\Flourish",
-		glow = MEDIA .. "Theme\\Glow",
-	},
+	media = {},
+	art = {},
 }
 ns.Theme = Theme
 Theme.DEFAULT = DEFAULT
 
+-- For theme files: "#rrggbb" (+ alpha) → { r, g, b, a }.
+function Theme.HexColor(hex, alpha)
+	local r, g, b = hex:match("^#(%x%x)(%x%x)(%x%x)$")
+	return { tonumber(r, 16) / 255, tonumber(g, 16) / 255, tonumber(b, 16) / 255, alpha }
+end
+
+-- For theme files: a Blizzard color global (a ColorMixin like NORMAL_FONT_COLOR), or `hex` where it's missing (the
+-- unit tests).
+function Theme.GlobalColor(name, hex, alpha)
+	local c = _G[name]
+	if type(c) == "table" and type(c.r) == "number" then
+		return { c.r, c.g, c.b, alpha }
+	end
+	return Theme.HexColor(hex, alpha)
+end
+
+-- For theme files: the game's own font in every role. STANDARD_TEXT_FONT already is the right one for each client
+-- language.
+function Theme.ClientFonts()
+	return { title = STANDARD_TEXT_FONT, body = STANDARD_TEXT_FONT, number = STANDARD_TEXT_FONT }
+end
+
+-- Adds a theme. def:
+--   label   the Settings dropdown text
+--   order   sort key in the dropdown (lower first)
+--   colors  { [role] = { r, g, b[, a] } }, every role tests/test_theme.lua lists
+--   fonts   function(locale) → { title, body, number[, label] } file paths (fall back to the client's font where a
+--           file has no glyphs for that language). label (small UI labels: buttons, list headers) defaults to title.
+--   panel   "art" (layered texture panel, tuned by `art`) or "blizzard" (the tooltip's nine-slice border)
+--   art     optional overrides of ART_DEFAULTS
+--   media   optional { grain, contours, flourish, glow } texture paths over MEDIA_DEFAULTS
+--   fontBump optional { [fontRole] = points } added to sizes when that role isn't the client's font (a font with a
+--           small x-height reads a point small)
+function Theme.Register(name, def)
+	assert(type(name) == "string" and not THEMES[name], "Tomte theme: bad or duplicate name")
+	THEMES[name] = def
+	if name == DEFAULT and not Theme.name then
+		Theme.Apply(DEFAULT) -- until Core.lua applies the saved choice
+	end
+end
+
 local fonts
 
--- Makes `name` the theme (an unknown or missing name is the default). The colors table stays the same table.
+local function Merge(into, defaults, overrides)
+	for k in pairs(into) do
+		into[k] = nil
+	end
+	for k, v in pairs(defaults) do
+		into[k] = v
+	end
+	for k, v in pairs(overrides or {}) do
+		into[k] = v
+	end
+end
+
+-- Makes `name` the theme (an unknown or missing name is the default). colors, media and art stay the same tables.
 function Theme.Apply(name)
 	if not THEMES[name] then
 		name = DEFAULT
 	end
 	local t = THEMES[name]
 	Theme.name, Theme.panel = name, t.panel
-	for role in pairs(Theme.colors) do
-		Theme.colors[role] = nil
-	end
-	for role, c in pairs(t.colors) do
-		Theme.colors[role] = c
-	end
+	Merge(Theme.colors, t.colors)
+	Merge(Theme.media, MEDIA_DEFAULTS, t.media)
+	Merge(Theme.art, ART_DEFAULTS, t.art)
 	fonts = nil
+end
+
+-- The registered themes' names, in dropdown order.
+function Theme.Names()
+	local list = {}
+	for name in pairs(THEMES) do
+		list[#list + 1] = name
+	end
+	table.sort(list, function(a, b)
+		local oa, ob = THEMES[a].order or 100, THEMES[b].order or 100
+		if oa ~= ob then
+			return oa < ob
+		end
+		return a < b
+	end)
+	return list
 end
 
 -- { { value, text } } for the Settings dropdown, in order.
 function Theme.Choices()
 	local list = {}
-	for _, name in ipairs(ORDER) do
+	for _, name in ipairs(Theme.Names()) do
 		list[#list + 1] = { value = name, text = THEMES[name].label }
 	end
 	return list
 end
 
--- The ink flourishes under titles belong to Cartographer only.
-function Theme.HasOrnaments()
-	return Theme.panel == "cartographer"
+-- A theme's definition (the tests read it).
+function Theme.Get(name)
+	return THEMES[name]
 end
 
--- Cartographer's fonts for a client language (the Blizzard theme always uses the client's own).
-Theme.FontsFor = CartographerFonts
+-- The flourishes under titles and on the title line.
+function Theme.HasOrnaments()
+	return Theme.panel == "art" and Theme.art.ornaments and true or false
+end
 
--- fontRole: "title", "body", "number", or "chat" (text other players wrote: always the chat font, so it shows the
--- way it does in chat whatever language it's in).
+-- `name`'s fonts for a client language (default: the current theme).
+function Theme.FontsFor(locale, name)
+	return THEMES[name or Theme.name].fonts(locale)
+end
+
+-- The role a theme's fonts table answers for fontRole: label falls back to title, anything unknown to body.
+local function Resolve(fontRole)
+	fonts = fonts or THEMES[Theme.name].fonts(GetLocale())
+	fontRole = fontRole or "body"
+	if not fonts[fontRole] and fontRole == "label" then
+		fontRole = "title"
+	end
+	return fonts[fontRole] and fontRole or "body"
+end
+
+-- fontRole: "title", "label", "body", "number", or "chat" (text other players wrote: always the chat font, so it
+-- shows the way it does in chat whatever language it's in).
 function Theme.Font(fontRole)
 	if fontRole == "chat" then
 		return (ChatFontNormal:GetFont())
 	end
-	fonts = fonts or THEMES[Theme.name].fonts(GetLocale())
-	return fonts[fontRole or "body"] or fonts.body
+	local role = Resolve(fontRole)
+	return fonts[role]
 end
 
--- Alegreya has a small x-height: one point up keeps body text the size the old fonts had at the same number.
+-- Sizes are in the client font's points; a theme's fontBump adds to roles drawn in its own font files.
 function Theme.FontSize(fontRole, size)
-	fonts = fonts or THEMES[Theme.name].fonts(GetLocale())
-	if (fontRole == nil or fontRole == "body" or fontRole == "number") and fonts.body ~= STANDARD_TEXT_FONT then
-		return size + 1
+	if fontRole == "chat" then
+		return size
+	end
+	local role = Resolve(fontRole)
+	local bump = THEMES[Theme.name].fontBump
+	if bump and bump[role] and fonts[role]:find("^Interface\\AddOns\\") then -- not on a game-font fallback
+		return size + bump[role]
 	end
 	return size
 end
 
--- Sets a font string's font by role: fs, "body"|"title"|"number"|"chat", size in the old fonts' points, flags.
+-- Sets a font string's font by role: fs, "body"|"title"|"number"|"chat", size in the client font's points, flags.
 -- If the file can't be loaded (a /reload right after installing: the game only sees new files after a restart, or a
 -- broken unzip), it falls back to the client's font instead of leaving the string with no font.
 function Theme.SetFont(fs, fontRole, size, flags)
@@ -210,5 +228,3 @@ end
 function Theme.Wrap(text, role)
 	return "|c" .. Theme.Hex(role) .. tostring(text) .. "|r"
 end
-
-Theme.Apply(DEFAULT) -- until Core.lua applies the saved choice

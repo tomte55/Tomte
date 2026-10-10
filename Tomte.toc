@@ -9,6 +9,13 @@
 ## AddonCompartmentFunc: Tomte_OnAddonCompartmentClick
 
 Core/Theme.lua
+Themes/Blizzard.lua
+Themes/Classic.lua
+Themes/Cartographer.lua
+Themes/Frost.lua
+Themes/Forge.lua
+Themes/Emerald.lua
+Themes/Void.lua
 Core/Core.lua
 Core/Modules.lua
 Core/EditMode.lua

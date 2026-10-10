@@ -133,7 +133,7 @@ local function Build()
 	frame:SetMovable(true)
 	frame:Hide()
 	UI.Panel(frame, { alpha = 0.55, subtle = true })
-	frame.title = UI.Text(frame, 10, "textMuted", "title")
+	frame.title = UI.Text(frame, 10, "textMuted", "label")
 	frame.title:SetPoint("TOPLEFT", 10, -6)
 	frame.title:SetText(ns.Spaced("Almost done"))
 	for i = 1, ROWS do
