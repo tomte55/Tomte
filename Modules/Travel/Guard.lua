@@ -37,8 +37,10 @@ local function Place(mapID, info)
 		ns.Print("can't place a map pin on that map.")
 		return
 	end
-	C_Map.SetUserWaypoint(UiMapPoint.CreateFromVector2D(mapID, info.position))
-	C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	ns.SafeTrack(function()
+		C_Map.SetUserWaypoint(UiMapPoint.CreateFromVector2D(mapID, info.position))
+		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	end)
 end
 
 function events:DYNAMIC_GOSSIP_POI_UPDATED()

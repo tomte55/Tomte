@@ -165,8 +165,10 @@ local function Stop()
 end
 
 local function Track(mapID, x, y)
-	C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x, y))
-	C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	ns.SafeTrack(function()
+		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x, y))
+		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	end)
 end
 
 -- On the pin's continent: your own pin back, tracked. failMap: the route broke on this map, so the pin coming back
@@ -275,8 +277,8 @@ local function Start(point, quiet)
 end
 
 local function Check()
-	if not active then
-		return
+	if not active or ns.SafeTrack_Waiting() then
+		return -- a pin of ours waits for the end of combat: its update checks again then
 	end
 	local point = C_Map.GetUserWaypoint()
 	if not point then

@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Gear Check's upgrade reveal: gear that's new to your bags (loot, quest rewards, the vault, mail, trades) and is
 -- a clean upgrade gets a Moments reveal (the "Gear upgrade" type: banner or cinematic with the item icon) and a
--- toast that equips it on click. New = an item GUID not seen in the bags or worn since login. Items taken out of
+-- toast that equips it on click (and an "Equipped" toast once it's worn). New = an item GUID not seen in the bags or worn since login. Items taken out of
 -- a bank aren't new. Which items count (best per slot, minimum gain) is in Data.lua.
 
 local BAGS = { 0, 1, 2, 3, 4 } -- backpack and the four bags (gear never goes in the reagent bag)
@@ -12,6 +12,8 @@ local RETRY = 1 -- seconds between tries for items that are still loading
 local MAX_TRIES = 12 -- longer than Items.lua's UNREAD_GRACE, so gear that really has no stats gets judged
 local MAX_REVEALS = 3 -- at once (a vault or a mailbox full of gear)
 local TOAST_HOLD = 30
+local EQUIPPED_HOLD = 5
+local EQUIP_WAIT = 60 -- seconds a clicked item may take to be worn (a Bind on Equip popup waits for you)
 local P = Enum.PlayerInteractionType
 local BANKS = { [P.Banker] = true, [P.GuildBanker] = true, [P.CharacterBanker] = true, [P.AccountBanker] = true,
 	[P.VoidStorageBanker] = true }
@@ -22,6 +24,7 @@ local waiting = {} -- [item GUID] = tries, new items whose data hasn't loaded
 local banking = {} -- [interaction type] = true while a bank is open
 local settleUntil = 0
 local retryQueued
+local equipping -- { guid, name, icon, oldName, untilTime }: clicked on the toast, not worn yet
 
 local events = CreateFrame("Frame")
 events:SetScript("OnEvent", function(self, event, ...)
@@ -76,7 +79,40 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- Showing one
 
-local function Equip(guid)
+-- The toast's item, clicked to equip: once it's worn a short "Equipped" toast says so. A Bind on Equip popup can
+-- keep it waiting, so it's given up only after EQUIP_WAIT.
+local function WatchEquip(item)
+	equipping = { guid = item.guid, name = item.name or item.link, icon = item.icon, oldName = item.oldName,
+		untilTime = GetTime() + EQUIP_WAIT }
+end
+
+local function CheckEquipped()
+	if not equipping then
+		return
+	end
+	if GetTime() > equipping.untilTime then
+		equipping = nil
+		return
+	end
+	for _, slot in ipairs(EQUIP_SLOTS) do
+		if GUIDAt(ItemLocation:CreateFromEquipmentSlot(slot)) == equipping.guid then
+			ns.Toast_Show({
+				owner = "gear",
+				label = "Equipped",
+				accent = "success",
+				title = equipping.name,
+				text = equipping.oldName and ("Replaced " .. equipping.oldName .. ".") or "Now worn.",
+				icon = equipping.icon,
+				hold = EQUIPPED_HOLD,
+			})
+			equipping = nil
+			return
+		end
+	end
+end
+
+local function Equip(item)
+	local guid = item.guid
 	if InCombatLockdown() then
 		ns.Print("Gear Check: you can't change gear in combat.")
 		return
@@ -93,6 +129,7 @@ local function Equip(guid)
 	end
 	-- Judged again: the gear worn may have changed since (e.g. the weaker ring is the other one now).
 	local verdict = ns.Gear_EvaluateLink(found.link)
+	WatchEquip(item)
 	ClearCursor()
 	if verdict and verdict.slot then
 		C_Container.PickupContainerItem(found.bag, found.slot)
@@ -112,6 +149,7 @@ local function Reveal(item)
 	local oldName = old and C_Item.GetItemNameByID(old.itemID)
 	local label = ns.Gear_RevealLabel(v)
 	local desc = ns.GearItems_Describe(item.link)
+	item.oldName = oldName
 
 	ns.Session_Note("upgrade", { title = item.name or item.link, icon = item.icon, quality = item.quality,
 		itemID = C_Item.GetItemInfoInstant(item.link), detail = label })
@@ -136,7 +174,7 @@ local function Reveal(item)
 			hold = TOAST_HOLD,
 			holdInCombat = true,
 			onClick = function()
-				Equip(item.guid)
+				Equip(item)
 			end,
 		})
 	end
@@ -262,6 +300,7 @@ end
 
 function events:PLAYER_EQUIPMENT_CHANGED()
 	NoteWorn()
+	CheckEquipped()
 end
 
 function events:PLAYER_INTERACTION_MANAGER_FRAME_SHOW(kind)
@@ -311,5 +350,6 @@ function ns.GearReveal_Stop()
 	events:UnregisterAllEvents()
 	wipe(waiting)
 	wipe(banking)
+	equipping = nil
 	ns.Toast_Clear("gear")
 end

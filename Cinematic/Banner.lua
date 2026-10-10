@@ -197,3 +197,14 @@ function ns.Banner_SuppressZoneText(seconds)
 	end
 	zoneTextHooked = true
 end
+
+-- Blank one line of Blizzard's yellow info text (UIErrorsFrame, "Discovered: <area>") when it's still the
+-- latest of its type. Next frame: UIErrorsFrame may get the event after us.
+function ns.Banner_SuppressInfoMessage(messageType, message)
+	C_Timer.After(0, function()
+		local line = UIErrorsFrame and UIErrorsFrame:GetFontStringByID(messageType)
+		if line and line:GetText() == message then
+			line:SetText("")
+		end
+	end)
+end

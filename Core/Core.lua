@@ -53,6 +53,35 @@ end)
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
 
+-- Map pins and super-tracking (C_Map.SetUserWaypoint, C_SuperTrack.Set*). Their events fire inside the call, so
+-- Blizzard's map refreshes its pins in our (tainted) code; in combat that hits a protected call
+-- (Button:SetPassThroughButtons, ADDON_ACTION_BLOCKED). In combat fn waits for the end of it; only the latest
+-- waits. Returns true when it ran now.
+local afterCombat
+function ns.SafeTrack(fn)
+	if not InCombatLockdown() then
+		fn()
+		return true
+	end
+	afterCombat = fn
+	f:RegisterEvent("PLAYER_REGEN_ENABLED")
+	return false
+end
+
+-- A pin change is waiting for the end of combat (the map's pin isn't the one we placed yet).
+function ns.SafeTrack_Waiting()
+	return afterCombat ~= nil
+end
+
+function f:PLAYER_REGEN_ENABLED()
+	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+	local fn = afterCombat
+	afterCombat = nil
+	if fn then
+		fn()
+	end
+end
+
 function f:ADDON_LOADED(name)
 	if name ~= addonName then
 		return

@@ -326,9 +326,11 @@ function ns.Collect_Waypoint(upNow, name)
 		ns.Print("can't place a map pin there.")
 		return
 	end
-	C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x, y))
-	C_SuperTrack.SetSuperTrackedUserWaypoint(true)
-	ns.Print(("tracking %s."):format(name or "the rare"))
+	local now = ns.SafeTrack(function()
+		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x, y))
+		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	end)
+	ns.Print(("%s %s."):format(now and "tracking" or "after combat: tracking", name or "the rare"))
 end
 
 -- Marks entries whose drop is a vignette up right now: e.upNow = { x, y, mapID, guid }. Returns { { entry, guid, name } }.

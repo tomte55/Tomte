@@ -440,9 +440,11 @@ local function Waypoint(node, mapID)
 		ns.Print("can't place a map pin there.")
 		return
 	end
-	C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, node.x, node.y))
-	C_SuperTrack.SetSuperTrackedUserWaypoint(true)
-	ns.Print(("waypoint: %s."):format(node.name))
+	local now = ns.SafeTrack(function()
+		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, node.x, node.y))
+		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	end)
+	ns.Print(("%s: %s."):format(now and "waypoint" or "waypoint after combat", node.name))
 end
 
 local function DistanceText(yards)

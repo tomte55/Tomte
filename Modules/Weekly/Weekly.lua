@@ -503,10 +503,13 @@ function ns.Weekly_SetWaypoint(loc)
 		ns.Print("can't place a map pin on that map.")
 		return
 	end
-	C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(loc.map, loc.x / 100, loc.y / 100))
-	C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	local now = ns.SafeTrack(function()
+		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(loc.map, loc.x / 100, loc.y / 100))
+		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	end)
 	local info = C_Map.GetMapInfo(loc.map)
-	ns.Print(("waypoint: %s, %s %.1f %.1f"):format(loc.text or "?", info and info.name or "?", loc.x, loc.y))
+	ns.Print(("%s: %s, %s %.1f %.1f"):format(now and "waypoint" or "waypoint after combat", loc.text or "?",
+		info and info.name or "?", loc.x, loc.y))
 end
 
 -- Right-click on the minimap button (Minimap.lua).

@@ -52,14 +52,16 @@ end
 -- Blizzard's pin click (WorldQuestPinMixin:OnMouseClickAction), without QuestUtil.TrackWorldQuest (it writes a
 -- Blizzard upvalue, which would taint it).
 local function Track(q)
-	if IsTracked(q) then
-		C_SuperTrack.SetSuperTrackedQuestID(0)
-		return
-	end
-	if C_QuestLog.GetQuestWatchType(q.id) ~= Enum.QuestWatchType.Manual then
-		C_QuestLog.AddWorldQuestWatch(q.id, Enum.QuestWatchType.Automatic)
-	end
-	C_SuperTrack.SetSuperTrackedQuestID(q.id)
+	ns.SafeTrack(function()
+		if IsTracked(q) then
+			C_SuperTrack.SetSuperTrackedQuestID(0)
+			return
+		end
+		if C_QuestLog.GetQuestWatchType(q.id) ~= Enum.QuestWatchType.Manual then
+			C_QuestLog.AddWorldQuestWatch(q.id, Enum.QuestWatchType.Automatic)
+		end
+		C_SuperTrack.SetSuperTrackedQuestID(q.id)
+	end)
 end
 
 -- Next up: track it (never toggles it off).
@@ -70,12 +72,14 @@ function ns.WQ_Track(q)
 end
 
 local function Untrack(q)
-	if IsTracked(q) then
-		C_SuperTrack.SetSuperTrackedQuestID(0)
-	end
-	if C_QuestLog.GetQuestWatchType(q.id) ~= nil then
-		C_QuestLog.RemoveWorldQuestWatch(q.id)
-	end
+	ns.SafeTrack(function()
+		if IsTracked(q) then
+			C_SuperTrack.SetSuperTrackedQuestID(0)
+		end
+		if C_QuestLog.GetQuestWatchType(q.id) ~= nil then
+			C_QuestLog.RemoveWorldQuestWatch(q.id)
+		end
+	end)
 end
 
 -- Our own highlight on the map (a plain frame, not a map pin): Blizzard's super-tracking arrow, turned to point down

@@ -171,9 +171,11 @@ function events:USER_WAYPOINT_UPDATED()
 	targetDirty = true
 	if db.autoTrack and C_Map.HasUserWaypoint() and GetTime() - loadedAt > LOADING_GRACE then
 		C_Timer.After(0, function()
-			if module.active and C_Map.HasUserWaypoint() and not C_SuperTrack.IsSuperTrackingUserWaypoint() then
-				C_SuperTrack.SetSuperTrackedUserWaypoint(true)
-			end
+			ns.SafeTrack(function()
+				if module.active and C_Map.HasUserWaypoint() and not C_SuperTrack.IsSuperTrackingUserWaypoint() then
+					C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+				end
+			end)
 		end)
 	end
 end
@@ -217,8 +219,10 @@ local function TestPin()
 		y = y - math.cos(facing) * TEST_DISTANCE / height
 	end
 	x, y = math.min(math.max(x, 0), 1), math.min(math.max(y, 0), 1)
-	C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x, y))
-	C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	ns.SafeTrack(function()
+		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x, y))
+		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	end)
 end
 
 -- "45.2 67.8", "45.2, 67.8" or TomTom's "#2248 45.2 67.8" (a map ID first). Anything after the coordinates
@@ -240,10 +244,13 @@ local function PinAt(text)
 		ns.Print("can't place a map pin on that map.")
 		return
 	end
-	C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x / 100, y / 100))
-	C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	local now = ns.SafeTrack(function()
+		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x / 100, y / 100))
+		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	end)
 	local info = C_Map.GetMapInfo(mapID)
-	ns.Print(("tracking %.1f, %.1f in %s."):format(x, y, info and info.name or ("map " .. mapID)))
+	ns.Print(("%s %.1f, %.1f in %s."):format(now and "tracking" or "after combat: tracking", x, y,
+		info and info.name or ("map " .. mapID)))
 end
 
 -- /way is TomTom's: Tomte claims it only when TomTom isn't loaded, and only once Waypoints is on (an off or blocked
@@ -278,10 +285,12 @@ local function ClaimWay()
 end
 
 local function Clear()
-	if C_SuperTrack.IsSuperTrackingUserWaypoint() or C_Map.HasUserWaypoint() then
-		C_Map.ClearUserWaypoint()
-	end
-	C_SuperTrack.ClearAllSuperTracked()
+	ns.SafeTrack(function()
+		if C_SuperTrack.IsSuperTrackingUserWaypoint() or C_Map.HasUserWaypoint() then
+			C_Map.ClearUserWaypoint()
+		end
+		C_SuperTrack.ClearAllSuperTracked()
+	end)
 end
 
 -- Module ---------------------------------------------------------------------------------------------------

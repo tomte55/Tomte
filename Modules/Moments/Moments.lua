@@ -353,7 +353,7 @@ function events:NEW_TOY_ADDED(itemID)
 	Collected("toy", itemID)
 end
 
-function events:UI_INFO_MESSAGE(_, message)
+function events:UI_INFO_MESSAGE(messageType, message)
 	if Secret(message) then
 		return
 	end
@@ -376,6 +376,7 @@ function events:UI_INFO_MESSAGE(_, message)
 	local function SuppressFor(kind)
 		if ns.momentsDB.replaceZoneText and styles[kind] ~= "off" then
 			ns.Banner_SuppressZoneText(ZONE_TEXT_HIDE) -- our card names the area; Blizzard's would sit under it
+			ns.Banner_SuppressInfoMessage(messageType, message) -- and the yellow "Discovered: <area>" line
 		end
 	end
 	local decideLater = maybeZone and (styles.zone ~= "off") ~= (styles.discovery ~= "off")
@@ -614,7 +615,7 @@ for _, t in ipairs(ns.MOMENT_TYPES) do
 		tooltip = "Off, a banner over the UI, or a short cinematic (UI hidden, letterbox). Cinematics wait until you're out of combat, instances and taxis; after 10 seconds they show as a banner." }
 end
 options[#options + 1] = { type = "checkbox", key = "replaceZoneText", label = "Replace Blizzard's zone text",
-	tooltip = "When a discovery or new zone shows as a moment, hide Blizzard's own zone and subzone text for it. Banners always wait until Blizzard's center-screen text is gone." }
+	tooltip = "When a discovery or new zone shows as a moment, hide Blizzard's own zone and subzone text and the yellow \"Discovered\" line for it. Banners always wait until Blizzard's center-screen text is gone." }
 options[#options + 1] = { type = "header", label = "Cinematic" }
 options[#options + 1] = { type = "checkbox", key = "cinematicsAtMax", label = "Cinematics only at max level",
 	tooltip = "While levelling, moments set to Cinematic show as a banner instead, so new levels, zones and chapters don't stop you every few minutes. New mounts and tamed pets keep their cinematic, and so does reaching max level." }
