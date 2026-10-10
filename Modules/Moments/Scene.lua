@@ -1,12 +1,11 @@
 local addonName, ns = ...
 
--- Moment scene for the cinematic engine: top band = title card (spaced label, title, gold line,
+-- Moment scene for the cinematic engine: top band = title card (spaced label, title, line,
 -- subtitle), bottom band = the moment's icon and one line of detail. A creature (new mount, battle pet,
 -- tamed pet) gets a reveal in the middle of the screen: the world dims, a flash, and the model pops in on
 -- a glow. A gear upgrade gets the same reveal with a big item icon instead of a model. The tier
 -- (ns.MOMENT_TIER_FX) adds rays, a spin-in, sparkles, a build-up and sounds.
 
-local GOLD, GREY, WHITE = ns.SCENE_GOLD, ns.SCENE_GREY, ns.SCENE_WHITE
 local TURN_SPEED = 0.25 -- radians per second, once the model has settled
 local SPIN_SPEED = 14 -- extra radians per second at the reveal (rare and up), decays quickly
 local SPIN_DECAY = 3
@@ -50,6 +49,14 @@ local function Additive(parent, layer, sub)
 	local tex = parent:CreateTexture(nil, layer, nil, sub)
 	tex:SetBlendMode("ADD")
 	return tex
+end
+
+-- A tier's color or glow as { r, g, b }: its theme role when it has one (common), else the quality color.
+local function TierColor(fx, key)
+	if fx.role then
+		return { ns.UI.Color(fx.role) }
+	end
+	return fx[key]
 end
 
 local function Glow(parent, layer, sub)
@@ -163,13 +170,13 @@ function scene.Create(parent, letterbox)
 	card:SetFrameLevel(letterbox:GetFrameLevel() + 10)
 	card:SetAlpha(0)
 
-	card.title = Text(card, 36, GOLD, ns.SCENE_TITLE_FONT)
+	card.title = Text(card, 32, "heading", "title")
 	Place(card, card.title, "TOP", letterbox.top, "CENTER", 0, 22)
-	card.label = Text(card, 12, GREY)
+	card.label = Text(card, 12, "textMuted")
 	Place(card, card.label, "TOP", letterbox.top, "CENTER", 0, 40)
-	card.line = ns.SceneGoldLine(card, 300)
+	card.line = ns.SceneLine(card, 300)
 	Place(card, card.line, "TOPRIGHT", letterbox.top, "CENTER", 0, -19)
-	card.subtitle = Text(card, 14, GREY)
+	card.subtitle = Text(card, 14, "textMuted")
 	Place(card, card.subtitle, "TOP", letterbox.top, "CENTER", 0, -26)
 
 	card.icon = card:CreateTexture(nil, "OVERLAY")
@@ -177,17 +184,17 @@ function scene.Create(parent, letterbox)
 	card.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 	Place(card, card.icon, "TOP", letterbox.bottom, "CENTER", 0, 30)
 	card.iconBorder = card:CreateTexture(nil, "ARTWORK")
-	card.iconBorder:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.8)
+	card.iconBorder:SetColorTexture(ns.UI.RGBA("frame", 0.8))
 	card.iconBorder:SetPoint("TOPLEFT", card.icon, -1, 1)
 	card.iconBorder:SetPoint("BOTTOMRIGHT", card.icon, 1, -1)
-	card.detail = Text(card, 13, WHITE)
+	card.detail = Text(card, 13, "text")
 	card.detail:SetWidth(700)
 	Place(card, card.detail, "TOP", letterbox.bottom, "CENTER", 0, -8)
 end
 
 -- h = screen height in the stage's units (the stage may not be laid out yet on its first use).
 local function SetupStage(fx, h)
-	local glow = fx.glow
+	local glow = reveal.glow
 	reveal.size = math.floor(h * 0.62)
 	stage.glow:SetSize(h * 0.75, h * 0.75)
 	stage.glow:SetVertexColor(glow[1], glow[2], glow[3])
@@ -310,8 +317,7 @@ function scene.Begin(state)
 	ns.SceneSnap(card)
 	local fx = ns.MOMENT_TIER_FX[m.tier]
 	card.label:SetText(ns.Spaced(m.label or ""))
-	local labelColor = (fx and m.tier ~= "common") and fx.glow or GREY
-	card.label:SetTextColor(labelColor[1], labelColor[2], labelColor[3])
+	card.label:SetTextColor(ns.UI.RGBA((fx and m.tier ~= "common") and fx.glow or "textMuted"))
 	card.title:SetText(m.title or "")
 	SetText(card.subtitle, m.subtitle)
 	SetText(card.detail, m.detail)
@@ -327,7 +333,7 @@ function scene.Begin(state)
 	if revealed then
 		fx = fx or ns.MOMENT_TIER_FX.common
 		reveal = { fx = fx, displayID = m.displayID, itemIcon = not m.displayID and m.itemIcon or nil,
-			itemColor = m.itemColor or fx.color, sound = state.sound, sounds = {}, h = WorldFrame:GetHeight() / scale }
+			itemColor = m.itemColor or TierColor(fx, "color"), glow = TierColor(fx, "glow"), sound = state.sound, sounds = {}, h = WorldFrame:GetHeight() / scale }
 		SetupStage(fx, reveal.h)
 	end
 end
@@ -353,7 +359,7 @@ end
 
 local function UpdateSparks(dt, h)
 	reveal.sparkDue = (reveal.sparkDue or 0) + dt * SPARK_RATE
-	local glow = reveal.fx.glow
+	local glow = reveal.glow
 	for _, spark in ipairs(stage.sparks) do
 		if spark.age then
 			spark.age = spark.age + dt

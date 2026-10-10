@@ -5,7 +5,6 @@ local addonName, ns = ...
 -- Logic in ActivityData.lua.
 
 local UI = ns.UI
-local WHITE, GREY = UI.WHITE, UI.GREY
 local SIDE_W = 240
 local RES_H = 22
 
@@ -74,7 +73,7 @@ local function ReadResources(expansion)
 			local have, cap = ns.Weekly_CurrencyProgress({ qty = info.quantity, earnedWeek = info.quantityEarnedThisWeek,
 				weeklyCap = info.maxWeeklyQuantity, total = info.totalEarned, seasonCap = info.maxQuantity,
 				useTotal = info.useTotalEarnedForMaxQty })
-			text = cap and ("%d  |cff9e9e9e%d/%d|r"):format(info.quantity or 0, have, cap) or text
+			text = cap and ("%d  %s"):format(info.quantity or 0, UI.Wrap(("%d/%d"):format(have, cap), "textMuted")) or text
 		end
 		list[#list + 1] = { name = info.name, icon = info.iconFileID, text = text, dim = (info.quantity or 0) == 0 }
 	end
@@ -100,7 +99,7 @@ function ns.WeeklyActivitiesView(parent)
 	view.resHead:Set("Resources")
 
 	view.hide = UI.Checkbox(c)
-	view.hide.label = UI.Text(c, 12, GREY)
+	view.hide.label = UI.Text(c, 12, "textMuted")
 	view.hide.label:SetPoint("LEFT", view.hide, "RIGHT", 6, 0)
 	view.hide.onChange = function(on)
 		ns.weeklyDB.hideCompleted = on
@@ -119,9 +118,9 @@ function ns.WeeklyActivitiesView(parent)
 			row.icon:SetSize(18, 18)
 			row.icon:SetPoint("RIGHT", 0, 0)
 			row.text = row:CreateFontString(nil, "OVERLAY")
-			row.text:SetFont(Kit.NARROW_FONT, 14, "")
+			UI.SetFont(row.text, Kit.NARROW_FONT, 14)
 			row.text:SetPoint("RIGHT", row.icon, "LEFT", -6, 0)
-			row.name = UI.Text(row, 12, WHITE)
+			row.name = UI.Text(row, 12, "text")
 			row.name:SetPoint("LEFT", 0, 0)
 			row.name:SetPoint("RIGHT", row.text, "LEFT", -8, 0)
 			row.name:SetWordWrap(false)
@@ -147,9 +146,10 @@ function ns.WeeklyActivitiesView(parent)
 			row.icon:SetDesaturated(r.dim)
 			row.text:SetText(r.text)
 			row.name:SetText(r.name)
-			local col = r.dim and GREY or WHITE
-			row.name:SetTextColor(col[1], col[2], col[3])
-			row.text:SetTextColor(col[1], col[2], col[3])
+			local role = r.dim and "textMuted" or "text"
+			UI.SetTextRole(row.name, role)
+			UI.SetTextRole(row.text, role)
+
 			y = y + RES_H
 		end
 		local leftBottom = y

@@ -676,8 +676,9 @@ function ns.Alts_WeeklyStatus(view, now)
 	return status
 end
 
--- "Vault 4/9 · Concentration: Blacksmithing full, Alchemy full in 6h" (a full one in gold), "" for nil.
-function ns.Alts_WeeklyLine(status)
+-- "Vault 4/9 · Concentration: Blacksmithing full, Alchemy full in 6h" (a full one highlighted), "" for nil.
+-- fullHex: "ffrrggbb" for the highlight; the UI passes the theme's (this file has no theme in the unit tests).
+function ns.Alts_WeeklyLine(status, fullHex)
 	if not status then
 		return ""
 	end
@@ -688,7 +689,7 @@ function ns.Alts_WeeklyLine(status)
 	local concs = {}
 	for _, c in ipairs(status.conc) do
 		local text = c.text ~= "" and (c.name .. " " .. c.text) or ("%s %d/%d"):format(c.name, c.qty, c.max)
-		concs[#concs + 1] = c.full and ("|cffffd100%s|r"):format(text) or text
+		concs[#concs + 1] = c.full and ("|c%s%s|r"):format(fullHex or "ffffd100", text) or text -- theme: the UI passes fullHex
 	end
 	if #concs > 0 then
 		parts[#parts + 1] = "Concentration: " .. table.concat(concs, ", ")

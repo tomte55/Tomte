@@ -5,17 +5,12 @@ local addonName, ns = ...
 -- the page is wide enough, else stacked; all in one scroll. Draws Data.lua's Weekly_BoardModel.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
 local SLOT_W, SLOT_H, SLOT_GAP = 72, 30, 8
 local LABEL_W = 110
 local HEAD_H = 34 -- a Kit heading and the gap under it
 local BANNER_H = 32
 local COL_GAP = 40
 local TWO_COLUMNS = 760
-
-local function SetColor(fs, c)
-	fs:SetTextColor(c[1], c[2], c[3])
-end
 
 function ns.WeeklyWeekView(parent)
 	local Kit = ns.HomeKit
@@ -27,9 +22,9 @@ function ns.WeeklyWeekView(parent)
 	view.banner:SetHeight(BANNER_H)
 	local bg = view.banner:CreateTexture(nil, "BACKGROUND")
 	bg:SetAllPoints()
-	bg:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.14)
-	UI.Border(view.banner, GOLD[1], GOLD[2], GOLD[3], 0.5)
-	view.banner.text = UI.Text(view.banner, 14, GOLD)
+	bg:SetColorTexture(UI.RGBA("accent", 0.14))
+	UI.Border(view.banner, "accent", 0.5)
+	view.banner.text = UI.Text(view.banner, 14, "heading")
 	view.banner.text:SetPoint("LEFT", 12, 0)
 	view.banner.text:SetText("Great Vault rewards waiting: open it before you queue")
 
@@ -37,22 +32,22 @@ function ns.WeeklyWeekView(parent)
 	view.tracks = {}
 	for t = 1, #ns.WEEKLY_TRACKS do
 		local track = { slots = {} }
-		track.label = UI.Text(c, 14, WHITE)
+		track.label = UI.Text(c, 14, "text")
 		for i = 1, 3 do
 			track.slots[i] = ns.WeeklySlot_Create(c, SLOT_W, SLOT_H, 15)
 		end
-		track.note = UI.Text(c, 13, GREY)
+		track.note = UI.Text(c, 13, "textMuted")
 		view.tracks[t] = track
 	end
-	view.vaultNone = UI.Text(c, 13, GREY)
+	view.vaultNone = UI.Text(c, 13, "textMuted")
 	view.vaultNone:SetText("No vault data yet. It fills in a moment after login.")
 
 	view.divider = c:CreateTexture(nil, "ARTWORK")
 	view.divider:SetHeight(1)
-	view.divider:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.18)
+	view.divider:SetColorTexture(UI.RGBA("frame", 0.18))
 	view.colLine = c:CreateTexture(nil, "ARTWORK")
 	view.colLine:SetWidth(1)
-	view.colLine:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.18)
+	view.colLine:SetColorTexture(UI.RGBA("frame", 0.18))
 
 	local function Column()
 		local col = { head = Kit.Heading(c), frame = CreateFrame("Frame", nil, c) }
@@ -111,7 +106,8 @@ function ns.WeeklyWeekView(parent)
 				track.note:ClearAllPoints()
 				track.note:SetPoint("LEFT", track.slots[3], "RIGHT", 20, 0)
 				track.note:SetText(row.note)
-				SetColor(track.note, row.done and GOLD or GREY)
+				UI.SetTextRole(track.note, row.done and "accent" or "textMuted")
+
 				y = y + SLOT_H + SLOT_GAP
 			end
 		end

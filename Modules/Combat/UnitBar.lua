@@ -10,10 +10,7 @@ local addonName, ns = ...
 local WIDTH, HEIGHT = 220, 16
 local ICON = 30
 local ICON_GAP = 4
-local GOLD = ns.SCENE_GOLD
-local GREY = { 0.35, 0.35, 0.35 }
-local BUFF_GREEN = { 0.45, 1, 0.45 }
-local GLOW = { 1, 0.15, 0.1 }
+local UI = ns.UI
 local SKULL = "Interface\\TargetingFrame\\UI-TargetingFrame-Skull"
 local BAR_TEXTURE = "Interface\\RaidFrame\\Raid-Bar-Hp-Fill"
 local SMOOTH = Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.ExponentialEaseOut
@@ -77,7 +74,7 @@ local function SetState(self, state, text)
 	if dim then
 		self.bar:SetMinMaxValues(0, 1)
 		self.bar:SetValue(1)
-		self.bar:SetStatusBarColor(GREY[1], GREY[2], GREY[3])
+		self.bar:SetStatusBarColor(UI.Color("textFaint"))
 		self.glow:SetAlpha(0)
 	end
 	self.skull:SetShown(state == "dead")
@@ -140,7 +137,7 @@ local function CreateIcon(self)
 	icon.cooldown:SetDrawEdge(false)
 	icon.cooldown:SetSwipeColor(0, 0, 0, 0.8)
 	icon.cooldown:SetHideCountdownNumbers(false)
-	icon.cooldown:GetCountdownFontString():SetFont(STANDARD_TEXT_FONT, 15, "OUTLINE")
+	UI.SetFont(icon.cooldown:GetCountdownFontString(), "number", 15, "OUTLINE")
 	return icon
 end
 
@@ -208,7 +205,7 @@ function UnitBar:ClearBuff()
 	self.buffTicker:Hide()
 end
 
--- The buff spell's aura on the unit: gold icon border and "<name> 6s". If the aura comes back secret, just
+-- The buff spell's aura on the unit: accent icon border and "<name> 6s". If the aura comes back secret, just
 -- the name.
 function UnitBar:RefreshBuff(unit)
 	if not self.buffName or self.state then
@@ -220,7 +217,7 @@ function UnitBar:RefreshBuff(unit)
 		self:ClearBuff()
 		return
 	end
-	self.buffIcon.border:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	self.buffIcon.border:SetColorTexture(UI.Color("accent"))
 	if IsSecretTable(aura) or IsSecret(aura.expirationTime) then
 		self.buffUntil = nil
 		self.buffText:SetText(self.buffName)
@@ -276,9 +273,10 @@ function ns.UnitBar_Create(onMoved)
 	f.glow:SetAlpha(0)
 	local pulse = CreateFrame("Frame", nil, f.glow)
 	pulse:SetAllPoints()
-	Edge(pulse, "BACKGROUND", 9, GLOW[1], GLOW[2], GLOW[3], 0.18)
-	Edge(pulse, "BACKGROUND", 5, GLOW[1], GLOW[2], GLOW[3], 0.35)
-	Edge(pulse, "BORDER", 3, GLOW[1], GLOW[2], GLOW[3], 1)
+	local gr, gg, gb = UI.Color("danger")
+	Edge(pulse, "BACKGROUND", 9, gr, gg, gb, 0.18)
+	Edge(pulse, "BACKGROUND", 5, gr, gg, gb, 0.35)
+	Edge(pulse, "BORDER", 3, gr, gg, gb, 1)
 	local anim = pulse:CreateAnimationGroup()
 	anim:SetLooping("BOUNCE")
 	local fade = anim:CreateAnimation("Alpha")
@@ -295,20 +293,20 @@ function ns.UnitBar_Create(onMoved)
 	Edge(bar, "BACKGROUND", 1, 0, 0, 0, 1)
 	local bg = bar:CreateTexture(nil, "BACKGROUND", nil, 1)
 	bg:SetAllPoints()
-	bg:SetColorTexture(0.08, 0.08, 0.09, 0.85)
+	bg:SetColorTexture(UI.RGBA("bgBottom", 0.85))
 	f.bar = bar
 
 	f.tick = bar:CreateTexture(nil, "OVERLAY")
-	f.tick:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.95)
+	f.tick:SetColorTexture(UI.RGBA("accent", 0.95))
 	f.tick:SetSize(2, HEIGHT + 4)
 
 	f.percent = bar:CreateFontString(nil, "OVERLAY")
-	f.percent:SetFont(STANDARD_TEXT_FONT, 11, "OUTLINE")
+	UI.SetFont(f.percent, "number", 11, "OUTLINE")
 	f.percent:SetPoint("RIGHT", -5, 0)
 
 	f.stateText = bar:CreateFontString(nil, "OVERLAY")
-	f.stateText:SetFont(STANDARD_TEXT_FONT, 11, "OUTLINE")
-	f.stateText:SetTextColor(1, 0.3, 0.25)
+	UI.SetFont(f.stateText, "body", 11, "OUTLINE")
+	UI.SetTextRole(f.stateText, "danger")
 	f.stateText:SetPoint("CENTER")
 
 	f.skull = bar:CreateTexture(nil, "OVERLAY")
@@ -318,14 +316,14 @@ function ns.UnitBar_Create(onMoved)
 	f.skull:Hide()
 
 	f.name = f:CreateFontString(nil, "OVERLAY")
-	f.name:SetFont(STANDARD_TEXT_FONT, 12, "")
+	UI.SetFont(f.name, "body", 12)
 	f.name:SetShadowOffset(1, -1)
-	f.name:SetTextColor(0.92, 0.92, 0.92)
+	UI.SetTextRole(f.name, "text")
 	f.name:SetPoint("BOTTOMLEFT", bar, "TOPLEFT", 1, 4)
 
 	f.moveHint = f:CreateFontString(nil, "OVERLAY")
-	f.moveHint:SetFont(STANDARD_TEXT_FONT, 10, "")
-	f.moveHint:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+	UI.SetFont(f.moveHint, "body", 10)
+	UI.SetTextRole(f.moveHint, "accent")
 	f.moveHint:SetPoint("BOTTOMRIGHT", bar, "TOPRIGHT", 0, 4)
 	f.moveHint:SetText("drag to move")
 	f.moveHint:Hide()
@@ -333,9 +331,9 @@ function ns.UnitBar_Create(onMoved)
 	f.icons = {}
 
 	f.buffText = f:CreateFontString(nil, "OVERLAY")
-	f.buffText:SetFont(STANDARD_TEXT_FONT, 12, "")
+	UI.SetFont(f.buffText, "body", 12)
 	f.buffText:SetShadowOffset(1, -1)
-	f.buffText:SetTextColor(BUFF_GREEN[1], BUFF_GREEN[2], BUFF_GREEN[3])
+	UI.SetTextRole(f.buffText, "success")
 
 	f.buffTicker = CreateFrame("Frame", nil, f)
 	f.buffTicker.owner = f

@@ -5,7 +5,6 @@ local addonName, ns = ...
 -- flash for a moment. The minus in the corner (on hover) folds it down to its title.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
 local ROWS = 5
 local WIDTH = 260
 local ROW_H = 26
@@ -39,15 +38,17 @@ local function ShowTooltip(row)
 	else
 		GameTooltip:SetPoint(vertical .. "RIGHT", row, vertical .. "LEFT", -16, 0)
 	end
-	GameTooltip:SetText(entry.name, GOLD[1], GOLD[2], GOLD[3])
+	GameTooltip:SetText(entry.name, UI.Color("heading"))
 	GameTooltip:AddLine(ns.Ach_ProgressText(entry), 1, 1, 1)
 	if entry.last then
-		GameTooltip:AddLine("Left: " .. entry.last, 0.8, 0.8, 0.8, true)
+		local r, g, b = UI.Color("textMuted")
+		GameTooltip:AddLine("Left: " .. entry.last, r, g, b, true)
 	end
 	if entry.reward ~= "" then
-		GameTooltip:AddLine(entry.reward, 0.5, 0.88, 0.5, true)
+		local r, g, b = UI.Color("success")
+		GameTooltip:AddLine(entry.reward, r, g, b, true)
 	end
-	GameTooltip:AddLine(entry.pinned and "Right-click to unpin" or "Right-click to pin", 0.5, 0.5, 0.5)
+	GameTooltip:AddLine(entry.pinned and "Right-click to unpin" or "Right-click to pin", UI.RGB("textMuted"))
 	GameTooltip:Show()
 end
 
@@ -59,10 +60,10 @@ local function CreateRow(i)
 	row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	row.flash = row:CreateTexture(nil, "BACKGROUND")
 	row.flash:SetAllPoints()
-	row.flash:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	row.flash:SetColorTexture(UI.Color("accent"))
 	row.flash:SetAlpha(0)
 	row.pin = row:CreateTexture(nil, "ARTWORK")
-	row.pin:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	row.pin:SetColorTexture(UI.Color("accent"))
 	row.pin:SetPoint("TOPLEFT", 0, -3)
 	row.pin:SetPoint("BOTTOMLEFT", 0, 3)
 	row.pin:SetWidth(2)
@@ -70,10 +71,10 @@ local function CreateRow(i)
 	row.icon:SetSize(ICON, ICON)
 	row.icon:SetPoint("LEFT", 6, 0)
 	row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	row.percent = UI.Text(row, 11, GREY)
+	row.percent = UI.Text(row, 11, "textMuted", "number")
 	row.percent:SetPoint("TOPRIGHT", 0, -3)
 	row.percent:SetJustifyH("RIGHT")
-	row.name = UI.Text(row, 12, WHITE)
+	row.name = UI.Text(row, 12, "text")
 	row.name:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 8, 1)
 	row.name:SetPoint("RIGHT", row.percent, "LEFT", -6, 0)
 	row.name:SetWordWrap(false)
@@ -83,7 +84,7 @@ local function CreateRow(i)
 	row.track:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMRIGHT", 8, 1)
 	row.track:SetPoint("RIGHT")
 	row.fill = row:CreateTexture(nil, "OVERLAY")
-	row.fill:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.9)
+	row.fill:SetColorTexture(UI.RGBA("accent", 0.9))
 	row.fill:SetHeight(2)
 	row.fill:SetPoint("LEFT", row.track, "LEFT")
 	row:SetScript("OnEnter", ShowTooltip)
@@ -131,10 +132,8 @@ local function Build()
 	frame:SetClampedToScreen(true)
 	frame:SetMovable(true)
 	frame:Hide()
-	local bg = frame:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], 0.55)
-	frame.title = UI.Text(frame, 10, GREY)
+	UI.Panel(frame, { alpha = 0.55, subtle = true })
+	frame.title = UI.Text(frame, 10, "textMuted", "title")
 	frame.title:SetPoint("TOPLEFT", 10, -6)
 	frame.title:SetText(ns.Spaced("Almost done"))
 	for i = 1, ROWS do
@@ -154,8 +153,8 @@ local function Build()
 		frame:StopMovingOrSizing()
 		SavePoint()
 	end)
-	UI.Border(mover, GOLD[1], GOLD[2], GOLD[3], 0.8)
-	local hint = UI.Text(mover, 10, GOLD)
+	UI.Border(mover, "accent", 0.8)
+	local hint = UI.Text(mover, 10, "accent")
 	hint:SetPoint("TOPRIGHT", -26, -6) -- left of the collapse button
 	hint:SetText("drag to move")
 	frame.mover = mover

@@ -5,16 +5,16 @@ local addonName, ns = ...
 -- reward track. Read live each time it draws (renown is account-wide). Logic in FactionData.lua.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
-local BLUE = { 0.3, 0.75, 1 }
-local COLORS = { gold = GOLD, blue = BLUE, white = { 0.85, 0.85, 0.85 } }
+-- Ring looks (FactionData.lua's "gold"/"blue"/"white") as roles: maxed or paragon, renown, plain reputation.
+local RING_ROLES = { gold = "heading", blue = "accent", white = "textMuted" }
 local BIG, SMALL, GAP = 84, 40, 22
 local DETAIL_W, DETAIL_H = 250, 260
 local REWARD_H = 30
 local QUESTION = "Interface\\Icons\\INV_Misc_QuestionMark"
 
-local function SetColor(fs, c)
-	fs:SetTextColor(c[1], c[2], c[3])
+local function TipLine(text, role)
+	local r, g, b = UI.Color(role)
+	GameTooltip:AddLine(text, r, g, b)
 end
 
 local function AtlasExists(name)
@@ -101,8 +101,7 @@ local function SetEmblem(ring, rec)
 		end
 	end
 	local look = ns.Weekly_FactionRing(rec)
-	local c = COLORS[look.color] or GOLD
-	ring:SetColor(c[1], c[2], c[3])
+	ring:SetColor(UI.Color(RING_ROLES[look.color] or "accent"))
 	ring:SetBadge(look.badge) -- before the progress: the ring leaves room for the badge
 	ring:SetProgress(look.frac)
 	ring:SetGlow(look.glow)
@@ -111,24 +110,24 @@ end
 local function Tooltip(owner, rec)
 	local d = ns.Weekly_FactionDetail(rec)
 	GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
-	GameTooltip:SetText(d.title, 1, 1, 1)
-	GameTooltip:AddLine(d.line1, GOLD[1], GOLD[2], GOLD[3])
+	GameTooltip:SetText(d.title, UI.Color("text"))
+	TipLine(d.line1, "heading")
 	if d.line2 ~= "" then
-		GameTooltip:AddLine(d.line2, GREY[1], GREY[2], GREY[3])
+		TipLine(d.line2, "textMuted")
 	end
 	if rec.renown and rec.max and rec.level < rec.max then
 		local rewards = C_MajorFactions.GetRenownRewardsForLevel(rec.id, rec.level + 1) or {}
 		if #rewards > 0 then
 			GameTooltip:AddLine(" ")
-			GameTooltip:AddLine("Next rewards:", WHITE[1], WHITE[2], WHITE[3])
+			TipLine("Next rewards:", "text")
 			for _, r in ipairs(rewards) do
-				GameTooltip:AddLine(("|T%s:16|t %s"):format(r.icon or QUESTION, r.name or "?"), GOLD[1], GOLD[2], GOLD[3])
+				TipLine(("|T%s:16|t %s"):format(r.icon or QUESTION, r.name or "?"), "heading")
 			end
 		end
 	end
 	if rec.renown then
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddLine("Click for the reward track", 0.45, 0.85, 0.45)
+		TipLine("Click for the reward track", "success")
 	end
 	GameTooltip:Show()
 end
@@ -143,25 +142,22 @@ function ns.WeeklyFactionsView(parent)
 	local detail = CreateFrame("Frame", nil, c)
 	detail:SetSize(DETAIL_W, DETAIL_H)
 	detail:SetPoint("TOPLEFT", 8, -8)
-	local dbg = detail:CreateTexture(nil, "BACKGROUND")
-	dbg:SetAllPoints()
-	dbg:SetColorTexture(1, 1, 1, 0.03)
-	UI.Border(detail, GOLD[1], GOLD[2], GOLD[3], 0.18)
+	UI.Surface(detail, 0.18)
 	detail.ring = ns.WeeklyRing_Create(detail, 120)
 	detail.ring:SetPoint("TOP", 0, -24)
 	detail.ring:EnableMouse(false)
-	detail.title = UI.Text(detail, 16, WHITE)
+	detail.title = UI.Text(detail, 16, "text")
 	detail.title:SetPoint("TOP", detail.ring, "BOTTOM", 0, -18)
 	detail.title:SetWidth(DETAIL_W - 24)
 	detail.title:SetJustifyH("CENTER")
-	detail.line1 = UI.Text(detail, 13, GOLD)
+	detail.line1 = UI.Text(detail, 13, "heading")
 	detail.line1:SetPoint("TOP", detail.title, "BOTTOM", 0, -6)
-	detail.line2 = UI.Text(detail, 12, GREY)
+	detail.line2 = UI.Text(detail, 12, "textMuted")
 	detail.line2:SetPoint("TOP", detail.line1, "BOTTOM", 0, -4)
 	view.detail = detail
 	view.rewardHead = Kit.Heading(c)
 
-	view.none = UI.Text(c, 13, GREY)
+	view.none = UI.Text(c, 13, "textMuted")
 	view.none:SetPoint("TOPLEFT", 16, -16)
 	view.none:SetText("No renown factions unlocked for this character's expansion yet.")
 
@@ -207,7 +203,7 @@ function ns.WeeklyFactionsView(parent)
 			row = CreateFrame("Frame", nil, c)
 			row:SetHeight(REWARD_H)
 			row.level = row:CreateFontString(nil, "OVERLAY")
-			row.level:SetFont(Kit.NARROW_FONT, 18, "")
+			UI.SetFont(row.level, Kit.NARROW_FONT, 18)
 			row.level:SetPoint("LEFT", 0, 0)
 			row.level:SetWidth(36)
 			row.level:SetJustifyH("RIGHT")
@@ -215,7 +211,7 @@ function ns.WeeklyFactionsView(parent)
 			row.icon:SetSize(24, 24)
 			row.icon:SetPoint("LEFT", 50, 0)
 			row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-			row.name = UI.Text(row, 13, WHITE)
+			row.name = UI.Text(row, 13, "text")
 			row.name:SetPoint("LEFT", row.icon, "RIGHT", 10, 0)
 			row.name:SetPoint("RIGHT", -8, 0)
 			row.name:SetWordWrap(false)
@@ -223,7 +219,7 @@ function ns.WeeklyFactionsView(parent)
 			row.line:SetHeight(1)
 			row.line:SetPoint("TOPLEFT", 0, 0)
 			row.line:SetPoint("TOPRIGHT", 0, 0)
-			row.line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.12)
+			row.line:SetColorTexture(UI.Color("rule"))
 			view.rewardRows[i] = row
 		end
 		row:Show()
@@ -312,11 +308,12 @@ function ns.WeeklyFactionsView(parent)
 				row:SetPoint("TOPLEFT", gridX, -trackY)
 				row:SetWidth(gridW)
 				row.level:SetText(r == 1 and tostring(step.level) or "")
-				SetColor(row.level, step.earned and DIM or GOLD)
+				UI.SetTextRole(row.level, step.earned and "textFaint" or "heading")
 				row.icon:SetTexture(reward.icon or QUESTION)
 				row.icon:SetDesaturated(step.earned)
 				row.name:SetText(reward.name)
-				SetColor(row.name, step.earned and DIM or WHITE)
+				UI.SetTextRole(row.name, step.earned and "textFaint" or "text")
+
 				row.line:SetShown(r == 1)
 				trackY = trackY + REWARD_H
 			end

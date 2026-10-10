@@ -28,7 +28,7 @@ local function OnPinEnter(pin)
 		AddTimeLine(data.slotIndex)
 	end
 	if ns.flightModule.active and not data.isMapLayerTransition and not ns.MapCoverage_IsTimed(data.nodeID) then
-		GameTooltip:AddLine("No recorded time to or from here", ns.ORANGE[1], ns.ORANGE[2], ns.ORANGE[3])
+		GameTooltip:AddLine("No recorded time to or from here", ns.UI.RGB("warning"))
 		GameTooltip:Show()
 	end
 end

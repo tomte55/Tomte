@@ -9,8 +9,10 @@ local addonName, ns = ...
 -- they're let go, an owner with a digest builder gets one card for all of its held cards. When a Blizzard UI
 -- panel (merchant, mail, character...) covers the stack, the stack slides beside it until the panel closes.
 --
--- ns.Toast_Show(spec): spec = { owner, label, accent, title, text, secret, icon, iconAtlas, mergeKey, hold,
+-- ns.Toast_Show(spec): spec = { owner, label, accent, title, text, chat, secret, icon, iconAtlas, mergeKey, hold,
 --   holdInCombat, onClick(button), onDismiss(), digestName, count }. secret = title/text may be secret values.
+--   accent = a theme color role, or an { r, g, b } that carries game meaning (ns.Toast_ChatColor, quality);
+--   chat = text is something another player wrote (shown in the chat font).
 --   For Recent (ns.Recent_Note): recentTitle = a saveable title when title isn't one (a |K account name),
 --   test = a preview (not noted); a pin's recentCount = Recent hears of it again only when this rises.
 -- ns.Toast_Pin(key, spec) / ns.Toast_Unpin(key), ns.Toast_Clear(owner), ns.Toast_SetDigest(owner, fn(held))
@@ -27,12 +29,12 @@ local BOUNCE = 10 -- pixels, towards the middle of the screen
 local MOVE_SPEED = 12 -- reflow easing
 local HOLD_MIN, HOLD_PER_CHAR, HOLD_MAX = 7, 0.06, 18
 local HELD_CHECK = 0.5
-local GOLD = ns.SCENE_GOLD
 local SECRET_TITLE_H, SECRET_TEXT_H = 16, 45 -- one title line, three text lines (the most a card shows)
 local DEFAULT_POINT = { "TOPLEFT", "LEFT", 40, 140 } -- on UIParent: left side, above the chat
 local DODGE_CHECK = 0.2 -- seconds between looks at the open UI panels
 local DODGE_GAP = 12 -- pixels between a panel and the stack beside it
 local PANEL_KEYS = { "left", "center", "right", "doublewide" } -- fullscreen panels can't be dodged
+local UI = ns.UI
 
 local anchor, mover
 local shown = {} -- cards on screen, top to bottom (pinned first)
@@ -164,13 +166,10 @@ local function NewCard()
 		self.glow:Hide()
 	end)
 
-	card.bg = card:CreateTexture(nil, "BACKGROUND")
-	card.bg:SetAllPoints()
-	card.bg:SetColorTexture(1, 1, 1, 1)
-	card.bg:SetGradient("HORIZONTAL", CreateColor(0.03, 0.03, 0.04, 0.92), CreateColor(0.03, 0.03, 0.04, 0.55))
+	UI.Panel(card, { alpha = 0.92, subtle = true })
 	card.glow = card:CreateTexture(nil, "BORDER")
 	card.glow:SetAllPoints()
-	card.glow:SetColorTexture(1, 1, 1, 0.05)
+	card.glow:SetColorTexture(UI.Color("hover"))
 	card.glow:Hide()
 	card.flash = card:CreateTexture(nil, "BORDER", nil, 1)
 	card.flash:SetAllPoints()
@@ -190,15 +189,15 @@ local function NewCard()
 	card.icon:SetSize(ICON, ICON)
 	card.icon:SetPoint("TOPLEFT", PAD + 2, -PAD)
 
-	card.label = ns.SceneText(card, 10, ns.SCENE_GREY)
+	card.label = ns.SceneText(card, 10, "textMuted")
 	card.label:SetJustifyH("LEFT")
-	card.count = ns.SceneText(card, 10, ns.SCENE_GREY)
+	card.count = ns.SceneText(card, 10, "textMuted", "number")
 	card.count:SetJustifyH("RIGHT")
 	card.count:SetPoint("TOPRIGHT", -PAD, -PAD)
-	card.title = ns.SceneText(card, 14, ns.SCENE_WHITE)
+	card.title = ns.SceneText(card, 14, "text")
 	card.title:SetJustifyH("LEFT")
 	card.title:SetWordWrap(false)
-	card.text = ns.SceneText(card, 13, ns.SCENE_WHITE)
+	card.text = ns.SceneText(card, 13, "text")
 	card.text:SetJustifyH("LEFT")
 	card.text:SetJustifyV("TOP")
 	card.text:SetWordWrap(true)
@@ -216,11 +215,11 @@ end
 
 local function Fill(card, spec)
 	card.spec = spec
-	local accent = spec.accent or GOLD
-	card.bar:SetColorTexture(accent[1], accent[2], accent[3], 1)
-	card.flash:SetColorTexture(accent[1], accent[2], accent[3], 1)
-	card.line:SetGradient("HORIZONTAL", CreateColor(accent[1], accent[2], accent[3], 0.5), CreateColor(accent[1], accent[2], accent[3], 0))
-	card.label:SetTextColor(accent[1], accent[2], accent[3])
+	local r, g, b = UI.RGBA(spec.accent or "accent")
+	card.bar:SetColorTexture(r, g, b, 1)
+	card.flash:SetColorTexture(r, g, b, 1)
+	card.line:SetGradient("HORIZONTAL", CreateColor(r, g, b, 0.5), CreateColor(r, g, b, 0))
+	card.label:SetTextColor(r, g, b)
 	card.label:SetText(ns.Spaced(spec.label or ""))
 	card.count:SetText((spec.count or 1) > 1 and ("x" .. spec.count) or "")
 
@@ -242,6 +241,7 @@ local function Fill(card, spec)
 	card.text:ClearAllPoints()
 	card.text:SetPoint("TOPLEFT", card.title, "BOTTOMLEFT", 0, -3)
 	card.text:SetWidth(WIDTH - left - PAD)
+	UI.SetFont(card.text, spec.chat and "chat" or "body", 13)
 	card.text:SetText(spec.text or "")
 
 	-- Secret text (chat lockdown) can be shown but not measured or compared: assume the longest card.
@@ -520,8 +520,8 @@ local function BuildMover()
 	mover:RegisterForDrag("LeftButton")
 	local bg = mover:CreateTexture(nil, "BACKGROUND")
 	bg:SetAllPoints()
-	bg:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.25)
-	local text = ns.SceneText(mover, 11, GOLD)
+	bg:SetColorTexture(UI.RGBA("accent", 0.25))
+	local text = ns.SceneText(mover, 11, "accent")
 	text:SetPoint("CENTER")
 	text:SetText("Drag to move toasts - right-click to lock")
 	mover:SetScript("OnDragStart", function()
@@ -544,6 +544,16 @@ local function Ensure()
 		BuildAnchor()
 		BuildMover()
 	end
+end
+
+-- A chat type's color as { r, g, b }, as the player has it set in chat (whisper pink, guild green), for cards about
+-- chat. Called when the card is made: ChatTypeInfo gets its colors after login.
+function ns.Toast_ChatColor(chatType)
+	local info = ChatTypeInfo and ChatTypeInfo[chatType]
+	if info and info.r then
+		return { info.r, info.g, info.b }
+	end
+	return { UI.Color("accent") }
 end
 
 function ns.Toast_Show(spec)

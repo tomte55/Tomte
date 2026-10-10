@@ -4,7 +4,6 @@ local addonName, ns = ...
 -- a mount to remove it, or Clear to drop a whole list. Adding happens with the star in the Mount Journal.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
 local HEADER_H, ROW_H, ICON = 26, 22, 18
 
 local page
@@ -14,7 +13,7 @@ local function NewRow()
 	local row = CreateFrame("Frame", nil, page.scroll.content)
 	row.icon = row:CreateTexture(nil, "ARTWORK")
 	row.icon:SetSize(ICON, ICON)
-	row.name = UI.Text(row, 12, WHITE)
+	row.name = UI.Text(row, 12, "text")
 	row.name:SetWordWrap(false)
 	row.button = UI.Button(row, 60, "")
 	row.button:SetPoint("RIGHT", -6, 0)
@@ -64,7 +63,7 @@ local function Layout()
 		header.name:SetPoint("LEFT", 8, 0)
 		header.name:SetPoint("RIGHT", header.button, "LEFT", -8, 0)
 		header.name:SetText(MapName(mapID))
-		header.name:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+		UI.SetTextRole(header.name, "heading")
 		header.button.label:SetText("Clear")
 		header.button.onClick = function()
 			zones[mapID] = nil
@@ -85,7 +84,7 @@ local function Layout()
 			row.name:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
 			row.name:SetPoint("RIGHT", row.button, "LEFT", -8, 0)
 			row.name:SetText(name or ("mount " .. mountID))
-			row.name:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
+			UI.SetTextRole(row.name, "text")
 			row.button.label:SetText("Remove")
 			row.button.onClick = function()
 				ns.Mount_ToggleZone(zones, mapID, mountID)
@@ -112,7 +111,7 @@ ns.MountZonesPage = {
 		page.scroll = UI.Scroll(page)
 		page.scroll:SetPoint("TOPLEFT", 8, 0)
 		page.scroll:SetPoint("BOTTOMRIGHT", -8, 0)
-		page.none = UI.Text(page, 12, GREY)
+		page.none = UI.Text(page, 12, "textMuted")
 		page.none:SetPoint("TOPLEFT", 8, -4)
 		page.none:SetPoint("RIGHT", -8, 0)
 		page.none:SetText("No zone favorites yet. Open the Mount Journal, select a mount and click the star at the top right of its picture to make it a favorite for the zone or continent you're in.")

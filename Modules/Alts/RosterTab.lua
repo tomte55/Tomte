@@ -7,8 +7,6 @@ local addonName, ns = ...
 -- a row to forget that character.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
-local GREEN = { 0.45, 0.85, 0.45 }
 local COMPACT_H, DETAILED_H, WEEKLY_H, HEAD_H, FOOT_H = 22, 42, 18, 22, 26
 
 local tab, db
@@ -30,15 +28,16 @@ local function ClassColor(c)
 	if color then
 		return { color.r, color.g, color.b }
 	end
-	return WHITE
+	return { UI.Color("text") }
 end
 
+-- c: a theme role or an { r, g, b } table (class colors).
 local function SetColor(fs, c)
-	fs:SetTextColor(c[1], c[2], c[3])
+	fs:SetTextColor(UI.RGBA(c))
 end
 
 local function Pill(n)
-	return n and n > 0 and (" |cffffd100[%d]|r"):format(n) or ""
+	return n and n > 0 and (" " .. UI.Wrap(("[%d]"):format(n), "accent")) or ""
 end
 
 local function ProfsText(c, short)
@@ -46,7 +45,7 @@ local function ProfsText(c, short)
 	for _, prof in ipairs(ns.Alts_Profs(c)) do
 		parts[#parts + 1] = ns.Alts_ProfText(prof, short) .. Pill(prof.unspent)
 	end
-	return #parts > 0 and table.concat(parts, short and "  " or " · ") or "|cff666666no professions|r"
+	return #parts > 0 and table.concat(parts, short and "  " or " · ") or UI.Wrap("no professions", "textFaint")
 end
 
 local function Ago(c)
@@ -77,7 +76,10 @@ end
 local function ShowTooltip(row)
 	local c = row.char
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-	GameTooltip:SetText(c.name or "?", unpack(ClassColor(c)))
+	local color = ClassColor(c)
+	GameTooltip:SetText(c.name or "?", color[1], color[2], color[3])
+	local tr, tg, tb = UI.Color("text")
+	local mr, mg, mb = UI.Color("textMuted")
 	GameTooltip:AddLine(("Level %d %s %s"):format(c.level or 0, c.race or "", c.spec or ""), 1, 1, 1)
 	if c.ilvl then
 		GameTooltip:AddLine(("Item level %d"):format(c.ilvl), 1, 1, 1)
@@ -88,19 +90,20 @@ local function ShowTooltip(row)
 			line = line .. (" · %d knowledge unspent"):format(prof.unspent)
 		end
 		if not prof.scannedAt then
-			line = line .. " |cff9e9e9e(recipes not read yet)|r"
+			line = line .. " " .. UI.Wrap("(recipes not read yet)", "textMuted")
 		end
-		GameTooltip:AddLine(line, 0.8, 0.8, 0.8)
+		GameTooltip:AddLine(line, tr, tg, tb)
 	end
 	local secondary = ns.Alts_SecondaryText(c)
 	if secondary then
-		GameTooltip:AddLine(secondary, 0.62, 0.62, 0.62, true)
+		GameTooltip:AddLine(secondary, mr, mg, mb, true)
 	end
 	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine(("%s · %s"):format(c.zone or "?", Ago(c)), 0.62, 0.62, 0.62)
+	GameTooltip:AddLine(("%s · %s"):format(c.zone or "?", Ago(c)), mr, mg, mb)
 	local rest = RestText(c)
 	if rest then
-		GameTooltip:AddLine(rest, GREEN[1], GREEN[2], GREEN[3])
+		local r, g, b = UI.Color("success")
+		GameTooltip:AddLine(rest, r, g, b)
 	end
 	local weekly = WeeklyStatus(c)
 	if weekly then
@@ -110,7 +113,8 @@ local function ShowTooltip(row)
 		for _, conc in ipairs(weekly.conc) do
 			local text = ("%s Concentration %d/%d"):format(conc.name, conc.qty, conc.max)
 			if conc.full then
-				GameTooltip:AddLine(conc.name .. " Concentration full", GOLD[1], GOLD[2], GOLD[3])
+				local r, g, b = UI.Color("warning")
+				GameTooltip:AddLine(conc.name .. " Concentration full", r, g, b)
 			else
 				GameTooltip:AddLine(conc.text ~= "" and (text .. ", " .. conc.text) or text, 1, 1, 1)
 			end
@@ -118,10 +122,12 @@ local function ShowTooltip(row)
 	end
 	local worth = ns.Value_CharWorth and ns.Value_CharWorth(c)
 	if worth then
-		GameTooltip:AddLine(("Carrying %s in bags%s"):format(ns.Alts_Gold(worth), c.worth.bank and " and bank" or ""), 1, 0.82, 0.45)
+		local r, g, b = UI.Color("heading")
+		GameTooltip:AddLine(("Carrying %s in bags%s"):format(ns.Alts_Gold(worth), c.worth.bank and " and bank" or ""), r, g, b)
 	end
 	if c.guid ~= UnitGUID("player") then
-		GameTooltip:AddLine("Right-click to forget this character", 0.5, 0.5, 0.5)
+		local r, g, b = UI.Color("textFaint")
+		GameTooltip:AddLine("Right-click to forget this character", r, g, b)
 	end
 	GameTooltip:Show()
 end
@@ -153,34 +159,34 @@ local function CreateRow(parent)
 	row:EnableMouse(true)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
-	row.bg:SetColorTexture(1, 1, 1, 0.05)
+	row.bg:SetColorTexture(UI.Color("hover"))
 	row.bg:Hide()
 	row.cells = {}
 	for i, col in ipairs(COLUMNS) do
-		local fs = UI.Text(row, 12, WHITE)
+		local fs = UI.Text(row, 12, "text")
 		fs:SetWordWrap(false)
 		if col.right then
 			fs:SetJustifyH("RIGHT")
 		end
 		row.cells[i] = fs
 	end
-	row.l1 = UI.Text(row, 13, WHITE)
+	row.l1 = UI.Text(row, 13, "text")
 	row.l1:SetPoint("TOPLEFT", 6, -5)
 	row.l1:SetWordWrap(false)
-	row.l1r = UI.Text(row, 13, GOLD)
+	row.l1r = UI.Text(row, 13, "heading")
 	row.l1r:SetPoint("TOPRIGHT", -6, -5)
 	row.l1r:SetJustifyH("RIGHT")
 	row.l1:SetPoint("RIGHT", row.l1r, "LEFT", -8, 0)
-	row.l2 = UI.Text(row, 12, GREY)
+	row.l2 = UI.Text(row, 12, "textMuted")
 	row.l2:SetWordWrap(false)
-	row.l2r = UI.Text(row, 12, GREY)
+	row.l2r = UI.Text(row, 12, "textMuted")
 	row.l2r:SetJustifyH("RIGHT")
-	row.l3 = UI.Text(row, 12, WHITE)
+	row.l3 = UI.Text(row, 12, "text")
 	row.l3:SetPoint("BOTTOMLEFT", 6, 6)
 	row.l3:SetPoint("BOTTOMRIGHT", -6, 6)
 	row.l3:SetWordWrap(false)
 	row.line = row:CreateTexture(nil, "ARTWORK")
-	row.line:SetColorTexture(1, 1, 1, 0.06)
+	row.line:SetColorTexture(UI.Color("rule"))
 	row.line:SetHeight(1)
 	row.line:SetPoint("BOTTOMLEFT")
 	row.line:SetPoint("BOTTOMRIGHT")
@@ -209,7 +215,7 @@ local function FillCompact(row, c, width)
 		fs:SetPoint("LEFT", math.floor(col.x * width) + 6, 0)
 		fs:SetWidth(math.floor(col.w * width) - 6)
 		fs:Show()
-		SetColor(fs, WHITE)
+		SetColor(fs, "text")
 	end
 	local cells = row.cells
 	cells[1]:SetText(c.name or "?")
@@ -219,16 +225,16 @@ local function FillCompact(row, c, width)
 	cells[4]:SetText(c.ilvl or "")
 	cells[5]:SetText(ProfsText(c, true))
 	cells[6]:SetText(ns.Alts_Gold(c.money))
-	SetColor(cells[6], GOLD)
+	SetColor(cells[6], "heading")
 	cells[7]:SetText(Ago(c))
-	SetColor(cells[7], GREY)
+	SetColor(cells[7], "textMuted")
 	for _, fs in ipairs({ row.l1, row.l1r, row.l2, row.l2r, row.l3 }) do
 		fs:Hide()
 	end
 end
 
 local function FillDetailed(row, c)
-	local weekly = ns.Alts_WeeklyLine(WeeklyStatus(c))
+	local weekly = ns.Alts_WeeklyLine(WeeklyStatus(c), UI.Hex("warning"))
 	local bottom = weekly ~= "" and (6 + WEEKLY_H) or 6
 	row:SetHeight(DETAILED_H + (weekly ~= "" and WEEKLY_H or 0))
 	row.l2:ClearAllPoints()
@@ -242,19 +248,19 @@ local function FillDetailed(row, c)
 		fs:Hide()
 	end
 	local color = ClassColor(c)
-	local nameText = ("|cff%02x%02x%02x%s|r"):format(color[1] * 255, color[2] * 255, color[3] * 255, c.name or "?")
+	local nameText = ("|cff%02x%02x%02x%s|r"):format(color[1] * 255, color[2] * 255, color[3] * 255, c.name or "?") -- class color
 	local parts = { nameText, tostring(c.level or "?") .. (c.spec and (" " .. c.spec) or "") }
 	if c.ilvl then
 		parts[#parts + 1] = ("iLvl %d"):format(c.ilvl)
 	end
 	row.l1:SetText(table.concat(parts, " · "))
 	local worth = ns.Value_CharWorth and ns.Value_CharWorth(c)
-	row.l1r:SetText(ns.Alts_Gold(c.money) .. (worth and ("  |cff9e9e9e+ %s in items|r"):format(ns.Alts_Gold(worth)) or ""))
+	row.l1r:SetText(ns.Alts_Gold(c.money) .. (worth and "  " .. UI.Wrap(("+ %s in items"):format(ns.Alts_Gold(worth)), "textMuted") or ""))
 	row.l2:SetText(ProfsText(c, false))
 	local right = { c.zone or "?", Ago(c) }
 	local rest = RestText(c)
 	if rest then
-		right[#right + 1] = "|cff73d973" .. rest .. "|r"
+		right[#right + 1] = UI.Wrap(rest, "success")
 	end
 	row.l2r:SetText(table.concat(right, " · "))
 	for _, fs in ipairs({ row.l1, row.l1r, row.l2, row.l2r }) do
@@ -275,8 +281,7 @@ local function Layout()
 		h:ClearAllPoints()
 		h:SetPoint("LEFT", math.floor(col.x * width) + 6, 0)
 		h:SetSize(math.floor(col.w * width) - 6, HEAD_H)
-		local c = col.sort and col.sort == db.sort and GOLD or GREY
-		h.text:SetTextColor(c[1], c[2], c[3])
+		UI.SetTextRole(h.text, col.sort and col.sort == db.sort and "accent" or "textMuted")
 		h.text:SetJustifyH(col.right and "RIGHT" or "LEFT")
 	end
 	local y = 0
@@ -345,14 +350,14 @@ function ns.AltsRoster_Create(frame, altsDB)
 	tab.head:SetPoint("RIGHT", -8, 0)
 	tab.head:SetHeight(HEAD_H)
 	local line = tab.head:CreateTexture(nil, "ARTWORK")
-	line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.2)
+	line:SetColorTexture(UI.RGBA("frame", 0.2))
 	line:SetHeight(1)
 	line:SetPoint("BOTTOMLEFT")
 	line:SetPoint("BOTTOMRIGHT")
 	tab.head.cells = {}
 	for i, col in ipairs(COLUMNS) do
 		local b = CreateFrame("Button", nil, tab.head)
-		b.text = UI.Text(b, 11, GREY)
+		b.text = UI.Text(b, 11, "textMuted")
 		b.text:SetAllPoints()
 		b.text:SetText(col.text)
 		if col.sort then
@@ -375,11 +380,11 @@ function ns.AltsRoster_Create(frame, altsDB)
 	end
 
 	local foot = tab:CreateTexture(nil, "ARTWORK")
-	foot:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.2)
+	foot:SetColorTexture(UI.RGBA("frame", 0.2))
 	foot:SetHeight(1)
 	foot:SetPoint("BOTTOMLEFT", 0, FOOT_H)
 	foot:SetPoint("BOTTOMRIGHT", -8, FOOT_H)
-	tab.footLeft = UI.Text(tab, 12, GREY)
+	tab.footLeft = UI.Text(tab, 12, "textMuted")
 	tab.footLeft:SetPoint("BOTTOMLEFT", 6, 6)
 	-- The footer's tooltip: which professions nobody has, and who has a free slot for them.
 	tab.footHover = CreateFrame("Frame", nil, tab)
@@ -389,16 +394,17 @@ function ns.AltsRoster_Create(frame, altsDB)
 	tab.footHover:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
 		GameTooltip:SetText("Professions", 1, 1, 1)
+		local r, g, b = UI.Color("text")
 		if #self.uncovered == 0 then
-			GameTooltip:AddLine("Somebody has each of the eleven.", 0.8, 0.8, 0.8)
+			GameTooltip:AddLine("Somebody has each of the eleven.", r, g, b)
 		else
-			GameTooltip:AddLine(ns.Alts_GapText(self.uncovered, ns.Alts_FreeSlots(db.chars)), 0.8, 0.8, 0.8, true)
+			GameTooltip:AddLine(ns.Alts_GapText(self.uncovered, ns.Alts_FreeSlots(db.chars)), r, g, b, true)
 		end
 		GameTooltip:Show()
 	end)
 	tab.footHover:SetScript("OnLeave", GameTooltip_Hide)
 	tab.footHover.uncovered = {}
-	tab.footRight = UI.Text(tab, 12, GOLD)
+	tab.footRight = UI.Text(tab, 12, "heading")
 	tab.footRight:SetPoint("BOTTOMRIGHT", -14, 6)
 end
 

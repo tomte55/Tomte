@@ -142,6 +142,11 @@ or modules, major for changes that reset or break settings.
   [LiteMount](https://github.com/xod-wow/LiteMount)'s notes. Flyout and achievement category IDs from the game data
   on [wago.tools](https://wago.tools).
 
+- Fonts: [Cinzel](https://github.com/NDISCOVER/Cinzel) by Natanael Gama and
+  [Alegreya](https://github.com/huertatipografica/Alegreya) by Juan Pablo del Peral (Huerta Tipográfica), both under
+  the SIL Open Font License 1.1 (texts in `Media/Fonts`). `AlegreyaNumbers-Regular.ttf` is a modified Alegreya with
+  lining, even-width digits as the default ones, built by `tools/theme_art.py`.
+
 ## License
 
 GPL-3.0, see [LICENSE](LICENSE).

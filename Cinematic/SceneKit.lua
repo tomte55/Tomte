@@ -1,19 +1,20 @@
 local addonName, ns = ...
 
--- Small drawing helpers shared by the cinematic scenes (flight, AFK): text, gold divider lines and a
--- fade-out/swap/fade-in group used for rotating stat pages.
+-- Small drawing helpers shared by the cinematic scenes (flight, AFK): text, divider lines and a
+-- fade-out/swap/fade-in group used for rotating stat pages. Colors and fonts are theme roles (Core/Theme.lua).
 
 local SWAP_FADE = 0.3 -- cross-fade half time
 
-ns.SCENE_GOLD = { 1, 0.82, 0.45 }
-ns.SCENE_GREY = { 0.62, 0.62, 0.62 }
-ns.SCENE_WHITE = { 0.92, 0.92, 0.92 }
-ns.SCENE_TITLE_FONT = "Fonts\\MORPHEUS.TTF"
-
-function ns.SceneText(parent, size, color, font)
+-- role: a color role (default "text") or an { r, g, b } that carries game meaning (class, quality);
+-- fontRole: "body" (default) | "title" | "number".
+function ns.SceneText(parent, size, role, fontRole)
 	local fs = parent:CreateFontString(nil, "OVERLAY")
-	fs:SetFont(font or STANDARD_TEXT_FONT, size, "")
-	fs:SetTextColor(color[1], color[2], color[3])
+	ns.Theme.SetFont(fs, fontRole or "body", size)
+	if type(role) == "table" then
+		fs:SetTextColor(role[1], role[2], role[3])
+	else
+		fs:SetTextColor(ns.Theme.Color(role or "text"))
+	end
 	fs:SetShadowOffset(1, -1)
 	return fs
 end
@@ -55,18 +56,18 @@ function ns.Spaced(text)
 	return (text:upper():gsub("[%z\1-\127\194-\244][\128-\191]*", "%0 "):sub(1, -2)) -- whole UTF-8 characters
 end
 
--- A 1px gold line that fades out to both ends. Returns the left half; anchor that.
-function ns.SceneGoldLine(parent, width, alpha)
-	local gold = ns.SCENE_GOLD
+-- A 1px line that fades out to both ends (role: default "frame"). Returns the left half; anchor that.
+function ns.SceneLine(parent, width, alpha, role)
+	local r, g, b = ns.Theme.Color(role or "frame")
 	local half = width / 2
 	local left = parent:CreateTexture(nil, "OVERLAY")
 	left:SetColorTexture(1, 1, 1, 1)
 	left:SetSize(half, 1)
-	left:SetGradient("HORIZONTAL", CreateColor(gold[1], gold[2], gold[3], 0), CreateColor(gold[1], gold[2], gold[3], alpha or 0.8))
+	left:SetGradient("HORIZONTAL", CreateColor(r, g, b, 0), CreateColor(r, g, b, alpha or 0.8))
 	local right = parent:CreateTexture(nil, "OVERLAY")
 	right:SetColorTexture(1, 1, 1, 1)
 	right:SetSize(half, 1)
-	right:SetGradient("HORIZONTAL", CreateColor(gold[1], gold[2], gold[3], alpha or 0.8), CreateColor(gold[1], gold[2], gold[3], 0))
+	right:SetGradient("HORIZONTAL", CreateColor(r, g, b, alpha or 0.8), CreateColor(r, g, b, 0))
 	right:SetPoint("LEFT", left, "RIGHT")
 	left.pixelHeight, left.pair = 1, right
 	return left

@@ -9,7 +9,7 @@ local BUTTONS = 4 -- two lethal and two non-lethal with Dragon-Tempered Blades
 local SIZE, GAP = 40, 6
 local TICK = 5 -- seconds between checks out of combat (counts down "low" poisons, catches them running low)
 local ENTER_DELAY = 4
-local RED, YELLOW = { 1, 0.25, 0.2 }, { 1, 0.82, 0 }
+local UI = ns.UI
 local ICON = "Interface\\Icons\\Ability_Rogue_DualWeild"
 local PREVIEW = { { spellID = 2823, reason = "missing" }, { spellID = 3408, reason = "low", left = 420 } }
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
@@ -104,11 +104,11 @@ local function ButtonOnEnter(self)
 	GameTooltip:SetSpellByID(p.spellID)
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine(p.reason == "low" and ("Runs out in " .. ns.Rogue_FormatLeft(p.left) .. ".")
-		or "Not on your weapons.", 1, 0.82, 0)
-	GameTooltip:AddLine("Click to apply it.", 0.4, 1, 0.4)
+		or "Not on your weapons.", UI.RGB(p.reason == "low" and "warning" or "danger"))
+	GameTooltip:AddLine("Click to apply it.", UI.RGB("success"))
 	local key = GetBindingKey("CLICK TomtePoison1:LeftButton")
 	if key and self:GetID() == 1 then
-		GameTooltip:AddLine("Key: " .. GetBindingText(key), 0.6, 0.6, 0.6)
+		GameTooltip:AddLine("Key: " .. GetBindingText(key), UI.RGB("textMuted"))
 	end
 	GameTooltip:Show()
 end
@@ -134,6 +134,8 @@ local function CreateButton(i)
 	b.border:SetColorTexture(1, 1, 1)
 	b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 	b.label = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	UI.SetFont(b.label, "body", 10)
+	b.label:SetShadowOffset(1, -1)
 	b.label:SetPoint("TOP", b, "BOTTOM", 0, -2)
 
 	b.pulse = b.border:CreateAnimationGroup()
@@ -156,6 +158,8 @@ local function CreateHolder()
 	holder:SetClampedToScreen(true)
 	holder:SetFrameStrata("MEDIUM")
 	holder.title = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	UI.SetFont(holder.title, "title", 12)
+	UI.SetTextRole(holder.title, "heading")
 	holder.title:SetPoint("BOTTOMLEFT", holder, "TOPLEFT", 0, 4)
 	holder.title:SetText("Apply poison")
 	for i = 1, BUTTONS do
@@ -178,10 +182,10 @@ local function SetButton(b, p, preview)
 		b:SetAttribute("type", (name and not preview) and "macro" or nil)
 		b:SetAttribute("macrotext", (name and not preview) and ("/cast " .. name) or nil)
 		b.icon:SetTexture(C_Spell.GetSpellTexture(p.spellID) or ICON)
-		local color = p.reason == "low" and YELLOW or RED
-		b.border:SetVertexColor(color[1], color[2], color[3])
+		local role = p.reason == "low" and "warning" or "danger"
+		b.border:SetVertexColor(UI.Color(role))
 		b.label:SetText(p.reason == "low" and ns.Rogue_FormatLeft(p.left) or "Missing")
-		b.label:SetTextColor(color[1], color[2], color[3])
+		UI.SetTextRole(b.label, role)
 		if not b.pulse:IsPlaying() then
 			b.pulse:Play()
 		end
@@ -280,13 +284,13 @@ local function Check(verbose)
 	local lines = {}
 	for i, p in ipairs(problems) do
 		lines[i] = ProblemText(p)
-		ns.Print("|cffff9940" .. lines[i] .. "|r")
+		ns.Print(UI.Wrap(lines[i], "warning"))
 	end
 	if db.check.banner and not verbose then
 		ns.Banner_Show({
 			owner = "rogue",
 			label = "Poison check",
-			accent = RED,
+			accent = "danger",
 			title = lines[1],
 			subtitle = #lines > 1 and table.concat(lines, "   -   ", 2) or nil,
 			icon = C_Spell.GetSpellTexture(problems[1].spellID) or ICON,

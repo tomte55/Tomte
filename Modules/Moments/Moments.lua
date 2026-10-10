@@ -13,7 +13,6 @@ local SETTLE = 8 -- seconds after a loading screen in which collection events ar
 local DISCOVERY_DELAY = 0.5 -- seconds: the map's explored overlays update after the message
 local ZONE_TEXT_HIDE = 6 -- seconds Blizzard's zone text stays hidden after a discovery we show ourselves
 local CHAPTER_DELAY = 2 -- seconds: a chapter's hidden reward quest completes after the last turn-in
-local ACCENT = { 0.85, 0.85, 0.85 }
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "PLAYER_LEVEL_UP", "ACHIEVEMENT_EARNED",
 	"NEW_MOUNT_ADDED", "NEW_PET_ADDED", "NEW_TOY_ADDED", "UI_INFO_MESSAGE",
@@ -85,7 +84,7 @@ local function ShowBanner(moment)
 	ns.Banner_Show({
 		owner = "moments",
 		label = moment.label,
-		accent = fx and fx.glow or ACCENT,
+		accent = fx and fx.glow or nil, -- nil: the banner's own text color
 		title = moment.title,
 		subtitle = moment.subtitle or moment.detail,
 		icon = moment.icon,

@@ -6,9 +6,6 @@ local addonName, ns = ...
 -- character frame's addon loads; the panel only shows on the Character tab (it's a child of PaperDollFrame).
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
-local RED = { 1, 0.45, 0.35 }
-local TITLE_FONT = "Fonts\\MORPHEUS.TTF"
 local WIDTH = 300
 local PAD = 14
 local LINE_H = 18
@@ -30,7 +27,8 @@ end
 
 -- Layout helpers -------------------------------------------------------------------------------------------------
 
-local function Line(y, text, color, size, indent)
+-- role: theme color role of the text.
+local function Line(y, text, role, size, indent)
 	usedLines = usedLines + 1
 	local fs = lines[usedLines]
 	if not fs then
@@ -40,8 +38,8 @@ local function Line(y, text, color, size, indent)
 		fs:SetWordWrap(true)
 		lines[usedLines] = fs
 	end
-	fs:SetFont(STANDARD_TEXT_FONT, size or 12, "")
-	fs:SetTextColor(color[1], color[2], color[3])
+	UI.SetFont(fs, "body", size or 12)
+	UI.SetTextRole(fs, role)
 	fs:ClearAllPoints()
 	fs:SetPoint("TOPLEFT", panel.content, "TOPLEFT", indent or 0, -y)
 	fs:SetPoint("RIGHT", panel.content, "RIGHT")
@@ -51,7 +49,7 @@ local function Line(y, text, color, size, indent)
 end
 
 local function Header(y, text)
-	return Line(y, ns.Spaced(text), GREY, 10)
+	return Line(y, ns.Spaced(text), "textMuted", 10)
 end
 
 local function NewItemRow()
@@ -65,11 +63,11 @@ local function NewItemRow()
 	row.icon:SetSize(24, 24)
 	row.icon:SetPoint("LEFT", 2, 0)
 	row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	row.name = UI.Text(row, 12, WHITE)
+	row.name = UI.Text(row, 12, "text")
 	row.name:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 8, 1)
 	row.name:SetPoint("RIGHT", -4, 0)
 	row.name:SetWordWrap(false)
-	row.problem = UI.Text(row, 11, RED)
+	row.problem = UI.Text(row, 11, "danger")
 	row.problem:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMRIGHT", 8, -1)
 	row.problem:SetPoint("RIGHT", -4, 0)
 	row:SetScript("OnEnter", function(self)
@@ -132,16 +130,16 @@ end
 local function WeightsSection(y, ctx)
 	y = y + Header(y, "Stat weights")
 	if not ctx then
-		y = y + Line(y, "No specialization yet.", GREY)
+		y = y + Line(y, "No specialization yet.", "textMuted")
 		panel.import:Hide()
 		panel.remove:Hide()
 		return y
 	end
-	y = y + Line(y, ctx.spec.name, GOLD, 14)
-	y = y + Line(y, SourceText(ctx), ctx.source == "none" and RED or GREY, 11)
+	y = y + Line(y, ctx.spec.name, "heading", 14)
+	y = y + Line(y, SourceText(ctx), ctx.source == "none" and "danger" or "textMuted", 11)
 	if ctx.source ~= "none" then
 		for _, entry in ipairs(SortedWeights(ctx.weights)) do
-			y = y + Line(y, ("%s  |cffffffff%.2f|r"):format(entry[1], entry[2]), GREY, 12, 8)
+			y = y + Line(y, ("%s  %s"):format(entry[1], UI.Wrap(("%.2f"):format(entry[2]), "text")), "textMuted", 12, 8)
 		end
 	end
 	panel.import:ClearAllPoints()
@@ -154,10 +152,10 @@ end
 local function GemSection(y, ctx)
 	y = y + Header(y, "Best gem")
 	if ctx and ctx.best then
-		y = y + Line(y, ctx.best.name, WHITE)
-		y = y + Line(y, ns.Gear_StatLabel(ctx.best.stats), GREY, 11)
+		y = y + Line(y, ctx.best.name, "text")
+		y = y + Line(y, ns.Gear_StatLabel(ctx.best.stats), "textMuted", 11)
 	else
-		y = y + Line(y, "Not known yet (gem data loading).", DIM, 11)
+		y = y + Line(y, "Not known yet (gem data loading).", "textFaint", 11)
 	end
 	return y
 end
@@ -165,10 +163,10 @@ end
 local function GearSection(y, list)
 	y = y + Header(y, "Your gear")
 	if not list then
-		return y + Line(y, "Reading your gear...", DIM, 11)
+		return y + Line(y, "Reading your gear...", "textFaint", 11)
 	end
 	if #list == 0 then
-		return y + Line(y, "Everything is enchanted and socketed.", { 0.5, 0.88, 0.5 }, 12)
+		return y + Line(y, "Everything is enchanted and socketed.", "success", 12)
 	end
 	for _, entry in ipairs(list) do
 		y = y + ItemRow(y, entry)
@@ -221,7 +219,7 @@ local function BuildButton()
 	button:SetPoint("TOPRIGHT", CharacterTrinket1Slot, "BOTTOMRIGHT", -1, -8)
 	button:HookScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText("Gear Check", GOLD[1], GOLD[2], GOLD[3])
+		GameTooltip:SetText("Gear Check", UI.Color("heading"))
 		GameTooltip:AddLine("Stat weights, best gem, and missing enchants and sockets.", 1, 1, 1, true)
 		GameTooltip:Show()
 	end)
@@ -232,13 +230,13 @@ local function BuildButton()
 		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
 		SetOpen(not DB().sheetOpen)
 	end)
-	-- Red count of missing enchants and empty sockets.
+	-- Count of missing enchants and empty sockets.
 	local badge = button:CreateTexture(nil, "OVERLAY")
 	badge:SetSize(16, 16)
 	badge:SetPoint("CENTER", button, "TOPRIGHT", -2, -2)
-	badge:SetColorTexture(0.75, 0.15, 0.1, 1)
+	badge:SetColorTexture(UI.Color("danger"))
 	button.badge = badge
-	button.badgeText = UI.Text(button, 10, WHITE)
+	button.badgeText = UI.Text(button, 10, "text", "number")
 	button.badgeText:SetPoint("CENTER", badge, "CENTER", 0, 0)
 	button.badgeText:SetJustifyH("CENTER")
 end
@@ -249,12 +247,9 @@ local function BuildPanel()
 	panel:SetPoint("TOPLEFT", CharacterFrame, "TOPRIGHT", 2, 0)
 	panel:SetPoint("BOTTOMLEFT", CharacterFrame, "BOTTOMRIGHT", 2, 0)
 	panel:EnableMouse(true)
-	local bg = panel:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], UI.BG[4])
-	UI.Border(panel, GOLD[1], GOLD[2], GOLD[3], 0.45)
+	UI.Panel(panel)
 
-	local title = UI.Text(panel, 18, GOLD, TITLE_FONT)
+	local title = UI.Text(panel, 16, "heading", "title")
 	title:SetPoint("TOPLEFT", PAD, -12)
 	title:SetText("Gear Check")
 	local close = UI.Button(panel, 20, "x")
@@ -269,10 +264,10 @@ local function BuildPanel()
 	gear:SetPoint("CENTER")
 	gear:SetTexture(UI.GEAR)
 	gear:SetTexCoord(0, 0.5, 0, 0.5)
-	gear:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
+	gear:SetVertexColor(UI.Color("accent"))
 	settings:HookScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
-		GameTooltip:SetText("Gear Check settings", GOLD[1], GOLD[2], GOLD[3])
+		GameTooltip:SetText("Gear Check settings", UI.Color("heading"))
 		GameTooltip:Show()
 	end)
 	settings:HookScript("OnLeave", function()

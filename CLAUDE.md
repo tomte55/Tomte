@@ -53,6 +53,10 @@ A World of Warcraft addon used by the user and a few friends. Shared through Git
 - Use one event frame per addon that dispatches to handlers (`self[event](self, ...)`).
 - Prefer `C_*` namespaced APIs over legacy globals when both exist.
 - Slash commands: `/<shortname>`, with a `help` subcommand.
+- Colors and fonts come from the theme by role (`Core/Theme.lua`, `ns.UI.Color("accent")`,
+  `UI.Text(parent, size, "textMuted", "number")`, `UI.Panel(frame)` for any standalone frame). Never a numeric color,
+  a `|cff` literal or a font path elsewhere: `tests/test_theme.lua` scans for them. Theme art and fonts are generated
+  by `tools/theme_art.py`.
 - Settings UI: use the native `Settings` API (`Settings.RegisterVerticalLayoutCategory` etc.) when an addon
   needs options. No Ace3 or other libraries unless clearly worth it.
 

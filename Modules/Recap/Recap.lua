@@ -317,7 +317,7 @@ local function LoginToast()
 	ns.Toast_Show({
 		owner = "recap",
 		label = "Last session",
-		accent = ns.SCENE_GOLD,
+		accent = "accent",
 		title = UnitName("player"),
 		text = ns.Recap_SummaryLine(summary, ns.Recap_Coins) .. "\nClick for the recap.",
 		icon = ns.ICON,

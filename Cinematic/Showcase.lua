@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Character showcase on the left during cinematic flights: name and item level, the player model
 -- (current transmog) in a frozen 3/4 pose standing on a soft ground shadow, and a gear strip framed by
--- thin gold lines underneath. A full-height gradient darkens the left side of the screen behind it.
+-- thin lines underneath. A full-height gradient darkens the left side of the screen behind it.
 -- The model doesn't spin. It's an actor in a ModelScene with our own camera, fitted with the game's own
 -- projection (Project3DPointTo2D), which also tells where the feet are: the model frame is moved so the
 -- feet stand on the shadow whatever the race or size.
@@ -14,7 +14,7 @@ local MODEL_W, MODEL_H = 300, 420
 local MODEL_FACING = 0.45 -- radians: a 3/4 view, turned towards the middle of the screen
 local ICON = 30
 local GAP = 5
-local GEAR_TOP = -40 -- gold line relative to the model frame bottom (negative = above it, just under the shadow)
+local GEAR_TOP = -40 -- top line relative to the model frame bottom (negative = above it, just under the shadow)
 local SHADOW_Y = 74 -- ground shadow center above the stand's bottom (where the feet stand)
 local FIT_H = MODEL_H - SHADOW_Y - 10 -- feet to the top of the head
 local FIT_W = MODEL_W * 0.9
@@ -24,7 +24,6 @@ local FIT_PASSES = 3
 local FIT_TIMEOUT = 1.5 -- seconds: a model that reports no size by then is fitted with a guessed one
 local GUESS_BOX = { -0.5, -0.5, 0, 0.5, 0.5, 2 }
 local GRADIENT_WIDTH = 620
-local GOLD = { 1, 0.82, 0.45 }
 local STAND_ANIM = 0
 
 local panel
@@ -34,16 +33,17 @@ local function Freeze(actor)
 	actor:SetAnimation(STAND_ANIM, 0, 0, 0) -- speed 0: held on the first frame
 end
 
-local function GoldLine(width)
+local function Line(width)
+	local r, g, b = ns.Theme.Color("frame")
 	local half = width / 2
 	local left = panel:CreateTexture(nil, "OVERLAY")
 	left:SetColorTexture(1, 1, 1, 1)
 	left:SetSize(half, 1)
-	left:SetGradient("HORIZONTAL", CreateColor(GOLD[1], GOLD[2], GOLD[3], 0), CreateColor(GOLD[1], GOLD[2], GOLD[3], 0.7))
+	left:SetGradient("HORIZONTAL", CreateColor(r, g, b, 0), CreateColor(r, g, b, 0.7))
 	local right = panel:CreateTexture(nil, "OVERLAY")
 	right:SetColorTexture(1, 1, 1, 1)
 	right:SetSize(half, 1)
-	right:SetGradient("HORIZONTAL", CreateColor(GOLD[1], GOLD[2], GOLD[3], 0.7), CreateColor(GOLD[1], GOLD[2], GOLD[3], 0))
+	right:SetGradient("HORIZONTAL", CreateColor(r, g, b, 0.7), CreateColor(r, g, b, 0))
 	right:SetPoint("LEFT", left, "RIGHT")
 	left.right = right
 	return left
@@ -81,7 +81,7 @@ local function CreateIcon()
 	f.icon:SetPoint("BOTTOMRIGHT", -1, 1)
 	f.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 	f.level = f:CreateFontString(nil, "OVERLAY")
-	f.level:SetFont(STANDARD_TEXT_FONT, 10, "OUTLINE")
+	ns.Theme.SetFont(f.level, "number", 10, "OUTLINE")
 	f.level:SetPoint("BOTTOMRIGHT", -1, 2)
 	icons[#icons + 1] = f
 	return f
@@ -110,7 +110,7 @@ local function LayoutGear()
 
 		f.icon:SetTexture(C_Item.GetItemIcon(location))
 		local quality = C_Item.GetItemQuality(location)
-		local r, g, b = 0.6, 0.6, 0.6
+		local r, g, b = ns.Theme.Color("frame")
 		if quality then
 			r, g, b = C_Item.GetItemQualityColor(quality)
 		end
@@ -233,21 +233,21 @@ function ns.Showcase_Create(letterbox)
 	end
 
 	panel.name = panel:CreateFontString(nil, "OVERLAY")
-	panel.name:SetFont("Fonts\\MORPHEUS.TTF", 24, "")
+	ns.Theme.SetFont(panel.name, "title", 21)
 	panel.name:SetShadowOffset(1, -1)
 	panel.name:SetPoint("BOTTOM", panel.stand, "TOP", 0, 14)
 	panel.ilvl = panel:CreateFontString(nil, "OVERLAY")
-	panel.ilvl:SetFont(STANDARD_TEXT_FONT, 13, "")
-	panel.ilvl:SetTextColor(0.75, 0.75, 0.75)
+	ns.Theme.SetFont(panel.ilvl, "body", 13)
+	panel.ilvl:SetTextColor(ns.Theme.Color("textMuted"))
 	panel.ilvl:SetShadowOffset(1, -1)
 	panel.ilvl:SetPoint("TOP", panel.name, "BOTTOM", 0, -4)
 
-	-- Gear strip under the feet, between two thin gold lines.
+	-- Gear strip under the feet, between two thin lines.
 	local stripWidth = PER_ROW * (ICON + 2 + GAP) + 40
 	panel.stripWidth = stripWidth
-	panel.gearTop = GoldLine(stripWidth)
+	panel.gearTop = Line(stripWidth)
 	panel.gearTop:SetPoint("TOPLEFT", panel.stand, "BOTTOM", -stripWidth / 2, -GEAR_TOP)
-	panel.gearBottom = GoldLine(stripWidth)
+	panel.gearBottom = Line(stripWidth)
 end
 
 -- Called when a cinematic starts. enabled = the showcase setting.
@@ -263,7 +263,7 @@ function ns.Showcase_Show(enabled)
 	if color then
 		panel.name:SetTextColor(color:GetRGB())
 	else
-		panel.name:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+		panel.name:SetTextColor(ns.Theme.Color("heading"))
 	end
 	panel.name:SetText(UnitPVPName("player") or UnitName("player"))
 	local _, equipped = GetAverageItemLevel()

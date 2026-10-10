@@ -4,7 +4,6 @@ local addonName, ns = ...
 -- rows are pooled per type and rebuilt per module.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
 local OPT_H = 28
 
 local parent -- the options scroll's content frame
@@ -84,7 +83,7 @@ local function NewRow(kind)
 	row:EnableMouse(true)
 	row:SetScript("OnEnter", RowTooltip)
 	row:SetScript("OnLeave", HideTooltip)
-	row.label = UI.Text(row, 13, WHITE)
+	row.label = UI.Text(row, 13, "text")
 	row.label:SetPoint("LEFT", 8, 0)
 	row.label:SetWordWrap(false)
 	return row
@@ -106,10 +105,11 @@ function Factory.header()
 	local row = CreateFrame("Frame", nil, parent)
 	row.kind = "header"
 	row:SetHeight(34)
-	row.label = UI.Text(row, 14, GOLD)
+	row.label = UI.Text(row, 13, "heading", "title")
 	row.label:SetPoint("BOTTOMLEFT", 4, 9)
 	local line = row:CreateTexture(nil, "ARTWORK")
-	line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.25)
+	line:SetColorTexture(UI.Color("frame"))
+	line:SetAlpha(0.4)
 	line:SetHeight(1)
 	line:SetPoint("BOTTOMLEFT", 4, 4)
 	line:SetPoint("BOTTOMRIGHT", -4, 4)
@@ -147,7 +147,7 @@ end
 
 function Factory.slider()
 	local row = NewRow("slider")
-	row.value = UI.Text(row, 12, WHITE)
+	row.value = UI.Text(row, 12, "text", "number")
 	row.value:SetJustifyH("RIGHT")
 	row.value:SetWidth(40)
 	row.value:SetPoint("RIGHT", -6, 0)
@@ -233,15 +233,12 @@ function Factory.input()
 	box:SetPoint("RIGHT", -6, 0)
 	box:SetAutoFocus(false)
 	box.isOptionInput = true
-	box:SetFont(STANDARD_TEXT_FONT, 12, "")
-	box:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
+	UI.SetFont(box, "body", 12)
+	UI.SetTextRole(box, "text")
 	box:SetTextInsets(6, 6, 0, 0)
 	box:SetScript("OnHide", box.ClearFocus) -- saves before the row is reused for another option
-	local bg = box:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BOX[1], UI.BOX[2], UI.BOX[3], UI.BOX[4])
-	UI.Border(box, GOLD[1], GOLD[2], GOLD[3], 0.35)
-	box.placeholder = UI.Text(box, 12, DIM)
+	UI.Surface(box, 0.35)
+	box.placeholder = UI.Text(box, 12, "textFaint")
 	box.placeholder:SetPoint("LEFT", 6, 0)
 	box:SetScript("OnTextChanged", function(self)
 		self.placeholder:SetShown(self:GetText() == "")
@@ -252,10 +249,10 @@ function Factory.input()
 		self:ClearFocus()
 	end)
 	box:SetScript("OnEditFocusGained", function(self)
-		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 0.8)
+		UI.SetBorderColor(self, "accent", 0.8)
 	end)
 	box:SetScript("OnEditFocusLost", function(self)
-		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 0.35)
+		UI.SetBorderColor(self, "frame", 0.35)
 		local text = strtrim(self:GetText())
 		if text ~= (GetOption(row.module, row.spec.key) or "") then
 			SetOption(row.module, row.spec, text)

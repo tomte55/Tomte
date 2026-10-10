@@ -1,10 +1,10 @@
 local addonName, ns = ...
 
 -- RPG-style "Entering <zone>" text during cinematic flights: a spaced label, the zone name in large
--- gold Morpheus, and a thin gold line with a small diamond. It drifts up slightly while fading in,
+-- title font, and a thin ruled line with a small diamond. It drifts up slightly while fading in,
 -- holds, then fades out. (WoW's own zone text is part of the hidden UI.)
 
-local GOLD = { 1, 0.82, 0.45 }
+local UI = ns.UI
 local FROM_TOP = 0.24 -- of screen height, center of the text block
 local FADE_IN, HOLD, FADE_OUT = 1.0, 3.0, 1.2
 local DRIFT = 10 -- units it rises while fading in
@@ -19,16 +19,16 @@ local function Smooth(p)
 	return p * p * (3 - 2 * p)
 end
 
-local function GoldLine(parent, width)
+local function Line(parent, width)
 	local half = width / 2
 	local left = parent:CreateTexture(nil, "OVERLAY")
 	left:SetColorTexture(1, 1, 1, 1)
 	left:SetSize(half, 1)
-	left:SetGradient("HORIZONTAL", CreateColor(GOLD[1], GOLD[2], GOLD[3], 0), CreateColor(GOLD[1], GOLD[2], GOLD[3], 0.9))
+	left:SetGradient("HORIZONTAL", UI.ColorObject("frame", 0), UI.ColorObject("frame", 0.9))
 	local right = parent:CreateTexture(nil, "OVERLAY")
 	right:SetColorTexture(1, 1, 1, 1)
 	right:SetSize(half, 1)
-	right:SetGradient("HORIZONTAL", CreateColor(GOLD[1], GOLD[2], GOLD[3], 0.9), CreateColor(GOLD[1], GOLD[2], GOLD[3], 0))
+	right:SetGradient("HORIZONTAL", UI.ColorObject("frame", 0.9), UI.ColorObject("frame", 0))
 	right:SetPoint("LEFT", left, "RIGHT")
 	return left
 end
@@ -74,24 +74,24 @@ function ns.ZoneText_Create(letterbox)
 	block:SetSize(LINE_WIDTH, 90)
 
 	name = block:CreateFontString(nil, "OVERLAY")
-	name:SetFont("Fonts\\MORPHEUS.TTF", 42, "")
-	name:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+	UI.SetFont(name, "title", 36)
+	UI.SetTextRole(name, "heading")
 	name:SetShadowOffset(2, -2)
 	name:SetShadowColor(0, 0, 0, 0.9)
 	name:SetPoint("CENTER", 0, 0)
 
 	label = block:CreateFontString(nil, "OVERLAY")
-	label:SetFont(STANDARD_TEXT_FONT, 12, "")
-	label:SetTextColor(0.85, 0.85, 0.85)
+	UI.SetFont(label, "title", 12)
+	UI.SetTextRole(label, "text")
 	label:SetShadowOffset(1, -1)
 	label:SetShadowColor(0, 0, 0, 0.9)
 	label:SetPoint("BOTTOM", name, "TOP", 0, 6)
 	label:SetText(Spaced("Entering"))
 
-	local line = GoldLine(block, LINE_WIDTH)
+	local line = Line(block, LINE_WIDTH)
 	line:SetPoint("TOPLEFT", name, "BOTTOM", -LINE_WIDTH / 2, -8)
 	local diamond = block:CreateTexture(nil, "OVERLAY", nil, 1)
-	diamond:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	diamond:SetColorTexture(UI.Color("frame"))
 	diamond:SetSize(6, 6)
 	diamond:SetRotation(math.pi / 4)
 	diamond:SetPoint("CENTER", name, "BOTTOM", 0, -8)

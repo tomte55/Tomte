@@ -8,6 +8,7 @@ local addonName, ns = ...
 local DEFAULT_ANGLE = 225
 local RADIUS = 5 -- how far outside the minimap's edge the button sits (LibDBIcon's default)
 
+local UI = ns.UI
 local module, button
 
 local function Place()
@@ -27,7 +28,7 @@ end
 
 local function ShowTooltip(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	GameTooltip:SetText("Tomte", 1, 0.82, 0.45)
+	GameTooltip:SetText("Tomte", UI.Color("heading"))
 	GameTooltip:AddLine("Click to open Tomte", 1, 1, 1)
 	if ns.Weekly_Active and ns.Weekly_Active() then
 		GameTooltip:AddLine("Right-click for this week's open items", 1, 1, 1)
@@ -35,13 +36,13 @@ local function ShowTooltip(self)
 	local nextUp = ns.NextUp_TooltipLines and ns.NextUp_TooltipLines()
 	if nextUp and #nextUp > 0 then
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddLine("Next up", 1, 0.82, 0.45)
+		GameTooltip:AddLine("Next up", UI.RGB("heading"))
 		for _, line in ipairs(nextUp) do
 			GameTooltip:AddLine(line, 1, 1, 1, true)
 		end
 		GameTooltip:AddLine(" ")
 	end
-	GameTooltip:AddLine("Drag to move", 0.62, 0.62, 0.62)
+	GameTooltip:AddLine("Drag to move", UI.RGB("textMuted"))
 	GameTooltip:Show()
 end
 
@@ -114,7 +115,7 @@ local function ApplyDot()
 		button.dot:SetSize(10, 10)
 		button.dot:SetPoint("TOPRIGHT", -4, -4)
 		button.dot:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
-		button.dot:SetVertexColor(1, 0.82, 0.45)
+		button.dot:SetVertexColor(UI.Color("accent"))
 	end
 	button.dot:SetShown(dotWanted)
 end

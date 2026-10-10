@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Tomte core: saved variables, module start-up and /tomte. Modules register themselves at file load
 -- (Modules.lua); everything is started here on ADDON_LOADED.
 
-ns.PREFIX = "|cff66ccffTomte|r: "
+ns.PREFIX = ns.Theme.Wrap("Tomte", "accent") .. ": "
 ns.VERSION = C_AddOns.GetAddOnMetadata(addonName, "Version") or "?" -- the TOC's ## Version
 -- Panel title bar and minimap button. The TOC's IconTexture is set separately (it can't read this).
 ns.ICON = "Interface\\AddOns\\Tomte\\Media\\Logo" -- Media/Logo.svg is the source
@@ -69,9 +69,9 @@ function f:PLAYER_ENTERING_WORLD()
 	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
 end
 
--- One help line: the command in the Tomte blue, the description in grey.
+-- One help line: the command in the accent, the description muted.
 local function PrintCommand(command, description)
-	print(("  |cff66ccff%s|r |cffaaaaaa- %s|r"):format(command, description))
+	print(("  %s %s"):format(ns.Theme.Wrap(command, "accent"), ns.Theme.Wrap("- " .. description, "textMuted")))
 end
 
 local function PrintModuleCommands(module)

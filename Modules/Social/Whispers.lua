@@ -13,9 +13,9 @@ local OWNER = "whispers"
 local BADGE = "whispers"
 local RESTRICTED = "restricted" -- key of the session-only conversation with secret whispers
 local DAY = 86400
-local WHISPER_ACCENT = { 1, 0.5, 1 } -- Blizzard's whisper pink
-local BN_ACCENT = { 0, 0.85, 1 }
-local GM_ACCENT = { 0.25, 0.75, 1 }
+-- Cards in the player's chat colors (ns.Toast_ChatColor): whisper pink, Battle.net whisper blue.
+local WHISPER, BN_WHISPER = "WHISPER", "BN_WHISPER"
+local GM_ACCENT = { 0.25, 0.75, 1 } -- theme: game meaning (GM); Blizzard has no GM chat color to read
 local OUT_EVENTS = { "CHAT_MSG_WHISPER_INFORM", "CHAT_MSG_BN_WHISPER_INFORM" }
 local EVENTS = { "CHAT_MSG_WHISPER", "CHAT_MSG_BN_WHISPER", "CHAT_MSG_WHISPER_INFORM", "CHAT_MSG_BN_WHISPER_INFORM",
 	"PLAYER_FLAGS_CHANGED" }
@@ -97,7 +97,7 @@ local function UpdateBadge(show)
 	ns.Toast_Pin(BADGE, {
 		owner = OWNER,
 		label = "While you were away",
-		accent = WHISPER_ACCENT,
+		accent = ns.Toast_ChatColor(WHISPER),
 		title = total == 1 and "1 whisper" or (total .. " whispers"),
 		text = "From " .. ns.Social_NameList(names, 3) .. ". Click to read, right-click to clear.",
 		recentCount = total, -- Recent hears of it again only when this rises
@@ -241,7 +241,7 @@ local function Toast(info)
 	if not ns.whispersDB.toasts then
 		return
 	end
-	local accent = info.gm and GM_ACCENT or (info.bn and BN_ACCENT or WHISPER_ACCENT)
+	local accent = info.gm and GM_ACCENT or ns.Toast_ChatColor(info.bn and BN_WHISPER or WHISPER)
 	local title = info.name
 	local icon
 	if not info.secret and info.class then
@@ -260,6 +260,7 @@ local function Toast(info)
 		recentTitle = not info.secret and info.bn and info.digestName or nil,
 		test = info.preview or nil,
 		text = info.text,
+		chat = true,
 		secret = info.secret,
 		iconAtlas = icon and C_Texture.GetAtlasInfo(icon) and icon or nil,
 		mergeKey = not info.secret and info.key or nil,
@@ -294,7 +295,7 @@ local function Digest(held)
 	return {
 		owner = OWNER,
 		label = "While you were busy",
-		accent = WHISPER_ACCENT,
+		accent = ns.Toast_ChatColor(WHISPER),
 		title = count .. " whispers",
 		text = "From " .. ns.Social_NameList(names, 4) .. ". Click to read.",
 		onClick = function()

@@ -490,7 +490,7 @@ local function Why()
 	if m then
 		local kind = m.flying and "flying" or (m.swimOnly and "swim only" or (m.aquatic and "aquatic" or "ground"))
 		print(("  picked %s (mountID %d, type %s = %s%s%s)"):format(m.name, m.id, tostring(m.typeID), kind,
-			m.steady and ", steady flight only" or "", ns.Mount_KnownType(m.typeID) and "" or ", |cffff9940unknown type|r"))
+			m.steady and ", steady flight only" or "", ns.Mount_KnownType(m.typeID) and "" or (", " .. ns.UI.Wrap("unknown type", "warning"))))
 		print("  macro: " .. tostring(w.macro))
 	else
 		print("  nothing usable")
@@ -551,10 +551,9 @@ local AROUND = {
 					Summon(mountID)
 				end,
 				onEnter = function(row)
-					local gold = ns.UI.GOLD
 					GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
 					GameTooltip:SetText(name or ("#" .. mountID), 1, 1, 1)
-					GameTooltip:AddLine("Click: summon it", gold[1], gold[2], gold[3])
+					GameTooltip:AddLine("Click: summon it", ns.UI.RGB("heading"))
 					GameTooltip:Show()
 				end,
 			}

@@ -6,7 +6,7 @@ local addonName, ns = ...
 
 local ENTER_DELAY = 4 -- seconds after zoning in: the pet is summoned again by then
 local GROWL = 2649
-local ORANGE = { 1, 0.6, 0.25 }
+local WARNING = "warning" -- banner accent (a role)
 -- The globals only exist with the deprecation fallbacks loaded.
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
 local GetSpecializationInfo = C_SpecializationInfo.GetSpecializationInfo
@@ -95,13 +95,13 @@ function ns.Checks_Run(verbose)
 		return
 	end
 	for _, problem in ipairs(problems) do
-		ns.Print("|cffff9940" .. problem .. "|r")
+		ns.Print(ns.UI.Wrap(problem, "warning"))
 	end
 	if ns.hunterDB.check.banner then
 		ns.Banner_Show({
 			owner = "hunter",
 			label = "Pet check",
-			accent = ORANGE,
+			accent = WARNING,
 			title = problems[1],
 			subtitle = #problems > 1 and table.concat(problems, "   -   ", 2) or nil,
 			icon = "Interface\\Icons\\Ability_Hunter_BeastCall",

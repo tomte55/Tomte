@@ -6,9 +6,10 @@ local addonName, ns = ...
 --   very creature). Each one seen goes into the account-wide tame log.
 -- The post-calls can't be removed, so they check whether the module is on. Anything secret is skipped.
 
-local GREY = "|cff9d9d9d"
-local GOLD = "|cffffd173"
-local GREEN = "|cff7fe07f"
+local UI = ns.UI
+local MUTED = "|c" .. UI.Hex("textMuted")
+local HEADING = "|c" .. UI.Hex("heading")
+local SUCCESS = "|c" .. UI.Hex("success")
 
 local function Secret(...)
 	if not issecretvalue then
@@ -47,13 +48,13 @@ local function OnSpell(tooltip, data)
 		return
 	end
 	tooltip:AddLine(" ")
-	tooltip:AddDoubleLine(GOLD .. name .. "|r", pet and pet.family and (GREY .. pet.family .. "|r") or "")
+	tooltip:AddDoubleLine(HEADING .. name .. "|r", pet and pet.family and (MUTED .. pet.family .. "|r") or "")
 	if pet and pet.spec then
 		local ability = pet.specAbility and C_Spell.GetSpellName(pet.specAbility)
-		tooltip:AddLine(GREY .. pet.spec .. (ability and ("  -  " .. ability) or "") .. "|r")
+		tooltip:AddLine(MUTED .. pet.spec .. (ability and ("  -  " .. ability) or "") .. "|r")
 	end
 	if ns.Stable_SummonedSlot() == index then
-		tooltip:AddLine(GREEN .. "Summoned|r")
+		tooltip:AddLine(SUCCESS .. "Summoned|r")
 	end
 	tooltip:Show()
 end
@@ -85,13 +86,13 @@ local function OnUnit(tooltip, data)
 	local count, same = ns.Hunter_Ownership(ns.Stable_Snapshot(), family, npcID)
 	local right
 	if same then
-		right = GOLD .. "you have this one (" .. same.name .. ")|r"
+		right = HEADING .. "you have this one (" .. same.name .. ")|r"
 	elseif count > 0 then
-		right = GREY .. count .. " in your stable|r"
+		right = MUTED .. count .. " in your stable|r"
 	else
-		right = GREEN .. "new family|r"
+		right = SUCCESS .. "new family|r"
 	end
-	tooltip:AddDoubleLine(GOLD .. family .. "|r", right)
+	tooltip:AddDoubleLine(HEADING .. family .. "|r", right)
 	tooltip:Show()
 end
 

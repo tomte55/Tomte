@@ -97,7 +97,7 @@ function ns.Content_Report()
 		end
 		for _, line in ipairs(lines or {}) do
 			local bad = line:sub(1, 1) == "!"
-			print(("  %s%s: %s|r"):format(bad and "|cffff6060" or "|cffcccccc", check.name, bad and line:sub(2) or line))
+			print("  " .. ns.Theme.Wrap(check.name .. ": " .. (bad and line:sub(2) or line), bad and "danger" or "text"))
 		end
 	end
 end

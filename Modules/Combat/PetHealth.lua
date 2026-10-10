@@ -7,7 +7,6 @@ local addonName, ns = ...
 
 local PREVIEW_PERIOD = 6 -- seconds for the unlocked preview to sweep 100% -> 5% -> 100%
 local COMBAT_END_DELAY = 1
-local RED = { 1, 0.3, 0.25 }
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
 local GetSpecializationInfo = C_SpecializationInfo.GetSpecializationInfo
 
@@ -99,7 +98,7 @@ local function Remind(trigger, s)
 	else
 		spec = { title = "No pet", subtitle = SpellName(profile.call), icon = C_Spell.GetSpellTexture(profile.call) }
 	end
-	spec.owner, spec.label, spec.accent, spec.hold = "pet", "Pet", RED, 3
+	spec.owner, spec.label, spec.accent, spec.hold = "pet", "Pet", "danger", 3
 	ns.Banner_Show(spec)
 	if db.sound then
 		PlaySound(SOUNDKIT.RAID_WARNING, "Master")
@@ -411,7 +410,7 @@ module = ns.RegisterModule({
 			tooltip = "A dead pet, or no pet in combat, always shows." },
 		{ type = "slider", key = "threshold", label = "Warning below", min = 20, max = 70, step = 5,
 			format = Percent, onChange = Relayout,
-			tooltip = "Below this the bar turns red and glows. The gold tick on the bar marks it: a good time for Mend Pet." },
+			tooltip = "Below this the bar turns red and glows. The tick on the bar marks it: a good time for Mend Pet." },
 		{ type = "slider", key = "scale", label = "Size", min = 0.6, max = 1.6, step = 0.1, format = Scale,
 			onChange = Relayout },
 		{ type = "checkbox", key = "showPercent", label = "Show percent", onChange = Relayout },

@@ -1,12 +1,11 @@
 local addonName, ns = ...
 
 -- Title-card banner over the normal UI (Moments, pet check): an optional icon, a spaced label, the title in
--- gold Morpheus, a gold line with a small diamond and a grey subtitle. Drifts up while fading in, holds,
+-- the theme's title font, a line with a small diamond and a subtitle. Drifts up while fading in, holds,
 -- fades out. Click-through. Banners queue and wait while a cinematic hides the UI, and while Blizzard's own
 -- center-screen text (zone text, event toasts, raid warnings, boss emotes) is up, so they never overlap it.
 -- A moment that tells the same thing as Blizzard's zone text can hide that text instead.
 
-local GOLD = ns.SCENE_GOLD
 local FROM_TOP = 0.2 -- of screen height, center of the block
 local FADE_IN, FADE_OUT = 0.8, 1.0
 local HOLD = 4.5
@@ -56,14 +55,14 @@ local function Build()
 	block:SetSize(LINE_WIDTH, 100)
 
 	block.title = block:CreateFontString(nil, "OVERLAY")
-	block.title:SetFont(ns.SCENE_TITLE_FONT, 32, "")
-	block.title:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+	ns.Theme.SetFont(block.title, "title", 28)
+	block.title:SetTextColor(ns.Theme.Color("heading"))
 	block.title:SetShadowOffset(2, -2)
 	block.title:SetShadowColor(0, 0, 0, 0.9)
 	block.title:SetPoint("CENTER")
 
 	block.label = block:CreateFontString(nil, "OVERLAY")
-	block.label:SetFont(STANDARD_TEXT_FONT, 12, "")
+	ns.Theme.SetFont(block.label, "body", 12)
 	block.label:SetShadowOffset(1, -1)
 	block.label:SetShadowColor(0, 0, 0, 0.9)
 	block.label:SetPoint("BOTTOM", block.title, "TOP", 0, 6)
@@ -73,21 +72,22 @@ local function Build()
 	block.icon:SetPoint("BOTTOM", block.label, "TOP", 0, 8)
 	block.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 	block.iconBorder = block:CreateTexture(nil, "ARTWORK")
-	block.iconBorder:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.8)
+	local r, g, b = ns.Theme.Color("frame")
+	block.iconBorder:SetColorTexture(r, g, b, 0.8)
 	block.iconBorder:SetPoint("TOPLEFT", block.icon, -1, 1)
 	block.iconBorder:SetPoint("BOTTOMRIGHT", block.icon, 1, -1)
 
-	block.line = ns.SceneGoldLine(block, LINE_WIDTH, 0.9)
+	block.line = ns.SceneLine(block, LINE_WIDTH, 0.9)
 	block.line:SetPoint("TOPLEFT", block.title, "BOTTOM", -LINE_WIDTH / 2, -8)
 	block.diamond = block:CreateTexture(nil, "OVERLAY", nil, 1)
-	block.diamond:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	block.diamond:SetColorTexture(ns.Theme.Color("frame"))
 	block.diamond:SetSize(6, 6)
 	block.diamond:SetRotation(math.pi / 4)
 	block.diamond:SetPoint("CENTER", block.title, "BOTTOM", 0, -8)
 
 	block.subtitle = block:CreateFontString(nil, "OVERLAY")
-	block.subtitle:SetFont(STANDARD_TEXT_FONT, 14, "")
-	block.subtitle:SetTextColor(0.85, 0.85, 0.85)
+	ns.Theme.SetFont(block.subtitle, "body", 14)
+	block.subtitle:SetTextColor(ns.Theme.Color("text"))
 	block.subtitle:SetShadowOffset(1, -1)
 	block.subtitle:SetShadowColor(0, 0, 0, 0.9)
 	block.subtitle:SetPoint("TOP", block.title, "BOTTOM", 0, -18)
@@ -96,8 +96,8 @@ end
 
 local function Start(spec)
 	current, t = spec, 0
-	local accent = spec.accent or { 0.85, 0.85, 0.85 }
-	block.label:SetTextColor(accent[1], accent[2], accent[3])
+	-- accent: a color role, or an { r, g, b } that carries game meaning (quality glow); body text by default.
+	block.label:SetTextColor(ns.UI.RGBA(spec.accent or "text", 1))
 	block.label:SetText(ns.Spaced(spec.label or ""))
 	block.title:SetText(spec.title or "")
 	block.subtitle:SetText(spec.subtitle or "")

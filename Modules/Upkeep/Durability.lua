@@ -5,8 +5,8 @@ local addonName, ns = ...
 -- hunter pet check does. Rules in Data.lua.
 
 local ENTER_DELAY = 4 -- seconds after zoning in, as the pet check
-local ACCENT = { 0.95, 0.75, 0.3 }
-local RED = { 1, 0.3, 0.25 }
+local ACCENT = "warning" -- toast and banner accents (roles)
+local RED = "danger"
 local ICON = "Interface\\Icons\\Trade_BlackSmithing"
 
 local SLOT_NAMES = {

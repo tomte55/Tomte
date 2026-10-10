@@ -7,7 +7,6 @@ local addonName, ns = ...
 -- continent or stops tracking it on a zone. Tab switching is Panel/MapTabs.lua.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
 local KEY = "wq"
 local TAB_ICON = "Interface\\Icons\\INV_Misc_Map_01"
 local ROW_H, HEADER_H, ICON = 34, 24, 26
@@ -24,9 +23,9 @@ local MARKER_STRATA = "FULLSCREEN_DIALOG" -- above every map layer (RareScanner 
 local REP_ICON = "Interface\\Icons\\Achievement_Reputation_01"
 local GOLD_ICON = "Interface\\Icons\\INV_Misc_Coin_01"
 local NO_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
-local TIME_COLORS = { critical = { 1, 0.3, 0.25 }, low = { 1, 0.6, 0.2 }, normal = GREY }
-local MAIN_COLOR = "|cffe6e6e6"
-local WORTH_COLOR = "|cff4ee44e"
+local TIME_ROLES = { critical = "danger", low = "warning", normal = "textMuted" }
+local MAIN_ROLE = "text"
+local WORTH_ROLE = "success"
 local COLLECTIBLE_SUB = { mount = "Mount", pet = "Battle pet", toy = "Toy" }
 
 local db
@@ -188,29 +187,30 @@ local function HidePreview()
 	end
 end
 
-local function Line(text, color, wrap)
-	color = color or WHITE
-	GameTooltip:AddLine(text, color[1], color[2], color[3], wrap)
+-- role: theme color role ("text" by default).
+local function Line(text, role, wrap)
+	local r, g, b = UI.Color(role or "text")
+	GameTooltip:AddLine(text, r, g, b, wrap)
 end
 
 local function QuestLines(q, header)
 	if header then
 		Line(" ")
-		Line(q.title, GOLD)
+		Line(q.title, "heading")
 	end
 	local where = { q.zone, ns.WQ_Tags(q) ~= "" and ns.WQ_Tags(q) or nil }
 	if #where > 0 then
-		Line(table.concat(where, "  ·  "), GREY)
+		Line(table.concat(where, "  ·  "), "textMuted")
 	end
 	local time, tier = ns.WQ_TimeText(q.seconds)
 	if time then
-		Line(time .. " left", TIME_COLORS[tier])
+		Line(time .. " left", TIME_ROLES[tier])
 	end
 end
 
 local function RewardLines(q, skipItem)
 	if not q.loaded then
-		Line("Loading rewards…", GREY)
+		Line("Loading rewards…", "textMuted")
 		return
 	end
 	for _, item in ipairs(q.items) do
@@ -223,7 +223,7 @@ local function RewardLines(q, skipItem)
 			end
 			Line(text)
 			if item.headline then
-				Line("  " .. item.headline, GREY)
+				Line("  " .. item.headline, "textMuted")
 			end
 		end
 	end
@@ -251,15 +251,15 @@ local function ShowTooltip(row)
 		QuestLines(q, true)
 		RewardLines(q, item)
 	else
-		GameTooltip:SetText(q.title, GOLD[1], GOLD[2], GOLD[3])
+		GameTooltip:SetText(q.title, UI.Color("heading"))
 		QuestLines(q, false)
 		Line(" ")
 		RewardLines(q)
 	end
 	Line(" ")
-	Line(IsTracked(q) and "Click: stop tracking" or "Click: track it", GREY)
-	Line(panel.kind == "continent" and "Right-click: open its zone" or "Right-click: untrack", GREY)
-	Line("Shift-click: link in chat", GREY)
+	Line(IsTracked(q) and "Click: stop tracking" or "Click: track it", "textMuted")
+	Line(panel.kind == "continent" and "Right-click: open its zone" or "Right-click: untrack", "textMuted")
+	Line("Shift-click: link in chat", "textMuted")
 	GameTooltip:Show()
 	if panel.preview then
 		ns.ModelPreview_Show(panel.preview, db.preview and ModelFor(item) or nil)
@@ -299,10 +299,10 @@ local function NewRow()
 	row:EnableMouse(true)
 	row.hover = row:CreateTexture(nil, "BACKGROUND")
 	row.hover:SetAllPoints()
-	row.hover:SetColorTexture(1, 1, 1, 0.06)
+	row.hover:SetColorTexture(UI.Color("hover"))
 	row.hover:Hide()
 	row.tracked = row:CreateTexture(nil, "ARTWORK")
-	row.tracked:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.9)
+	row.tracked:SetColorTexture(UI.RGBA("accent", 0.9))
 	row.tracked:SetWidth(2)
 	row.tracked:SetPoint("TOPLEFT", 0, -3)
 	row.tracked:SetPoint("BOTTOMLEFT", 0, 3)
@@ -310,23 +310,23 @@ local function NewRow()
 	row.icon:SetSize(ICON, ICON)
 	row.icon:SetPoint("LEFT", 6, 0)
 	row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	row.right = UI.Text(row, 11, GREY)
+	row.right = UI.Text(row, 11, "textMuted", "number")
 	row.right:SetJustifyH("RIGHT")
 	row.right:SetPoint("TOPRIGHT", -6, -4)
-	row.name = UI.Text(row, 12, WHITE)
+	row.name = UI.Text(row, 12, "text")
 	row.name:SetWordWrap(false)
 	row.name:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 8, 0)
 	row.name:SetPoint("RIGHT", row.right, "LEFT", -6, 0)
-	row.sub = UI.Text(row, 11, GREY)
+	row.sub = UI.Text(row, 11, "textMuted")
 	row.sub:SetWordWrap(false)
 	row.sub:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMRIGHT", 8, 0)
 	row.sub:SetPoint("RIGHT", -6, 0)
-	row.title = UI.Text(row, 12, GOLD)
+	row.title = UI.Text(row, 12, "heading")
 	row.title:SetPoint("BOTTOMLEFT", 6, 4)
-	row.toggle = UI.Text(row, 11, GREY)
+	row.toggle = UI.Text(row, 11, "textMuted")
 	row.toggle:SetPoint("BOTTOMRIGHT", -6, 4)
 	row.line = row:CreateTexture(nil, "ARTWORK")
-	row.line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.25)
+	row.line:SetColorTexture(UI.RGBA("frame", 0.4))
 	row.line:SetHeight(1)
 	row.line:SetPoint("BOTTOMLEFT", 6, 1)
 	row.line:SetPoint("BOTTOMRIGHT", -6, 1)
@@ -379,7 +379,7 @@ local function SubText(q)
 		parts[#parts + 1] = tags
 	end
 	local main, secondary = ns.WQ_RewardText(q)
-	parts[#parts + 1] = (q.section == "worth" and WORTH_COLOR or MAIN_COLOR) .. main .. "|r"
+	parts[#parts + 1] = UI.Wrap(main, q.section == "worth" and WORTH_ROLE or MAIN_ROLE)
 	if secondary then
 		parts[#parts + 1] = secondary
 	end
@@ -410,13 +410,11 @@ local function SetQuest(row, q)
 	row.icon:SetTexture(RowIcon(q))
 	row.icon:SetDesaturated(q.dim == true)
 	row.name:SetText(q.title)
-	local color = q.dim and GREY or WHITE
-	row.name:SetTextColor(color[1], color[2], color[3])
+	UI.SetTextRole(row.name, q.dim and "textMuted" or "text")
 	row.sub:SetText(SubText(q))
 	local time, tier = ns.WQ_TimeText(q.seconds)
 	row.right:SetText(time or "")
-	local tc = TIME_COLORS[tier or "normal"]
-	row.right:SetTextColor(tc[1], tc[2], tc[3])
+	UI.SetTextRole(row.right, TIME_ROLES[tier or "normal"])
 	row.right:Show()
 	row.tracked:SetShown(IsTracked(q))
 end
@@ -470,7 +468,7 @@ function Refresh()
 	local count = Count(sections)
 	local note = ("%s  ·  %d %s"):format(mapName, count, count == 1 and "quest" or "quests")
 	if pending > 0 then
-		note = note .. "  |cff999999·  loading rewards…|r"
+		note = note .. "  " .. UI.Wrap("·  loading rewards…", "textFaint")
 	end
 	panel.note:SetText(note)
 	local y = 0
@@ -542,14 +540,14 @@ local function Build()
 	if not panel then
 		return
 	end
-	panel.note = UI.Text(panel, 11, GREY)
+	panel.note = UI.Text(panel, 11, "textMuted")
 	panel.note:SetPoint("TOPLEFT", panel.title, "BOTTOMLEFT", 0, -4)
 	panel.note:SetPoint("RIGHT", -10, 0)
 	panel.note:SetWordWrap(false)
 	panel.scroll = UI.Scroll(panel)
 	panel.scroll:SetPoint("TOPLEFT", panel.note, "BOTTOMLEFT", -6, -8)
 	panel.scroll:SetPoint("BOTTOMRIGHT", -10, 8)
-	panel.empty = UI.Text(panel, 12, GREY)
+	panel.empty = UI.Text(panel, 12, "textMuted")
 	panel.empty:SetPoint("TOPLEFT", panel.scroll, "TOPLEFT", 6, -4)
 	panel.empty:SetPoint("RIGHT", -10, 0)
 	panel:SetScript("OnUpdate", OnUpdate)

@@ -184,7 +184,7 @@ function ns.WayTarget_Get()
 		local _, _, description = C_Navigation.GetNextWaypointForMap(mapID)
 		if description and description ~= "" then
 			target.redirect = description
-			table.insert(target.lines, 1, "|cffffd173" .. description .. "|r")
+			table.insert(target.lines, 1, ns.UI.Wrap(description, "heading"))
 			target.lines[MAX_LINES + 1] = nil
 		end
 	end

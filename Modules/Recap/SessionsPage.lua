@@ -5,9 +5,8 @@ local addonName, ns = ...
 -- this week / all time with totals, and a list; click a row for its recap card. History logic in History.lua.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
-local GREEN, RED = { 0.45, 0.85, 0.45 }, { 1, 0.45, 0.35 }
-local VALUE_BLUE = { 0.56, 0.78, 1 }
+-- Colors by role: money in "heading", loot value in "accent" (so the two bars of a session differ), losses "danger".
+local MONEY, VALUE, LOSS = "heading", "accent", "danger"
 local CHART_H = 130
 local CHART_BARS = 30
 local ROW_H = 24
@@ -27,8 +26,9 @@ local HEADS = { when = "When", char = "Character", time = "Time", zone = "Mostly
 
 local page, db
 
+-- c: a theme role or an r, g, b table (class colors).
 local function SetColor(fs, c)
-	fs:SetTextColor(c[1], c[2], c[3])
+	fs:SetTextColor(UI.RGBA(c))
 end
 
 local function Signed(copper)
@@ -40,7 +40,7 @@ end
 
 local function ClassColor(class)
 	local c = class and C_ClassColor.GetClassColor(class)
-	return c and { c.r, c.g, c.b } or WHITE
+	return c and { c.r, c.g, c.b } or { UI.Color("text") }
 end
 
 local function WeekStart()
@@ -68,18 +68,19 @@ local function SessionTooltip(owner, h)
 	GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
 	GameTooltip:SetText(("%s, %s"):format(h.name or "?", date("%a %d %b %H:%M", h.start)), unpack(ClassColor(h.class)))
 	GameTooltip:AddLine(("%s%s"):format(ns.Recap_Duration(n.duration), h.zone and (", mostly in " .. h.zone) or ""), 1, 1, 1)
-	GameTooltip:AddDoubleLine("Net gold", Signed(n.net), GREY[1], GREY[2], GREY[3], 1, 1, 1)
-	GameTooltip:AddDoubleLine("Gold per hour", Signed(n.perHour), GREY[1], GREY[2], GREY[3], 1, 1, 1)
+	local mr, mg, mb = UI.Color("textMuted")
+	GameTooltip:AddDoubleLine("Net gold", Signed(n.net), mr, mg, mb, 1, 1, 1)
+	GameTooltip:AddDoubleLine("Gold per hour", Signed(n.perHour), mr, mg, mb, 1, 1, 1)
 	if n.value then
-		GameTooltip:AddDoubleLine("Loot worth", ns.Alts_Gold(n.value), GREY[1], GREY[2], GREY[3], VALUE_BLUE[1],
-			VALUE_BLUE[2], VALUE_BLUE[3])
+		local vr, vg, vb = UI.Color(VALUE)
+		GameTooltip:AddDoubleLine("Loot worth", ns.Alts_Gold(n.value), mr, mg, mb, vr, vg, vb)
 	end
 	local line = h.counts and ns.Recap_CountsLine and ns.Recap_CountsLine(h.counts)
 	if line and line ~= "" then
-		GameTooltip:AddLine(line, GREY[1], GREY[2], GREY[3], true)
+		GameTooltip:AddLine(line, mr, mg, mb, true)
 	end
 	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine("Click for the recap card", GOLD[1], GOLD[2], GOLD[3])
+	GameTooltip:AddLine("Click for the recap card", UI.RGB("heading"))
 	GameTooltip:Show()
 end
 
@@ -98,14 +99,14 @@ local function CreateChart(parent)
 	chart.bg:SetAllPoints()
 	chart.bg:SetColorTexture(1, 1, 1, 0.025)
 	chart.zero = chart:CreateTexture(nil, "ARTWORK")
-	chart.zero:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.3)
+	chart.zero:SetColorTexture(UI.RGBA("frame", 0.5))
 	chart.zero:SetHeight(1)
-	chart.label = UI.Text(chart, 11, GREY)
+	chart.label = UI.Text(chart, 11, "textMuted")
 	chart.label:SetPoint("TOPLEFT", 6, -4)
 	chart.max = chart:CreateFontString(nil, "OVERLAY")
-	chart.max:SetFont(ns.HomeKit.NARROW_FONT, 12, "")
+	UI.SetFont(chart.max, "number", 12)
 	chart.max:SetPoint("TOPRIGHT", -6, -4)
-	chart.max:SetTextColor(GREY[1], GREY[2], GREY[3])
+	UI.SetTextRole(chart.max, "textMuted")
 	chart.slots = {}
 	return chart
 end
@@ -116,7 +117,7 @@ local function Slot(chart, i)
 		slot = CreateFrame("Button", nil, chart)
 		slot.hl = slot:CreateTexture(nil, "BACKGROUND")
 		slot.hl:SetAllPoints()
-		slot.hl:SetColorTexture(1, 1, 1, 0.05)
+		slot.hl:SetColorTexture(UI.Color("hover"))
 		slot.hl:Hide()
 		slot.gold = slot:CreateTexture(nil, "ARTWORK")
 		slot.value = slot:CreateTexture(nil, "ARTWORK")
@@ -169,10 +170,10 @@ local function DrawChart(chart, list)
 		slot.gold:ClearAllPoints()
 		if num.main >= 0 then
 			slot.gold:SetPoint("BOTTOMLEFT", slot, "BOTTOMLEFT", math.floor(slotW * 0.15), zeroY)
-			slot.gold:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.85)
+			slot.gold:SetColorTexture(UI.RGBA(MONEY, 0.85))
 		else
 			slot.gold:SetPoint("BOTTOMLEFT", slot, "BOTTOMLEFT", math.floor(slotW * 0.15), zeroY - gh)
-			slot.gold:SetColorTexture(RED[1], RED[2], RED[3], 0.85)
+			slot.gold:SetColorTexture(UI.RGBA(LOSS, 0.85))
 		end
 		slot.gold:SetSize(barW, gh)
 		slot.value:SetShown(hasValue)
@@ -181,14 +182,14 @@ local function DrawChart(chart, list)
 			slot.value:ClearAllPoints()
 			slot.value:SetPoint("BOTTOMLEFT", slot, "BOTTOMLEFT", math.floor(slotW * 0.15) + barW + 2, zeroY)
 			slot.value:SetSize(barW, vh)
-			slot.value:SetColorTexture(VALUE_BLUE[1], VALUE_BLUE[2], VALUE_BLUE[3], 0.75)
+			slot.value:SetColorTexture(UI.RGBA(VALUE, 0.75))
 		end
 		slot:Show()
 	end
 	for i = n + 1, #chart.slots do
 		chart.slots[i]:Hide()
 	end
-	chart.none = chart.none or UI.Text(chart, 13, GREY)
+	chart.none = chart.none or UI.Text(chart, 13, "textMuted")
 	chart.none:SetPoint("CENTER")
 	chart.none:SetText("No sessions here yet. A session is kept when you log in again after it (2 minutes or longer).")
 	chart.none:SetShown(n == 0)
@@ -201,17 +202,17 @@ local function CreateRow(parent)
 	row:SetHeight(ROW_H)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
-	row.bg:SetColorTexture(1, 1, 1, 0.04)
+	row.bg:SetColorTexture(UI.Color("hover"))
 	row.bg:Hide()
 	row.cells = {}
 	for i, col in ipairs(COLUMNS) do
 		local fs
 		if col.right or col.key == "time" then
 			fs = row:CreateFontString(nil, "OVERLAY")
-			fs:SetFont(ns.HomeKit.NARROW_FONT, 14, "")
+			UI.SetFont(fs, "number", 14)
 			fs:SetShadowOffset(1, -1)
 		else
-			fs = UI.Text(row, 12, WHITE)
+			fs = UI.Text(row, 12, "text")
 		end
 		fs:SetWordWrap(false)
 		fs:SetJustifyH(col.right and "RIGHT" or "LEFT")
@@ -252,19 +253,19 @@ local function FillSession(row, h, width, indent)
 	local n = ns.Recap_HistoryNumbers(h)
 	local c = row.cells
 	c[1]:SetText(date(indent > 0 and "%H:%M" or "%a %d %b  %H:%M", h.start))
-	SetColor(c[1], GREY)
+	SetColor(c[1], "textMuted")
 	c[2]:SetText(h.name or "?")
 	SetColor(c[2], ClassColor(h.class))
 	c[3]:SetText(ns.Recap_Duration(n.duration))
-	SetColor(c[3], WHITE)
+	SetColor(c[3], "text")
 	c[4]:SetText(h.zone or "")
-	SetColor(c[4], GREY)
+	SetColor(c[4], "textMuted")
 	c[5]:SetText(Signed(n.net))
-	SetColor(c[5], n.net < 0 and RED or GOLD)
+	SetColor(c[5], n.net < 0 and LOSS or MONEY)
 	c[6]:SetText(Signed(n.perHour))
-	SetColor(c[6], n.perHour < 0 and RED or WHITE)
+	SetColor(c[6], n.perHour < 0 and LOSS or "text")
 	c[7]:SetText(n.value and ns.Alts_Gold(n.value) or "")
-	SetColor(c[7], VALUE_BLUE)
+	SetColor(c[7], VALUE)
 end
 
 local function FillNight(row, night, width)
@@ -274,18 +275,18 @@ local function FillNight(row, night, width)
 	local t = ns.Recap_HistoryTotals(night.sessions)
 	local c = row.cells
 	c[1]:SetText(("%s  %s-%s"):format(date("%a %d %b", night.first), date("%H:%M", night.first), date("%H:%M", night.last)))
-	SetColor(c[1], GOLD)
+	SetColor(c[1], "heading")
 	c[2]:SetText(#night.sessions == 1 and "1 session" or (#night.sessions .. " sessions"))
-	SetColor(c[2], GREY)
+	SetColor(c[2], "textMuted")
 	c[3]:SetText(ns.Recap_Duration(t.duration))
-	SetColor(c[3], GOLD)
+	SetColor(c[3], "heading")
 	c[4]:SetText("")
 	c[5]:SetText(Signed(t.net))
-	SetColor(c[5], t.net < 0 and RED or GOLD)
+	SetColor(c[5], t.net < 0 and LOSS or MONEY)
 	c[6]:SetText(Signed(t.perHour))
-	SetColor(c[6], GOLD)
+	SetColor(c[6], MONEY)
 	c[7]:SetText(t.value > 0 and ns.Alts_Gold(t.value) or "")
-	SetColor(c[7], VALUE_BLUE)
+	SetColor(c[7], VALUE)
 end
 
 local function Toggle(parent, width, get, texts, set)
@@ -373,7 +374,7 @@ ns.RecapSessionsPage = {
 			db.pageRange = db.pageRange == "week" and "all" or "week"
 		end)
 		frame.range:SetPoint("LEFT", frame.scope, "RIGHT", 8, 0)
-		frame.totals = UI.Text(frame, 12, GREY)
+		frame.totals = UI.Text(frame, 12, "textMuted")
 		frame.totals:SetPoint("LEFT", frame.range, "RIGHT", 14, 0)
 		frame.totals:SetPoint("RIGHT", -8, 0)
 		frame.totals:SetJustifyH("RIGHT")
@@ -389,12 +390,12 @@ ns.RecapSessionsPage = {
 		head:SetHeight(20)
 		frame.heads = {}
 		for i, col in ipairs(COLUMNS) do
-			local fs = UI.Text(head, 11, GREY)
+			local fs = UI.Text(head, 11, "textMuted")
 			fs:SetText(HEADS[col.key])
 			frame.heads[i] = fs
 		end
 		local line = head:CreateTexture(nil, "ARTWORK")
-		line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.2)
+		line:SetColorTexture(UI.RGBA("frame", 0.35))
 		line:SetHeight(1)
 		line:SetPoint("BOTTOMLEFT")
 		line:SetPoint("BOTTOMRIGHT")

@@ -1,45 +1,40 @@
 local addonName, ns = ...
 
--- Alts on Tomte's Home ("characters" slot): every character with level, profession icons (unspent knowledge in a
--- gold box) and gold, then the account's total gold (the Warband bank's included) and which of the eleven professions
+-- Alts on Tomte's Home ("characters" slot): every character with level, profession icons (unspent knowledge in
+-- brackets) and gold, then the account's total gold (the Warband bank's included) and which of the eleven professions
 -- somebody has (an unlit one's tooltip says who has a free slot for it).
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
 local ROW_H = 24
 local FOOT_H = 84
 
 local PROFESSIONS = ns.ALTS_PROFESSIONS -- the eleven, with stand-in icons (Data.lua)
 
-local function SetColor(fs, c)
-	fs:SetTextColor(c[1], c[2], c[3])
-end
-
-local function Narrow(parent, size)
-	local fs = parent:CreateFontString(nil, "OVERLAY")
-	fs:SetFont(ns.HomeKit.NARROW_FONT, size, "")
-	fs:SetShadowOffset(1, -1)
-	return fs
+-- Numbers (level, gold, counts) in the number font.
+local function Narrow(parent, size, role)
+	return UI.Text(parent, size, role, "number")
 end
 
 local function ShowCharTooltip(row)
 	local c = row.char
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
 	GameTooltip:SetText(c.name or "?", 1, 1, 1)
-	GameTooltip:AddLine(("Level %d %s %s"):format(c.level or 0, c.race or "", c.spec or ""), 0.8, 0.8, 0.8)
+	local tr, tg, tb = UI.Color("text")
+	local mr, mg, mb = UI.Color("textMuted")
+	GameTooltip:AddLine(("Level %d %s %s"):format(c.level or 0, c.race or "", c.spec or ""), tr, tg, tb)
 	for _, prof in ipairs(ns.Alts_Profs(c)) do
 		local line = ns.Alts_ProfText(prof)
 		if prof.unspent and prof.unspent > 0 then
 			line = line .. (", %d knowledge unspent"):format(prof.unspent)
 		end
-		GameTooltip:AddLine(line, 0.8, 0.8, 0.8)
+		GameTooltip:AddLine(line, tr, tg, tb)
 	end
 	local secondary = ns.Alts_SecondaryText(c)
 	if secondary then
-		GameTooltip:AddLine(secondary, 0.62, 0.62, 0.62, true)
+		GameTooltip:AddLine(secondary, mr, mg, mb, true)
 	end
 	if c.zone then
-		GameTooltip:AddLine(c.zone, 0.62, 0.62, 0.62)
+		GameTooltip:AddLine(c.zone, mr, mg, mb)
 	end
 	GameTooltip:Show()
 end
@@ -49,36 +44,33 @@ local function CreateRow(parent)
 	row:SetHeight(ROW_H)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
-	row.bg:SetColorTexture(1, 1, 1, 0.04)
+	row.bg:SetColorTexture(UI.Color("hover"))
 	row.bg:Hide()
 	row.line = row:CreateTexture(nil, "ARTWORK")
-	row.line:SetColorTexture(1, 1, 1, 0.05)
+	row.line:SetColorTexture(UI.Color("rule"))
 	row.line:SetHeight(1)
 	row.line:SetPoint("BOTTOMLEFT")
 	row.line:SetPoint("BOTTOMRIGHT")
-	row.name = UI.Text(row, 13, WHITE)
+	row.name = UI.Text(row, 13, "text")
 	row.name:SetPoint("LEFT")
 	row.name:SetWidth(110)
 	row.name:SetWordWrap(false)
-	row.level = Narrow(row, 14)
+	row.level = Narrow(row, 14, "textMuted")
 	row.level:SetPoint("LEFT", row.name, "RIGHT", 4, 0)
 	row.level:SetWidth(26)
 	row.level:SetJustifyH("RIGHT")
-	SetColor(row.level, GREY)
-	row.gold = Narrow(row, 14)
+	row.gold = Narrow(row, 14, "heading")
 	row.gold:SetPoint("RIGHT")
 	row.gold:SetJustifyH("RIGHT")
-	SetColor(row.gold, GOLD)
 	row.profs = {}
 	for i = 1, 2 do
 		local icon = row:CreateTexture(nil, "ARTWORK")
 		icon:SetSize(16, 16)
 		icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-		local pill = Narrow(row, 12)
-		SetColor(pill, GOLD)
+		local pill = Narrow(row, 12, "accent")
 		row.profs[i] = { icon = icon, pill = pill }
 	end
-	row.none = UI.Text(row, 12, DIM)
+	row.none = UI.Text(row, 12, "textFaint")
 	row.none:SetPoint("LEFT", row.level, "RIGHT", 18, 0)
 	row.none:SetText("no professions")
 	row:SetScript("OnEnter", function(self)
@@ -102,7 +94,7 @@ local function SetRow(row, c)
 	if color then
 		row.name:SetTextColor(color.r, color.g, color.b)
 	else
-		SetColor(row.name, WHITE)
+		UI.SetTextRole(row.name, "text")
 	end
 	row.level:SetText(c.level or "?")
 	row.gold:SetText(ns.Alts_Gold(c.money))
@@ -138,13 +130,12 @@ local function Create(frame, Kit)
 	foot:SetPoint("BOTTOMLEFT")
 	foot:SetPoint("BOTTOMRIGHT")
 	foot:SetHeight(FOOT_H)
-	foot.totalLabel = UI.Text(foot, 13, GREY)
+	foot.totalLabel = UI.Text(foot, 13, "textMuted")
 	foot.totalLabel:SetPoint("TOPLEFT", 0, -8)
 	foot.totalLabel:SetText("Total gold")
-	foot.total = Narrow(foot, 16)
+	foot.total = Narrow(foot, 16, "heading")
 	foot.total:SetPoint("TOPRIGHT", 0, -6)
-	SetColor(foot.total, GOLD)
-	foot.covLabel = UI.Text(foot, 13, GREY)
+	foot.covLabel = UI.Text(foot, 13, "textMuted")
 	foot.covLabel:SetPoint("TOPLEFT", 0, -34)
 	foot.covLabel:SetText("Professions covered")
 	foot.covCount = Narrow(foot, 16)
@@ -157,18 +148,20 @@ local function Create(frame, Kit)
 		b.icon:SetAllPoints()
 		b.icon:SetTexture(p[3])
 		b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-		UI.Border(b, GOLD[1], GOLD[2], GOLD[3], 0.6)
+		UI.Border(b, "frame", 0.6)
 		b:EnableMouse(true)
 		b:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_TOP")
 			GameTooltip:SetText(p[2], 1, 1, 1)
 			if #self.who > 0 then
+				local r, g, b = UI.Color("text")
 				for _, line in ipairs(self.who) do
-					GameTooltip:AddLine(line, 0.8, 0.8, 0.8)
+					GameTooltip:AddLine(line, r, g, b)
 				end
 			else
 				-- Who could pick it up: characters with a free profession slot.
-				GameTooltip:AddLine(ns.Alts_GapText({ p[2] }, ns.Alts_FreeSlots(ns.altsDB.chars)), 0.62, 0.62, 0.62, true)
+				local r, g, b = UI.Color("textMuted")
+				GameTooltip:AddLine(ns.Alts_GapText({ p[2] }, ns.Alts_FreeSlots(ns.altsDB.chars)), r, g, b, true)
 			end
 			GameTooltip:Show()
 		end)
@@ -180,7 +173,7 @@ local function Create(frame, Kit)
 	end
 	frame.foot = foot
 	frame.footH = FOOT_H -- Home puts Next up between the list and the footer
-	frame.hint = UI.Text(frame, 12, GREY)
+	frame.hint = UI.Text(frame, 12, "textMuted")
 	frame.hint:SetPoint("RIGHT")
 	frame.hint:SetWordWrap(true)
 	frame.hint:SetText("Log in on your other characters once to add them here.")
@@ -235,10 +228,10 @@ local function Refresh(frame)
 		covered = covered + (has and 1 or 0)
 		b.icon:SetDesaturated(not has)
 		b.icon:SetAlpha(has and 1 or 0.35)
-		UI.SetBorderColor(b, GOLD[1], GOLD[2], GOLD[3], has and 0.6 or 0.1)
+		UI.SetBorderColor(b, "frame", has and 0.6 or 0.1)
 	end
 	foot.covCount:SetText(("%d of %d"):format(covered, #PROFESSIONS))
-	SetColor(foot.covCount, covered == #PROFESSIONS and GOLD or WHITE)
+	UI.SetTextRole(foot.covCount, covered == #PROFESSIONS and "accent" or "text")
 	-- One row of icons under the label, as large as the column allows (up to 26 px).
 	local step = math.max(math.min(math.floor((frame:GetWidth() + 4) / #PROFESSIONS), 30), 14)
 	for i, b in ipairs(foot.icons) do

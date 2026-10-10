@@ -5,12 +5,11 @@ local addonName, ns = ...
 -- shift-click links in chat, right-click on a rare that's up sets a waypoint. Tab switching is Panel/MapTabs.lua.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
 local KEY = "collect"
 local TAB_ICON = "Interface\\Icons\\Ability_Mount_RidingHorse"
 local ROW_H, HEADER_H, ICON = 34, 24, 26
 local LOADING_TICK = 1 -- seconds between refreshes while the journals are read
-local UP_NOW = "|cff4ee44eUp now|r"
+local UP_NOW = UI.Wrap("Up now", "success")
 
 local db
 local panel
@@ -86,7 +85,7 @@ local function HidePreview()
 end
 
 local function Hint(text)
-	GameTooltip:AddLine(text, GREY[1], GREY[2], GREY[3])
+	GameTooltip:AddLine(text, UI.RGB("textMuted"))
 end
 
 local function ShowTooltip(row)
@@ -107,7 +106,7 @@ local function ShowTooltip(row)
 			GameTooltip:AddLine((e.source:gsub("|n", "\n")), 1, 1, 1, true)
 		end
 		if e.zone then
-			GameTooltip:AddLine(e.zone, GOLD[1], GOLD[2], GOLD[3])
+			GameTooltip:AddLine(e.zone, UI.RGB("heading"))
 		end
 		if e.upNow then
 			GameTooltip:AddLine(UP_NOW .. ": " .. (e.drop or "") .. " is up nearby.", 1, 1, 1, true)
@@ -153,27 +152,27 @@ local function NewRow()
 	row:EnableMouse(true)
 	row.hover = row:CreateTexture(nil, "BACKGROUND")
 	row.hover:SetAllPoints()
-	row.hover:SetColorTexture(1, 1, 1, 0.06)
+	row.hover:SetColorTexture(UI.Color("hover"))
 	row.hover:Hide()
 	row.icon = row:CreateTexture(nil, "ARTWORK")
 	row.icon:SetSize(ICON, ICON)
 	row.icon:SetPoint("LEFT", 6, 0)
 	row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	row.right = UI.Text(row, 11, GREY)
+	row.right = UI.Text(row, 11, "textMuted")
 	row.right:SetJustifyH("RIGHT")
 	row.right:SetPoint("RIGHT", -6, 0)
-	row.name = UI.Text(row, 12, WHITE)
+	row.name = UI.Text(row, 12, "text")
 	row.name:SetWordWrap(false)
 	row.name:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 8, 0)
 	row.name:SetPoint("RIGHT", row.right, "LEFT", -6, 0)
-	row.sub = UI.Text(row, 11, GREY)
+	row.sub = UI.Text(row, 11, "textMuted")
 	row.sub:SetWordWrap(false)
 	row.sub:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMRIGHT", 8, 0)
 	row.sub:SetPoint("RIGHT", row.right, "LEFT", -6, 0)
-	row.title = UI.Text(row, 12, GOLD)
+	row.title = UI.Text(row, 12, "heading")
 	row.title:SetPoint("BOTTOMLEFT", 6, 4)
 	row.line = row:CreateTexture(nil, "ARTWORK")
-	row.line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.25)
+	row.line:SetColorTexture(UI.RGBA("frame", 0.4))
 	row.line:SetHeight(1)
 	row.line:SetPoint("BOTTOMLEFT", 6, 1)
 	row.line:SetPoint("BOTTOMRIGHT", -6, 1)
@@ -285,7 +284,7 @@ function Refresh()
 	ns.Collect_ReadProgress(entries)
 	local note = mapName
 	if loading then
-		note = note .. ("  |cff999999reading the journals... %d%%|r"):format(math.floor(state.progress * 100))
+		note = note .. "  " .. UI.Wrap(("reading the journals... %d%%"):format(math.floor(state.progress * 100)), "textFaint")
 	end
 	panel.note:SetText(note)
 	local sections = ns.Collect_Sections(entries, { show = db.show, collapsed = db.collapsed })
@@ -355,14 +354,14 @@ local function Build()
 	if not panel then
 		return
 	end
-	panel.note = UI.Text(panel, 11, GREY)
+	panel.note = UI.Text(panel, 11, "textMuted")
 	panel.note:SetPoint("TOPLEFT", panel.title, "BOTTOMLEFT", 0, -4)
 	panel.note:SetPoint("RIGHT", -10, 0)
 	panel.note:SetWordWrap(false)
 	panel.scroll = UI.Scroll(panel)
 	panel.scroll:SetPoint("TOPLEFT", panel.note, "BOTTOMLEFT", -6, -8)
 	panel.scroll:SetPoint("BOTTOMRIGHT", -10, 8)
-	panel.empty = UI.Text(panel, 12, GREY)
+	panel.empty = UI.Text(panel, 12, "textMuted")
 	panel.empty:SetPoint("TOPLEFT", panel.scroll, "TOPLEFT", 6, -4)
 	panel.empty:SetPoint("RIGHT", -10, 0)
 	panel:SetScript("OnUpdate", OnUpdate)

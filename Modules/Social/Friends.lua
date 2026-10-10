@@ -8,8 +8,8 @@ local addonName, ns = ...
 -- lockdown, so watched guildmates are missed inside instances).
 
 local OWNER = "friends"
-local ACCENT = { 0, 0.85, 1 } -- Battle.net blue
-local GUILD_ACCENT = { 0.25, 1, 0.25 }
+local CHAT_TYPE = "BN_INLINE_TOAST_ALERT" -- the chat color of Blizzard's own "has come online" lines (Battle.net blue)
+local GUILD_CHAT_TYPE = "GUILD"
 local SETTLE = 15 -- seconds after login in which "came online" is the login catch-up, not news
 local SUMMARY_DELAY = 8 -- seconds after login: friend and guild lists have arrived
 local BN_DELAY = 2 -- seconds: a Battle.net friend's game info fills in just after the online event
@@ -127,7 +127,7 @@ local function Announce(entry)
 	ns.Toast_Show({
 		owner = OWNER,
 		label = entry.guild and "Guildmate online" or "Friend online",
-		accent = entry.guild and GUILD_ACCENT or ACCENT,
+		accent = ns.Toast_ChatColor(entry.guild and GUILD_CHAT_TYPE or CHAT_TYPE),
 		title = ClassColored(entry.name, entry.class),
 		recentTitle = entry.recentTitle,
 		text = entry.text,
@@ -148,9 +148,9 @@ local function Announce(entry)
 end
 
 -- "3 friends online" with the number in the accent color, so it stands out from the words.
-local COUNT_COLOR = CreateColor(ACCENT[1], ACCENT[2], ACCENT[3])
 local function Count(n, one, many)
-	return COUNT_COLOR:WrapTextInColorCode(tostring(n)) .. " " .. (n == 1 and one or many)
+	local c = ns.Toast_ChatColor(CHAT_TYPE)
+	return CreateColor(c[1], c[2], c[3]):WrapTextInColorCode(tostring(n)) .. " " .. (n == 1 and one or many)
 end
 
 local function Summary(preview)
@@ -199,7 +199,7 @@ local function Summary(preview)
 	ns.Toast_Show({
 		owner = OWNER,
 		label = "Online now",
-		accent = ACCENT,
+		accent = ns.Toast_ChatColor(CHAT_TYPE),
 		title = Count(friends, "friend online", "friends online"),
 		text = #lines > 0 and table.concat(lines, "\n") or (friends == 0 and "Nobody's online right now." or nil),
 		hold = 12,
@@ -319,7 +319,7 @@ local function Preview()
 		return
 	end
 	Summary(true)
-	ns.Toast_Show({ owner = OWNER, label = "Friend online", accent = ACCENT, title = ClassColored("Jaina", "MAGE"),
+	ns.Toast_Show({ owner = OWNER, label = "Friend online", accent = ns.Toast_ChatColor(CHAT_TYPE), title = ClassColored("Jaina", "MAGE"),
 		text = "Level 90 - Silvermoon City", hold = 8, test = true })
 end
 

@@ -5,7 +5,7 @@ local addonName, ns = ...
 -- or a clean Gear Check upgrade. Pure logic in Data.lua, game reading in Scan.lua.
 
 local OWNER = "wq"
-local ACCENT = { 0.95, 0.75, 0.3 }
+local ACCENT = "accent" -- toast accent (a role, kept by name in Recent)
 local ICON = "Interface\\Icons\\INV_Misc_Map_01"
 local DEBOUNCE = 1 -- QUEST_LOG_UPDATE and item info come in bursts; a redraw rescans the whole map
 local ZONE_DELAY = 3 -- seconds after arriving before the zone is read
@@ -277,11 +277,11 @@ module = ns.RegisterModule({
 						local main = ns.WQ_RewardText(q)
 						rows[#rows + 1] = {
 							icon = ns.WQ_RowIcon(q), text = main, right = ns.WQ_TimeText(q.seconds),
-							color = s.key == "worth" and { 1, 0.82, 0.45 } or nil,
+							color = s.key == "worth" and "success" or nil,
 							onEnter = function(row)
 								GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
 								GameTooltip:SetText(q.title, 1, 1, 1)
-								GameTooltip:AddLine(main, 0.8, 0.8, 0.8)
+								GameTooltip:AddLine(main, ns.UI.RGB("text"))
 								GameTooltip:Show()
 							end,
 						}

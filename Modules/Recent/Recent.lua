@@ -6,7 +6,6 @@ local addonName, ns = ...
 -- character); their click actions only last for this session. Logic in Data.lua.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
 local ROW_H = 42
 local BLOCK_ROW_H = 24
 local BLOCK_ROWS = 4
@@ -87,8 +86,18 @@ local function Run(entry)
 	action("LeftButton")
 end
 
-local function ColorHex(c)
-	return ("%02x%02x%02x"):format(c[1] * 255, c[2] * 255, c[3] * 255)
+-- An entry's accent: a theme role or a saved { r, g, b }. Roles a later version no longer has fall back to "accent".
+local function Accent(e)
+	local accent = e.accent
+	if type(accent) == "string" and not ns.Theme.colors[accent] then
+		accent = nil
+	end
+	return UI.RGBA(accent or "accent")
+end
+
+local function AccentWrap(e, text)
+	local r, g, b = Accent(e)
+	return ("|cff%02x%02x%02x%s|r"):format(r * 255, g * 255, b * 255, text)
 end
 
 local function SetIcon(texture, e)
@@ -103,12 +112,13 @@ local function Tooltip(row, e)
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
 	GameTooltip:SetText(e.title or e.label or "?", 1, 1, 1, 1, true)
 	if e.text then
-		GameTooltip:AddLine(e.text, GREY[1], GREY[2], GREY[3], true)
+		local r, g, b = UI.Color("textMuted")
+		GameTooltip:AddLine(e.text, r, g, b, true)
 	end
 	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine(("%s, %s ago"):format(e.char or "?", ns.Recent_Ago(GetServerTime() - e.at)), DIM[1] * 2, DIM[2] * 2, DIM[3] * 2)
+	GameTooltip:AddLine(("%s, %s ago"):format(e.char or "?", ns.Recent_Ago(GetServerTime() - e.at)), UI.RGB("textMuted"))
 	if actions[e] then
-		GameTooltip:AddLine("Click: same as clicking the toast", GOLD[1], GOLD[2], GOLD[3])
+		GameTooltip:AddLine("Click: same as clicking the toast", UI.RGB("accent"))
 	end
 	GameTooltip:Show()
 end
@@ -120,7 +130,7 @@ local function CreateRow(parent)
 	row:SetHeight(ROW_H)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
-	row.bg:SetColorTexture(1, 1, 1, 0.04)
+	row.bg:SetColorTexture(UI.Color("hover"))
 	row.bg:Hide()
 	row.bar = row:CreateTexture(nil, "ARTWORK")
 	row.bar:SetPoint("TOPLEFT", 0, -4)
@@ -130,14 +140,14 @@ local function CreateRow(parent)
 	row.icon:SetSize(28, 28)
 	row.icon:SetPoint("LEFT", 10, 0)
 	row.ago = row:CreateFontString(nil, "OVERLAY")
-	row.ago:SetFont(ns.HomeKit.NARROW_FONT, 13, "")
+	UI.SetFont(row.ago, ns.HomeKit.NARROW_FONT, 13)
 	row.ago:SetPoint("TOPRIGHT", -4, -6)
 	row.ago:SetJustifyH("RIGHT")
-	row.title = UI.Text(row, 13, WHITE)
+	row.title = UI.Text(row, 13, "text")
 	row.title:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 10, 1)
 	row.title:SetPoint("RIGHT", row.ago, "LEFT", -10, 0)
 	row.title:SetWordWrap(false)
-	row.text = UI.Text(row, 12, GREY)
+	row.text = UI.Text(row, 12, "textMuted")
 	row.text:SetPoint("TOPLEFT", row.title, "BOTTOMLEFT", 0, -3)
 	row.text:SetPoint("RIGHT", -4, 0)
 	row.text:SetWordWrap(false)
@@ -158,18 +168,18 @@ end
 local function SetRow(row, e, now)
 	row.entry = e
 	SetIcon(row.icon, e)
-	local accent = e.accent or GOLD
-	row.bar:SetColorTexture(accent[1], accent[2], accent[3], 0.9)
-	local label = e.label and ("|cff%s%s|r  "):format(ColorHex(accent), e.label) or ""
-	local count = (e.count or 1) > 1 and ("  |cff9e9e9ex%d|r"):format(e.count) or ""
+	local r, g, b = Accent(e)
+	row.bar:SetColorTexture(r, g, b, 0.9)
+	local label = e.label and (AccentWrap(e, e.label) .. "  ") or ""
+	local count = (e.count or 1) > 1 and ("  " .. UI.Wrap("x" .. e.count, "textMuted")) or ""
 	row.title:SetText(label .. (e.title or "") .. count)
 	local text = (e.text or ""):gsub("\n", "  ")
 	if db.scope ~= "char" and e.guid ~= UnitGUID("player") and e.char then
-		text = ("%s  |cff666666(%s)|r"):format(text, e.char)
+		text = ("%s  %s"):format(text, UI.Wrap("(" .. e.char .. ")", "textFaint"))
 	end
 	row.text:SetText(text)
 	row.ago:SetText(ns.Recent_Ago(now - e.at))
-	row.ago:SetTextColor(GREY[1], GREY[2], GREY[3])
+	UI.SetTextRole(row.ago, "textMuted")
 	local live = actions[e] ~= nil
 	row.icon:SetDesaturated(not live)
 	row.title:SetAlpha(live and 1 or 0.7)
@@ -195,14 +205,14 @@ local RecentPage = {
 				end
 			end
 		end)
-		frame.info = UI.Text(frame, 12, GREY)
+		frame.info = UI.Text(frame, 12, "textMuted")
 		frame.info:SetPoint("TOPLEFT", 8, 0)
 		frame.info:SetPoint("RIGHT", frame.clear, "LEFT", -12, 0)
 		frame.scroll = UI.Scroll(frame)
 		frame.scroll:SetPoint("TOPLEFT", 0, -30)
 		frame.scroll:SetPoint("BOTTOMRIGHT", -10, 0)
 		frame.rows, frame.headers = {}, {}
-		frame.none = UI.Text(frame.scroll.content, 13, GREY)
+		frame.none = UI.Text(frame.scroll.content, 13, "textMuted")
 		frame.none:SetPoint("TOPLEFT", 8, -8)
 		frame.none:SetText("Nothing yet. Toasts and banners show up here after they've been on screen.")
 		function frame.Refresh()
@@ -219,7 +229,7 @@ local RecentPage = {
 					h = h + 1
 					local head = frame.headers[h]
 					if not head then
-						head = UI.Text(content, 14, GOLD, ns.HomeKit.DISPLAY_FONT)
+						head = UI.Text(content, 13, "heading", ns.HomeKit.DISPLAY_FONT)
 						frame.headers[h] = head
 					end
 					head:SetText(group)
@@ -280,9 +290,8 @@ local function RefreshBlock(frame)
 	for i = 1, n do
 		local e = list[i]
 		local row = Kit.PoolRow(frame.rows, i, frame)
-		local accent = e.accent or GOLD
-		local text = ("|cff%s%s|r %s"):format(ColorHex(accent), e.title or e.label or "", (e.text or ""):gsub("\n", "  "))
-		row:Set(e.icon, text, WHITE, ns.Recent_Ago(now - e.at))
+		local text = ("%s %s"):format(AccentWrap(e, e.title or e.label or ""), (e.text or ""):gsub("\n", "  "))
+		row:Set(e.icon, text, "text", ns.Recent_Ago(now - e.at))
 		if e.iconAtlas then
 			row.icon:SetAtlas(e.iconAtlas)
 			row.icon:Show()

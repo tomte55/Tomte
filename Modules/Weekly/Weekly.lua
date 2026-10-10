@@ -5,7 +5,6 @@ local addonName, ns = ...
 -- Data.lua holds the logic, Collect.lua reads the game, BoardPage.lua and Popup.lua draw. This file wires them up,
 -- owns the options and commands, and toasts when a character's Concentration fills up.
 
-local ACCENT = { 0.4, 0.8, 1 }
 local CONC_ICON = "Interface\\Icons\\INV_Misc_Gear_01" -- when the profession's own icon isn't known
 local MAX_TIMER = 86400
 
@@ -56,7 +55,7 @@ local function CheckToasts()
 		local prof = snap.profs[due.skillLine]
 		prof.conc.notified = true
 		ns.Toast_Show({
-			owner = "weekly", label = "Concentration", accent = ACCENT, title = snap.name or "?",
+			owner = "weekly", label = "Concentration", accent = "accent", title = snap.name or "?",
 			text = (prof.name or "Profession") .. " Concentration is full. Craft before it goes to waste.",
 			icon = prof.icon or CONC_ICON, hold = 10, holdInCombat = true,
 			onClick = function()
@@ -255,7 +254,7 @@ local function ListQuests()
 	ns.Print(#list .. " learned weekly quests:")
 	for _, q in ipairs(list) do
 		local done = C_QuestLog.IsQuestFlaggedCompleted(q.id)
-		print(("  %d  %s  %s"):format(q.id, q.title, done and "|cff73d973done|r" or "|cffaaaaaaopen|r"))
+		print(("  %d  %s  %s"):format(q.id, q.title, done and ns.UI.Wrap("done", "success") or ns.UI.Wrap("open", "textMuted")))
 	end
 end
 
@@ -276,7 +275,7 @@ local function PrintIDs()
 					tostring(info.quantity), tostring(info.maxQuantity), tostring(info.maxWeeklyQuantity),
 					tostring(info.totalEarned), tostring(info.useTotalEarnedForMaxQty)))
 			else
-				print(("  %d  |cffff6060unknown|r"):format(id))
+				print(("  %d  %s"):format(id, ns.UI.Wrap("unknown", "danger")))
 			end
 		end
 	end
@@ -295,8 +294,9 @@ local function PrintIDs()
 				tostring(info.rechargingAmountPerCycle)) or "none"))
 			for _, k in ipairs(ns.Weekly_ProfQuestIDs(def)) do
 				local title = C_QuestLog.GetTitleForQuestID(k)
-				print(("  %d  %s  %s"):format(k, title or "|cffaaaaaa(no title)|r",
-					C_QuestLog.IsQuestFlaggedCompleted(k) and "|cff73d973done|r" or "open"))
+				print(("  %d  %s  %s"):format(k, title or ns.UI.Wrap("(no title)", "textMuted"),
+					C_QuestLog.IsQuestFlaggedCompleted(k) and ns.UI.Wrap("done", "success") or "open"))
+
 			end
 		else
 			print("  not in the table")

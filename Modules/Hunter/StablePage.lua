@@ -6,8 +6,6 @@ local addonName, ns = ...
 -- its details.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
-local GREEN = { 0.5, 0.88, 0.5 }
 local PREVIEW_W = 260
 local MODEL_H = 240
 local ROW_H, HEADER_H = 20, 24
@@ -17,7 +15,7 @@ local DEFAULT_SCENE = 718 -- PetInfo.uiModelSceneID's default: Blizzard's pet mo
 local PET_ACTOR = "pet" -- the actor tag in pet model scenes
 local RETRY_LOOKUP = 0.5 -- seconds; a creature the client hasn't cached yet takes a moment to load
 local SLOT_LABEL = { "1", "2", "3", "4", "5", "B" } -- B = the BM bonus slot
-local GREY_CODE = "|cff9d9d9d"
+local MUTED_CODE = "|c" .. UI.Hex("textMuted")
 
 local page
 local summary
@@ -133,16 +131,16 @@ local function NewRow()
 	local row = CreateFrame("Button", nil, page.list.content)
 	row.hover = row:CreateTexture(nil, "BACKGROUND")
 	row.hover:SetAllPoints()
-	row.hover:SetColorTexture(1, 1, 1, 0.04)
+	row.hover:SetColorTexture(UI.Color("hover"))
 	row.hover:Hide()
-	row.toggle = UI.Text(row, 12, GREY)
+	row.toggle = UI.Text(row, 12, "textMuted")
 	row.toggle:SetWidth(10)
 	row.icon = row:CreateTexture(nil, "ARTWORK")
 	row.icon:SetSize(16, 16)
 	row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	row.name = UI.Text(row, 12, WHITE)
+	row.name = UI.Text(row, 12, "text")
 	row.name:SetWordWrap(false)
-	row.extra = UI.Text(row, 11, GREY)
+	row.extra = UI.Text(row, 11, "textMuted")
 	row.extra:SetJustifyH("RIGHT")
 	row.extra:SetPoint("RIGHT", -6, 0)
 	row.extra:SetWordWrap(false)
@@ -164,7 +162,7 @@ local function NewRow()
 		if self.entry then
 			clicked = self.entry
 			ShowPreview()
-			Layout() -- the clicked row turns gold
+			Layout() -- the clicked row turns to the accent
 		elseif self.onClick then
 			self.onClick()
 			Layout()
@@ -194,7 +192,7 @@ local function Header(y, text)
 	row.name:SetPoint("BOTTOMLEFT", 4, 5)
 	row.name:SetPoint("RIGHT", row.extra, "LEFT", -8, 0)
 	row.name:SetText(text:upper())
-	row.name:SetTextColor(GREY[1], GREY[2], GREY[3])
+	UI.SetTextRole(row.name, "textMuted")
 	row.extra:SetText("")
 	return HEADER_H
 end
@@ -209,14 +207,13 @@ local function PetRow(y, indent, pet, label)
 	row.name:ClearAllPoints()
 	row.name:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
 	row.name:SetPoint("RIGHT", row.extra, "LEFT", -8, 0)
-	row.name:SetText(label and (GREY_CODE .. label .. "|r   " .. pet.name) or pet.name)
-	local c = IsClicked(pet) and GOLD or WHITE
-	row.name:SetTextColor(c[1], c[2], c[3])
+	row.name:SetText(label and (MUTED_CODE .. label .. "|r   " .. pet.name) or pet.name)
+	UI.SetTextRole(row.name, IsClicked(pet) and "accent" or "text")
 	row.extra:SetText(PetLine(pet))
 	return ROW_H
 end
 
-local function GroupRow(y, key, name, extra, color)
+local function GroupRow(y, key, name, extra, role)
 	local row = Acquire(y, ROW_H)
 	local open = expanded[key]
 	row.onClick = function()
@@ -230,26 +227,26 @@ local function GroupRow(y, key, name, extra, color)
 	row.name:SetPoint("LEFT", row.toggle, "RIGHT", 4, 0)
 	row.name:SetPoint("RIGHT", row.extra, "LEFT", -8, 0)
 	row.name:SetText(name)
-	row.name:SetTextColor(color[1], color[2], color[3])
+	UI.SetTextRole(row.name, role)
 	row.extra:SetText(extra)
 	return ROW_H, open
 end
 
-local function TextRow(y, indent, name, extra, color)
+local function TextRow(y, indent, name, extra, role)
 	local row = Acquire(y, ROW_H)
 	row.name:ClearAllPoints()
 	row.name:SetPoint("LEFT", indent + 4, 0)
 	row.name:SetPoint("RIGHT", row.extra, "LEFT", -8, 0)
 	row.name:SetText(name)
-	row.name:SetTextColor(color[1], color[2], color[3])
+	UI.SetTextRole(row.name, role)
 	row.extra:SetText(extra or "")
 	return ROW_H
 end
 
 -- A beast from the tame log. Old entries saved without an npcID have no model to show.
 local function CreatureRow(y, creature)
-	local color = creature.npcID and (IsClicked(creature) and GOLD or WHITE) or GREY
-	local h = TextRow(y, INDENT, creature.name, creature.zone, color)
+	local role = creature.npcID and (IsClicked(creature) and "accent" or "text") or "textMuted"
+	local h = TextRow(y, INDENT, creature.name, creature.zone, role)
 	rows[used].entry = creature.npcID and creature or nil
 	return h
 end
@@ -267,14 +264,14 @@ function Layout()
 		if pet then
 			y = y + PetRow(y, 0, pet, SLOT_LABEL[slot])
 		elseif slot <= 5 then
-			y = y + TextRow(y, 0, GREY_CODE .. SLOT_LABEL[slot] .. "|r   empty", nil, DIM)
+			y = y + TextRow(y, 0, MUTED_CODE .. SLOT_LABEL[slot] .. "|r   empty", nil, "textFaint")
 		end
 	end
 
 	y = y + Header(y, ("Families  -  %d owned"):format(#summary.owned))
 	for _, family in ipairs(summary.owned) do
 		local key = "owned:" .. family.name
-		local h, open = GroupRow(y, key, (family.exotic and "Exotic " or "") .. family.name, #family.pets .. (#family.pets == 1 and " pet" or " pets"), GOLD)
+		local h, open = GroupRow(y, key, (family.exotic and "Exotic " or "") .. family.name, #family.pets .. (#family.pets == 1 and " pet" or " pets"), "heading")
 		y = y + h
 		if open then
 			for _, pet in ipairs(family.pets) do
@@ -285,11 +282,11 @@ function Layout()
 
 	y = y + Header(y, ("Seen, not tamed  -  %d"):format(#summary.seenOnly))
 	if #summary.seenOnly == 0 then
-		y = y + TextRow(y, 0, "Hover beasts in the world to fill this list.", nil, DIM)
+		y = y + TextRow(y, 0, "Hover beasts in the world to fill this list.", nil, "textFaint")
 	end
 	for _, family in ipairs(summary.seenOnly) do
 		local key = "seen:" .. family.name
-		local h, open = GroupRow(y, key, family.name, #family.creatures .. " seen", GREEN)
+		local h, open = GroupRow(y, key, family.name, #family.creatures .. " seen", "success")
 		y = y + h
 		if open then
 			for _, creature in ipairs(family.creatures) do
@@ -353,8 +350,8 @@ local function CreatePreview()
 			end
 		end
 	end)
-	local function Line(size, color, font, above, gap)
-		local fs = UI.Text(preview, size, color, font)
+	local function Line(size, role, fontRole, above, gap)
+		local fs = UI.Text(preview, size, role, fontRole)
 		fs:SetPoint("TOP", above, "BOTTOM", 0, -gap)
 		fs:SetPoint("LEFT", 8, 0)
 		fs:SetPoint("RIGHT", -8, 0)
@@ -362,20 +359,20 @@ local function CreatePreview()
 		fs:SetWordWrap(false)
 		return fs
 	end
-	preview.name = Line(20, GOLD, ns.SCENE_TITLE_FONT, preview.scene, 8)
-	preview.info = Line(13, WHITE, nil, preview.name, 8)
-	preview.level = Line(12, GREY, nil, preview.info, 6)
-	preview.ability = Line(12, GREY, nil, preview.level, 4)
+	preview.name = Line(18, "heading", "title", preview.scene, 8)
+	preview.info = Line(13, "text", nil, preview.name, 8)
+	preview.level = Line(12, "textMuted", nil, preview.info, 6)
+	preview.ability = Line(12, "textMuted", nil, preview.level, 4)
 	return preview
 end
 
 local function Create(frame)
 	page = frame
-	page.summary = UI.Text(page, 12, GREY)
+	page.summary = UI.Text(page, 12, "textMuted")
 	page.summary:SetPoint("TOPLEFT", 8, -2)
 	page.summary:SetPoint("RIGHT", -8, 0)
 	local line = page:CreateTexture(nil, "ARTWORK")
-	line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.25)
+	line:SetColorTexture(UI.RGBA("frame", 0.4))
 	line:SetHeight(1)
 	line:SetPoint("TOPLEFT", page.summary, "BOTTOMLEFT", 0, -8)
 	line:SetPoint("RIGHT", -8, 0)
@@ -394,7 +391,7 @@ local function Create(frame)
 		Layout()
 	end
 
-	page.empty = UI.Text(page, 12, GREY)
+	page.empty = UI.Text(page, 12, "textMuted")
 	page.empty:SetPoint("TOP", page.list, "TOP", 0, -40)
 	page.empty:SetWidth(280)
 	page.empty:SetJustifyH("CENTER")

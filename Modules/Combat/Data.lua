@@ -18,9 +18,10 @@ local PROFILES = {
 
 local THROTTLE = 10 -- seconds between two of the same reminder
 
-local GREEN = { 0.25, 0.85, 0.3 }
-local ORANGE = { 1, 0.7, 0.2 }
-local RED = { 1, 0.2, 0.15 }
+-- Health colors (green full, orange hurt, red low), as Blizzard's own health bars read: game meaning, not theme.
+local GREEN = { 0.25, 0.85, 0.3 } -- theme: health color (game meaning)
+local ORANGE = { 1, 0.7, 0.2 } -- theme: health color (game meaning)
+local RED = { 1, 0.2, 0.15 } -- theme: health color (game meaning)
 
 function ns.PetBar_Profile(class)
 	return class and PROFILES[class] or nil

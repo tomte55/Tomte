@@ -9,11 +9,7 @@ local OWNER = "ach"
 local MAX_PINS = 5
 local SCAN_DELAY = 5 -- seconds after the first loading screen
 local HOLIDAY_TTL = 300 -- seconds the calendar's holiday list is reused
-local ACCENTS = {
-	almost = { 1, 0.82, 0.45 },
-	lastStep = { 0.5, 0.88, 0.5 },
-	pinned = { 0.55, 0.78, 1 },
-}
+local ACCENTS = { almost = "warning", lastStep = "success", pinned = "accent" } -- toast accent roles
 local LABELS = { almost = "Almost done", lastStep = "One step left", pinned = "Pinned" }
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "CRITERIA_UPDATE", "CRITERIA_EARNED", "ACHIEVEMENT_EARNED", "NEW_MOUNT_ADDED",

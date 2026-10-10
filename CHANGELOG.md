@@ -5,6 +5,10 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- New look for all of Tomte: a dark, softly textured map-paper background with faint contour lines, thin brown
+  frames, Cinzel titles and Alegreya text, and a muted arcane-purple accent for bars, links and selections. Done,
+  soon and missing keep their green, amber and red. Russian, Korean and Chinese clients keep the game's own fonts
+  where the new ones have no letters for them.
 - Almost Done and the Crafting list can be minimized: hover one and click the minus in its top-right corner to
   fold it down to its title (the plus opens it again). It stays folded after a reload.
 - Flight cinematics: the character showcase's ground shadow now sits right under the feet for every race and size.

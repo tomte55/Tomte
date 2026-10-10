@@ -1,10 +1,9 @@
 local addonName, ns = ...
 
 -- Coverage on the flight master map: a strip at the top with timed / total flight masters for the map on
--- screen and the zone the player is in, and an orange dot on every flight master without a recorded time
+-- screen and the zone the player is in, and a warning-colored dot on every flight master without a recorded time
 -- (its tooltip says so too). Refreshed each time the map opens, one frame after Blizzard places the pins.
 
-local ORANGE = { 1, 0.55, 0.25 }
 local STRIP_PAD = 12
 
 local strip
@@ -16,22 +15,19 @@ local function CreateStrip()
 	strip:SetHeight(24)
 	strip:SetPoint("TOP", FlightMapFrame.ScrollContainer, "TOP", 0, -8)
 	strip:SetFrameLevel(FlightMapFrame.ScrollContainer:GetFrameLevel() + 1000) -- above the pins
-	local bg = strip:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(0.05, 0.05, 0.06, 0.85)
-	UI.Border(strip, UI.GOLD[1], UI.GOLD[2], UI.GOLD[3], 0.35)
-	strip.text = UI.Text(strip, 12, UI.WHITE)
+	UI.Panel(strip, { size = "small" })
+	strip.text = UI.Text(strip, 12, "text")
 	strip.text:SetPoint("CENTER", 0, 0)
 end
 
 local function Line(name, nodes)
 	local n, total = ns.Coverage_Count(nodes, timed)
-	return ("|cffffd173%s|r  %d / %d"):format(name, n, total)
+	return ("%s  %d / %d"):format(ns.UI.Wrap(name, "heading"), n, total)
 end
 
 local function Dot(pin)
 	local dot = pin:CreateTexture(nil, "OVERLAY", nil, 7)
-	dot:SetColorTexture(ORANGE[1], ORANGE[2], ORANGE[3], 1)
+	dot:SetColorTexture(ns.UI.Color("warning"))
 	dot:SetSize(7, 7)
 	dot:SetPoint("CENTER", pin, "TOPRIGHT", -2, -2)
 	local mask = pin:CreateMaskTexture()
@@ -90,5 +86,3 @@ function ns.MapCoverage_Hook()
 		C_Timer.After(0, Refresh)
 	end)
 end
-
-ns.ORANGE = ORANGE

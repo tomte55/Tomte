@@ -2,9 +2,9 @@ local addonName, ns = ...
 
 -- Countdown bar while flying. Created the first time it is needed (a flight, or unlocking it to move it).
 
+local UI = ns.UI
 local WIDTH, HEIGHT = 240, 18
-local COLOR_COUNTDOWN = { 0.2, 0.75, 0.25 }
-local COLOR_RECORDING = { 0.75, 0.2, 0.1 }
+local ROLE_COUNTDOWN, ROLE_RECORDING = "accent", "danger"
 local SWEEP_PERIOD = 2 -- seconds for the recording spark to cross the bar
 local PREVIEW_SECONDS = 90
 local PREVIEW_STOPS = { 0.35, 0.7 }
@@ -53,8 +53,7 @@ end
 -- recording: no estimate at all (red sweep). learning: this exact route has no recorded time yet (REC dot),
 -- which includes estimated countdowns.
 local function SetMode(recording, learning)
-	local c = recording and COLOR_RECORDING or COLOR_COUNTDOWN
-	bar:SetStatusBarColor(c[1], c[2], c[3])
+	bar:SetStatusBarColor(UI.Color(recording and ROLE_RECORDING or ROLE_COUNTDOWN))
 	bar.dot:SetShown(learning)
 	bar.rec:SetShown(learning)
 	bar.spark:SetShown(recording)
@@ -136,18 +135,11 @@ local function CreateBar()
 	bar:SetScript("OnUpdate", OnUpdate)
 	bar.ticks = {}
 
-	local border = CreateFrame("Frame", nil, bar, "BackdropTemplate")
+	local border = CreateFrame("Frame", nil, bar)
 	border:SetPoint("TOPLEFT", -4, 4)
 	border:SetPoint("BOTTOMRIGHT", 4, -4)
 	border:SetFrameLevel(math.max(bar:GetFrameLevel() - 1, 0))
-	border:SetBackdrop({
-		bgFile = "Interface\\Buttons\\WHITE8x8",
-		edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-		edgeSize = 12,
-		insets = { left = 3, right = 3, top = 3, bottom = 3 },
-	})
-	border:SetBackdropColor(0, 0, 0, 0.7)
-	border:SetBackdropBorderColor(0.6, 0.6, 0.6)
+	UI.Panel(border, { size = "small", alpha = 0.85, subtle = true })
 
 	bar.spark = bar:CreateTexture(nil, "OVERLAY", nil, -1)
 	bar.spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
@@ -157,7 +149,7 @@ local function CreateBar()
 	bar.dot = bar:CreateTexture(nil, "OVERLAY")
 	bar.dot:SetSize(10, 10)
 	bar.dot:SetPoint("LEFT", bar, "LEFT", 5, 0)
-	bar.dot:SetColorTexture(1, 0.15, 0.15)
+	bar.dot:SetColorTexture(UI.Color("danger"))
 	local mask = bar:CreateMaskTexture()
 	mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
 	mask:SetAllPoints(bar.dot)
@@ -172,19 +164,25 @@ local function CreateBar()
 
 	bar.rec = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	bar.rec:SetPoint("LEFT", bar.dot, "RIGHT", 3, 0)
+	UI.SetFont(bar.rec, "body", 10)
 	bar.rec:SetText("REC")
-	bar.rec:SetTextColor(1, 0.35, 0.35)
+	UI.SetTextRole(bar.rec, "danger")
 
 	bar.time = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+	UI.SetFont(bar.time, "number", 12)
+	UI.SetTextRole(bar.time, "text")
 	bar.time:SetPoint("RIGHT", bar, "RIGHT", -6, 0)
 
 	bar.name = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	UI.SetFont(bar.name, "body", 10)
+	UI.SetTextRole(bar.name, "text")
 	bar.name:SetJustifyH("LEFT")
 	bar.name:SetWordWrap(false)
 
 	bar.eta = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	bar.eta:SetPoint("TOPRIGHT", bar, "BOTTOMRIGHT", 0, -6)
-	bar.eta:SetTextColor(0.8, 0.8, 0.8)
+	UI.SetFont(bar.eta, "number", 10)
+	UI.SetTextRole(bar.eta, "textMuted")
 
 	bar.fadeIn = CreateFade(0, 1, 0.3)
 	bar.fadeOut = CreateFade(1, 0, 0.4)

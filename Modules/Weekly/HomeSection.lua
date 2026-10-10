@@ -4,14 +4,9 @@ local addonName, ns = ...
 -- the next one its progress) and what's still open this week for this character, in two columns.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
 local SLOT_W, SLOT_H, SLOT_GAP = 46, 24, 6
 local VAULT_W = 96 + 3 * (SLOT_W + SLOT_GAP)
 local TODO_H = 22
-
-local function SetColor(fs, c)
-	fs:SetTextColor(c[1], c[2], c[3])
-end
 
 local function ResetText()
 	local seconds = C_DateAndTime.GetSecondsUntilWeeklyReset()
@@ -32,7 +27,7 @@ local function Create(frame, Kit)
 	frame.labels, frame.slots = {}, {}
 	for t, track in ipairs(ns.WEEKLY_TRACKS) do
 		local y = -(40 + (t - 1) * (SLOT_H + SLOT_GAP))
-		local label = UI.Text(frame, 13, GREY)
+		local label = UI.Text(frame, 13, "textMuted")
 		label:SetPoint("TOPLEFT", 0, y - 5)
 		label:SetText(track.label)
 		frame.labels[t] = label
@@ -47,11 +42,11 @@ local function Create(frame, Kit)
 	frame.todoHead = Kit.Heading(frame)
 	frame.todoHead:SetPoint("TOPLEFT", VAULT_W + 40, 0)
 	frame.todoHead:SetPoint("RIGHT")
-	frame.todoHead.title:SetFont(STANDARD_TEXT_FONT, 13, "")
-	SetColor(frame.todoHead.title, GREY)
+	UI.SetFont(frame.todoHead.title, "body", 13)
+	UI.SetTextRole(frame.todoHead.title, "textMuted")
 	frame.todo = {}
 
-	frame.note = UI.Text(frame, 13, GREY)
+	frame.note = UI.Text(frame, 13, "textMuted")
 	frame.note:SetPoint("TOPLEFT", 0, -40)
 	frame.note:SetPoint("RIGHT")
 	frame.note:SetWordWrap(true)
@@ -81,10 +76,10 @@ local function Refresh(frame)
 			parts[#parts + 1] = ("%d%% of the way to %d"):format(math.floor(xp / xpMax * 100), level + 1)
 			local rested = GetXPExhaustion()
 			if rested and rested > 0 then
-				parts[#parts + 1] = ("|cff73d973rested %d%%|r"):format(math.min(math.floor(rested / xpMax * 100 + 0.5), 150))
+				parts[#parts + 1] = UI.Wrap(("rested %d%%"):format(math.min(math.floor(rested / xpMax * 100 + 0.5), 150)), "success")
 			end
 		end
-		frame.note:SetText(table.concat(parts, ", ") .. ". |cff9e9e9eThe weekly board starts at max level.|r")
+		frame.note:SetText(table.concat(parts, ", ") .. ". " .. UI.Wrap("The weekly board starts at max level.", "textMuted"))
 		Kit.HideFrom(frame.todo, 1)
 		return 64
 	end
@@ -103,7 +98,8 @@ local function Refresh(frame)
 		local r = rows[i]
 		local row = Kit.PoolRow(frame.todo, i, frame)
 		row:SetHeight(TODO_H)
-		row:Set(nil, r.text, r.done and DIM or WHITE, r.right, r.done and DIM or GREY)
+		row:Set(nil, r.text, r.done and "textFaint" or "text", r.right, r.done and "textFaint" or "textMuted")
+
 		local col, line = math.floor((i - 1) / perCol), (i - 1) % perCol
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", left + col * (colW + 28), -(36 + line * TODO_H))

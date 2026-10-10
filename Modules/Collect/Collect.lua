@@ -9,7 +9,7 @@ local START_DELAY = 6 -- seconds after the first loading screen before the journ
 local ZONE_DELAY = 2 -- seconds after arriving before the zone toast
 local DEBOUNCE = 1
 local CRITERIA_DEBOUNCE = 2
-local ACCENT = { 0.55, 0.85, 0.55 }
+local ACCENT = "success" -- toast accent (a role)
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "NEW_MOUNT_ADDED", "NEW_PET_ADDED", "ACHIEVEMENT_EARNED",
 	"CRITERIA_UPDATE", "VIGNETTES_UPDATED", "VIGNETTE_MINIMAP_UPDATED",

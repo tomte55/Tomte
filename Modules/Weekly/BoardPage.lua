@@ -6,20 +6,24 @@ local addonName, ns = ...
 -- character). The rows come from Data.lua's models; ns.WeeklyList draws a list of them and is shared with the popup.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
-local GREEN = { 0.45, 0.85, 0.45 }
-local ORANGE = { 1, 0.6, 0.2 }
-local STATE_COLORS = { done = GREEN, open = WHITE, warn = ORANGE, dim = DIM, gold = GOLD }
+local STATE_ROLES = { done = "success", open = "text", warn = "warning", dim = "textFaint", gold = "accent" }
 local ROW_H, HEADER_H, BANNER_H = 20, 28, 30
 local LABEL_W, CELL_MIN, CELL_MAX, GRID_HEAD_H = 210, 56, 96, 34
 
+-- color: a role, or a color table (class colors).
 local function SetColor(fs, color)
-	fs:SetTextColor(color[1], color[2], color[3])
+	local r, g, b = UI.RGBA(color)
+	fs:SetTextColor(r, g, b)
 end
 
 local function ClassColor(class)
 	local color = class and C_ClassColor.GetClassColor(class)
-	return color and { color.r, color.g, color.b } or WHITE
+	return color and { color.r, color.g, color.b } or "text"
+end
+
+local function TipLine(text, role)
+	local r, g, b = UI.Color(role)
+	GameTooltip:AddLine(text, r, g, b)
 end
 
 -- Model rows drawn top-down into a frame: ns.WeeklyRows(parent) -> rows; rows:Render(items) returns the height used.
@@ -31,9 +35,9 @@ function ns.WeeklyRows(parent)
 		local row = CreateFrame("Frame", nil, parent)
 		row.bg = row:CreateTexture(nil, "BACKGROUND")
 		row.bg:SetAllPoints()
-		row.left = UI.Text(row, 12, WHITE)
+		row.left = UI.Text(row, 12, "text")
 		row.left:SetWordWrap(false)
-		row.right = UI.Text(row, 12, WHITE)
+		row.right = UI.Text(row, 12, "text")
 		row.right:SetJustifyH("RIGHT")
 		row.right:SetWordWrap(false)
 		row.right:SetPoint("RIGHT", -8, 0)
@@ -42,7 +46,7 @@ function ns.WeeklyRows(parent)
 		row.line:SetHeight(1)
 		row.line:SetPoint("BOTTOMLEFT", 8, 2)
 		row.line:SetPoint("BOTTOMRIGHT", -8, 2)
-		row.line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.25)
+		row.line:SetColorTexture(UI.RGBA("frame", 0.25))
 		row.bar = CreateFrame("StatusBar", nil, row)
 		row.bar:SetHeight(2)
 		row.bar:SetPoint("BOTTOMLEFT", 8, 0)
@@ -55,17 +59,17 @@ function ns.WeeklyRows(parent)
 		-- Rows with a hint show it on hover; rows with a place set a waypoint on click.
 		row.hover = row:CreateTexture(nil, "BACKGROUND")
 		row.hover:SetAllPoints()
-		row.hover:SetColorTexture(1, 1, 1, 0.05)
+		row.hover:SetColorTexture(UI.Color("hover"))
 		row.hover:Hide()
 		row:SetScript("OnEnter", function(self)
 			self.hover:Show()
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			GameTooltip:SetText(self.tipTitle or "", 1, 1, 1)
+			GameTooltip:SetText(self.tipTitle or "", UI.Color("text"))
 			if self.tip then
 				GameTooltip:AddLine(self.tip, nil, nil, nil, true)
 			end
 			if self.loc then
-				GameTooltip:AddLine("Click to set a waypoint", 0.45, 0.85, 0.45)
+				TipLine("Click to set a waypoint", "success")
 			end
 			GameTooltip:Show()
 		end)
@@ -105,42 +109,42 @@ function ns.WeeklyRows(parent)
 			row.right:SetText("")
 			row.tip, row.loc, row.tipTitle = item.tip, item.loc, item.left
 			row:EnableMouse(item.tip ~= nil or item.loc ~= nil)
-			local color = STATE_COLORS[item.state] or WHITE
+			local color = STATE_ROLES[item.state] or "text"
 			if item.kind == "header" then
 				row:SetHeight(HEADER_H)
-				row.left:SetFont(STANDARD_TEXT_FONT, 14, "")
+				UI.SetFont(row.left, "body", 14)
 				row.left:SetPoint("BOTTOMLEFT", 8, 6)
 				row.left:SetText(item.text)
-				SetColor(row.left, item.class and ClassColor(item.class) or GOLD)
+				SetColor(row.left, item.class and ClassColor(item.class) or "heading")
 				row.right:ClearAllPoints()
 				row.right:SetPoint("BOTTOMRIGHT", -8, 7)
 				row.right:SetText(item.right or "")
-				SetColor(row.right, item.state == "warn" and ORANGE or GREY)
+				SetColor(row.right, item.state == "warn" and "warning" or "textMuted")
 				row.line:Show()
 			elseif item.kind == "banner" then
 				row:SetHeight(BANNER_H)
-				row.bg:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.14)
+				row.bg:SetColorTexture(UI.RGBA("accent", 0.14))
 				row.bg:Show()
-				row.left:SetFont(STANDARD_TEXT_FONT, 13, "")
+				UI.SetFont(row.left, "body", 13)
 				row.left:SetPoint("LEFT", 10, 0)
 				row.left:SetText(item.text)
-				SetColor(row.left, GOLD)
+				SetColor(row.left, "heading")
 			else
 				row:SetHeight(ROW_H)
-				row.left:SetFont(STANDARD_TEXT_FONT, 12, "")
+				UI.SetFont(row.left, "body", 12)
 				row.left:SetPoint("LEFT", item.indent and 26 or 12, 0)
 				local left = item.left or ""
 				if item.note then
-					left = ("%s  |cff9e9e9e%s|r"):format(left, item.note)
+					left = ("%s  %s"):format(left, UI.Wrap(item.note, "textMuted"))
 				end
 				row.left:SetText(left)
 				local dim = item.state == "dim" or item.dimLeft
-				SetColor(row.left, dim and DIM or (item.indent and GREY or WHITE))
+				SetColor(row.left, dim and "textFaint" or (item.indent and "textMuted" or "text"))
 				row.right:SetText(item.right or "")
 				SetColor(row.right, color)
 				if item.frac then
 					row.bar:SetValue(item.frac)
-					row.bar:SetStatusBarColor(color[1], color[2], color[3], 0.7)
+					row.bar:SetStatusBarColor(UI.RGBA(color, 0.7))
 					row.bar:Show()
 				end
 			end
@@ -194,12 +198,12 @@ local function NewGrid(parent)
 		local cell = g.cells[g.used]
 		if not cell then
 			cell = CreateFrame("Frame", nil, content)
-			cell.text = UI.Text(cell, 12, WHITE)
+			cell.text = UI.Text(cell, 12, "text")
 			cell.text:SetJustifyH("CENTER")
 			cell.text:SetPoint("LEFT")
 			cell.text:SetPoint("RIGHT")
 			cell.text:SetWordWrap(false)
-			cell.sub = UI.Text(cell, 10, ORANGE)
+			cell.sub = UI.Text(cell, 10, "warning")
 			cell.sub:SetJustifyH("CENTER")
 			cell.sub:SetPoint("TOP", cell.text, "BOTTOM", 0, -2)
 			cell.bg = cell:CreateTexture(nil, "BACKGROUND")
@@ -207,7 +211,7 @@ local function NewGrid(parent)
 			cell:SetScript("OnEnter", function(self)
 				if self.tip then
 					GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-					GameTooltip:SetText(self.tipTitle or "", 1, 1, 1)
+					GameTooltip:SetText(self.tipTitle or "", UI.Color("text"))
 					GameTooltip:AddLine(self.tip, nil, nil, nil, true)
 					GameTooltip:Show()
 				end
@@ -247,10 +251,10 @@ local function NewGrid(parent)
 			SetColor(cell.text, ClassColor(v.class))
 			if v.vaultReady then
 				cell.sub:SetText("vault waiting")
-				SetColor(cell.sub, ORANGE)
+				SetColor(cell.sub, "warning")
 			elseif v.stale then
 				cell.sub:SetText("reset since")
-				SetColor(cell.sub, DIM)
+				SetColor(cell.sub, "textFaint")
 			end
 			cell.tipTitle = (v.name or "?") .. (v.realm and (" - " .. v.realm) or "")
 			cell.tip = v.at and ("Last updated " .. date("%a %d %b %H:%M", v.at)) or nil
@@ -267,14 +271,14 @@ local function NewGrid(parent)
 				label.text:SetPoint("BOTTOMLEFT", 8, 6)
 				label.text:SetJustifyH("LEFT")
 				label.text:SetText(row.header)
-				SetColor(label.text, GOLD)
+				SetColor(label.text, "heading")
 				y = y + HEADER_H
 			else
 				label.text:SetPoint("LEFT", 12, 0)
 				label.text:SetPoint("RIGHT", -4, 0)
 				label.text:SetJustifyH("LEFT")
 				label.text:SetText(row.label)
-				SetColor(label.text, GREY)
+				SetColor(label.text, "textMuted")
 				for i, c in ipairs(row.cells) do
 					local cell = Cell()
 					cell:SetSize(cellW, ROW_H)
@@ -284,7 +288,7 @@ local function NewGrid(parent)
 					cell.text:SetPoint("RIGHT")
 					cell.text:SetJustifyH("CENTER")
 					cell.text:SetText(c.text)
-					SetColor(cell.text, STATE_COLORS[c.state] or WHITE)
+					SetColor(cell.text, STATE_ROLES[c.state] or "text")
 					if i % 2 == 1 then
 						cell.bg:SetColorTexture(1, 1, 1, 0.03)
 						cell.bg:Show()
@@ -312,7 +316,7 @@ local function Layout()
 	local db = ns.weeklyDB
 	local view = db.view
 	for _, b in ipairs(page.buttons) do
-		SetColor(b.label, b.key == view and GOLD or GREY)
+		SetColor(b.label, b.key == view and "heading" or "textMuted")
 		b.selected:SetShown(b.key == view)
 	end
 	local now = GetServerTime()
@@ -378,7 +382,7 @@ ns.WeeklyBoardPage = {
 			b:SetWidth(math.max(math.ceil(b.label:GetUnboundedStringWidth()) + 22, 56))
 			b.key = view.key
 			b.selected = b:CreateTexture(nil, "ARTWORK")
-			b.selected:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.9)
+			b.selected:SetColorTexture(UI.RGBA("accent", 0.9))
 			b.selected:SetHeight(2)
 			b.selected:SetPoint("BOTTOMLEFT", 4, 2)
 			b.selected:SetPoint("BOTTOMRIGHT", -4, 2)
@@ -425,9 +429,10 @@ ns.WeeklyBoardPage = {
 			end
 		end
 		-- When the week resets, on every view.
-		page.reset = UI.Text(page, 13, GREY)
+		page.reset = UI.Text(page, 13, "textMuted")
 		page.reset:SetPoint("TOPRIGHT", -12, -6)
-		page.note = UI.Text(page, 12, GREY)
+		page.note = UI.Text(page, 12, "textMuted")
+
 		page.note:SetPoint("TOPLEFT", 8, -38)
 		page.note:SetPoint("RIGHT", -8, 0)
 		page.note:SetWordWrap(true)

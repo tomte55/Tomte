@@ -9,9 +9,6 @@ local addonName, ns = ...
 -- Options > AddOns only has a button that opens it. Built on first use.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
-local RED = { 1, 0.45, 0.35 }
-local TITLE_FONT = "Fonts\\MORPHEUS.TTF"
 local DEFAULT_W, DEFAULT_H = 960, 640
 local MIN_W, MIN_H = 820, 560
 local SIDEBAR_W = 220
@@ -74,15 +71,15 @@ local function CreateModuleRow(parent)
 	row:SetHeight(ROW_H)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
-	row.bg:SetColorTexture(1, 1, 1, 0.05)
+	row.bg:SetColorTexture(UI.Color("hover"))
 	row.bar = row:CreateTexture(nil, "ARTWORK")
-	row.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	row.bar:SetColorTexture(UI.Color("accent"))
 	row.bar:SetPoint("TOPLEFT")
 	row.bar:SetPoint("BOTTOMLEFT")
 	row.bar:SetWidth(2)
 	row.check = UI.Checkbox(row)
 	row.check:SetPoint("LEFT", 12, 0)
-	row.name = UI.Text(row, 13, WHITE)
+	row.name = UI.Text(row, 13, "text")
 	row.name:SetPoint("LEFT", row.check, "RIGHT", 10, 0)
 	row.name:SetPoint("RIGHT", -8, 0)
 	row.name:SetWordWrap(false)
@@ -91,13 +88,14 @@ local function CreateModuleRow(parent)
 		local module = row.module
 		row.bg:Show()
 		GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-		GameTooltip:SetText(module.name, GOLD[1], GOLD[2], GOLD[3])
+		GameTooltip:SetText(module.name, UI.Color("heading"))
 		if module.description then
 			GameTooltip:AddLine(module.description, 1, 1, 1, true)
 		end
 		local reason = ns.ModuleBlockedReason(module)
 		if reason then
-			GameTooltip:AddLine(reason, RED[1], RED[2], RED[3], true)
+			local r, g, b = UI.Color("danger")
+			GameTooltip:AddLine(reason, r, g, b, true)
 		end
 		GameTooltip:Show()
 	end
@@ -124,8 +122,7 @@ local function SetRow(row, module, selected)
 	local reason = ns.ModuleBlockedReason(module)
 	row.check:SetChecked(ns.ModuleEnabled(module))
 	row.check:SetEnabled(reason == nil and not module.alwaysOn)
-	local c = reason and DIM or (selected and GOLD or WHITE)
-	row.name:SetTextColor(c[1], c[2], c[3])
+	UI.SetTextRole(row.name, reason and "textFaint" or (selected and "heading" or "text"))
 	row.name:SetText(module.name)
 	row.bar:SetShown(selected)
 	row.bg:SetShown(selected or row:IsMouseOver())
@@ -135,19 +132,18 @@ end
 local function CreateCategoryHeader(parent)
 	local b = CreateFrame("Button", nil, parent)
 	b:SetHeight(HEADER_H)
-	b.toggle = UI.Text(b, 12, GREY)
+	b.toggle = UI.Text(b, 12, "textMuted")
 	b.toggle:SetPoint("BOTTOMLEFT", 10, 6)
 	b.toggle:SetWidth(10)
-	b.text = UI.Text(b, 11, GREY)
+	b.text = UI.Text(b, 11, "textMuted", "title")
 	b.text:SetPoint("BOTTOMLEFT", b.toggle, "BOTTOMRIGHT", 4, 0)
-	b.count = UI.Text(b, 11, DIM)
+	b.count = UI.Text(b, 11, "textFaint", "number")
 	b.count:SetPoint("BOTTOMRIGHT", -10, 6)
 	b:SetScript("OnEnter", function(self)
-		self.text:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
+		UI.SetTextRole(self.text, "text")
 	end)
 	b:SetScript("OnLeave", function(self)
-		local c = self.color
-		self.text:SetTextColor(c[1], c[2], c[3])
+		UI.SetTextRole(self.text, self.color)
 	end)
 	b:SetScript("OnClick", function(self)
 		local collapsed = ns.db.panel.collapsed
@@ -181,9 +177,9 @@ function RefreshList()
 			header.toggle:SetText(searching and "" or (collapsed and "+" or "-"))
 			header.text:SetText(cat:upper())
 			header.count:SetText(#matches)
-			-- A collapsed category holding the selected module stays gold, so you can see where it is.
-			header.color = (collapsed and current and current.category == cat) and GOLD or GREY
-			header.text:SetTextColor(header.color[1], header.color[2], header.color[3])
+			-- A collapsed category holding the selected module stays in the accent, so you can see where it is.
+			header.color = (collapsed and current and current.category == cat) and "accent" or "textMuted"
+			UI.SetTextRole(header.text, header.color)
 			header:ClearAllPoints()
 			header:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
 			header:SetPoint("RIGHT", content, "RIGHT")
@@ -220,14 +216,11 @@ local function CreateSearch(parent)
 	box:SetPoint("TOPLEFT", 12, -14)
 	box:SetPoint("RIGHT", -12, 0)
 	box:SetAutoFocus(false)
-	box:SetFont(STANDARD_TEXT_FONT, 12, "")
-	box:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
+	UI.SetFont(box, "body", 12)
+	UI.SetTextRole(box, "text")
 	box:SetTextInsets(8, 8, 0, 0)
-	local bg = box:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BOX[1], UI.BOX[2], UI.BOX[3], UI.BOX[4])
-	UI.Border(box, GOLD[1], GOLD[2], GOLD[3], 0.35)
-	local placeholder = UI.Text(box, 12, DIM)
+	UI.Surface(box, 0.35)
+	local placeholder = UI.Text(box, 12, "textFaint")
 	placeholder:SetPoint("LEFT", 8, 0)
 	placeholder:SetText("Search")
 	local refresh = UI.Debounce(UI.SEARCH_DELAY, function()
@@ -245,10 +238,10 @@ local function CreateSearch(parent)
 	end)
 	box:SetScript("OnEnterPressed", box.ClearFocus)
 	box:SetScript("OnEditFocusGained", function(self)
-		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 0.8)
+		UI.SetBorderColor(self, "accent", 0.8)
 	end)
 	box:SetScript("OnEditFocusLost", function(self)
-		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 0.35)
+		UI.SetBorderColor(self, "frame", 0.35)
 	end)
 	return box
 end
@@ -261,7 +254,7 @@ local function CreateSidebar(parent)
 	list:SetPoint("TOPLEFT", panel.search, "BOTTOMLEFT", -8, -10)
 	list:SetPoint("BOTTOMRIGHT", -10, 10)
 	panel.list = list
-	panel.noMatches = UI.Text(list.content, 12, GREY)
+	panel.noMatches = UI.Text(list.content, 12, "textMuted")
 	panel.noMatches:SetPoint("TOP", list, "TOP", 0, -20)
 	panel.noMatches:SetText("No matching modules.")
 	return sidebar
@@ -279,11 +272,9 @@ local function IsLoaded(addon)
 	return C_AddOns.IsAddOnLoaded(addon) and true or false
 end
 
-local OK_COLOR = { 0.55, 0.8, 0.5 }
-
 local function CreatePage(parent)
 	local page = CreateFrame("Frame", nil, parent)
-	page.title = UI.Text(page, 22, GOLD, TITLE_FONT)
+	page.title = UI.Text(page, 19, "heading", "title")
 	page.title:SetPoint("TOPLEFT", PAD, -16)
 	page.title:SetWordWrap(false)
 
@@ -293,7 +284,7 @@ local function CreatePage(parent)
 	toggle:SetHeight(20)
 	toggle.check = UI.Checkbox(toggle)
 	toggle.check:SetPoint("RIGHT")
-	toggle.label = UI.Text(toggle, 13, WHITE)
+	toggle.label = UI.Text(toggle, 13, "text")
 	toggle.label:SetPoint("RIGHT", toggle.check, "LEFT", -8, 0)
 	toggle.label:SetText("Enabled")
 	toggle:SetWidth(toggle.label:GetStringWidth() + 24)
@@ -309,11 +300,11 @@ local function CreatePage(parent)
 	page.toggle = toggle
 	page.title:SetPoint("RIGHT", toggle, "LEFT", -16, 0)
 
-	page.desc = UI.Text(page, 12, GREY)
+	page.desc = UI.Text(page, 12, "textMuted")
 	page.desc:SetPoint("TOPLEFT", page.title, "BOTTOMLEFT", 0, -8)
 	page.desc:SetPoint("RIGHT", -PAD, 0)
 	page.desc:SetWordWrap(true)
-	page.reason = UI.Text(page, 12, RED)
+	page.reason = UI.Text(page, 12, "danger")
 	page.reason:SetPoint("TOPLEFT", page.desc, "BOTTOMLEFT", 0, -8)
 	page.reason:SetPoint("RIGHT", -PAD, 0)
 	page.reason:SetWordWrap(true)
@@ -321,7 +312,7 @@ local function CreatePage(parent)
 	page.openButtons = {} -- "Open <page>" for the module's content pages
 
 	page.options = UI.Scroll(page)
-	page.none = UI.Text(page, 12, GREY)
+	page.none = UI.Text(page, 12, "textMuted")
 	page.none:SetText("No options.")
 	page:SetScript("OnSizeChanged", UpdateOptionsWidth)
 	return page
@@ -341,8 +332,7 @@ function RefreshPage()
 	page.toggle.check:SetChecked(ns.ModuleEnabled(module))
 	page.toggle.check:SetEnabled(reason == nil)
 	page.toggle:SetShown(not module.alwaysOn)
-	local c = reason and DIM or WHITE
-	page.toggle.label:SetTextColor(c[1], c[2], c[3])
+	UI.SetTextRole(page.toggle.label, reason and "textFaint" or "text")
 
 	-- Content starts under the last header line.
 	local top = reason and page.reason or page.desc
@@ -350,12 +340,11 @@ function RefreshPage()
 	for i, line in ipairs(lines) do
 		local fs = page.deps[i]
 		if not fs then
-			fs = UI.Text(page, 12, GREY)
+			fs = UI.Text(page, 12, "textMuted")
 			fs:SetWordWrap(true)
 			page.deps[i] = fs
 		end
-		local color = line.ok and OK_COLOR or RED
-		fs:SetTextColor(color[1], color[2], color[3])
+		UI.SetTextRole(fs, line.ok and "success" or "danger")
 		fs:SetText(line.text)
 		fs:ClearAllPoints()
 		fs:SetPoint("TOPLEFT", top, "BOTTOMLEFT", 0, i == 1 and -10 or -4)
@@ -433,10 +422,10 @@ local function CreatePageView(parent)
 	local host = CreateFrame("Frame", nil, pv)
 	host:SetPoint("TOPLEFT", pv.rail, "TOPRIGHT")
 	host:SetPoint("BOTTOMRIGHT")
-	host.title = UI.Text(host, 22, GOLD, TITLE_FONT)
+	host.title = UI.Text(host, 19, "heading", "title")
 	host.title:SetPoint("TOPLEFT", PAD, -16)
 	host.title:SetWordWrap(false)
-	host.uses = UI.Text(host, 12, GREY)
+	host.uses = UI.Text(host, 12, "textMuted")
 	host.uses:SetPoint("TOPRIGHT", -PAD, -22)
 	host.uses:SetJustifyH("RIGHT")
 	host.title:SetPoint("RIGHT", host.uses, "LEFT", -16, 0)
@@ -466,8 +455,7 @@ local function RefreshPageView()
 	-- Only the addons it uses; conflicts are a settings matter.
 	local parts = {}
 	for _, line in ipairs(ns.ModuleDependencies({ uses = entry.module.uses }, IsLoaded)) do
-		local color = line.ok and OK_COLOR or RED
-		parts[#parts + 1] = ("|cff%02x%02x%02x%s|r"):format(color[1] * 255, color[2] * 255, color[3] * 255, line.text)
+		parts[#parts + 1] = UI.Wrap(line.text, line.ok and "success" or "danger")
 	end
 	host.uses:SetText(table.concat(parts, "\n"))
 	local frame = host.frames[entry]
@@ -545,10 +533,10 @@ local function CreateTitleBar()
 	icon:SetSize(20, 20)
 	icon:SetPoint("LEFT", 14, 0)
 	icon:SetTexture(ns.ICON)
-	local title = UI.Text(titleBar, 20, GOLD, TITLE_FONT)
+	local title = UI.Text(titleBar, 18, "heading", "title")
 	title:SetPoint("LEFT", icon, "RIGHT", 8, -2)
 	title:SetText("Tomte")
-	titleBar.sub = UI.Text(titleBar, 14, GREY)
+	titleBar.sub = UI.Text(titleBar, 13, "textMuted", "title")
 	titleBar.sub:SetPoint("LEFT", title, "RIGHT", 10, 0)
 	local close = UI.Button(titleBar, 20, "x")
 	close:SetPoint("RIGHT", -10, 0)
@@ -564,14 +552,21 @@ local function CreateTitleBar()
 		Refresh()
 	end)
 	titleBar.nav = nav
-	local version = UI.Text(titleBar, 12, GREY)
+	local version = UI.Text(titleBar, 12, "textFaint", "number")
 	version:SetPoint("RIGHT", nav, "LEFT", -12, 0)
 	version:SetText("v" .. ns.VERSION)
 	panel.titleBar = titleBar
-	local line = UI.Hairline(titleBar, 100, 0.5)
+	local line = UI.Hairline(titleBar, 100, 0.6)
 	line:ClearAllPoints()
 	line:SetPoint("BOTTOMLEFT", 20, 0)
 	line:SetPoint("BOTTOMRIGHT", -20, 0)
+	-- The ink flourish's diamond in the middle of the line.
+	local diamond = titleBar:CreateTexture(nil, "OVERLAY")
+	diamond:SetTexture(ns.Theme.media.flourish)
+	diamond:SetTexCoord(0.44, 0.56, 0, 1)
+	diamond:SetSize(18, 10)
+	diamond:SetPoint("CENTER", line, "CENTER", 0, 0)
+	diamond:SetVertexColor(UI.Color("frame"))
 end
 
 local function CreateResizeGrip()
@@ -600,11 +595,8 @@ local function Build()
 	panel:SetDontSavePosition(true) -- we save it ourselves (TomteDB.panel.layout)
 	panel:SetClampedToScreen(true)
 	panel:Hide()
-	local bg = panel:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	panel.bg = bg
+	panel.look = UI.Panel(panel, { size = "large" })
 	ns.Panel_ApplyLook()
-	UI.Border(panel, GOLD[1], GOLD[2], GOLD[3], 0.45)
 	CreateTitleBar()
 
 	local body = CreateFrame("Frame", nil, panel)
@@ -665,7 +657,7 @@ end
 function ns.Panel_ApplyLook()
 	if panel then
 		local window = ns.db.window
-		panel.bg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], window and window.opacity or UI.BG[4])
+		panel.look:SetAlpha(window and window.opacity or 0.96)
 	end
 end
 
@@ -755,10 +747,10 @@ end
 local function CreateSettingsStub()
 	local holder = CreateFrame("Frame")
 	holder:Hide()
-	local title = UI.Text(holder, 22, GOLD, TITLE_FONT)
+	local title = UI.Text(holder, 19, "heading", "title")
 	title:SetPoint("TOPLEFT", 16, -16)
 	title:SetText("Tomte")
-	local text = UI.Text(holder, 13, WHITE)
+	local text = UI.Text(holder, 13, "text")
 	text:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
 	text:SetPoint("RIGHT", -16, 0)
 	text:SetWordWrap(true)

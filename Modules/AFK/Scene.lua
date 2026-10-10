@@ -5,8 +5,6 @@ local addonName, ns = ...
 -- bottom band = character (left), clock and date (center), rotating session stats (right),
 -- right side of the screen = whispers received while away (mirrors the showcase on the left).
 
-local GOLD, GREY, WHITE = ns.SCENE_GOLD, ns.SCENE_GREY, ns.SCENE_WHITE
-local BN_COLOR = "ff82c5ff"
 local PAD = 48 -- side padding inside the bottom band
 local CLOCK_LINE = 300
 local STATS_PAGE_TIME = 6
@@ -121,9 +119,9 @@ local function Row(i)
 		return row
 	end
 	row = {}
-	row.meta = Text(list, 11, GREY)
+	row.meta = Text(list, 11, "textMuted")
 	row.meta:SetJustifyH("RIGHT")
-	row.body = Text(list, 13, WHITE)
+	row.body = Text(list, 13, "text", "chat") -- what they wrote: the chat font
 	row.body:SetJustifyH("RIGHT")
 	row.body:SetWidth(WHISPER_WIDTH)
 	row.body:SetWordWrap(true)
@@ -145,13 +143,15 @@ end
 
 local function Sender(entry)
 	if entry.bn then
-		return "|c" .. BN_COLOR .. entry.sender .. "|r"
+		-- Blizzard's Battle.net friend name color (the friends list's blue).
+		local bn = FRIENDS_BNET_NAME_COLOR
+		return bn and bn:WrapTextInColorCode(entry.sender) or ns.UI.Wrap(entry.sender, "accent")
 	end
 	local color = entry.class and C_ClassColor.GetClassColor(entry.class)
 	if color then
 		return color:WrapTextInColorCode(entry.sender)
 	end
-	return "|cffffd173" .. entry.sender .. "|r"
+	return ns.UI.Wrap(entry.sender, "heading")
 end
 
 -- Also called by the module when a whisper arrives while the scene is up.
@@ -192,39 +192,39 @@ function scene.Create(parent, letterbox)
 
 	-- Top band: away time over the zone.
 	-- Offsets from the band's center (font strings by their top edge, roughly font size tall).
-	card.title = Text(card, 36, GOLD, ns.SCENE_TITLE_FONT)
+	card.title = Text(card, 32, "heading", "title")
 	Place(card, card.title, "TOP", letterbox.top, "CENTER", 0, 22)
-	card.label = Text(card, 12, GREY)
+	card.label = Text(card, 12, "textMuted")
 	Place(card, card.label, "TOP", letterbox.top, "CENTER", 0, 40)
-	card.line = ns.SceneGoldLine(card, 300)
+	card.line = ns.SceneLine(card, 300)
 	Place(card, card.line, "TOPRIGHT", letterbox.top, "CENTER", 0, -19)
-	card.subtitle = Text(card, 14, GREY)
+	card.subtitle = Text(card, 14, "textMuted")
 	Place(card, card.subtitle, "TOP", letterbox.top, "CENTER", 0, -26)
 
 	-- Bottom band, left: character.
-	card.charName = Text(card, 19, GOLD)
+	card.charName = Text(card, 19, "heading")
 	Place(card, card.charName, "TOPLEFT", letterbox.bottom, "LEFT", PAD, 20)
-	card.charInfo = Text(card, 13, GREY)
+	card.charInfo = Text(card, 13, "textMuted")
 	Place(card, card.charInfo, "TOPLEFT", letterbox.bottom, "LEFT", PAD, -3)
 
 	-- Bottom band, center: clock over a hairline and the date.
-	card.clock = Text(card, 28, { 1, 1, 1 })
+	card.clock = Text(card, 28, "text", "number")
 	Place(card, card.clock, "TOP", letterbox.bottom, "CENTER", 0, 36)
 	local track = card:CreateTexture(nil, "OVERLAY")
 	track:SetColorTexture(1, 1, 1, 0.16)
 	track:SetSize(CLOCK_LINE, 1)
 	track.pixelHeight = 1
 	Place(card, track, "TOP", letterbox.bottom, "CENTER", 0, -6)
-	card.date = Text(card, 10, GREY)
+	card.date = Text(card, 10, "textMuted")
 	Place(card, card.date, "TOP", letterbox.bottom, "CENTER", 0, -19)
 
 	-- Bottom band, right: rotating session stats.
 	local statsGroup = CreateFrame("Frame", nil, card)
 	statsGroup:SetAllPoints(card)
 	statsSwap = ns.NewSwap(statsGroup)
-	card.statTitle = Text(statsGroup, 18, WHITE)
+	card.statTitle = Text(statsGroup, 18, "text")
 	Place(card, card.statTitle, "TOPRIGHT", letterbox.bottom, "RIGHT", -PAD, 19)
-	card.statLine = Text(statsGroup, 13, GREY)
+	card.statLine = Text(statsGroup, 13, "textMuted")
 	Place(card, card.statLine, "TOPRIGHT", letterbox.bottom, "RIGHT", -PAD, -3)
 
 	-- Right side: whispers, on a gradient like the showcase's.
@@ -236,14 +236,14 @@ function scene.Create(parent, letterbox)
 	shade:SetPoint("BOTTOMRIGHT", letterbox, "BOTTOMRIGHT")
 	shade:SetWidth(SHADE_WIDTH)
 	shade:SetGradient("HORIZONTAL", CreateColor(0, 0, 0, 0), CreateColor(0, 0, 0, 0.75))
-	list.header = Text(list, 12, GOLD)
+	list.header = Text(list, 12, "heading")
 	Place(card, list.header, "TOPRIGHT", letterbox, "RIGHT", -WHISPER_PAD, WHISPER_TOP)
 	list.header:SetText(Spaced("While you were away"))
 	list.lineWidth = 300
-	list.line = ns.SceneGoldLine(list, list.lineWidth)
+	list.line = ns.SceneLine(list, list.lineWidth)
 	-- Ends under the header's right edge (the line fades out to both ends).
 	Place(card, list.line, "TOPLEFT", letterbox, "RIGHT", -WHISPER_PAD - list.lineWidth, WHISPER_TOP - 20)
-	list.more = Text(list, 11, GREY)
+	list.more = Text(list, 11, "textMuted")
 	list.more:SetJustifyH("RIGHT")
 	list:Hide()
 end

@@ -8,8 +8,6 @@ local addonName, ns = ...
 -- reacting meanwhile (as Plumber does).
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
-local GREEN = { 0.45, 0.85, 0.45 }
 local RAID_H, BOSS_H, DOT, COL_W = 30, 24, 10, 52
 local CIRCLE = "Interface\\CHARACTERFRAME\\TempPortraitAlphaMask"
 
@@ -138,12 +136,12 @@ function ns.WeeklyRaidsView(parent)
 	view.scroll = UI.Scroll(parent)
 	local c = view.scroll.content
 
-	view.none = UI.Text(c, 13, GREY)
+	view.none = UI.Text(c, 13, "textMuted")
 	view.none:SetPoint("TOPLEFT", 16, -16)
 
 	-- Column labels over the dots.
 	for d, diff in ipairs(ns.WEEKLY_RAID_DIFFICULTIES) do
-		local head = UI.Text(c, 12, GREY)
+		local head = UI.Text(c, 12, "textMuted")
 		head:SetJustifyH("CENTER")
 		head:SetWidth(COL_W)
 		head:SetText(diff.name)
@@ -158,9 +156,9 @@ function ns.WeeklyRaidsView(parent)
 			row.bg:SetAllPoints()
 			row.hover = row:CreateTexture(nil, "BACKGROUND")
 			row.hover:SetAllPoints()
-			row.hover:SetColorTexture(1, 1, 1, 0.05)
+			row.hover:SetColorTexture(UI.Color("hover"))
 			row.hover:Hide()
-			row.name = UI.Text(row, 13, WHITE)
+			row.name = UI.Text(row, 13, "text")
 			row.name:SetPoint("LEFT", 12, 0)
 			row.name:SetWordWrap(false)
 			row.cells = {}
@@ -171,7 +169,7 @@ function ns.WeeklyRaidsView(parent)
 				dot:SetSize(DOT, DOT)
 				dot:SetPoint("CENTER", row, "RIGHT", x - COL_W / 2, 0)
 				local text = row:CreateFontString(nil, "OVERLAY")
-				text:SetFont(Kit.NARROW_FONT, 14, "")
+				UI.SetFont(text, Kit.NARROW_FONT, 14)
 				text:SetPoint("CENTER", row, "RIGHT", x - COL_W / 2, 0)
 				row.cells[d] = { dot = dot, text = text }
 			end
@@ -222,20 +220,19 @@ function ns.WeeklyRaidsView(parent)
 			row.bg:SetColorTexture(1, 1, 1, raid and 0.06 or 0.02)
 			row.raidID = raid and item.id or nil
 			row:EnableMouse(raid)
-			row.name:SetFont(STANDARD_TEXT_FONT, raid and 14 or 12, "")
+			UI.SetFont(row.name, "body", raid and 14 or 12)
 			row.name:SetText(raid and ((item.collapsed and "+  " or "-  ") .. item.name) or item.name)
-			local col = raid and GOLD or WHITE
-			row.name:SetTextColor(col[1], col[2], col[3])
+			UI.SetTextRole(row.name, raid and "heading" or "text")
 			for d, cell in ipairs(row.cells) do
 				cell.dot:SetShown(not raid)
 				cell.text:SetShown(raid)
 				if raid then
 					cell.text:SetText(item.totals[d])
-					cell.text:SetTextColor(GREY[1], GREY[2], GREY[3])
+					UI.SetTextRole(cell.text, "textMuted")
 				else
 					local killed = item.dots[d]
-					local c2 = killed and GREEN or DIM
-					cell.dot:SetVertexColor(c2[1], c2[2], c2[3], killed and 1 or 0.6)
+					cell.dot:SetVertexColor(UI.RGBA(killed and "success" or "textFaint", killed and 1 or 0.6))
+
 				end
 			end
 			y = y + (raid and RAID_H + 4 or BOSS_H + 2)

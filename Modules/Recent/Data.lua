@@ -40,7 +40,9 @@ function ns.Recent_FromSpec(spec, who, now, isSecret, banner)
 		at = now, guid = who.guid, char = who.char, class = who.class,
 		owner = spec.owner or "other", label = Plain(spec.label, isSecret), title = title, text = text,
 		icon = type(spec.icon) ~= "table" and spec.icon or nil, iconAtlas = spec.iconAtlas,
-		accent = accent and { accent[1] or accent.r, accent[2] or accent.g, accent[3] or accent.b } or nil,
+		-- A theme role is kept by name; a color (game meaning) is copied.
+		accent = type(accent) == "string" and accent
+			or (accent and { accent[1] or accent.r, accent[2] or accent.g, accent[3] or accent.b }) or nil,
 		count = 1, mergeKey = (not text or text ~= HIDDEN) and spec.mergeKey or nil, banner = banner or nil,
 	}
 end

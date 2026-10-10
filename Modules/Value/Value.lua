@@ -114,12 +114,12 @@ function ns.Value_ItemPrice(item, bound)
 	return price, kind, kind == "auction" and stale or false
 end
 
--- "1,240g" with a grey "?" when the price is stale.
+-- "1,240g" with a muted "?" when the price is stale.
 function ns.Value_Text(copper, stale)
 	if not copper then
 		return "?"
 	end
-	return ns.Alts_Gold(copper) .. (stale and "|cff9e9e9e?|r" or "")
+	return ns.Alts_Gold(copper) .. (stale and ns.UI.Wrap("?", "textMuted") or "")
 end
 
 -- Session loot ---------------------------------------------------------------------------------------------------

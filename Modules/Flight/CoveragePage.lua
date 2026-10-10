@@ -5,11 +5,10 @@ local addonName, ns = ...
 -- is shown, so a flight that just landed counts.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
 local ROW_H, NODE_H = 22, 18
 local SCROLL_STEP = 40
 local INDENT_ZONE, INDENT_NODE = 14, 30
-local STATE_COLOR = { timed = GOLD, known = WHITE, undiscovered = DIM }
+local STATE_ROLE = { timed = "accent", known = "text", undiscovered = "textFaint" }
 local STATE_TEXT = { timed = "", known = "no time yet", undiscovered = "undiscovered" }
 
 local REBUILD_AFTER = 30 -- seconds
@@ -39,23 +38,23 @@ local function NewRow()
 	local row = CreateFrame("Button", nil, page.content)
 	row.hover = row:CreateTexture(nil, "BACKGROUND")
 	row.hover:SetAllPoints()
-	row.hover:SetColorTexture(1, 1, 1, 0.04)
+	row.hover:SetColorTexture(UI.Color("hover"))
 	row.hover:Hide()
-	row.toggle = UI.Text(row, 12, GREY)
+	row.toggle = UI.Text(row, 12, "textMuted")
 	row.toggle:SetWidth(10)
-	row.name = UI.Text(row, 12, WHITE)
+	row.name = UI.Text(row, 12, "text")
 	row.name:SetWordWrap(false)
-	row.count = UI.Text(row, 12, WHITE)
+	row.count = UI.Text(row, 12, "text", "number")
 	row.count:SetJustifyH("RIGHT")
 	row.count:SetPoint("RIGHT", -6, 1)
-	row.extra = UI.Text(row, 11, GREY)
+	row.extra = UI.Text(row, 11, "textMuted")
 	row.extra:SetJustifyH("RIGHT")
 	row.track = row:CreateTexture(nil, "ARTWORK")
 	row.track:SetColorTexture(1, 1, 1, 0.08)
 	row.track:SetHeight(1)
 	row.track:SetPoint("BOTTOMRIGHT", -6, 1)
 	row.fill = row:CreateTexture(nil, "ARTWORK", nil, 1)
-	row.fill:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.8)
+	row.fill:SetColorTexture(UI.RGBA("accent", 0.8))
 	row.fill:SetHeight(1)
 	row.fill:SetPoint("LEFT", row.track, "LEFT")
 	row.dot = row:CreateTexture(nil, "ARTWORK")
@@ -93,7 +92,7 @@ local function Acquire(y, height)
 end
 
 -- Continent or zone row: toggle, name, legs, count and a progress hairline.
-local function GroupRow(y, width, indent, entry, expanded, nameColor, onClick)
+local function GroupRow(y, width, indent, entry, expanded, nameRole, onClick)
 	local row = Acquire(y, ROW_H)
 	row.onClick = onClick
 	row.toggle:ClearAllPoints()
@@ -104,11 +103,10 @@ local function GroupRow(y, width, indent, entry, expanded, nameColor, onClick)
 	row.name:SetPoint("LEFT", row.toggle, "RIGHT", 4, 0)
 	row.name:SetPoint("RIGHT", row.extra, "LEFT", -8, 0)
 	row.name:SetText(entry.name)
-	row.name:SetTextColor(nameColor[1], nameColor[2], nameColor[3])
+	UI.SetTextRole(row.name, nameRole)
 	row.count:SetText(Count(entry))
 	local done = entry.timed == entry.total
-	local c = done and GOLD or WHITE
-	row.count:SetTextColor(c[1], c[2], c[3])
+	UI.SetTextRole(row.count, done and "accent" or "text")
 	row.count:Show()
 	row.extra:ClearAllPoints()
 	row.extra:SetPoint("RIGHT", row.count, "LEFT", -10, 0)
@@ -130,10 +128,10 @@ local function NodeRow(y, node)
 	row.track:Hide()
 	row.fill:Hide()
 	row.count:Hide()
-	local c = STATE_COLOR[node.state]
+	local role = STATE_ROLE[node.state]
 	row.dot:ClearAllPoints()
 	row.dot:SetPoint("LEFT", INDENT_NODE, 0)
-	row.dot:SetVertexColor(c[1], c[2], c[3], node.state == "undiscovered" and 0.6 or 1)
+	row.dot:SetVertexColor(UI.RGBA(role, node.state == "undiscovered" and 0.6 or 1))
 	row.dot:Show()
 	row.extra:ClearAllPoints()
 	row.extra:SetPoint("RIGHT", -6, 0)
@@ -143,7 +141,7 @@ local function NodeRow(y, node)
 	row.name:SetPoint("LEFT", row.dot, "RIGHT", 8, 0)
 	row.name:SetPoint("RIGHT", row.extra, "LEFT", -8, 0)
 	row.name:SetText(Place(node.name))
-	row.name:SetTextColor(c[1], c[2], c[3])
+	UI.SetTextRole(row.name, role)
 	return row
 end
 
@@ -173,14 +171,14 @@ function Layout()
 	local y = 0
 	for _, continent in ipairs(data.continents) do
 		local cOpen = expandedContinents[continent.mapID]
-		GroupRow(y, width, 0, continent, cOpen, GOLD, function()
+		GroupRow(y, width, 0, continent, cOpen, "heading", function()
 			expandedContinents[continent.mapID] = not cOpen or nil
 		end)
 		y = y + ROW_H
 		if cOpen then
 			for _, zone in ipairs(continent.zones) do
 				local zOpen = expandedZones[zone.mapID]
-				GroupRow(y, width, INDENT_ZONE, zone, zOpen, WHITE, function()
+				GroupRow(y, width, INDENT_ZONE, zone, zOpen, "text", function()
 					expandedZones[zone.mapID] = not zOpen or nil
 				end)
 				y = y + ROW_H
@@ -243,7 +241,7 @@ end
 
 local function Create(frame)
 	page = frame
-	page.summary = UI.Text(page, 13, WHITE)
+	page.summary = UI.Text(page, 13, "text")
 	page.summary:SetPoint("TOPLEFT", 8, -2)
 	page.summary:SetPoint("RIGHT", -8, 0)
 	page.track = page:CreateTexture(nil, "ARTWORK")
@@ -252,7 +250,7 @@ local function Create(frame)
 	page.track:SetPoint("TOPLEFT", page.summary, "BOTTOMLEFT", 0, -8)
 	page.track:SetPoint("RIGHT", -8, 0)
 	page.fill = page:CreateTexture(nil, "ARTWORK", nil, 1)
-	page.fill:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	page.fill:SetColorTexture(UI.Color("accent"))
 	page.fill:SetHeight(2)
 	page.fill:SetPoint("LEFT", page.track, "LEFT")
 	page.fill:SetWidth(0.01)

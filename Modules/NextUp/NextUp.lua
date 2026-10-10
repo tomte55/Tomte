@@ -6,7 +6,6 @@ local addonName, ns = ...
 -- candidates(now) -> { { key, text, why, icon, right, state, bonus, onClick, stay } }. Ranking in Data.lua.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
 local HEAD_H = 40
 
 local module, db
@@ -59,14 +58,15 @@ local function Tooltip(row, c)
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
 	GameTooltip:SetText(c.text, 1, 1, 1, 1, true)
 	if c.why and c.why ~= "" then
-		GameTooltip:AddLine(c.why, GOLD[1], GOLD[2], GOLD[3], true)
+		local r, g, b = UI.Color("heading")
+		GameTooltip:AddLine(c.why, r, g, b, true)
 	end
 	GameTooltip:AddLine(" ")
 	if c.onClick then
-		GameTooltip:AddLine(c.hint or "Click to start", GREY[1], GREY[2], GREY[3])
+		GameTooltip:AddLine(c.hint or "Click to start", UI.RGB("textMuted"))
 	end
-	GameTooltip:AddLine("Right-click: not now", GREY[1], GREY[2], GREY[3])
-	GameTooltip:AddLine("From " .. SourceName(c.source), GREY[1], GREY[2], GREY[3])
+	GameTooltip:AddLine("Right-click: not now", UI.RGB("textMuted"))
+	GameTooltip:AddLine("From " .. SourceName(c.source), UI.RGB("textMuted"))
 	GameTooltip:Show()
 end
 
@@ -78,7 +78,7 @@ local function Create(frame, Kit)
 	frame.heading:SetPoint("TOPRIGHT")
 	frame.rows = {}
 	frame.Kit = Kit
-	frame.none = UI.Text(frame, 13, GREY)
+	frame.none = UI.Text(frame, 13, "textMuted")
 	frame.none:SetPoint("TOPLEFT", 0, -HEAD_H)
 	frame.none:SetPoint("RIGHT")
 	frame.none:SetText("Nothing pressing.")
@@ -110,7 +110,7 @@ local function Refresh(frame)
 	local perCol = math.ceil(n / cols)
 	for i, c in ipairs(list) do
 		local row = Kit.PoolRow(frame.rows, i, frame)
-		row:Set(c.icon, c.text, c.color or WHITE, c.right, c.rightColor, twoLines and (c.why or "") or nil)
+		row:Set(c.icon, c.text, c.color or "text", c.right, c.rightColor, twoLines and (c.why or "") or nil)
 		row.onClick = c.onClick and function()
 			Run(c)
 		end or function() end
@@ -243,7 +243,7 @@ module = ns.RegisterModule({
 				ns.Print("nothing pressing.")
 			end
 			for i, c in ipairs(list) do
-				ns.Print(("%d. %s |cff9e9e9e(%s, %d)|r"):format(i, c.text, SourceName(c.source), c.score))
+				ns.Print(("%d. %s %s"):format(i, c.text, UI.Wrap(("(%s, %d)"):format(SourceName(c.source), c.score), "textMuted")))
 			end
 		end },
 		{ "reset", "bring back everything you hid with \"not now\"", function()

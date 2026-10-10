@@ -471,18 +471,17 @@ local AROUND = {
 			local node = list[i]
 			local hidden = node.state == "undiscovered"
 			rows[i] = {
-				icon = COVERAGE_ICON, text = node.name, color = hidden and ns.UI.GREY or nil,
+				icon = COVERAGE_ICON, text = node.name, color = hidden and "textFaint" or nil,
 				right = DistanceText(node.yards),
 				onClick = function()
 					Waypoint(node, mapID)
 				end,
 				onEnter = function(row)
-					local gold = ns.UI.GOLD
 					GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
 					GameTooltip:SetText(node.name, 1, 1, 1)
 					GameTooltip:AddLine(hidden and "Not discovered yet." or "No timed flight from or to here yet.",
-						0.8, 0.8, 0.8)
-					GameTooltip:AddLine("Click: waypoint", gold[1], gold[2], gold[3])
+						ns.UI.RGB("textMuted"))
+					GameTooltip:AddLine("Click: waypoint", ns.UI.RGB("accent"))
 					GameTooltip:Show()
 				end,
 			}

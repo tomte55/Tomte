@@ -5,7 +5,7 @@ local addonName, ns = ...
 -- in combat or during a boss encounter. Rules in Data.lua.
 
 local GUILD_CHECK_DELAY = 1 -- seconds before checking that a guild repair went through
-local ACCENT = { 0.95, 0.75, 0.3 }
+local ACCENT = "accent" -- toast accent (a role)
 
 local module, db
 local last -- { repaired, funds, sold, junkValue, poor } from the latest visit, for /tomte vendor last
@@ -32,9 +32,9 @@ local function Summary(visit)
 	if visit.repaired then
 		parts[#parts + 1] = ("Repaired %s%s"):format(Money(visit.repaired), visit.funds == "guild" and " (guild)" or "")
 	elseif visit.poor then
-		parts[#parts + 1] = ("|cffff6040Can't afford repairs (%s)|r"):format(Money(visit.poor))
+		parts[#parts + 1] = ns.UI.Wrap(("Can't afford repairs (%s)"):format(Money(visit.poor)), "danger")
 	elseif visit.unpaid then
-		parts[#parts + 1] = ("|cffff6040Guild repair didn't go through (%s)|r"):format(Money(visit.unpaid))
+		parts[#parts + 1] = ns.UI.Wrap(("Guild repair didn't go through (%s)"):format(Money(visit.unpaid)), "danger")
 	end
 	if visit.sold then
 		parts[#parts + 1] = ("Sold %d junk %s +%s"):format(visit.sold, visit.sold == 1 and "item" or "items",

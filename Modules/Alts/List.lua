@@ -6,9 +6,6 @@ local addonName, ns = ...
 -- are in Send.lua, the List tab in ListTab.lua, the rules in ListData.lua.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
-local GREEN = { 0.45, 0.85, 0.45 }
-local RED = { 1, 0.45, 0.35 }
 local WIDTH = 300
 local TITLE_H = 22
 local HEAD_H = 20
@@ -23,8 +20,8 @@ local CACHE = 15
 local PARTIAL_NOTE = "Materials on your other characters aren't counted without Syndicator."
 ns.ALTS_PARTIAL_NOTE = PARTIAL_NOTE
 local LINE_COLORS = {
-	grab = WHITE, collect = WHITE, take = WHITE, mail = WHITE, deposit = WHITE, fetch = WHITE, missing = RED, craft = GOLD,
-	ready = GREEN, wait = GREY, other = GREY,
+	grab = "text", collect = "text", take = "text", mail = "text", deposit = "text", fetch = "text", missing = "danger",
+	craft = "accent", ready = "success", wait = "textMuted", other = "textMuted",
 }
 
 local db
@@ -166,7 +163,7 @@ local function QualityIcon(atlas, n)
 			return CreateAtlasMarkup(a, 16, 16)
 		end
 	end
-	return n and ("|cff9e9e9eQ%d|r"):format(n) or ""
+	return n and UI.Wrap("Q" .. n, "textMuted") or ""
 end
 
 -- The icon of a recipe's output at quality n (1, 2, ...: GetRecipeItemQualityInfo takes the tier, as Blizzard's
@@ -339,10 +336,6 @@ end
 
 -- Tracker -------------------------------------------------------------------------------------------------------
 
-local function SetColor(fs, c)
-	fs:SetTextColor(c[1], c[2], c[3])
-end
-
 local function SavePoint()
 	db.tracker.point = UI.TopLeftPoint(frame)
 end
@@ -375,7 +368,8 @@ local function LineTooltip(owner, line)
 	GameTooltip:SetItemByID(line.itemID)
 	if SEARCHABLE[line.kind] and SlashCmdList and SlashCmdList["Baganator"] then
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddLine("Click: find it in Baganator", GOLD[1], GOLD[2], GOLD[3])
+		local r, g, b = UI.Color("accent")
+		GameTooltip:AddLine("Click: find it in Baganator", r, g, b)
 	end
 	GameTooltip:Show()
 end
@@ -387,11 +381,11 @@ local function Block(i)
 	end
 	b = CreateFrame("Button", nil, frame)
 	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	b.title = UI.Text(b, 13, GOLD)
+	b.title = UI.Text(b, 13, "heading")
 	b.title:SetPoint("TOPLEFT", 0, 0)
 	b.title:SetPoint("RIGHT", -50, 0)
 	b.title:SetWordWrap(false)
-	b.crafter = UI.Text(b, 11, GREY)
+	b.crafter = UI.Text(b, 11, "textMuted")
 	b.crafter:SetPoint("TOPRIGHT", 0, -1)
 	b.crafter:SetJustifyH("RIGHT")
 	b.track = b:CreateTexture(nil, "ARTWORK")
@@ -400,7 +394,7 @@ local function Block(i)
 	b.track:SetPoint("TOPLEFT", 0, -16)
 	b.track:SetPoint("RIGHT")
 	b.fill = b:CreateTexture(nil, "OVERLAY")
-	b.fill:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.8)
+	b.fill:SetColorTexture(UI.RGBA("accent", 0.8))
 	b.fill:SetHeight(2)
 	b.fill:SetPoint("TOPLEFT", b.track, "TOPLEFT")
 	b.lines = {}
@@ -419,7 +413,8 @@ local function Block(i)
 	b:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		GameTooltip:SetText(self.todo and RecipeName(self.todo.entry.recipeID) or "?", 1, 1, 1)
-		GameTooltip:AddLine("Click: the crafting list. Right-click: remove it.", GREY[1], GREY[2], GREY[3])
+		local r, g, b = UI.Color("textMuted")
+		GameTooltip:AddLine("Click: the crafting list. Right-click: remove it.", r, g, b)
 		GameTooltip:Show()
 	end)
 	b:SetScript("OnLeave", function()
@@ -435,7 +430,7 @@ local function Line(b, i)
 		l = CreateFrame("Frame", nil, b)
 		l:SetHeight(LINE_H)
 		l:EnableMouse(true)
-		l.text = UI.Text(l, 11, WHITE)
+		l.text = UI.Text(l, 11, "text")
 		l.text:SetPoint("TOPLEFT", 8, -1)
 		l.text:SetWidth(WIDTH - 28) -- fixed, so the wrapped height is known right after SetText
 		l.text:SetJustifyH("LEFT")
@@ -470,13 +465,11 @@ local function Build()
 	frame:SetClampedToScreen(true)
 	frame:SetMovable(true)
 	frame:Hide()
-	local bg = frame:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], 0.55)
-	frame.title = UI.Text(frame, 10, GREY)
+	UI.Panel(frame, { alpha = 0.55, subtle = true })
+	frame.title = UI.Text(frame, 10, "textMuted")
 	frame.title:SetPoint("TOPLEFT", 10, -6)
 	frame.title:SetText(ns.Spaced and ns.Spaced("Crafting list") or "CRAFTING LIST")
-	frame.note = UI.Text(frame, 10, GREY)
+	frame.note = UI.Text(frame, 10, "textMuted")
 	frame.note:SetWidth(WIDTH - 20)
 	frame.note:SetJustifyH("LEFT")
 	frame.note:SetWordWrap(true)
@@ -492,8 +485,8 @@ local function Build()
 		frame:StopMovingOrSizing()
 		SavePoint()
 	end)
-	UI.Border(mover, GOLD[1], GOLD[2], GOLD[3], 0.8)
-	local hint = UI.Text(mover, 10, GOLD)
+	UI.Border(mover, "accent", 0.8)
+	local hint = UI.Text(mover, 10, "accent")
 	hint:SetPoint("TOPRIGHT", -26, -6) -- left of the collapse button
 	hint:SetText("drag to move")
 	frame.mover = mover
@@ -565,14 +558,15 @@ function ns.AltsList_Refresh()
 		b:ClearAllPoints()
 		b:SetPoint("TOPLEFT", 10, -y)
 		b:SetPoint("RIGHT", -10, 0)
-		b.title:SetText(("%s  |cff9e9e9ex%d|r"):format(ns.Alts_RecipeLabel(t.entry.recipeID, 15, t.entry.quality), t.entry.crafts))
+		b.title:SetText(("%s  %s"):format(ns.Alts_RecipeLabel(t.entry.recipeID, 15, t.entry.quality),
+			UI.Wrap("x" .. t.entry.crafts, "textMuted")))
 		local c = t.crafter and ns.altsDB.chars[t.crafter]
 		local color = c and c.class and C_ClassColor.GetClassColor(c.class)
 		b.crafter:SetText(c and c.name or "nobody")
 		if color then
 			b.crafter:SetTextColor(color.r, color.g, color.b)
 		else
-			SetColor(b.crafter, GREY)
+			UI.SetTextRole(b.crafter, "textMuted")
 		end
 		b.fill:SetWidth(math.max((WIDTH - 20) * ns.Alts_CraftProgress(t), 1))
 		local ly = HEAD_H
@@ -588,7 +582,7 @@ function ns.AltsList_Refresh()
 			l:SetPoint("TOPLEFT", 0, -ly)
 			l:SetPoint("RIGHT")
 			l.text:SetText(line.text)
-			SetColor(l.text, line.mine and (LINE_COLORS[line.kind] or WHITE) or GREY)
+			UI.SetTextRole(l.text, line.mine and (LINE_COLORS[line.kind] or "text") or "textMuted")
 			local h = math.max(LINE_H, math.ceil(l.text:GetStringHeight()) + 3)
 			l:SetHeight(h)
 			ly = ly + h
@@ -601,7 +595,7 @@ function ns.AltsList_Refresh()
 			l:SetPoint("TOPLEFT", 0, -ly)
 			l:SetPoint("RIGHT")
 			l.text:SetText(("+ %d more (the List tab has them all)"):format(#t.lines - MAX_LINES))
-			SetColor(l.text, GREY)
+			UI.SetTextRole(l.text, "textMuted")
 			l:SetHeight(LINE_H)
 			ly = ly + LINE_H
 		end
@@ -706,14 +700,14 @@ local function RegisterBaganator()
 		bg:SetAllPoints()
 		bg:SetColorTexture(0, 0, 0, 0.75)
 		local edge = widget:CreateTexture(nil, "OVERLAY")
-		edge:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+		edge:SetColorTexture(UI.Color("accent"))
 		edge:SetPoint("BOTTOMLEFT")
 		edge:SetPoint("BOTTOMRIGHT")
 		edge:SetHeight(1)
 		widget.count = widget:CreateFontString(nil, "OVERLAY")
-		widget.count:SetFont(ns.HomeKit.NARROW_FONT, 11, "OUTLINE")
+		UI.SetFont(widget.count, "number", 11, "OUTLINE")
 		widget.count:SetPoint("CENTER", 0, 0)
-		widget.count:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+		UI.SetTextRole(widget.count, "accent")
 		return widget
 	end, { corner = "top_right", priority = 1 })
 end

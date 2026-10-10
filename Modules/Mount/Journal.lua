@@ -89,8 +89,9 @@ local function OnEnter(self)
 	local mountID = SelectedMount()
 	for _, level in ipairs(Levels()) do
 		local on = mountID and ns.Mount_InZone(ns.mountDB.zones, level.mapID, mountID)
-		GameTooltip:AddDoubleLine(level.name, on and "favorite" or "-", 0.8, 0.8, 0.8, on and 1 or 0.5, on and 0.82 or 0.5,
-			on and 0 or 0.5)
+		local lr, lg, lb = ns.UI.Color("text")
+		local rr, rg, rb = ns.UI.Color(on and "accent" or "textFaint")
+		GameTooltip:AddDoubleLine(level.name, on and "favorite" or "-", lr, lg, lb, rr, rg, rb)
 	end
 	GameTooltip:Show()
 end

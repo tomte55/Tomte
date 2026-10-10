@@ -5,9 +5,8 @@ local addonName, ns = ...
 -- Click a profession to open that craft in the Crafting tab. Logic in ProfGear.lua and Data.lua.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
 local CHAR_H, PROF_H = 26, 40
-local NONE = "|cff6b6b6bnone|r"
+local NONE = UI.Wrap("none", "textFaint")
 
 local tab, db
 local charRows, profRows = {}, {}
@@ -19,7 +18,7 @@ end
 
 -- "[Name] 590" with the item's link (rarity color), "..." while its item level loads.
 local function ItemText(w)
-	return ("%s |cffffffff%s|r"):format(w.link, w.ilvl and tostring(w.ilvl) or "...")
+	return ("%s %s"):format(w.link, UI.Wrap(w.ilvl and tostring(w.ilvl) or "...", "text"))
 end
 
 local function WornText(worn, base)
@@ -33,13 +32,13 @@ local function WornText(worn, base)
 			end
 		end
 	end
-	local parts = { "|cff9e9e9eTool|r " .. (tool and ItemText(tool) or NONE) }
+	local parts = { UI.Wrap("Tool", "textMuted") .. " " .. (tool and ItemText(tool) or NONE) }
 	local slots = ns.Alts_ProfSlots(base, "acc")
 	local accTexts = {}
 	for i = 1, slots do
 		accTexts[i] = accs[i] and ItemText(accs[i]) or NONE
 	end
-	parts[2] = ("|cff9e9e9e%s|r %s"):format(slots == 1 and "Accessory" or "Accessories", table.concat(accTexts, ", "))
+	parts[2] = ("%s %s"):format(UI.Wrap(slots == 1 and "Accessory" or "Accessories", "textMuted"), table.concat(accTexts, ", "))
 	return table.concat(parts, "     "), tool, accs
 end
 
@@ -48,20 +47,20 @@ local function RecipeText(id, best)
 	local _, who = ns.Alts_RecipeStatus(db.chars, recipe, id)
 	local gain = best.mark == "empty" and "free slot" or best.mark == "sure" and ("+%d"):format(best.gain)
 		or ("up to +%d"):format(best.gain)
-	local color = best.mark == "top" and "ffbf4d" or "73d973"
+	local role = best.mark == "top" and "warning" or "success"
 	local by = who and who[1] and (" by " .. (who[1].name or "?")) or ""
-	return ("%s |cff%s(%s)|r|cff9e9e9e%s|r"):format(recipe.name or "?", color, gain, by)
+	return ("%s %s%s"):format(recipe.name or "?", UI.Wrap("(" .. gain .. ")", role), by ~= "" and UI.Wrap(by, "textMuted") or "")
 end
 
 local function CreateCharRow(parent)
 	local row = CreateFrame("Frame", nil, parent)
 	row:SetHeight(CHAR_H)
-	row.name = UI.Text(row, 13, WHITE)
+	row.name = UI.Text(row, 13, "text")
 	row.name:SetPoint("BOTTOMLEFT", 4, 4)
-	row.note = UI.Text(row, 11, GREY)
+	row.note = UI.Text(row, 11, "textMuted")
 	row.note:SetPoint("LEFT", row.name, "RIGHT", 10, 0)
 	row.line = row:CreateTexture(nil, "ARTWORK")
-	row.line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.2)
+	row.line:SetColorTexture(UI.RGBA("frame", 0.2))
 	row.line:SetHeight(1)
 	row.line:SetPoint("BOTTOMLEFT")
 	row.line:SetPoint("BOTTOMRIGHT")
@@ -72,31 +71,33 @@ local function ShowProfTooltip(row)
 	local c, base = row.char, row.base
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
 	GameTooltip:SetText(("%s · %s"):format(c.name or "?", row.profName), 1, 1, 1)
+	local tr, tg, tb = UI.Color("text")
 	for _, w in ipairs(row.items) do
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddDoubleLine(w.link, w.ilvl and ("item level %d"):format(w.ilvl) or "loading", 1, 1, 1, 1, 1, 1)
 		for _, line in ipairs(ns.AltsItem_StatLines(w.link)) do
-			GameTooltip:AddLine("   " .. line, 0.8, 0.8, 0.8)
+			GameTooltip:AddLine("   " .. line, tr, tg, tb)
 		end
 	end
 	for _, b in ipairs(row.best) do
 		local recipe = db.recipes[b.best.recipeID]
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddLine(("Better %s: %s"):format(b.kind == "tool" and "tool" or "accessory", recipe.name or "?"), GOLD[1],
-			GOLD[2], GOLD[3])
+		local hr, hg, hb = UI.Color("heading")
+		GameTooltip:AddLine(("Better %s: %s"):format(b.kind == "tool" and "tool" or "accessory", recipe.name or "?"), hr, hg, hb)
 		local ilvl = b.best.quality and ("Item level %d at quality %d"):format(b.best.hi, b.best.quality)
 			or ("Item level %d-%d by quality"):format(b.best.lo, b.best.hi)
 		GameTooltip:AddLine(("%s: %s."):format(ilvl, ns.AltsProf_UpgradeText(b.best)), 1, 1, 1, true)
 		local _, link = ns.Alts_QualityLinks(recipe, b.best.quality)
 		for _, line in ipairs(ns.AltsItem_StatLines(link)) do
-			GameTooltip:AddLine("   " .. line .. (b.best.quality and "" or " (highest quality)"), 0.8, 0.8, 0.8)
+			GameTooltip:AddLine("   " .. line .. (b.best.quality and "" or " (highest quality)"), tr, tg, tb)
 		end
 	end
 	GameTooltip:AddLine(" ")
+	local mr, mg, mb = UI.Color("textMuted")
 	GameTooltip:AddLine("Item level only: the stats are shown, not compared. Optional reagents can raise a craft's item level.",
-		0.62, 0.62, 0.62, true)
+		mr, mg, mb, true)
 	if #row.best > 0 then
-		GameTooltip:AddLine("Click: open it in the Crafting tab", GREY[1], GREY[2], GREY[3])
+		GameTooltip:AddLine("Click: open it in the Crafting tab", mr, mg, mb)
 	end
 	GameTooltip:Show()
 end
@@ -106,20 +107,20 @@ local function CreateProfRow(parent)
 	row:SetHeight(PROF_H)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
-	row.bg:SetColorTexture(1, 1, 1, 0.05)
+	row.bg:SetColorTexture(UI.Color("hover"))
 	row.bg:Hide()
 	row.icon = row:CreateTexture(nil, "ARTWORK")
 	row.icon:SetSize(16, 16)
 	row.icon:SetPoint("TOPLEFT", 14, -4)
-	row.prof = UI.Text(row, 12, GOLD)
+	row.prof = UI.Text(row, 12, "heading")
 	row.prof:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
 	row.prof:SetWidth(110)
 	row.prof:SetWordWrap(false)
-	row.gear = UI.Text(row, 12, WHITE)
+	row.gear = UI.Text(row, 12, "text")
 	row.gear:SetPoint("LEFT", row.prof, "RIGHT", 8, 0)
 	row.gear:SetPoint("RIGHT", -6, 0)
 	row.gear:SetWordWrap(false)
-	row.better = UI.Text(row, 11, GREY)
+	row.better = UI.Text(row, 11, "textMuted")
 	row.better:SetPoint("TOPLEFT", row.gear, "BOTTOMLEFT", 0, -5)
 	row.better:SetPoint("RIGHT", -6, 0)
 	row.better:SetWordWrap(false)
@@ -179,7 +180,7 @@ local function Layout()
 				pr.icon:SetTexture(prof.icon or 134400)
 				pr.prof:SetText(prof.name or "?")
 				local text, tool, accs = WornText(worn, prof.base)
-				pr.gear:SetText(c.profGear and text or "|cff6b6b6b-|r")
+				pr.gear:SetText(c.profGear and text or UI.Wrap("-", "textFaint"))
 				pr.best = {}
 				local parts = {}
 				for _, kind in ipairs({ "tool", "acc" }) do
@@ -190,7 +191,7 @@ local function Layout()
 					end
 				end
 				pr.better:SetText(#parts > 0 and ("Craft a better one: " .. table.concat(parts, "   ·   "))
-					or (c.profGear and "|cff6b6b6bNothing better that anyone can craft|r" or ""))
+					or (c.profGear and UI.Wrap("Nothing better that anyone can craft", "textFaint") or ""))
 				local items = {}
 				if tool then
 					items[1] = tool
@@ -239,13 +240,13 @@ function ns.AltsProfTab_Create(frame, altsDB)
 		GameTooltip:Show()
 	end)
 	tab.quality:HookScript("OnLeave", GameTooltip_Hide)
-	tab.qualityLabel = UI.Text(tab, 12, GREY)
+	tab.qualityLabel = UI.Text(tab, 12, "textMuted")
 	tab.qualityLabel:SetPoint("RIGHT", tab.quality, "LEFT", -8, 0)
 	tab.qualityLabel:SetText("Compare crafts at")
 	tab.scroll = UI.Scroll(tab)
 	tab.scroll:SetPoint("TOPLEFT", 0, -32)
 	tab.scroll:SetPoint("BOTTOMRIGHT", -8, 0)
-	tab.hint = UI.Text(tab, 12, GREY)
+	tab.hint = UI.Text(tab, 12, "textMuted")
 	tab.hint:SetPoint("TOPLEFT", 4, -36)
 	tab.hint:SetPoint("RIGHT", -8, 0)
 	tab.hint:SetWordWrap(true)

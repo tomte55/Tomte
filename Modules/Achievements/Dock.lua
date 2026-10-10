@@ -7,9 +7,6 @@ local addonName, ns = ...
 -- first time the Achievements window shows.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
-local GREEN = { 0.5, 0.88, 0.5 }
-local TITLE_FONT = "Fonts\\MORPHEUS.TTF"
 local WIDTH = 380
 local ROW_H = 34
 local META_ROW_H = 28
@@ -38,7 +35,7 @@ local dock, handle, waiter
 local hooked = false
 local tab = "list"
 local searchText = ""
-local clicked -- the last clicked record (List tab), shown in gold
+local clicked -- the last clicked record (List tab), shown in the accent color
 local metaPath = {} -- meta IDs opened in the Metas tab, last = shown
 local metaExpanded = {} -- [child meta id] = true
 local listRows, metaRows = {}, {}
@@ -68,7 +65,7 @@ local function ShowPreview(record)
 	end
 	if model then
 		model.name = info.name or record.reward
-		model.sub = (ns.ACH_REWARD_NAMES[info.type] or "") .. (info.owned and "  -  |cff80e080owned|r" or "")
+		model.sub = (ns.ACH_REWARD_NAMES[info.type] or "") .. (info.owned and "  -  " .. UI.Wrap("owned", "success") or "")
 	end
 	ns.ModelPreview_Show(dock.preview, model)
 end
@@ -80,19 +77,19 @@ local function AddExtraLines(record)
 	if info then
 		local kind = ns.ACH_REWARD_NAMES[info.type] or "Reward"
 		if info.owned then
-			GameTooltip:AddLine(kind .. " already owned", 0.5, 0.5, 0.5)
+			GameTooltip:AddLine(kind .. " already owned", UI.RGB("textMuted"))
 		elseif info.type ~= "other" then
-			GameTooltip:AddLine("New " .. kind:lower(), GREEN[1], GREEN[2], GREEN[3])
+			GameTooltip:AddLine("New " .. kind:lower(), UI.RGB("success"))
 		end
 	end
 	local parents = ns.Ach_ParentsOf(record.id)
 	for i = 1, math.min(#parents, 2) do
 		local _, name = GetAchievementInfo(parents[i])
 		if name then
-			GameTooltip:AddLine("Part of: " .. name, GOLD[1], GOLD[2], GOLD[3])
+			GameTooltip:AddLine("Part of: " .. name, UI.RGB("heading"))
 		end
 	end
-	GameTooltip:AddLine("Click: open  -  Shift-click: link in chat  -  Right-click: pin, ignore", 0.5, 0.5, 0.5)
+	GameTooltip:AddLine("Click: open  -  Shift-click: link in chat  -  Right-click: pin, ignore", UI.RGB("textMuted"))
 end
 
 local function ShowAchievementTooltip(owner, id, record)
@@ -228,10 +225,10 @@ local function NewListRow()
 	row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	row.hover = row:CreateTexture(nil, "BACKGROUND")
 	row.hover:SetAllPoints()
-	row.hover:SetColorTexture(1, 1, 1, 0.05)
+	row.hover:SetColorTexture(UI.Color("hover"))
 	row.hover:Hide()
 	row.pin = row:CreateTexture(nil, "ARTWORK")
-	row.pin:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	row.pin:SetColorTexture(UI.Color("accent"))
 	row.pin:SetPoint("TOPLEFT", 0, -4)
 	row.pin:SetPoint("BOTTOMLEFT", 0, 4)
 	row.pin:SetWidth(2)
@@ -243,10 +240,10 @@ local function NewListRow()
 	row.reward:SetSize(16, 16)
 	row.reward:SetPoint("RIGHT", -4, 0)
 	row.reward:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	row.percent = UI.Text(row, 11, GREY)
+	row.percent = UI.Text(row, 11, "textMuted", "number")
 	row.percent:SetPoint("TOPRIGHT", row.reward, "TOPLEFT", -8, 1)
 	row.percent:SetJustifyH("RIGHT")
-	row.name = UI.Text(row, 12, WHITE)
+	row.name = UI.Text(row, 12, "text")
 	row.name:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 8, 0)
 	row.name:SetPoint("RIGHT", row.percent, "LEFT", -6, 0)
 	row.name:SetWordWrap(false)
@@ -289,8 +286,7 @@ local function SetListRow(row, record)
 	row.icon:SetTexture(record.icon)
 	row.icon:SetDesaturated(ignored)
 	row.name:SetText(record.name)
-	local c = ignored and DIM or ((clicked and clicked.id == record.id) and GOLD or WHITE)
-	row.name:SetTextColor(c[1], c[2], c[3])
+	UI.SetTextRole(row.name, ignored and "textFaint" or ((clicked and clicked.id == record.id) and "accent" or "text"))
 	row.percent:SetText(ns.Ach_ProgressText(record, "  "))
 	row.pin:SetShown(ns.Ach_IsPinned(record.id))
 	local info = ns.Ach_RewardInfo(record)
@@ -305,8 +301,7 @@ local function SetListRow(row, record)
 		width = WIDTH - 60 - ICON
 	end
 	row.fill:SetWidth(math.max(width * math.min(record.percent, 100) / 100, 1))
-	local fc = record.percent >= 100 and GREEN or GOLD
-	row.fill:SetColorTexture(fc[1], fc[2], fc[3], 0.9)
+	row.fill:SetColorTexture(UI.RGBA(record.percent >= 100 and "success" or "accent", 0.9))
 end
 
 local function RefreshList()
@@ -352,17 +347,17 @@ local function NewMetaRow()
 	row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	row.hover = row:CreateTexture(nil, "BACKGROUND")
 	row.hover:SetAllPoints()
-	row.hover:SetColorTexture(1, 1, 1, 0.05)
+	row.hover:SetColorTexture(UI.Color("hover"))
 	row.hover:Hide()
-	row.toggle = UI.Text(row, 12, GREY)
+	row.toggle = UI.Text(row, 12, "textMuted")
 	row.toggle:SetWidth(10)
 	row.icon = row:CreateTexture(nil, "ARTWORK")
 	row.icon:SetSize(20, 20)
 	row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	row.extra = UI.Text(row, 11, GREY)
+	row.extra = UI.Text(row, 11, "textMuted", "number")
 	row.extra:SetPoint("RIGHT", -6, 0)
 	row.extra:SetJustifyH("RIGHT")
-	row.name = UI.Text(row, 12, WHITE)
+	row.name = UI.Text(row, 12, "text")
 	row.name:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
 	row.name:SetPoint("RIGHT", row.extra, "LEFT", -8, 0)
 	row.name:SetWordWrap(false)
@@ -420,15 +415,14 @@ local function MetaRow(y, indent, opts)
 		row.name:SetPoint("LEFT", indent + 4, 0)
 	end
 	row.name:SetText(opts.text)
-	local c = opts.color or WHITE
-	row.name:SetTextColor(c[1], c[2], c[3])
+	UI.SetTextRole(row.name, opts.color or "text")
 	row.extra:SetText(opts.extra or "")
 	row:Show()
 	return META_ROW_H
 end
 
 local function Header(y, text)
-	return MetaRow(y, 0, { text = ns.Spaced(text), color = GREY })
+	return MetaRow(y, 0, { text = ns.Spaced(text), color = "textMuted" })
 end
 
 local function MetaExtra(node)
@@ -437,7 +431,7 @@ end
 
 local function ChildExtra(child)
 	if child.completed then
-		return "|cff80e080done|r"
+		return UI.Wrap("done", "success")
 	end
 	if child.percent then
 		return ns.Ach_ProgressText(child, "  ")
@@ -452,7 +446,7 @@ local function ChildRows(y, node, indent, depth)
 		local open = metaExpanded[key]
 		h = h + MetaRow(y + h, indent, {
 			id = child.id, icon = child.icon, text = child.name, done = child.completed,
-			color = child.completed and DIM or WHITE, extra = ChildExtra(child),
+			color = child.completed and "textFaint" or "text", extra = ChildExtra(child),
 			toggle = child.isMeta and (open and "-" or "+") or nil,
 			onClick = child.isMeta and function()
 				metaExpanded[key] = not open or nil
@@ -477,10 +471,10 @@ local function RefreshMetas()
 	if current then
 		local node = ns.Ach_MetaNode(current)
 		if node then
-			y = y + MetaRow(y, 0, { id = node.id, icon = node.icon, text = node.name, color = GOLD,
-				extra = node.completed and "|cff80e080done|r" or MetaExtra(node) })
+			y = y + MetaRow(y, 0, { id = node.id, icon = node.icon, text = node.name, color = "heading",
+				extra = node.completed and UI.Wrap("done", "success") or MetaExtra(node) })
 			if node.reward ~= "" then
-				y = y + MetaRow(y, 0, { text = node.reward, color = GREEN })
+				y = y + MetaRow(y, 0, { text = node.reward, color = "success" })
 			end
 			y = y + ChildRows(y, node, 0, 1)
 		end
@@ -490,7 +484,7 @@ local function RefreshMetas()
 			local _, name, _, completed, _, _, _, _, _, icon = GetAchievementInfo(root.id)
 			if name then
 				y = y + MetaRow(y, 0, { id = root.id, icon = icon, text = name, done = completed,
-					color = completed and DIM or WHITE, extra = root.expansion, onClick = function()
+					color = completed and "textFaint" or "text", extra = root.expansion, onClick = function()
 						ShowMeta(root.id)
 					end })
 			end
@@ -539,10 +533,10 @@ end
 local function CreateTab(parent, text, which)
 	local b = CreateFrame("Button", nil, parent)
 	b:SetHeight(20)
-	b.text = UI.Text(b, 13, GREY)
+	b.text = UI.Text(b, 13, "textMuted")
 	b.text:SetPoint("BOTTOMLEFT", 0, 5)
 	b.bar = b:CreateTexture(nil, "ARTWORK")
-	b.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	b.bar:SetColorTexture(UI.Color("accent"))
 	b.bar:SetHeight(2)
 	b.bar:SetPoint("BOTTOMLEFT")
 	b.bar:SetPoint("BOTTOMRIGHT")
@@ -550,8 +544,7 @@ local function CreateTab(parent, text, which)
 		self.selected = selected
 		self.text:SetText(label)
 		self:SetWidth(self.text:GetStringWidth())
-		local c = selected and GOLD or GREY
-		self.text:SetTextColor(c[1], c[2], c[3])
+		UI.SetTextRole(self.text, selected and "heading" or "textMuted")
 		self.bar:SetShown(selected)
 	end
 	b:SetScript("OnClick", function()
@@ -568,14 +561,11 @@ local function CreateSearch(parent)
 	local box = CreateFrame("EditBox", nil, parent)
 	box:SetHeight(22)
 	box:SetAutoFocus(false)
-	box:SetFont(STANDARD_TEXT_FONT, 12, "")
-	box:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
+	UI.SetFont(box, "body", 12)
+	UI.SetTextRole(box, "text")
 	box:SetTextInsets(8, 8, 0, 0)
-	local bg = box:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BOX[1], UI.BOX[2], UI.BOX[3], UI.BOX[4])
-	UI.Border(box, GOLD[1], GOLD[2], GOLD[3], 0.35)
-	local placeholder = UI.Text(box, 12, DIM)
+	UI.Surface(box, 0.35)
+	local placeholder = UI.Text(box, 12, "textFaint")
 	placeholder:SetPoint("LEFT", 8, 0)
 	placeholder:SetText("Search name, reward or step")
 	local refresh = UI.Debounce(UI.SEARCH_DELAY, function()
@@ -616,10 +606,10 @@ local function CreateListView()
 	filters:SetScript("OnClick", FilterMenu)
 
 	-- Threshold on its own row: label, a slider filling the middle, the value on the right.
-	local label = UI.Text(view, 11, GREY)
+	local label = UI.Text(view, 11, "textMuted")
 	label:SetPoint("TOPLEFT", reward, "BOTTOMLEFT", 0, -12)
 	label:SetText("Almost done at")
-	local value = UI.Text(view, 11, WHITE)
+	local value = UI.Text(view, 11, "text", "number")
 	value:SetPoint("RIGHT", search, "RIGHT", 0, 0)
 	value:SetPoint("TOP", label, "TOP")
 	value:SetJustifyH("RIGHT")
@@ -679,7 +669,7 @@ local function CreateListView()
 	end
 	dock.list = list
 
-	dock.empty = UI.Text(view, 12, GREY)
+	dock.empty = UI.Text(view, 12, "textMuted")
 	dock.empty:SetPoint("TOP", list, "TOP", 0, -30)
 	dock.empty:SetWidth(WIDTH - 60)
 	dock.empty:SetJustifyH("CENTER")
@@ -720,12 +710,9 @@ local function Build()
 	dock:SetPoint("BOTTOMLEFT", parent, "BOTTOMRIGHT", 2, 0)
 	dock:EnableMouse(true)
 	dock:SetFrameStrata(parent:GetFrameStrata())
-	local bg = dock:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], UI.BG[4])
-	UI.Border(dock, GOLD[1], GOLD[2], GOLD[3], 0.45)
+	UI.Panel(dock)
 
-	local title = UI.Text(dock, 18, GOLD, TITLE_FONT)
+	local title = UI.Text(dock, 16, "heading", "title")
 	title:SetPoint("TOPLEFT", 14, -12)
 	title:SetText("Almost Done")
 	local close = UI.Button(dock, 20, "x")
@@ -740,10 +727,10 @@ local function Build()
 	gear:SetPoint("CENTER")
 	gear:SetTexture(UI.GEAR)
 	gear:SetTexCoord(0, 0.5, 0, 0.5)
-	gear:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
+	gear:SetVertexColor(UI.Color("heading"))
 	settings:HookScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
-		GameTooltip:SetText("Almost Done settings", GOLD[1], GOLD[2], GOLD[3])
+		GameTooltip:SetText("Almost Done settings", UI.Color("heading"))
 		GameTooltip:AddLine("Threshold, tracker, toasts.", 1, 1, 1)
 		GameTooltip:Show()
 	end)
@@ -758,9 +745,9 @@ local function Build()
 	rescan:SetScript("OnClick", function()
 		ns.Ach_StartScan()
 	end)
-	dock.status = UI.Text(dock, 11, GOLD)
+	dock.status = UI.Text(dock, 11, "heading")
 	dock.status:SetPoint("RIGHT", rescan, "LEFT", -8, 0)
-	dock.count = UI.Text(dock, 11, GREY)
+	dock.count = UI.Text(dock, 11, "textMuted")
 	dock.count:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
 
 	dock.listTab = CreateTab(dock, "List", "list")
@@ -768,7 +755,7 @@ local function Build()
 	dock.metaTab = CreateTab(dock, "Metas", "metas")
 	dock.metaTab:SetPoint("BOTTOMLEFT", dock.listTab, "BOTTOMRIGHT", 18, 0)
 	local tabLine = dock:CreateTexture(nil, "BACKGROUND")
-	tabLine:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.2)
+	tabLine:SetColorTexture(UI.Color("rule"))
 	tabLine:SetHeight(1)
 	tabLine:SetPoint("TOPLEFT", dock.listTab, "BOTTOMLEFT", 0, 0)
 	tabLine:SetPoint("RIGHT", -14, 0)
@@ -788,16 +775,13 @@ local function Build()
 	handle = CreateFrame("Button", nil, parent)
 	handle:SetSize(18, 64)
 	handle:SetPoint("TOPLEFT", parent, "TOPRIGHT", 0, -60)
-	local hbg = handle:CreateTexture(nil, "BACKGROUND")
-	hbg:SetAllPoints()
-	hbg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], UI.BG[4])
-	UI.Border(handle, GOLD[1], GOLD[2], GOLD[3], 0.45)
-	local arrow = UI.Text(handle, 13, GOLD)
+	UI.Panel(handle, { size = "small", subtle = true })
+	local arrow = UI.Text(handle, 13, "heading")
 	arrow:SetPoint("CENTER", 1, 0)
 	arrow:SetText(">")
 	handle:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText("Almost Done", GOLD[1], GOLD[2], GOLD[3])
+		GameTooltip:SetText("Almost Done", UI.Color("heading"))
 		GameTooltip:AddLine("Show near-complete achievements.", 1, 1, 1)
 		GameTooltip:Show()
 	end)

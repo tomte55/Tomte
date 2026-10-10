@@ -8,7 +8,6 @@ local addonName, ns = ...
 -- The tab itself (switching with Blizzard's tabs without taint) is Panel/MapTabs.lua.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
 local ROW_H, HEADER_H, ICON = 34, 24, 26
 local TAB_ICON = "Interface\\Icons\\Spell_Arcane_PortalDalaran"
 local TICK = 1 -- seconds between cooldown text updates
@@ -43,15 +42,16 @@ local function ShowTooltip(owner, e)
 		end
 	end
 	if e.dest then
-		GameTooltip:AddLine("To: " .. e.dest, GOLD[1], GOLD[2], GOLD[3])
+		GameTooltip:AddLine("To: " .. e.dest, UI.RGB("heading"))
 	end
 	if not e.known then
-		GameTooltip:AddLine("Not earned yet: time this dungeon on Mythic+ to get it.", 1, 0.5, 0.3, true)
+		local r, g, b = UI.Color("warning")
+		GameTooltip:AddLine("Not earned yet: time this dungeon on Mythic+ to get it.", r, g, b, true)
 	elseif InCombat() then
-		GameTooltip:AddLine("In combat: teleports are off until combat ends.", 1, 0.3, 0.25)
+		GameTooltip:AddLine("In combat: teleports are off until combat ends.", UI.RGB("danger"))
 	else
 		GameTooltip:AddLine(db.favorites[e.key] and "Right-click: remove from favorites" or "Right-click: add to favorites",
-			GREY[1], GREY[2], GREY[3])
+			UI.RGB("textMuted"))
 	end
 	GameTooltip:Show()
 end
@@ -75,7 +75,7 @@ local function ShowPin(e)
 		pin.ring = pin:CreateTexture(nil, "OVERLAY")
 		pin.ring:SetAllPoints()
 		pin.ring:SetAtlas("Waypoint-MapPin-Tracked")
-		pin.ring:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
+		pin.ring:SetVertexColor(UI.Color("accent"))
 	end
 	pin:SetParent(canvas)
 	pin:SetFrameLevel(canvas:GetFrameLevel() + 2000)
@@ -242,27 +242,27 @@ local function NewRow()
 	row:EnableMouse(true)
 	row.hover = row:CreateTexture(nil, "BACKGROUND")
 	row.hover:SetAllPoints()
-	row.hover:SetColorTexture(1, 1, 1, 0.06)
+	row.hover:SetColorTexture(UI.Color("hover"))
 	row.hover:Hide()
 	row.icon = row:CreateTexture(nil, "ARTWORK")
 	row.icon:SetSize(ICON, ICON)
 	row.icon:SetPoint("LEFT", 6, 0)
 	row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	row.cd = UI.Text(row, 11, WHITE)
+	row.cd = UI.Text(row, 11, "text", "number")
 	row.cd:SetJustifyH("RIGHT")
 	row.cd:SetPoint("RIGHT", -6, 0)
-	row.name = UI.Text(row, 12, WHITE)
+	row.name = UI.Text(row, 12, "text")
 	row.name:SetWordWrap(false)
 	row.name:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 8, 0)
 	row.name:SetPoint("RIGHT", row.cd, "LEFT", -6, 0)
-	row.sub = UI.Text(row, 11, GREY)
+	row.sub = UI.Text(row, 11, "textMuted")
 	row.sub:SetWordWrap(false)
 	row.sub:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMRIGHT", 8, 0)
 	row.sub:SetPoint("RIGHT", row.cd, "LEFT", -6, 0)
-	row.title = UI.Text(row, 12, GOLD)
+	row.title = UI.Text(row, 12, "heading")
 	row.title:SetPoint("BOTTOMLEFT", 6, 4)
 	row.line = row:CreateTexture(nil, "ARTWORK")
-	row.line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.25)
+	row.line:SetColorTexture(UI.RGBA("frame", 0.4))
 	row.line:SetHeight(1)
 	row.line:SetPoint("BOTTOMLEFT", 6, 1)
 	row.line:SetPoint("BOTTOMRIGHT", -6, 1)
@@ -310,8 +310,7 @@ local function UpdateCooldown(row)
 	end
 	local usable = e.known and ready and not InCombat()
 	row.icon:SetDesaturated(not usable)
-	local c = e.known and (usable and WHITE or GREY) or DIM
-	row.name:SetTextColor(c[1], c[2], c[3])
+	UI.SetTextRole(row.name, e.known and (usable and "text" or "textMuted") or "textFaint")
 end
 
 local function SetEntry(row, e)
@@ -326,7 +325,7 @@ local function SetEntry(row, e)
 	row.name:SetText(e.name)
 	local sub = e.dest or e.group or ""
 	if e.equips then
-		sub = sub .. "  |cff999999(equips first)|r"
+		sub = sub .. "  " .. UI.Wrap("(equips first)", "textFaint")
 	end
 	row.sub:SetText(sub)
 	UpdateCooldown(row)
@@ -418,7 +417,7 @@ function Refresh()
 	end
 	panel.empty:SetShown(#sections == 0)
 	panel.scroll:SetContentHeight(y)
-	panel.note:SetText(InCombat() and "|cffff5040In combat: teleports are off until combat ends.|r"
+	panel.note:SetText(InCombat() and UI.Wrap("In combat: teleports are off until combat ends.", "danger")
 		or "Click to teleport, right-click to favorite.")
 end
 
@@ -462,13 +461,13 @@ local function Build()
 	panel:HookScript("OnShow", function()
 		Refresh()
 	end)
-	panel.note = UI.Text(panel, 11, GREY)
+	panel.note = UI.Text(panel, 11, "textMuted")
 	panel.note:SetPoint("TOPLEFT", panel.title, "BOTTOMLEFT", 0, -4)
 	panel.note:SetPoint("RIGHT", -10, 0)
 	panel.scroll = UI.Scroll(panel)
 	panel.scroll:SetPoint("TOPLEFT", panel.note, "BOTTOMLEFT", -6, -8)
 	panel.scroll:SetPoint("BOTTOMRIGHT", -10, 8)
-	panel.empty = UI.Text(panel, 12, GREY)
+	panel.empty = UI.Text(panel, 12, "textMuted")
 	panel.empty:SetPoint("TOPLEFT", panel.scroll, "TOPLEFT", 6, -4)
 	panel.empty:SetPoint("RIGHT", -10, 0)
 	panel.empty:SetText("No teleports on this character.")

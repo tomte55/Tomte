@@ -7,13 +7,10 @@ local addonName, ns = ...
 -- it changes. The session-only "In instance" conversation holds secret messages: shown, never inspected.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
 local WIDTH, HEIGHT = 560, 380
 local TITLE_H = 36
 local LIST_W = 170
 local ROW_H = 34
-local BN_COLOR = "ff82c5ff"
-local OUT_COLOR = { 0.62, 0.62, 0.62 }
 local MAX_ROWS = math.floor((HEIGHT - TITLE_H - 16) / ROW_H)
 local INPUT_H = 24
 
@@ -28,9 +25,9 @@ local drawn -- { key, count, last } of the conversation the message pane holds: 
 function ns.Inbox_ColoredName(convo)
 	local name = convo.name or convo.key
 	if convo.restricted then
-		return "|cffffd173" .. name .. "|r"
+		return UI.Wrap(name, "heading")
 	elseif convo.bn then
-		return "|c" .. BN_COLOR .. name .. "|r"
+		return FRIENDS_BNET_NAME_COLOR and FRIENDS_BNET_NAME_COLOR:WrapTextInColorCode(name) or UI.Wrap(name, "accent")
 	end
 	local color = convo.class and C_ClassColor.GetClassColor(convo.class)
 	if color then
@@ -75,16 +72,18 @@ local function ShowConversation()
 		if day ~= lastDay then
 			lastDay = day
 			messages:AddMessage(" ")
-			messages:AddMessage(date("%A %d %B", m.at), DIM[1], DIM[2], DIM[3])
+			local r, g, b = UI.Color("textFaint")
+			messages:AddMessage(date("%A %d %B", m.at), r, g, b)
 		end
 		local who = m.out and "You" or (m.sender or ns.Inbox_ColoredName(convo))
-		local color = m.out and OUT_COLOR or WHITE
+		local r, g, b = UI.Color(m.out and "textMuted" or "text")
 		-- format and AddMessage take secrets (the sender and text of "In instance" messages).
-		pcall(messages.AddMessage, messages, ("|cff7f7f7f%s|r  %s: %s"):format(Clock(m.at), who, m.text), color[1], color[2], color[3])
+		pcall(messages.AddMessage, messages, ("%s  %s: %s"):format(UI.Wrap(Clock(m.at), "textFaint"), who, m.text), r, g, b)
 	end
 	if convo.restricted then
 		messages:AddMessage(" ")
-		messages:AddMessage("Whispers in instances are hidden from addons: kept until you log out, reply goes to the last one.", DIM[1], DIM[2], DIM[3])
+		local r, g, b = UI.Color("textFaint")
+		messages:AddMessage("Whispers in instances are hidden from addons: kept until you log out, reply goes to the last one.", r, g, b)
 	end
 	messages:ScrollToBottom()
 end
@@ -107,30 +106,30 @@ local function NewRow(i)
 	row:SetPoint("RIGHT")
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
-	row.bg:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.1)
+	row.bg:SetColorTexture(UI.RGBA("accent", 0.1))
 	row.bar = row:CreateTexture(nil, "ARTWORK")
-	row.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	row.bar:SetColorTexture(UI.Color("accent"))
 	row.bar:SetPoint("TOPLEFT")
 	row.bar:SetPoint("BOTTOMLEFT")
 	row.bar:SetWidth(2)
 	row.hover = row:CreateTexture(nil, "BACKGROUND")
 	row.hover:SetAllPoints()
-	row.hover:SetColorTexture(1, 1, 1, 0.04)
+	row.hover:SetColorTexture(UI.Color("hover"))
 	row.hover:Hide()
-	row.name = UI.Text(row, 13, WHITE)
+	row.name = UI.Text(row, 13, "text")
 	row.name:SetPoint("TOPLEFT", 12, -4)
 	row.name:SetPoint("RIGHT", -34, 0)
 	row.name:SetWordWrap(false)
-	row.ago = UI.Text(row, 10, GREY)
+	row.ago = UI.Text(row, 10, "textMuted", "number")
 	row.ago:SetJustifyH("RIGHT")
 	row.ago:SetPoint("TOPRIGHT", -8, -5)
-	row.preview = UI.Text(row, 11, GREY)
+	row.preview = UI.Text(row, 11, "textMuted", "chat")
 	row.preview:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -2)
 	row.preview:SetPoint("RIGHT", -8, 0)
 	row.preview:SetWordWrap(false)
 	row.dot = row:CreateTexture(nil, "OVERLAY")
 	row.dot:SetSize(6, 6)
-	row.dot:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	row.dot:SetColorTexture(UI.Color("accent"))
 	row.dot:SetPoint("LEFT", 3, 0)
 	row:SetScript("OnEnter", function(self)
 		self.hover:Show()
@@ -189,13 +188,10 @@ function CreateInput(parent)
 	box:SetAutoFocus(false)
 	box:SetMaxLetters(255)
 	box:SetFontObject(ChatFontNormal)
-	box:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
+	UI.SetTextRole(box, "text")
 	box:SetTextInsets(8, 8, 0, 0)
-	local bg = box:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BOX[1], UI.BOX[2], UI.BOX[3], UI.BOX[4])
-	UI.Border(box, GOLD[1], GOLD[2], GOLD[3], 0.35)
-	box.placeholder = UI.Text(box, 12, DIM)
+	UI.Surface(box, 0.35)
+	box.placeholder = UI.Text(box, 12, "textFaint")
 	box.placeholder:SetPoint("LEFT", 8, 0)
 	box:SetScript("OnTextChanged", function(self)
 		self.placeholder:SetShown(self:GetText() == "")
@@ -208,10 +204,10 @@ function CreateInput(parent)
 	box:SetScript("OnEscapePressed", box.ClearFocus)
 	box:SetScript("OnHide", box.ClearFocus)
 	box:SetScript("OnEditFocusGained", function(self)
-		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 0.8)
+		UI.SetBorderColor(self, "accent", 0.8)
 	end)
 	box:SetScript("OnEditFocusLost", function(self)
-		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 0.35)
+		UI.SetBorderColor(self, "frame", 0.35)
 	end)
 	return box
 end
@@ -225,10 +221,7 @@ local function Build()
 	frame:SetClampedToScreen(true)
 	frame:EnableMouse(true)
 	frame:Hide()
-	local bg = frame:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], UI.BG[4])
-	UI.Border(frame, GOLD[1], GOLD[2], GOLD[3], 0.35)
+	UI.Panel(frame)
 
 	local titleBar = CreateFrame("Frame", nil, frame)
 	titleBar:SetPoint("TOPLEFT")
@@ -242,7 +235,7 @@ local function Build()
 	titleBar:SetScript("OnDragStop", function()
 		frame:StopMovingOrSizing()
 	end)
-	local title = UI.Text(titleBar, 20, GOLD, ns.SCENE_TITLE_FONT)
+	local title = UI.Text(titleBar, 18, "heading", "title")
 	title:SetPoint("LEFT", 16, -2)
 	title:SetText("Whispers")
 	local close = UI.Button(titleBar, 20, "x")
@@ -275,7 +268,7 @@ local function Build()
 	local right = CreateFrame("Frame", nil, frame)
 	right:SetPoint("TOPLEFT", frame.list, "TOPRIGHT", 16, 0)
 	right:SetPoint("BOTTOMRIGHT", -12, 8)
-	frame.header = UI.Text(right, 16, WHITE)
+	frame.header = UI.Text(right, 16, "text")
 	frame.header:SetPoint("TOPLEFT", 0, -2)
 	frame.reply = UI.Button(right, 70, "Reply")
 	frame.reply:SetPoint("TOPRIGHT", 0, 0)
@@ -284,7 +277,7 @@ local function Build()
 			ns.Whispers_Reply(current)
 		end
 	end)
-	frame.empty = UI.Text(right, 13, GREY)
+	frame.empty = UI.Text(right, 13, "textMuted")
 	frame.empty:SetPoint("CENTER")
 	frame.empty:SetText("No whispers yet.")
 

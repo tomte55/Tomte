@@ -5,8 +5,6 @@ local addonName, ns = ...
 -- other known recipes (Data.lua's plan). Item counts come from Syndicator when it's loaded (Collect.lua).
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
-local GREEN, RED, YELLOW = { 0.45, 0.85, 0.45 }, { 1, 0.45, 0.35 }, { 1, 0.75, 0.3 }
 local LIST_W = 0.38 -- of the tab's width
 local RESULT_H, MAT_H, STEP_H, HEADER_H, QUALITY_H = 22, 20, 20, 26, 28
 local SEARCH_ROWS = 200 -- rows drawn at most while searching (every group is open then)
@@ -18,8 +16,9 @@ local searchText = ""
 local producers -- [itemID] = recipeIDs, rebuilt when recipes change
 local loading = {} -- [itemID] = true while its name loads
 
+-- c: a theme role, or an { r, g, b } table for item quality colors.
 local function SetColor(fs, c)
-	fs:SetTextColor(c[1], c[2], c[3])
+	fs:SetTextColor(UI.RGBA(c))
 end
 
 local function ClassName(c)
@@ -212,13 +211,13 @@ local function MarkText(r)
 	if not r or not r.mark then
 		return ""
 	elseif r.mark == "empty" then
-		return "|cff73d973new|r"
+		return UI.Wrap("new", "success")
 	elseif r.mark == "sure" then
-		return ("|cff73d973+%d|r"):format(r.gain)
+		return UI.Wrap(("+%d"):format(r.gain), "success")
 	elseif r.mark == "top" then
-		return ("|cffffbf4d+%d|r"):format(r.gain)
+		return UI.Wrap(("+%d"):format(r.gain), "warning")
 	end
-	return "|cff6b6b6b-|r"
+	return UI.Wrap("-", "textFaint")
 end
 
 -- One line on what the craft means for c (row tooltip and the detail).
@@ -253,15 +252,15 @@ local function ForText(r, c, recipe)
 	end
 	local verdict = ""
 	if r.mark == "sure" and r.quality then
-		verdict = (": |cff73d973an upgrade (+%d)|r"):format(r.gain)
+		verdict = ": " .. UI.Wrap(("an upgrade (+%d)"):format(r.gain), "success")
 	elseif r.mark == "sure" then
-		verdict = (": |cff73d973an upgrade at every quality (+%d to +%d)|r"):format(r.gain, r.hi - t.ilvl)
+		verdict = ": " .. UI.Wrap(("an upgrade at every quality (+%d to +%d)"):format(r.gain, r.hi - t.ilvl), "success")
 	elseif r.mark == "top" then
-		verdict = (": |cffffbf4dan upgrade only at the higher qualities (up to +%d)|r"):format(r.gain)
+		verdict = ": " .. UI.Wrap(("an upgrade only at the higher qualities (up to +%d)"):format(r.gain), "warning")
 	elseif r.mark == "no" then
 		verdict = ": not an upgrade"
 	elseif r.mark == "empty" then
-		verdict = ": |cff73d973fills it|r"
+		verdict = ": " .. UI.Wrap("fills it", "success")
 	end
 	return ("%s%s%s.%s"):format(ilvl, where, verdict, unread)
 end
@@ -290,17 +289,17 @@ local function CreateResultRow(parent)
 	row:SetHeight(RESULT_H)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
-	row.bg:SetColorTexture(1, 1, 1, 0.06)
+	row.bg:SetColorTexture(UI.Color("hover"))
 	row.icon = row:CreateTexture(nil, "ARTWORK")
 	row.icon:SetSize(16, 16)
 	row.icon:SetPoint("LEFT", 28, 0)
-	row.who = UI.Text(row, 11, GREY)
+	row.who = UI.Text(row, 11, "textMuted")
 	row.who:SetPoint("RIGHT", -4, 0)
 	row.who:SetJustifyH("RIGHT")
-	row.mark = UI.Text(row, 11, WHITE)
+	row.mark = UI.Text(row, 11, "text", "number")
 	row.mark:SetPoint("RIGHT", row.who, "LEFT", -6, 0)
 	row.mark:SetJustifyH("RIGHT")
-	row.name = UI.Text(row, 12, WHITE)
+	row.name = UI.Text(row, 12, "text")
 	row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
 	row.name:SetPoint("RIGHT", row.mark, "LEFT", -6, 0)
 	row.name:SetWordWrap(false)
@@ -311,11 +310,13 @@ local function CreateResultRow(parent)
 		if c and recipe and self.forInfo then
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			GameTooltip:SetText(RecipeName(recipe))
-			GameTooltip:AddLine(("For %s"):format(ClassName(c)), 1, 0.82, 0)
+			local hr, hg, hb = UI.Color("heading")
+			GameTooltip:AddLine(("For %s"):format(ClassName(c)), hr, hg, hb)
 			GameTooltip:AddLine(ForText(self.forInfo, c, recipe), 1, 1, 1, true)
 			if self.forInfo.mark then
+				local r, g, b = UI.Color("textMuted")
 				GameTooltip:AddLine("Item level only, without optional reagents (they can raise it). Stats, effects and set "
-					.. "bonuses aren't compared.", 0.62, 0.62, 0.62, true)
+					.. "bonuses aren't compared.", r, g, b, true)
 			end
 			GameTooltip:Show()
 		end
@@ -333,29 +334,28 @@ local function CreateResultRow(parent)
 	return row
 end
 
--- Group header: profession (gold), expansion (white), category (grey); click folds it.
+-- Group header: profession (heading), expansion (text), category (muted); click folds it.
 local HEADER_STYLE = {
-	prof = { size = 13, color = GOLD, x = 2, h = 24 },
-	exp = { size = 12, color = WHITE, x = 10, h = 22 },
-	cat = { size = 11, color = GREY, x = 18, h = 20 },
+	prof = { size = 13, color = "heading", x = 2, h = 24 },
+	exp = { size = 12, color = "text", x = 10, h = 22 },
+	cat = { size = 11, color = "textMuted", x = 18, h = 20 },
 }
 
 local function CreateGroupRow(parent)
 	local row = CreateFrame("Button", nil, parent)
-	row.toggle = UI.Text(row, 12, GREY)
+	row.toggle = UI.Text(row, 12, "textMuted")
 	row.toggle:SetWidth(10)
-	row.text = UI.Text(row, 12, WHITE)
+	row.text = UI.Text(row, 12, "text")
 	row.text:SetPoint("LEFT", row.toggle, "RIGHT", 4, 0)
 	row.text:SetWordWrap(false)
-	row.count = UI.Text(row, 11, DIM)
+	row.count = UI.Text(row, 11, "textFaint", "number")
 	row.count:SetPoint("RIGHT", -4, 0)
 	row.text:SetPoint("RIGHT", row.count, "LEFT", -6, 0)
 	row:SetScript("OnEnter", function(self)
-		self.text:SetTextColor(1, 1, 1)
+		UI.SetTextRole(self.text, "text")
 	end)
 	row:SetScript("OnLeave", function(self)
-		local c = self.color
-		self.text:SetTextColor(c[1], c[2], c[3])
+		UI.SetTextRole(self.text, self.color)
 	end)
 	row:SetScript("OnClick", function(self)
 		db.collapsed[self.key] = not self.collapsed
@@ -371,19 +371,19 @@ local function SetResultRow(row, r)
 	row.icon:SetTexture(r.recipe.icon or 134400)
 	row.name:SetText(r.recipe.name or ("recipe " .. r.id))
 	-- Rarity color; recipes nobody knows yet are dimmed.
-	local quality = QualityColor(r.recipe.item) or WHITE
+	local quality = QualityColor(r.recipe.item) or "text"
 	if r.status == "known" then
 		row.who:SetText(Names(r.who, 1))
-		SetColor(row.who, GREY)
-		row.name:SetTextColor(quality[1], quality[2], quality[3], 1)
+		SetColor(row.who, "textMuted")
+		row.name:SetTextColor(UI.RGBA(quality, 1))
 	elseif r.status == "learnable" then
 		row.who:SetText("learnable")
-		SetColor(row.who, GREY)
-		row.name:SetTextColor(quality[1], quality[2], quality[3], 0.5)
+		SetColor(row.who, "textMuted")
+		row.name:SetTextColor(UI.RGBA(quality, 0.5))
 	else
 		row.who:SetText("no one")
-		SetColor(row.who, RED)
-		row.name:SetTextColor(quality[1], quality[2], quality[3], 0.3)
+		SetColor(row.who, "danger")
+		row.name:SetTextColor(UI.RGBA(quality, 0.3))
 	end
 	row.bg:SetShown(r.id == db.selected)
 end
@@ -469,7 +469,7 @@ function ns.AltsCraft_Why(text)
 		else
 			local kept = plan.missing == 0 and plan.unknown == 0
 			ns.Print(("%s: %s (missing %d, steps nobody knows %d)"):format(r.recipe.name or r.id,
-				kept and "|cff73d973kept|r" or "|cffff7359dropped|r", plan.missing, plan.unknown))
+				kept and UI.Wrap("kept", "success") or UI.Wrap("dropped", "danger"), plan.missing, plan.unknown))
 			for _, m in ipairs(plan.materials) do
 				local _, where = ns.Alts_Have(m.items)
 				local parts = {}
@@ -477,7 +477,7 @@ function ns.AltsCraft_Why(text)
 					parts[#parts + 1] = ("%s %d"):format(w.name, w.n)
 				end
 				ns.Print(("   %s: need %d, have %d%s%s"):format(C_Item.GetItemNameByID(m.items[1]) or ("item " .. m.items[1]),
-					m.need, m.have, m.missing > 0 and (", |cffff7359missing %d|r"):format(m.missing) or "",
+					m.need, m.have, m.missing > 0 and ", " .. UI.Wrap(("missing %d"):format(m.missing), "danger") or "",
 					#parts > 0 and (" (" .. table.concat(parts, ", ") .. ")") or ""))
 			end
 			for _, step in ipairs(plan.steps) do
@@ -577,7 +577,7 @@ local function LayoutResults()
 			row.toggle:ClearAllPoints()
 			row.toggle:SetPoint("LEFT", style.x, 0)
 			row.toggle:SetText(searchText ~= "" and "" or (item.collapsed and "+" or "-"))
-			row.text:SetFont(STANDARD_TEXT_FONT, style.size, "")
+			UI.SetFont(row.text, "body", style.size)
 			row.text:SetText(item.text)
 			SetColor(row.text, style.color)
 			row.count:SetText(item.count)
@@ -596,7 +596,7 @@ local function LayoutResults()
 		groupRows[i]:Hide()
 	end
 	if more > 0 then
-		tab.more = tab.more or UI.Text(content, 12, GREY)
+		tab.more = tab.more or UI.Text(content, 12, "textMuted")
 		tab.more:ClearAllPoints()
 		tab.more:SetPoint("TOPLEFT", 6, -(y + 6))
 		tab.more:SetText(("%d more: type more to narrow the search."):format(more))
@@ -710,7 +710,7 @@ local function CreateFilters(frame)
 	have:SetPoint("TOPLEFT", frame.forFilter, "BOTTOMLEFT", 0, -8)
 	have.check = UI.Checkbox(have)
 	have.check:SetPoint("LEFT", 2, 0)
-	have.label = UI.Text(have, 12, WHITE)
+	have.label = UI.Text(have, 12, "text")
 	have.label:SetPoint("LEFT", have.check, "RIGHT", 8, 0)
 	have.label:SetText("Materials on hand")
 	have:SetWidth(have.label:GetStringWidth() + 30)
@@ -826,12 +826,12 @@ end
 function ns.AltsShop_CreateLink(parent)
 	local link = CreateFrame("Button", nil, parent)
 	link:SetHeight(16)
-	link.text = UI.Text(link, 12, GOLD)
+	link.text = UI.Text(link, 12, "accent")
 	link.text:SetPoint("RIGHT")
 	link.text:SetText("Shopping list")
 	link:SetWidth(link.text:GetStringWidth())
 	link:SetScript("OnEnter", function(self)
-		SetColor(self.text, WHITE)
+		SetColor(self.text, "text")
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		GameTooltip:SetText("Auctionator shopping list")
 		GameTooltip:AddLine(("Makes the list \"%s\" with the %d missing material%s and how many, replacing an older one "
@@ -839,7 +839,7 @@ function ns.AltsShop_CreateLink(parent)
 		GameTooltip:Show()
 	end)
 	link:SetScript("OnLeave", function(self)
-		SetColor(self.text, GOLD)
+		SetColor(self.text, "accent")
 		GameTooltip:Hide()
 	end)
 	link:SetScript("OnClick", function(self)
@@ -861,7 +861,7 @@ local LayoutDetail -- below
 local function Header(i, text, y)
 	local fs = headers[i]
 	if not fs then
-		fs = UI.Text(tab.detail.content, 11, GREY)
+		fs = UI.Text(tab.detail.content, 11, "textMuted")
 		headers[i] = fs
 	end
 	fs:SetText(text)
@@ -912,15 +912,15 @@ local function CreateMatRow(parent)
 			RankMenu(self)
 		end
 	end)
-	row.name = UI.Text(row, 12, WHITE)
+	row.name = UI.Text(row, 12, "text")
 	row.name:SetPoint("LEFT", 4, 0)
 	row.name:SetWidth(190)
 	row.name:SetWordWrap(false)
-	row.count = UI.Text(row, 12, WHITE)
+	row.count = UI.Text(row, 12, "text", "number")
 	row.count:SetPoint("LEFT", row.name, "RIGHT", 6, 0)
 	row.count:SetWidth(70)
 	row.count:SetJustifyH("RIGHT")
-	row.where = UI.Text(row, 11, GREY)
+	row.where = UI.Text(row, 11, "textMuted")
 	row.where:SetPoint("LEFT", row.count, "RIGHT", 12, 0)
 	row.where:SetPoint("RIGHT", -4, 0)
 	row.where:SetWordWrap(false)
@@ -936,13 +936,14 @@ local function CreateMatRow(parent)
 			unit, _, stale = ns.Value_ItemPrice(self.itemID) -- not "a and f()": that keeps only the first value
 		end
 		if unit then
+			local hr, hg, hb = UI.Color("heading")
 			GameTooltip:AddLine(("Worth %s each, %s for %d"):format(ns.Value_Text(unit, stale), ns.Value_Text(unit * self.need, stale),
-				self.need), 1, 0.82, 0.45)
+				self.need), hr, hg, hb)
 		end
 		if self.slot then
 			GameTooltip:AddLine(" ")
-			GameTooltip:AddLine("Click: choose the rank (counted, bought and sent only at that rank)", GREY[1], GREY[2], GREY[3],
-				true)
+			local r, g, b = UI.Color("textMuted")
+			GameTooltip:AddLine("Click: choose the rank (counted, bought and sent only at that rank)", r, g, b, true)
 		end
 		GameTooltip:Show()
 	end)
@@ -955,27 +956,27 @@ end
 local function CreateStepRow(parent)
 	local row = CreateFrame("Frame", nil, parent)
 	row:SetHeight(STEP_H)
-	row.num = UI.Text(row, 12, GOLD)
+	row.num = UI.Text(row, 12, "heading", "number")
 	row.num:SetPoint("LEFT", 4, 0)
 	row.num:SetWidth(18)
-	row.text = UI.Text(row, 12, WHITE)
+	row.text = UI.Text(row, 12, "text")
 	row.text:SetPoint("LEFT", row.num, "RIGHT", 6, 0)
 	row.text:SetPoint("RIGHT", -4, 0)
 	row.text:SetWordWrap(false)
 	return row
 end
 
--- "Tommorah 5, Warband bank 1": names in class color (the Warband bank in blue-grey), counts in white.
+-- "Tommorah 5, Warband bank 1": names in class color (the Warband bank in the accent), counts in the text color.
 local function WhereText(list, limit)
 	local parts = {}
 	for i, w in ipairs(list) do
 		if i > limit then
-			parts[#parts + 1] = "|cff9e9e9e...|r"
+			parts[#parts + 1] = UI.Wrap("...", "textMuted")
 			break
 		end
 		local color = w.class and C_ClassColor.GetClassColor(w.class)
-		local name = color and color:WrapTextInColorCode(w.name) or ("|cff8fa8c0%s|r"):format(w.name)
-		parts[#parts + 1] = ("%s |cffffffff%d|r"):format(name, w.n)
+		local name = color and color:WrapTextInColorCode(w.name) or UI.Wrap(w.name, "accent")
+		parts[#parts + 1] = ("%s %s"):format(name, UI.Wrap(w.n, "text"))
 	end
 	return table.concat(parts, "  ")
 end
@@ -988,9 +989,10 @@ local function StepText(step, quality)
 	if #step.crafters > 0 then
 		return ("%s crafts %s"):format(Names(step.crafters, 2), what)
 	elseif #step.learnable > 0 then
-		return ("|cffff7359nobody knows|r %s |cff9e9e9e(learnable: %s)|r"):format(what, Names(step.learnable, 2))
+		return ("%s %s %s"):format(UI.Wrap("nobody knows", "danger"), what,
+			UI.Wrap(("(learnable: %s)"):format(Names(step.learnable, 2)), "textMuted"))
 	end
-	return ("|cffff7359nobody can make|r %s"):format(what)
+	return ("%s %s"):format(UI.Wrap("nobody can make", "danger"), what)
 end
 
 function LayoutDetail()
@@ -1014,7 +1016,7 @@ function LayoutDetail()
 		return
 	end
 	d.title:SetText(recipe.name or "?")
-	SetColor(d.title, QualityColor(recipe.item) or GOLD)
+	SetColor(d.title, QualityColor(recipe.item) or "heading")
 	local status, who = ns.Alts_RecipeStatus(db.chars, recipe, db.selected)
 	local prof = ProfName(recipe.base)
 	if status == "known" then
@@ -1036,7 +1038,7 @@ function LayoutDetail()
 	})
 	if not ok then
 		d.status:SetText("Couldn't work out the materials (the error is in BugSack).")
-		SetColor(d.status, RED)
+		SetColor(d.status, "danger")
 		d.crafts:SetValue(db.crafts or 1)
 		d.quality:Hide() -- not the previous recipe's
 		d.scroll:SetContentHeight(1)
@@ -1045,16 +1047,16 @@ function LayoutDetail()
 	ns.AltsCraft_LastPlan = plan -- Send to alt: materials go to the crafter of their step
 	if plan.missing > 0 then
 		d.status:SetText(ns.Alts_MissingText(plan))
-		SetColor(d.status, RED)
+		SetColor(d.status, "danger")
 	elseif plan.unknown > 0 then
 		d.status:SetText("You have the materials, but a recipe on the way isn't known yet")
-		SetColor(d.status, YELLOW)
+		SetColor(d.status, "warning")
 	elseif #plan.steps > 1 then
 		d.status:SetText(("Everything's there: %d crafts"):format(#plan.steps))
-		SetColor(d.status, GREEN)
+		SetColor(d.status, "success")
 	else
 		d.status:SetText("Everything's there")
-		SetColor(d.status, GREEN)
+		SetColor(d.status, "success")
 	end
 	d.crafts:SetValue(db.crafts or 1)
 
@@ -1069,11 +1071,11 @@ function LayoutDetail()
 	end
 	local forChar = ForChar()
 	if forChar then
-		local fs = headers[5] or UI.Text(content, 12, WHITE)
+		local fs = headers[5] or UI.Text(content, 12, "text")
 		headers[5] = fs
 		fs:SetWordWrap(true)
 		fs:SetJustifyH("LEFT")
-		fs:SetText(("|cffffd100For %s:|r %s"):format(ClassName(forChar),
+		fs:SetText(("%s %s"):format(UI.Wrap(("For %s:"):format(ClassName(forChar)), "heading"),
 			ForText(ForInfo(recipe, forChar, CompareQuality(quality)), forChar, recipe)))
 		fs:ClearAllPoints()
 		fs:SetPoint("TOPLEFT", 4, -(y + 6))
@@ -1093,21 +1095,21 @@ function LayoutDetail()
 		row.slot = m.slot and #m.slot > 1 and m.slot or nil
 		local rank = ""
 		if row.slot then
-			rank = #m.items == 1 and ns.Alts_RankMarkup(itemID) or "|cff9e9e9eany rank|r"
+			rank = #m.items == 1 and ns.Alts_RankMarkup(itemID) or UI.Wrap("any rank", "textMuted")
 		end
 		row.name:SetText(rank ~= "" and (ItemName(itemID) .. " " .. rank) or ItemName(itemID))
 		row.count:SetText(("%d / %d"):format(m.have, m.need))
 		local _, where = ns.Alts_Have(m.items)
 		row.whereFull = #where > 0 and WhereText(where, 20) or nil
-		SetColor(row.name, QualityColor(itemID) or WHITE)
+		SetColor(row.name, QualityColor(itemID) or "text")
 		if m.missing > 0 then
-			SetColor(row.count, RED)
-			row.where:SetText(("|cffff7359missing %d|r   %s"):format(m.missing, WhereText(where, 3)))
+			SetColor(row.count, "danger")
+			row.where:SetText(("%s   %s"):format(UI.Wrap(("missing %d"):format(m.missing), "danger"), WhereText(where, 3)))
 		elseif m.crafted then
-			SetColor(row.count, YELLOW)
+			SetColor(row.count, "warning")
 			row.where:SetText(("craft the rest: %s"):format(RecipeName(db.recipes[m.crafted])))
 		else
-			SetColor(row.count, GREEN)
+			SetColor(row.count, "success")
 			row.where:SetText(WhereText(where, 3))
 		end
 		row:ClearAllPoints()
@@ -1126,10 +1128,10 @@ function LayoutDetail()
 		if value.sells then
 			parts[#parts + 1] = "sells for " .. ns.Alts_Gold(value.sells)
 			local profit = value.profit
-			parts[#parts + 1] = ("|cff%s%s %s|r"):format(profit >= 0 and "73d973" or "ff7359", profit >= 0 and "profit" or "loss",
-				ns.Alts_Gold(math.abs(profit)))
+			parts[#parts + 1] = UI.Wrap(("%s %s"):format(profit >= 0 and "profit" or "loss", ns.Alts_Gold(math.abs(profit))),
+				profit >= 0 and "success" or "danger")
 		end
-		y = Header(4, table.concat(parts, "  ·  ") .. ("  |cff9e9e9e(%s)|r"):format(ns.Value_SourceName()), y + 4)
+		y = Header(4, table.concat(parts, "  ·  ") .. "  " .. UI.Wrap(("(%s)"):format(ns.Value_SourceName()), "textMuted"), y + 4)
 	end
 	y = Header(2, "Craft in order", y + 4)
 	for i, step in ipairs(plan.steps) do
@@ -1155,14 +1157,11 @@ local function CreateSearch(parent)
 	local box = CreateFrame("EditBox", nil, parent)
 	box:SetHeight(22)
 	box:SetAutoFocus(false)
-	box:SetFont(STANDARD_TEXT_FONT, 12, "")
-	box:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
+	UI.SetFont(box, "body", 12)
+	UI.SetTextRole(box, "text")
 	box:SetTextInsets(8, 8, 0, 0)
-	local bg = box:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BOX[1], UI.BOX[2], UI.BOX[3], UI.BOX[4])
-	UI.Border(box, GOLD[1], GOLD[2], GOLD[3], 0.35)
-	local placeholder = UI.Text(box, 12, DIM)
+	UI.Surface(box, 0.35)
+	local placeholder = UI.Text(box, 12, "textFaint")
 	placeholder:SetPoint("LEFT", 8, 0)
 	placeholder:SetText("Search recipes")
 	local refresh = UI.Debounce(UI.SEARCH_DELAY, function()
@@ -1183,15 +1182,15 @@ end
 
 local function CreateDetail(parent)
 	local d = CreateFrame("Frame", nil, parent)
-	d.title = UI.Text(d, 16, GOLD)
+	d.title = UI.Text(d, 16, "heading")
 	d.title:SetPoint("TOPLEFT", 4, 0)
 	d.title:SetPoint("RIGHT", -110, 0)
 	d.title:SetWordWrap(false)
-	d.sub = UI.Text(d, 12, GREY)
+	d.sub = UI.Text(d, 12, "textMuted")
 	d.sub:SetPoint("TOPLEFT", d.title, "BOTTOMLEFT", 0, -5)
 	d.sub:SetPoint("RIGHT", -114, 0)
 	d.sub:SetWordWrap(false)
-	d.status = UI.Text(d, 12, GREEN)
+	d.status = UI.Text(d, 12, "success")
 	d.status:SetPoint("TOPLEFT", d.sub, "BOTTOMLEFT", 0, -5)
 	d.status:SetPoint("RIGHT", -114, 0)
 
@@ -1215,12 +1214,9 @@ local function CreateDetail(parent)
 	box:SetNumeric(true)
 	box:SetMaxLetters(3)
 	box:SetJustifyH("CENTER")
-	box:SetFont(STANDARD_TEXT_FONT, 13, "")
-	box:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
-	local boxBg = box:CreateTexture(nil, "BACKGROUND")
-	boxBg:SetAllPoints()
-	boxBg:SetColorTexture(UI.BOX[1], UI.BOX[2], UI.BOX[3], UI.BOX[4])
-	UI.Border(box, GOLD[1], GOLD[2], GOLD[3], 0.35)
+	UI.SetFont(box, "number", 13)
+	UI.SetTextRole(box, "text")
+	UI.Surface(box, 0.35)
 	local function Set(n)
 		db.crafts = math.min(math.max(math.floor(n or 1), 1), MAX_CRAFTS)
 		LayoutDetail()
@@ -1236,11 +1232,11 @@ local function CreateDetail(parent)
 		self:ClearFocus()
 	end)
 	box:SetScript("OnEditFocusGained", function(self)
-		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 0.8)
+		UI.SetBorderColor(self, "accent", 0.8)
 		self:HighlightText()
 	end)
 	box:SetScript("OnEditFocusLost", function(self)
-		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 0.35)
+		UI.SetBorderColor(self, "frame", 0.35)
 		self:HighlightText(0, 0)
 		Set(tonumber(self:GetText()))
 	end)
@@ -1289,7 +1285,7 @@ local function CreateDetail(parent)
 	quality:SetHeight(QUALITY_H)
 	quality:SetPoint("TOPLEFT", 0, 0)
 	quality:SetPoint("RIGHT")
-	quality.label = UI.Text(quality, 12, GREY)
+	quality.label = UI.Text(quality, 12, "textMuted")
 	quality.label:SetPoint("LEFT", 4, 0)
 	quality.label:SetText("Quality")
 	local pick = UI.Dropdown(quality, 150)
@@ -1323,7 +1319,7 @@ local function CreateDetail(parent)
 	end
 	quality:Hide()
 	d.quality = quality
-	d.empty = UI.Text(d, 12, GREY)
+	d.empty = UI.Text(d, 12, "textMuted")
 	d.empty:SetPoint("TOPLEFT", 4, -4)
 	d.empty:SetPoint("RIGHT", -4, 0)
 	d.empty:SetWordWrap(true)
@@ -1340,7 +1336,7 @@ function ns.AltsCraft_Create(frame, altsDB)
 	tab.list = UI.Scroll(tab)
 	tab.list:SetPoint("TOPLEFT", tab.haveMats, "BOTTOMLEFT", -4, -8)
 	tab.list:SetPoint("BOTTOMLEFT", 0, 0)
-	tab.hint = UI.Text(tab, 12, GREY)
+	tab.hint = UI.Text(tab, 12, "textMuted")
 	tab.hint:SetPoint("TOPLEFT", tab.haveMats, "BOTTOMLEFT", 0, -12)
 	tab.hint:SetPoint("RIGHT", tab.search, "RIGHT")
 	tab.hint:SetWordWrap(true)

@@ -7,8 +7,7 @@ local addonName, ns = ...
 -- This file wires them up and adds "Crafted by" lines to item tooltips ("Known by" / "Learnable by" on recipe items).
 
 local UI = ns.UI
-local GOLD, GREY = UI.GOLD, UI.GREY
-local LABEL = "|cff66ccffAlts:|r "
+local LABEL = UI.Wrap("Alts:", "accent") .. " "
 local TAB_H = 22
 
 local module, db
@@ -27,8 +26,7 @@ local function ShowTab(key)
 	page.chain:SetShown(key == "craft")
 	for _, b in ipairs(page.tabs) do
 		local on = b.key == key
-		local c = on and GOLD or GREY
-		b.text:SetTextColor(c[1], c[2], c[3])
+		UI.SetTextRole(b.text, on and "heading" or "textMuted")
 		b.bar:SetShown(on)
 	end
 	page.chain.label:SetText(db.chain == "one" and "One step" or "Full chain")
@@ -59,12 +57,12 @@ local function CreateTab(parent, key, text)
 	local b = CreateFrame("Button", nil, parent)
 	b.key = key
 	b:SetHeight(TAB_H)
-	b.text = UI.Text(b, 13, GREY)
+	b.text = UI.Text(b, 13, "textMuted")
 	b.text:SetPoint("BOTTOMLEFT", 0, 6)
 	b.text:SetText(text)
 	b:SetWidth(b.text:GetStringWidth())
 	b.bar = b:CreateTexture(nil, "ARTWORK")
-	b.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	b.bar:SetColorTexture(UI.Color("accent"))
 	b.bar:SetHeight(2)
 	b.bar:SetPoint("BOTTOMLEFT")
 	b.bar:SetPoint("BOTTOMRIGHT")
@@ -86,7 +84,7 @@ local AltsPage = {
 		bar:SetPoint("RIGHT", -8, 0)
 		bar:SetHeight(TAB_H)
 		local baseline = bar:CreateTexture(nil, "BACKGROUND")
-		baseline:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.2)
+		baseline:SetColorTexture(UI.RGBA("frame", 0.2))
 		baseline:SetHeight(1)
 		baseline:SetPoint("BOTTOMLEFT")
 		baseline:SetPoint("BOTTOMRIGHT")
@@ -105,7 +103,7 @@ local AltsPage = {
 			ShowTab("craft")
 		end)
 		page.chain:SetScript("OnEnter", function(self)
-			UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 1)
+			UI.SetBorderColor(self, "accent", 1)
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			GameTooltip:SetText("Crafted materials")
 			GameTooltip:AddLine("Full chain: work out every crafted material down to what you gather. One step: only the "
@@ -113,7 +111,7 @@ local AltsPage = {
 			GameTooltip:Show()
 		end)
 		page.chain:SetScript("OnLeave", function(self)
-			UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 0.45)
+			UI.SetBorderColor(self, "frame", UI.BUTTON_RULE)
 			GameTooltip:Hide()
 		end)
 
@@ -200,9 +198,9 @@ local function OnRecipeItem(tooltip, data, itemID)
 	end
 	local status, names, base = ns.Alts_RecipeItemStatus(db.chars, db.recipes, ids)
 	if status == "known" then
-		tooltip:AddLine(("%s|cff9e9e9eKnown by %s|r"):format(LABEL, names), 1, 1, 1, true)
+		tooltip:AddLine(LABEL .. UI.Wrap(("Known by %s"):format(names), "textMuted"), 1, 1, 1, true)
 	elseif status == "learnable" then
-		tooltip:AddLine(("%s|cff73d973Learnable by %s (%s)|r"):format(LABEL, names, BaseName(base)), 1, 1, 1, true)
+		tooltip:AddLine(LABEL .. UI.Wrap(("Learnable by %s (%s)"):format(names, BaseName(base)), "success"), 1, 1, 1, true)
 	end
 end
 
@@ -241,7 +239,7 @@ local function OnItem(tooltip, data)
 				1, 1, 1, true)
 			return
 		elseif #learnable > 0 and not learnableLine then
-			learnableLine = ("%s|cff9e9e9eLearnable by %s (%s)|r"):format(LABEL, learnable[1].name, ProfName(learnable[1], recipe.base))
+			learnableLine = LABEL .. UI.Wrap(("Learnable by %s (%s)"):format(learnable[1].name, ProfName(learnable[1], recipe.base)), "textMuted")
 		end
 	end
 	if learnableLine then

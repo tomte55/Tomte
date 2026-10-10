@@ -8,6 +8,7 @@
 ## OptionalDeps: Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI
 ## AddonCompartmentFunc: Tomte_OnAddonCompartmentClick
 
+Core/Theme.lua
 Core/Core.lua
 Core/Modules.lua
 Core/EditMode.lua

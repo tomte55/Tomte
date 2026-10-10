@@ -2,11 +2,10 @@ local addonName, ns = ...
 
 -- Waypoints: the frames. A full-screen holder (on UIParent, or on WorldFrame so it survives Alt+Z) with three
 -- views that Waypoint.lua switches between: the far marker (diamond, beam, footer), the close-up card and the
--- edge arrow. Drawn from color textures in Tomte's dark/gold style; only the target's own icon is an atlas or
+-- edge arrow. Drawn from color textures in the theme's colors; only the target's own icon is an atlas or
 -- texture. Positions come in as screen pixels (UIParent-independent), so the views convert by their own scale.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
 
 local DIAMOND = 32 -- outer diamond side before rotation
 local ICON = 22
@@ -51,11 +50,11 @@ end
 
 local function Diamond(parent, size, layer)
 	local outer = parent:CreateTexture(nil, layer or "BORDER")
-	outer:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	outer:SetColorTexture(UI.Color("accent"))
 	outer:SetSize(size, size)
 	outer:SetRotation(math.pi / 4)
 	local inner = parent:CreateTexture(nil, "ARTWORK", nil, -1)
-	inner:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], 0.92)
+	inner:SetColorTexture(UI.RGBA("bg", 0.92))
 	inner:SetSize(size - 4, size - 4)
 	inner:SetRotation(math.pi / 4)
 	inner:SetPoint("CENTER", outer)
@@ -74,12 +73,12 @@ local function CreateFar()
 
 	-- Beam: a bright core and a soft glow, both fading out toward the top. Textures on `far` itself in BACKGROUND,
 	-- starting at the diamond's center, so the diamond (BORDER and up) covers their base.
-	local solid, clear = CreateColor(GOLD[1], GOLD[2], GOLD[3], 0.9), CreateColor(GOLD[1], GOLD[2], GOLD[3], 0)
+	local solid, clear = UI.ColorObject("accent", 0.9), UI.ColorObject("accent", 0)
 	local glow = far:CreateTexture(nil, "BACKGROUND", nil, -1)
 	glow:SetColorTexture(1, 1, 1, 1)
 	glow:SetSize(20, BEAM_H)
 	glow:SetPoint("BOTTOM", far, "CENTER")
-	glow:SetGradient("VERTICAL", CreateColor(GOLD[1], GOLD[2], GOLD[3], 0.18), clear)
+	glow:SetGradient("VERTICAL", UI.ColorObject("accent", 0.18), clear)
 	local core = far:CreateTexture(nil, "BACKGROUND", nil, 1)
 	core:SetColorTexture(1, 1, 1, 1)
 	core:SetSize(3, BEAM_H)
@@ -87,7 +86,7 @@ local function CreateFar()
 	core:SetGradient("VERTICAL", solid, clear) -- VERTICAL: first color is the bottom
 	far.beam = { glow, core }
 
-	far.footer = Shadowed(UI.Text(far, 15, WHITE))
+	far.footer = Shadowed(UI.Text(far, 15, "text"))
 	far.footer:SetJustifyH("CENTER")
 	far.footer:SetPoint("TOP", far, "CENTER", 0, -DIAMOND * 0.85)
 	far.footer:SetWidth(320)
@@ -95,16 +94,13 @@ local function CreateFar()
 	far:Hide()
 end
 
--- Card view: dark box with a gold edge, anchored so its bottom-center diamond sits on the target.
+-- Card view: a small themed panel, anchored so its bottom-center diamond sits on the target.
 local function CreateCard()
 	card = CreateFrame("Frame", nil, holder)
 	card:SetSize(CARD_W, 60)
-	local bg = card:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], 0.88)
-	UI.Border(card, GOLD[1], GOLD[2], GOLD[3], 0.55)
+	UI.Panel(card, { alpha = 0.88, subtle = true })
 	card.accent = card:CreateTexture(nil, "ARTWORK")
-	card.accent:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	card.accent:SetColorTexture(UI.Color("accent"))
 	card.accent:SetPoint("TOPLEFT", 1, -1)
 	card.accent:SetPoint("BOTTOMLEFT", 1, 1)
 	card.accent:SetWidth(2)
@@ -112,13 +108,13 @@ local function CreateCard()
 	card.icon = card:CreateTexture(nil, "ARTWORK")
 	card.icon:SetSize(CARD_ICON, CARD_ICON)
 	card.icon:SetPoint("TOPLEFT", 10, -8)
-	card.distance = Shadowed(UI.Text(card, 13, GREY))
+	card.distance = Shadowed(UI.Text(card, 13, "textMuted", "number"))
 	card.distance:SetJustifyH("RIGHT")
 	card.distance:SetPoint("TOPRIGHT", -8, -10)
-	card.name = Shadowed(UI.Text(card, 16, GOLD))
+	card.name = Shadowed(UI.Text(card, 16, "heading"))
 	card.name:SetPoint("RIGHT", card.distance, "LEFT", -6, 0)
 	card.name:SetWordWrap(false)
-	card.lines = Shadowed(UI.Text(card, 13, WHITE))
+	card.lines = Shadowed(UI.Text(card, 13, "text"))
 	card.lines:SetPoint("TOPLEFT", card.name, "BOTTOMLEFT", 0, -4)
 	card.lines:SetWidth(CARD_W - (10 + CARD_ICON + 8) - 8) -- explicit: the height is measured before the card is placed
 	card.lines:SetSpacing(2)
@@ -129,7 +125,7 @@ local function CreateCard()
 	card:Hide()
 end
 
--- Edge arrow: the icon in a small diamond and a gold chevron that orbits it, pointing at the target.
+-- Edge arrow: the icon in a small diamond and an accent chevron that orbits it, pointing at the target.
 local function CreateArrow()
 	arrow = CreateFrame("Frame", nil, holder)
 	arrow:SetSize(ARROW_R * 2 + ARROW_ARM, ARROW_R * 2 + ARROW_ARM)
@@ -141,7 +137,7 @@ local function CreateArrow()
 	arrow.arms = {}
 	for i = 1, 2 do
 		local arm = arrow:CreateTexture(nil, "OVERLAY")
-		arm:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+		arm:SetColorTexture(UI.Color("accent"))
 		arm:SetSize(4, ARROW_ARM)
 		arrow.arms[i] = arm
 	end

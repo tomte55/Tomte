@@ -7,7 +7,6 @@ local addonName, ns = ...
 -- bottom band = character (left), net gold and where it came from (center), level and counts (right).
 -- state.summary is built by Recap.lua; state.build rebuilds it when something new is noted while it's up.
 
-local GOLD, GREY, WHITE = ns.SCENE_GOLD, ns.SCENE_GREY, ns.SCENE_WHITE
 local PAD = 48
 local CENTER_LINE = 300
 local REFRESH = 0.25
@@ -79,9 +78,9 @@ local function Row(i)
 	row.icon = list:CreateTexture(nil, "OVERLAY")
 	row.icon:SetSize(ICON, ICON)
 	row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	row.meta = Text(list, 10, GREY)
+	row.meta = Text(list, 10, "textMuted")
 	row.meta:SetJustifyH("RIGHT")
-	row.body = Text(list, 14, WHITE)
+	row.body = Text(list, 14, "text")
 	row.body:SetJustifyH("RIGHT")
 	row.body:SetWidth(ROW_WIDTH)
 	row.body:SetWordWrap(false)
@@ -104,9 +103,9 @@ local function ItemColor(entry)
 		end
 	end
 	if entry.kind == "achievement" or entry.kind == "renown" then
-		return GOLD[1], GOLD[2], GOLD[3]
+		return ns.UI.Color("heading")
 	end
-	return WHITE[1], WHITE[2], WHITE[3]
+	return ns.UI.Color("text")
 end
 
 local function ShowHighlights()
@@ -172,36 +171,36 @@ function scene.Create(parent, letterbox)
 	card:SetAlpha(0)
 
 	-- Top band.
-	card.title = Text(card, 36, GOLD, ns.SCENE_TITLE_FONT)
+	card.title = Text(card, 32, "heading", "title")
 	Place(card, card.title, "TOP", letterbox.top, "CENTER", 0, 22)
-	card.label = Text(card, 12, GREY)
+	card.label = Text(card, 12, "textMuted")
 	Place(card, card.label, "TOP", letterbox.top, "CENTER", 0, 40)
-	card.line = ns.SceneGoldLine(card, 300)
+	card.line = ns.SceneLine(card, 300)
 	Place(card, card.line, "TOPRIGHT", letterbox.top, "CENTER", 0, -19)
-	card.subtitle = Text(card, 14, GREY)
+	card.subtitle = Text(card, 14, "textMuted")
 	Place(card, card.subtitle, "TOP", letterbox.top, "CENTER", 0, -26)
 
 	-- Bottom band, left: character.
-	card.charName = Text(card, 19, GOLD)
+	card.charName = Text(card, 19, "heading")
 	Place(card, card.charName, "TOPLEFT", letterbox.bottom, "LEFT", PAD, 20)
-	card.charInfo = Text(card, 13, GREY)
+	card.charInfo = Text(card, 13, "textMuted")
 	Place(card, card.charInfo, "TOPLEFT", letterbox.bottom, "LEFT", PAD, -3)
 
 	-- Bottom band, center: net gold over a hairline and where it came from.
-	card.gold = Text(card, 24, { 1, 1, 1 })
+	card.gold = Text(card, 24, "text", "number")
 	Place(card, card.gold, "TOP", letterbox.bottom, "CENTER", 0, 32)
 	local track = card:CreateTexture(nil, "OVERLAY")
 	track:SetColorTexture(1, 1, 1, 0.16)
 	track:SetSize(CENTER_LINE, 1)
 	track.pixelHeight = 1
 	Place(card, track, "TOP", letterbox.bottom, "CENTER", 0, -6)
-	card.sources = Text(card, 11, GREY)
+	card.sources = Text(card, 11, "textMuted")
 	Place(card, card.sources, "TOP", letterbox.bottom, "CENTER", 0, -17)
 
 	-- Bottom band, right: level and counts.
-	card.statTitle = Text(card, 18, WHITE)
+	card.statTitle = Text(card, 18, "text")
 	Place(card, card.statTitle, "TOPRIGHT", letterbox.bottom, "RIGHT", -PAD, 19)
-	card.statLine = Text(card, 13, GREY)
+	card.statLine = Text(card, 13, "textMuted")
 	Place(card, card.statLine, "TOPRIGHT", letterbox.bottom, "RIGHT", -PAD, -3)
 
 	-- Right side: highlights, on a gradient like the showcase's.
@@ -213,24 +212,24 @@ function scene.Create(parent, letterbox)
 	shade:SetPoint("BOTTOMRIGHT", letterbox, "BOTTOMRIGHT")
 	shade:SetWidth(SHADE_WIDTH)
 	shade:SetGradient("HORIZONTAL", CreateColor(0, 0, 0, 0), CreateColor(0, 0, 0, 0.75))
-	list.header = Text(list, 12, GOLD)
+	list.header = Text(list, 12, "heading")
 	Place(card, list.header, "TOPRIGHT", letterbox, "RIGHT", -LIST_PAD, LIST_TOP)
 	list.header:SetText(Spaced("Highlights"))
 	list.lineWidth = 300
-	list.line = ns.SceneGoldLine(list, list.lineWidth)
+	list.line = ns.SceneLine(list, list.lineWidth)
 	Place(card, list.line, "TOPLEFT", letterbox, "RIGHT", -LIST_PAD - list.lineWidth, LIST_TOP - 20)
-	list.more = Text(list, 11, GREY)
+	list.more = Text(list, 11, "textMuted")
 	list.more:SetJustifyH("RIGHT")
 	list:Hide()
 
-	-- Under the top band, during a logout: seconds left, a draining gold bar and "Esc to cancel".
+	-- Under the top band, during a logout: seconds left, a draining accent bar and "Esc to cancel".
 	local timer = CreateFrame("Frame", nil, card)
 	timer:SetAllPoints(card)
 	card.timer = timer
-	timer.caption = Text(timer, 11, GREY)
+	timer.caption = Text(timer, 11, "textMuted")
 	Place(card, timer.caption, "TOP", letterbox.top, "BOTTOM", 0, -TIMER_TOP)
 	timer.caption:SetText(Spaced("Logging out in"))
-	timer.number = Text(timer, 44, { 1, 1, 1 }, ns.SCENE_TITLE_FONT)
+	timer.number = Text(timer, 42, "text", "number")
 	Place(card, timer.number, "TOP", letterbox.top, "BOTTOM", 0, -TIMER_TOP - 18)
 	local track = timer:CreateTexture(nil, "OVERLAY")
 	track:SetColorTexture(1, 1, 1, 0.16)
@@ -238,11 +237,11 @@ function scene.Create(parent, letterbox)
 	track.pixelHeight = 2
 	Place(card, track, "TOP", letterbox.top, "BOTTOM", 0, -TIMER_TOP - 72)
 	timer.fill = timer:CreateTexture(nil, "OVERLAY", nil, 1)
-	timer.fill:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.9)
+	timer.fill:SetColorTexture(ns.UI.RGBA("accent", 0.9))
 	timer.fill:SetHeight(2)
 	timer.fill:SetPoint("TOPLEFT", track, "TOPLEFT")
 	timer.fill:SetWidth(TIMER_BAR)
-	timer.hint = Text(timer, 11, GREY)
+	timer.hint = Text(timer, 11, "textMuted")
 	Place(card, timer.hint, "TOP", letterbox.top, "BOTTOM", 0, -TIMER_TOP - 84)
 	timer.hint:SetText("Esc to cancel")
 	timer:Hide()

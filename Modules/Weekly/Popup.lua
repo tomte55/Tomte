@@ -4,7 +4,6 @@ local addonName, ns = ...
 -- minimap button or /tomte weekly popup toggles it; Esc closes it; drag the title to move it (position saved).
 
 local UI = ns.UI
-local GOLD, GREY = UI.GOLD, UI.GREY
 local WIDTH, TITLE_H, FOOT_H = 340, 36, 40
 local MIN_LIST_H, MAX_LIST_H = 60, 420
 
@@ -52,10 +51,7 @@ local function Build()
 	frame:SetClampedToScreen(true)
 	frame:EnableMouse(true)
 	frame:Hide()
-	local bg = frame:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], UI.BG[4])
-	UI.Border(frame, GOLD[1], GOLD[2], GOLD[3], 0.35)
+	UI.Panel(frame, { alpha = 0.96 })
 
 	local titleBar = CreateFrame("Frame", nil, frame)
 	titleBar:SetPoint("TOPLEFT")
@@ -70,7 +66,7 @@ local function Build()
 		frame:StopMovingOrSizing()
 		SavePosition()
 	end)
-	local title = UI.Text(titleBar, 20, GOLD, ns.SCENE_TITLE_FONT)
+	local title = UI.Text(titleBar, 18, "heading", "title")
 	title:SetPoint("LEFT", 14, -2)
 	title:SetText("This week")
 	local close = UI.Button(titleBar, 20, "x")
@@ -78,7 +74,7 @@ local function Build()
 	close:SetScript("OnClick", function()
 		frame:Hide()
 	end)
-	frame.reset = UI.Text(titleBar, 11, GREY)
+	frame.reset = UI.Text(titleBar, 11, "textMuted")
 	frame.reset:SetPoint("RIGHT", close, "LEFT", -10, 0)
 	local line = UI.Hairline(titleBar, WIDTH - 40, 0.5)
 	line:SetPoint("BOTTOM")
@@ -86,7 +82,8 @@ local function Build()
 	list = ns.WeeklyList(frame)
 	list.scroll:SetPoint("TOPLEFT", 4, -TITLE_H - 4)
 	list.scroll:SetPoint("BOTTOMRIGHT", -10, FOOT_H)
-	frame.empty = UI.Text(frame, 13, UI.WHITE)
+	frame.empty = UI.Text(frame, 13, "text")
+
 	frame.empty:SetPoint("TOPLEFT", 16, -TITLE_H - 16)
 	frame.empty:SetPoint("RIGHT", -16, 0)
 	frame.empty:SetWordWrap(true)

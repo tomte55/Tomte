@@ -11,18 +11,21 @@ local addonName, ns = ...
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
 local GetSpecializationInfo = C_SpecializationInfo.GetSpecializationInfo
 
+local UI = ns.UI
 local PRIMARY_KEYS = { [1] = "STR", [2] = "AGI", [4] = "INT" } -- LE_UNIT_STAT_*
+-- Verdict color keys (Data.lua) to theme roles.
 local COLORS = {
-	green = "|cff4fe06a", yellow = "|cffffd24a", grey = "|cffa0a0a0", red = "|cffd9604f", orange = "|cffff9a3c",
+	green = "|c" .. UI.Hex("success"), yellow = "|c" .. UI.Hex("warning"), grey = "|c" .. UI.Hex("textMuted"),
+	red = "|c" .. UI.Hex("danger"), orange = "|c" .. UI.Hex("warning"),
 }
-local LABEL = "|cff66ccffGear:|r "
-local REASON = "|cff9d9d9d"
+local LABEL = UI.Wrap("Gear:", "accent") .. " "
+local REASON = "|c" .. UI.Hex("textMuted")
 local MAX_REASONS = 3
 local BAGANATOR_ID = "tomte_gear"
 local BAGANATOR_ALT_ID = "tomte_gear_alt"
 local BAGANATOR_MAYBE_ID = "tomte_gear_maybe"
-local ALT_BLUE = { 0x8F / 255, 0xC7 / 255, 1 } -- the map-blue of Tomte's markers, so it can't pass for your own arrow
-local MAYBE_ORANGE = { 1, 0x9A / 255, 0x3C / 255 } -- the tooltip's "Can't judge" orange
+local ALT_ROLE = "accent" -- the color of Tomte's map markers, so it can't pass for your own arrow
+local MAYBE_ROLE = "warning" -- the tooltip's "Can't judge" color
 local MAX_ALT_LINES = 2
 
 local module, db
@@ -391,9 +394,9 @@ local function RegisterBaganator()
 	if not Baganator.API.RegisterCornerWidget then
 		return
 	end
-	-- Bigger than Blizzard's bag arrow, with a dark copy behind it so it reads on bright icons. color: tint (the
-	-- arrow is desaturated first so the tint is the color), nil for the atlas's own.
-	local function Arrow(itemButton, color)
+	-- Bigger than Blizzard's bag arrow, with a dark copy behind it so it reads on bright icons. role: theme color to
+	-- tint with (the arrow is desaturated first so the tint is the color), nil for the atlas's own.
+	local function Arrow(itemButton, role)
 		local widget = CreateFrame("Frame", nil, itemButton)
 		widget:SetSize(22, 24)
 		widget.padding = 0.5
@@ -405,9 +408,9 @@ local function RegisterBaganator()
 		local arrow = widget:CreateTexture(nil, "OVERLAY")
 		arrow:SetAtlas("bags-greenarrow")
 		arrow:SetAllPoints()
-		if color then
+		if role then
 			arrow:SetDesaturated(true)
-			arrow:SetVertexColor(color[1], color[2], color[3])
+			arrow:SetVertexColor(UI.Color(role))
 		end
 		return widget
 	end
@@ -429,7 +432,7 @@ local function RegisterBaganator()
 		end
 		return ns.Gear_IsMaybeUpgrade(Evaluate(link))
 	end, function(itemButton)
-		return Arrow(itemButton, MAYBE_ORANGE)
+		return Arrow(itemButton, MAYBE_ROLE)
 	end, { corner = "top_left", priority = 2 })
 	-- Upgrade for an alt. Baganator shows only the first widget of a corner that says yes (its array order), so
 	-- after the arrows above it never shows with them; the check here also covers them being in different
@@ -452,7 +455,7 @@ local function RegisterBaganator()
 		end
 		return #(ns.GearAlts_Upgrades(link)) > 0
 	end, function(itemButton)
-		return Arrow(itemButton, ALT_BLUE)
+		return Arrow(itemButton, ALT_ROLE)
 	end, { corner = "top_left", priority = 2 })
 end
 
@@ -648,7 +651,6 @@ local function Import(text)
 end
 
 local function BuildDialog()
-	local UI = ns.UI
 	local f = CreateFrame("Frame", nil, UIParent)
 	f:SetSize(480, 230)
 	f:SetPoint("CENTER", 0, 120)
@@ -658,14 +660,11 @@ local function BuildDialog()
 	f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", f.StartMoving)
 	f:SetScript("OnDragStop", f.StopMovingOrSizing)
-	local bg = f:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], UI.BG[4])
-	UI.Border(f, UI.GOLD[1], UI.GOLD[2], UI.GOLD[3], 0.5)
+	UI.Panel(f)
 
-	f.title = UI.Text(f, 15, UI.GOLD)
+	f.title = UI.Text(f, 15, "heading", "title")
 	f.title:SetPoint("TOPLEFT", 16, -14)
-	f.help = UI.Text(f, 12, UI.GREY)
+	f.help = UI.Text(f, 12, "textMuted")
 	f.help:SetPoint("TOPLEFT", f.title, "BOTTOMLEFT", 0, -8)
 	f.help:SetPoint("RIGHT", -16, 0)
 	f.help:SetJustifyH("LEFT")
@@ -676,21 +675,19 @@ local function BuildDialog()
 	local box = CreateFrame("EditBox", nil, f)
 	box:SetMultiLine(true)
 	box:SetAutoFocus(true)
-	box:SetFont(STANDARD_TEXT_FONT, 12, "")
+	UI.SetFont(box, "body", 12)
+	UI.SetTextRole(box, "text")
 	box:SetTextInsets(6, 6, 6, 6)
 	box:SetPoint("TOPLEFT", f.help, "BOTTOMLEFT", 0, -10)
 	box:SetPoint("RIGHT", -16, 0)
 	box:SetHeight(80)
-	local boxBg = box:CreateTexture(nil, "BACKGROUND")
-	boxBg:SetAllPoints()
-	boxBg:SetColorTexture(UI.BOX[1], UI.BOX[2], UI.BOX[3], UI.BOX[4])
-	UI.Border(box, UI.GOLD[1], UI.GOLD[2], UI.GOLD[3], 0.35)
+	UI.Surface(box, 0.35)
 	box:SetScript("OnEscapePressed", function()
 		f:Hide()
 	end)
 	f.box = box
 
-	f.error = UI.Text(f, 12, { 1, 0.35, 0.3 })
+	f.error = UI.Text(f, 12, "danger")
 	f.error:SetPoint("BOTTOMLEFT", 16, 18)
 	f.error:SetPoint("RIGHT", -200, 0)
 	f.error:SetJustifyH("LEFT")
@@ -775,7 +772,7 @@ local function PrintSpecs()
 				local problem = not scale and "no built-in weights"
 					or (main and not scale.weights[main]) and "built-in has another main stat" or nil
 				bad = bad + (problem and 1 or 0)
-				print(("  %s%d %s %s, %s, %s%s|r"):format(problem and "|cffff9a3c" or "|cffa0a0a0", specID,
+				print(("  |c%s%d %s %s, %s, %s%s|r"):format(UI.Hex(problem and "warning" or "textMuted"), specID,
 					name or "?", info and info.className or cid, tostring(role), tostring(main),
 					problem and (": check, " .. problem) or ""))
 			end
@@ -784,7 +781,7 @@ local function PrintSpecs()
 	for specID in pairs(scales.specs) do
 		if not seen[specID] then
 			bad = bad + 1
-			print(("  |cffff9a3c%d is in the built-in set but the game has no such spec: check|r"):format(specID))
+			print("  " .. UI.Wrap(("%d is in the built-in set but the game has no such spec: check"):format(specID), "warning"))
 		end
 	end
 	ns.Print(bad == 0 and "every spec matches the built-in set." or (bad .. " to check."))

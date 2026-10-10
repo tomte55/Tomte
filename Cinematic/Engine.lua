@@ -39,7 +39,6 @@ local DEFAULT_RESUME = 20 -- resume delay for a state paused before a /reload (i
 local HINT_TIME = 4 -- seconds the pause hint stays up
 local HINT_FADE = 0.5
 local HINT_PAD = 48
-local GREY = { 0.62, 0.62, 0.62 }
 local UI_PANEL_KEYS = { "left", "center", "right", "doublewide", "fullscreen" }
 
 -- Expansion main themes, newest first. Options show the names; a track is picked by index.
@@ -504,8 +503,8 @@ local function CreateLetterbox()
 	hintFrame:SetAllPoints(letterbox)
 	hintFrame:SetFrameLevel(letterbox:GetFrameLevel() + 10)
 	hint = hintFrame:CreateFontString(nil, "OVERLAY")
-	hint:SetFont(STANDARD_TEXT_FONT, 11, "")
-	hint:SetTextColor(GREY[1], GREY[2], GREY[3])
+	ns.Theme.SetFont(hint, "body", 11)
+	hint:SetTextColor(ns.Theme.Color("textMuted"))
 	hint:SetShadowOffset(1, -1)
 	hint:SetPoint("RIGHT", letterbox.top, "RIGHT", -HINT_PAD, 0)
 	hint:SetAlpha(0)

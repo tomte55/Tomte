@@ -7,16 +7,13 @@ local addonName, ns = ...
 --            actions (module.home entries of kind "quick") under it
 --   week     a module section in slot "week" across the top (Weekly board)
 --   columns  a section in slot "characters" (Alts) on the left, and "Around you" on the right: every entry of kind
---            "around" as a blue heading (it opens the world map) with a few rows
+--            "around" as an accent heading (it opens the world map) with a few rows
 -- Sections draw themselves (entry.Create/Refresh) with the kit below; "around" entries only return data. The hero
 -- column hides when the window is narrow. Everything is read again each time Home is shown.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
-local MAP_BLUE = { 0.56, 0.78, 1 }
-local RED = { 1, 0.45, 0.35 }
-local DISPLAY_FONT = "Fonts\\MORPHEUS.TTF"
-local NARROW_FONT = "Fonts\\ARIALN.TTF"
+-- Font roles (UI.Text's 4th argument, UI.SetFont's 2nd): headings and numbers.
+local DISPLAY_FONT, NARROW_FONT = "title", "number"
 
 local HERO_W, HERO_MIN_CONTENT = 290, 620 -- the hero hides when the content would get narrower than this
 local WEEK_H = 168
@@ -26,7 +23,6 @@ local ROW2_H = 36 -- a row with a second line
 local NEXT_UNDER_MIN = 40 + 2 * ROW2_H -- Next up's heading and two rows: less room under the characters, it moves right
 local RAIL_ROW_H, RAIL_HEADER_H = 24, 30
 ns.RAIL_W = 170
-ns.MAP_BLUE = MAP_BLUE
 
 -- ns.HomeCall (Core/Modules.lua): a module's summary/count/shown/items; errors go to BugSack and count as "nothing".
 
@@ -38,8 +34,16 @@ local function SetIcon(texture, entry)
 	end
 end
 
+-- c: a color role, or a color table (sections pass item quality and class colors).
 local function SetColor(fs, c)
-	fs:SetTextColor(c[1], c[2], c[3])
+	local r, g, b = UI.RGBA(c)
+	fs:SetTextColor(r, g, b)
+end
+
+-- A tooltip line in a role (AddLine's 5th argument is wrap, so not UI.Color's alpha).
+local function TipLine(tip, text, role)
+	local r, g, b = UI.Color(role)
+	tip:AddLine(text, r, g, b)
 end
 
 -- Pixel-exact sizes: fractional widths drop 1 px borders.
@@ -51,25 +55,25 @@ end
 
 local Kit = {}
 ns.HomeKit = Kit
-Kit.DISPLAY_FONT, Kit.NARROW_FONT = DISPLAY_FONT, NARROW_FONT
+Kit.DISPLAY_FONT, Kit.NARROW_FONT = DISPLAY_FONT, NARROW_FONT -- font role names
 Kit.ROW_H, Kit.ROW2_H = ROW_H, ROW2_H
 
--- Section heading: title (display font), meta (grey, after the title) and an optional link on the right.
--- heading:Set(title, meta, linkText, onLink, linkColor)
+-- Section heading: title (title font), meta (muted, after the title) and an optional link on the right.
+-- heading:Set(title, meta, linkText, onLink, linkColor) (linkColor: a role, "accent" by default)
 function Kit.Heading(parent)
 	local h = CreateFrame("Frame", nil, parent)
 	h:SetHeight(30)
-	h.title = UI.Text(h, 22, GOLD, DISPLAY_FONT)
+	h.title = UI.Text(h, 19, "heading", DISPLAY_FONT)
 	h.title:SetPoint("BOTTOMLEFT", 0, 4)
-	h.meta = UI.Text(h, 12, GREY)
+	h.meta = UI.Text(h, 12, "textMuted")
 	h.meta:SetPoint("BOTTOMLEFT", h.title, "BOTTOMRIGHT", 12, 3)
 	h.link = CreateFrame("Button", nil, h)
 	h.link:SetPoint("BOTTOMRIGHT", 0, 6)
 	h.link:SetHeight(16)
-	h.link.text = UI.Text(h.link, 12, GOLD)
+	h.link.text = UI.Text(h.link, 12, "accent")
 	h.link.text:SetPoint("RIGHT")
 	h.link:SetScript("OnEnter", function(self)
-		SetColor(self.text, WHITE)
+		SetColor(self.text, "text")
 	end)
 	h.link:SetScript("OnLeave", function(self)
 		SetColor(self.text, self.color)
@@ -84,7 +88,7 @@ function Kit.Heading(parent)
 		self.link:SetShown(linkText ~= nil)
 		if linkText then
 			self.link.text:SetText(linkText)
-			self.link.color = linkColor or GOLD
+			self.link.color = linkColor or "accent"
 			SetColor(self.link.text, self.link.color)
 			self.link:SetWidth(self.link.text:GetStringWidth())
 			self.link.onClick = onLink
@@ -93,30 +97,30 @@ function Kit.Heading(parent)
 	return h
 end
 
--- List row: icon, text and right-aligned text (narrow font). row:Set(icon, text, color, right, rightColor, sub)
--- With sub the row gets a small grey second line and is Kit.ROW2_H tall (else ROW_H); sub "" is tall, one line.
+-- List row: icon, text and right-aligned text (number font). row:Set(icon, text, color, right, rightColor, sub)
+-- (colors: roles or color tables). With sub the row gets a small muted second line and is Kit.ROW2_H tall (else ROW_H); sub "" is tall, one line.
 -- Optional row.onClick / row.onRightClick / row.onEnter(row).
 function Kit.Row(parent)
 	local row = CreateFrame("Button", nil, parent)
 	row:SetHeight(ROW_H)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
-	row.bg:SetColorTexture(1, 1, 1, 0.04)
+	row.bg:SetColorTexture(UI.Color("hover"))
 	row.bg:Hide()
 	row.icon = row:CreateTexture(nil, "ARTWORK")
 	row.icon:SetSize(20, 20)
 	row.icon:SetPoint("LEFT", 0, 0)
 	row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 	row.right = row:CreateFontString(nil, "OVERLAY")
-	row.right:SetFont(NARROW_FONT, 14, "")
+	UI.SetFont(row.right, NARROW_FONT, 14)
 	row.right:SetShadowOffset(1, -1)
 	row.right:SetPoint("RIGHT", 0, 0)
 	row.right:SetJustifyH("RIGHT")
-	row.text = UI.Text(row, 13, WHITE)
+	row.text = UI.Text(row, 13, "text")
 	row.text:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
 	row.text:SetPoint("RIGHT", row.right, "LEFT", -10, 0)
 	row.text:SetWordWrap(false)
-	row.sub = UI.Text(row, 11, GREY)
+	row.sub = UI.Text(row, 11, "textMuted")
 	row.sub:SetWordWrap(false)
 	row:SetScript("OnEnter", function(self)
 		if self.onClick then
@@ -173,9 +177,9 @@ function Kit.Row(parent)
 		self.sub:SetShown(two)
 		self.text:SetPoint("RIGHT", self.right, "LEFT", -10, 0)
 		self.text:SetText(text or "")
-		SetColor(self.text, color or WHITE)
+		SetColor(self.text, color or "text")
 		self.right:SetText(right or "")
-		SetColor(self.right, rightColor or GREY)
+		SetColor(self.right, rightColor or "textMuted")
 		self.right:SetWidth(math.min(self.right:GetUnboundedStringWidth() + 2, 160))
 	end
 	return row
@@ -203,14 +207,14 @@ end
 
 local function HLine(parent)
 	local t = parent:CreateTexture(nil, "ARTWORK")
-	t:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.18)
+	t:SetColorTexture(UI.RGBA("frame", 0.18))
 	t:SetHeight(1)
 	return t
 end
 
 local function VLine(parent)
 	local t = parent:CreateTexture(nil, "ARTWORK")
-	t:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.18)
+	t:SetColorTexture(UI.RGBA("frame", 0.18))
 	t:SetWidth(1)
 	return t
 end
@@ -238,9 +242,10 @@ local function Signed(copper)
 	return (copper < 0 and "-" or "+") .. ns.Alts_Gold(math.abs(copper))
 end
 
-local function TipPair(tip, left, right, color)
-	color = color or WHITE
-	tip:AddDoubleLine(left, right, GREY[1], GREY[2], GREY[3], color[1], color[2], color[3])
+local function TipPair(tip, left, right, role)
+	local lr, lg, lb = UI.Color("textMuted")
+	local r, g, b = UI.Color(role or "text")
+	tip:AddDoubleLine(left, right, lr, lg, lb, r, g, b)
 end
 
 local function Secret(value)
@@ -264,7 +269,7 @@ local FACTS = {
 				local worn = ns.GearItems_Equipped()
 				local text = worn and ns.Gear_AuditText(ns.Gear_Audit(worn))
 				if text then
-					tip:AddLine(Capitalized(text), RED[1], RED[2], RED[3])
+					TipLine(tip, Capitalized(text), "danger")
 				end
 			end
 		end,
@@ -288,24 +293,24 @@ local FACTS = {
 		tooltip = function(tip)
 			local session = ns.Session_Current()
 			local net = GetMoney() - (session.money or GetMoney())
-			TipPair(tip, "This session", Signed(net), net < 0 and RED or GOLD)
+			TipPair(tip, "This session", Signed(net), net < 0 and "danger" or "heading")
 			if ModuleOn("recap") and net ~= 0 then
 				for i, src in ipairs(ns.Recap_GoldSources(session.gold, net)) do
 					if i > 4 then
 						break
 					end
-					TipPair(tip, "   " .. ns.RECAP_SOURCE_NAMES[src.source], Signed(src.amount), GREY)
+					TipPair(tip, "   " .. ns.RECAP_SOURCE_NAMES[src.source], Signed(src.amount), "textMuted")
 				end
 			end
 			local loot = ns.Value_SessionLootText and ns.Value_SessionLootText(session)
 			if loot then
-				tip:AddLine(Capitalized(loot), GREY[1], GREY[2], GREY[3])
+				TipLine(tip, Capitalized(loot), "textMuted")
 			end
 			if ModuleOn("alts") and ns.altsDB then
-				TipPair(tip, "Account total", ns.Alts_Gold(ns.Alts_TotalGold(ns.altsDB.chars, ns.altsDB.warbandMoney)), GOLD)
+				TipPair(tip, "Account total", ns.Alts_Gold(ns.Alts_TotalGold(ns.altsDB.chars, ns.altsDB.warbandMoney)), "heading")
 				local worth = ns.Value_AccountWorth and ns.Value_AccountWorth(ns.altsDB.chars)
 				if worth then
-					TipPair(tip, "Carried value (bags and banks)", ns.Alts_Gold(worth), GOLD)
+					TipPair(tip, "Carried value (bags and banks)", ns.Alts_Gold(worth), "heading")
 				end
 			end
 		end,
@@ -323,10 +328,11 @@ local FACTS = {
 		tooltip = function(tip)
 			local worst = ns.Durability_WorstSlots(3)
 			if #worst == 0 then
-				tip:AddLine("Nothing equipped has durability.", GREY[1], GREY[2], GREY[3])
+				TipLine(tip, "Nothing equipped has durability.", "textMuted")
 			end
+			local r, g, b = UI.Color("text")
 			for _, w in ipairs(worst) do
-				tip:AddDoubleLine(w.text, w.percent, 1, 1, 1, WHITE[1], WHITE[2], WHITE[3])
+				tip:AddDoubleLine(w.text, w.percent, r, g, b, r, g, b)
 			end
 		end,
 		clickable = function()
@@ -372,10 +378,10 @@ local function FactEnter(self)
 	self.bg:Show()
 	local fact = self.fact
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-	GameTooltip:SetText(fact.label, GOLD[1], GOLD[2], GOLD[3])
+	GameTooltip:SetText(fact.label, UI.Color("heading"))
 	ns.HomeCall(fact.tooltip, GameTooltip)
 	if FactClickable(fact) then
-		GameTooltip:AddLine(fact.clickText, GOLD[1], GOLD[2], GOLD[3])
+		TipLine(GameTooltip, fact.clickText, "accent")
 	end
 	GameTooltip:Show()
 end
@@ -390,15 +396,15 @@ local function CreateHero(parent, onOpen)
 	stage:SetPoint("TOPRIGHT", -16, -16)
 	local well = stage:CreateTexture(nil, "BACKGROUND", nil, -1)
 	well:SetAllPoints()
-	well:SetColorTexture(0.05, 0.05, 0.06, 1)
-	UI.Border(stage, GOLD[1], GOLD[2], GOLD[3], 0.22)
+	well:SetColorTexture(UI.Color("frameDark"))
+	UI.Border(stage, "frame", 0.22)
 	-- A faint floor under the feet; the rest of the stage is the window itself.
 	local floor = stage:CreateTexture(nil, "BACKGROUND")
 	floor:SetColorTexture(1, 1, 1, 1)
 	floor:SetPoint("BOTTOMLEFT", 0, 34)
 	floor:SetPoint("BOTTOMRIGHT", 0, 34)
 	floor:SetHeight(90)
-	floor:SetGradient("VERTICAL", CreateColor(GOLD[1], GOLD[2], GOLD[3], 0.08), CreateColor(GOLD[1], GOLD[2], GOLD[3], 0))
+	floor:SetGradient("VERTICAL", UI.ColorObject("accent", 0.08), UI.ColorObject("accent", 0))
 
 	local model = CreateFrame("PlayerModel", nil, stage)
 	model:SetPoint("TOPLEFT", 10, -6)
@@ -444,7 +450,7 @@ local function CreateHero(parent, onOpen)
 	end)
 	hero.model = model
 
-	hero.name = UI.Text(stage, 40, GOLD, DISPLAY_FONT)
+	hero.name = UI.Text(stage, 34, "heading", DISPLAY_FONT)
 	hero.name:SetPoint("BOTTOMLEFT", 6, 2)
 	hero.name:SetPoint("BOTTOMRIGHT", -6, 2)
 	hero.name:SetJustifyH("CENTER")
@@ -452,7 +458,7 @@ local function CreateHero(parent, onOpen)
 	hero.name:SetShadowOffset(2, -2)
 	hero.stage = stage
 
-	hero.who = UI.Text(hero, 13, GREY)
+	hero.who = UI.Text(hero, 13, "textMuted")
 	hero.who:SetPoint("TOP", stage, "BOTTOM", 0, -4)
 	hero.who:SetJustifyH("CENTER")
 
@@ -464,13 +470,13 @@ local function CreateHero(parent, onOpen)
 		b.fact = fact
 		b.bg = b:CreateTexture(nil, "BACKGROUND")
 		b.bg:SetAllPoints()
-		b.bg:SetColorTexture(1, 1, 1, 0.04)
+		b.bg:SetColorTexture(UI.Color("hover"))
 		b.bg:Hide()
-		local l = UI.Text(b, 13, GREY)
+		local l = UI.Text(b, 13, "textMuted")
 		l:SetText(fact.label)
 		l:SetPoint("BOTTOMLEFT", 4, 3)
 		local v = b:CreateFontString(nil, "OVERLAY")
-		v:SetFont(NARROW_FONT, 15, "")
+		UI.SetFont(v, NARROW_FONT, 15)
 		v:SetShadowOffset(1, -1)
 		v:SetJustifyH("RIGHT")
 		v:SetPoint("BOTTOMRIGHT", -4, 3)
@@ -504,18 +510,18 @@ local function CreateHero(parent, onOpen)
 				b.label:ClearAllPoints()
 				b.label:SetPoint("LEFT", 10, 0)
 				b.label:SetJustifyH("LEFT")
-				SetColor(b.label, WHITE)
+				SetColor(b.label, "text")
 				b:SetScript("OnMouseDown", function(btn)
 					btn.label:SetPoint("LEFT", 11, -1)
 				end)
 				b:SetScript("OnMouseUp", function(btn)
 					btn.label:SetPoint("LEFT", 10, 0)
 				end)
-				UI.SetBorderColor(b, GOLD[1], GOLD[2], GOLD[3], 0.2)
+				UI.SetBorderColor(b, "frame", 0.2)
 				b:SetScript("OnLeave", function(btn)
-					UI.SetBorderColor(btn, GOLD[1], GOLD[2], GOLD[3], 0.2)
+					UI.SetBorderColor(btn, "frame", 0.2)
 				end)
-				b.count = UI.Text(b, 12, GOLD)
+				b.count = UI.Text(b, 12, "accent", NARROW_FONT)
 				b.count:SetPoint("RIGHT", -10, 0)
 				b:SetScript("OnClick", function(btn)
 					onOpen(btn.entry)
@@ -556,7 +562,7 @@ local function CreateHero(parent, onOpen)
 		if color then
 			self.name:SetTextColor(color.r, color.g, color.b)
 		else
-			SetColor(self.name, GOLD)
+			SetColor(self.name, "heading")
 		end
 		local spec
 		local index = C_SpecializationInfo.GetSpecialization()
@@ -574,10 +580,10 @@ local function CreateHero(parent, onOpen)
 		}
 		for i, f in ipairs(self.facts) do
 			f.value:SetText(values[i])
-			SetColor(f.value, i == 2 and GOLD or WHITE)
+			SetColor(f.value, i == 2 and "heading" or "text")
 		end
 		if dura and dura < 30 then
-			SetColor(self.facts[3].value, RED)
+			SetColor(self.facts[3].value, "danger")
 		end
 		self.model:Load()
 		self:Layout(self:GetHeight())
@@ -603,35 +609,35 @@ local function CreateAround(parent, onOpen)
 	local function Block(b)
 		local block = around.blocks[b]
 		if not block then
-			-- Heading band: a faint blue strip with a bar on the left, the name, and its counts on the right.
+			-- Heading band: a faint accent strip with a bar on the left, the name, and its counts on the right.
 			block = CreateFrame("Button", nil, around)
 			block:SetHeight(24)
 			block.bg = block:CreateTexture(nil, "BACKGROUND")
 			block.bg:SetAllPoints()
-			block.bg:SetColorTexture(MAP_BLUE[1], MAP_BLUE[2], MAP_BLUE[3], 0.08)
+			block.bg:SetColorTexture(UI.RGBA("accent", 0.08))
 			block.bar = block:CreateTexture(nil, "ARTWORK")
-			block.bar:SetColorTexture(MAP_BLUE[1], MAP_BLUE[2], MAP_BLUE[3], 0.9)
+			block.bar:SetColorTexture(UI.RGBA("accent", 0.9))
 			block.bar:SetPoint("TOPLEFT")
 			block.bar:SetPoint("BOTTOMLEFT")
 			block.bar:SetWidth(2)
-			block.text = UI.Text(block, 14, MAP_BLUE)
+			block.text = UI.Text(block, 14, "accent")
 			block.text:SetPoint("LEFT", 10, 0)
 			block.text:SetWordWrap(false)
-			block.meta = UI.Text(block, 12, GREY)
+			block.meta = UI.Text(block, 12, "textMuted")
 			block.meta:SetPoint("RIGHT", -8, 0)
 			block.meta:SetJustifyH("RIGHT")
 			block.meta:SetPoint("LEFT", block.text, "RIGHT", 12, 0)
 			block.meta:SetWordWrap(false)
 			block:SetScript("OnEnter", function(btn)
-				SetColor(btn.text, WHITE)
-				btn.bg:SetColorTexture(MAP_BLUE[1], MAP_BLUE[2], MAP_BLUE[3], 0.16)
+				SetColor(btn.text, "text")
+				btn.bg:SetColorTexture(UI.RGBA("accent", 0.16))
 				GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-				GameTooltip:SetText(btn.entry.openText or "Opens the world map on this tab", 1, 1, 1)
+				GameTooltip:SetText(btn.entry.openText or "Opens the world map on this tab", UI.Color("text"))
 				GameTooltip:Show()
 			end)
 			block:SetScript("OnLeave", function(btn)
-				SetColor(btn.text, MAP_BLUE)
-				btn.bg:SetColorTexture(MAP_BLUE[1], MAP_BLUE[2], MAP_BLUE[3], 0.08)
+				SetColor(btn.text, "accent")
+				btn.bg:SetColorTexture(UI.RGBA("accent", 0.08))
 				GameTooltip:Hide()
 			end)
 			block:SetScript("OnClick", function(btn)
@@ -717,7 +723,7 @@ local function CreateAround(parent, onOpen)
 		Kit.HideFrom(self.rows, used + 1)
 		self.none:SetShown(#blocks == 0)
 	end
-	around.none = UI.Text(around, 13, GREY)
+	around.none = UI.Text(around, 13, "textMuted")
 	around.none:SetPoint("TOPLEFT", 0, -40)
 	around.none:SetPoint("RIGHT")
 	around.none:SetWordWrap(true)
@@ -738,7 +744,7 @@ function ns.PanelHome_Create(parent, onOpen)
 	home.colLine = VLine(home.content)
 	home.around = CreateAround(home.content, onOpen)
 	home.sections = {} -- [entry] = frame
-	home.empty = UI.Text(home.content, 13, GREY)
+	home.empty = UI.Text(home.content, 13, "textMuted")
 	home.empty:SetPoint("TOPLEFT", PAD, -PAD)
 	home.empty:SetPoint("RIGHT", -PAD, 0)
 	home.empty:SetWordWrap(true)
@@ -921,9 +927,9 @@ local function CreateRailRow(parent, onSelect)
 	row:SetHeight(RAIL_ROW_H)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
-	row.bg:SetColorTexture(1, 1, 1, 0.05)
+	row.bg:SetColorTexture(UI.Color("hover"))
 	row.bar = row:CreateTexture(nil, "ARTWORK")
-	row.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	row.bar:SetColorTexture(UI.Color("accent"))
 	row.bar:SetPoint("TOPLEFT")
 	row.bar:SetPoint("BOTTOMLEFT")
 	row.bar:SetWidth(2)
@@ -931,22 +937,22 @@ local function CreateRailRow(parent, onSelect)
 	row.icon:SetSize(16, 16)
 	row.icon:SetPoint("LEFT", 12, 0)
 	row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-	row.text = UI.Text(row, 13, WHITE)
+	row.text = UI.Text(row, 13, "text")
 	row.text:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
 	row.text:SetPoint("RIGHT", -6, 0)
 	row.text:SetWordWrap(false)
-	-- Count pill at the right end: gold digits on a dark backing (the text ends at it while it shows).
+	-- Count pill at the right end: accent digits on a dark backing (the text ends at it while it shows).
 	row.pill = CreateFrame("Frame", nil, row)
 	row.pill:SetHeight(16)
 	row.pill:SetPoint("RIGHT", -8, 0)
 	local pillBg = row.pill:CreateTexture(nil, "BACKGROUND")
 	pillBg:SetAllPoints()
 	pillBg:SetColorTexture(0, 0, 0, 0.6)
-	UI.Border(row.pill, GOLD[1], GOLD[2], GOLD[3], 0.3)
+	UI.Border(row.pill, "frame", 0.3)
 	row.pill.text = row.pill:CreateFontString(nil, "OVERLAY")
-	row.pill.text:SetFont(NARROW_FONT, 12, "")
+	UI.SetFont(row.pill.text, NARROW_FONT, 12)
 	row.pill.text:SetPoint("CENTER", 0, 0)
-	SetColor(row.pill.text, GOLD)
+	SetColor(row.pill.text, "accent")
 	row.pill:Hide()
 	function row:SetPill(text, tip)
 		if self.pillSet and text == self.pillText and tip == self.pillTipGiven then
@@ -968,15 +974,15 @@ local function CreateRailRow(parent, onSelect)
 		if entry then
 			local summary = ns.HomeCall(entry.summary)
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			GameTooltip:SetText(entry.name, GOLD[1], GOLD[2], GOLD[3])
+			GameTooltip:SetText(entry.name, UI.Color("heading"))
 			if type(summary) == "string" and summary ~= "" then
-				GameTooltip:AddLine(summary, 1, 1, 1)
+				TipLine(GameTooltip, summary, "text")
 			end
 			if self.pillTip then
-				GameTooltip:AddLine(self.pillTip, GOLD[1], GOLD[2], GOLD[3])
+				TipLine(GameTooltip, self.pillTip, "heading")
 			end
 			if entry.kind == "map" then
-				GameTooltip:AddLine("Opens the world map on this tab", MAP_BLUE[1], MAP_BLUE[2], MAP_BLUE[3])
+				TipLine(GameTooltip, "Opens the world map on this tab", "accent")
 			end
 			GameTooltip:Show()
 		end
@@ -999,7 +1005,7 @@ function ns.PanelRail_Create(parent, onSelect)
 	bg:SetAllPoints()
 	bg:SetColorTexture(0, 0, 0, 0.25)
 	rail.rows = {}
-	rail.header = UI.Text(rail, 12, DIM)
+	rail.header = UI.Text(rail, 12, "textFaint")
 	rail.header:SetText("On the world map")
 
 	local function Row(i)
@@ -1036,8 +1042,8 @@ function ns.PanelRail_Create(parent, onSelect)
 			row.text:SetText("Home")
 		end
 		row:SetPill(Pill(entry))
-		local c = selected and GOLD or (entry and entry.kind == "map" and MAP_BLUE or WHITE)
-		SetColor(row.text, c)
+		SetColor(row.text, selected and "heading" or (entry and entry.kind == "map" and "accent" or "text"))
+
 		row.bar:SetShown(selected)
 		row.bg:SetShown(selected or row:IsMouseOver())
 		row:ClearAllPoints()

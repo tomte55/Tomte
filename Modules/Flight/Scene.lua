@@ -5,7 +5,6 @@ local addonName, ns = ...
 -- bottom = character (left), flight timer (center), rotating flight stats (right).
 -- The "Entering <zone>" text (ZoneText.lua) belongs to this scene too.
 
-local GOLD, GREY, WHITE = ns.SCENE_GOLD, ns.SCENE_GREY, ns.SCENE_WHITE
 local PAD = 48 -- side padding inside the bottom band
 local LINE_WIDTH = 440 -- progress line under the timer
 local STATS_PAGE_TIME = 6
@@ -88,37 +87,37 @@ function scene.Create(parent, letterbox)
 
 	-- Top band: title card.
 	-- Offsets from the band's center (font strings by their top edge, roughly font size tall).
-	card.title = Text(card, 36, GOLD, ns.SCENE_TITLE_FONT)
+	card.title = Text(card, 32, "heading", "title")
 	Place(card, card.title, "TOP", letterbox.top, "CENTER", 0, 22)
-	card.label = Text(card, 12, GREY)
+	card.label = Text(card, 12, "textMuted")
 	Place(card, card.label, "TOP", letterbox.top, "CENTER", 0, 40)
-	card.line = ns.SceneGoldLine(card, 300)
+	card.line = ns.SceneLine(card, 300)
 	Place(card, card.line, "TOPRIGHT", letterbox.top, "CENTER", 0, -19)
-	card.subtitle = Text(card, 14, GREY)
+	card.subtitle = Text(card, 14, "textMuted")
 	Place(card, card.subtitle, "TOP", letterbox.top, "CENTER", 0, -26)
 
 	-- Bottom band, left: character.
-	card.charName = Text(card, 19, GOLD)
+	card.charName = Text(card, 19, "heading")
 	Place(card, card.charName, "TOPLEFT", letterbox.bottom, "LEFT", PAD, 20)
-	card.charInfo = Text(card, 13, GREY)
+	card.charInfo = Text(card, 13, "textMuted")
 	Place(card, card.charInfo, "TOPLEFT", letterbox.bottom, "LEFT", PAD, -3)
 
 	-- Bottom band, center: timer + progress line + arrival clock.
-	card.time = Text(card, 28, { 1, 1, 1 })
+	card.time = Text(card, 28, "text", "number")
 	Place(card, card.time, "TOP", letterbox.bottom, "CENTER", 0, 36)
 
-	-- A hairline track with a gold fill and a small glowing head at the fill's leading edge.
+	-- A hairline track with an accent fill and a small glowing head at the fill's leading edge.
 	card.track = card:CreateTexture(nil, "OVERLAY")
 	card.track:SetColorTexture(1, 1, 1, 0.16)
 	card.track:SetSize(LINE_WIDTH, 1)
 	card.track.pixelHeight = 1
 	Place(card, card.track, "TOP", letterbox.bottom, "CENTER", 0, -6)
 	card.fill = card:CreateTexture(nil, "OVERLAY", nil, 1)
-	card.fill:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+	card.fill:SetColorTexture(ns.UI.Color("accent"))
 	card.fill:SetHeight(1)
 	card.fill:SetPoint("LEFT", card.track, "LEFT")
 	card.head = card:CreateTexture(nil, "OVERLAY", nil, 3)
-	card.head:SetColorTexture(1, 0.92, 0.7, 1)
+	card.head:SetColorTexture(1, 1, 1, 1)
 	card.head:SetSize(5, 5)
 	card.head:SetPoint("CENTER", card.fill, "RIGHT")
 	local headMask = card:CreateMaskTexture()
@@ -126,23 +125,23 @@ function scene.Create(parent, letterbox)
 	headMask:SetAllPoints(card.head)
 	card.head:AddMaskTexture(headMask)
 	card.halo = card:CreateTexture(nil, "OVERLAY", nil, 2)
-	card.halo:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.25)
+	card.halo:SetColorTexture(ns.UI.RGBA("accent", 0.25))
 	card.halo:SetSize(13, 13)
 	card.halo:SetPoint("CENTER", card.head)
 	local haloMask = card:CreateMaskTexture()
 	haloMask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
 	haloMask:SetAllPoints(card.halo)
 	card.halo:AddMaskTexture(haloMask)
-	card.eta = Text(card, 10, GREY)
+	card.eta = Text(card, 10, "textMuted")
 	Place(card, card.eta, "TOP", letterbox.bottom, "CENTER", 0, -19)
 
 	-- Bottom band, right: rotating flight stats.
 	local statsGroup = CreateFrame("Frame", nil, card)
 	statsGroup:SetAllPoints(card)
 	statsSwap = ns.NewSwap(statsGroup)
-	card.statTitle = Text(statsGroup, 18, WHITE)
+	card.statTitle = Text(statsGroup, 18, "text")
 	Place(card, card.statTitle, "TOPRIGHT", letterbox.bottom, "RIGHT", -PAD, 19)
-	card.statLine = Text(statsGroup, 13, GREY)
+	card.statLine = Text(statsGroup, 13, "textMuted")
 	Place(card, card.statLine, "TOPRIGHT", letterbox.bottom, "RIGHT", -PAD, -3)
 
 	ns.ZoneText_Create(parent)

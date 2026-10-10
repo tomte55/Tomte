@@ -6,7 +6,7 @@ local addonName, ns = ...
 -- text is secret and can't be searched, so nothing is matched there.
 
 local OWNER = "mentions"
-local ACCENT = { 0.25, 1, 0.25 } -- guild green
+local CHAT_TYPE = "GUILD" -- cards in the guild chat color
 -- event -> { label, group (option key), slash to answer in that channel }
 local CHANNELS = {
 	CHAT_MSG_GUILD = { "Guild", "guild", "/g " },
@@ -68,9 +68,10 @@ local function ShowMention(label, sender, class, text, slash, preview)
 	ns.Toast_Show({
 		owner = OWNER,
 		label = "Mention - " .. label,
-		accent = ACCENT,
+		accent = ns.Toast_ChatColor(CHAT_TYPE),
 		title = title,
 		text = text,
+		chat = true,
 		mergeKey = label .. ":" .. sender,
 		digestName = sender,
 		holdInCombat = ns.mentionsDB.holdInCombat,
@@ -115,7 +116,7 @@ local function Digest(held)
 	return {
 		owner = OWNER,
 		label = "While you were busy",
-		accent = ACCENT,
+		accent = ns.Toast_ChatColor(CHAT_TYPE),
 		title = count .. " mentions",
 		text = "By " .. ns.Social_NameList(names, 4) .. ".",
 	}

@@ -9,8 +9,6 @@ local addonName, ns = ...
 -- in combat. Rules in SendData.lua.
 
 local UI = ns.UI
-local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
-local RED = { 1, 0.45, 0.35 }
 local WIDTH = 270
 local ROW_H = 18
 local MAX_ATTACH = ATTACHMENTS_MAX_SEND or 12
@@ -40,7 +38,11 @@ end
 
 local function ClassColor(c)
 	local color = c.class and C_ClassColor.GetClassColor(c.class)
-	return color and { color.r, color.g, color.b } or WHITE
+	if color then
+		return { color.r, color.g, color.b }
+	end
+	local r, g, b = UI.Color("text")
+	return { r, g, b }
 end
 
 -- This character's bag stacks with what the rules need.
@@ -407,25 +409,22 @@ local function CreateDock()
 	dock:SetPoint("TOPLEFT", MailFrame, "TOPRIGHT", 6, 0)
 	dock:SetFrameStrata("HIGH")
 	dock:EnableMouse(true)
-	local bg = dock:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], 0.96)
-	UI.Border(dock, GOLD[1], GOLD[2], GOLD[3], 0.45)
-	dock.title = UI.Text(dock, 16, GOLD, ns.HomeKit.DISPLAY_FONT)
+	UI.Panel(dock, { alpha = 0.96 })
+	dock.title = UI.Text(dock, 15, "heading", "title")
 	dock.title:SetPoint("TOPLEFT", 12, -10)
 	dock.title:SetText("For your alts")
-	dock.postage = UI.Text(dock, 11, GREY)
+	dock.postage = UI.Text(dock, 11, "textMuted")
 	dock.postage:SetPoint("TOPRIGHT", -12, -14)
 	dock.blocks = {}
 	dock.lines = {}
-	dock.note = UI.Text(dock, 11, GREY)
+	dock.note = UI.Text(dock, 11, "textMuted")
 	dock.note:SetWordWrap(true)
 end
 
 local function Line(i)
 	local fs = dock.lines[i]
 	if not fs then
-		fs = UI.Text(dock, 12, WHITE)
+		fs = UI.Text(dock, 12, "text")
 		fs:SetWordWrap(false)
 		dock.lines[i] = fs
 	end
@@ -438,7 +437,7 @@ local function Block(i)
 	if not b then
 		b = CreateFrame("Frame", nil, dock)
 		b:SetHeight(22)
-		b.name = UI.Text(b, 13, WHITE)
+		b.name = UI.Text(b, 13, "text")
 		b.name:SetPoint("LEFT", 0, 0)
 		b.button = UI.Button(b, 70, "Attach")
 		b.button:SetHeight(20)
@@ -478,11 +477,11 @@ function ns.AltsSend_Refresh()
 		local color = ClassColor(c)
 		-- Who it's for first (like the rows below), so a long recipe name is what gets cut.
 		local quality = recipe and ns.Alts_Qualities(recipe) > 1 and ns.Alts_ClampQuality(recipe, cm.todo.entry.quality)
-		b.name:SetText(("%s: |cffffd173%s x%d|r%s"):format(
+		b.name:SetText(("%s: %s%s"):format(
 			color and ("|cff%02x%02x%02x%s|r"):format(color[1] * 255, color[2] * 255, color[3] * 255, c.name or "?") or c.name,
-			recipe and recipe.name or "?", cm.todo.entry.crafts,
+			UI.Wrap(("%s x%d"):format(recipe and recipe.name or "?", cm.todo.entry.crafts), "heading"),
 			quality and (" " .. ns.Alts_QualityMarkup(cm.todo.entry.recipeID, quality)) or ""))
-		b.name:SetTextColor(1, 1, 1)
+		UI.SetTextRole(b.name, "text")
 		local isAttached = attached and attached.craft == cm.todo.entry.recipeID
 		b.button.label:SetText(isAttached and "Send" or "Attach")
 		b.button.onClick = function()
@@ -500,7 +499,7 @@ function ns.AltsSend_Refresh()
 				fs:ClearAllPoints()
 				fs:SetPoint("TOPLEFT", 22, -y)
 				fs:SetPoint("RIGHT", -12, 0)
-				fs:SetText(("|cff9e9e9e+ %d more|r"):format(#cm.wants - MAX_ITEM_ROWS))
+				fs:SetText(UI.Wrap(("+ %d more"):format(#cm.wants - MAX_ITEM_ROWS), "textMuted"))
 				y = y + ROW_H
 				break
 			end
@@ -545,11 +544,11 @@ function ns.AltsSend_Refresh()
 			fs:SetPoint("RIGHT", -12, 0)
 			y = y + ROW_H
 			if i > MAX_ITEM_ROWS then
-				fs:SetText(("|cff9e9e9e+ %d more|r"):format(#g.stacks - MAX_ITEM_ROWS))
+				fs:SetText(UI.Wrap(("+ %d more"):format(#g.stacks - MAX_ITEM_ROWS), "textMuted"))
 				break
 			end
 			local icon = s.icon and ("|T%s:14:14:0:0:64:64:5:59:5:59|t "):format(s.icon) or ""
-			fs:SetText(("%s%s |cff4fe06a%s|r"):format(icon, s.link or s.name or "?", s.gainText or ns.Gear_AltGain(s.verdict)))
+			fs:SetText(("%s%s %s"):format(icon, s.link or s.name or "?", UI.Wrap(s.gainText or ns.Gear_AltGain(s.verdict), "success")))
 		end
 		y = y + 8
 	end
@@ -559,7 +558,7 @@ function ns.AltsSend_Refresh()
 		fs:ClearAllPoints()
 		fs:SetPoint("TOPLEFT", 12, -y)
 		fs:SetPoint("RIGHT", -12, 0)
-		fs:SetText("|cff9e9e9eEverything else your alts craft with|r")
+		fs:SetText(UI.Wrap("Everything else your alts craft with", "textMuted"))
 		y = y + ROW_H + 4
 	end
 	for _, g in ipairs(groups) do
@@ -570,7 +569,7 @@ function ns.AltsSend_Refresh()
 		b:SetPoint("TOPLEFT", 12, -y)
 		b:SetPoint("RIGHT", -12, 0)
 		local color = ClassColor(c)
-		b.name:SetText(("%s  |cff9e9e9e%d stack%s|r"):format(c.name or "?", #g.stacks, #g.stacks == 1 and "" or "s"))
+		b.name:SetText(("%s  %s"):format(c.name or "?", UI.Wrap(("%d stack%s"):format(#g.stacks, #g.stacks == 1 and "" or "s"), "textMuted")))
 		b.name:SetTextColor(color[1], color[2], color[3])
 		local isAttached = attached and attached.guid == g.guid and not attached.craft and not attached.gear
 		b.button.label:SetText(isAttached and "Send" or "Attach")
@@ -589,7 +588,7 @@ function ns.AltsSend_Refresh()
 				fs:ClearAllPoints()
 				fs:SetPoint("TOPLEFT", 22, -y)
 				fs:SetPoint("RIGHT", -12, 0)
-				fs:SetText(("|cff9e9e9e+ %d more|r"):format(#g.stacks - MAX_ITEM_ROWS))
+				fs:SetText(UI.Wrap(("+ %d more"):format(#g.stacks - MAX_ITEM_ROWS), "textMuted"))
 				y = y + ROW_H
 				break
 			end
@@ -599,7 +598,7 @@ function ns.AltsSend_Refresh()
 			fs:SetPoint("TOPLEFT", 22, -y)
 			fs:SetPoint("RIGHT", -12, 0)
 			local icon = s.icon and ("|T%s:14:14:0:0:64:64:5:59:5:59|t "):format(s.icon) or ""
-			fs:SetText(("%s%s |cff9e9e9ex%d|r"):format(icon, s.link or s.name or "?", s.count or 1))
+			fs:SetText(("%s%s %s"):format(icon, s.link or s.name or "?", UI.Wrap(("x%d"):format(s.count or 1), "textMuted")))
 			y = y + ROW_H
 		end
 		if #g.stacks > MAX_ATTACH then
@@ -608,7 +607,7 @@ function ns.AltsSend_Refresh()
 			fs:ClearAllPoints()
 			fs:SetPoint("TOPLEFT", 22, -y)
 			fs:SetPoint("RIGHT", -12, 0)
-			fs:SetText(("|cff9e9e9e%d mails (12 stacks each)|r"):format(math.ceil(#g.stacks / MAX_ATTACH)))
+			fs:SetText(UI.Wrap(("%d mails (12 stacks each)"):format(math.ceil(#g.stacks / MAX_ATTACH)), "textMuted"))
 			y = y + ROW_H
 		end
 		y = y + 8
@@ -861,7 +860,7 @@ local function CreateBankButton()
 	bankButton:Hide()
 	bankButton:SetScript("OnClick", Deposit)
 	bankButton:SetScript("OnEnter", function(self)
-		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 1)
+		UI.SetBorderColor(self, "accent", 1)
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
 		GameTooltip:SetText("Deposit for alts", 1, 1, 1)
 		GameTooltip:AddLine("Puts what your other characters craft with (and you don't) into the Warband bank"
@@ -875,7 +874,7 @@ local function CreateBankButton()
 		GameTooltip:Show()
 	end)
 	bankButton:SetScript("OnLeave", function(self)
-		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 0.45)
+		UI.SetBorderColor(self, "frame", UI.BUTTON_RULE)
 		GameTooltip:Hide()
 	end)
 	function bankButton:Update()

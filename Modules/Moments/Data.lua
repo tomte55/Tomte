@@ -203,26 +203,27 @@ end
 -- rays = rotating light rays, spin = the model spins in, sparkles = rising sparks, bigFlash = a stronger
 -- screen flash, charge = seconds of build-up before the reveal, extraTime = seconds added to the moment.
 -- color = item quality color, glow = a lighter shade for additive glows. sounds = SOUNDKIT keys.
+-- role = draw color and glow in this theme role instead (Scene.lua); the tables are then only a fallback.
 ns.MOMENT_TIERS = { "common", "rare", "epic", "legendary" }
 
 ns.MOMENT_TIER_FX = {
 	common = {
-		name = "New", color = { 1, 0.82, 0.45 }, glow = { 1, 0.85, 0.55 },
+		name = "New", color = { 1, 1, 1 }, glow = { 1, 1, 1 }, role = "accent",
 		flash = 0.25, charge = 0, extraTime = 0,
 		sounds = { "UI_EPICLOOT_TOAST" },
 	},
 	rare = {
-		name = "Rare", color = { 0, 0.44, 0.87 }, glow = { 0.3, 0.62, 1 },
+		name = "Rare", color = { 0, 0.44, 0.87 }, glow = { 0.3, 0.62, 1 }, -- theme: item quality color
 		flash = 0.35, rays = true, spin = true, charge = 0, extraTime = 0,
 		sounds = { "UI_STORE_UNWRAP" },
 	},
 	epic = {
-		name = "Epic", color = { 0.64, 0.21, 0.93 }, glow = { 0.72, 0.42, 1 },
+		name = "Epic", color = { 0.64, 0.21, 0.93 }, glow = { 0.72, 0.42, 1 }, -- theme: item quality color
 		flash = 0.55, rays = true, spin = true, sparkles = true, bigFlash = true, charge = 0, extraTime = 1,
 		sounds = { "UI_STORE_UNWRAP", "CATALOG_SHOP_GOLD_SHIMMER_START" },
 	},
 	legendary = {
-		name = "Legendary", color = { 1, 0.5, 0 }, glow = { 1, 0.62, 0.2 },
+		name = "Legendary", color = { 1, 0.5, 0 }, glow = { 1, 0.62, 0.2 }, -- theme: item quality color
 		flash = 0.75, rays = true, doubleRays = true, spin = true, sparkles = true, bigFlash = true,
 		charge = 1, extraTime = 3,
 		sounds = { "UI_LEGENDARY_LOOT_TOAST", "CATALOG_SHOP_GOLD_SHIMMER_START" },

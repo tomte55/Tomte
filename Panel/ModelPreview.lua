@@ -11,8 +11,6 @@ local addonName, ns = ...
 -- ns.ModelPreview_Hide(p)
 
 local UI = ns.UI
-local GOLD, GREY = UI.GOLD, UI.GREY
-local TITLE_FONT = "Fonts\\MORPHEUS.TTF"
 local PREVIEW_W, PREVIEW_H = 240, 260
 local TURN_SPEED = 0.35 -- radians per second
 local DRESS_UP_SCENE = 596 -- Blizzard's dress-up frame scene (DressUpFrames.lua)
@@ -285,10 +283,7 @@ function ns.ModelPreview_Create(parent)
 	p:SetFrameStrata("TOOLTIP")
 	p:SetClampedToScreen(true)
 	p:Hide()
-	local bg = p:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.BG[1], UI.BG[2], UI.BG[3], UI.BG[4])
-	UI.Border(p, GOLD[1], GOLD[2], GOLD[3], 0.45)
+	UI.Panel(p, { size = "medium" })
 	p.scene = CreateFrame("ModelScene", nil, p, "NoCameraControlModelSceneMixinTemplate")
 	p.scene:SetPoint("TOPLEFT", 4, -4)
 	p.scene:SetPoint("BOTTOMRIGHT", -4, 40)
@@ -315,12 +310,12 @@ function ns.ModelPreview_Create(parent)
 			p.actor:SetYaw(p.baseYaw + p.turn)
 		end
 	end)
-	p.name = UI.Text(p, 14, GOLD, TITLE_FONT)
+	p.name = UI.Text(p, 13, "heading", "title")
 	p.name:SetPoint("BOTTOMLEFT", 8, 22)
 	p.name:SetPoint("BOTTOMRIGHT", -8, 22)
 	p.name:SetJustifyH("CENTER")
 	p.name:SetWordWrap(false)
-	p.kind = UI.Text(p, 11, GREY)
+	p.kind = UI.Text(p, 11, "textMuted")
 	p.kind:SetPoint("BOTTOMLEFT", 8, 8)
 	p.kind:SetPoint("BOTTOMRIGHT", -8, 8)
 	p.kind:SetJustifyH("CENTER")

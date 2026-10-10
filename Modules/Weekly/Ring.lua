@@ -7,7 +7,6 @@ local addonName, ns = ...
 -- paused before SetCooldown); not yet measured in game.
 
 local UI = ns.UI
-local GOLD = UI.GOLD
 local CIRCLE = "Interface\\CHARACTERFRAME\\TempPortraitAlphaMask"
 local BADGE_OFFSET = 0.06 -- the part of the ring hidden under the badge, at each end (Plumber's visualOffset)
 
@@ -28,7 +27,7 @@ function ns.WeeklyRing_Create(parent, size)
 	ring.selected:SetSize(size + 10, size + 10)
 	ring.selected:Hide()
 
-	ring.glow = Disc(ring, "BACKGROUND", GOLD[1], GOLD[2], GOLD[3], 0.45)
+	ring.glow = Disc(ring, "BACKGROUND", UI.RGBA("accent", 0.45))
 	ring.glow:SetPoint("CENTER")
 	ring.glow:SetSize(size * 1.3, size * 1.3)
 	ring.glow:Hide()
@@ -60,7 +59,7 @@ function ns.WeeklyRing_Create(parent, size)
 	ring.inner:SetPoint("TOPLEFT", thick, -thick)
 	ring.inner:SetPoint("BOTTOMRIGHT", -thick, thick)
 	ring.inner:SetFrameLevel(ring.cd:GetFrameLevel() + 2)
-	ring.disc = Disc(ring.inner, "BACKGROUND", 0.09, 0.09, 0.1, 1)
+	ring.disc = Disc(ring.inner, "BACKGROUND", UI.Color("bg"))
 	ring.disc:SetAllPoints()
 	ring.icon = ring.inner:CreateTexture(nil, "ARTWORK")
 	ring.icon:SetPoint("CENTER")
@@ -76,12 +75,12 @@ function ns.WeeklyRing_Create(parent, size)
 	ring.badge:SetPoint("CENTER", ring, "BOTTOM", 0, thick / 2)
 	local bbg = ring.badge:CreateTexture(nil, "BACKGROUND")
 	bbg:SetAllPoints()
-	bbg:SetColorTexture(0.07, 0.07, 0.08, 1)
-	UI.Border(ring.badge, GOLD[1], GOLD[2], GOLD[3], 0.7)
+	bbg:SetColorTexture(UI.Color("bgBottom"))
+	UI.Border(ring.badge, "frame", 0.7)
 	ring.badge.text = ring.badge:CreateFontString(nil, "OVERLAY")
-	ring.badge.text:SetFont(ns.HomeKit.NARROW_FONT, math.max(math.floor(size * 0.16), 11), "")
+	UI.SetFont(ring.badge.text, "number", math.max(math.floor(size * 0.16), 11))
 	ring.badge.text:SetPoint("CENTER", 0, 0)
-	ring.badge.text:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+	UI.SetTextRole(ring.badge.text, "heading")
 
 	function ring:SetProgress(frac)
 		frac = math.min(math.max(frac or 0, 0), 1)
@@ -154,7 +153,8 @@ function ns.WeeklyRing_Create(parent, size)
 		self.selected:SetShown(on)
 	end
 
-	ring:SetColor(GOLD[1], GOLD[2], GOLD[3])
+	ring:SetColor(UI.Color("accent"))
+
 	ring:SetBadge(nil)
 	ring:SetProgress(0)
 	return ring
