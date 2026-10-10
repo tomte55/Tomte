@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.4.1 - 2026-10-10
+
 - Fixed an "AddOn 'Tomte' tried to call the protected function" error when a waypoint or world quest was tracked in
   combat with the map open: pins and tracking set in combat now wait until the fight ends.
 - Discoveries shown as a moment also hide Blizzard's yellow "Discovered: <area>" line.
