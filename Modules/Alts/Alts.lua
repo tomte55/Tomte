@@ -7,7 +7,9 @@ local addonName, ns = ...
 -- This file wires them up and adds "Crafted by" lines to item tooltips ("Known by" / "Learnable by" on recipe items).
 
 local UI = ns.UI
-local LABEL = UI.Wrap("Alts:", "accent") .. " "
+local function Label() -- built when used: the theme is chosen on ADDON_LOADED
+	return UI.Wrap("Alts:", "accent") .. " "
+end
 local TAB_H = 22
 
 local module, db
@@ -198,9 +200,9 @@ local function OnRecipeItem(tooltip, data, itemID)
 	end
 	local status, names, base = ns.Alts_RecipeItemStatus(db.chars, db.recipes, ids)
 	if status == "known" then
-		tooltip:AddLine(LABEL .. UI.Wrap(("Known by %s"):format(names), "textMuted"), 1, 1, 1, true)
+		tooltip:AddLine(Label() .. UI.Wrap(("Known by %s"):format(names), "textMuted"), 1, 1, 1, true)
 	elseif status == "learnable" then
-		tooltip:AddLine(LABEL .. UI.Wrap(("Learnable by %s (%s)"):format(names, BaseName(base)), "success"), 1, 1, 1, true)
+		tooltip:AddLine(Label() .. UI.Wrap(("Learnable by %s (%s)"):format(names, BaseName(base)), "success"), 1, 1, 1, true)
 	end
 end
 
@@ -235,11 +237,11 @@ local function OnItem(tooltip, data)
 				end
 				names[#names + 1] = c.name
 			end
-			tooltip:AddLine(("%sCrafted by %s (%s)"):format(LABEL, table.concat(names, ", "), ProfName(known[1], recipe.base)),
+			tooltip:AddLine(("%sCrafted by %s (%s)"):format(Label(), table.concat(names, ", "), ProfName(known[1], recipe.base)),
 				1, 1, 1, true)
 			return
 		elseif #learnable > 0 and not learnableLine then
-			learnableLine = LABEL .. UI.Wrap(("Learnable by %s (%s)"):format(learnable[1].name, ProfName(learnable[1], recipe.base)), "textMuted")
+			learnableLine = Label() .. UI.Wrap(("Learnable by %s (%s)"):format(learnable[1].name, ProfName(learnable[1], recipe.base)), "textMuted")
 		end
 	end
 	if learnableLine then

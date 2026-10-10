@@ -405,6 +405,7 @@ local function CreateHero(parent, onOpen)
 	floor:SetPoint("BOTTOMRIGHT", 0, 34)
 	floor:SetHeight(90)
 	floor:SetGradient("VERTICAL", UI.ColorObject("accent", 0.08), UI.ColorObject("accent", 0))
+	floor:SetShown(ns.Theme.HasOrnaments()) -- in Blizzard's gold it reads as a muddy band behind the name
 
 	local model = CreateFrame("PlayerModel", nil, stage)
 	model:SetPoint("TOPLEFT", 10, -6)
@@ -425,19 +426,21 @@ local function CreateHero(parent, onOpen)
 			self:SetFacing(self.facing)
 		end
 	end)
-	-- SetUnit reloads the model (it blinks), so only when it isn't there yet, when the window opens, or when the
-	-- character's looks change; Home refreshes leave it alone.
+	-- SetUnit reloads the model (it blinks, and the character floated up into place every time the window opened), so
+	-- only when it isn't there yet or the character's looks changed. The model is kept while the window is closed.
+	-- blend = false: no blend from the previous model's pose and place.
+	model:SetKeepModelOnHide(true)
 	model.needsUnit = true
 	function model:Load()
 		if self.needsUnit or not self:GetModelFileID() then
 			self.needsUnit = false
-			self:SetUnit("player")
+			self:SetUnit("player", false)
 			self:SetFacing(self.facing)
 		end
 	end
 	model:SetScript("OnShow", function(self)
-		-- Loaded on show (a model set while hidden may not render), whichever runs first, this or Refresh.
-		self.needsUnit = true
+		-- Loaded on show if it needs it (a model set while hidden may not render), whichever runs first, this or
+		-- Refresh.
 		self:Load()
 	end)
 	model:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")

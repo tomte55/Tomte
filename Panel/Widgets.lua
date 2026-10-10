@@ -173,6 +173,47 @@ local function ContourCoords(corner, w, h)
 	return l, r, t, b
 end
 
+-- The Blizzard theme's panel: the tooltip's nine-slice border (NineSliceUtil, Blizzard_SharedXML NineSlice.lua;
+-- layout in Mainline/NineSliceLayouts.lua). The pieces are textures on `frame` itself (frame.TopLeftCorner ...
+-- frame.Center), so they stay under the frame's own text. The fill is bgTop, as GameTooltip tints it with
+-- TOOLTIP_DEFAULT_BACKGROUND_COLOR. frame.borderEdges are invisible 1 px edges, so UI.SetBorderColor still works.
+-- size "large" (the Tomte window) gets a darker layer under the fill: a tooltip-thin fill over a whole window let
+-- nameplates and the world show through the text.
+local NINE_SLICE_PIECES = { "TopLeftCorner", "TopRightCorner", "BottomLeftCorner", "BottomRightCorner", "TopEdge",
+	"BottomEdge", "LeftEdge", "RightEdge" }
+local LARGE_BACKING_ALPHA = 0.55
+
+local function BlizzardPanel(frame, size)
+	local p = { frame = frame }
+	NineSliceUtil.ApplyLayoutByName(frame, "TooltipDefaultLayout")
+	local fr, fg, fb = Theme.Color("bgTop")
+	frame.Center:SetVertexColor(fr, fg, fb, 1)
+	if size == "large" then
+		p.backing = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
+		p.backing:SetAllPoints(frame.Center)
+		local br, bg, bb = Theme.Color("bgBottom")
+		p.backing:SetColorTexture(br, bg, bb, LARGE_BACKING_ALPHA)
+	end
+	for _, key in ipairs(NINE_SLICE_PIECES) do
+		frame[key]:SetVertexColor(1, 1, 1, 1) -- TOOLTIP_DEFAULT_COLOR: the border art as it comes
+	end
+	local r, g, b = Theme.Color("frame")
+	p.inner = Edges(frame, 0, "BORDER", 2, r, g, b, 0)
+	frame.borderEdges = p.inner
+
+	-- Always exactly a tooltip's look: the Background opacity setting is Cartographer's only (Panel/Window.lua).
+	function p:SetAlpha(a)
+		self.alpha = a
+	end
+
+	function p:Layout()
+	end
+
+	p:SetAlpha(1)
+	frame.themePanel = p
+	return p
+end
+
 -- The theme's panel look on `frame`: gradient fill, soft light top-left, grain, contour rings in one corner (large
 -- panels), an inner vignette, a 2 px dark outer edge and a thin rule inset 5 px.
 -- opts.size: "large" | "medium" | "small", or nil to pick from the frame's size whenever it changes.
@@ -180,8 +221,12 @@ end
 -- opts.subtle: for widgets and toasts over the game world (Almost Done, Crafting list, flight bar, toasts): only the
 -- fill and a faint rule on the edge; no grain, glow, contours, vignette or dark outer edge.
 -- Returns a handle: handle:SetAlpha(a) changes the fill's opacity (the Tomte window's Background opacity).
+-- The Blizzard theme (Theme.panel == "blizzard") draws the game's tooltip border and fill instead (BlizzardPanel).
 function UI.Panel(frame, opts)
 	opts = opts or {}
+	if Theme.panel == "blizzard" and not opts.subtle then
+		return BlizzardPanel(frame, opts.size)
+	end
 	local p = { frame = frame, corner = opts.corner or "BOTTOMRIGHT" }
 
 	p.fill = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
@@ -319,6 +364,7 @@ function UI.Title(parent, text, size)
 	f:SetPoint("TOP", fs, "BOTTOM", 0, -2)
 	f:SetVertexColor(Theme.Color("frame"))
 	f:SetAlpha(0.8)
+	f:SetShown(Theme.HasOrnaments())
 	fs.flourish = f
 	return fs
 end
@@ -511,10 +557,14 @@ function UI.Slider(parent, width)
 	s:SetSize(width, 14)
 	s:SetHitRectInsets(0, 0, -4, -4)
 	s:SetObeyStepOnDrag(true)
+	-- Track and fill are one screen pixel high and unsnapped, as Edges does: a snapped 1-unit line rounds to nothing
+	-- on some rows (the opacity slider showed only its thumb).
 	local track = s:CreateTexture(nil, "BACKGROUND")
 	track:SetColorTexture(Theme.Color("frame"))
 	track:SetAlpha(0.45)
-	track:SetHeight(1)
+	track:SetTexelSnappingBias(0)
+	track:SetSnapToPixelGrid(false)
+	PixelUtil.SetHeight(track, 1, 1)
 	track:SetPoint("LEFT")
 	track:SetPoint("RIGHT")
 	local thumb = s:CreateTexture(nil, "OVERLAY")
@@ -524,7 +574,9 @@ function UI.Slider(parent, width)
 	local fill = s:CreateTexture(nil, "ARTWORK")
 	fill:SetColorTexture(Theme.Color("accent"))
 	fill:SetAlpha(0.8)
-	fill:SetHeight(1)
+	fill:SetTexelSnappingBias(0)
+	fill:SetSnapToPixelGrid(false)
+	PixelUtil.SetHeight(fill, 1, 1)
 	fill:SetPoint("LEFT")
 	fill:SetPoint("RIGHT", thumb, "CENTER")
 	s:SetScript("OnValueChanged", function(self, value, userInput)

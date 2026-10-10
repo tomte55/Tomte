@@ -9,7 +9,9 @@ local KEY = "collect"
 local TAB_ICON = "Interface\\Icons\\Ability_Mount_RidingHorse"
 local ROW_H, HEADER_H, ICON = 34, 24, 26
 local LOADING_TICK = 1 -- seconds between refreshes while the journals are read
-local UP_NOW = UI.Wrap("Up now", "success")
+local function UpNow() -- built when used: the theme is chosen on ADDON_LOADED
+	return UI.Wrap("Up now", "success")
+end
 
 local db
 local panel
@@ -109,7 +111,7 @@ local function ShowTooltip(row)
 			GameTooltip:AddLine(e.zone, UI.RGB("heading"))
 		end
 		if e.upNow then
-			GameTooltip:AddLine(UP_NOW .. ": " .. (e.drop or "") .. " is up nearby.", 1, 1, 1, true)
+			GameTooltip:AddLine(UpNow() .. ": " .. (e.drop or "") .. " is up nearby.", 1, 1, 1, true)
 		end
 		Hint(e.kind == "mount" and "Click: open in the Mount Journal" or "Click: open in the Pet Journal")
 		if e.kind == "mount" then
@@ -221,7 +223,7 @@ local function SubText(e)
 	end
 	local parts = {}
 	if e.upNow then
-		parts[#parts + 1] = UP_NOW
+		parts[#parts + 1] = UpNow()
 	end
 	if e.zone then
 		parts[#parts + 1] = e.zone

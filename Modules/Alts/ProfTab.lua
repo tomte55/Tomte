@@ -6,7 +6,9 @@ local addonName, ns = ...
 
 local UI = ns.UI
 local CHAR_H, PROF_H = 26, 40
-local NONE = UI.Wrap("none", "textFaint")
+local function None() -- built when used: the theme is chosen on ADDON_LOADED
+	return UI.Wrap("none", "textFaint")
+end
 
 local tab, db
 local charRows, profRows = {}, {}
@@ -32,11 +34,11 @@ local function WornText(worn, base)
 			end
 		end
 	end
-	local parts = { UI.Wrap("Tool", "textMuted") .. " " .. (tool and ItemText(tool) or NONE) }
+	local parts = { UI.Wrap("Tool", "textMuted") .. " " .. (tool and ItemText(tool) or None()) }
 	local slots = ns.Alts_ProfSlots(base, "acc")
 	local accTexts = {}
 	for i = 1, slots do
-		accTexts[i] = accs[i] and ItemText(accs[i]) or NONE
+		accTexts[i] = accs[i] and ItemText(accs[i]) or None()
 	end
 	parts[2] = ("%s %s"):format(UI.Wrap(slots == 1 and "Accessory" or "Accessories", "textMuted"), table.concat(accTexts, ", "))
 	return table.concat(parts, "     "), tool, accs

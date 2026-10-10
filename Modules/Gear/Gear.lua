@@ -14,12 +14,14 @@ local GetSpecializationInfo = C_SpecializationInfo.GetSpecializationInfo
 local UI = ns.UI
 local PRIMARY_KEYS = { [1] = "STR", [2] = "AGI", [4] = "INT" } -- LE_UNIT_STAT_*
 -- Verdict color keys (Data.lua) to theme roles.
-local COLORS = {
-	green = "|c" .. UI.Hex("success"), yellow = "|c" .. UI.Hex("warning"), grey = "|c" .. UI.Hex("textMuted"),
-	red = "|c" .. UI.Hex("danger"), orange = "|c" .. UI.Hex("warning"),
-}
-local LABEL = UI.Wrap("Gear:", "accent") .. " "
-local REASON = "|c" .. UI.Hex("textMuted")
+-- Color codes are built when used: the theme is chosen on ADDON_LOADED.
+local COLOR_ROLES = { green = "success", yellow = "warning", grey = "textMuted", red = "danger", orange = "warning" }
+local function Label()
+	return UI.Wrap("Gear:", "accent") .. " "
+end
+local function Reason()
+	return "|c" .. UI.Hex("textMuted")
+end
 local MAX_REASONS = 3
 local BAGANATOR_ID = "tomte_gear"
 local BAGANATOR_ALT_ID = "tomte_gear_alt"
@@ -162,11 +164,11 @@ local function OwnLines(tooltip, link, ctx, verdict, cand, equipped, Add)
 		Add(headline, color)
 		if db.showReasons then
 			for i = 1, math.min(#verdict.reasons, MAX_REASONS) do
-				tooltip:AddLine(REASON .. "   " .. verdict.reasons[i] .. "|r", nil, nil, nil, true)
+				tooltip:AddLine(Reason() .. "   " .. verdict.reasons[i] .. "|r", nil, nil, nil, true)
 			end
 		end
 		if ctx.source == "none" and verdict.kind ~= "notForYou" then
-			tooltip:AddLine(REASON .. ("   No weights for %s: item level only. /tomte gear import"):format(
+			tooltip:AddLine(Reason() .. ("   No weights for %s: item level only. /tomte gear import"):format(
 				ctx.spec.name) .. "|r", nil, nil, nil, true)
 		end
 	end
@@ -269,7 +271,8 @@ local function OnItem(tooltip, data)
 	end
 	local labeled = false
 	local function Add(text, color)
-		tooltip:AddLine((labeled and "   " or LABEL) .. COLORS[color] .. text .. "|r", nil, nil, nil, true)
+		local code = "|c" .. UI.Hex(COLOR_ROLES[color])
+		tooltip:AddLine((labeled and "   " or Label()) .. code .. text .. "|r", nil, nil, nil, true)
 		labeled = true
 	end
 	local ctx = Context()

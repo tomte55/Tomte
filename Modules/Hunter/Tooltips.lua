@@ -7,9 +7,10 @@ local addonName, ns = ...
 -- The post-calls can't be removed, so they check whether the module is on. Anything secret is skipped.
 
 local UI = ns.UI
-local MUTED = "|c" .. UI.Hex("textMuted")
-local HEADING = "|c" .. UI.Hex("heading")
-local SUCCESS = "|c" .. UI.Hex("success")
+-- "|cff..." for a theme role, built when used: the theme is chosen on ADDON_LOADED.
+local function Code(role)
+	return "|c" .. UI.Hex(role)
+end
 
 local function Secret(...)
 	if not issecretvalue then
@@ -48,13 +49,14 @@ local function OnSpell(tooltip, data)
 		return
 	end
 	tooltip:AddLine(" ")
-	tooltip:AddDoubleLine(HEADING .. name .. "|r", pet and pet.family and (MUTED .. pet.family .. "|r") or "")
+	local family = pet and pet.family and (Code("textMuted") .. pet.family .. "|r") or ""
+	tooltip:AddDoubleLine(Code("heading") .. name .. "|r", family)
 	if pet and pet.spec then
 		local ability = pet.specAbility and C_Spell.GetSpellName(pet.specAbility)
-		tooltip:AddLine(MUTED .. pet.spec .. (ability and ("  -  " .. ability) or "") .. "|r")
+		tooltip:AddLine(Code("textMuted") .. pet.spec .. (ability and ("  -  " .. ability) or "") .. "|r")
 	end
 	if ns.Stable_SummonedSlot() == index then
-		tooltip:AddLine(SUCCESS .. "Summoned|r")
+		tooltip:AddLine(Code("success") .. "Summoned|r")
 	end
 	tooltip:Show()
 end
@@ -86,13 +88,13 @@ local function OnUnit(tooltip, data)
 	local count, same = ns.Hunter_Ownership(ns.Stable_Snapshot(), family, npcID)
 	local right
 	if same then
-		right = HEADING .. "you have this one (" .. same.name .. ")|r"
+		right = Code("heading") .. "you have this one (" .. same.name .. ")|r"
 	elseif count > 0 then
-		right = MUTED .. count .. " in your stable|r"
+		right = Code("textMuted") .. count .. " in your stable|r"
 	else
-		right = SUCCESS .. "new family|r"
+		right = Code("success") .. "new family|r"
 	end
-	tooltip:AddDoubleLine(HEADING .. family .. "|r", right)
+	tooltip:AddDoubleLine(Code("heading") .. family .. "|r", right)
 	tooltip:Show()
 end
 

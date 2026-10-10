@@ -3,7 +3,6 @@ local addonName, ns = ...
 -- Tomte core: saved variables, module start-up and /tomte. Modules register themselves at file load
 -- (Modules.lua); everything is started here on ADDON_LOADED.
 
-ns.PREFIX = ns.Theme.Wrap("Tomte", "accent") .. ": "
 ns.VERSION = C_AddOns.GetAddOnMetadata(addonName, "Version") or "?" -- the TOC's ## Version
 -- Panel title bar and minimap button. The TOC's IconTexture is set separately (it can't read this).
 ns.ICON = "Interface\\AddOns\\Tomte\\Media\\Logo" -- Media/Logo.svg is the source
@@ -38,8 +37,13 @@ function ns.ResetAll()
 	ns.ResetAllSettings(ns.db, CORE_DEFAULTS)
 end
 
+-- "Tomte: " in the accent color, built when used: the theme is only chosen on ADDON_LOADED.
+function ns.Prefix()
+	return ns.Theme.Wrap("Tomte", "accent") .. ": "
+end
+
 function ns.Print(msg)
-	print(ns.PREFIX .. msg)
+	print(ns.Prefix() .. msg)
 end
 
 local f = CreateFrame("Frame")
@@ -55,6 +59,8 @@ function f:ADDON_LOADED(name)
 	end
 	self:UnregisterEvent("ADDON_LOADED")
 	local db = TomteDB or {}
+	-- First, before anything draws: the theme picked in Settings (Panel/Window.lua).
+	ns.Theme.Apply(type(db.window) == "table" and db.window.theme or nil)
 	ns.RunMigrations(db, MIGRATIONS)
 	TomteDB = ns.MergeDefaults(CORE_DEFAULTS, db)
 	ns.db = TomteDB

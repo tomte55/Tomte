@@ -14,6 +14,8 @@ end
 local ns = {}
 assert(loadfile("Tomte/Core/Theme.lua"))("Tomte", ns)
 local Theme = ns.Theme
+assert(Theme.name == "blizzard", "loads with the default theme")
+Theme.Apply("cartographer") -- the color and font tests below are Cartographer's
 
 local failures = 0
 local function test(name, fn)
@@ -95,6 +97,57 @@ test("Font: chat is always the chat font, unknown roles fall back to body", func
 	eq(Theme.Font("chat"), "Fonts\\CHAT.TTF", "chat")
 	assert(endsWith(Theme.Font(), "Alegreya-Regular.ttf"), "default")
 	assert(endsWith(Theme.Font("nope"), "Alegreya-Regular.ttf"), "unknown")
+end)
+
+test("Apply: Blizzard default swaps colors and fonts in the same tables", function()
+	local colors = Theme.colors
+	Theme.Apply("blizzard")
+	assert(Theme.colors == colors, "colors table replaced")
+	eq(Theme.name, "blizzard", "name")
+	eq(Theme.panel, "blizzard", "panel")
+	eq(Theme.Hex("heading"), "ffffd100", "heading is NORMAL_FONT_COLOR's fallback")
+	eq(Theme.Font("title"), STANDARD_TEXT_FONT, "title")
+	eq(Theme.Font("number"), STANDARD_TEXT_FONT, "number")
+	eq(Theme.FontSize("body", 12), 12, "no size bump on the client's font")
+	assert(not Theme.HasOrnaments(), "no flourishes")
+	for _, role in ipairs(ROLES) do
+		assert(Theme.colors[role], "blizzard misses role " .. role)
+	end
+	Theme.Apply("cartographer")
+	eq(Theme.Hex("accent"), "ffa99be0", "back to Cartographer")
+	assert(endsWith(Theme.Font("title"), "Cinzel-Medium.ttf"), "Cinzel again")
+	eq(Theme.FontSize("body", 12), 13, "Alegreya bump")
+	assert(Theme.HasOrnaments(), "flourishes")
+end)
+
+test("Apply: an unknown or missing name is the default", function()
+	eq(Theme.DEFAULT, "blizzard", "default")
+	Theme.Apply("cartographer")
+	Theme.Apply("neon")
+	eq(Theme.name, "blizzard", "unknown")
+	Theme.Apply("cartographer")
+	Theme.Apply(nil)
+	eq(Theme.name, "blizzard", "nil")
+	eq(Theme.Hex("accent"), "ffffd100", "default colors")
+	Theme.Apply("cartographer")
+end)
+
+test("Apply: Blizzard colors come from the game's globals when they exist", function()
+	NORMAL_FONT_COLOR = { r = 0.5, g = 0.25, b = 0 }
+	local ns2 = {}
+	assert(loadfile("Tomte/Core/Theme.lua"))("Tomte", ns2)
+	NORMAL_FONT_COLOR = nil
+	ns2.Theme.Apply("blizzard")
+	eq(ns2.Theme.Hex("heading"), "ff804000", "heading")
+	eq(ns2.Theme.Hex("accent"), "ff804000", "accent")
+end)
+
+test("Choices lists every theme once, default first", function()
+	local choices = Theme.Choices()
+	eq(#choices, 2, "count")
+	eq(choices[1].value, Theme.DEFAULT, "first")
+	eq(choices[1].text, "Blizzard default", "label")
+	eq(choices[2].value, "cartographer", "second")
 end)
 
 test("the font files the theme names exist", function()
@@ -191,6 +244,50 @@ test("no hardcoded colors or fonts outside Core/Theme.lua", function()
 						hits[#hits + 1] = file .. ":" .. n .. " " .. bad
 					end
 				end
+			end
+		end
+	end
+	if #hits > 0 then
+		error(#hits .. " hits:\n  " .. table.concat(hits, "\n  "))
+	end
+end)
+
+-- Nothing may color or set a font while the files load: the theme is only chosen on ADDON_LOADED (Core.lua), so a
+-- color read earlier would keep the default theme's. Tracks block depth by keywords (crude, but the code base is
+-- plain: no keywords inside long strings).
+local THEME_CALLS = { Color = true, RGB = true, RGBA = true, Hex = true, Wrap = true, Font = true, SetFont = true,
+	FontSize = true, ColorObject = true }
+
+test("no theme colors or fonts read at file load", function()
+	local hits = {}
+	for _, file in ipairs(TocFiles()) do
+		if file ~= "Core/Theme.lua" then
+			local depth, n = 0, 0
+			for line in io.lines("Tomte/" .. file) do
+				n = n + 1
+				local code = line:gsub("%-%-.*$", ""):gsub('"[^"]*"', '""'):gsub("'[^']*'", "''")
+				if depth == 0 then
+					for path in code:gmatch("([%w_%.]+)%(") do
+						local owner, fn = path:match("^(.-)%.?([%w_]+)$")
+						if (owner == "UI" or owner == "Theme" or owner == "ns.Theme" or owner == "ns.UI")
+							and THEME_CALLS[fn] and not code:find("^%s*function%s") then
+							hits[#hits + 1] = file .. ":" .. n .. " " .. path
+						end
+					end
+				end
+				for _, word in ipairs({ "function", "do", "then", "repeat" }) do
+					for _ in code:gmatch("%f[%w_]" .. word .. "%f[^%w_]") do
+						depth = depth + 1
+					end
+				end
+				for _, word in ipairs({ "end", "until", "elseif" }) do
+					for _ in code:gmatch("%f[%w_]" .. word .. "%f[^%w_]") do
+						depth = depth - 1
+					end
+				end
+			end
+			if depth ~= 0 then
+				hits[#hits + 1] = file .. ": block depth " .. depth .. " at the end (scanner confused)"
 			end
 		end
 	end

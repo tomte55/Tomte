@@ -567,6 +567,7 @@ local function CreateTitleBar()
 	diamond:SetSize(18, 10)
 	diamond:SetPoint("CENTER", line, "CENTER", 0, 0)
 	diamond:SetVertexColor(UI.Color("frame"))
+	diamond:SetShown(ns.Theme.HasOrnaments())
 end
 
 local function CreateResizeGrip()

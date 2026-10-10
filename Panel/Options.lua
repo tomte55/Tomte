@@ -223,6 +223,7 @@ end
 function Setup.button(row, module, spec)
 	row.label:SetText(type(spec.label) == "function" and spec.label() or spec.label)
 	row.button.label:SetText(spec.text)
+	row.button:SetWidth(math.max(80, math.ceil(row.button.label:GetStringWidth()) + 24)) -- room for "Reload now"
 end
 
 -- Text box; the value is saved on Enter or when the box loses focus (Esc restores the saved text).
@@ -332,7 +333,9 @@ function ns.PanelOptions_Build(scroll, module)
 	local y = 0
 	local specs = {}
 	for _, spec in ipairs(module.options or {}) do
-		specs[#specs + 1] = spec
+		if not spec.shown or spec.shown() then -- shown: optional function, false hides the row for now
+			specs[#specs + 1] = spec
+		end
 	end
 	for _, spec in ipairs(ResetSpecs(module)) do
 		specs[#specs + 1] = spec

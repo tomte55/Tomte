@@ -15,7 +15,9 @@ local DEFAULT_SCENE = 718 -- PetInfo.uiModelSceneID's default: Blizzard's pet mo
 local PET_ACTOR = "pet" -- the actor tag in pet model scenes
 local RETRY_LOOKUP = 0.5 -- seconds; a creature the client hasn't cached yet takes a moment to load
 local SLOT_LABEL = { "1", "2", "3", "4", "5", "B" } -- B = the BM bonus slot
-local MUTED_CODE = "|c" .. UI.Hex("textMuted")
+local function MutedCode() -- built when used: the theme is chosen on ADDON_LOADED
+	return "|c" .. UI.Hex("textMuted")
+end
 
 local page
 local summary
@@ -207,7 +209,7 @@ local function PetRow(y, indent, pet, label)
 	row.name:ClearAllPoints()
 	row.name:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
 	row.name:SetPoint("RIGHT", row.extra, "LEFT", -8, 0)
-	row.name:SetText(label and (MUTED_CODE .. label .. "|r   " .. pet.name) or pet.name)
+	row.name:SetText(label and (MutedCode() .. label .. "|r   " .. pet.name) or pet.name)
 	UI.SetTextRole(row.name, IsClicked(pet) and "accent" or "text")
 	row.extra:SetText(PetLine(pet))
 	return ROW_H
@@ -264,7 +266,7 @@ function Layout()
 		if pet then
 			y = y + PetRow(y, 0, pet, SLOT_LABEL[slot])
 		elseif slot <= 5 then
-			y = y + TextRow(y, 0, MUTED_CODE .. SLOT_LABEL[slot] .. "|r   empty", nil, "textFaint")
+			y = y + TextRow(y, 0, MutedCode() .. SLOT_LABEL[slot] .. "|r   empty", nil, "textFaint")
 		end
 	end
 

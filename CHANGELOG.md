@@ -5,6 +5,11 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Pick Tomte's look in Settings > Tomte window > Theme. **Blizzard default** (new, and now the default) looks like
+  the game's own tooltips: gold headings, white text, the game's font and tooltip borders. **Cartographer** is the
+  map-paper look. "Reload now" switches right away. Background opacity is a Cartographer setting.
+- Home no longer reloads your character's model every time the window opens (it floated up into place).
+- Settings sliders always show their line, and settings buttons fit their text.
 - New look for all of Tomte: a dark, softly textured map-paper background with faint contour lines, thin brown
   frames, Cinzel titles and Alegreya text, and a muted arcane-purple accent for bars, links and selections. Done,
   soon and missing keep their green, amber and red. Russian, Korean and Chinese clients keep the game's own fonts

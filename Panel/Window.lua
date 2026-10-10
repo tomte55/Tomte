@@ -22,14 +22,33 @@ local module = ns.RegisterModule({
 	description = "How this window looks, where it opens, and what the rail and Home show.",
 	alwaysOn = true,
 	defaults = {
+		theme = ns.Theme.DEFAULT, -- read by Core.lua on ADDON_LOADED, before anything draws
 		opacity = 0.96,
 		resume = 5,
 		pills = true, -- counts on the rail
 		around = {}, -- [home entry key] = false hides that "Around you" block (filled from AROUND below)
 	},
 	options = {
+		{ type = "header", label = "Look" },
+		{ type = "dropdown", key = "theme", label = "Theme", onChange = Redraw, choices = ns.Theme.Choices,
+			tooltip = "How every Tomte window, widget and toast looks. Takes effect after a reload." },
+		{ type = "button", label = "The new theme shows after a reload", text = "Reload now",
+			shown = function()
+				return ns.ChoiceOrDefault(ns.db.window.theme, ns.Theme.Choices(), ns.Theme.DEFAULT) ~= ns.Theme.name
+			end,
+			onClick = function()
+				if InCombatLockdown() then
+					ns.Print("Reload after combat to switch themes.")
+					return
+				end
+				C_UI.Reload() -- needs a hardware event: this click is one
+			end,
+			tooltip = "Reloads your UI so Tomte draws with the theme picked above." },
 		{ type = "header", label = "Window" },
 		{ type = "slider", key = "opacity", label = "Background opacity", min = 0.5, max = 1, step = 0.02,
+			shown = function()
+				return ns.Theme.panel ~= "blizzard" -- Blizzard default always looks like a tooltip
+			end,
 			format = function(value)
 				return ("%d%%"):format(math.floor(value * 100 + 0.5))
 			end,
