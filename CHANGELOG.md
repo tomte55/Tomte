@@ -5,6 +5,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Flight cinematics: the character showcase's ground shadow now sits right under the feet for every race and size.
 - New Rogue Poisons module (rogues only): a button appears when a poison is missing or about to run out, and one
   click (or the "Apply missing poison" key binding) puts it on. Poison check when entering a dungeon, raid or delve and
   on ready checks.
