@@ -407,7 +407,7 @@ module = ns.RegisterModule({
 		pins = {}, -- [player GUID] = { achievementID, ... }
 		cache = {}, -- [player GUID] = { at, scope, records }
 		dock = { open = true },
-		tracker = { shown = true, locked = false, hideInCombat = true, scale = 1 },
+		tracker = { shown = true, locked = false, hideInCombat = true, scale = 1, collapsed = false },
 		toasts = { almost = true, lastStep = true, pinned = true },
 		preview = true,
 	},

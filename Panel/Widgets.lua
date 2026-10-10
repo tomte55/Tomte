@@ -172,6 +172,75 @@ function UI.Button(parent, width, text)
 	return b
 end
 
+-- On-screen widgets (Almost Done, Crafting list): a minus/plus in the top-right corner that shows while the mouse is
+-- over the widget and folds it down to its title. isCollapsed() reads the saved state, onToggle() flips it and
+-- redraws. The widget's own OnEnter can't tell (its rows take the mouse), so the button polls IsMouseOver.
+function UI.CollapseButton(frame, isCollapsed, onToggle)
+	local b = CreateFrame("Button", nil, frame)
+	b:SetSize(16, 16)
+	b:SetPoint("TOPRIGHT", -4, -3)
+	b:SetFrameLevel(frame:GetFrameLevel() + 20) -- above the unlocked drag cover
+	b:SetHitRectInsets(-3, -3, -3, -3)
+	b.across = b:CreateTexture(nil, "ARTWORK")
+	b.across:SetSize(9, 2)
+	b.across:SetPoint("CENTER")
+	b.down = b:CreateTexture(nil, "ARTWORK")
+	b.down:SetSize(2, 9)
+	b.down:SetPoint("CENTER")
+	local function Color(c)
+		b.across:SetColorTexture(c[1], c[2], c[3], 1)
+		b.down:SetColorTexture(c[1], c[2], c[3], 1)
+	end
+	function b:Update()
+		self.down:SetShown(isCollapsed())
+		Color(self:IsMouseOver() and GOLD or UI.GREY)
+	end
+	b:SetScript("OnEnter", function(self)
+		self:Update()
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		GameTooltip:SetText(isCollapsed() and "Expand" or "Minimize", 1, 1, 1)
+		GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", function(self)
+		self:Update()
+		GameTooltip:Hide()
+	end)
+	b:SetScript("OnClick", function(self)
+		onToggle()
+		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		self:Update()
+		if self:IsMouseOver() then
+			self:GetScript("OnEnter")(self)
+		end
+	end)
+	b:Hide()
+	frame:HookScript("OnUpdate", function()
+		local over = frame:IsMouseOver()
+		if over ~= b:IsShown() then
+			b:SetShown(over)
+			b:Update()
+		end
+	end)
+	frame:HookScript("OnHide", function()
+		b:Hide()
+	end)
+	b:Update()
+	return b
+end
+
+-- Saves a moved widget by its top-left corner, so growing, shrinking or folding it keeps the title where it was
+-- (StopMovingOrSizing can leave it anchored by its center or bottom). Returns { point, relPoint, x, y }.
+function UI.TopLeftPoint(frame)
+	local left, top = frame:GetLeft(), frame:GetTop()
+	if not (left and top) then
+		local point, _, relPoint, x, y = frame:GetPoint(1)
+		return { point, relPoint, x, y }
+	end
+	frame:ClearAllPoints()
+	frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+	return { "TOPLEFT", "BOTTOMLEFT", left, top }
+end
+
 -- Drag-only slider (no mouse wheel: the options pane scrolls with the wheel).
 function UI.Slider(parent, width)
 	local s = CreateFrame("Slider", nil, parent)

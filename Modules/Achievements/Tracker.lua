@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Almost Done: the Top 5 tracker. A small window with pinned achievements first, then the closest ones. Click a
 -- row to open it, right-click to pin or unpin. Unlocked, the whole window drags; rows whose progress went up
--- flash for a moment.
+-- flash for a moment. The minus in the corner (on hover) folds it down to its title.
 
 local UI = ns.UI
 local GOLD, WHITE, GREY = UI.GOLD, UI.WHITE, UI.GREY
@@ -120,8 +120,7 @@ local function CreateRow(i)
 end
 
 local function SavePoint()
-	local point, _, relPoint, x, y = frame:GetPoint(1)
-	DB().point = { point, relPoint, x, y }
+	DB().point = UI.TopLeftPoint(frame)
 end
 
 local function Build()
@@ -157,9 +156,16 @@ local function Build()
 	end)
 	UI.Border(mover, GOLD[1], GOLD[2], GOLD[3], 0.8)
 	local hint = UI.Text(mover, 10, GOLD)
-	hint:SetPoint("TOPRIGHT", -8, -6)
+	hint:SetPoint("TOPRIGHT", -26, -6) -- left of the collapse button
 	hint:SetText("drag to move")
 	frame.mover = mover
+
+	frame.collapse = UI.CollapseButton(frame, function()
+		return DB().collapsed
+	end, function()
+		DB().collapsed = not DB().collapsed
+		ns.AchTracker_Apply()
+	end)
 end
 
 local function Place()
@@ -178,7 +184,6 @@ function ns.AchTracker_Refresh(flashIDs)
 		local entry = top[i]
 		local old = row.entry
 		row.entry = entry
-		row:SetShown(entry ~= nil)
 		if entry then
 			row.icon:SetTexture(entry.icon)
 			row.name:SetText(entry.name)
@@ -211,6 +216,11 @@ function ns.AchTracker_Apply(combat)
 		return
 	end
 	frame:SetScale(db.scale)
+	local collapsed = db.collapsed
+	frame:SetHeight(collapsed and TITLE_H + 2 or TITLE_H + ROWS * ROW_H + 8)
+	for i, row in ipairs(rows) do
+		row:SetShown(not collapsed and i <= (frame.count or 0))
+	end
 	local editMode = ns.EditMode_Active()
 	frame.mover:SetShown(not db.locked and not editMode)
 	local hasRows = (frame.count or 0) > 0

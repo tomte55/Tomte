@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Almost Done and the Crafting list can be minimized: hover one and click the minus in its top-right corner to
+  fold it down to its title (the plus opens it again). It stays folded after a reload.
 - Flight cinematics: the character showcase's ground shadow now sits right under the feet for every race and size.
 - New Rogue Poisons module (rogues only): a button appears when a poison is missing or about to run out, and one
   click (or the "Apply missing poison" key binding) puts it on. Poison check when entering a dungeon, raid or delve and

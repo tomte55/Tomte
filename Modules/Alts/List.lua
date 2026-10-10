@@ -344,8 +344,7 @@ local function SetColor(fs, c)
 end
 
 local function SavePoint()
-	local point, _, relPoint, x, y = frame:GetPoint(1)
-	db.tracker.point = { point, relPoint, x, y }
+	db.tracker.point = UI.TopLeftPoint(frame)
 end
 
 local function Place()
@@ -495,9 +494,15 @@ local function Build()
 	end)
 	UI.Border(mover, GOLD[1], GOLD[2], GOLD[3], 0.8)
 	local hint = UI.Text(mover, 10, GOLD)
-	hint:SetPoint("TOPRIGHT", -8, -6)
+	hint:SetPoint("TOPRIGHT", -26, -6) -- left of the collapse button
 	hint:SetText("drag to move")
 	frame.mover = mover
+	frame.collapse = UI.CollapseButton(frame, function()
+		return db.tracker.collapsed
+	end, function()
+		db.tracker.collapsed = not db.tracker.collapsed
+		ns.AltsList_Refresh()
+	end)
 end
 
 -- The checks that don't need the to-do, so a hidden tracker never works it out.
@@ -544,6 +549,15 @@ function ns.AltsList_Refresh()
 	end
 	frame:SetScale(db.tracker.scale or 1)
 	frame.mover:SetShown(not db.tracker.locked and not ns.EditMode_Active())
+	if db.tracker.collapsed then
+		for _, b in ipairs(blocks) do
+			b:Hide()
+		end
+		frame.note:Hide()
+		frame:SetHeight(TITLE_H)
+		frame:Show()
+		return
+	end
 	local y = TITLE_H
 	for i, t in ipairs(todos) do
 		local b = Block(i)
