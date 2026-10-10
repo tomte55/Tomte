@@ -45,6 +45,7 @@ are Tomte window settings.
 | Session recap | Ambience | What you got done this session: time, gold (and where it came from), notable loot, achievements, rares, tames, levels and renown. A card with the time left during the /camp logout countdown (Esc cancels the logout) and on `/tomte recap`, a highlights page on the AFK screen, and a toast at login for your last session (covers instant logouts). A Sessions page keeps past sessions: a gold-per-hour chart (with loot value), this character / all and this week / all time with totals, optional play nights, and each session's recap card. |
 | Moments | Ambience | Title cards for level ups, achievements, new mounts/pets/toys, new zones, renown, campaign chapters, house levels, tamed pets and gear upgrades. Banner or small cinematic; new mounts, battle pets and tames get a centered reveal scaled by rarity (mount rarity via Mount Journal Enhanced). |
 | Hunter Pets | Class | Call Pet tooltips, a Stable tab with your pets and a tame log (with 3D models of the beasts you've seen), and a pet check on entering dungeons, raids and delves, and on ready checks. |
+| Rogue Poisons | Class | Out of combat, a button appears for each poison missing from your weapons or about to run out (10 minutes by default); click it, or press the "Apply missing poison" key, to apply it. Offers the poison you applied last (Deadly for Assassination, Instant for the others until you pick), two of each with Dragon-Tempered Blades. A poison check on entering dungeons, raids and delves, and on ready checks. Edit Mode moves the buttons. |
 | Pet Health | Combat | Pet health bar under your character that glows when your pet needs healing, with Mend Pet and Exhilaration cooldowns and reminders for a dead or missing pet. |
 | Whispers | Social | A toast per whisper (click to reply), unread badge, an inbox, and a summary card for whispers received in combat or during a cinematic. |
 | Mentions | Social | A toast when someone says your name or a keyword in guild, group, say or channel chat. |
@@ -64,7 +65,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte flight stats`, `/tomte flight lock` / `unlock`, `/tomte flight testalert`
 - `/tomte moments preview mount` (or `levelup`, `zone`, `tame`, `upgrade`, ...); add a tier for creatures and upgrades: `/tomte moments preview mount legendary`
 - `/tomte recap` (this session), `/tomte recap last`, `/tomte recap preview`
-- `/tomte afk preview`, `/tomte whispers inbox`, `/tomte hunter check`, `/tomte pet unlock`
+- `/tomte afk preview`, `/tomte whispers inbox`, `/tomte hunter check`, `/tomte rogue check` (your poisons and what's missing), `/tomte pet unlock`
 - `/tomte alerts test`
 - `/tomte gear sim` (how to check an item on Raidbots), `/tomte gear import` / `weights` (source, best gem, season) / `clear`, `/tomte gear upgrades` (reveal the upgrades already in your bags)
 - `/tomte way test` (pin ahead of you), `/tomte way clear`, `/tomte way route` (the portal route to a pin on another continent), `/tomte way <x> <y>` (also `/way <x> <y>` when TomTom isn't loaded)

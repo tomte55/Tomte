@@ -5,6 +5,9 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- New Rogue Poisons module (rogues only): a button appears when a poison is missing or about to run out, and one
+  click (or the "Apply missing poison" key binding) puts it on. Poison check when entering a dungeon, raid or delve and
+  on ready checks.
 - Polish and bug pass over the whole addon:
   - Moments no longer throws Lua errors on German clients, and discoveries read the area name correctly in French,
     Italian, Russian and Korean. Recap counts looted stacks right on French and Spanish clients.
