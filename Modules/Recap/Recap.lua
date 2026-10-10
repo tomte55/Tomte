@@ -66,6 +66,7 @@ local function Summarize(session, label, live)
 		xp = gain ~= nil,
 		lootText = ns.Value_SessionLootText and ns.Value_SessionLootText(session)
 			or (session.lootValue and session.lootValue > 0 and ("loot worth " .. ns.Alts_Gold(session.lootValue))) or nil,
+		gatherText = ns.Gather_SessionText and ns.Gather_SessionText(session) or nil,
 	}
 	if live then
 		summary.titleNow = function()
@@ -394,6 +395,7 @@ module = ns.RegisterModule({
 		pageScope = "all", -- char | all
 		pageRange = "all", -- week | all
 	},
+	noShare = { "pageScope", "pageRange" }, -- page filters: not in settings strings (Core/Profile.lua)
 	init = function(moduleDB)
 		db = moduleDB
 		ns.recapDB = moduleDB

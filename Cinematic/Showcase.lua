@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 -- Character showcase on the left during cinematic flights: name and item level, the player model
--- (current transmog) in a frozen 3/4 pose standing on a soft ground shadow, and a gear strip framed by
+-- (current transmog) idling in a 3/4 view, standing on a soft ground shadow, and a gear strip framed by
 -- thin lines underneath. A full-height gradient darkens the left side of the screen behind it.
 -- The model doesn't spin. It's an actor in a ModelScene with our own camera, fitted with the game's own
 -- projection (Project3DPointTo2D), which also tells where the feet are: the model frame is moved so the
@@ -29,8 +29,9 @@ local STAND_ANIM = 0
 local panel
 local icons = {}
 
-local function Freeze(actor)
-	actor:SetAnimation(STAND_ANIM, 0, 0, 0) -- speed 0: held on the first frame
+-- The stand animation at normal speed: the character breathes and shifts like on the Home panel.
+local function Idle(actor)
+	actor:SetAnimation(STAND_ANIM)
 end
 
 local function Line(width)
@@ -277,7 +278,7 @@ function ns.Showcase_Show(enabled)
 	actor:SetAlpha(0)
 	actor:SetModelByUnit("player")
 	actor:SetYaw(MODEL_FACING)
-	Freeze(actor)
+	Idle(actor)
 	panel.fitted = false
 	panel.shownAt = GetTime()
 end
@@ -290,7 +291,7 @@ function ns.Showcase_Update(alpha)
 			local actor = panel.actor
 			if (actor:IsLoaded() and FitCamera()) or (GetTime() - panel.shownAt > FIT_TIMEOUT and FitCamera(true)) then
 				panel.fitted = true
-				Freeze(actor) -- again once loaded: an animation set before that may not stick
+				Idle(actor) -- again once loaded: an animation set before that may not stick
 			end
 		end
 		-- The 3D model ignores the frame alpha: without this it pops out at 0.

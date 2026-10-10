@@ -884,11 +884,13 @@ module = ns.RegisterModule({
 		sheetOpen = false, -- the panel next to the character sheet
 		reveal = true,
 		revealToast = true,
+		equipSound = true,
 		revealMinPct = 2,
 		altUpgrades = "all", -- all | max | off: other characters judged on tooltips, Baganator and the mailbox
 		altBaganator = true,
 		altMail = true,
 	},
+	noShare = { "sheetOpen" }, -- not in settings strings (Core/Profile.lua)
 	init = function(moduleDB)
 		db = moduleDB
 		ns.gearDB = moduleDB
@@ -971,6 +973,8 @@ module = ns.RegisterModule({
 			tooltip = "Upgrades below this are left alone (gear for an empty slot always counts)." },
 		{ type = "checkbox", key = "revealToast", label = "Equip toast",
 			tooltip = "A toast with the upgrade: click it to equip the item, right-click to dismiss. Not in combat." },
+		{ type = "checkbox", key = "equipSound", label = "Sound when equipped",
+			tooltip = "Play the item upgrade sound with the \"Equipped\" toast once the upgrade from the toast is worn." },
 		{ type = "header", label = "Stat weights" },
 		{ type = "button", label = SourceLabel, text = "Show", onClick = Command(PrintWeights),
 			tooltip = "Imported weights win, then the built-in ones (every spec: sims for damage and tanks, guide "

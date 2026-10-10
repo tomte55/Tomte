@@ -147,6 +147,9 @@ local function ShowSummary()
 	if summary.lootText then
 		sources = sources .. "  -  " .. summary.lootText
 	end
+	if summary.gatherText then
+		sources = sources .. "  -  " .. summary.gatherText
+	end
 	SetText(card.sources, sources)
 	SetText(card.statTitle, summary.levelLine)
 	SetText(card.statLine, summary.countsLine ~= "" and summary.countsLine or "a quiet session")

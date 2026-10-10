@@ -128,15 +128,35 @@ local function Holidays()
 		return holidays
 	end
 	holidays, holidaysAt = {}, GetTime()
-	local now = C_DateAndTime.GetCurrentCalendarTime()
-	if not (now and now.monthDay) then
+	-- The shared calendar reader (Holidays & events): on now or starting within a day, whatever its "Other events"
+	-- setting. With each event's achievement category name too, which is exactly what IsRunningEvent looks for
+	-- (the finder's Timewalking dungeon name may not contain it).
+	if ns.Events_Current then
+		local s = ns.Events_Current()
+		if s.lockdown then
+			holidaysAt = 0 -- nothing read in chat lockdown: ask again next time instead of keeping it for minutes
+		end
+		for _, ev in ipairs(s.all or s.list) do
+			if ev.active or (ev.startsIn or 0) <= 1440 then
+				for _, name in ipairs(ns.Events_Names(ev)) do
+					holidays[#holidays + 1] = name:lower()
+				end
+			end
+		end
 		return holidays
 	end
+	local now = C_DateAndTime.GetCurrentCalendarTime()
+	local selected = C_Calendar.GetMonthInfo(0)
+	if not (now and now.monthDay and selected and selected.month) then
+		return holidays
+	end
+	-- Offsets count from the calendar's selected month, which isn't always this one.
+	local offset = (now.year - selected.year) * 12 + (now.month - selected.month)
 	for day = math.max(now.monthDay - 1, 1), now.monthDay + 1 do
 		-- pcall: the day after the last of the month isn't a valid day.
-		local ok, count = pcall(C_Calendar.GetNumDayEvents, 0, day)
+		local ok, count = pcall(C_Calendar.GetNumDayEvents, offset, day)
 		for i = 1, ok and count or 0 do
-			local info = C_Calendar.GetHolidayInfo(0, day, i)
+			local info = (offset == 0 or offset == 1) and C_Calendar.GetHolidayInfo(offset, day, i)
 			if info and info.name then
 				holidays[#holidays + 1] = info.name:lower()
 			end
@@ -269,8 +289,14 @@ local function StartUp()
 	scheduled = true
 	ns.Ach_LoadCache()
 	ns.AchTracker_Apply(InCombatLockdown())
-	C_Calendar.OpenCalendar()
+	if not ns.Events_Request then
+		C_Calendar.OpenCalendar()
+	end
 	C_Timer.After(SCAN_DELAY, function()
+		-- The shared reader sets this month first; asked after the loading screen, when the answer comes.
+		if ns.Events_Request then
+			ns.Events_Request()
+		end
 		if module.active then
 			ns.Ach_StartScan()
 		end
@@ -316,6 +342,9 @@ end
 
 function events:CALENDAR_UPDATE_EVENT_LIST()
 	holidays = nil
+	if ns.Events_Invalidate then
+		ns.Events_Invalidate() -- else the shared reader's minute-long cache can hold the list from before the answer
+	end
 end
 
 function events:SKILL_LINES_CHANGED()

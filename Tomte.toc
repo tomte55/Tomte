@@ -2,7 +2,7 @@
 ## Title: Tomte
 ## Notes: Personal quality-of-life modules.
 ## Author: tomte55
-## Version: 1.4.1
+## Version: 1.5.0
 ## IconTexture: Interface\AddOns\Tomte\Media\Logo
 ## SavedVariables: TomteDB
 ## OptionalDeps: Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI
@@ -18,6 +18,10 @@ Themes/Emerald.lua
 Themes/Void.lua
 Core/Core.lua
 Core/Modules.lua
+Core/Setup.lua
+Core/Profile.lua
+Core/BugReport.lua
+Core/BugFiles.lua
 Core/EditMode.lua
 Core/SessionData.lua
 Core/Session.lua
@@ -26,15 +30,21 @@ Data/WarWithin/Weekly.lua
 Data/WarWithin/Gear.lua
 Data/Midnight/Weekly.lua
 Data/Midnight/Gear.lua
+Data/WarWithin/Delves.lua
+Data/Midnight/Delves.lua
 Cinematic/Engine.lua
 Cinematic/SceneKit.lua
 Cinematic/Showcase.lua
 Cinematic/Banner.lua
 Panel/Widgets.lua
+Panel/Dialog.lua
 Panel/Options.lua
 Panel/Home.lua
 Panel/Panel.lua
 Panel/Window.lua
+Panel/Share.lua
+Panel/Bug.lua
+Panel/Setup.lua
 Panel/MapTabs.lua
 Panel/ModelPreview.lua
 Modules/Minimap/Data.lua
@@ -146,6 +156,13 @@ Modules/Collect/Data.lua
 Modules/Collect/Catalog.lua
 Modules/Collect/Tab.lua
 Modules/Collect/Collect.lua
+Modules/Holidays/Table.lua
+Modules/Holidays/Generated.lua
+Modules/Holidays/Data.lua
+Modules/Holidays/Calendar.lua
+Modules/Holidays/Catalog.lua
+Modules/Holidays/Page.lua
+Modules/Holidays/Holidays.lua
 Modules/WorldQuests/Data.lua
 Modules/WorldQuests/Scan.lua
 Modules/WorldQuests/Tab.lua
@@ -166,3 +183,18 @@ Modules/Pets/Battle.lua
 Modules/Pets/Card.lua
 Modules/Pets/Page.lua
 Modules/Pets/Pets.lua
+Modules/Fishing/Data.lua
+Modules/Fishing/Helpers.lua
+Modules/Fishing/Key.lua
+Modules/Fishing/Fishing.lua
+Modules/Delves/Data.lua
+Modules/Delves/Scan.lua
+Modules/Delves/Read.lua
+Modules/Delves/Entrance.lua
+Modules/Delves/Page.lua
+Modules/Delves/Delves.lua
+Modules/Gather/Data.lua
+Modules/Gather/Detect.lua
+Modules/Gather/Tracker.lua
+Modules/Gather/Page.lua
+Modules/Gather/Gather.lua

@@ -187,13 +187,32 @@ function ns.Mount_PickTiered(tiers, context, opts, rand)
 	return nil
 end
 
--- The action bar macro: #showtooltip makes the bar show that spell's icon, tooltip and usable/greyed state, and the
--- /click presses the Smart Mount button (down, as the button only takes down clicks). Macros hold 255 characters.
-function ns.Mount_MacroBody(spell, buttonName)
-	local click = "/click " .. buttonName .. " LeftButton 1"
-	local body = spell and ("#showtooltip " .. spell .. "\n" .. click)
-	if not body or #body > 255 then
-		return "#showtooltip\n" .. click
+-- The action bar macro: #showtooltip makes the bar show that spell's icon, tooltip and usable/greyed state. It casts
+-- the picked mount itself rather than clicking the Smart Mount button: the button's /cast then runs inside the bar
+-- macro, and that nested cast does nothing when the bar is clicked with the mouse (measured in 12.1). The /cast line
+-- comes first so that a dismount in the same press can't be followed by mounting again. opts: form = the travel form's
+-- shapeshift index (druid, shaman), keepFlying = don't dismount in the air. Without a spell, or over the 255 characters
+-- a macro holds, it falls back to clicking the button (the key's way). Tomte rewrites the macro after each mount.
+function ns.Mount_MacroBody(spell, buttonName, opts)
+	opts = opts or {}
+	local fallback = "#showtooltip\n/click " .. buttonName .. " LeftButton 1\n/click " .. buttonName .. " LeftButton"
+	if not spell then
+		return fallback
+	end
+	local air = opts.keepFlying and ",noflying" or ""
+	local form = opts.form
+	local lines = {
+		"#showtooltip " .. spell,
+		("/cast [nomounted,novehicleui%s] %s"):format(form and (",noform:" .. form) or "", spell),
+		"/leavevehicle [canexitvehicle]",
+		("/dismount [mounted%s]"):format(air),
+	}
+	if form then
+		lines[#lines + 1] = ("/cancelform [form:%d%s]"):format(form, air)
+	end
+	local body = table.concat(lines, "\n")
+	if #body > 255 then
+		return fallback
 	end
 	return body
 end

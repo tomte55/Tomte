@@ -845,7 +845,7 @@ function ns.PanelHome_Create(parent, onOpen)
 		-- Next up under the character list (between it and the footer) when there's room for a heading and two rows,
 		-- else on top of the right column.
 		local nextUnder = nextUp ~= nil and chars ~= nil and not nextStrip and ns.HomeCall(nextUp.place) == "characters"
-		local hasRight = hasAround or byslot.recent ~= nil or (nextUp ~= nil and not nextStrip and not nextUnder)
+		local hasRight = hasAround or byslot.recent ~= nil or byslot.events ~= nil or (nextUp ~= nil and not nextStrip and not nextUnder)
 		local both = chars ~= nil and hasRight
 		local colW = both and Snap((cw - 1) / 2) or cw
 		if chars then
@@ -876,6 +876,9 @@ function ns.PanelHome_Create(parent, onOpen)
 		if byslot.recent then
 			stack[#stack + 1] = byslot.recent
 		end
+		if byslot.events then
+			stack[#stack + 1] = byslot.events
+		end
 		self.colLine:SetShown(both)
 		self.colLine:ClearAllPoints()
 		self.colLine:SetPoint("TOPLEFT", colW, -(top + 12))
@@ -905,7 +908,7 @@ function ns.PanelHome_Create(parent, onOpen)
 			self.around:SetSize(rightW, math.max(colH - (aroundTop - colTop), 1))
 			self.around:Refresh()
 		end
-		self.empty:SetShown(not (week or chars or hasAround or nextUp or byslot.recent))
+		self.empty:SetShown(not (week or chars or hasAround or nextUp or byslot.recent or byslot.events))
 	end
 
 	-- Size changes come every frame while the window is dragged bigger; refresh once they settle.

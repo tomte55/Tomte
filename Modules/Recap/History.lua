@@ -30,6 +30,7 @@ function ns.Recap_Compact(session, extra)
 		gold = session.gold, log = log, loot = session.loot,
 		counts = ns.Recap_Counts(session.log or {}),
 		zone = extra and extra.zone, lootValue = extra and extra.lootValue, lootBy = extra and extra.lootBy,
+		gather = session.gather, -- { runs, nodes, value } from the Gathering module
 	}
 end
 

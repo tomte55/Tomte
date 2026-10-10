@@ -516,6 +516,9 @@ local SAMPLES = {
 	renown = function()
 		return { label = "Renown 12", title = "The Silvermoon Court" }
 	end,
+	companion = function()
+		return { label = "Level 40", title = "Brann Bronzebeard" }
+	end,
 	chapter = function()
 		return { label = "Chapter complete", title = "The Sunwell Remembers", subtitle = "Midnight" }
 	end,
@@ -647,6 +650,7 @@ module = ns.RegisterModule({
 		cinematicsAtMax = true,
 		zones = {}, -- [player GUID] = { [zone mapID] = true } once its "new zone" moment ran
 	},
+	noShare = { "previewKind" }, -- not in settings strings (Core/Profile.lua)
 	init = function(db)
 		ns.momentsDB = db
 	end,

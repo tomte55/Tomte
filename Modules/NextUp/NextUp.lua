@@ -214,6 +214,7 @@ module = ns.RegisterModule({
 		sources = {}, -- [entry key] = false when off
 		priority = {}, -- [entry key] = 0-100
 	},
+	shareMaps = { sources = "boolean", priority = "number" }, -- settings strings carry these (Core/Profile.lua)
 	home = { Section },
 	init = function(saved)
 		db = saved

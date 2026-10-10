@@ -88,6 +88,9 @@ local function Refresh(frame)
 		ns.Panel_OpenPage("weekly")
 	end)
 	local rows = ns.Weekly_HomeTodo(v, ns.weeklyDB.learned and ns.weeklyDB.quests or {})
+	if ns.Events_WeeklyRows then
+		ns.Events_MergeTodo(rows, ns.Events_WeeklyRows()) -- Darkmoon Faire quests and the holiday boss (Holidays & events)
+	end
 	local left = VAULT_W + 40
 	local width = frame:GetWidth() - left
 	local perCol = math.max(math.floor((frame:GetHeight() - 36) / TODO_H), 1)

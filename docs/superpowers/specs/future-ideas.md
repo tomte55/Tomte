@@ -6,13 +6,7 @@ ideas that don't belong to one existing spec.
 
 ## Events & holidays (2026-10-06)
 
-Weekly parked "a world event calendar". Combined with Collect's catalog it becomes: the world events active now
-(and starting soon) and the holiday mounts, pets, toys and achievements you're still missing from them. Shown on
-Home as an "around"-style block or a section, with a toast when an event with missing collectibles starts.
-
-- `C_Calendar` lists the holidays (needs `C_Calendar.OpenCalendar()` before the month data is there; verify in 12.x).
-- Mapping holidays to collectibles probably needs a small hand-made table (holiday achievements live under the
-  World Events category, which helps for achievements; mounts/pets/toys name the holiday in their source text).
+Designed: see `2026-10-10-tomte-holidays-design.md` (plan: `../plans/2026-10-10-tomte-holidays.md`).
 
 ## Collection goals (2026-10-06)
 

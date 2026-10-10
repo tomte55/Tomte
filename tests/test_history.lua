@@ -38,6 +38,15 @@ test("compact skips short sessions and keeps the shape", function()
 	eq(c.counts.rare, 1)
 end)
 
+test("compact keeps the session's gathering", function()
+	local s = Session("A", NOW, 30)
+	eq(ns.Recap_Compact(s).gather, nil, "none")
+	s.gather = { runs = 1, nodes = 42, value = 38600000 }
+	local c = ns.Recap_Compact(s)
+	eq(c.gather, s.gather)
+	eq(c.gather.nodes, 42)
+end)
+
 test("archive keeps newest first, caps per character and trims old logs", function()
 	local history = {}
 	for i = 1, 12 do

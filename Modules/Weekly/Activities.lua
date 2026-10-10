@@ -15,9 +15,9 @@ local function Completed(id, account)
 	return C_QuestLog.IsQuestFlaggedCompleted(id)
 end
 
--- The hand-kept list with this week's state filled in.
+-- The hand-kept list with this week's state filled in (also read by Delves: an entry's optional kind passes through).
 -- nil when the expansion has no list.
-local function ReadCurated(expansion)
+function ns.Weekly_ReadCurated(expansion)
 	local curated = ns.Content_Get(expansion, "activities")
 	if not curated then
 		return nil
@@ -26,7 +26,7 @@ local function ReadCurated(expansion)
 	for _, g in ipairs(curated) do
 		local entries = {}
 		for _, e in ipairs(g.entries) do
-			local item = { label = e.label }
+			local item = { label = e.label, kind = e.kind }
 			if e.flags then
 				local n = 0
 				for _, id in ipairs(e.flags) do
@@ -157,7 +157,7 @@ function ns.WeeklyActivitiesView(parent)
 		-- Activities (right).
 		local v = ns.Weekly_CurrentView()
 		local x = SIDE_W + 24
-		local curated = ReadCurated(expansion)
+		local curated = ns.Weekly_ReadCurated(expansion)
 		local model = ns.Weekly_ActivityModel(curated, ns.weeklyDB.quests, v or { quests = {} },
 			ns.weeklyDB.hideCompleted, not curated and ns.Weekly_NoDataText("activities", expansion) or nil)
 		self.hide:ClearAllPoints()

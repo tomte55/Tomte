@@ -8,6 +8,9 @@ A World of Warcraft addon for retail **12.1.0** (`## Interface: 120100`), made f
 2. Unzip it into `World of Warcraft\_retail_\Interface\AddOns` so you get `AddOns\Tomte\Tomte.toc`.
 3. Start the game (or `/reload`) and type `/tomte`.
 
+On first login Tomte asks what you want: Collector, Crafter, Minimal or Everything (or choose yourself).
+`/tomte setup` brings it back any time.
+
 To update, delete the old `Tomte` folder and unzip the new one. Your settings are kept (they live in `WTF`).
 What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
@@ -19,6 +22,16 @@ One addon with toggleable modules. Type `/tomte` to open the settings panel (als
 button, the addon compartment or a key binding), or `/tomte help` for all commands. `/tomte version` (also in the window's title bar) says which version you
 have: mention it when you report a bug. The panel is resizable and remembers its
 size and position.
+
+**Reporting a bug:** `/tomte bug` opens a report to copy: versions, which modules are on, related addons and Tomte's
+last errors. Nothing is sent anywhere; paste it to me or in a GitHub issue. `/tomte bug full` adds error details and
+your settings string (read it before posting). Install BugSack to catch errors across sessions; without it Tomte
+keeps its own last 5. `/tomte bug clear` empties that list.
+
+**Sharing settings:** Tomte window settings > Setup and sharing, or `/tomte profile export` / `import` / `undo`.
+Export gives a string of your settings (not your data: no characters, history, flight times or lists). Import shows
+what would change, per module, before anything is written; it then reloads. Undo goes back to your settings from
+before the last import.
 
 Home shows your character with its item level, gold, durability and location (hover each for more: missing
 enchants, this session's gold by source and the account total, the worst items, coordinates; click to open the
@@ -38,6 +51,10 @@ are Tomte window settings.
 | Gold & value | General | What things are worth, from Auctionator or TSM (vendor prices without either): loot value on the recap card and the Sessions page, each character's bags and bank in Alts, and material cost, sale price and profit in the Crafting tab. |
 | Weekly board | General | What you haven't done this week: Great Vault, crests, weekly quests, profession knowledge and Concentration (toast when full), lockouts. Tabs: This week, Factions (renown emblems in progress rings with sub-factions, paragon glow, next rewards on hover, click for the reward track), Activities (Delves keys and shards, Worldsoul weekly, learned weekly quests by zone, Hide completed, a Resources list), Raids (each boss's kills this week per difficulty, collapsible raids), Characters (an alt grid) and Professions; alts roll over at the weekly reset without logging in. |
 | Alts | General | Every character at a glance and crafting across them (who makes it, materials and where, crafts in order). Send to alt: at a mailbox a "For your alts" panel attaches and sends what your other characters craft with (12 stacks a mail), and at the bank "Deposit for alts" puts it in the Warband bank. Manual rules and gold top-ups are settings. Crafting list: add a craft with its amount from the Crafting tab, and a tracker on screen says what the character you're on has to do ("Grab 10 Iron Ingot from your bank", "Mail 20 Mycobloom to Mira", "Craft 3 Flask: you have everything"); the mailbox sends each craft's exact materials, Baganator marks the items to move, and crafts count down as you make them. With Auctionator, a "Shopping list" link on the materials headings makes an Auctionator shopping list of what's missing. Recipe items (patterns, plans...) say on their tooltip who knows the recipe or who could learn it. "Gear for" in the Crafting tab keeps only what one character can use (their armor type, weapons their class equips, their main stat, tools for their professions), "you" follows whoever is logged in, and each row marks how the craft's item level compares with what they wear (green +n at every quality, yellow +n only at the higher qualities). Profession gear: a Profession gear tab shows each character's tool and accessories per profession with the best one somebody can craft when it's an upgrade (click to open it in the Crafting tab), "Gear for" marks tools and accessories too, the mailbox's "Gear for <name>" groups include profession gear from your bags that's an upgrade for another character, and a Next up suggestion says when a better tool or accessory can be crafted with the materials on hand. Profession gear is compared by item level; its stats are shown, not weighed. The detailed Characters view shows each max-level character's Great Vault and Concentration (from Weekly); an unlit profession icon says who has a free profession slot; totals include the Warband bank's gold. Each character's worn gear and spec are stored for Gear Check's upgrades for alts: at the mailbox a "Gear for Mira" group attaches the Bind on Equip upgrades for that character, and "Deposit for alts" puts warbound ones in the Warband bank. |
+| Gathering | General | Tracks gathering runs (mining, herbalism, skinning, fishing): nodes and nodes per hour, items with their quality rank, value and gold per hour (from Gold & value), rare finds, skill and knowledge gained, and zones. A run starts with your first gather and ends after 10 minutes without one. A small tracker (Edit Mode moves it), a toast when a run ends, a Gathering page (runs, items, zones), and the recap card and Sessions page show what you gathered. |
+| Fishing | General | One key (Key Bindings > Tomte > Fishing) casts, and while the bobber is out the same key reels in and loots. Auto loot while fishing, and a press while the loot window is open does nothing. Tomte turns on the game's interact setting while you fish and puts it back after. Optional (settings): louder splash (music and ambience down, effects up), a fishing raft when you're swimming, the Oversized Bobber toy, dismount with the key, and an on-screen button. Replaces Angleur's One Key. |
+| Delves | World | Today's bountiful delves (click one to track it with the Waypoints marker, or a routed map pin on another continent), your Restored Coffer Keys and shards, which delve tier raises your Great Vault's World slots, and your companion's level, role and curios. A note beside Blizzard's tier picker at a delve entrance, a Delves block in Around you, Next up suggestions (bountiful delves while you hold a key, or always) and a companion level moment. |
+| Holidays & events | Collections | The world events on now and starting soon, what you're still missing from each holiday (mounts, battle pets, toys, achievements), the holiday's daily boss and the Darkmoon Faire profession quests. On Home, on an Events page, in Next up, in the Weekly board's "Still open" list, and as a toast when a holiday starts (optionally a day before). |
 | Flight Timer | Travel | Times flight paths account-wide and shows a countdown while flying, with an optional cinematic flight mode. Coverage tab and a flight master map show which routes you've timed. |
 | Waypoints | Travel | An in-world marker for whatever you track (quest, map pin, POI, rare, corpse): icon, optional beam, name, distance and arrival time. Up close it turns into a card with the objectives; off-screen, an arrow at the edge points to it. Classic or Minimal style. Map pins are tracked as soon as you place them, a map pin on another continent is routed through the portals, zeppelins and boats on the way, and a guard's directions can become a map pin (Never, Ask or Always). Replaces WaypointUI. |
 | Smart Mount | Travel | One key (Key Bindings > Tomte > Smart Mount) that summons a mount that fits where you are (underwater, flying or ground) from your zone favorites, then journal favorites, then all usable mounts (a favorite list is skipped when nothing in it suits the spot). Pressed again it dismounts (not while flying), leaves a vehicle or leaves travel form / Ghost Wolf. In Undermine it calls the G-99 Breakneck instead (hold Shift for a normal mount). A star in the Mount Journal makes the selected mount a favorite for the zone or continent you're in; the Zones tab lists them. |
@@ -79,8 +96,13 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte recent open` / `clear`, `/tomte value price <item link or ID>`
 - `/tomte pets open`, `/tomte pets import` (paste Xu-Fu strategies), `/tomte pets types` (type chart), `/tomte pets load` (the team for the tamer you're talking to)
 - `/tomte weekly popup` / `board`, `/tomte weekly quests` (learned weekly quests), `/tomte weekly forget <name>`, `/tomte weekly ids` (check crest and knowledge quest IDs)
+- `/tomte setup` (the module picker), `/tomte bug` (`full`, `clear`), `/tomte profile export` / `import` / `undo`
+- `/tomte gather` (the Gathering page), `/tomte gather start` / `end`, `/tomte gather why` (how the last loot window was counted)
+- `/tomte fishing` (options), `/tomte fishing status` (key, reel state and settings waiting to be put back)
+- `/tomte delves` (the Delves page), `/tomte delves list` (today's delves, bountiful marked, and your keys), `/tomte delves vault` (the Great Vault World plan and tier ladder)
+- `/tomte events` (the Events page), `/tomte events list`, `/tomte events calendar` (today's raw calendar rows), `/tomte events ids` (Darkmoon Faire quest IDs with the game's names), `/tomte events test` (sample toast)
 
-Key bindings for toggling the Tomte window, Smart Mount, whisper reply, the whisper inbox, Next pet battle move and Heal battle pets are under **Tomte** in the game's Key Bindings menu.
+Key bindings for toggling the Tomte window, Smart Mount, whisper reply, the whisper inbox, Next pet battle move, Heal battle pets, Apply missing poison and Fishing are under **Tomte** in the game's Key Bindings menu.
 
 ## Layout
 
@@ -91,9 +113,11 @@ Data/        hand-kept data per expansion (WarWithin/, Midnight/): weekly activi
 Cinematic/   shared cinematic engine and banners
 Panel/       Tomte window, settings and widgets
 Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements,
-             Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value, Minimap, Pets)
+             Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value, Minimap, Pets,
+             Fishing, Gather, Delves, Holidays)
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
-tools/       dev scripts (waynet.py builds Modules/Travel/Network.lua from Blizzard's waypoint tables)
+tools/       dev scripts (waynet.py builds Modules/Travel/Network.lua from Blizzard's waypoint tables, events.py
+             builds Modules/Holidays/Generated.lua from the client's toy and holiday tables)
 docs/        design specs and implementation plans
 ```
 
@@ -109,6 +133,10 @@ for t in Tomte/tests/test_*.lua; do lua "$t"; done
 
 Everything else is tested in game: `/reload`, then check behavior and BugSack for errors. The release workflow runs
 the unit tests too.
+
+After adding or renaming a Lua file in `Tomte.toc`, run `lua Tomte/tools/bugfiles.lua` (from the `AddOns` folder) to
+regenerate `Core/BugFiles.lua`, the file list `/tomte bug` uses to recognize Tomte's errors; `test_bugreport` fails
+until it's done.
 
 ## Releasing
 
@@ -149,6 +177,14 @@ or modules, major for changes that reset or break settings.
   the format [Rematch](https://www.curseforge.com/wow/addons/rematch) and Xu-Fu share. The script interpreter is Tomte's
   own implementation of the [Pet Battle Scripts](https://github.com/axc450/pbs) language (MIT; formerly
   tdBattlePetScript), written from its documented behavior. No code from either addon.
+- Fishing: the fishing channel spell IDs and the bobber object ID come from
+  [Angleur](https://www.curseforge.com/wow/addons/angleur) by LegolandoBloom (IDs only; no code taken).
+- Gathering: gathering spell IDs as listed in [GatherMate2](https://github.com/Nevcairiel/GatherMate2)'s collector and
+  on Wowhead (IDs only).
+- Delves: delve POI, currency, item and companion faction IDs from [Plumber](https://github.com/Peterodox/Plumber)
+  (IDs only); Midnight map IDs also from RareScanner.
+- Holidays & events: holiday, Dungeon Finder, achievement category and toy source data from the client's tables on
+  [wago.tools](https://wago.tools); Darkmoon Faire quest IDs from warcraft.wiki.gg.
 
 - Fonts: [Cinzel](https://github.com/NDISCOVER/Cinzel) by Natanael Gama and
   [Alegreya](https://github.com/huertatipografica/Alegreya) by Juan Pablo del Peral (Huerta Tipográfica), both under

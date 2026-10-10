@@ -195,6 +195,7 @@ module = ns.RegisterModule({
 		junk = true,
 		toast = true,
 	},
+	noShare = { "guild" }, -- spending your guild's money is your choice, never a friend's string's (Core/Profile.lua)
 	init = function(moduleDB)
 		db = moduleDB
 	end,

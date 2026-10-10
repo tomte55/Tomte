@@ -75,6 +75,10 @@ local function SessionTooltip(owner, h)
 		local vr, vg, vb = UI.Color(VALUE)
 		GameTooltip:AddDoubleLine("Loot worth", ns.Alts_Gold(n.value), mr, mg, mb, vr, vg, vb)
 	end
+	local gathered = h.gather and ns.Gather_SessionLine and ns.Gather_SessionLine(h.gather, ns.Alts_Gold)
+	if gathered then
+		GameTooltip:AddDoubleLine("Gathering", gathered, mr, mg, mb, 1, 1, 1)
+	end
 	local line = h.counts and ns.Recap_CountsLine and ns.Recap_CountsLine(h.counts)
 	if line and line ~= "" then
 		GameTooltip:AddLine(line, mr, mg, mb, true)

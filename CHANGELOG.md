@@ -5,6 +5,30 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.5.0 - 2026-10-11
+
+- New installs start with a short welcome: pick Collector, Crafter, Minimal or Everything (`/tomte setup` any time).
+- `/tomte bug` makes a bug report to copy, with Tomte's last errors.
+- Share settings with friends: Export and Import in the Tomte window settings, with a preview of what changes and an
+  Undo.
+- New Fishing module: one key to cast and to reel in, with auto loot while fishing, plus optional louder splash,
+  raft, Oversized Bobber, dismount and an on-screen button (replaces Angleur's One Key).
+- New Gathering module: tracks your mining, herbalism, skinning and fishing runs (nodes, items with ranks, gold per
+  hour, rare finds, skill and knowledge, zones) with a small tracker, an end-of-run toast and a Gathering page; the
+  recap card and Sessions page show what you gathered.
+- New Delves module: today's bountiful delves (click to track), coffer keys and shards, which tier raises your Great
+  Vault, your companion's level, role and curios, and a note beside the delve tier picker; plus Next up, Around you
+  and a companion level moment.
+- New Holidays & events module: what's on now and soon, what you're still missing from each holiday (mounts, pets,
+  toys, achievements), the daily holiday boss and the Darkmoon Faire profession quests, on Home, in Next up and as a
+  toast when a holiday starts.
+- Almost Done's "running events" filter now reads the right month from the calendar.
+- The character on the AFK screen, recap card and level-up moment now idles instead of standing frozen.
+- The Smart Mount action bar macro now works with a mouse click too, not only with a key.
+- Equipping an upgrade from its toast plays the item upgrade sound with the "Equipped" toast (Gear Check setting).
+- Ctrl+C in Tomte's copy boxes (bug report, settings string, guide links) copies and closes the box.
+- Fixed a Lua error from Gear Check on some item tooltips (`DoesItemExist` usage error).
+
 ## v1.4.1 - 2026-10-10
 
 - Fixed an "AddOn 'Tomte' tried to call the protected function" error when a waypoint or world quest was tracked in

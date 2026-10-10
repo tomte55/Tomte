@@ -105,6 +105,9 @@ local function CheckEquipped()
 				icon = equipping.icon,
 				hold = EQUIPPED_HOLD,
 			})
+			if db and db.equipSound and SOUNDKIT.UI_ITEM_UPGRADE_UI_ITEM_UPGRADED then
+				PlaySound(SOUNDKIT.UI_ITEM_UPGRADE_UI_ITEM_UPGRADED)
+			end
 			equipping = nil
 			return
 		end

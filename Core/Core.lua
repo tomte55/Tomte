@@ -16,6 +16,9 @@ local CORE_DEFAULTS = {
 	panel = { collapsed = {} }, -- also layout = saved size and position, selected = module key
 	cinematic = {}, -- engine-owned (musicVolumeBackup, pitchLimitBackup)
 	toast = {}, -- social toasts: point = saved position
+	setup = {}, -- first-run picker (Core/Setup.lua, Panel/Setup.lua): state = "pending" | "done", preset = last applied
+	bugs = {}, -- Tomte's last Lua errors, only without BugGrabber (Panel/Bug.lua); never exported or reset
+	-- profileBackup = { at, text }: settings from before the last import (Panel/Share.lua), no default
 }
 
 -- Settings migrations, in order, each run once per SavedVariables (TomteDB.schema, Modules.lua RunMigrations).
@@ -28,6 +31,11 @@ local MIGRATIONS = {
 			db.panel.category = nil
 		end
 		db.flightImported = nil
+	end,
+	-- 2: the first-run picker (1.5): saved variables from before it are an existing user's. No picker and no
+	-- message for them; a fresh install was marked "pending" before the migrations ran.
+	function(db)
+		ns.Setup_Migrate(db)
 	end,
 }
 
@@ -87,7 +95,11 @@ function f:ADDON_LOADED(name)
 		return
 	end
 	self:UnregisterEvent("ADDON_LOADED")
+	local fresh = TomteDB == nil
 	local db = TomteDB or {}
+	if fresh then
+		ns.Setup_MarkFresh(db) -- before the migrations: migration 2 marks only older saved variables as done
+	end
 	-- First, before anything draws: the theme picked in Settings (Panel/Window.lua).
 	ns.Theme.Apply(type(db.window) == "table" and db.window.theme or nil)
 	ns.RunMigrations(db, MIGRATIONS)
@@ -125,8 +137,12 @@ local function PrintHelp()
 	ns.Print("commands:")
 	PrintCommand("/tomte", "open Tomte (Home)")
 	PrintCommand("/tomte help", "this list")
-	PrintCommand("/tomte version", "which Tomte version you have (say it when you report a bug)")
+	PrintCommand("/tomte version", "which Tomte version you have (/tomte bug makes a whole bug report)")
 	PrintCommand("/tomte data", "which expansion's content Tomte follows for you, and what it knows about it")
+	PrintCommand("/tomte setup", "pick what Tomte turns on: Collector, Crafter, Minimal or Everything")
+	PrintCommand("/tomte bug", "a bug report to copy: versions, modules and Tomte's last errors ('full' adds error "
+		.. "details and your settings, 'clear' empties Tomte's saved errors)")
+	PrintCommand("/tomte profile", "share settings with a friend: export, import, undo")
 	for _, module in ipairs(ns.modules) do
 		PrintModuleCommands(module)
 	end
@@ -183,6 +199,31 @@ SlashCmdList.TOMTE = function(msg)
 		ns.Print(("version %s, game %s (%s)."):format(ns.VERSION, GetBuildInfo(), select(2, GetBuildInfo())))
 	elseif word == "data" then
 		ns.Content_Report()
+	elseif word == "setup" then
+		ns.SetupUI_Show()
+	elseif word == "bug" then
+		if rest == "clear" then
+			ns.BugUI_Clear()
+		elseif rest == "selftest" then
+			ns.BugUI_SelfTest()
+		else
+			ns.BugUI_Show(rest == "full" and "full" or nil)
+		end
+	elseif word == "profile" then
+		if rest == "export" then
+			ns.ShareUI_Export()
+		elseif rest == "import" then
+			ns.ShareUI_Import()
+		elseif rest == "undo" then
+			ns.ShareUI_Undo()
+		elseif rest == "selftest" then
+			ns.ShareUI_SelfTest()
+		else
+			ns.Print("settings profile commands:")
+			PrintCommand("/tomte profile export", "your settings as a string to give a friend")
+			PrintCommand("/tomte profile import", "paste a friend's string, see what changes, then import")
+			PrintCommand("/tomte profile undo", "go back to your settings from before the last import")
+		end
 	else
 		local module = ns.modulesByKey[word]
 		if module and module.commands then

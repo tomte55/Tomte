@@ -13,8 +13,8 @@ ns.Content_Register(E, "raids", { 1302, 1296, 1273 }) -- Manaforge Omega, Libera
 ns.Content_Register(E, "activities", {
 	{ group = "Delves", entries = {
 		{ label = "The Key to Success", quest = 84370, account = true },
-		{ label = "Restored Coffer Keys", flags = { 91175, 91176, 91177, 91178 } },
-		{ label = "Coffer Key Shards", flags = { 84736, 84737, 84738, 84739 } },
+		{ label = "Restored Coffer Keys", kind = "keys", flags = { 91175, 91176, 91177, 91178 } },
+		{ label = "Coffer Key Shards", kind = "shards", flags = { 84736, 84737, 84738, 84739 } },
 	} },
 	{ group = "Dornogal", entries = {
 		{ label = "Worldsoul weekly", questLine = 5572 },

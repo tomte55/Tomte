@@ -229,7 +229,12 @@ end
 
 function ns.GearItems_BindState(link, location, lines, bound)
 	local bindType = select(14, C_Item.GetItemInfo(link))
-	if location and location.IsValid and location:IsValid() then
+	-- IsValid itself errors on a location some tooltips hand over half-filled (DoesItemExist's usage error).
+	local checked, valid = false, false
+	if location and location.IsValid then
+		checked, valid = pcall(location.IsValid, location)
+	end
+	if checked and valid then
 		local ok, exists = pcall(C_Item.DoesItemExist, location)
 		if ok and exists then
 			return ns.Gear_BindState(bindType, C_Item.IsBound(location), C_Item.IsBoundToAccountUntilEquip(location))

@@ -15,6 +15,7 @@ local HEAD_H = 40
 local OWNERS = {
 	{ "whispers", "Whispers" }, { "mentions", "Mentions" }, { "friends", "Friends online" },
 	{ "gear", "Gear upgrades" }, { "ach", "Almost Done" }, { "collect", "Collect here" }, { "wq", "World quests" },
+	{ "events", "Holidays & events" },
 	{ "weekly", "Concentration" }, { "dura", "Durability" }, { "vendor", "Vendor" }, { "recap", "Session recap" },
 	{ "moments", "Moments (banners)" }, { "hunter", "Hunter pet check (banners)" }, { "pet", "Pet health (banners)" },
 }

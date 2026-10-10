@@ -1,8 +1,8 @@
 local addonName, ns = ...
 
 -- Pet Battles: the tamer card beside the gossip window (who this is, the team Tomte will use, whether your pets
--- are ready, Load team, guide links and the Heal button) and one small dialog shared by the module for copying a
--- link (WoW can't open a browser) and editing a team's script.
+-- are ready, Load team, guide links and the Heal button) and the guide links to copy (WoW can't open a browser), in
+-- the shared text dialog (Panel/Dialog.lua).
 
 local UI = ns.UI
 local CARD_W = 280
@@ -10,118 +10,11 @@ local PAD = 10
 local ICON = 26
 
 local db
-local card, popup
+local card
 local cardNPC
 
 function ns.PetsCard_Init(moduleDB)
 	db = moduleDB
-end
-
--- Popup ------------------------------------------------------------------------------------------------------
-
-local function BuildPopup()
-	popup = CreateFrame("Frame", "TomtePetsPopup", UIParent)
-	popup:SetSize(460, 150)
-	popup:SetPoint("CENTER", 0, 120)
-	popup:SetFrameStrata("DIALOG")
-	popup:SetToplevel(true)
-	popup:EnableMouse(true)
-	popup:SetMovable(true)
-	popup:RegisterForDrag("LeftButton")
-	popup:SetScript("OnDragStart", popup.StartMoving)
-	popup:SetScript("OnDragStop", popup.StopMovingOrSizing)
-	popup:Hide()
-	UI.Panel(popup)
-	tinsert(UISpecialFrames, "TomtePetsPopup") -- Escape closes it
-	popup.title = UI.Text(popup, 14, "heading", "title")
-	popup.title:SetPoint("TOPLEFT", 14, -12)
-	popup.hint = UI.Text(popup, 11, "textMuted")
-	popup.hint:SetPoint("TOPLEFT", popup.title, "BOTTOMLEFT", 0, -4)
-	popup.hint:SetPoint("RIGHT", -14, 0)
-
-	local box = CreateFrame("Frame", nil, popup)
-	box:SetPoint("TOPLEFT", 14, -52)
-	box:SetPoint("BOTTOMRIGHT", -14, 40)
-	UI.Surface(box)
-	popup.scroll = UI.Scroll(box)
-	popup.scroll:SetPoint("TOPLEFT", 6, -6)
-	popup.scroll:SetPoint("BOTTOMRIGHT", -10, 6)
-	local edit = CreateFrame("EditBox", nil, popup.scroll.content)
-	edit:SetMultiLine(true)
-	edit:SetAutoFocus(false)
-	edit:SetPoint("TOPLEFT")
-	edit:SetPoint("RIGHT")
-	UI.SetFont(edit, "number", 12)
-	edit:SetTextColor(UI.Color("text"))
-	edit:SetScript("OnEscapePressed", function()
-		popup:Hide()
-	end)
-	edit:SetScript("OnTextChanged", function(self, userInput)
-		if userInput and popup.spec.readOnly then
-			self:SetText(popup.spec.text)
-			self:HighlightText()
-		end
-		popup.scroll:SetContentHeight(self:GetHeight())
-	end)
-	edit:SetScript("OnCursorChanged", function(self, _, y, _, h)
-		local scroll = popup.scroll
-		local top = -y
-		if top < scroll:GetVerticalScroll() then
-			scroll:SetScroll(top)
-		elseif top + h > scroll:GetVerticalScroll() + scroll:GetHeight() then
-			scroll:SetScroll(top + h - scroll:GetHeight())
-		end
-	end)
-	popup.scroll.onWidthChanged = function(width)
-		edit:SetWidth(width)
-	end
-	box:EnableMouse(true)
-	box:SetScript("OnMouseDown", function()
-		edit:SetFocus()
-	end)
-	popup.edit = edit
-
-	popup.error = UI.Text(popup, 11, "danger")
-	popup.error:SetPoint("BOTTOMLEFT", 14, 14)
-	popup.error:SetPoint("RIGHT", -190, 0)
-	popup.error:SetWordWrap(false)
-	popup.close = UI.Button(popup, 80, "Close")
-	popup.close:SetPoint("BOTTOMRIGHT", -14, 10)
-	popup.close:SetScript("OnClick", function()
-		popup:Hide()
-	end)
-	popup.save = UI.Button(popup, 80, "Save")
-	popup.save:SetPoint("RIGHT", popup.close, "LEFT", -8, 0)
-	popup.save:SetScript("OnClick", function()
-		local err = popup.spec.onSave and popup.spec.onSave(popup.edit:GetText())
-		if err then
-			popup.error:SetText(err)
-		else
-			popup:Hide()
-		end
-	end)
-end
-
--- spec = { title, hint, text, readOnly, height, onSave(text) -> error text | nil }
-function ns.PetsPopup_Show(spec)
-	if not popup then
-		BuildPopup()
-	end
-	popup.spec = spec
-	popup.title:SetText(spec.title or "")
-	popup.hint:SetText(spec.hint or "")
-	popup.error:SetText("")
-	popup:SetHeight(spec.height or (spec.readOnly and 150 or 320))
-	popup.save:SetShown(not spec.readOnly)
-	popup.edit:SetText(spec.text or "")
-	popup.scroll:SetScroll(0)
-	popup:Show()
-	popup.edit:SetFocus()
-	if spec.readOnly then
-		popup.edit:HighlightText()
-	else
-		popup.edit:SetCursorPosition(0)
-	end
 end
 
 -- The guide links for an NPC, ready to copy.
@@ -132,7 +25,7 @@ function ns.PetsCard_ShowLinks(npc)
 		lines[#lines + 1] = ns.Pets_XufuURL(e.id) .. "   " .. (section and section.name or "")
 	end
 	lines[#lines + 1] = ns.Pets_WowheadURL(npc)
-	ns.PetsPopup_Show({
+	ns.Dialog_Show({
 		title = ns.PetsStore_NPCName(npc),
 		hint = "Ctrl+C copies the selected links. On Xu-Fu, a strategy's \"Rematch string\" button gives the text for Import strategy.",
 		text = table.concat(lines, "\n"),

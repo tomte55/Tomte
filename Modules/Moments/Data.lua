@@ -13,6 +13,7 @@ ns.MOMENT_TYPES = {
 	{ key = "zone", name = "New zone", style = "cinematic" },
 	{ key = "discovery", name = "Area discovered", style = "banner" },
 	{ key = "renown", name = "Renown", style = "banner" },
+	{ key = "companion", name = "Companion level (delves)", style = "banner" },
 	{ key = "chapter", name = "Campaign chapter", style = "cinematic" },
 	{ key = "house", name = "House level", style = "banner" },
 	{ key = "tame", name = "Tamed pet (hunter)", style = "cinematic" },

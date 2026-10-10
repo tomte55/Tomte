@@ -294,7 +294,7 @@ local function LoadTeam(team)
 end
 
 local function EditScript(team)
-	ns.PetsPopup_Show({
+	ns.Dialog_Show({
 		title = "Script: " .. team.name,
 		hint = "Pet Battle Scripts language. Next move in the battle helper plays it, one action per press.",
 		text = team.script or "",
@@ -372,7 +372,7 @@ local function TamersView(parent)
 							for _, npc in ipairs(e.npcs) do
 								lines[#lines + 1] = ns.Pets_WowheadURL(npc)
 							end
-							ns.PetsPopup_Show({
+							ns.Dialog_Show({
 								title = e.name,
 								hint = "Ctrl+C copies the links. On Xu-Fu, a strategy's \"Rematch string\" button gives the text for Teams > Import.",
 								text = table.concat(lines, "\n"),

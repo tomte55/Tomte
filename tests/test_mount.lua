@@ -148,9 +148,14 @@ test("pick: takes the preferred mount when it suits, ignores it otherwise", func
 end)
 
 test("macro body", function()
-	eq(ns.Mount_MacroBody("Swift Razorwing", "Btn"), "#showtooltip Swift Razorwing\n/click Btn LeftButton 1")
-	eq(ns.Mount_MacroBody(nil, "Btn"), "#showtooltip\n/click Btn LeftButton 1")
-	eq(ns.Mount_MacroBody(("x"):rep(300), "Btn"), "#showtooltip\n/click Btn LeftButton 1", "too long")
+	local click = "#showtooltip\n/click Btn LeftButton 1\n/click Btn LeftButton"
+	eq(ns.Mount_MacroBody("Swift Razorwing", "Btn"), "#showtooltip Swift Razorwing\n"
+		.. "/cast [nomounted,novehicleui] Swift Razorwing\n/leavevehicle [canexitvehicle]\n/dismount [mounted]")
+	eq(ns.Mount_MacroBody("Swift Razorwing", "Btn", { form = 3, keepFlying = true }), "#showtooltip Swift Razorwing\n"
+		.. "/cast [nomounted,novehicleui,noform:3] Swift Razorwing\n/leavevehicle [canexitvehicle]\n"
+		.. "/dismount [mounted,noflying]\n/cancelform [form:3,noflying]", "travel form, stay flying")
+	eq(ns.Mount_MacroBody(nil, "Btn"), click, "nothing picked: the button")
+	eq(ns.Mount_MacroBody(("x"):rep(150), "Btn"), click, "too long")
 end)
 
 if failures > 0 then

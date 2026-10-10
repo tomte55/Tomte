@@ -230,7 +230,24 @@ end
 
 -- LeftButton = the Smart Mount key, RightButton = "normal mount" (its own binding, and Shift + your Smart Mount key).
 -- Modifiers can't be read here: during a binding's click IsShiftKeyDown() is false even with Shift held (measured).
-local function PreClick(_, mouseButton)
+local downSeen = false
+-- The latest clicks the button got (newest first), for /tomte mount why: which ones a key or a mouse click brings.
+local CLICK_LOG_SIZE = 6
+local clickLog = {}
+local function PreClick(_, mouseButton, down)
+	-- Every press brings a down and an up click (the key binding, and the action bar macro's two /click lines). Only
+	-- one of them acts (the down one for a key, the up one for a mouse click), so the up click keeps the down click's
+	-- pick instead of choosing again.
+	local entry = { at = GetTime(), button = tostring(mouseButton), down = down and "down" or "up" }
+	table.insert(clickLog, 1, entry)
+	clickLog[CLICK_LOG_SIZE + 1] = nil
+	if down then
+		downSeen = true
+	elseif downSeen then
+		downSeen = false
+		entry.note = "kept the down click's pick"
+		return
+	end
 	if InCombatLockdown() then
 		return
 	end
@@ -273,10 +290,17 @@ end
 
 local function CreateButton()
 	button = CreateFrame("Button", BUTTON_NAME, UIParent, "SecureActionButtonTemplate")
-	button:Hide() -- clicked through the binding only
-	button:RegisterForClicks("AnyDown")
+	button:Hide() -- clicked through the binding or the action bar macro only
+	button:RegisterForClicks("AnyDown", "AnyUp") -- up too: a mouse click on the action bar macro acts on the up click
 	button:SetAttribute("useOnKeyDown", true)
 	button:SetScript("PreClick", PreClick)
+	button:SetScript("PostClick", function(self)
+		local entry = clickLog[1]
+		if entry and not entry.type then
+			entry.type = tostring(self:GetAttribute("type"))
+			entry.macro = tostring(self:GetAttribute("macrotext"))
+		end
+	end)
 end
 
 local events = CreateFrame("Frame")
@@ -321,20 +345,26 @@ local MACRO_NAME = "Smart Mount"
 local MACRO_ICON = 134400 -- the question mark: the icon then follows #showtooltip
 local MAX_GENERAL_MACROS = 120
 
-local function ActiveMountSpell()
+-- The mount you ride: its mountID and spell name, or nil.
+local function ActiveMount()
 	if lastMount then -- usually the one the key summoned: no journal scan
 		local _, spellID, _, isActive = C_MountJournal.GetMountInfoByID(lastMount)
 		if isActive then
-			return C_Spell.GetSpellName(spellID)
+			return lastMount, C_Spell.GetSpellName(spellID)
 		end
 	end
 	for _, mountID in ipairs(MountIDs()) do
 		local _, spellID, _, isActive = C_MountJournal.GetMountInfoByID(mountID)
 		if isActive then
-			return C_Spell.GetSpellName(spellID)
+			return mountID, C_Spell.GetSpellName(spellID)
 		end
 	end
 	return nil
+end
+
+local function ActiveMountSpell()
+	local _, spell = ActiveMount()
+	return spell
 end
 
 -- What a pick depends on besides the mount itself: when it's unchanged and the shown mount is still usable, the
@@ -390,7 +420,7 @@ local function UpdateMacro()
 	if not spell then -- nothing usable: the mount it shows is greyed out anyway
 		return
 	end
-	local body = ns.Mount_MacroBody(spell, BUTTON_NAME)
+	local body = ns.Mount_MacroBody(spell, BUTTON_NAME, { form = TravelFormIndex(), keepFlying = db.keepFlying })
 	if GetMacroBody(index) ~= body then
 		EditMacro(index, nil, nil, body)
 	end
@@ -446,7 +476,18 @@ end
 events.ZONE_CHANGED = QueueMacroUpdate
 events.ZONE_CHANGED_INDOORS = QueueMacroUpdate
 events.ZONE_CHANGED_NEW_AREA = QueueMacroUpdate
-events.PLAYER_MOUNT_DISPLAY_CHANGED = QueueMacroUpdate
+-- Mounted, by the key or by the bar macro (which casts its shown pick itself): that mount counts as the last one
+-- (for "don't repeat") and the macro picks a fresh one for the next time.
+function events:PLAYER_MOUNT_DISPLAY_CHANGED()
+	if IsMounted() then
+		local mountID = ActiveMount()
+		if mountID then
+			lastMount = mountID
+		end
+		nextMount = nil
+	end
+	QueueMacroUpdate()
+end
 events.MOUNT_JOURNAL_USABILITY_CHANGED = QueueMacroUpdate
 
 function events:NEW_MOUNT_ADDED()
@@ -469,11 +510,26 @@ local function SettingChanged()
 	QueueMacroUpdate()
 end
 
+local function Clicks()
+	local index = GetMacroIndexByName(MACRO_NAME)
+	print("  action bar macro: " .. (index > 0 and (GetMacroBody(index) or ""):gsub("\n", " | ") or "none"))
+	if #clickLog == 0 then
+		print("  clicks: none since the last /reload")
+	end
+	local now = GetTime()
+	for _, c in ipairs(clickLog) do
+		print(("  click %.1fs ago: %s %s, type %s, macro %s%s"):format(now - c.at, c.button, c.down,
+			c.type or "-", c.macro or "-", c.note and (" (" .. c.note .. ")") or ""))
+	end
+end
+
 local function Why()
 	if not lastWhy then
 		ns.Print("press the Smart Mount key first.")
+		Clicks()
 		return
 	end
+	Clicks()
 	local w, st = lastWhy, lastWhy.stats
 	if not st then -- the G-99, no mount was picked
 		ns.Print(("%s: %s"):format(w.context, w.macro))

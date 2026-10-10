@@ -317,6 +317,7 @@ module = ns.RegisterModule({
 		without = "only this character's bags, bank and the Warband bank are counted" },
 		{ addon = "Auctionator", why = "shopping lists for missing materials" } },
 	keep = { "sendRules" }, -- typed by the user: a settings reset keeps it
+	noShare = { "filterChar", "filterFor" }, -- character GUIDs: not in settings strings (Core/Profile.lua)
 	defaults = {
 		chars = {},
 		recipes = {},

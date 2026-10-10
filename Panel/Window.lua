@@ -74,3 +74,39 @@ for _, block in ipairs(AROUND) do
 	module.options[#module.options + 1] = { type = "checkbox", key = "around." .. block[1], label = block[2],
 		onChange = Redraw, tooltip = "This block in Home's \"Around you\" column (it still needs its module on)." }
 end
+
+-- Setup and sharing (Panel/Setup.lua, Panel/Share.lua, Panel/Bug.lua): last on the page, above the Reset rows.
+local SHARE = {
+	{ type = "header", label = "Setup and sharing" },
+	{ type = "button", label = "Pick a preset (Collector, Crafter, Minimal, Everything)", text = "Run setup",
+		onClick = function()
+			ns.SetupUI_Show()
+		end,
+		tooltip = "Turns modules on or off to fit how you play. Settings inside modules stay." },
+	{ type = "button", label = "Your settings as a string for a friend", text = "Export",
+		onClick = function()
+			ns.ShareUI_Export()
+		end,
+		tooltip = "Settings only: no characters, history, flight times or lists." },
+	{ type = "button", label = "Use a friend's settings", text = "Import",
+		onClick = function()
+			ns.ShareUI_Import()
+		end,
+		tooltip = "Paste their string, see what changes, then confirm. Your UI reloads." },
+	{ type = "button", label = "Back to your settings from before the last import", text = "Undo import",
+		shown = function()
+			return ns.ShareUI_HasBackup()
+		end,
+		onClick = function()
+			ns.ShareUI_Undo()
+		end,
+		tooltip = "Shows what changes back, then reloads your UI." },
+	{ type = "button", label = "Something broke? A report to copy and send", text = "Bug report",
+		onClick = function()
+			ns.BugUI_Show()
+		end,
+		tooltip = "Versions, modules, other addons and Tomte's last errors. Sent nowhere by itself." },
+}
+for _, spec in ipairs(SHARE) do
+	module.options[#module.options + 1] = spec
+end

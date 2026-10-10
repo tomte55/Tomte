@@ -46,12 +46,13 @@ end
 -- of those keeps every collection (a default that is an empty table, or tables of only empty tables) and the
 -- keys in module.keep (data whose default isn't a collection). Keys not in the defaults are never touched.
 
-local function IsCollection(v)
+-- Also what a shareable setting is (Core/Profile.lua): export, import and reset agree.
+function ns.IsCollection(v)
 	if type(v) ~= "table" then
 		return false
 	end
 	for _, child in pairs(v) do
-		if not IsCollection(child) then
+		if not ns.IsCollection(child) then
 			return false
 		end
 	end
@@ -68,7 +69,7 @@ function ns.ResetModuleSettings(module)
 		keep[key] = true
 	end
 	for key, value in pairs(defaults) do
-		if not keep[key] and not IsCollection(value) then
+		if not keep[key] and not ns.IsCollection(value) then
 			db[key] = nil
 		end
 	end
