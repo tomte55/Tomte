@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.3.0 - 2026-10-10
+
 - Five more themes in Settings > Tomte window > Theme: **Tomte classic** (the look Tomte had before 1.2: flat
   near-black panels with gold borders and headings), **Northrend** (blue slate, frost-white text, rime in the corner),
   **Forge** (dark iron, ember-orange accent, bronze frames, faint runes), **Emerald Dream** (moss green, jade accent,
