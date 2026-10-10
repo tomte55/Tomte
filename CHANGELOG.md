@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.4.0 - 2026-10-10
+
 - New **Pet Battles** module. In pet battles a helper shows what hits the enemy hard, its attacks and your best pet
   ("Swap to X?"). Talking to a pet tamer shows a card: your team for the fight, whether your pets are ready, Load
   team, Heal and links to the fight on Xu-Fu's Pet Guides and Wowhead. Paste a strategy from Xu-Fu (its "Rematch
