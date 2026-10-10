@@ -325,6 +325,19 @@ test("HomeEntries lists visible entries of a kind in registration order", functi
 	eq(#ns.ModulePages(ns.modulesByKey.b), 2, "module pages ignore shown()")
 end)
 
+test("HomeEntries hides an entry whose shown() errors", function()
+	reset()
+	newModule("a", { enabledByDefault = true, home = {
+		{ kind = "page", key = "pa", shown = function() error("boom") end },
+		{ kind = "page", key = "pb" },
+	} })
+	ns.InitModules({})
+	local pages = ns.HomeEntries("page")
+	eq(#pages, 1, "one page")
+	eq(pages[1].key, "pb", "the other page")
+	eq(#errors, 1, "error reported")
+end)
+
 test("RegisterModule rejects a duplicate home entry key", function()
 	reset()
 	newModule("a", { home = { { kind = "page", key = "x" } } })

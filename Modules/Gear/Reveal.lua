@@ -9,7 +9,7 @@ local BAGS = { 0, 1, 2, 3, 4 } -- backpack and the four bags (gear never goes in
 local EQUIP_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 }
 local SETTLE = 8 -- seconds after login or a loading screen in which bag items are only noted (bags fill in)
 local RETRY = 1 -- seconds between tries for items that are still loading
-local MAX_TRIES = 6
+local MAX_TRIES = 12 -- longer than Items.lua's UNREAD_GRACE, so gear that really has no stats gets judged
 local MAX_REVEALS = 3 -- at once (a vault or a mailbox full of gear)
 local TOAST_HOLD = 30
 local P = Enum.PlayerInteractionType
@@ -143,11 +143,27 @@ local function Reveal(item)
 end
 
 -- Judges the given bag items and reveals the best per slot. Returns how many were revealed; nil when some
--- weren't loaded yet (they're left in `notReady`).
+-- weren't loaded yet (they're left in `notReady`). An item or worn gear read without stats (unread: its bonus data
+-- hadn't arrived) isn't judged yet either: it would score 0, or make the new item a "replaces no stats" upgrade.
+local function Unread(cand, equipped)
+	if cand.unread then
+		return true
+	end
+	for _, desc in pairs(equipped or {}) do
+		if desc.unread then
+			return true
+		end
+	end
+	return false
+end
+
 local function Judge(list, notReady)
 	local judged = {}
 	for _, item in ipairs(list) do
-		local verdict, cand = ns.Gear_EvaluateLink(item.link)
+		local verdict, cand, equipped = ns.Gear_EvaluateLink(item.link)
+		if cand and Unread(cand, equipped) then
+			cand = nil
+		end
 		if cand then
 			item.verdict = verdict
 			judged[#judged + 1] = item

@@ -65,6 +65,16 @@ local ONE_HAND = {
 	INVTYPE_HOLDABLE = true,
 }
 local OFFHAND_WEAPON = { INVTYPE_WEAPON = true, INVTYPE_WEAPONOFFHAND = true }
+local OFF_HAND_ONLY = { INVTYPE_WEAPONOFFHAND = true, INVTYPE_SHIELD = true, INVTYPE_HOLDABLE = true }
+local WEAPON_CLASS_ID, WAND_SUBCLASS = 2, 19 -- Enum.ItemClass.Weapon, Enum.ItemWeaponSubclass.Wand
+-- Wands are INVTYPE_RANGEDRIGHT like guns and crossbows, but a main-hand one-hander.
+local function IsWand(desc)
+	return desc.equipLoc == "INVTYPE_RANGEDRIGHT" and desc.subclassID == WAND_SUBCLASS
+		and (desc.classID == nil or desc.classID == WEAPON_CLASS_ID)
+end
+local function IsTwoHand(desc)
+	return desc ~= nil and TWO_HAND[desc.equipLoc] == true and not IsWand(desc)
+end
 local TIER_SLOTS = { [1] = true, [3] = true, [5] = true, [7] = true, [10] = true }
 -- The Catalyst takes Veteran track or higher. GetItemUpgradeInfo's trackStringID works in any client language:
 -- Veteran 972, Champion 973, Hero 974, Myth 978 (Blizzard doesn't document them; the IDs AllTheThings and SpartanUI
@@ -350,7 +360,8 @@ function ns.Gear_Slots(equipLoc)
 end
 
 -- What the candidate replaces. mode: "single" (slots[1]), "weaker" (the weaker of slots), "sum" (both hands
--- against a two-hander), "pair" (a one-hander while a two-hander is worn), "empty".
+-- against a two-hander), "pair" (a one-hander while a two-hander is worn), "empty". Descriptors carry subclassID,
+-- which tells a wand (a main-hand one-hander) from a gun or crossbow.
 function ns.Gear_Target(cand, equipped)
 	local loc = cand.equipLoc
 	local slots = SLOTS[loc]
@@ -358,17 +369,17 @@ function ns.Gear_Target(cand, equipped)
 		return nil
 	end
 	local mh, oh = equipped[16], equipped[17]
-	local mhTwo = mh and TWO_HAND[mh.equipLoc]
-	local ohTwo = oh and TWO_HAND[oh.equipLoc]
-	if TWO_HAND[loc] then
+	local mhTwo = IsTwoHand(mh)
+	local ohTwo = IsTwoHand(oh)
+	if IsTwoHand(cand) then
 		if mhTwo and ohTwo then
 			return { mode = "weaker", slots = { 16, 17 } } -- Titan's Grip
-		elseif mh and not mhTwo then
-			return { mode = "sum", slots = { 16, 17 } }
+		elseif (mh and not mhTwo) or (not mh and oh and not ohTwo) then
+			return { mode = "sum", slots = { 16, 17 } } -- it pushes out the off-hand too
 		end
 		return { mode = mh and "single" or "empty", slots = { 16 } }
 	end
-	if ONE_HAND[loc] then
+	if ONE_HAND[loc] or IsWand(cand) then
 		if mhTwo and not ohTwo then
 			return { mode = "pair", slots = { 16 } }
 		end
@@ -524,14 +535,15 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 
 	if target.mode == "pair" then
 		verdict.kind = "pair"
-		verdict.reasons = { "Needs an off-hand to go with it" }
+		verdict.reasons = { OFF_HAND_ONLY[cand.equipLoc] and "Needs a one-handed main hand to go with it"
+			or "Needs an off-hand to go with it" }
 		return verdict
 	end
 
 	local old, oldIlvl = 0, nil
 	for slot in pairs(replaced) do
 		old = old + Score(equipped[slot])
-		oldIlvl = equipped[slot] and equipped[slot].ilvl
+		oldIlvl = equipped[slot] and equipped[slot].ilvl or oldIlvl
 	end
 	local new = Score(cand)
 	local empty = target.mode == "empty"

@@ -137,6 +137,12 @@ end
 local function Static(questID, seconds)
 	local s = static[questID]
 	if s and s.loaded and not Expired(s, seconds) then
+		if s.titleFallback then
+			local title = Title(questID)
+			if title then
+				s.title, s.titleFallback = title, nil
+			end
+		end
 		return s
 	end
 	if s and s.loaded then
@@ -176,7 +182,20 @@ local function Static(questID, seconds)
 	s.money = GetQuestLogRewardMoney(questID) or 0
 	s.xp = GetQuestLogRewardXP(questID) or 0
 	s.currencies, s.reps = ReadCurrencies(questID)
-	s.loaded = s.title ~= nil
+	if not s.title then
+		-- Rewards are in but the title isn't: ask again within the retry budget, then show it as "Quest <id>"
+		-- rather than keep the tab loading forever.
+		if MayRequest(s) then
+			C_QuestLog.RequestLoadQuestByID(questID)
+			return s
+		end
+		if not s.failed then
+			return s
+		end
+		s.failed = nil
+		s.title, s.titleFallback = "Quest " .. questID, true
+	end
+	s.loaded = true
 	s.expires = seconds and seconds > 0 and GetTime() + seconds or nil
 	return s
 end

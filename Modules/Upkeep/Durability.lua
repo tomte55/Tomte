@@ -17,6 +17,7 @@ local SLOT_NAMES = {
 
 local module, db
 local alertState = {}
+local wornLinks = {} -- [slot] = link at the last check: tells a break from putting on a broken item
 
 local function Slots()
 	local list = {}
@@ -39,9 +40,22 @@ local function SlotText(slot)
 	return link and ("%s: %s"):format(SlotName(slot), link) or SlotName(slot)
 end
 
+-- Whether the worn gear changed since the last call (the first call counts as changed).
+local function Swapped()
+	local changed = next(wornLinks) == nil
+	for slot = INVSLOT_FIRST_EQUIPPED, INVSLOT_LAST_EQUIPPED do
+		local link = GetInventoryItemLink("player", slot) or false
+		if wornLinks[slot] ~= link then
+			changed = true
+			wornLinks[slot] = link
+		end
+	end
+	return changed
+end
+
 local function Check()
 	local lowest, slot, broken = ns.Durability_Summary(Slots())
-	local alert = ns.Durability_Alert(alertState, lowest, broken, db.threshold / 100)
+	local alert = ns.Durability_Alert(alertState, lowest, broken, db.threshold / 100, Swapped())
 	if alert == "broken" and db.broken then
 		ns.Toast_Show({
 			owner = "dura", label = "Broken", accent = RED, title = broken == 1 and "An item broke" or (broken .. " items broke"),
@@ -165,7 +179,7 @@ module = ns.RegisterModule({
 				if not lowest or (lowest >= db.threshold / 100 and (broken or 0) == 0) then
 					return {}
 				end
-				local pct = math.floor(lowest * 100 + 0.5)
+				local pct = math.floor(lowest * 100) -- floored like the toast and the list
 				return { {
 					key = "dura:low", state = math.floor(pct / 10),
 					text = (broken or 0) > 0 and "Repair: something broke" or ("Repair: gear at %d%%"):format(pct),

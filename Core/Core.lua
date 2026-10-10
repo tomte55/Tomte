@@ -15,7 +15,7 @@ end
 local CORE_DEFAULTS = {
 	enabled = {}, -- [moduleKey] = bool, only for modules the user has toggled
 	panel = { collapsed = {} }, -- also layout = saved size and position, selected = module key
-	cinematic = {}, -- engine-owned (musicVolumeBackup)
+	cinematic = {}, -- engine-owned (musicVolumeBackup, pitchLimitBackup)
 	toast = {}, -- social toasts: point = saved position
 }
 
@@ -99,17 +99,21 @@ end
 
 -- "preview mount" runs the "preview" command with "mount". Text that matches no command goes to the module's
 -- fallbackCommand (if it has one and its pattern matches), with the whole text.
-local function RunModuleCommand(module, text)
+-- Handlers get the text lowercased, then as typed (item links and names keep their case):
+--   cmd[3](arg, rawArg)  fallback[3](text, rawText)
+local function RunModuleCommand(module, text, rawText)
+	rawText = rawText or text
 	local name, arg = text:match("^(%S*)%s*(.-)$")
+	local rawArg = rawText:match("^%S*%s*(.-)$")
 	for _, cmd in ipairs(module.commands) do
 		if cmd[1] == name then
-			cmd[3](arg)
+			cmd[3](arg, rawArg)
 			return
 		end
 	end
 	local fallback = module.fallbackCommand
 	if fallback and text:match(fallback.pattern) then
-		fallback[3](text)
+		fallback[3](text, rawText)
 		return
 	end
 	ns.Print(module.name .. " commands:")
@@ -133,8 +137,9 @@ BINDING_NAME_TOMTE_TOGGLE = "Toggle Tomte"
 
 SLASH_TOMTE1 = "/tomte"
 SlashCmdList.TOMTE = function(msg)
-	local word, rest = strtrim(msg or ""):match("^(%S*)%s*(.-)$")
-	word, rest = word:lower(), rest:lower()
+	local word, rawRest = strtrim(msg or ""):match("^(%S*)%s*(.-)$")
+	local rest
+	word, rest = word:lower(), rawRest:lower()
 	if word == "" then
 		ns.Panel_Toggle()
 	elseif word == "help" then
@@ -146,7 +151,7 @@ SlashCmdList.TOMTE = function(msg)
 	else
 		local module = ns.modulesByKey[word]
 		if module and module.commands then
-			RunModuleCommand(module, rest)
+			RunModuleCommand(module, rest, rawRest)
 		else
 			ns.Print("unknown command, see /tomte help.")
 		end

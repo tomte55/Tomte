@@ -5,7 +5,7 @@ local addonName, ns = ...
 -- Pure logic is in Data.lua.
 
 local EVENTS = {
-	"PLAYER_ENTERING_WORLD", "READY_CHECK", "UNIT_PET", "PET_STABLE_SHOW", "PET_STABLE_UPDATE",
+	"PLAYER_ENTERING_WORLD", "READY_CHECK", "PET_STABLE_SHOW", "PET_STABLE_UPDATE",
 	"PET_SPECIALIZATION_CHANGED",
 }
 
@@ -108,6 +108,7 @@ module = ns.RegisterModule({
 			end
 			events:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
 			events:RegisterUnitEvent("UNIT_SPELLCAST_START", "player")
+			events:RegisterUnitEvent("UNIT_PET", "player") -- not every group member's pet
 			if ns.inWorld then
 				ns.Stable_Refresh()
 			end

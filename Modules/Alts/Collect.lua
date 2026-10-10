@@ -164,7 +164,9 @@ local function ReadUnspent(line)
 	return info and info.numAvailable or nil
 end
 
--- Professions keyed by their base skill line; known recipes and the last knowledge reading carry over.
+-- Professions keyed by their base skill line; known recipes and the last knowledge reading carry over. line is the
+-- character's content expansion's skill line, worked out each time (not the one a recipe read last browsed), and
+-- unspent knowledge is that line's: an older reading only carries over when it was of the same line.
 local function ReadProfs(c)
 	local old = c.profs or {}
 	local profs = {}
@@ -174,11 +176,14 @@ local function ReadProfs(c)
 		local name, icon, skill, maxSkill, _, _, base = GetProfessionInfo(index)
 		if base then
 			local before = old[base] or {}
-			local line = before.line or ExpansionLine(base)
+			local line = ExpansionLine(base)
 			local unspent = ReadUnspent(line)
+			if unspent == nil and before.line == line then
+				unspent = before.unspent
+			end
 			profs[base] = {
 				name = name, icon = icon, base = base, line = line, skill = skill, max = maxSkill,
-				unspent = unspent or before.unspent, known = before.known or {}, scannedAt = before.scannedAt,
+				unspent = unspent, known = before.known or {}, scannedAt = before.scannedAt,
 				secondary = (index ~= first and index ~= second) or nil,
 			}
 		end
@@ -336,8 +341,10 @@ local function StepScan()
 		local prof = Me().profs[scan.prof.base]
 		if prof then
 			prof.scannedAt = GetServerTime()
-			prof.line = scan.line
-			prof.unspent = ReadUnspent(scan.line) or prof.unspent
+			-- Knowledge only from the character's own expansion (the window may show an older one).
+			if prof.line and scan.line == prof.line then
+				prof.unspent = ReadUnspent(scan.line) or prof.unspent
+			end
 		end
 		lastScan[scan.line] = GetTime()
 		-- The window re-reads every RESCAN_AFTER while open: only say so (and redraw) when it found something, on

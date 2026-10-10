@@ -83,12 +83,21 @@ local function BagItems()
 	return items
 end
 
--- Any equipped item below full durability (works away from the vendor, unlike GetRepairAllCost).
-local function EquippedDamaged()
+-- Any equipped or bag item below full durability (works away from the vendor, unlike GetRepairAllCost).
+-- RepairAllItems repairs the bags too.
+local function AnyDamaged()
 	for slot = INVSLOT_FIRST_EQUIPPED, INVSLOT_LAST_EQUIPPED do
 		local cur, max = GetInventoryItemDurability(slot)
 		if cur and max and cur < max then
 			return true
+		end
+	end
+	for bag = BACKPACK_CONTAINER, NUM_BAG_SLOTS do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+			local cur, max = C_Container.GetContainerItemDurability(bag, slot)
+			if cur and max and cur < max then
+				return true
+			end
 		end
 	end
 	return false
@@ -109,7 +118,7 @@ local function Repair(visit)
 		RepairAllItems(true)
 		visit.repaired, visit.funds, visit.pending = cost, "guild", true
 		-- If the guild bank didn't pay after all (bank empty, limit changed), pay with our own gold. The summary
-		-- waits for this.
+		-- waits for this. A guild-funds repair never takes our own gold: it pays in full or not at all.
 		C_Timer.After(GUILD_CHECK_DELAY, function()
 			visit.pending = nil
 			if MerchantFrame:IsShown() and CanMerchantRepair() then
@@ -122,7 +131,7 @@ local function Repair(visit)
 						visit.repaired, visit.poor = nil, left
 					end
 				end
-			elseif EquippedDamaged() then
+			elseif visit.funds == "guild" and AnyDamaged() then
 				-- Vendor closed before we could check, and the gear still isn't repaired: the guild didn't pay.
 				visit.repaired, visit.unpaid = nil, cost
 			end

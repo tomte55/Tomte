@@ -751,7 +751,8 @@ local SHIELD_CLASSES = { WARRIOR = true, PALADIN = true, SHAMAN = true }
 local HOLDABLE_CLASSES = { PRIEST = true, MAGE = true, WARLOCK = true, DRUID = true, SHAMAN = true, MONK = true,
 	PALADIN = true, EVOKER = true }
 -- Enum.ItemWeaponSubclass a class can equip: Axe1H 0, Axe2H 1, Bows 2, Guns 3, Mace1H 4, Mace2H 5, Polearm 6,
--- Sword1H 7, Sword2H 8, Warglaive 9, Staff 10, Unarmed (fist) 13, Dagger 15, Crossbow 18, Wand 19.
+-- Sword1H 7, Sword2H 8, Warglaive 9, Staff 10, Unarmed (fist) 13, Dagger 15, Crossbow 18, Wand 19. Only hunters use
+-- bows, guns and crossbows (warriors lost them in Legion).
 local function Set(list)
 	local t = {}
 	for _, v in ipairs(list) do
@@ -760,7 +761,7 @@ local function Set(list)
 	return t
 end
 local WEAPONS = {
-	WARRIOR = Set({ 0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 15, 18 }),
+	WARRIOR = Set({ 0, 1, 4, 5, 6, 7, 8, 10, 13, 15 }),
 	PALADIN = Set({ 0, 1, 4, 5, 6, 7, 8 }),
 	DEATHKNIGHT = Set({ 0, 1, 4, 5, 6, 7, 8 }),
 	HUNTER = Set({ 0, 1, 2, 3, 6, 7, 8, 10, 13, 15, 18 }),
@@ -847,15 +848,16 @@ local SLOT_NAMES = {
 
 -- What a crafted item would replace on a character: { slot, name, ilvl (nil: the slot is empty), loading,
 -- twoHand (an off-hand item while a two-hander is worn: can't be told) }. worn = { [slot] = ilvl | false (worn,
--- item level not loaded yet), twoHand = true when the main hand is a two-hander }. Of two slots (rings, trinkets)
--- the lower one; a one-hander goes against the off hand only when an off-hand item is worn. nil for things that
--- aren't worn gear (profession tools).
+-- item level not loaded yet), twoHand = true when the main hand is a two-hander, offWeapon = true when the off hand
+-- holds a weapon (not a shield or held-in-off-hand item; missing counts as not a weapon) }. Of two slots (rings,
+-- trinkets) the lower one; a one-hander goes against the off hand only when a weapon is worn there. nil for things
+-- that aren't worn gear (profession tools).
 function ns.Alts_WornFor(equipLoc, worn)
 	local slots = ITEM_SLOTS[equipLoc]
 	if not slots then
 		return nil
 	end
-	if equipLoc == "INVTYPE_WEAPON" and worn[17] == nil then
+	if equipLoc == "INVTYPE_WEAPON" and (worn[17] == nil or not worn.offWeapon) then
 		slots = { 16 }
 	elseif slots[1] == 17 and worn.twoHand then
 		return { slot = 17, name = SLOT_NAMES[17], twoHand = true }

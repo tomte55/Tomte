@@ -46,14 +46,38 @@ local function Secret(...)
 	return false
 end
 
+local UI_PANEL_KEYS = { "left", "center", "right", "doublewide", "fullscreen" }
+
+-- A window, bag, menu or edit box is open: the player is using the UI. Same checks as the engine's own
+-- (Cinematic/Engine.lua PlayerBusy, which isn't exported).
+local function UIBusy()
+	if GetCurrentKeyBoardFocus() or (IsAnyBagOpen and IsAnyBagOpen()) then
+		return true
+	end
+	for _, key in ipairs(UI_PANEL_KEYS) do
+		if GetUIPanel(key) then
+			return true
+		end
+	end
+	for _, name in ipairs(UISpecialFrames) do
+		local frame = _G[name]
+		if type(frame) == "table" and frame.IsVisible and frame:IsVisible() then
+			return true
+		end
+	end
+	return (GameMenuFrame and GameMenuFrame:IsVisible()) or (WorldMapFrame and WorldMapFrame:IsVisible()) or false
+end
+
 -- Only while the player isn't doing anything: any key or click ends a moment (it never takes control).
-local function CanPlay()
+-- previewing = asked for from the options panel or a command: an open window doesn't hold it back.
+local function CanPlay(previewing)
 	return not (InCombatLockdown() or IsInInstance() or UnitOnTaxi("player") or UnitIsDeadOrGhost("player")
 		or IsPlayerMoving() or IsMouseButtonDown()
 		or ns.Cinematic.IsActive()
 		or (C_PetBattles and C_PetBattles.IsInBattle())
 		or (InCinematic and InCinematic()) or (IsInCinematicScene and IsInCinematicScene())
-		or (MovieFrame and MovieFrame:IsShown()))
+		or (MovieFrame and MovieFrame:IsShown())
+		or (not previewing and UIBusy()))
 end
 
 local function ShowBanner(moment)
@@ -107,7 +131,7 @@ local function Tick()
 		return
 	end
 	entry.waited = entry.waited + TICK
-	local decision = ns.Moments_Decide(CanPlay(), entry.waited, MAX_WAIT)
+	local decision = ns.Moments_Decide(CanPlay(entry.preview), entry.waited, MAX_WAIT)
 	if decision == "cinematic" then
 		table.remove(waiting, 1)
 		Play(entry.moment)
@@ -150,7 +174,7 @@ local function Show(kind, moment, force)
 		ShowBanner(moment)
 		return
 	end
-	waiting[#waiting + 1] = { moment = moment, waited = 0 }
+	waiting[#waiting + 1] = { moment = moment, waited = 0, preview = force ~= nil }
 	ticker:Show()
 end
 
@@ -335,27 +359,34 @@ function events:UI_INFO_MESSAGE(_, message)
 		return
 	end
 	if not discoveryPatterns then
-		discoveryPatterns = {}
-		for _, fmt in ipairs({ ERR_ZONE_EXPLORED, ERR_ZONE_EXPLORED_XP }) do
-			if type(fmt) == "string" then
-				discoveryPatterns[#discoveryPatterns + 1] = ns.Moments_FormatToPattern(fmt)
-			end
-		end
+		discoveryPatterns = ns.Moments_DiscoveryPatterns(ERR_ZONE_EXPLORED_XP, ERR_ZONE_EXPLORED)
 	end
-	local area = ns.Moments_DiscoveredArea(message, discoveryPatterns)
-	if not area then
+	-- A client format we don't parse right must not raise an error on every info message.
+	local ok, area = pcall(ns.Moments_DiscoveredArea, message, discoveryPatterns)
+	if not ok or not area then
 		return
 	end
 	local styles = ns.momentsDB.styles
-	if ns.momentsDB.replaceZoneText and (styles.discovery ~= "off" or styles.zone ~= "off") then
-		ns.Banner_SuppressZoneText(ZONE_TEXT_HIDE) -- our card names the area; Blizzard's would sit under it
-	end
 	local zoneID, zoneName = ZoneMap()
+	local before = zoneID and exploredAtEntry[zoneID]
+	local shownZones = zoneID and ns.momentsDB.zones[UnitGUID("player")]
+	-- Can this still turn out to be a whole new zone (decided below once the map has updated)?
+	local maybeZone = zoneID and not (shownZones and shownZones[zoneID]) and (before == nil or before == 0)
+	-- Hide Blizzard's zone text only when a card of ours names this area. Known now unless it's a maybe-zone
+	-- with only one of the two styles on: then right before our card shows.
+	local function SuppressFor(kind)
+		if ns.momentsDB.replaceZoneText and styles[kind] ~= "off" then
+			ns.Banner_SuppressZoneText(ZONE_TEXT_HIDE) -- our card names the area; Blizzard's would sit under it
+		end
+	end
+	local decideLater = maybeZone and (styles.zone ~= "off") ~= (styles.discovery ~= "off")
+	if not decideLater then
+		SuppressFor(maybeZone and "zone" or "discovery")
+	end
 	if not zoneID then
 		Show("discovery", { label = "Discovered", title = area })
 		return
 	end
-	local before = exploredAtEntry[zoneID]
 	-- The map's overlays update just after the message: decide once they have.
 	C_Timer.After(DISCOVERY_DELAY, function()
 		if not module.active then
@@ -369,8 +400,14 @@ function events:UI_INFO_MESSAGE(_, message)
 		-- The first discovery in a zone that had nothing explored: a whole new zone (once per character).
 		if not shown[zoneID] and ns.Moments_IsNewZone(before, after) then
 			shown[zoneID] = true
+			if decideLater then
+				SuppressFor("zone")
+			end
 			Show("zone", { label = "New lands", title = zoneName, subtitle = area ~= zoneName and ("Discovered: " .. area) or nil })
 			return
+		end
+		if decideLater then
+			SuppressFor("discovery")
 		end
 		Show("discovery", { label = "Discovered", title = area, subtitle = zoneName ~= area and zoneName or nil })
 	end)
@@ -535,7 +572,7 @@ local function Preview(text)
 		return
 	end
 	local style = ns.momentsDB.styles[kind]
-	if style == "cinematic" and not CanPlay() then
+	if style == "cinematic" and not CanPlay(true) then
 		ns.Print("a cinematic moment waits until you're out of combat, instances and taxis (a banner after 10s).")
 	end
 	Show(kind, sample(tier ~= "" and tier or nil), style == "off" and "cinematic" or style)

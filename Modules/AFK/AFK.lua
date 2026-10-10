@@ -104,7 +104,11 @@ local function Sync()
 		if not away then
 			BeginAway({ since = GetTime(), whispers = {} })
 		elseif away.preview then
-			away.preview = nil -- went AFK for real during the preview: keep going as AFK
+			-- Went AFK for real during the preview: keep going as AFK, without the sample time and whispers.
+			away.preview = nil
+			away.since = GetTime()
+			away.whispers = {}
+			ns.AFKScene_RefreshWhispers()
 		end
 	elseif away and not away.preview then
 		Finish()
@@ -146,6 +150,10 @@ function Tick()
 		if IsInInstance() then
 			ns.Cinematic.Exit(away) -- summoned or ported in while AFK: back once out again
 		end
+		return
+	end
+	if away.resumeAt and away.preview then
+		Finish() -- combat paused the preview: that's the end of it
 		return
 	end
 	if away.resumeAt and GetTime() < away.resumeAt then

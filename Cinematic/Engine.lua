@@ -72,10 +72,12 @@ local letterbox, hintFrame, hint -- built on the first Enter
 local hintTimer = 0
 local showcaseCreated
 local progress, target = 0, 0
-local hiddenWorldFrames = {} -- other addons' WorldFrame children we hid (UIParent hiding doesn't reach them)
+local fadedWorldFrames = {} -- [frame] = its alpha: other addons' WorldFrame children we set to alpha 0 (UIParent
+-- hiding doesn't reach them)
 local fadedBubbles = {} -- chat bubbles we set to alpha 0 (never hidden, see HideWorldFrameAddons)
 local sinceWorldSweep = 0
 local cursorX, cursorY
+local mouseWasDown -- passthrough: a mouse button held at Enter (steering) mustn't dismiss, only a new press
 local pitcher = CreateFrame("Frame")
 local watcher = CreateFrame("Frame")
 local watched -- paused state whose resume timer the watcher tops up
@@ -105,25 +107,31 @@ local function HideWorldFrameAddons()
 		bubble:SetAlpha(0)
 		fadedBubbles[bubble] = true
 	end
+	-- Other addons' frames are faded too, not hidden: Show() on the way out would bring back a frame its owner hid
+	-- meanwhile. Nothing to undo after a /reload (the frames are created again).
 	for _, child in ipairs({ WorldFrame:GetChildren() }) do
 		-- Forbidden frames error on any other call, so check that first. Skip protected frames,
 		-- engine-managed nameplates, chat bubbles, and our own frames.
 		if not child:IsForbidden() and not child:IsProtected() and child:IsShown() and not ns.ownFrames[child]
 			and not bubbles[child] then
 			local name = child:GetName()
-			if not (name and name:find("^NamePlate")) then
-				child:Hide()
-				hiddenWorldFrames[child] = true
+			local alpha = child:GetAlpha()
+			if not (name and name:find("^NamePlate")) and alpha > 0 then
+				-- Above 0 again after we faded it: its owner set this alpha, so that's the one to restore.
+				fadedWorldFrames[child] = alpha
+				child:SetAlpha(0)
 			end
 		end
 	end
 end
 
 local function ShowWorldFrameAddons()
-	for child in pairs(hiddenWorldFrames) do
-		child:Show()
+	for child, alpha in pairs(fadedWorldFrames) do
+		if child:GetAlpha() == 0 then -- otherwise its owner set one since
+			child:SetAlpha(alpha)
+		end
 	end
-	wipe(hiddenWorldFrames)
+	wipe(fadedWorldFrames)
 	for bubble in pairs(fadedBubbles) do
 		bubble:SetAlpha(1)
 	end
@@ -199,8 +207,25 @@ local function SetPitchLimit(degrees)
 	end
 end
 
+-- The player's own limit, read before we lower it. The wiki notes GetCVar may not read pitchLimit: the game's
+-- default then.
+local function PlayerPitch()
+	local ok, value = pcall(C_CVar.GetCVar, "pitchLimit")
+	value = ok and tonumber(value)
+	if value and value > CINEMATIC_PITCH then
+		return value
+	end
+	return DEFAULT_PITCH
+end
+
 local function LimitPitch(state)
 	state.pitchLimited = true -- persisted so a /reload still resets the limit
+	-- In TomteDB.cinematic like the music volume: kept until restored (a limit we set must never become the backup).
+	local db = ns.db.cinematic
+	if not db.pitchLimitBackup then
+		db.pitchLimitBackup = PlayerPitch()
+	end
+	local from = db.pitchLimitBackup
 	pitchLimit = nil
 	local t, nudging = 0, false
 	pitcher:SetScript("OnUpdate", function(self, elapsed)
@@ -208,7 +233,7 @@ local function LimitPitch(state)
 		if t < PITCH_EASE then
 			local p = Ease(t / PITCH_EASE)
 			-- Tenths of a degree: whole-degree steps make the camera stutter on the way down.
-			SetPitchLimit(math.floor((DEFAULT_PITCH + (CINEMATIC_PITCH - DEFAULT_PITCH) * p) * 10 + 0.5) / 10)
+			SetPitchLimit(math.floor((from + (CINEMATIC_PITCH - from) * p) * 10 + 0.5) / 10)
 		elseif not nudging then
 			nudging = true
 			SetPitchLimit(CINEMATIC_PITCH)
@@ -226,10 +251,17 @@ local function RestorePitch(state)
 		MoveViewUpStop()
 	end
 	if state.pitchLimited then
-		pitchLimit = nil
-		SetPitchLimit(DEFAULT_PITCH)
+		C.RestorePitchLimit()
 		state.pitchLimited = nil
 	end
+end
+
+-- Back to the player's own limit (the game's default without a backup).
+function C.RestorePitchLimit()
+	local db = ns.db.cinematic
+	pitchLimit = nil
+	SetPitchLimit(tonumber(db.pitchLimitBackup) or DEFAULT_PITCH)
+	db.pitchLimitBackup = nil
 end
 
 -- Anything that means the player is using the game: keeps a paused cinematic from coming back.
@@ -304,9 +336,15 @@ local function UpdateHint(contentAlpha, dt)
 end
 
 local function LetterboxOnUpdate(self, elapsed)
-	if active and passthrough and IsMouseButtonDown() then
-		Dismiss() -- the click itself went through to the game
-		return
+	if active and passthrough then
+		-- A new press only (up -> down): a button already held at Enter (steering while moving) doesn't count.
+		local down = IsMouseButtonDown() and true or false
+		local pressed = down and not mouseWasDown
+		mouseWasDown = down
+		if pressed then
+			Dismiss() -- the click itself went through to the game
+			return
+		end
 	end
 	if active then
 		local x, y = GetCursorPosition()
@@ -569,6 +607,7 @@ function C.Enter(newScene, state, opts)
 	target = 1
 	cursorX, cursorY = nil, nil
 	passthrough = opts.passthrough
+	mouseWasDown = IsMouseButtonDown() and true or false
 	escapeToGame = opts.escapeToGame
 	letterbox:EnableMouse(not passthrough)
 	letterbox:EnableMouseWheel(not passthrough)
@@ -674,17 +713,20 @@ watcher:Hide()
 watcher:SetScript("OnUpdate", WatcherOnUpdate)
 watcher:SetScript("OnKeyDown", TopUp)
 
-local function RestoreOrphanedMusic()
+local function RestoreOrphaned()
 	if not active and not ns.AnyCinematicState() then
 		C.RestoreMusicVolume()
+		if ns.db.cinematic.pitchLimitBackup then
+			C.RestorePitchLimit()
+		end
 	end
 end
 
 events:SetScript("OnEvent", function(self, event)
 	if event == "PLAYER_ENTERING_WORLD" then
-		-- Next frame, after the modules' own handlers had a chance to resume their state: a music-volume
-		-- backup that no live state owns is left over from an interrupted cinematic.
-		C_Timer.After(0, RestoreOrphanedMusic)
+		-- Next frame, after the modules' own handlers had a chance to resume their state: a music-volume or
+		-- pitch-limit backup that no live state owns is left over from an interrupted cinematic.
+		C_Timer.After(0, RestoreOrphaned)
 		return
 	elseif event == "PLAYER_REGEN_DISABLED" then
 		-- Handlers for this event still run before combat lockdown starts: last chance to show a hidden UI.

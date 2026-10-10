@@ -61,22 +61,114 @@ function ns.Moments_Decide(canPlay, waited, maxWait)
 	return "wait"
 end
 
--- "Discovered: %s" -> "^Discovered: (.+)$" (also %d -> (%d+)). Other magic characters are escaped.
-function ns.Moments_FormatToPattern(fmt)
-	local escaped = fmt:gsub("[%^%$%(%)%.%[%]%*%+%-%?]", "%%%0")
-	escaped = escaped:gsub("%%s", "(.+)"):gsub("%%d", "(%%d+)")
-	return "^" .. escaped .. "$"
+local CAPTURES = { s = "(.+)", d = "(%d+)" }
+
+local function Split(text, sep)
+	local list = {}
+	for piece in (text .. sep):gmatch("(.-)" .. sep) do
+		if piece ~= "" then
+			list[#list + 1] = piece
+		end
+	end
+	return list
 end
 
--- The area name from a "Discovered" info message, or nil. patterns from FormatToPattern.
+-- "Discovered: %s" -> "^Discovered: (.+)$" (also %d -> (%d+)). Other magic characters are escaped.
+-- Positional specifiers ("%1$s entdeckt: %2$d ...", German) become captures too. Grammar tokens (|1a;b; and
+-- |4a:b;, a choice of words such as Korean particles) match any text; right after a capture, the chosen
+-- word is cut from the capture when matching. |3-n(...) (declension) keeps its inside.
+-- Returns the pattern and a spec for Moments_Match (nil when plain captures in order are all it needs):
+-- spec.order[capture] = argument position, spec.trims[capture] = words to cut from its end.
+function ns.Moments_FormatToPattern(fmt)
+	fmt = fmt:gsub("|3%-%d+%((.-)%)", "%1")
+	local parts, order, trims, special = {}, {}, {}, false
+	local i, n = 1, #fmt
+	local lastWasCapture = false
+	while i <= n do
+		local pos, spec, after = fmt:match("^%%(%d+)%$([sd])()", i)
+		if not pos then
+			spec, after = fmt:match("^%%([sd])()", i)
+		end
+		local choice1, choice4 = fmt:match("^|1([^;]*;[^;]*);", i), fmt:match("^|4([^;]*);", i)
+		if spec then
+			parts[#parts + 1] = CAPTURES[spec]
+			order[#order + 1] = pos and tonumber(pos) or #order + 1
+			special = special or pos ~= nil
+			i = after
+			lastWasCapture = true
+		elseif choice1 or choice4 then
+			parts[#parts + 1] = ".-"
+			if lastWasCapture then
+				trims[#order] = choice1 and Split(choice1, ";") or Split(choice4, ":")
+				special = true
+			end
+			i = i + #(choice1 or choice4) + 3
+			lastWasCapture = false
+		elseif fmt:find("^%%%%", i) then
+			parts[#parts + 1] = "%%"
+			i = i + 2
+			lastWasCapture = false
+		else
+			parts[#parts + 1] = (fmt:sub(i, i):gsub("[%^%$%(%)%.%[%]%*%+%-%?%%]", "%%%0"))
+			i = i + 1
+			lastWasCapture = false
+		end
+	end
+	return "^" .. table.concat(parts) .. "$", special and { order = order, trims = trims } or nil
+end
+
+-- text:match(pattern) as a list of captures in argument order (spec from FormatToPattern, nil = as
+-- matched), or nil when it doesn't match.
+function ns.Moments_Match(text, pattern, spec)
+	local captures = { text:match(pattern) }
+	if captures[1] == nil then
+		return nil
+	end
+	if not spec then
+		return captures
+	end
+	local out = {}
+	for i, pos in ipairs(spec.order) do
+		local capture = captures[i]
+		for _, word in ipairs(spec.trims[i] or {}) do
+			if #capture > #word and capture:sub(-#word) == word then
+				capture = capture:sub(1, -#word - 1)
+				break
+			end
+		end
+		out[pos] = capture
+	end
+	return out
+end
+
+-- Matchers for the discovery messages, the XP variant first: a shorter format ("Découverte : %s") would
+-- also match it and swallow the experience into the area name.
+function ns.Moments_DiscoveryPatterns(withXP, plain)
+	local list = {}
+	for _, fmt in ipairs({ withXP or false, plain or false }) do
+		if type(fmt) == "string" then
+			local pattern, spec = ns.Moments_FormatToPattern(fmt)
+			list[#list + 1] = { pattern = pattern, spec = spec }
+		end
+	end
+	return list
+end
+
+-- The area name (the format's first argument) from a "Discovered" info message, or nil. patterns =
+-- FormatToPattern strings or { pattern, spec } tables (Moments_DiscoveryPatterns).
 function ns.Moments_DiscoveredArea(message, patterns)
 	if type(message) ~= "string" then
 		return nil
 	end
-	for _, pattern in ipairs(patterns) do
-		local area = message:match(pattern)
-		if area then
-			return area
+	for _, p in ipairs(patterns) do
+		local captures
+		if type(p) == "table" then
+			captures = ns.Moments_Match(message, p.pattern, p.spec)
+		else
+			captures = ns.Moments_Match(message, p)
+		end
+		if captures and captures[1] then
+			return captures[1]
 		end
 	end
 	return nil

@@ -9,6 +9,7 @@ local GOLD, WHITE, GREY, DIM = UI.GOLD, UI.WHITE, UI.GREY, UI.DIM
 local GREEN, RED, YELLOW = { 0.45, 0.85, 0.45 }, { 1, 0.45, 0.35 }, { 1, 0.75, 0.3 }
 local LIST_W = 0.38 -- of the tab's width
 local RESULT_H, MAT_H, STEP_H, HEADER_H, QUALITY_H = 22, 20, 20, 26, 28
+local SEARCH_ROWS = 200 -- rows drawn at most while searching (every group is open then)
 
 local tab, db
 local results, resultRows, groupRows = {}, {}, {}
@@ -136,7 +137,7 @@ local function ItemInfo(recipe)
 	return info
 end
 
--- c's worn item levels for Alts_WornFor ({ [slot] = ilvl | false, twoHand }), kept per gear snapshot.
+-- c's worn item levels for Alts_WornFor ({ [slot] = ilvl | false, twoHand, offWeapon }), kept per gear snapshot.
 local wornCache = {}
 local function Worn(c)
 	local cached = wornCache[c.guid]
@@ -152,6 +153,11 @@ local function Worn(c)
 	if main then
 		local _, _, _, loc, _, _, sub = C_Item.GetItemInfoInstant(main)
 		worn.twoHand = loc == "INVTYPE_2HWEAPON" or loc == "INVTYPE_RANGED" or (loc == "INVTYPE_RANGEDRIGHT" and sub ~= 19)
+	end
+	local off = c.gear and c.gear[17]
+	if off then
+		local _, _, _, _, _, classID = C_Item.GetItemInfoInstant(off)
+		worn.offWeapon = classID == Enum.ItemClass.Weapon -- a shield or held-in-off-hand item is Armor
 	end
 	wornCache[c.guid] = { at = c.gearAt, worn = worn, complete = complete }
 	return worn
@@ -383,8 +389,33 @@ local function SetResultRow(row, r)
 end
 
 -- "Only what we have materials for": recipes whose whole plan is covered and known. Counts are shared between
--- recipes during one pass (the same reagent is looked up once).
+-- recipes during one pass (the same reagent is looked up once). Each verdict is kept until the items change (bags,
+-- bank, mail, Syndicator), the recipes change or "Crafted materials" switches, so typing and item loads don't plan
+-- every recipe again.
+local matsKept, matsChain = {}, nil -- [recipeID] = true | false, worked out with db.chain == matsChain
+local function ClearMaterials()
+	wipe(matsKept)
+end
+
+local matsEvents = CreateFrame("Frame")
+matsEvents:SetScript("OnEvent", ClearMaterials)
+local function WatchMaterials()
+	for _, event in ipairs({ "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED",
+		"MAIL_INBOX_UPDATE", "MAIL_SEND_SUCCESS", "PLAYER_ENTERING_WORLD" }) do
+		pcall(matsEvents.RegisterEvent, matsEvents, event)
+	end
+	if _G.Syndicator and Syndicator.CallbackRegistry then
+		for _, name in ipairs({ "Ready", "BagCacheUpdate", "MailCacheUpdate", "WarbandBankCacheUpdate" }) do
+			pcall(Syndicator.CallbackRegistry.RegisterCallback, Syndicator.CallbackRegistry, name, ClearMaterials, matsEvents)
+		end
+	end
+end
+
 local function HaveMaterials(list)
+	if matsChain ~= db.chain then
+		ClearMaterials()
+		matsChain = db.chain
+	end
 	local counts = {}
 	local ctx = {
 		recipes = db.recipes, chars = db.chars, producers = producers,
@@ -399,8 +430,11 @@ local function HaveMaterials(list)
 	}
 	local kept = {}
 	for _, r in ipairs(list) do
-		local ok, plan = pcall(ns.Alts_Plan, r.id, 1, ctx)
-		if ok and plan.missing == 0 and plan.unknown == 0 then
+		if matsKept[r.id] == nil then
+			local ok, plan = pcall(ns.Alts_Plan, r.id, 1, ctx)
+			matsKept[r.id] = ok and plan.missing == 0 and plan.unknown == 0
+		end
+		if matsKept[r.id] then
 			kept[#kept + 1] = r
 		end
 	end
@@ -517,10 +551,18 @@ local function LayoutResults()
 		collapsed = db.collapsed,
 		expand = searchText ~= "",
 	})
-	local y, nResult, nGroup = 0, 0, 0
-	for _, item in ipairs(rows) do
+	local y, nResult, nGroup, more = 0, 0, 0, 0
+	for i, item in ipairs(rows) do
 		local row
-		if item.kind == "recipe" then
+		local drawn = nResult + nGroup
+		if searchText ~= "" and (drawn >= SEARCH_ROWS or item.kind ~= "recipe" and drawn >= SEARCH_ROWS - 3) then
+			-- A short search opens every group: thousands of rows. Draw the first ones and say how many are left
+			-- (no group heading right at the end with nothing under it).
+			for j = i, #rows do
+				more = more + (rows[j].kind == "recipe" and 1 or 0)
+			end
+			break
+		elseif item.kind == "recipe" then
 			nResult = nResult + 1
 			row = resultRows[nResult] or CreateResultRow(content)
 			resultRows[nResult] = row
@@ -552,6 +594,16 @@ local function LayoutResults()
 	end
 	for i = nGroup + 1, #groupRows do
 		groupRows[i]:Hide()
+	end
+	if more > 0 then
+		tab.more = tab.more or UI.Text(content, 12, GREY)
+		tab.more:ClearAllPoints()
+		tab.more:SetPoint("TOPLEFT", 6, -(y + 6))
+		tab.more:SetText(("%d more: type more to narrow the search."):format(more))
+		y = y + 26
+	end
+	if tab.more then
+		tab.more:SetShown(more > 0)
 	end
 	tab.list:SetContentHeight(y)
 	if next(db.recipes) == nil then
@@ -986,6 +1038,7 @@ function LayoutDetail()
 		d.status:SetText("Couldn't work out the materials (the error is in BugSack).")
 		SetColor(d.status, RED)
 		d.crafts:SetValue(db.crafts or 1)
+		d.quality:Hide() -- not the previous recipe's
 		d.scroll:SetContentHeight(1)
 		return
 	end
@@ -1280,6 +1333,7 @@ end
 
 function ns.AltsCraft_Create(frame, altsDB)
 	tab, db = frame, altsDB
+	WatchMaterials()
 	tab.search = CreateSearch(tab)
 	tab.search:SetPoint("TOPLEFT", 4, -4)
 	CreateFilters(tab)
@@ -1343,6 +1397,7 @@ end
 -- The recipe index changed (a scan finished, a recipe was learned).
 function ns.AltsCraft_RecipesChanged()
 	producers = nil
+	ClearMaterials()
 end
 
 function ns.AltsCraft_Refresh()

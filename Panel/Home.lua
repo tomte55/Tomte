@@ -28,19 +28,7 @@ local RAIL_ROW_H, RAIL_HEADER_H = 24, 30
 ns.RAIL_W = 170
 ns.MAP_BLUE = MAP_BLUE
 
--- A module's summary/count/shown/items: errors go to BugSack and count as "nothing".
-function ns.HomeCall(fn, ...)
-	if not fn then
-		return nil
-	end
-	local ok, value = xpcall(fn, function(err)
-		return ns.errorHandler(err)
-	end, ...)
-	if ok then
-		return value
-	end
-	return nil
-end
+-- ns.HomeCall (Core/Modules.lua): a module's summary/count/shown/items; errors go to BugSack and count as "nothing".
 
 local function SetIcon(texture, entry)
 	if entry.atlas then
@@ -431,6 +419,29 @@ local function CreateHero(parent, onOpen)
 			self:SetFacing(self.facing)
 		end
 	end)
+	-- SetUnit reloads the model (it blinks), so only when it isn't there yet, when the window opens, or when the
+	-- character's looks change; Home refreshes leave it alone.
+	model.needsUnit = true
+	function model:Load()
+		if self.needsUnit or not self:GetModelFileID() then
+			self.needsUnit = false
+			self:SetUnit("player")
+			self:SetFacing(self.facing)
+		end
+	end
+	model:SetScript("OnShow", function(self)
+		-- Loaded on show (a model set while hidden may not render), whichever runs first, this or Refresh.
+		self.needsUnit = true
+		self:Load()
+	end)
+	model:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+	model:RegisterUnitEvent("UNIT_MODEL_CHANGED", "player")
+	model:SetScript("OnEvent", function(self)
+		self.needsUnit = true
+		if self:IsVisible() then
+			self:Load()
+		end
+	end)
 	hero.model = model
 
 	hero.name = UI.Text(stage, 40, GOLD, DISPLAY_FONT)
@@ -554,22 +565,21 @@ local function CreateHero(parent, onOpen)
 		end
 		self.who:SetText(("Level %d %s%s"):format(UnitLevel("player"), UnitRace("player") or "", spec and (", " .. spec) or ""))
 		local _, equipped = GetAverageItemLevel()
+		local dura = Durability()
 		local values = {
 			equipped and tostring(math.floor(equipped)) or "?",
 			ns.Alts_Gold and ns.Alts_Gold(GetMoney()) or GetCoinTextureString(GetMoney()),
-			(Durability() or 100) .. "%",
+			(dura or 100) .. "%",
 			GetSubZoneText() ~= "" and GetSubZoneText() or GetZoneText(),
 		}
 		for i, f in ipairs(self.facts) do
 			f.value:SetText(values[i])
 			SetColor(f.value, i == 2 and GOLD or WHITE)
 		end
-		local dura = Durability()
 		if dura and dura < 30 then
 			SetColor(self.facts[3].value, RED)
 		end
-		self.model:SetUnit("player")
-		self.model:SetFacing(self.model.facing)
+		self.model:Load()
 		self:Layout(self:GetHeight())
 	end
 
@@ -583,6 +593,7 @@ end
 
 local function CreateAround(parent, onOpen)
 	local around = CreateFrame("Frame", nil, parent)
+	around:SetClipsChildren(true) -- a first block taller than a short column is cut off at the bottom
 	around.heading = Kit.Heading(around)
 	around.heading:SetPoint("TOPLEFT")
 	around.heading:SetPoint("TOPRIGHT")
@@ -661,7 +672,12 @@ local function CreateAround(parent, onOpen)
 		local y, used, shown = 40, 0, 0
 		for b, bl in ipairs(blocks) do
 			if y + 30 + (bl.rows > 0 and ROW_H or 0) > height then
-				break
+				if b > 1 then
+					break
+				end
+				-- Too short even for the first block: its band anyway (clipped), with the rows that fit, so the
+				-- column isn't blank.
+				bl.rows = math.max(math.min(bl.rows, math.floor((height - y - 30) / ROW_H)), 0)
 			end
 			shown = b
 			local block = Block(b)

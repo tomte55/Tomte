@@ -199,8 +199,14 @@ function ns.WayRoute_Find(net, start, dest, api)
 		end
 	end
 	local DEST = "dest"
+	local best, bestCost
+	local function Relax(id, cost)
+		if not done[id] and (not dist[id] or bestCost + cost < dist[id]) then
+			dist[id], prev[id] = bestCost + cost, best
+		end
+	end
 	while true do
-		local best, bestCost
+		best, bestCost = nil, nil
 		for _, id in ipairs(ids) do
 			if not done[id] and dist[id] and (not bestCost or dist[id] < bestCost) then
 				best, bestCost = id, dist[id]
@@ -214,11 +220,6 @@ function ns.WayRoute_Find(net, start, dest, api)
 		end
 		done[best] = true
 		local node = nodes[best]
-		local function Relax(id, cost)
-			if not done[id] and (not dist[id] or bestCost + cost < dist[id]) then
-				dist[id], prev[id] = bestCost + cost, best
-			end
-		end
 		for _, edge in ipairs(adj[best] or {}) do
 			Relax(edge[2], edge[3])
 		end
@@ -244,11 +245,14 @@ end
 
 -- The step to point at, from index i on: steps you're standing at are passed when the next one is on the same map
 -- (a portal you stand at stays until you've taken it), and inside an interior it points straight at the next step
--- in the same interior. pos: the player's point.
-function ns.WayRoute_NextIndex(net, path, i, pos)
+-- in the same interior. pos: the player's point. reached: the game says you've reached step i (its radius can be
+-- wider than WAY_ROUTE_AT), so it counts as standing at it.
+function ns.WayRoute_NextIndex(net, path, i, pos, reached)
+	local first = i
 	while path[i] and path[i + 1] do
 		local node, nextNode = net.nodes[path[i]], net.nodes[path[i + 1]]
-		local here = node[1] == pos.map and Dist(pos.x, pos.y, node[2], node[3]) <= ns.WAY_ROUTE_AT
+		local here = (reached and i == first)
+			or (node[1] == pos.map and Dist(pos.x, pos.y, node[2], node[3]) <= ns.WAY_ROUTE_AT)
 		if here and nextNode[1] == node[1] then
 			i = i + 1
 		elseif Interior(net, node) and nextNode[5] == node[5] then

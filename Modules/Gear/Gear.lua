@@ -89,6 +89,20 @@ local function Context()
 	return ctx
 end
 
+-- This character's context for another of its specs (tooltip rank and off-spec lines), kept like ownCtx.
+local specCtx = {} -- [specID] = ctx
+local function SpecContext(spec)
+	local held = spec and specCtx[spec.id]
+	if held and held.scales == ns.Gear_ScalesForLevel() then
+		return held
+	end
+	local ctx = ContextFor(spec)
+	if ctx and ctx.complete then
+		specCtx[spec.id] = ctx
+	end
+	return ctx
+end
+
 -- The class's other specs, for off-spec verdicts.
 local function OtherSpecs(current)
 	local list = {}
@@ -171,7 +185,7 @@ local function OwnLines(tooltip, link, ctx, verdict, cand, equipped, Add)
 			specs[#specs + 1] = other
 		end
 		for i, spec in ipairs(specs) do
-			local sctx = i == 1 and ctx or ContextFor(spec)
+			local sctx = i == 1 and ctx or SpecContext(spec)
 			if sctx and (i == 1 or sctx.source ~= "none") and not ns.Gear_Unusable(cand, sctx) then
 				local function Score(d)
 					return ns.Gear_Score(d, sctx.weights, sctx.primary, sctx.gemValue)
@@ -187,7 +201,7 @@ local function OwnLines(tooltip, link, ctx, verdict, cand, equipped, Add)
 	end
 	if db.offspec and not worn then
 		for _, other in ipairs(OtherSpecs(ctx.spec)) do
-			local octx = ContextFor(other)
+			local octx = SpecContext(other)
 			if octx and octx.source ~= "none" then
 				local line = ns.Gear_OffspecLine(other.name, (Evaluate(link, octx)))
 				if line then
@@ -348,6 +362,7 @@ end
 
 local function RefreshBags()
 	ownCtx = nil
+	wipe(specCtx)
 	if Baganator and Baganator.API and Baganator.API.RequestItemButtonsRefresh then
 		Baganator.API.RequestItemButtonsRefresh()
 	end
@@ -450,6 +465,37 @@ function events:PLAYER_EQUIPMENT_CHANGED()
 	ns.GearSheet_Refresh()
 end
 
+-- Enchanting, socketing or upgrading worn gear changes its link: read the worn gear again, once per burst (the
+-- event also fires for new bag items).
+local inventoryQueued
+local wornLinks = {}
+
+local function WornChanged()
+	local changed = false
+	for slot = 1, 19 do
+		local link = GetInventoryItemLink("player", slot) or false
+		if wornLinks[slot] ~= link then
+			wornLinks[slot], changed = link, true
+		end
+	end
+	return changed
+end
+
+function events:UNIT_INVENTORY_CHANGED()
+	if inventoryQueued then
+		return
+	end
+	inventoryQueued = true
+	C_Timer.After(0.5, function()
+		inventoryQueued = false
+		if module.active and WornChanged() then
+			ns.GearItems_InvalidateEquipped()
+			RefreshBags()
+			ns.GearSheet_Refresh()
+		end
+	end)
+end
+
 -- Modules start on ADDON_LOADED, before the inventory has arrived: read worn gear and bags again once in the world.
 function events:PLAYER_ENTERING_WORLD()
 	ns.GearItems_InvalidateEquipped()
@@ -475,6 +521,15 @@ function events:PLAYER_LEVEL_UP(level)
 	RefreshBags()
 	ns.GearSheet_Refresh()
 	WeightsHint(level)
+	-- UnitLevel (and so the red "Requires Level" lines) can lag behind the event: read everything again once it's
+	-- caught up.
+	C_Timer.After(2, function()
+		if module.active then
+			ns.GearItems_ClearCache()
+			RefreshBags()
+			ns.GearSheet_Refresh()
+		end
+	end)
 end
 
 function events:GET_ITEM_INFO_RECEIVED()
@@ -758,6 +813,7 @@ local function Start()
 	events:RegisterEvent("PLAYER_LEVEL_UP")
 	events:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 	events:RegisterEvent("BAG_UPDATE_DELAYED")
+	events:RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")
 	ns.GearItems_InvalidateBags()
 	if not module.tooltipHooked then
 		module.tooltipHooked = true -- post-calls can't be removed; OnItem checks module.active

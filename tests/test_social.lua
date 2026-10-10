@@ -68,17 +68,55 @@ test("TrimConvos drops the oldest read conversations only", function()
 	eq(store.convos.c5 ~= nil, true)
 end)
 
-test("PruneConvos forgets old read conversations", function()
+test("TrimConvos caps unread conversations at twice the max, oldest first", function()
+	local store = newStore()
+	for i = 1, 7 do
+		ns.Social_AddMessage(store, "c" .. i, {}, { at = i, text = "x" })
+	end
+	ns.Social_MarkRead(store, "c5")
+	ns.Social_TrimConvos(store, 2)
+	-- c5 (read, past max) goes first; then the oldest unread down to 4
+	eq(store.convos.c5, nil)
+	eq(store.convos.c1, nil)
+	eq(store.convos.c2, nil)
+	eq(store.convos.c3 ~= nil, true)
+	eq(store.convos.c7 ~= nil, true)
+	local n = 0
+	for _ in pairs(store.convos) do
+		n = n + 1
+	end
+	eq(n, 4)
+end)
+
+test("AddMessage keeps spam from piling up past twice the max", function()
+	local store = newStore()
+	for i = 1, 100 do
+		ns.Social_AddMessage(store, "spam" .. i, {}, { at = i, text = "buy gold" })
+	end
+	local n = 0
+	for _ in pairs(store.convos) do
+		n = n + 1
+	end
+	eq(n, 60)
+	eq(store.convos.spam100 ~= nil, true)
+	eq(store.convos.spam1, nil)
+end)
+
+test("PruneConvos forgets old read conversations, and unread ones after twice the age", function()
 	local store = newStore()
 	ns.Social_AddMessage(store, "old", {}, { at = 0, text = "x" })
 	ns.Social_AddMessage(store, "oldUnread", {}, { at = 0, text = "x" })
+	ns.Social_AddMessage(store, "ancientUnread", {}, { at = -1000, text = "x" })
 	ns.Social_AddMessage(store, "new", {}, { at = 900, text = "x" })
 	ns.Social_MarkRead(store, "old")
 	ns.Social_MarkRead(store, "new")
 	ns.Social_PruneConvos(store, 1000, 500)
 	eq(store.convos.old, nil)
 	eq(store.convos.oldUnread ~= nil, true)
+	eq(store.convos.ancientUnread, nil)
 	eq(store.convos.new ~= nil, true)
+	ns.Social_PruneConvos(store, 1000, 500, 900)
+	eq(store.convos.oldUnread, nil)
 end)
 
 test("Unread totals messages and lists conversations newest first", function()
@@ -190,6 +228,12 @@ test("NewlyOnline lists new keys, none on the first look", function()
 	eq(#list, 2)
 	eq(list[1], "b")
 	eq(list[2], "c")
+end)
+
+test("NewlyOnline skips keys that weren't known before", function()
+	local list = ns.Social_NewlyOnline({ a = true }, { a = true, b = true, c = true }, { a = true, b = true })
+	eq(#list, 1)
+	eq(list[1], "b")
 end)
 
 if failures > 0 then

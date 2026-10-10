@@ -14,10 +14,23 @@ local function Plain(value, isSecret)
 	return value
 end
 
+-- Battle.net name tokens (|K...|k) only resolve in the session they came from: saved, they'd show as garbage.
+local function NoTokens(value)
+	if not value then
+		return nil
+	end
+	local stripped = value:gsub("|K.-|k", "")
+	return stripped
+end
+
 -- A feed entry from a toast or banner spec. who = { guid, char, class }. isSecret(value) -> bool.
+-- spec.recentTitle, when given, is saved instead of spec.title (a saveable name for a |K account name).
 function ns.Recent_FromSpec(spec, who, now, isSecret, banner)
-	local title = Plain(spec.title, isSecret)
-	local text = Plain(banner and spec.subtitle or spec.text, isSecret)
+	local title = NoTokens(Plain(spec.recentTitle, isSecret)) or NoTokens(Plain(spec.title, isSecret))
+	local text = NoTokens(Plain(banner and spec.subtitle or spec.text, isSecret))
+	if title == "" then
+		title = Plain(spec.label, isSecret) or "Message"
+	end
 	if (spec.title ~= nil and not title) or (not banner and spec.text ~= nil and not text) then
 		title = title or spec.label or "Message"
 		text = HIDDEN
@@ -47,10 +60,15 @@ function ns.Recent_Add(list, entry, max, mergeWindow)
 		end
 	end
 	table.insert(list, 1, entry)
+	ns.Recent_Trim(list, max)
+	return entry
+end
+
+-- Drops the oldest entries past max (default 50).
+function ns.Recent_Trim(list, max)
 	for i = #list, (max or 50) + 1, -1 do
 		list[i] = nil
 	end
-	return entry
 end
 
 -- The entries to show: all of them, or one character's (scope "char"), and only owners that are included.

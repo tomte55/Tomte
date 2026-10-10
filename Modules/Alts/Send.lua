@@ -23,8 +23,11 @@ local dock, bankButton
 local groups = {}
 local gearGroups = {}
 local attached -- { guid, stacks } while a mail is filled in and not sent yet
-local toppingUp -- { c, amount } while a gold top-up is on its way
+local toppingUp -- { c, amount, money, timer } while a gold top-up is on its way
 local depositing = false
+local bankOpen = false
+local TOPUP_WAIT = 30 -- seconds a gold top-up may wait for its confirmation before it's forgotten
+local REBUILD_EVERY = 1 -- seconds between rebuilds on bag changes at the mailbox or bank
 
 local events = CreateFrame("Frame")
 events:SetScript("OnEvent", function(self, event, ...)
@@ -61,12 +64,54 @@ local function BagStacks()
 	return stacks
 end
 
-local function Context()
+-- The realms mail reaches (ns.Alts_RealmSet), nil while that isn't known. The connected realms don't change in a
+-- session, so a non-empty list is kept. GetAutoCompleteRealms moved to C_AutoComplete (the global is a deprecation
+-- fallback since 12.0.5); either answers an empty list on a realm that isn't connected.
+local realmSet
+function ns.Alts_MailRealms()
+	if realmSet then
+		return realmSet
+	end
+	local myRealm = GetNormalizedRealmName and GetNormalizedRealmName()
+	if not myRealm or myRealm == "" then
+		return nil
+	end
+	local get = (C_AutoComplete and C_AutoComplete.GetAutoCompleteRealms) or GetAutoCompleteRealms
+	local ok, realms = false, nil
+	if get then
+		ok, realms = pcall(get)
+	end
+	realms = ok and type(realms) == "table" and realms or {}
+	local set = ns.Alts_RealmSet(realms, myRealm)
+	if #realms > 0 then
+		realmSet = set
+	end
+	return set
+end
+
+-- Every character's reagent users, kept until recipes or characters change (Alts_RecipesChanged, a new recipe, a
+-- mailbox or bank visit) or a minute has passed: the panel is drawn again on bag changes.
+local usersCache, usersAt
+local function UsersChanged()
+	usersCache = nil
+end
+ns.AltsSend_UsersChanged = UsersChanged
+
+local function Users()
+	local now = GetTime()
+	if not usersCache or now - usersAt > 60 then
+		usersCache, usersAt = ns.Alts_ReagentUsers(ns.altsDB.chars, ns.altsDB.recipes), now
+	end
+	return usersCache
+end
+
+-- forMail: leave out characters mail can't reach (the Warband bank reaches everyone).
+local function Context(forMail)
 	local alts = ns.altsDB
 	local plan = db.sendPlan and ns.AltsCraft_LastPlan and ns.Alts_PlanAssignments(ns.AltsCraft_LastPlan, alts.recipes) or nil
 	return {
-		me = UnitGUID("player"), chars = alts.chars, users = ns.Alts_ReagentUsers(alts.chars, alts.recipes),
-		plan = plan, rules = ns.Alts_ParseRules(db.sendRules),
+		me = UnitGUID("player"), chars = alts.chars, users = Users(),
+		plan = plan, rules = ns.Alts_ParseRules(db.sendRules), realms = forMail and ns.Alts_MailRealms() or nil,
 	}
 end
 
@@ -142,7 +187,7 @@ local function Slots(groupList)
 end
 
 local function GearMailGroups()
-	return ns.Alts_GearGroups(GearStacks(), "mail", ns.altsDB.chars)
+	return ns.Alts_GearGroups(GearStacks(), "mail", ns.altsDB.chars, ns.Alts_MailRealms())
 end
 
 local function Busy()
@@ -169,18 +214,25 @@ local function AttachmentCount()
 	return n
 end
 
--- Tracked crafts that need something from your bags: { { todo, wants, to } }.
+-- Tracked crafts that need something from your bags: { { todo, wants, to } }. Worked out once per to-do (List.lua
+-- keeps the to-do until something changes).
+local craftMails, craftMailsFor
 local function CraftMails()
 	if not ns.AltsList_Todos then
 		return {}
 	end
+	local todos = ns.AltsList_Todos()
+	if craftMails and craftMailsFor == todos then
+		return craftMails
+	end
 	local out = {}
-	for _, todo in ipairs(ns.AltsList_Todos()) do
+	for _, todo in ipairs(todos) do
 		local wants, to = ns.Alts_CraftMail(todo)
 		if to and #wants > 0 and ns.altsDB.chars[to] then
 			out[#out + 1] = { todo = todo, wants = wants, to = to }
 		end
 	end
+	craftMails, craftMailsFor = out, todos
 	return out
 end
 
@@ -214,7 +266,7 @@ local function Attach(g)
 	-- Read the bags again: the group's bag slots are from when the panel was drawn, and items may have moved since.
 	local fresh
 	local gear = GearMailGroups()
-	local list = g.gear and gear or ns.Alts_SendGroups(Without(FreeStacks(), Slots(gear)), Context(), Mailable)
+	local list = g.gear and gear or ns.Alts_SendGroups(Without(FreeStacks(), Slots(gear)), Context(true), Mailable)
 	for _, group in ipairs(list) do
 		if group.guid == g.guid then
 			fresh = group
@@ -303,6 +355,10 @@ local function Send()
 		Say("not enough gold for the postage.")
 		return
 	end
+	-- Items only: no gold or C.O.D. left over from a top-up or typed in earlier (Blizzard's Send button resets
+	-- both too, SendMailMailButton_OnClick).
+	SetSendMailCOD(0)
+	SetSendMailMoney(0)
 	SendMail(SendMailNameEditBox:GetText(), SendMailSubjectEditBox:GetText(), SendMailBodyEditBox and SendMailBodyEditBox:GetText() or "")
 end
 
@@ -321,8 +377,26 @@ local function TopUp(c, amount)
 	SendMailSubjectEditBox:SetText(db.sendSubject ~= "" and db.sendSubject or "Tomte")
 	SetSendMailCOD(0)
 	SetSendMailMoney(amount)
-	toppingUp = { c = c, amount = amount }
+	-- The game asks to confirm a gold mail, and a cancelled confirmation may send no event: the top-up is
+	-- forgotten after a while, and MAIL_SEND_SUCCESS only counts it when the gold actually left.
+	if toppingUp and toppingUp.timer then
+		toppingUp.timer:Cancel()
+	end
+	local pending = { c = c, amount = amount, money = GetMoney() }
+	pending.timer = C_Timer.NewTimer(TOPUP_WAIT, function()
+		if toppingUp == pending then
+			toppingUp = nil
+		end
+	end)
+	toppingUp = pending
 	SendMail(SendMailNameEditBox:GetText(), SendMailSubjectEditBox:GetText(), "")
+end
+
+local function ClearTopUp()
+	if toppingUp and toppingUp.timer then
+		toppingUp.timer:Cancel()
+	end
+	toppingUp = nil
 end
 
 -- Dock ------------------------------------------------------------------------------------------------------------
@@ -539,11 +613,24 @@ function ns.AltsSend_Refresh()
 		end
 		y = y + 8
 	end
-	-- Gold top-ups.
+	-- Gold top-ups, by name; only characters mail reaches.
 	if db.sendGold and db.sendGold > 0 then
 		local target = db.sendGold * 1000 * 10000
+		local me, realms = UnitGUID("player"), ns.Alts_MailRealms()
+		local topUps = {}
 		for guid, c in pairs(ns.altsDB.chars) do
-			local amount = guid ~= UnitGUID("player") and ns.Alts_TopUp(c.money, target, GetMoney(), target)
+			if guid ~= me and ns.Alts_Reachable(c, realms) then
+				topUps[#topUps + 1] = c
+			end
+		end
+		table.sort(topUps, function(a, b)
+			if (a.name or "") ~= (b.name or "") then
+				return (a.name or "") < (b.name or "")
+			end
+			return (a.realm or "") < (b.realm or "")
+		end)
+		for _, c in ipairs(topUps) do
+			local amount = ns.Alts_TopUp(c.money, target, GetMoney(), target)
 			if amount then
 				blocks = blocks + 1
 				local b = Block(blocks)
@@ -575,7 +662,7 @@ local function Rebuild()
 		return
 	end
 	gearGroups = GearMailGroups()
-	groups = ns.Alts_SendGroups(Without(FreeStacks(), Slots(gearGroups)), Context(), Mailable)
+	groups = ns.Alts_SendGroups(Without(FreeStacks(), Slots(gearGroups)), Context(true), Mailable)
 end
 
 local function ShowDock()
@@ -593,11 +680,13 @@ end
 
 function events:MAIL_SHOW()
 	attached = nil
+	UsersChanged()
 	C_Timer.After(0.2, ShowDock) -- after the mail frame has opened
 end
 
 function events:MAIL_CLOSED()
-	attached, toppingUp = nil, nil
+	attached = nil
+	ClearTopUp()
 	if dock then
 		dock:Hide()
 	end
@@ -608,33 +697,60 @@ function events:MAIL_SEND_SUCCESS()
 		local c = ns.altsDB.chars[attached.guid]
 		Say(("sent %d stack%s to %s."):format(#attached.stacks, #attached.stacks == 1 and "" or "s", c and c.name or "?"))
 	end
-	if toppingUp then
-		-- The stored gold is from the alt's last login: count the top-up in, so it isn't offered again.
-		toppingUp.c.money = (toppingUp.c.money or 0) + toppingUp.amount
+	local topUp = toppingUp
+	attached = nil
+	ClearTopUp()
+	if topUp then
+		-- The stored gold is from the alt's last login: count the top-up in, so it isn't offered again. Only when
+		-- the gold left (the amount plus postage): this may be another mail after a cancelled top-up. A moment
+		-- later, as the money may not have updated yet.
+		C_Timer.After(0.3, function()
+			local spent = topUp.money - GetMoney()
+			if spent >= topUp.amount and spent <= topUp.amount + 10000 then
+				topUp.c.money = (topUp.c.money or 0) + topUp.amount
+				ns.AltsSend_Refresh()
+			end
+		end)
 	end
-	attached, toppingUp = nil, nil
 	C_Timer.After(0.5, ShowDock) -- the bags have changed
 end
 
 function events:MAIL_FAILED()
-	attached, toppingUp = nil, nil
+	if toppingUp then
+		SetSendMailMoney(0) -- not left on the Send Mail tab for the next mail
+	end
+	attached = nil
+	ClearTopUp()
 	if dock and dock:IsShown() then
 		ns.AltsSend_Refresh()
 	end
 end
 
--- Bags changed with the mailbox open (taking items from the inbox, for one): what there is to send may have too.
--- Not while something is attached: the attached stacks left the bags and the Send button must stay.
+function events:NEW_RECIPE_LEARNED()
+	UsersChanged()
+end
+
+local UpdateBankButton -- Warband bank, below
+
+-- Bags changed with the mailbox open (taking items from the inbox, for one) or at the bank (moving items by hand):
+-- what there is to send or deposit may have too. At most once a second. At the mailbox not while something is
+-- attached: the attached stacks left the bags and the Send button must stay.
 local bagsPending
 function events:BAG_UPDATE_DELAYED()
-	if bagsPending or attached or toppingUp or not (MailFrame and MailFrame:IsShown()) then
+	if bagsPending or not db or not ((MailFrame and MailFrame:IsShown()) or bankOpen) then
 		return
 	end
 	bagsPending = true
-	C_Timer.After(0.3, function()
+	C_Timer.After(REBUILD_EVERY, function()
 		bagsPending = nil
-		if db and not attached and not toppingUp and MailFrame and MailFrame:IsShown() then
+		if not db then
+			return
+		end
+		if not attached and not toppingUp and MailFrame and MailFrame:IsShown() then
 			ShowDock()
+		end
+		if bankOpen then
+			UpdateBankButton()
 		end
 	end)
 end
@@ -686,16 +802,63 @@ local function Deposit()
 	depositing = false
 	Say(n == 0 and "nothing to put in the Warband bank for your alts." or ("put %d stack%s in the Warband bank for your alts."):format(n, n == 1 and "" or "s"))
 	C_Timer.After(0.5, function()
-		if bankButton and bankButton:IsShown() then
+		if bankButton and bankOpen then
 			bankButton:Update()
 		end
 	end)
 end
 
+-- Baganator's bank view, when it's the one showing (Baganator parents Blizzard's BankFrame to a hidden frame). It
+-- has no API for the frame; its views are named "Baganator_<Single|Category>ViewBankViewFrame<skin key>" (Baganator
+-- ViewManagement/Initialize.lua). The current skin comes from its API; the built-in skin keys (its Skins/*.lua) are
+-- the fallback. Only looked at, never changed.
+local BAGANATOR_SKINS = { "blizzard", "blizzard_black", "dark", "elvui", "gw2_ui", "ndui", "ellesmereui" }
+local function BaganatorBankFrame()
+	if not (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Baganator")) then
+		return nil
+	end
+	local skins = BAGANATOR_SKINS
+	local api = _G.Baganator and Baganator.API and Baganator.API.Skins
+	local ok, current = pcall(function()
+		return api and api.GetCurrentSkin and api.GetCurrentSkin()
+	end)
+	if ok and type(current) == "string" then
+		skins = { current }
+		for _, skin in ipairs(BAGANATOR_SKINS) do
+			skins[#skins + 1] = skin
+		end
+	end
+	for _, skin in ipairs(skins) do
+		for _, view in ipairs({ "Single", "Category" }) do
+			local f = _G["Baganator_" .. view .. "ViewBankViewFrame" .. skin]
+			if type(f) == "table" and f.IsVisible and f:IsVisible() then
+				return f
+			end
+		end
+	end
+	return nil
+end
+
+-- Above the bank window you see: Baganator's, else Blizzard's, else near the top of the screen.
+local function PlaceBankButton()
+	local anchor = BaganatorBankFrame() or (BankFrame and BankFrame:IsVisible() and BankFrame) or nil
+	bankButton:ClearAllPoints()
+	if anchor then
+		bankButton:SetPoint("BOTTOMRIGHT", anchor, "TOPRIGHT", 0, 4)
+		bankButton:SetFrameStrata(anchor:GetFrameStrata())
+		bankButton:SetFrameLevel(anchor:GetFrameLevel() + 20)
+	else
+		bankButton:SetPoint("TOP", UIParent, "TOP", 0, -120)
+		bankButton:SetFrameStrata("HIGH")
+	end
+end
+
 local function CreateBankButton()
-	bankButton = UI.Button(BankFrame, 150, "")
+	-- On UIParent: a bag addon (Baganator) may keep Blizzard's BankFrame hidden for good.
+	bankButton = UI.Button(UIParent, 150, "")
 	bankButton:SetHeight(22)
-	bankButton:SetPoint("BOTTOMRIGHT", BankFrame, "TOPRIGHT", 0, 4)
+	bankButton:SetClampedToScreen(true)
+	bankButton:Hide()
 	bankButton:SetScript("OnClick", Deposit)
 	bankButton:SetScript("OnEnter", function(self)
 		UI.SetBorderColor(self, GOLD[1], GOLD[2], GOLD[3], 1)
@@ -726,19 +889,28 @@ local function CreateBankButton()
 	end
 end
 
-function events:BANKFRAME_OPENED()
-	if not (db.sendWarband and BankFrame and ns.altsDB) then
+function UpdateBankButton()
+	if not (bankOpen and db and db.sendWarband and ns.altsDB) then
+		if bankButton then
+			bankButton:Hide()
+		end
 		return
 	end
-	C_Timer.After(0.3, function()
-		if not bankButton then
-			CreateBankButton()
-		end
-		bankButton:Update()
-	end)
+	if not bankButton then
+		CreateBankButton()
+	end
+	PlaceBankButton()
+	bankButton:Update()
+end
+
+function events:BANKFRAME_OPENED()
+	bankOpen = true
+	UsersChanged()
+	C_Timer.After(0.3, UpdateBankButton) -- after the bank window (Blizzard's or Baganator's) has opened
 end
 
 function events:BANKFRAME_CLOSED()
+	bankOpen = false
 	if bankButton then
 		bankButton:Hide()
 	end
@@ -749,8 +921,9 @@ function ns.AltsSend_Summary()
 	if not (db and (db.sendMail or db.sendWarband) and ns.altsDB) then
 		return nil
 	end
-	-- Only stacks the mailbox or the Warband bank can actually move (not soulbound ones).
-	local list = ns.Alts_SendGroups(BagStacks(), Context(), function(s)
+	-- Only stacks the mailbox or the Warband bank can actually move (not soulbound ones; mail only: not to
+	-- characters mail can't reach).
+	local list = ns.Alts_SendGroups(BagStacks(), Context(not db.sendWarband), function(s)
 		return (db.sendMail and Mailable(s)) or (db.sendWarband and Warbandable(s))
 	end)
 	if #list == 0 then
@@ -767,12 +940,18 @@ function ns.AltsSend_Summary()
 end
 
 local EVENTS = { "MAIL_SHOW", "MAIL_CLOSED", "MAIL_SEND_SUCCESS", "MAIL_FAILED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED",
-	"BAG_UPDATE_DELAYED" }
+	"BAG_UPDATE_DELAYED", "NEW_RECIPE_LEARNED" }
 
+local hookedRecipes = false
 function ns.AltsSend_Start(moduleDB)
 	db = moduleDB
 	for _, event in ipairs(EVENTS) do
 		events:RegisterEvent(event)
+	end
+	-- Recipes read or a character forgotten (Alts.lua, Collect.lua): the reagent users change.
+	if not hookedRecipes and type(ns.Alts_RecipesChanged) == "function" then
+		hookedRecipes = true
+		hooksecurefunc(ns, "Alts_RecipesChanged", UsersChanged)
 	end
 end
 
@@ -784,5 +963,6 @@ function ns.AltsSend_Stop()
 	if bankButton then
 		bankButton:Hide()
 	end
-	attached = nil
+	attached, bankOpen = nil, false
+	ClearTopUp()
 end

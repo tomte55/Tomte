@@ -129,8 +129,12 @@ function Factory.checkbox()
 	row.check.onChange = function(checked)
 		SetOption(row.module, row.spec, checked)
 	end
-	row:SetScript("OnMouseUp", function()
-		row.check:Click() -- the label toggles too
+	row:SetScript("OnMouseUp", function(self, button)
+		-- The label toggles too: a left click released over the row (mouse-up also fires after a drag that
+		-- started here and ended elsewhere).
+		if button == "LeftButton" and self:IsMouseOver() then
+			self.check:Click()
+		end
 	end)
 	ForwardHover(row, row.check)
 	return row

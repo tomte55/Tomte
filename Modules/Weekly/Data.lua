@@ -177,9 +177,11 @@ function ns.Weekly_View(snap, now)
 		v.vault[track.key] = slots
 	end
 	for id, c in pairs(snap.currencies or {}) do
+		-- A season total cap (crests) rises every reset: last week's cap no longer says whether it's reached.
 		v.currencies[id] = {
 			name = c.name, qty = c.qty, earnedWeek = stale and 0 or c.earnedWeek, weeklyCap = c.weeklyCap,
 			total = c.total, seasonCap = c.seasonCap, useTotal = c.useTotal,
+			capUnknown = stale and c.useTotal and (c.seasonCap or 0) > 0 or nil,
 		}
 	end
 	for id, state in pairs(snap.quests or {}) do
@@ -238,9 +240,13 @@ function ns.Weekly_VaultText(slots)
 end
 
 -- What a capped currency counts against its cap: the season total, this week's earnings, or what you hold.
--- Returns amount, cap (nil when uncapped).
+-- Returns amount, cap (nil when uncapped or unknown), unknown (true when there is a cap but it isn't known: a season
+-- total cap seen before the last reset).
 function ns.Weekly_CurrencyProgress(c)
 	if c.useTotal and (c.seasonCap or 0) > 0 then
+		if c.capUnknown then
+			return c.total or 0, nil, true
+		end
 		return c.total or 0, c.seasonCap
 	elseif (c.weeklyCap or 0) > 0 then
 		return c.earnedWeek or 0, c.weeklyCap
@@ -248,6 +254,17 @@ function ns.Weekly_CurrencyProgress(c)
 		return c.qty or 0, c.seasonCap
 	end
 	return c.qty or 0, nil
+end
+
+-- "340/400", "340/?" (cap unknown) or "340" (uncapped); sep goes around the slash.
+function ns.Weekly_CurrencyText(have, cap, unknown, sep)
+	sep = sep or ""
+	if cap then
+		return ("%d%s/%s%d"):format(have, sep, sep, cap)
+	elseif unknown then
+		return ("%d%s/%s?"):format(have, sep, sep)
+	end
+	return tostring(have)
 end
 
 local function Pts(n)
@@ -375,10 +392,10 @@ local function CrestRows(v)
 	for _, id in ipairs(ns.Weekly_CrestIDs(v)) do
 		local c = v.currencies[id]
 		if c then
-			local have, cap = ns.Weekly_CurrencyProgress(c)
+			local have, cap, unknown = ns.Weekly_CurrencyProgress(c)
 			rows[#rows + 1] = {
 				left = c.name or ("Currency " .. id),
-				right = cap and ("%d / %d"):format(have, cap) or tostring(have),
+				right = ns.Weekly_CurrencyText(have, cap, unknown, " "),
 				state = cap and have >= cap and "done" or "open",
 				frac = cap and min(have / cap, 1) or nil,
 			}
@@ -609,8 +626,8 @@ function ns.Weekly_GridModel(views, learned, now)
 			if not c then
 				return nil
 			end
-			local have, cap = ns.Weekly_CurrencyProgress(c)
-			return { text = cap and ("%d/%d"):format(have, cap) or tostring(have), tip = ("%d held"):format(c.qty or 0),
+			local have, cap, unknown = ns.Weekly_CurrencyProgress(c)
+			return { text = ns.Weekly_CurrencyText(have, cap, unknown), tip = ("%d held"):format(c.qty or 0),
 				state = Weekly(v, cap and have >= cap and "done" or "open") }
 		end)
 	end
@@ -850,9 +867,10 @@ function ns.Weekly_HomeTodo(v, learned)
 	table.sort(ids)
 	for _, id in ipairs(ids) do
 		local c = v.currencies[id]
-		local amount, cap = ns.Weekly_CurrencyProgress(c)
-		if cap then
-			Add({ text = c.name or ("Currency " .. id), right = ("%d / %d"):format(amount, cap), done = amount >= cap })
+		local amount, cap, unknown = ns.Weekly_CurrencyProgress(c)
+		if cap or unknown then
+			Add({ text = c.name or ("Currency " .. id), right = ns.Weekly_CurrencyText(amount, cap, unknown, " "),
+				done = cap ~= nil and amount >= cap })
 		end
 	end
 	for _, row in ipairs(done) do

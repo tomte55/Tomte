@@ -18,7 +18,7 @@ local LABELS = { almost = "Almost done", lastStep = "One step left", pinned = "P
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "CRITERIA_UPDATE", "CRITERIA_EARNED", "ACHIEVEMENT_EARNED", "NEW_MOUNT_ADDED",
 	"NEW_PET_ADDED", "NEW_TOY_ADDED", "TRANSMOG_COLLECTION_UPDATED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
-	"CALENDAR_UPDATE_EVENT_LIST", "SKILL_LINES_CHANGED",
+	"CALENDAR_UPDATE_EVENT_LIST", "SKILL_LINES_CHANGED", "PLAYER_LOGOUT",
 }
 
 local module, db
@@ -43,12 +43,26 @@ function ns.Ach_Pins()
 	return Pins()
 end
 
+-- Read-only: built once and reused until the pins change (the list asks once per row).
+local pinSet
 function ns.Ach_PinSet()
-	local set = {}
-	for _, id in ipairs(Pins()) do
-		set[id] = true
+	if not pinSet then
+		pinSet = {}
+		for _, id in ipairs(Pins()) do
+			pinSet[id] = true
+		end
 	end
-	return set
+	return pinSet
+end
+
+local function RemovePin(id)
+	local pins = Pins()
+	for i = #pins, 1, -1 do
+		if pins[i] == id then
+			table.remove(pins, i)
+		end
+	end
+	pinSet = nil
 end
 
 function ns.Ach_IsPinned(id)
@@ -70,18 +84,21 @@ function ns.Ach_Pin(id)
 		return
 	end
 	pins[#pins + 1] = id
+	pinSet = nil
 	ns.Ach_OnCriteriaEarned(id) -- builds its record at any percent and watches it
 	Changed()
 end
 
 function ns.Ach_Unpin(id)
-	local pins = Pins()
-	for i = #pins, 1, -1 do
-		if pins[i] == id then
-			table.remove(pins, i)
-		end
-	end
+	RemovePin(id)
 	Changed()
+end
+
+-- Pins that can't show (done for the scope): they'd still count toward the limit with nothing to unpin.
+function ns.Ach_DropPins(ids)
+	for _, id in ipairs(ids) do
+		RemovePin(id)
+	end
 end
 
 function ns.Ach_IsIgnored(id)
@@ -225,14 +242,15 @@ local function ToastText(kind, record)
 	return text
 end
 
-local function ShowToast(kind, record)
+-- sample: a test toast (no click action, kept out of Recent).
+local function ShowToast(kind, record, sample)
 	local accent = ACCENTS[kind]
 	ns.Toast_Show({
 		owner = OWNER, label = LABELS[kind], accent = accent, title = record.name, text = ToastText(kind, record),
-		icon = record.icon, mergeKey = "ach:" .. record.id, holdInCombat = true, hold = 8,
-		onClick = function()
+		icon = record.icon, mergeKey = "ach:" .. record.id, holdInCombat = true, hold = 8, test = sample or nil,
+		onClick = not sample and function()
 			ns.Ach_Open(record.id)
-		end,
+		end or nil,
 	})
 end
 
@@ -254,7 +272,7 @@ local function StartUp()
 	end
 	scheduled = true
 	ns.Ach_LoadCache()
-	ns.AchTracker_Apply()
+	ns.AchTracker_Apply(InCombatLockdown())
 	C_Calendar.OpenCalendar()
 	C_Timer.After(SCAN_DELAY, function()
 		if module.active then
@@ -277,12 +295,7 @@ end
 
 function events:ACHIEVEMENT_EARNED(id)
 	if ns.Ach_IsPinned(id) then
-		local pins = Pins()
-		for i = #pins, 1, -1 do
-			if pins[i] == id then
-				table.remove(pins, i)
-			end
-		end
+		RemovePin(id)
 	end
 	ns.Ach_OnAchievementEarned(id)
 	Changed()
@@ -313,6 +326,10 @@ function events:SKILL_LINES_CHANGED()
 	professions = nil
 end
 
+function events:PLAYER_LOGOUT()
+	ns.Ach_FlushCache()
+end
+
 -- Commands and options ----------------------------------------------------------------------------------------
 
 local function RequireActive()
@@ -337,9 +354,9 @@ local function Test()
 	local list = ns.Ach_List("")
 	local record = list[1] or { id = 6, name = "Level 10", icon = 236376, percent = 85, done = 4, total = 5,
 		last = "Reach level 10", reward = "Title Reward: the Patient" }
-	ShowToast("almost", record)
-	ShowToast("lastStep", setmetatable({ id = -1 }, { __index = record }))
-	ShowToast("pinned", setmetatable({ id = -2 }, { __index = record }))
+	ShowToast("almost", record, true)
+	ShowToast("lastStep", setmetatable({ id = -1 }, { __index = record }), true)
+	ShowToast("pinned", setmetatable({ id = -2 }, { __index = record }), true)
 end
 
 local function ThresholdChanged()

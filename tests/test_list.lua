@@ -211,6 +211,23 @@ test("a picked rank: the to-do counts only that rank and still finds the crafter
 	eq(Find(todo, "missing").n, 6, "6 more of rank 2")
 end)
 
+test("a crafter mail can't reach gets a Warband bank line, not a mail", function()
+	local places = { [HERB] = { { guid = "Main", where = "bags", n = 30 } } }
+	local ctx = Ctx("Main", places)
+	ctx.canMail = function(guid)
+		return guid ~= "Alch"
+	end
+	local todo = ns.Alts_CraftTodo({ recipeID = 3, crafts = 1 }, ctx)
+	eq(Find(todo, "mail"), nil)
+	local deposit = Find(todo, "deposit")
+	eq(deposit.text, "Put 10 Herb in Warband bank for Mira")
+	eq(deposit.mine, true)
+	local wants, to = ns.Alts_CraftMail(todo)
+	eq(#wants, 0, "nothing for the mailbox")
+	eq(to, nil)
+	eq(ns.Alts_MarkedItems({ todo })[HERB], 10, "still marked in the bags")
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)

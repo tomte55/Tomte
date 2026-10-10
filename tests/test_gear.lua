@@ -315,6 +315,50 @@ test("Compare: 1H while dual wielding uses the weaker hand; off-hand slot empty"
 	eq(ns.Gear_Target(item("INVTYPE_WEAPON", 1, 1), e).slots[1], 16)
 end)
 
+test("Compare: a wand is a main-hand one-hander, a gun is two-handed", function()
+	local function wand(a, b)
+		return item("INVTYPE_RANGEDRIGHT", a, b, { classID = 2, subclassID = 19 })
+	end
+	local e = { [16] = item("INVTYPE_WEAPONMAINHAND", 100, 100, { classID = 2 }), [17] = item("INVTYPE_HOLDABLE", 50, 50) }
+	local t = ns.Gear_Target(wand(1, 1), e)
+	eq(t.mode, "single")
+	eq(t.slots[1], 16)
+	eq(ns.Gear_Evaluate(wand(120, 120, nil), e, CTX).kind, "upgrade")
+	-- a gun (subclass 3) still pushes out both hands
+	eq(ns.Gear_Target(item("INVTYPE_RANGEDRIGHT", 1, 1, { classID = 2, subclassID = 3 }), e).mode, "sum")
+	-- wearing a wand: an off-hand goes next to it, not "pair"
+	e = { [16] = wand(100, 100) }
+	t = ns.Gear_Target(item("INVTYPE_HOLDABLE", 1, 1), e)
+	eq(t.mode, "empty")
+	eq(t.slots[1], 17)
+	-- wearing a wand: a two-hander replaces it (and the off-hand next to it)
+	eq(ns.Gear_Target(item("INVTYPE_2HWEAPON", 1, 1), e).mode, "sum")
+	eq(ns.Gear_Target(item("INVTYPE_2HWEAPON", 1, 1), { [16] = wand(1, 1), [17] = item("INVTYPE_HOLDABLE", 1, 1) }).mode,
+		"sum")
+end)
+
+test("Compare: two-hander with only an off-hand worn counts the off-hand", function()
+	local e = { [17] = item("INVTYPE_SHIELD", 100, 100) }
+	local t = ns.Gear_Target(item("INVTYPE_2HWEAPON", 1, 1), e)
+	eq(t.mode, "sum")
+	eq(t.slots[2], 17)
+	local v = ns.Gear_Evaluate(item("INVTYPE_2HWEAPON", 80, 80, { classID = 2 }), e, CTX)
+	eq(v.kind, "downgrade")
+	-- nothing in either hand: empty
+	eq(ns.Gear_Target(item("INVTYPE_2HWEAPON", 1, 1), {}).mode, "empty")
+	-- Titan's Grip off-hand only: the main hand is free
+	eq(ns.Gear_Target(item("INVTYPE_2HWEAPON", 1, 1), { [17] = item("INVTYPE_2HWEAPON", 1, 1) }).mode, "empty")
+end)
+
+test("Compare: off-hand with 2H worn needs a main hand", function()
+	local e = { [16] = item("INVTYPE_2HWEAPON", 200, 200) }
+	local v = ns.Gear_Evaluate(item("INVTYPE_SHIELD", 100, 100), e, CTX)
+	eq(v.kind, "pair")
+	has(v.reasons, "one%-handed main hand")
+	v = ns.Gear_Evaluate(item("INVTYPE_WEAPONMAINHAND", 100, 100), e, CTX)
+	has(v.reasons, "Needs an off%-hand")
+end)
+
 test("Empty slot: upgrade, not a huge %", function()
 	local v = ns.Gear_Evaluate(item("INVTYPE_CLOAK", 50, 50), gearset(), CTX)
 	eq(v.kind, "empty")

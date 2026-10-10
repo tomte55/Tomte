@@ -405,6 +405,9 @@ test("gear for a character: armor type, weapons, main stat, profession tools", f
 	eq(ns.Alts_GearFor(item(19, 6, "INVTYPE_PROFESSION_TOOL"), hunter), false, "not a tailor")
 	eq(ns.Alts_GearFor(item(0, 0, ""), hunter), false, "a flask")
 	eq(ns.Alts_GearFor(item(4, 3, "INVTYPE_CHEST"), { primary = "AGI" }), false, "class unknown")
+	local warrior = { class = "WARRIOR", primary = "STR", profs = {} }
+	eq(ns.Alts_GearFor(item(2, 3, "INVTYPE_RANGEDRIGHT", { AGI = true }), warrior), false, "no guns for warriors")
+	eq(ns.Alts_GearFor(item(2, 1, "INVTYPE_2HWEAPON", { STR = true }), warrior), "gear", "two-handed axe for a warrior")
 end)
 
 test("what a craft replaces and the upgrade mark", function()
@@ -416,6 +419,13 @@ test("what a craft replaces and the upgrade mark", function()
 	eq(ns.Alts_WornFor("INVTYPE_WEAPON", worn).slot, 16, "one-hander without an off hand: main hand")
 	eq(ns.Alts_WornFor("INVTYPE_FEET", worn).ilvl, nil, "empty slot")
 	eq(ns.Alts_WornFor("INVTYPE_PROFESSION_TOOL", worn), nil, "not worn gear")
+	-- A one-hander goes against the off hand only when a weapon is worn there (not a shield or off-hand item).
+	local tank = { [16] = 600, [17] = 580 }
+	eq(ns.Alts_WornFor("INVTYPE_WEAPON", tank).slot, 16, "one-hander next to a shield: main hand")
+	eq(ns.Alts_Upgrade(590, 590, ns.Alts_WornFor("INVTYPE_WEAPON", tank)), "no", "590 mace isn't an upgrade over 600")
+	tank.offWeapon = true
+	eq(ns.Alts_WornFor("INVTYPE_WEAPON", tank).slot, 17, "dual wield: the weaker hand")
+	eq(ns.Alts_WornFor("INVTYPE_SHIELD", { [16] = 600, [17] = 580 }).ilvl, 580, "shield against the off hand")
 	worn.twoHand = true
 	eq(ns.Alts_Upgrade(590, 620, ns.Alts_WornFor("INVTYPE_HOLDABLE", worn)), nil, "off hand next to a two-hander")
 	eq(ns.Alts_Upgrade(590, 620, { ilvl = 600, loading = true }), nil, "loading")

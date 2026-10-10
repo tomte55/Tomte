@@ -90,6 +90,27 @@ local function EachPet(snapshot, fn)
 end
 ns.Hunter_EachPet = EachPet
 
+-- The pet with this pet number in the snapshot, or nil (a pet table from an older snapshot -> its new copy).
+function ns.Hunter_FindPet(snapshot, petNumber)
+	local found
+	if petNumber then
+		EachPet(snapshot, function(pet)
+			if pet.petNumber == petNumber then
+				found = found or pet
+			end
+		end)
+	end
+	return found
+end
+
+-- Same stable entry: the same table, the same owned pet (pet number) or the same seen creature (npcID).
+function ns.Hunter_SameEntry(a, b)
+	if a == nil or b == nil then
+		return false
+	end
+	return a == b or (a.petNumber ~= nil and a.petNumber == b.petNumber) or (a.npcID ~= nil and a.npcID == b.npcID)
+end
+
 function ns.Hunter_PetCount(snapshot)
 	local n = 0
 	EachPet(snapshot, function()

@@ -21,6 +21,7 @@ function ns.Recap_Compact(session, extra)
 	for i, e in ipairs(session.log or {}) do
 		log[i] = e
 	end
+	log.dropped = session.log and session.log.dropped -- entries the log already let go: still count in "+N more"
 	return {
 		guid = session.guid, name = session.name, class = session.class,
 		start = session.start, seen = endAt,
@@ -60,7 +61,9 @@ function ns.Recap_Archive(history, copy, opts, now)
 	for i = FULL + 1, #history do
 		local h = history[i]
 		if not h.trimmed then
-			local shown = ns.Recap_Highlights(h.log or {}, KEEP_HIGHLIGHTS)
+			-- The kept highlights remember how many others there were, so "+N more" stays the real total.
+			local shown, more = ns.Recap_Highlights(h.log or {}, KEEP_HIGHLIGHTS)
+			shown.dropped = more > 0 and more or nil
 			h.log, h.loot, h.trimmed = shown, nil, true
 		end
 	end

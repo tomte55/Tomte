@@ -14,6 +14,29 @@ local module, db, button
 local lastMount
 local nextMount -- the mountID the action bar macro shows; the next press takes it when it still suits
 local lastWhy -- details of the latest press, for /tomte mount why
+local pickKey -- the situation nextMount was picked in (PickKey)
+local mountIDs -- C_MountJournal.GetMountIDs(), once a session (NEW_MOUNT_ADDED reads it again)
+local mountTypes = {} -- [mountID] = mount type ID, which doesn't change
+
+local function MountIDs()
+	if not mountIDs then
+		local list = C_MountJournal.GetMountIDs()
+		if not list or #list == 0 then
+			return list or {} -- the journal isn't loaded yet: not kept
+		end
+		mountIDs = list
+	end
+	return mountIDs
+end
+
+local function MountType(mountID)
+	local typeID = mountTypes[mountID]
+	if typeID == nil then
+		typeID = select(5, C_MountJournal.GetMountInfoExtraByID(mountID))
+		mountTypes[mountID] = typeID
+	end
+	return typeID
+end
 
 -- mapIDs from where you stand up to the world (zone, continent, ...), with their infos.
 function ns.Mount_Chain()
@@ -68,7 +91,7 @@ local function Candidate(mountID, stats)
 		stats.errors[reason] = (stats.errors[reason] or 0) + 1
 		return nil
 	end
-	local typeID = select(5, C_MountJournal.GetMountInfoExtraByID(mountID))
+	local typeID = MountType(mountID)
 	local info = ns.Mount_TypeInfo(typeID)
 	return {
 		id = mountID, name = name, spellID = spellID, icon = icon, typeID = typeID, steady = isSteadyFlight,
@@ -102,7 +125,7 @@ end
 local function Tiers(stats)
 	local zoneSet, zoneName = ZoneFavorites()
 	local zone, favorites, all = {}, {}, {}
-	for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
+	for _, mountID in ipairs(MountIDs()) do
 		local c = Candidate(mountID, stats)
 		if c then
 			all[#all + 1] = c
@@ -177,7 +200,7 @@ local function G99Mount()
 		return nil
 	end
 	g99LookedAt = now
-	for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
+	for _, mountID in ipairs(MountIDs()) do
 		local name, _, _, _, _, _, _, _, _, _, isCollected = C_MountJournal.GetMountInfoByID(mountID)
 		if name and isCollected and name:find(G99_PATTERN) then
 			g99Mount = mountID
@@ -299,11 +322,39 @@ local MACRO_ICON = 134400 -- the question mark: the icon then follows #showtoolt
 local MAX_GENERAL_MACROS = 120
 
 local function ActiveMountSpell()
-	for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
+	if lastMount then -- usually the one the key summoned: no journal scan
+		local _, spellID, _, isActive = C_MountJournal.GetMountInfoByID(lastMount)
+		if isActive then
+			return C_Spell.GetSpellName(spellID)
+		end
+	end
+	for _, mountID in ipairs(MountIDs()) do
 		local _, spellID, _, isActive = C_MountJournal.GetMountInfoByID(mountID)
 		if isActive then
 			return C_Spell.GetSpellName(spellID)
 		end
+	end
+	return nil
+end
+
+-- What a pick depends on besides the mount itself: when it's unchanged and the shown mount is still usable, the
+-- macro keeps it without going through the whole journal (zone changes and usability events come often).
+local function PickKey()
+	local list, zoneMap = nil, nil
+	if db.useZones then
+		list, zoneMap = ns.Mount_ZoneList(ns.Mount_Chain(), db.zones)
+	end
+	return table.concat({
+		tostring(IsSubmerged()), tostring(IsFlyableArea() or IsAdvancedFlyableArea()), tostring(IsIndoors()),
+		tostring(C_UnitAuras.GetPlayerAuraBySpellID(SKYRIDING_AURA) ~= nil), tostring(zoneMap),
+		list and table.concat(list, ",") or "", tostring(db.preferGround),
+	}, ":")
+end
+
+local function StillUsable(mountID)
+	local name, spellID, _, _, isUsable = C_MountJournal.GetMountInfoByID(mountID)
+	if name and isUsable and C_MountJournal.GetMountUsabilityByID(mountID, true) then
+		return C_Spell.GetSpellName(spellID) or name
 	end
 	return nil
 end
@@ -317,8 +368,13 @@ local function MacroSpell()
 	if g99 then
 		return g99
 	end
+	local key = PickKey()
+	local kept = nextMount and key == pickKey and StillUsable(nextMount)
+	if kept then
+		return kept
+	end
 	local mount = Choose(nextMount)
-	nextMount = mount and mount.id
+	nextMount, pickKey = mount and mount.id, key
 	return mount and (C_Spell.GetSpellName(mount.spellID) or mount.name)
 end
 
@@ -392,6 +448,26 @@ events.ZONE_CHANGED_INDOORS = QueueMacroUpdate
 events.ZONE_CHANGED_NEW_AREA = QueueMacroUpdate
 events.PLAYER_MOUNT_DISPLAY_CHANGED = QueueMacroUpdate
 events.MOUNT_JOURNAL_USABILITY_CHANGED = QueueMacroUpdate
+
+function events:NEW_MOUNT_ADDED()
+	mountIDs = nil
+	g99Mount, g99LookedAt = nil, nil
+	pickKey = nil
+	QueueMacroUpdate()
+end
+
+-- Fires after a journal favorite changes (Mount Journal Enhanced waits on it after SetIsFavorite), and on journal
+-- searches: the macro picks again.
+function events:MOUNT_JOURNAL_SEARCH_UPDATED()
+	pickKey = nil
+	QueueMacroUpdate()
+end
+
+-- A Smart Mount setting changed: the macro picks again.
+local function SettingChanged()
+	pickKey = nil
+	QueueMacroUpdate()
+end
 
 local function Why()
 	if not lastWhy then
@@ -518,6 +594,8 @@ module = ns.RegisterModule({
 			events:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 			events:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
 			events:RegisterEvent("MOUNT_JOURNAL_USABILITY_CHANGED")
+			events:RegisterEvent("NEW_MOUNT_ADDED")
+			events:RegisterEvent("MOUNT_JOURNAL_SEARCH_UPDATED")
 			QueueMacroUpdate()
 		else
 			events:UnregisterAllEvents()
@@ -535,15 +613,15 @@ module = ns.RegisterModule({
 	},
 	options = {
 		{ type = "header", label = "Picking" },
-		{ type = "checkbox", key = "useZones", label = "Use zone favorites",
+		{ type = "checkbox", key = "useZones", label = "Use zone favorites", onChange = SettingChanged,
 			tooltip = "Mounts starred for the zone you're in (or its continent) come first. Set them with the star in the Mount Journal." },
-		{ type = "checkbox", key = "preferGround", label = "Ground mounts on the ground",
+		{ type = "checkbox", key = "preferGround", label = "Ground mounts on the ground", onChange = SettingChanged,
 			tooltip = "Where you can't fly, use ground mounts if the pool has any. Off: flying mounts can be picked too." },
-		{ type = "checkbox", key = "noRepeat", label = "Avoid the same mount twice in a row" },
-		{ type = "checkbox", key = "g99", label = "G-99 Breakneck in Undermine",
+		{ type = "checkbox", key = "noRepeat", label = "Avoid the same mount twice in a row", onChange = SettingChanged },
+		{ type = "checkbox", key = "g99", label = "G-99 Breakneck in Undermine", onChange = SettingChanged,
 			tooltip = "Where the G-99 can be called, the key calls it instead of a mount. Shift + your Smart Mount key (or the \"normal mount\" key binding) gives a normal mount." },
 		{ type = "header", label = "Dismounting" },
-		{ type = "checkbox", key = "keepFlying", label = "Don't dismount while flying",
+		{ type = "checkbox", key = "keepFlying", label = "Don't dismount while flying", onChange = SettingChanged,
 			tooltip = "The key does nothing in the air, so you can't fall off by accident." },
 	},
 	home = {

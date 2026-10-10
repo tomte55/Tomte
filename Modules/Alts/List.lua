@@ -19,8 +19,11 @@ local BAGANATOR_ID = "tomte_craftlist"
 -- Seconds the to-do is kept. AltsList_Changed drops it on bag, bank, mail, craft and recipe changes; this only
 -- catches what has no event (item names and prices arriving). The rail polls the pill every second.
 local CACHE = 15
+-- Under the to-do without Syndicator (List tab and tracker).
+local PARTIAL_NOTE = "Materials on your other characters aren't counted without Syndicator."
+ns.ALTS_PARTIAL_NOTE = PARTIAL_NOTE
 local LINE_COLORS = {
-	grab = WHITE, collect = WHITE, take = WHITE, mail = WHITE, fetch = WHITE, missing = RED, craft = GOLD,
+	grab = WHITE, collect = WHITE, take = WHITE, mail = WHITE, deposit = WHITE, fetch = WHITE, missing = RED, craft = GOLD,
 	ready = GREEN, wait = GREY, other = GREY,
 }
 
@@ -104,6 +107,30 @@ local function Where(itemID)
 		list[#list + 1] = { where = "warband", n = all - withBank }
 	end
 	return list
+end
+
+-- Without Syndicator only this character and the Warband bank are counted: a material "to get" may be on another
+-- character. True when that can be so (another character known, something missing).
+function ns.AltsList_PartialCounts(todos)
+	if SyndicatorAPI() or not ns.altsDB then
+		return false
+	end
+	local me, others = UnitGUID("player"), false
+	for guid in pairs(ns.altsDB.chars) do
+		if guid ~= me then
+			others = true
+			break
+		end
+	end
+	if not others then
+		return false
+	end
+	for _, t in ipairs(todos or {}) do
+		if t.plan and t.plan.missing and t.plan.missing > 0 then
+			return true
+		end
+	end
+	return false
 end
 
 local function ItemName(itemID)
@@ -231,6 +258,7 @@ function ns.AltsList_Todos()
 		return cache
 	end
 	local producers = ns.Alts_Producers(alts.recipes)
+	local realms = ns.Alts_MailRealms and ns.Alts_MailRealms() -- Send.lua
 	local ok, todos = xpcall(ns.Alts_ListTodo, function(err)
 		return ns.errorHandler(err)
 	end, alts.list, {
@@ -253,6 +281,10 @@ function ns.AltsList_Todos()
 			return (ns.Value_ItemPrice(itemID))
 		end or nil,
 		gold = ns.Alts_Price,
+		-- Crafters on a realm mail can't reach get a Warband bank line instead of "Mail ... to".
+		canMail = function(guid)
+			return ns.Alts_Reachable(alts.chars[guid], realms)
+		end,
 	})
 	cache, cacheAt = ok and todos or {}, now
 	return cache
@@ -322,7 +354,7 @@ local function Place()
 	frame:SetPoint(p[1], UIParent, p[2], p[3], p[4])
 end
 
-local SEARCHABLE = { grab = true, take = true, collect = true, fetch = true, mail = true }
+local SEARCHABLE = { grab = true, take = true, collect = true, fetch = true, mail = true, deposit = true }
 
 -- Baganator has no search API; its slash command is the public way in ("/bgr search <text>", lower case). It opens
 -- the bags too, and an open bank view highlights the matches.
@@ -445,6 +477,10 @@ local function Build()
 	frame.title = UI.Text(frame, 10, GREY)
 	frame.title:SetPoint("TOPLEFT", 10, -6)
 	frame.title:SetText(ns.Spaced and ns.Spaced("Crafting list") or "CRAFTING LIST")
+	frame.note = UI.Text(frame, 10, GREY)
+	frame.note:SetWidth(WIDTH - 20)
+	frame.note:SetJustifyH("LEFT")
+	frame.note:SetWordWrap(true)
 	local mover = CreateFrame("Frame", nil, frame)
 	mover:SetAllPoints()
 	mover:SetFrameLevel(frame:GetFrameLevel() + 10)
@@ -567,6 +603,16 @@ function ns.AltsList_Refresh()
 	end
 	if #todos == 0 then
 		y = y + 18
+	end
+	-- "Get" lines without Syndicator may be on another character.
+	if ns.AltsList_PartialCounts(todos) then
+		frame.note:ClearAllPoints()
+		frame.note:SetPoint("TOPLEFT", 10, -y)
+		frame.note:SetText(PARTIAL_NOTE)
+		frame.note:Show()
+		y = y + math.ceil(frame.note:GetStringHeight()) + 6
+	else
+		frame.note:Hide()
 	end
 	frame:SetHeight(y + 4)
 	frame:Show()

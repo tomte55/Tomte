@@ -38,9 +38,9 @@ local function PetLine(pet)
 	return table.concat(parts, "  -  ")
 end
 
--- Seen creatures are rebuilt on every refresh, so they match by npcID.
+-- Pets and seen creatures are rebuilt on every refresh, so they match by pet number and npcID.
 local function IsClicked(entry)
-	return clicked ~= nil and (clicked == entry or (entry.npcID ~= nil and clicked.npcID == entry.npcID))
+	return ns.Hunter_SameEntry(clicked, entry)
 end
 
 -- Seen creatures only have an npcID; a tiny invisible PlayerModel turns it into a display ID. Returns nil while
@@ -155,7 +155,7 @@ local function NewRow()
 	end)
 	row:SetScript("OnLeave", function(self)
 		self.hover:Hide()
-		if self.entry and hovered == self.entry then
+		if self.entry and ns.Hunter_SameEntry(hovered, self.entry) then
 			hovered = nil
 			ShowPreview()
 		end
@@ -307,6 +307,10 @@ end
 local function Refresh()
 	local snapshot = ns.Stable_Snapshot()
 	summary = ns.Hunter_StableSummary(snapshot, ns.hunterDB.seen)
+	-- The clicked pet from the new read (renamed, re-specced, levelled), or nothing if it's gone.
+	if clicked and clicked.petNumber then
+		clicked = ns.Hunter_FindPet(snapshot, clicked.petNumber)
+	end
 	page.empty:SetShown(snapshot == nil)
 	if snapshot then
 		page.summary:SetText(("%d pets   -   %d families   -   %d more seen"):format(summary.pets, #summary.owned, #summary.seenOnly))

@@ -47,14 +47,43 @@ local function ByName(chars, name)
 	return nil
 end
 
--- Who gets one item, or nil. ctx = { me, chars, users, plan = { [itemID] = guid }, rules }.
+-- A realm name as GetNormalizedRealmName and GetAutoCompleteRealms give it: no spaces or dashes.
+local function NormalRealm(realm)
+	return (realm or ""):gsub("[%s%-]", "")
+end
+
+-- The realms mail can reach: { [normalized realm] = true } from the connected realms (GetAutoCompleteRealms, which
+-- is empty on a realm that isn't connected) and your own.
+function ns.Alts_RealmSet(realms, myRealm)
+	local set = {}
+	for _, realm in ipairs(realms or {}) do
+		set[NormalRealm(realm)] = true
+	end
+	set[NormalRealm(myRealm)] = true
+	return set
+end
+
+-- Whether mail reaches a character. realms = ns.Alts_RealmSet(...), or nil when it isn't known (then everyone is
+-- reachable); a character without a stored realm is taken to be reachable too.
+function ns.Alts_Reachable(c, realms)
+	if not realms or not c or not c.realm or c.realm == "" then
+		return true
+	end
+	return realms[NormalRealm(c.realm)] == true
+end
+
+-- Who gets one item, or nil. ctx = { me, chars, users, plan = { [itemID] = guid }, rules, realms (optional, mail
+-- only: characters on realms mail can't reach are left out) }.
 -- name = the item's name (for name rules). Order: a manual rule, then the craft plan, then whoever knows the most
 -- recipes using it (ties: the most recently played). Nothing when this character uses it itself.
 function ns.Alts_Recipient(itemID, name, ctx)
+	local function Ok(guid)
+		return guid ~= ctx.me and ctx.chars[guid] ~= nil and ns.Alts_Reachable(ctx.chars[guid], ctx.realms)
+	end
 	for _, rule in ipairs(ctx.rules or {}) do
 		if rule.match == itemID or (name and rule.match == name:lower()) then
 			local guid = ByName(ctx.chars, rule.to)
-			if guid and guid ~= ctx.me then
+			if guid and Ok(guid) then
 				return guid, "rule"
 			end
 			return nil
@@ -65,13 +94,13 @@ function ns.Alts_Recipient(itemID, name, ctx)
 		return nil
 	end
 	local planned = ctx.plan and ctx.plan[itemID]
-	if planned and planned ~= ctx.me and ctx.chars[planned] then
+	if planned and Ok(planned) then
 		return planned, "plan"
 	end
 	local best, bestN, bestSeen
 	for guid, n in pairs(users or {}) do
 		local seen = ctx.chars[guid] and ctx.chars[guid].seen or 0
-		if guid ~= ctx.me and (not best or n > bestN or (n == bestN and seen > bestSeen)) then
+		if Ok(guid) and (not best or n > bestN or (n == bestN and seen > bestSeen)) then
 			best, bestN, bestSeen = guid, n, seen
 		end
 	end
@@ -178,11 +207,12 @@ end
 
 -- Gear for alts (Gear Check's upgrades for alts): stacks the caller marked with s.to (the character it's the best
 -- upgrade for) and s.route ("mail" for Bind on Equip, "warband" for warbound), only those going by route, grouped by
--- who gets them. Same shape as Alts_SendGroups plus gear = true, sorted by name.
-function ns.Alts_GearGroups(stacks, route, chars)
+-- who gets them. Same shape as Alts_SendGroups plus gear = true, sorted by name. realms (optional, as in
+-- Alts_Reachable): characters mail can't reach are left out.
+function ns.Alts_GearGroups(stacks, route, chars, realms)
 	local byGuid, groups = {}, {}
 	for _, s in ipairs(stacks) do
-		if s.to and s.route == route and chars[s.to] then
+		if s.to and s.route == route and chars[s.to] and ns.Alts_Reachable(chars[s.to], realms) then
 			local g = byGuid[s.to]
 			if not g then
 				g = { guid = s.to, stacks = {}, count = 0, gear = true }

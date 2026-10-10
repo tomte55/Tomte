@@ -96,6 +96,16 @@ test("durability alert: an item already broken at login is a low warning, not a 
 	eq(ns.Durability_Alert(state, 0, 2, 0.3), "broken", "new break")
 end)
 
+test("durability alert: putting on a broken item isn't a break", function()
+	local state = {}
+	eq(ns.Durability_Alert(state, 0.1, 0, 0.3), "low")
+	eq(ns.Durability_Alert(state, 0, 1, 0.3, true), nil, "equipped a broken item")
+	eq(ns.Durability_Alert(state, 0, 2, 0.3), "broken", "a real break after it")
+	local fresh = {}
+	eq(ns.Durability_Alert(fresh, 0.5, 0, 0.3), nil)
+	eq(ns.Durability_Alert(fresh, 0, 1, 0.3, true), "low", "still under the threshold: low, not broke")
+end)
+
 test("durability alert: no durability items resets", function()
 	local state = { warned = true, broken = 2 }
 	eq(ns.Durability_Alert(state, nil, 0, 0.3), nil)

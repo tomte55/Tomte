@@ -212,16 +212,14 @@ module = ns.RegisterModule({
 				ns.WQTab_Open()
 			end,
 			summary = function()
-				local zoneID = ns.MapTabs_ResolveMap(C_Map.GetBestMapForUnit("player"))
-				if not zoneID then
+				-- The same quests the tab and the "around" block list: this zone's, after the Show filters.
+				local quests = HomeQuests()
+				if not quests then
 					return nil
 				end
 				local n = 0
-				for _, info in ipairs(C_TaskQuest.GetQuestsOnMap(zoneID) or {}) do
-					if info.questID and C_QuestLog.IsWorldQuest(info.questID)
-						and not C_QuestLog.IsQuestFlaggedCompleted(info.questID) then
-						n = n + 1
-					end
+				for _, s in ipairs(ns.WQ_Sections(quests, ns.WQ_Options())) do
+					n = n + #s.quests
 				end
 				return n == 1 and "1 world quest around here" or (n .. " world quests around here")
 			end },

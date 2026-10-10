@@ -17,6 +17,7 @@ local wasDead -- nil until we've seen the pet once this session: no "died" remin
 local petName -- last readable name, for reminders after the pet is gone
 local lastReminder = {}
 local previewTime = 0
+local spellsDirty = true -- the spell row is rebuilt on the next Update (spellbook or spec changed)
 
 local function IsSecret(v)
 	return issecretvalue ~= nil and issecretvalue(v)
@@ -163,7 +164,10 @@ local function Update()
 		bar = ns.UnitBar_Create(SavePosition)
 		ApplyLayout()
 	end
-	bar:SetSpells(KnownSpells())
+	if spellsDirty then
+		spellsDirty = false
+		bar:SetSpells(KnownSpells())
+	end
 	if s.unlocked and not inCombat then
 		ShowPreview()
 	elseif s.dead then
@@ -197,14 +201,34 @@ local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
 	"SPELL_UPDATE_COOLDOWN", "PLAYER_SPECIALIZATION_CHANGED", "UNIT_ENTERED_VEHICLE", "UNIT_EXITED_VEHICLE",
 	"PET_BATTLE_OPENING_START", "PET_BATTLE_CLOSE", "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST",
-	"PLAYER_MOUNT_DISPLAY_CHANGED",
+	"PLAYER_MOUNT_DISPLAY_CHANGED", "SPELLS_CHANGED",
 }
 
-events.UNIT_HEALTH = Update
-events.UNIT_MAXHEALTH = Update
+-- Health ticks: when the bar already shows the live pet and health can't change whether it shows (in combat,
+-- or "Always with a pet"), only the bar moves. A death, or a change that may show or hide it, takes Update.
+local function HealthChanged()
+	if not module.active then
+		return
+	end
+	if bar and bar:IsShown() and not bar.state and Locked() and UnitExists("pet") and not PetDead()
+		and (inCombat or db.visibility == "always") then
+		bar:ShowUnit("pet")
+		return
+	end
+	Update()
+end
+
+local function SpellsChanged()
+	spellsDirty = true
+	Update()
+end
+
+events.UNIT_HEALTH = HealthChanged
+events.UNIT_MAXHEALTH = HealthChanged
 events.UNIT_FLAGS = Update
 events.UNIT_PET = Update
-events.PLAYER_SPECIALIZATION_CHANGED = Update
+events.SPELLS_CHANGED = SpellsChanged
+events.PLAYER_SPECIALIZATION_CHANGED = SpellsChanged
 events.UNIT_ENTERED_VEHICLE = Update
 events.UNIT_EXITED_VEHICLE = Update
 events.PET_BATTLE_OPENING_START = Update
@@ -216,6 +240,7 @@ events.PLAYER_MOUNT_DISPLAY_CHANGED = Update
 
 function events:PLAYER_ENTERING_WORLD()
 	inCombat = InCombatLockdown()
+	spellsDirty = true
 	Update()
 end
 
@@ -273,7 +298,7 @@ end
 
 local function SetLocked(locked)
 	db.frame.locked = locked
-	previewDriver:SetShown(not Locked())
+	previewDriver:SetShown(module.active and not Locked() or false)
 	if bar then
 		bar:SetLocked(locked)
 	end

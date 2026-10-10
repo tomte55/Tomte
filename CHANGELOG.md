@@ -5,6 +5,40 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Polish and bug pass over the whole addon:
+  - Moments no longer throws Lua errors on German clients, and discoveries read the area name correctly in French,
+    Italian, Russian and Korean. Recap counts looted stacks right on French and Spanish clients.
+  - Moments wait while a window, bag or chat box is open, and a mouse button held while steering no longer ends one
+    the moment it starts.
+  - Waypoints: a route that can't place its next pin no longer repeats itself in chat; a route waits inside
+    dungeons and delves (also over a reload) and picks up again outside; removing and re-placing a pin tries the
+    route again.
+  - Gear Check: wands count as one-handers, two-handers are compared against a worn off-hand, and the reason line
+    for off-hands next to a two-hander makes sense. "Requires level" marks clear right after you level, and
+    enchanting or socketing worn gear updates verdicts. Upgrade reveals wait for an item's stats to load.
+  - Crafting: one-handed crafts are compared with your main hand when you carry a shield or off-hand item; warriors
+    aren't offered bows or guns; short searches show the first 200 rows; "Materials on hand" is much faster.
+  - Mailbox and bank: "Deposit for alts" shows with Baganator's bank view; mails never carry gold you typed in
+    Blizzard's mail window; a cancelled gold top-up isn't counted; characters on realms you can't mail are left
+    out (the Crafting list says to put their materials in the Warband bank); top-ups are sorted by name. Without
+    Syndicator the Crafting list says materials on other characters aren't counted.
+  - Unspent profession knowledge stays on the current expansion after browsing an older one.
+  - Almost Done: pins on achievements that are already done are removed instead of blocking new pins; progress
+    shows right after login; the tracker stays hidden after a reload in combat.
+  - Collect here: a rare missing two drops names both; progress keeps updating in busy raids.
+  - Whispers: unread spam is cleaned up over time; the inbox keeps your scroll position when someone else
+    whispers; "While you were away" no longer comes back while you read. Battle.net names show in Recent after a
+    relog, and sample toasts stay out of Recent.
+  - Friends: adding a friend who's already online, or one only in the Battle.net app, doesn't toast.
+  - Weekly board: alts' crests aren't shown as capped after the weekly reset; World quests count the same on Home,
+    the map tab and "Around you", and never stay on "loading rewards".
+  - Upkeep: equipping an already broken item doesn't say "An item broke"; guild repairs report who paid correctly.
+  - Home: the character model no longer blinks on every refresh; "Around you" never shows an empty column.
+  - Settings: a checkbox row only toggles on a left click.
+  - AFK screen: a preview that turns into a real AFK starts fresh, and a preview ended by combat stays closed.
+  - Smaller speed-ups: the Flight bar, Smart Mount macro, Teleports tab, pet health bar, achievement saves and the
+    mailbox panel do less work.
+
 ## v1.2.0 - 2026-10-10
 
 Routes to other continents, guard directions as map pins, crafting quality picks and Edit Mode support.

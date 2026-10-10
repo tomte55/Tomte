@@ -40,9 +40,17 @@ end
 local entries
 local houses = {} -- from PLAYER_HOUSE_LIST_UPDATED
 local mapNameCache = {} -- [mapID] = { names, entrances = { [lowerName] = position } }
+-- The items and spells the list read while it was built: a load or text update for one of them rebuilds it.
+local watched = { item = {}, spell = {} }
 
 function ns.Tp_MarkDirty()
 	entries = nil
+end
+
+-- kind: "item" or "spell". Whether the built list read that ID (ITEM_DATA_LOAD_RESULT, SPELL_TEXT_UPDATE); an
+-- unbuilt list reads everything fresh anyway.
+function ns.Tp_Watches(kind, id)
+	return entries ~= nil and id ~= nil and watched[kind][id] == true
 end
 
 function ns.Tp_SetHouses(list)
@@ -51,6 +59,9 @@ function ns.Tp_SetHouses(list)
 end
 
 local function SpellDesc(spellID)
+	if spellID then
+		watched.spell[spellID] = true
+	end
 	local desc = spellID and C_Spell.GetSpellDescription(spellID)
 	if issecretvalue and issecretvalue(desc) then
 		return nil
@@ -148,6 +159,7 @@ local function HasItem(itemID)
 end
 
 local function ItemEntry(kind, itemID, section, order)
+	watched.item[itemID] = true
 	local name, icon
 	if kind == "toy" then
 		local _, toyName, toyIcon = C_ToyBox.GetToyInfo(itemID)
@@ -227,6 +239,7 @@ end
 function ns.Tp_Entries(db)
 	if not entries then
 		entries = {}
+		watched = { item = {}, spell = {} }
 		AddHearth(entries, db)
 		AddFlyouts(entries, SeasonNames())
 		AddSpells(entries)

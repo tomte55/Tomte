@@ -11,6 +11,8 @@ local addonName, ns = ...
 --
 -- ns.Toast_Show(spec): spec = { owner, label, accent, title, text, secret, icon, iconAtlas, mergeKey, hold,
 --   holdInCombat, onClick(button), onDismiss(), digestName, count }. secret = title/text may be secret values.
+--   For Recent (ns.Recent_Note): recentTitle = a saveable title when title isn't one (a |K account name),
+--   test = a preview (not noted); a pin's recentCount = Recent hears of it again only when this rises.
 -- ns.Toast_Pin(key, spec) / ns.Toast_Unpin(key), ns.Toast_Clear(owner), ns.Toast_SetDigest(owner, fn(held))
 
 local WIDTH = 300
@@ -37,6 +39,7 @@ local shown = {} -- cards on screen, top to bottom (pinned first)
 local queue = {} -- specs waiting for room
 local held = {} -- specs held back while busy
 local pinned = {} -- [key] = card
+local pinNoted = {} -- [key] = spec.recentCount when the pin was last noted for Recent
 local digests = {} -- [owner] = fn(held) -> spec
 local pool = {}
 local heldCheck = 0
@@ -557,17 +560,21 @@ function ns.Toast_Show(spec)
 end
 
 -- A card that stays on top until unpinned. Showing it again with the same key updates it in place.
+-- Recent hears of it when it's first pinned, and again only when spec.recentCount rises (an update while
+-- you read isn't news).
 function ns.Toast_Pin(key, spec)
-	if ns.Recent_Note then
-		local copy = {}
+	local card = pinned[key]
+	local count = spec.recentCount or 0
+	if ns.Recent_Note and (not card or card.leaving or count > (pinNoted[key] or 0)) then
+		local copy = {} -- every field, recentTitle and test included
 		for k, v in pairs(spec) do
 			copy[k] = v
 		end
 		copy.mergeKey = "pin:" .. key
 		ns.Recent_Note(copy)
 	end
+	pinNoted[key] = count
 	Ensure()
-	local card = pinned[key]
 	if card then
 		Fill(card, spec)
 		card.leaving = nil
@@ -578,6 +585,7 @@ function ns.Toast_Pin(key, spec)
 end
 
 function ns.Toast_Unpin(key)
+	pinNoted[key] = nil
 	local card = pinned[key]
 	if card then
 		Dismiss(card)
@@ -618,7 +626,8 @@ function ns.Toast_Unlock(unlock)
 	if unlock then
 		anchor:Show()
 		if Unpinned() == 0 then
-			ns.Toast_Show({ owner = "toast", label = "Toast", title = "Sample", text = "Toasts show up here.", hold = 30 })
+			ns.Toast_Show({ owner = "toast", label = "Toast", title = "Sample", text = "Toasts show up here.", hold = 30,
+				test = true })
 		end
 	end
 end

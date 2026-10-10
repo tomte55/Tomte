@@ -379,6 +379,7 @@ function Refresh()
 		return
 	end
 	Detach()
+	HidePin() -- the hovered row goes away; its pin would stay on the map
 	for i = 1, used do
 		rows[i]:Hide()
 		rows[i].entry = nil

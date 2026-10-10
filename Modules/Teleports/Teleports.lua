@@ -30,11 +30,23 @@ end)
 
 local DIRTY_EVENTS = {
 	"SPELLS_CHANGED", "LEARNED_SPELL_IN_SKILL_LINE", "TOYS_UPDATED", "NEW_TOY_ADDED", "BAG_UPDATE_DELAYED",
-	"PLAYER_EQUIPMENT_CHANGED", "ITEM_DATA_LOAD_RESULT", "SPELL_TEXT_UPDATE", "CHALLENGE_MODE_MAPS_UPDATE",
-	"HEARTHSTONE_BOUND",
+	"PLAYER_EQUIPMENT_CHANGED", "CHALLENGE_MODE_MAPS_UPDATE", "HEARTHSTONE_BOUND",
 }
 for _, event in ipairs(DIRTY_EVENTS) do
 	events[event] = Dirty
+end
+
+-- Item and spell data loads happen all the time (bags, tooltips, other addons): only the list's own count.
+function events:ITEM_DATA_LOAD_RESULT(itemID)
+	if ns.Tp_Watches("item", itemID) then
+		Dirty()
+	end
+end
+
+function events:SPELL_TEXT_UPDATE(spellID)
+	if ns.Tp_Watches("spell", spellID) then
+		Dirty()
+	end
 end
 
 function events:PLAYER_HOUSE_LIST_UPDATED(houseInfos)
@@ -65,6 +77,8 @@ local function Start()
 	for _, event in ipairs(DIRTY_EVENTS) do
 		events:RegisterEvent(event)
 	end
+	events:RegisterEvent("ITEM_DATA_LOAD_RESULT")
+	events:RegisterEvent("SPELL_TEXT_UPDATE")
 	events:RegisterEvent("PLAYER_HOUSE_LIST_UPDATED")
 	events:RegisterEvent("PLAYER_REGEN_DISABLED")
 	events:RegisterEvent("PLAYER_REGEN_ENABLED")

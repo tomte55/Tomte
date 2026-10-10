@@ -135,6 +135,26 @@ test("Ownership counts the family and matches the creature", function()
 	eq(same, nil)
 end)
 
+test("FindPet finds a pet by number in a newer snapshot", function()
+	local snap = { active = { [1] = pet(1, "A", "Wolf") }, stabled = { pet(2, "B", "Cat") } }
+	eq(ns.Hunter_FindPet(snap, 2).name, "B")
+	eq(ns.Hunter_FindPet(snap, 1).name, "A")
+	eq(ns.Hunter_FindPet(snap, 9), nil)
+	eq(ns.Hunter_FindPet(snap, nil), nil)
+	eq(ns.Hunter_FindPet(nil, 1), nil)
+end)
+
+test("SameEntry matches by table, pet number or npcID", function()
+	local old, new = pet(4, "Old", "Wolf"), pet(4, "Renamed", "Wolf")
+	eq(ns.Hunter_SameEntry(old, new), true)
+	eq(ns.Hunter_SameEntry(old, pet(5, "X", "Wolf")), false)
+	eq(ns.Hunter_SameEntry({ npcID = 7 }, { npcID = 7 }), true)
+	eq(ns.Hunter_SameEntry({ npcID = 7 }, { npcID = 8 }), false)
+	eq(ns.Hunter_SameEntry({ name = "a" }, { name = "a" }), false)
+	eq(ns.Hunter_SameEntry(nil, old), false)
+	eq(ns.Hunter_SameEntry(old, old), true)
+end)
+
 test("RecordSeen keeps one entry per creature", function()
 	local seen = {}
 	eq(ns.Hunter_RecordSeen(seen, "Wolf", 50, "Timber Wolf", "Elwynn", 1), true)

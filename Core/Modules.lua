@@ -76,7 +76,7 @@ function ns.ResetModuleSettings(module)
 end
 
 -- Every module's settings, which modules are on, and the window's place and layout. coreDefaults: Core.lua's.
--- TomteDB.cinematic (the engine's music volume backup) is kept.
+-- TomteDB.cinematic (the engine's music volume and pitch limit backups) is kept.
 function ns.ResetAllSettings(db, coreDefaults)
 	for _, module in ipairs(ns.modules) do
 		ns.ResetModuleSettings(module)
@@ -115,8 +115,22 @@ end
 -- A page entry may have pill() -> n: a count on its rail row (same contract as a quick action's count: cheap,
 -- existing state only, called through ns.HomeCall); shown above 0 while "Counts on the rail" is on, pillTip says
 -- what it counts in the row's tooltip.
+-- A module's summary/count/shown/items: errors go to BugSack and count as "nothing".
+function ns.HomeCall(fn, ...)
+	if not fn then
+		return nil
+	end
+	local ok, value = xpcall(fn, function(err)
+		return ns.errorHandler(err)
+	end, ...)
+	if ok then
+		return value
+	end
+	return nil
+end
+
 function ns.HomeEntryVisible(entry)
-	return entry.module.active and (not entry.shown or entry.shown() == true)
+	return entry.module.active and (not entry.shown or ns.HomeCall(entry.shown) == true)
 end
 
 -- "Around you shows" (Tomte window settings): an "around" entry the user unticked stays off Home.
@@ -278,7 +292,7 @@ function ns.ModuleMatches(module, text)
 		or (module.description or ""):lower():find(text, 1, true) ~= nil
 end
 
--- A live cinematic state some active module still owns (see the engine's music cleanup).
+-- A live cinematic state some active module still owns (see the engine's music and pitch cleanup).
 function ns.AnyCinematicState()
 	for _, module in ipairs(ns.modules) do
 		if module.active and module.cinematicState then

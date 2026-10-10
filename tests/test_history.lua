@@ -53,6 +53,29 @@ test("archive keeps newest first, caps per character and trims old logs", functi
 	assert(#history[8].log <= 8)
 end)
 
+test("trimmed copies keep the real number of other highlights", function()
+	local history = {}
+	for i = 1, 7 do
+		local session = Session("A", NOW + i * 3600, 30)
+		if i == 1 then
+			for k = 1, 20 do
+				session.log[#session.log + 1] = { kind = "loot", title = "l" .. k, quality = 3, at = NOW + 100 + k }
+			end
+			session.log.dropped = 10 -- the live log already let ten go
+		end
+		ns.Recap_Archive(history, ns.Recap_Compact(session), { by = "count", count = 30 }, NOW)
+	end
+	local oldest = history[#history]
+	eq(oldest.trimmed, true)
+	eq(#oldest.log, 8)
+	local shown, more = ns.Recap_Highlights(oldest.log, 5)
+	eq(#shown, 5)
+	eq(more, 22 + 10 - 5, "all entries plus dropped, minus shown")
+	-- Copies saved before this kept no total: still work.
+	local _, oldMore = ns.Recap_Highlights({ { kind = "rare" }, { kind = "loot" } }, 1)
+	eq(oldMore, 1)
+end)
+
 test("archive by days drops old sessions", function()
 	local history = {}
 	ns.Recap_Archive(history, ns.Recap_Compact(Session("A", NOW - 40 * DAY, 30)), { by = "days", days = 28 }, NOW)

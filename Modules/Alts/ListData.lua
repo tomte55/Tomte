@@ -205,10 +205,12 @@ end
 
 -- One tracked craft: its plan, where the materials come from, and the to-do lines for `me`.
 -- ctx = { me, chars, recipes, plan = function(recipeID, crafts, count, entry) -> plan, pool, itemName(itemID, noRank),
---         recipeName(recipeID, quality?), price(itemID) -> copper | nil (optional), gold(copper) -> text }
+--         recipeName(recipeID, quality?), price(itemID) -> copper | nil (optional), gold(copper) -> text,
+--         canMail(guid) -> bool (optional: false for a character on a realm mail can't reach) }
 -- Line kinds: "grab" (your bank), "collect" (your mail), "take" (Warband bank), "mail" (from your bags to the
--- crafter), "fetch" (your bank or mail, then mail it), "other" (someone else has it), "missing", "craft" (a step
--- someone does), "ready" (you can craft it now), "wait" (the crafter crafts it, not you).
+-- crafter), "deposit" (from your bags to the Warband bank, for a crafter mail can't reach), "fetch" (your bank or
+-- mail, then mail it), "other" (someone else has it), "missing", "craft" (a step someone does), "ready" (you can
+-- craft it now), "wait" (the crafter crafts it, not you).
 function ns.Alts_CraftTodo(entry, ctx)
 	local pool = ctx.pool
 	local plan = ctx.plan(entry.recipeID, entry.crafts, function(items)
@@ -264,7 +266,11 @@ function ns.Alts_CraftTodo(entry, ctx)
 					line.text = FetchText(t, name)
 					line.mine = true
 				elseif t.guid == me then
-					if t.where == "bags" then
+					if t.where == "bags" and ctx.canMail and not ctx.canMail(dest) then
+						-- Mail doesn't reach their realm: the Warband bank does.
+						line.kind = "deposit"
+						line.text = ("Put %d %s in Warband bank for %s"):format(t.n, name, Name(dest))
+					elseif t.where == "bags" then
 						line.kind = "mail"
 						line.text = ("Mail %d %s to %s"):format(t.n, name, Name(dest))
 					else

@@ -24,6 +24,7 @@ local SKIP = { toast = true } -- the "Toast position" sample
 local module, db
 local actions = setmetatable({}, { __mode = "k" }) -- [entry] = onClick, this session only
 local page
+local trimTimer
 
 local function Secret(value)
 	return issecretvalue ~= nil and issecretvalue(value)
@@ -54,7 +55,7 @@ local function MarkSeen()
 end
 
 function ns.Recent_Note(spec, banner)
-	if not (module and module.active) or SKIP[spec.owner] then
+	if not (module and module.active) or SKIP[spec.owner] or spec.test == true then
 		return
 	end
 	local ok, err = pcall(function()
@@ -317,7 +318,20 @@ local function BuildOptions()
 		end },
 		{ type = "checkbox", key = "keep", label = "Keep after reload",
 			tooltip = "Saved entries come back after a reload or the next login (greyed out: their click only works in the session they came from)." },
-		{ type = "slider", key = "max", label = "Entries kept", min = 20, max = 100, step = 10 },
+		{ type = "slider", key = "max", label = "Entries kept", min = 20, max = 100, step = 10, onChange = function()
+			-- Trim once the slider settles, so dragging down and back doesn't throw entries away
+			if trimTimer then
+				trimTimer:Cancel()
+			end
+			trimTimer = C_Timer.NewTimer(2, function()
+				trimTimer = nil
+				ns.Recent_Trim(db.entries, db.max)
+				if page and page:IsVisible() then
+					page.Refresh()
+				end
+				UpdateDot()
+			end)
+		end },
 		{ type = "checkbox", key = "dot", label = "Dot on the minimap button", onChange = UpdateDot,
 			tooltip = "A dot on Tomte's minimap button while there's something you haven't seen." },
 		{ type = "header", label = "Include" },

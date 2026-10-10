@@ -14,7 +14,8 @@ local active
 -- { dest = the real pin { mapID, x, y }, target = its world point, path, index, leg = the step's pin { mapID, x, y },
 -- legNode, map = the instance the path was found on }
 local route
-local failedKey -- the destination that had no route, so it's said once
+local failedKey -- the destination and start map that had no route: not searched (or said) again until one changes
+local reached -- the step node the game said you reached (NAVIGATION_DESTINATION_REACHED)
 
 local NET = { nodes = ns.WAY_NET_NODES, edges = ns.WAY_NET_EDGES, volumes = ns.WAY_NET_VOLUMES,
 	conds = ns.WAY_NET_CONDS }
@@ -83,6 +84,23 @@ local function SameSpot(point, spot)
 		and math.abs(point.position.y - spot.y) < SPOT
 end
 
+-- A destination searched from a map, for failedKey.
+local function Key(mapID, x, y, map)
+	return ("%d:%.4f:%.4f:%s"):format(mapID, x, y, tostring(map))
+end
+
+-- Maps with network nodes: on any other (a dungeon, a delve) the route waits until you're back.
+local netMaps
+local function OnNetwork(map)
+	if not netMaps then
+		netMaps = {}
+		for _, node in pairs(NET.nodes) do
+			netMaps[node[1]] = true
+		end
+	end
+	return netMaps[map] == true
+end
+
 local function MapName(mapID)
 	local info = mapID and C_Map.GetMapInfo(mapID)
 	return info and info.name or "your pin"
@@ -140,7 +158,7 @@ local function Changed()
 end
 
 local function Stop()
-	route = nil
+	route, reached = nil, nil
 	ticker:Hide()
 	Save()
 	Changed()
@@ -151,9 +169,13 @@ local function Track(mapID, x, y)
 	C_SuperTrack.SetSuperTrackedUserWaypoint(true)
 end
 
--- On the pin's continent: your own pin back, tracked.
-local function Finish(arrived)
+-- On the pin's continent: your own pin back, tracked. failMap: the route broke on this map, so the pin coming back
+-- isn't routed again from here (that would loop, or say "no route" a second time).
+local function Finish(arrived, failMap)
 	local dest = route.dest
+	if failMap then
+		failedKey = Key(dest.mapID, dest.x, dest.y, failMap)
+	end
 	Stop()
 	Track(dest.mapID, dest.x, dest.y)
 	if arrived then
@@ -170,7 +192,7 @@ local function PlaceStep()
 	local mapID, x, y = PinFor(node)
 	if not mapID then
 		ns.Print("Waypoints: can't place a map pin at the next step, back to your pin.")
-		Finish(false)
+		Finish(false, route.map)
 		return
 	end
 	route.leg = { mapID = mapID, x = x, y = y }
@@ -190,16 +212,22 @@ local function Advance()
 		Finish(true)
 		return
 	end
+	local atStep = reached ~= nil and reached == route.path[route.index]
+	reached = nil
 	if pos.map ~= route.map then
+		if not OnNetwork(pos.map) then
+			return -- a dungeon or a delve: the route waits, and is found again on the map you come out on
+		end
 		local path = Find(pos)
 		if not path or #path == 0 then
 			ns.Print("Waypoints: lost the route from here, back to your pin.")
-			Finish(false)
+			Finish(false, pos.map)
 			return
 		end
 		route.path, route.index, route.map, route.legNode = path, 1, pos.map, nil
+		atStep = false
 	end
-	route.index = ns.WayRoute_NextIndex(NET, route.path, route.index, pos)
+	route.index = ns.WayRoute_NextIndex(NET, route.path, route.index, pos, atStep)
 	local nodeID = route.path[route.index]
 	if nodeID ~= route.legNode then
 		route.legNode = nodeID
@@ -215,14 +243,24 @@ local function Start(point, quiet)
 	if not target or not pos or target.map == pos.map then
 		return false
 	end
+	if not OnNetwork(pos.map) then
+		return false -- a dungeon or a delve: nothing to route from, and nothing to say
+	end
+	local key = Key(mapID, x, y, pos.map)
+	if key == failedKey then
+		return false
+	end
 	local path = ns.WayRoute_Find(NET, pos, target, Api())
 	if not path or #path == 0 then
-		local key = ("%d:%.4f:%.4f"):format(mapID, x, y)
-		if key ~= failedKey then
-			failedKey = key
-			ns.Print(("Waypoints: no portal route to %s from here. Try a Hearthstone or a teleport."):format(
-				MapName(mapID)))
-		end
+		failedKey = key
+		ns.Print(("Waypoints: no portal route to %s from here. Try a Hearthstone or a teleport."):format(
+			MapName(mapID)))
+		return false
+	end
+	-- The first step must take a map pin, or the route would end and start again on every pin update.
+	if not PinFor(NET.nodes[path[ns.WayRoute_NextIndex(NET, path, 1, pos)]]) then
+		failedKey = key
+		ns.Print(("Waypoints: can't place a map pin on the route to %s."):format(MapName(mapID)))
 		return false
 	end
 	failedKey = nil
@@ -241,6 +279,9 @@ local function Check()
 		return
 	end
 	local point = C_Map.GetUserWaypoint()
+	if not point then
+		failedKey = nil -- the pin was removed: placing it again tries again (a portal may have opened up since)
+	end
 	if route then
 		if not point then
 			Stop() -- the pin was removed: the route goes with it
@@ -268,6 +309,17 @@ local function Resume()
 	db.routes[guid] = nil
 	local point = C_Map.GetUserWaypoint()
 	if not (saved.leg and point and SameSpot(point, { mapID = saved.leg[1], x = saved.leg[2], y = saved.leg[3] })) then
+		return
+	end
+	local target = World(saved.dest[1], saved.dest[2], saved.dest[3])
+	local pos = PlayerPoint()
+	if target and pos and target.map ~= pos.map and not OnNetwork(pos.map) then
+		-- Reloaded in a dungeon or a delve: the route waits (route.map false), found again on the map you come out on.
+		route = { dest = { mapID = saved.dest[1], x = saved.dest[2], y = saved.dest[3] }, target = target, path = {},
+			index = 1, map = false, leg = { mapID = saved.leg[1], x = saved.leg[2], y = saved.leg[3] } }
+		Save()
+		ticker:Show()
+		Changed()
 		return
 	end
 	if not Start({ uiMapID = saved.dest[1], position = { x = saved.dest[2], y = saved.dest[3] } }, true) then
@@ -309,9 +361,21 @@ function events:PLAYER_ENTERING_WORLD()
 	CheckSoon()
 end
 
--- Blizzard stops tracking a map pin you reach. A step with the next one on this map moves on (and that one is
--- tracked); at a portal tracking stays off until you've taken it, so the two don't fight over it.
-events.NAVIGATION_DESTINATION_REACHED = CheckSoon
+-- Blizzard stops tracking a map pin you reach (its radius can be wider than WAY_ROUTE_AT, so reaching it counts as
+-- standing at the step). A step with the next one on this map moves on (and that one is tracked); at a portal
+-- tracking stays off until you've taken it, so the two don't fight over it.
+-- Only when you're near the step itself: a quest destination reached mid-route mustn't skip a step.
+function events:NAVIGATION_DESTINATION_REACHED()
+	local node = route and route.legNode and NET.nodes[route.legNode]
+	local pos = node and PlayerPoint()
+	if pos and pos.map == node[1] then
+		local dx, dy = pos.x - node[2], pos.y - node[3]
+		if math.sqrt(dx * dx + dy * dy) <= 3 * ns.WAY_ROUTE_AT then
+			reached = route.legNode
+		end
+	end
+	CheckSoon()
+end
 
 local elapsed = 0
 ticker:SetScript("OnUpdate", function(_, dt)
@@ -326,7 +390,7 @@ end)
 
 -- The step being tracked, for the marker: { text, nextText, destName }, or nil when the tracked pin isn't a step.
 function ns.WayRouter_Step()
-	if not route or not route.leg or not SameSpot(C_Map.GetUserWaypoint(), route.leg) then
+	if not route or not route.leg or not route.path[route.index] or not SameSpot(C_Map.GetUserWaypoint(), route.leg) then
 		return nil
 	end
 	local text, nextText = ns.WayRoute_Texts(NET, route.path, route.index)
@@ -353,6 +417,7 @@ function ns.WayRouter_Toggle(on, saved)
 		return
 	end
 	active = on
+	failedKey, reached = nil, nil
 	if on then
 		for _, event in ipairs({ "USER_WAYPOINT_UPDATED", "SUPER_TRACKING_CHANGED", "ZONE_CHANGED_NEW_AREA",
 			"PLAYER_ENTERING_WORLD", "NAVIGATION_DESTINATION_REACHED" }) do

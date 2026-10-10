@@ -22,6 +22,7 @@ local CreateInput
 local rows = {}
 local scroll = 0 -- conversations scrolled past at the top of the list
 local current -- conversation key on the right
+local drawn -- { key, count, last } of the conversation the message pane holds: redrawn only when that changes
 
 -- Name in its class color (Battle.net friends in Blizzard's BN blue).
 function ns.Inbox_ColoredName(convo)
@@ -45,7 +46,6 @@ end
 
 local function ShowConversation()
 	local messages = frame.messages
-	messages:Clear()
 	local convo = current and ns.Whispers_Get(current)
 	-- Secret "In instance" whispers can only be answered through Blizzard's chat box.
 	frame.reply:SetShown(convo ~= nil and convo.restricted == true)
@@ -54,12 +54,21 @@ local function ShowConversation()
 		frame.input.placeholder:SetText("Whisper " .. (convo.name or convo.key))
 	end
 	if not convo then
+		drawn = nil
+		messages:Clear()
 		frame.header:SetText("")
 		frame.empty:SetShown(#ns.Whispers_Convos() == 0)
 		return
 	end
 	frame.empty:Hide()
 	frame.header:SetText(ns.Inbox_ColoredName(convo))
+	-- Same conversation, no new message (someone else wrote, or it was only marked read): keep the scroll.
+	local count, newest = #convo.messages, convo.messages[#convo.messages]
+	if drawn and drawn.key == convo.key and drawn.count == count and drawn.last == newest then
+		return
+	end
+	drawn = { key = convo.key, count = count, last = newest }
+	messages:Clear()
 	local lastDay
 	for _, m in ipairs(convo.messages) do
 		local day = date("%Y-%m-%d", m.at)
@@ -304,6 +313,9 @@ local function Build()
 	frame.messages = messages
 
 	frame:SetScript("OnShow", ns.Inbox_Refresh)
+	frame:SetScript("OnHide", function()
+		drawn = nil -- opens at the newest message again
+	end)
 
 	-- Esc closes it: UISpecialFrames hides this dummy, which hides the window.
 	local escape = CreateFrame("Frame", "TomteInboxEscape", UIParent)

@@ -15,9 +15,11 @@ local module, db
 local page
 local producers -- [itemID] = recipeIDs, for tooltips; rebuilt when recipes change
 local recipesByName -- [lower-case name] = recipeIDs, for recipe items; rebuilt when recipes change
+local drawnKey, drawnAt -- the tab ShowTab last drew and GetTime() then (one value per frame)
 
 local function ShowTab(key)
 	db.view = key
+	drawnKey, drawnAt = key, GetTime()
 	page.craft:SetShown(key == "craft")
 	page.roster:SetShown(key == "chars")
 	page.list:SetShown(key == "list")
@@ -41,10 +43,13 @@ local function ShowTab(key)
 	end
 end
 
--- The Alts page on one of its tabs ("craft", "list", "chars", "prof"), from the tracker and Next up.
+-- The Alts page on one of its tabs ("craft", "list", "chars", "prof"), from the tracker and Next up. Callers open the
+-- page first (Panel_OpenPage): when that just showed it on this tab, OnShow drew it this frame and once is enough.
 function ns.Alts_ShowTab(key)
 	if page and page:IsVisible() then
-		ShowTab(key)
+		if key ~= drawnKey or drawnAt ~= GetTime() then
+			ShowTab(key)
+		end
 	else
 		db.view = key
 	end
@@ -127,9 +132,7 @@ local AltsPage = {
 			ShowTab(db.view)
 		end)
 	end,
-	Refresh = function()
-		ShowTab(db.view)
-	end,
+	-- No Refresh: the panel calls it right as the page shows, which OnShow already covers.
 }
 
 function ns.Alts_Changed()

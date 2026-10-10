@@ -337,6 +337,20 @@ test("LootLink matches self loot messages only", function()
 	eq(ns.Recap_LootLink("You receive loot: " .. old .. ".", patterns), old)
 end)
 
+test("LootLink: stack formats come first and a space before the count is fine", function()
+	local link = "|cnIQ1:|Hitem:2589::::::::80:::::|h[Linen Cloth]|h|r"
+	-- Single format first in the list, as in the client's globals order.
+	local patterns = ns.Recap_LootPatterns({ "Vous recevez le butin : %s.", "Vous recevez le butin : %s x%d." })
+	eq(select(2, ns.Recap_LootLink("Vous recevez le butin : " .. link .. " x5.", patterns)), 5, "french stack")
+	eq(select(2, ns.Recap_LootLink("Vous recevez le butin : " .. link .. ".", patterns)), 1, "french single")
+	local single = ns.Recap_LootPatterns({ "Recibes botín: %s." })
+	eq(select(2, ns.Recap_LootLink("Recibes botín: " .. link .. " x3.", single)), 3, "spaced count after a single pattern")
+	local german = ns.Recap_LootPatterns({ "Ihr erhaltet Beute: %1$sx%2$d." })
+	local got, count = ns.Recap_LootLink("Ihr erhaltet Beute: " .. link .. "x7.", german)
+	eq(got, link)
+	eq(count, 7, "positional count")
+end)
+
 test("ItemID from a link", function()
 	eq(ns.Recap_ItemID("|cnIQ4:|Hitem:19019::::|h[x]|h|r"), 19019)
 	eq(ns.Recap_ItemID("nope"), nil)

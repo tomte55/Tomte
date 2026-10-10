@@ -155,12 +155,23 @@ function ns.Collect_State()
 	return { mounts = ready.mounts, pets = ready.pets, achievements = ready.achievements, progress = progress / 3 }
 end
 
--- An achievement was earned, or a mount or pet learned: the lists follow.
+local StillMissing
+
+-- An achievement was earned, or a mount or pet learned: the lists follow. Only entries of that kind leave the
+-- cached maps; their achievement matching (the slow part) is kept.
 function ns.Collect_Earned(kind, id)
 	if kind == "ach" and id then
 		achIndex[id] = nil
 	end
-	Changed()
+	for _, entries in pairs(cache) do
+		for i = #entries, 1, -1 do
+			local e = entries[i]
+			if e.kind == kind and (kind == "ach" and e.id == id or kind ~= "ach" and not StillMissing(e)) then
+				table.remove(entries, i)
+			end
+		end
+	end
+	onChanged()
 end
 
 -- Maps -------------------------------------------------------------------------------------------------------------
@@ -204,7 +215,7 @@ local function Groups(mapID, info, kind)
 	return groups, achNames
 end
 
-local function StillMissing(e)
+function StillMissing(e)
 	if e.kind == "mount" then
 		local isCollected = select(11, C_MountJournal.GetMountInfoByID(e.id))
 		return not isCollected

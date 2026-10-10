@@ -103,6 +103,35 @@ test("group by day", function()
 	eq(ns.Recent_Group(86400 * 4, 86400 * 5 + 500, day), "Earlier")
 end)
 
+test("recentTitle is saved instead of title", function()
+	local e = ns.Recent_FromSpec({ owner = "friends", label = "Online", title = "|Kq12|k", recentTitle = "Tag",
+		text = "Playing" }, ME, 100, isSecret)
+	eq(e.title, "Tag")
+	eq(e.text, "Playing")
+end)
+
+test("Battle.net name tokens are stripped", function()
+	local e = ns.Recent_FromSpec({ owner = "whispers", label = "Whisper", title = "|Kf3|k (Main)",
+		text = "hi |Kq7|k, ready?" }, ME, 100, isSecret)
+	eq(e.title, " (Main)")
+	eq(e.text, "hi , ready?")
+	local only = ns.Recent_FromSpec({ owner = "whispers", label = "Whisper", title = "|Kq7|k", text = "hi" },
+		ME, 100, isSecret)
+	eq(only.title, "Whisper", "a title that was only a token falls back to the label")
+end)
+
+test("trim drops the oldest past max", function()
+	local list = {}
+	for i = 1, 6 do
+		list[i] = { at = 7 - i }
+	end
+	ns.Recent_Trim(list, 4)
+	eq(#list, 4)
+	eq(list[4].at, 3)
+	ns.Recent_Trim(list, 10)
+	eq(#list, 4)
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)

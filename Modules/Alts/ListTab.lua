@@ -21,7 +21,7 @@ local STEP_BIG = 5 -- shift-click on - or +
 
 local tab
 local cards, matRows, lines, headers = {}, {}, {}, {}
-local totals, tableHead, buyText, todoToggle
+local totals, tableHead, buyText, todoToggle, partialNote
 
 local function SetColor(fs, c)
 	fs:SetTextColor(c[1], c[2], c[3])
@@ -530,7 +530,22 @@ local function PlaceShopping(todos, x, y, w)
 	tab.shop:Set("Tomte: Crafting list", ns.Alts_ShoppingItems(plans, ns.altsDB.chain))
 	tab.shop:ClearAllPoints()
 	tab.shop:SetPoint("TOPRIGHT", content, "TOPLEFT", x + w - 4, -(y + 10))
-	return y + 44
+	y = y + 44
+	-- Without Syndicator, "missing" may be on another character (List.lua).
+	if missingCount > 0 and ns.AltsList_PartialCounts(todos) then
+		if not partialNote then
+			partialNote = UI.Text(content, 12, GREY)
+			partialNote:SetJustifyH("LEFT")
+			partialNote:SetWordWrap(true)
+		end
+		partialNote:SetText(ns.ALTS_PARTIAL_NOTE)
+		partialNote:SetWidth(math.max(w - 12, 1))
+		partialNote:ClearAllPoints()
+		partialNote:SetPoint("TOPLEFT", x + 6, -y)
+		partialNote:Show()
+		y = y + math.ceil(partialNote:GetStringHeight()) + 8
+	end
+	return y
 end
 
 -- To do (under both) ---------------------------------------------------------------------------------------------
@@ -602,7 +617,7 @@ end
 
 -- Lines that move the same item the same way (Mail 10, Mail 15 and Mail 6 Bismuth to Tomten) are one trip: their
 -- counts are added up ("Mail 31 ..."), and a missing material's price is worked out again for the total.
-local MERGE = { mail = true, take = true, grab = true, collect = true, fetch = true, missing = true }
+local MERGE = { mail = true, deposit = true, take = true, grab = true, collect = true, fetch = true, missing = true }
 
 local function Merged(todos)
 	local mine, others, byKey = {}, {}, {}
@@ -724,7 +739,8 @@ function ns.AltsListTab_Refresh()
 			end
 		end
 	end
-	for _, f in pairs({ totals = totals, tableHead = tableHead, buyText = buyText, todoToggle = todoToggle }) do
+	for _, f in pairs({ totals = totals, tableHead = tableHead, buyText = buyText, todoToggle = todoToggle,
+		partialNote = partialNote }) do
 		f:Hide() -- made on first use
 	end
 	tab.shop:Hide()

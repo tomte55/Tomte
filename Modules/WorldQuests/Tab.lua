@@ -503,6 +503,7 @@ function Refresh()
 			row.hover:Show()
 			if row.quest then
 				ShowTooltip(row)
+				ShowMarker(row.quest)
 				hovered = row.quest
 			end
 		end

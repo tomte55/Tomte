@@ -125,6 +125,7 @@ local function SavePoint()
 end
 
 local function Build()
+	inCombat = inCombat or InCombatLockdown() -- built mid-fight (/reload, turned on): the REGEN events already went by
 	frame = CreateFrame("Frame", nil, UIParent)
 	frame:SetSize(WIDTH, TITLE_H + ROWS * ROW_H + 8)
 	frame:SetFrameStrata("MEDIUM")

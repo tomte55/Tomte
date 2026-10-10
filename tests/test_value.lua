@@ -68,6 +68,23 @@ test("loot adds up and totals by category", function()
 	eq(total, 7 * 200 + 3000, "today's price, else the looted value")
 end)
 
+test("loot: gear copies at different item levels keep their own link and value", function()
+	local loot = {}
+	ns.Value_LootAdd(loot, 9, "item:9::::::::::::1:600", 1, 500, "gear")
+	ns.Value_LootAdd(loot, 9, "item:9::::::::::::1:700", 1, 2000, "gear")
+	ns.Value_LootAdd(loot, 9, "item:9::::::::::::1:600", 1, 500, "gear")
+	eq(loot["item:9::::::::::::1:600"].n, 2)
+	eq(loot["item:9::::::::::::1:700"].v, 2000)
+	eq(loot[9], nil)
+	local seen = {}
+	local total = ns.Value_LootTotals(loot, function(_, e)
+		seen[#seen + 1] = e.link
+		return e.link:find("700") and 3000 or 400
+	end)
+	eq(total, 2 * 400 + 3000, "each copy priced by its own link")
+	eq(#seen, 2)
+end)
+
 test("sum and craft cost", function()
 	eq(ns.Value_Sum({ { price = 10, count = 3 }, { count = 5 }, { price = 7 } }), 37)
 	local mats = { { need = 10, have = 4, unit = 100 }, { need = 2, have = 2, unit = 50 } }

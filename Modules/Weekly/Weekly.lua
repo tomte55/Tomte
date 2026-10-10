@@ -31,9 +31,14 @@ function ns.Weekly_Views()
 	return views
 end
 
+-- nil when this character isn't tracked (below its content's max level) or its snapshot is from an earlier
+-- expansion: the old snapshot would show as if it were this week's.
 function ns.Weekly_CurrentView()
 	local snap = db and db.chars[UnitGUID("player")]
-	return snap and ns.Weekly_View(snap, GetServerTime()) or nil
+	if not (snap and ns.ContentAtMax() and ns.Weekly_SnapExpansion(snap) == ns.ContentExpansion()) then
+		return nil
+	end
+	return ns.Weekly_View(snap, GetServerTime())
 end
 
 local function CheckToasts()

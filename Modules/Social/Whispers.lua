@@ -100,6 +100,7 @@ local function UpdateBadge(show)
 		accent = WHISPER_ACCENT,
 		title = total == 1 and "1 whisper" or (total .. " whispers"),
 		text = "From " .. ns.Social_NameList(names, 3) .. ". Click to read, right-click to clear.",
+		recentCount = total, -- Recent hears of it again only when this rises
 		onClick = function()
 			ns.Inbox_Toggle()
 		end,
@@ -255,6 +256,9 @@ local function Toast(info)
 		label = info.gm and "Game Master" or (info.bn and "Battle.net whisper" or "Whisper"),
 		accent = accent,
 		title = title,
+		-- A Battle.net title is the |K account name: Recent saves the BattleTag's name instead.
+		recentTitle = not info.secret and info.bn and info.digestName or nil,
+		test = info.preview or nil,
 		text = info.text,
 		secret = info.secret,
 		iconAtlas = icon and C_Texture.GetAtlasInfo(icon) and icon or nil,
@@ -479,7 +483,7 @@ local options = {
 	{ type = "slider", key = "historyDays", label = "Keep conversations for", min = 1, max = 30, step = 1,
 		format = function(value)
 			return value .. "d"
-		end, tooltip = "Read conversations older than this are forgotten at login." },
+		end, tooltip = "Read conversations older than this are forgotten at login, unread ones after twice as long." },
 	{ type = "button", label = "History", text = "Clear", onClick = ClearHistory,
 		confirm = "Forget all whisper conversations?" },
 	{ type = "header", label = "Preview" },

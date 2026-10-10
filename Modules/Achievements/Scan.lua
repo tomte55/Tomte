@@ -15,6 +15,7 @@ local BUDGET_MS = 4 -- work per frame
 local WATCH_MARGIN = 20 -- percent below the threshold that's still watched
 local DEBOUNCE = 1 -- seconds after the last CRITERIA_UPDATE
 local MIN_GAP = 5 -- seconds between re-reads of the watched achievements (CRITERIA_UPDATE fires all the time)
+local SAVE_GAP = 60 -- seconds between cache saves from live updates (and at logout)
 local CRITERIA_TYPE_ACHIEVEMENT = 8
 local SKIPPED_TOP = { [81] = true, [15234] = true } -- Feats of Strength, Legacy: can't be done
 
@@ -27,6 +28,7 @@ local scan -- running scan state
 local ready = false -- a full scan finished this session; live updates wait for it (login bursts, stale cache)
 local onChanged = function() end
 local debounceTimer
+local saveTimer
 
 ns.AchWalk_SetSkipped(function(categoryID)
 	return SKIPPED_TOP[ns.Ach_CategoryInfo(categoryID).topID] == true
@@ -151,6 +153,23 @@ local function SetWatched(record, criteria)
 	record.critNames = CritNames(criteria)
 end
 
+-- Pins that can't show: done for the scope (an alt finished it, "Completed means" changed), or, after a full scan
+-- (strict), loaded but without a record (no criteria). A pin whose data isn't loaded yet is kept.
+local function PrunePins(strict)
+	local drop = {}
+	for id in pairs(ns.Ach_PinSet()) do
+		if not records[id] then
+			local _, name, _, completed, _, _, _, _, _, _, _, _, wasEarnedByMe = GetAchievementInfo(id)
+			if name and (strict or IsDone(completed, wasEarnedByMe)) then
+				drop[#drop + 1] = id
+			end
+		end
+	end
+	if #drop > 0 then
+		ns.Ach_DropPins(drop)
+	end
+end
+
 -- Full scan -------------------------------------------------------------------------------------------------
 
 local function Finish()
@@ -182,6 +201,7 @@ local function Finish()
 			end
 		end
 	end
+	PrunePins(true)
 	ns.Ach_SaveCache()
 	onChanged(nil, nil)
 end
@@ -201,6 +221,10 @@ local function CategoryDone()
 end
 
 function ns.Ach_StartScan()
+	if saveTimer then -- the records about to be replaced may be for another scope; Finish saves the new ones
+		saveTimer:Cancel()
+		saveTimer = nil
+	end
 	ns.Ach_ClearQueue()
 	scan = { records = {}, metaLinks = {}, pins = ns.Ach_PinSet() }
 	ns.AchWalk_Join("ach", { visit = Visit, category = CategoryDone, finish = Finish })
@@ -208,6 +232,7 @@ function ns.Ach_StartScan()
 end
 
 function ns.Ach_StopScan()
+	ns.Ach_FlushCache()
 	scan = nil
 	ns.AchWalk_Leave("ach")
 	ns.Ach_ClearQueue()
@@ -310,7 +335,7 @@ recalculator:SetScript("OnUpdate", function(self)
 	local changed, milestones = queue.changed, queue.milestones
 	queue.changed, queue.milestones = {}, {}
 	if next(changed) then
-		ns.Ach_SaveCache()
+		ns.Ach_SaveCacheSoon()
 		onChanged(changed, milestones)
 	end
 end)
@@ -394,24 +419,32 @@ function ns.Ach_OnAchievementEarned(id)
 	RecalculateMany(ids)
 end
 
--- Threshold changed: what's watched follows it. New entries get their criteria on the next update.
+-- Threshold changed: what's watched follows it. Newly watched records are re-read (a few per frame) for their
+-- criteria names, which search and the profession filter use.
 function ns.Ach_RebuildWatch()
 	local pins = ns.Ach_PinSet()
 	local floor = WatchFloor()
+	local fresh = {}
 	for id, record in pairs(records) do
 		if record.percent >= floor or pins[id] then
 			watch[id] = true
+			if not record.critNames then
+				fresh[#fresh + 1] = id
+			end
 		else
 			watch[id] = nil
 			record.critNames = nil
 		end
+	end
+	if #fresh > 0 and ready and not scan then
+		RecalculateMany(fresh)
 	end
 end
 
 -- Cache ------------------------------------------------------------------------------------------------------
 
 local CACHED_FIELDS = { "id", "name", "icon", "points", "category", "catName", "top", "topID", "expansion", "percent",
-	"done", "total", "last", "reward" }
+	"done", "total", "last", "have", "need", "reward", "critNames" }
 
 function ns.Ach_SaveCache()
 	local guid = UnitGUID("player")
@@ -430,6 +463,27 @@ function ns.Ach_SaveCache()
 		end
 	end
 	Settings().cache[guid] = { at = time(), scope = Settings().scope, records = list }
+	if saveTimer then
+		saveTimer:Cancel()
+		saveTimer = nil
+	end
+end
+
+-- Live updates save at most once a minute; PLAYER_LOGOUT and turning the module off flush a pending save.
+function ns.Ach_SaveCacheSoon()
+	if saveTimer then
+		return
+	end
+	saveTimer = C_Timer.NewTimer(SAVE_GAP, function()
+		saveTimer = nil
+		ns.Ach_SaveCache()
+	end)
+end
+
+function ns.Ach_FlushCache()
+	if saveTimer then
+		ns.Ach_SaveCache()
+	end
 end
 
 function ns.Ach_LoadCache()
@@ -447,10 +501,7 @@ function ns.Ach_LoadCache()
 		records[record.id] = record
 		watch[record.id] = true
 	end
+	PrunePins(false)
 	onChanged(nil, nil)
 	return true
-end
-
-function ns.Ach_ResetSession()
-	wipe(fired)
 end

@@ -48,19 +48,22 @@ function ns.Value_Pick(info, gear)
 	return info.vendor, "vendor"
 end
 
--- Session loot: loot[itemID] = { n, v (value when looted, copper), c (category), link }.
+-- Session loot: loot[key] = { n, v (value when looted, copper), c (category), link }. key is the item ID, but the
+-- link for gear: copies of one item at different item levels are priced apart.
 function ns.Value_LootAdd(loot, itemID, link, count, unit, category)
-	local e = loot[itemID]
+	local key = category == "gear" and link or itemID
+	local e = loot[key]
 	if not e then
 		e = { n = 0, v = 0, c = category, link = link }
-		loot[itemID] = e
+		loot[key] = e
 	end
 	e.n = e.n + (count or 1)
 	e.v = e.v + (unit or 0) * (count or 1)
 	return e
 end
 
--- Total value and by category. priceNow(itemID, entry) -> copper | nil, or nil to use the value when looted.
+-- Total value and by category. priceNow(key, entry) -> copper | nil, or nil to use the value when looted (key: an
+-- item ID, or a link for gear).
 -- skip = { [category] = true } leaves categories out (gear when "Gear and BoEs" is "Leave out").
 function ns.Value_LootTotals(loot, priceNow, skip)
 	local total, by = 0, { gathered = 0, gear = 0, other = 0 }

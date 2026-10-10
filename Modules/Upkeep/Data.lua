@@ -59,14 +59,18 @@ end
 
 -- Which durability toast to give, if any: "broken" (more broken items than last time), "low" (just dropped
 -- under the threshold) or nil. state = { warned, broken } carries over between calls: one warning per crossing,
--- armed again once durability is back at or above the threshold (you repaired).
-function ns.Durability_Alert(state, lowest, broken, threshold)
+-- armed again once durability is back at or above the threshold (you repaired). swapped: the worn gear changed since
+-- the last call, so broken items may just have been put on: they're the new baseline, not a break.
+function ns.Durability_Alert(state, lowest, broken, threshold, swapped)
 	if not lowest then
 		state.warned, state.broken = false, 0
 		return nil
 	end
 	-- First call (login, /reload): items that were already broken aren't news.
 	local prevBroken = state.broken or broken
+	if swapped then
+		prevBroken = broken
+	end
 	state.broken = broken
 	if lowest >= threshold then
 		state.warned = false

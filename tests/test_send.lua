@@ -141,6 +141,34 @@ test("GearGroups: by who gets it, one route only, sorted by name", function()
 	eq(#ns.Alts_GearGroups({}, "mail", chars), 0)
 end)
 
+test("realms: connected set, own realm, normalized names", function()
+	local realms = ns.Alts_RealmSet({ "ArgentDawn", "The Sha'tar" }, "Silver-moon")
+	eq(realms.ArgentDawn, true)
+	eq(realms["TheSha'tar"], true)
+	eq(realms.Silvermoon, true, "own realm, normalized")
+	eq(ns.Alts_Reachable(chars.Smith, realms), true, "Argent Dawn with a space")
+	eq(ns.Alts_Reachable({ realm = "Draenor" }, realms), false)
+	eq(ns.Alts_Reachable({ realm = "Draenor" }, nil), true, "unknown realms: everyone")
+	eq(ns.Alts_Reachable({}, realms), true, "no stored realm")
+	local alone = ns.Alts_RealmSet({}, "Silvermoon")
+	eq(ns.Alts_Reachable(chars.Smith, alone), false, "an unconnected realm reaches only itself")
+end)
+
+test("recipient: characters mail can't reach are skipped", function()
+	local realms = ns.Alts_RealmSet({}, "Silvermoon")
+	eq(ns.Alts_Recipient(ORE, "ore", Ctx({ realms = realms })), "Alch2", "Tolvan (Argent Dawn) is out anyway")
+	eq(ns.Alts_Recipient(ORE, "ore", Ctx({ realms = realms, plan = { [ORE] = "Smith" } })), "Alch2", "plan to Tolvan: skipped")
+	eq(ns.Alts_Recipient(ORE, "ore", Ctx({ realms = realms, rules = ns.Alts_ParseRules("200=Tolvan") })), nil,
+		"a rule to someone out of reach: nobody")
+	local onlySmith = { [ORE] = { Smith = 3 } }
+	eq(ns.Alts_Recipient(ORE, "ore", Ctx({ realms = realms, users = onlySmith })), nil)
+	eq(ns.Alts_Recipient(ORE, "ore", Ctx({ users = onlySmith })), "Smith", "no realm filter")
+	local stacks = { { bag = 0, slot = 1, to = "Smith", route = "mail" }, { bag = 0, slot = 2, to = "Alch", route = "mail" } }
+	local groups = ns.Alts_GearGroups(stacks, "mail", chars, realms)
+	eq(#groups, 1)
+	eq(groups[1].guid, "Alch")
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)

@@ -9,6 +9,7 @@ local SWEEP_PERIOD = 2 -- seconds for the recording spark to cross the bar
 local PREVIEW_SECONDS = 90
 local PREVIEW_STOPS = { 0.35, 0.7 }
 local TICK_AHEAD_ALPHA, TICK_PASSED_ALPHA = 0.9, 0.25
+local TEXT_INTERVAL = 0.15 -- seconds between time/ETA text updates; the fill and the spark move every frame
 
 local bar
 local active -- { destName, expected, isEstimate, start, stops, preview }
@@ -73,11 +74,25 @@ local function OnUpdate(self)
 	if not active then
 		return
 	end
-	local elapsed = GetTime() - active.start
-	local text, fill, remaining = ns.TimerText(active.expected, active.isEstimate, elapsed)
+	local now = GetTime()
+	if active.preview and active.expected and now - active.start >= active.expected then
+		active.start, active.nextText = now, nil -- the preview loops instead of running into overtime
+	end
+	local elapsed = now - active.start
+	if active.expected then
+		self:SetValue(math.max(0, (active.expected - elapsed) / active.expected))
+	else
+		self:SetValue(1)
+		local frac = (elapsed % SWEEP_PERIOD) / SWEEP_PERIOD
+		self.spark:SetPoint("CENTER", self, "LEFT", frac * self:GetWidth(), 0)
+	end
+	if active.nextText and now < active.nextText then
+		return
+	end
+	active.nextText = now + TEXT_INTERVAL
+	local text, _, remaining = ns.TimerText(active.expected, active.isEstimate, elapsed)
 	self.time:SetText(text)
 	if active.expected then
-		self:SetValue(fill)
 		SetEta(remaining >= 0 and date("%H:%M", time() + math.floor(remaining + 0.5)) or nil)
 		if active.stops then
 			local progress = elapsed / active.expected
@@ -85,10 +100,6 @@ local function OnUpdate(self)
 				self.ticks[i]:SetAlpha(progress >= fraction and TICK_PASSED_ALPHA or TICK_AHEAD_ALPHA)
 			end
 		end
-	else
-		self:SetValue(1)
-		local frac = (elapsed % SWEEP_PERIOD) / SWEEP_PERIOD
-		self.spark:SetPoint("CENTER", self, "LEFT", frac * self:GetWidth(), 0)
 	end
 end
 

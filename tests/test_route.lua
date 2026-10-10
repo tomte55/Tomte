@@ -130,6 +130,23 @@ test("NextIndex: inside the sanctum it points at the portal", function()
 	eq(NET.nodes[path[i]][7], "Take the portal from Stormwind to Dornogal")
 end)
 
+test("NextIndex: reached by the game's radius counts as standing at it", function()
+	local path = ns.WayRoute_Find(NET, STORMWIND, DORNOGAL, Api("Alliance"))
+	local entrance = NET.nodes[path[1]]
+	local away = { map = 0, x = entrance[2] + 40, y = entrance[3] }
+	eq(ns.WayRoute_NextIndex(NET, path, 1, away), 1, "40 yd off, not reached")
+	local i = ns.WayRoute_NextIndex(NET, path, 1, away, true)
+	assert(i > 1, "reached moves on")
+	local portalPath = ns.WayRoute_Find(NET, DORNOGAL, ORGRIMMAR, Api("Horde"))
+	eq(ns.WayRoute_NextIndex(NET, portalPath, 1, DORNOGAL, true), 1, "a reached portal stays until taken")
+end)
+
+test("Find: the same route on repeated searches", function()
+	local a = ns.WayRoute_Find(NET, DORNOGAL, ORGRIMMAR, Api("Horde"))
+	local b = ns.WayRoute_Find(NET, DORNOGAL, ORGRIMMAR, Api("Horde"))
+	eq(table.concat(a, ","), table.concat(b, ","))
+end)
+
 test("Texts: the step, then the next way off a map", function()
 	local path = ns.WayRoute_Find(NET, DORNOGAL, { map = 870, x = 1600, y = 900 }, Api("Horde"))
 	local text, nextText = ns.WayRoute_Texts(NET, path, 1)

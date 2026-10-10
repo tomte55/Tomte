@@ -59,25 +59,41 @@ end
 
 -- Toasts --------------------------------------------------------------------------------------------------------
 
-local function ShowZoneToast(name, counts)
+-- sample: a test toast (no click action, kept out of Recent).
+local function ShowZoneToast(name, counts, sample)
 	ns.Toast_Show({
 		owner = OWNER, label = "Collect here", accent = ACCENT, title = name,
-		text = ns.Collect_ZoneToastText(counts) .. "\nClick for the list.",
+		text = ns.Collect_ZoneToastText(counts) .. (sample and "" or "\nClick for the list."),
 		icon = "Interface\\Icons\\Ability_Mount_RidingHorse", mergeKey = "collect:zone", holdInCombat = true, hold = 10,
-		onClick = ns.CollectTab_Open,
+		test = sample or nil, onClick = not sample and ns.CollectTab_Open or nil,
 	})
 end
 
-local function ShowRareToast(rareName, e)
+-- "Sample Mount (a mount)" or "A (a mount) and B (a pet)"
+local function DropList(drops)
+	local parts = {}
+	for i, e in ipairs(drops) do
+		parts[i] = ("%s (a %s)"):format(e.name, KIND_WORDS[e.kind] or "drop")
+	end
+	if #parts <= 1 then
+		return parts[1] or ""
+	end
+	return table.concat(parts, ", ", 1, #parts - 1) .. " and " .. parts[#parts]
+end
+
+-- drops: the rare's missing mounts and pets, all in one toast.
+local function ShowRareToast(rareName, drops, sample)
+	local first = drops[1]
 	ns.Toast_Show({
 		owner = OWNER, label = "Up now", accent = ACCENT, title = rareName,
-		text = ("Drops %s (a %s you're missing).\nClick for a waypoint."):format(e.name, KIND_WORDS[e.kind] or "drop"),
-		icon = e.icon, mergeKey = "collect:rare:" .. rareName, holdInCombat = true, hold = 15,
-		onClick = function()
-			if e.upNow then
-				ns.Collect_Waypoint(e.upNow, rareName)
+		text = ("Drops %s you're missing.%s"):format(DropList(drops), sample and "" or "\nClick for a waypoint."),
+		icon = first.icon, mergeKey = "collect:rare:" .. rareName, holdInCombat = true, hold = 15,
+		test = sample or nil,
+		onClick = not sample and function()
+			if first.upNow then
+				ns.Collect_Waypoint(first.upNow, rareName)
 			end
-		end,
+		end or nil,
 	})
 end
 
@@ -116,12 +132,29 @@ local function RareCheck()
 	table.sort(keys)
 	local upNow = table.concat(keys, ",")
 	if db.toasts.rare then
+		local byRare, order = {}, {}
 		for _, f in ipairs(found) do
-			local key = db.show[f.entry.kind == "mount" and "mounts" or "pets"] ~= false and f.guid
-			if key and not toastedRares[key] then
-				toastedRares[key] = true
-				ShowRareToast(f.name, f.entry)
+			if db.show[f.entry.kind == "mount" and "mounts" or "pets"] ~= false and not toastedRares[f.guid] then
+				local rare = byRare[f.guid]
+				if not rare then
+					rare = { name = f.name, drops = {} }
+					byRare[f.guid] = rare
+					order[#order + 1] = f.guid
+				end
+				rare.drops[#rare.drops + 1] = f.entry
 			end
+		end
+		for _, guid in ipairs(order) do
+			local rare = byRare[guid]
+			toastedRares[guid] = true
+			-- Mounts first: the toast's icon is the first drop's.
+			table.sort(rare.drops, function(a, b)
+				if a.kind ~= b.kind then
+					return a.kind == "mount"
+				end
+				return (a.name or "") < (b.name or "")
+			end)
+			ShowRareToast(rare.name, rare.drops)
 		end
 	end
 	if upNow ~= lastUpNow then
@@ -175,8 +208,9 @@ function events:CRITERIA_UPDATE()
 	if not ns.CollectTab_IsShown() then
 		return
 	end
+	-- One redraw pending at a time: in a raid CRITERIA_UPDATE never pauses long enough for a restarted timer.
 	if criteriaTimer then
-		criteriaTimer:Cancel()
+		return
 	end
 	criteriaTimer = C_Timer.NewTimer(CRITERIA_DEBOUNCE, function()
 		criteriaTimer = nil
@@ -228,8 +262,9 @@ local function Test()
 	if not RequireActive() then
 		return
 	end
-	ShowZoneToast("Hallowfall", { mounts = 2, pets = 3, achievements = 18 })
-	ShowRareToast("Sample Rare", { kind = "mount", name = "Sample Mount", icon = 132261 })
+	ShowZoneToast("Hallowfall", { mounts = 2, pets = 3, achievements = 18 }, true)
+	ShowRareToast("Sample Rare", { { kind = "mount", name = "Sample Mount", icon = 132261 },
+		{ kind = "pet", name = "Sample Pet", icon = 132261 } }, true)
 end
 
 local function Changed()

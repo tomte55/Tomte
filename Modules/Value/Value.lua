@@ -186,7 +186,9 @@ local function ReadWorth()
 	if not (module.active and db.alts and ns.altsDB) then
 		return
 	end
-	if InCombatLockdown() then
+	-- Pricing a full bag is held off in combat, except while the bank is open: once it closes the bank can't be read,
+	-- and reading it touches nothing protected.
+	if InCombatLockdown() and not bankOpen then
 		worthTimer = C_Timer.NewTimer(DEBOUNCE * 3, ReadWorth)
 		return
 	end
@@ -293,14 +295,20 @@ end
 
 local EVENTS = { "PLAYER_ENTERING_WORLD", "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED" }
 
-local function PrintPrice(text)
-	text = strtrim(text or "")
+-- text: lower-cased by /tomte; rawText: as typed (nil from an older dispatcher), so a link keeps its bonus IDs and
+-- prints as a link.
+local function PrintPrice(text, rawText)
+	text = strtrim(rawText or text or "")
 	if text == "" then
 		ns.Print(("prices from %s. Usage: /tomte value price <item link or ID>"):format(ns.Value_SourceName()))
 		return
 	end
-	-- /tomte lower-cases its arguments, so a link only gives its item ID here.
-	local item = tonumber(text) or tonumber(text:match("item:(%d+)") or "")
+	local item = tonumber(text)
+	if not item and rawText and text:find("|Hitem:") then
+		item = text:match("|c%x+|Hitem:.-|h|r") or text:match("|cn.-|Hitem:.-|h|r") or text:match("|Hitem:.-|h.-|h")
+	end
+	-- Lower-cased text only gives a link's item ID.
+	item = item or tonumber(text:match("item:(%d+)") or "")
 	if not item then
 		ns.Print("give an item link (shift-click it) or an item ID.")
 		return

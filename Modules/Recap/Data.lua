@@ -257,15 +257,21 @@ function ns.Recap_IsRareVignette(atlas, guid)
 	return atlas:find("^VignetteKill") ~= nil and (guid:find("^Creature%-") ~= nil or guid:find("^Vehicle%-") ~= nil)
 end
 
--- Patterns for the "you receive" loot messages (LOOT_ITEM_SELF etc.); nil formats are skipped.
+-- Patterns for the "you receive" loot messages (LOOT_ITEM_SELF etc.); nil formats are skipped. The ones with
+-- a count (*_MULTIPLE) go first: the single-item pattern would also match a stack and lose its count.
 function ns.Recap_LootPatterns(formats)
-	local patterns = {}
-	for _, fmt in pairs(formats) do
+	local counted, single = {}, {}
+	for i = 1, #formats do
+		local fmt = formats[i]
 		if type(fmt) == "string" then
-			patterns[#patterns + 1] = ns.Moments_FormatToPattern(fmt)
+			local list = (fmt:find("%%d") or fmt:find("%%%d+%$d")) and counted or single
+			list[#list + 1] = ns.Moments_FormatToPattern(fmt)
 		end
 	end
-	return patterns
+	for _, pattern in ipairs(single) do
+		counted[#counted + 1] = pattern
+	end
+	return counted
 end
 
 -- The item link in a loot message about yourself and how many (1 unless the message says), or nil.
@@ -284,7 +290,7 @@ function ns.Recap_LootLink(text, patterns)
 						count = tonumber(other)
 					end
 				end
-				count = count or tonumber(rest:match("^x(%d+)") or "") or 1
+				count = count or tonumber(rest:match("^%s*x(%d+)") or "") or 1
 				return link, count
 			end
 		end

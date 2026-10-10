@@ -63,7 +63,8 @@ function ns.Social_SortedConvos(store)
 	return list
 end
 
--- Keeps the newest max conversations; unread ones are never dropped.
+-- Keeps the newest max conversations; unread ones past max stay, up to a hard cap of 2 * max (spam
+-- whispers nobody reads mustn't pile up): past that the oldest go, read or not.
 function ns.Social_TrimConvos(store, max)
 	local list = ns.Social_SortedConvos(store)
 	for i = #list, max + 1, -1 do
@@ -71,12 +72,19 @@ function ns.Social_TrimConvos(store, max)
 			store.convos[list[i].key] = nil
 		end
 	end
+	list = ns.Social_SortedConvos(store)
+	for i = #list, max * 2 + 1, -1 do
+		store.convos[list[i].key] = nil
+	end
 end
 
--- Forgets read conversations whose last message is older than maxAge seconds.
-function ns.Social_PruneConvos(store, now, maxAge)
+-- Forgets read conversations whose last message is older than maxAge seconds, and unread ones older than
+-- unreadAge (default twice maxAge).
+function ns.Social_PruneConvos(store, now, maxAge, unreadAge)
+	unreadAge = unreadAge or maxAge * 2
 	for key, convo in pairs(store.convos) do
-		if convo.unread == 0 and now - (convo.last or 0) > maxAge then
+		local age = now - (convo.last or 0)
+		if age > (convo.unread == 0 and maxAge or unreadAge) then
 			store.convos[key] = nil
 		end
 	end
@@ -222,13 +230,14 @@ function ns.Social_IsWatched(watch, ...)
 end
 
 -- Keys in now that weren't in before (both sets: [key] = true or a table). nil before = first look: none.
-function ns.Social_NewlyOnline(before, now)
+-- known (optional set): only keys in it count; a friend just added to the list didn't "come online".
+function ns.Social_NewlyOnline(before, now, known)
 	local list = {}
 	if not before then
 		return list
 	end
 	for key in pairs(now) do
-		if not before[key] then
+		if not before[key] and (not known or known[key]) then
 			list[#list + 1] = key
 		end
 	end

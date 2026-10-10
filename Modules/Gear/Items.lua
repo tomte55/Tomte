@@ -15,6 +15,9 @@ local EQUIP_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 }
 local MAX_CACHE = 1000
 local UNREAD_GRACE = 10 -- seconds an item without stats is read again before it's taken as it is
 local EFFECT_CHARS = 60
+-- Red lines ("Requires Level 80", a profession skill) change with the character: an item with one is kept only this
+-- many seconds. Right after a level up UnitLevel can still be the old one, and skill-ups have no event to clear on.
+local RED_TTL = 5
 
 local BAGS = { 0, 1, 2, 3, 4 } -- backpack and the four bags (gear never goes in the reagent bag)
 -- "Durability 0 / 120", in the client's language: red on a broken item, which is still usable gear.
@@ -75,8 +78,13 @@ function ns.GearItems_Describe(link)
 	if not link or Secret(link) then
 		return nil
 	end
-	if cache[link] then
-		return cache[link]
+	local cached = cache[link]
+	if cached then
+		if not (cached.redText and GetTime() - cached.readAt > RED_TTL) then
+			return cached
+		end
+		cache[link] = nil
+		cacheSize = cacheSize - 1
 	end
 	local itemID, _, _, equipLoc, _, classID, subclassID = C_Item.GetItemInfoInstant(link)
 	if not itemID then
@@ -142,6 +150,7 @@ function ns.GearItems_Describe(link)
 		wipe(unreadSince)
 		cacheSize = 0
 	end
+	desc.readAt = GetTime()
 	cache[link] = desc
 	cacheSize = cacheSize + 1
 	return desc

@@ -20,6 +20,7 @@ local module
 local settleUntil = 0
 local friendsOnline -- [lower-case character name] = true, nil until the friend list was first read
 local friendNames = {} -- [lower-case name] = true for every character friend
+local friendsKnown -- [lower-case name] = true: the friend list at the last FRIENDLIST_UPDATE (new friends aren't news)
 local announced = {} -- [lower-case name] = GetTime() of the last toast
 local watch = {}
 local onlinePattern
@@ -107,14 +108,15 @@ local function Settled()
 	return GetTime() >= settleUntil
 end
 
--- entry = { name (shown), names (for the watch list and repeats), class, text, guild, bnToken, tell }
+-- entry = { name (shown), names (for the watch list and repeats), class, text, guild, idle, bnToken, tell,
+-- recentTitle }. Guildmates and Battle.net friends only in the launcher or app (idle) need the watch list.
 local function Announce(entry)
 	local db = ns.friendsDB
 	if db.notify == "off" or not Settled() then
 		return
 	end
 	local watched = ns.Social_IsWatched(watch, unpack(entry.names))
-	if not watched and (db.notify ~= "all" or entry.guild) then
+	if not watched and (db.notify ~= "all" or entry.guild or entry.idle) then
 		return
 	end
 	local key = (entry.names[1] or ""):lower()
@@ -127,6 +129,7 @@ local function Announce(entry)
 		label = entry.guild and "Guildmate online" or "Friend online",
 		accent = entry.guild and GUILD_ACCENT or ACCENT,
 		title = ClassColored(entry.name, entry.class),
+		recentTitle = entry.recentTitle,
 		text = entry.text,
 		hold = 8,
 		digestName = entry.names[1],
@@ -200,6 +203,7 @@ local function Summary(preview)
 		title = Count(friends, "friend online", "friends online"),
 		text = #lines > 0 and table.concat(lines, "\n") or (friends == 0 and "Nobody's online right now." or nil),
 		hold = 12,
+		test = preview or nil,
 		onClick = function()
 			ToggleFriendsFrame(FRIEND_TAB_FRIENDS)
 		end,
@@ -235,12 +239,18 @@ function events:PLAYER_ENTERING_WORLD(isInitialLogin, isReload)
 end
 
 function events:FRIENDLIST_UPDATE()
+	local known = friendsKnown
 	local now = OnlineCharacters()
 	local set = {}
 	for key in pairs(now) do
 		set[key] = true
 	end
-	for _, key in ipairs(ns.Social_NewlyOnline(friendsOnline, set)) do
+	friendsKnown = {}
+	for key in pairs(friendNames) do
+		friendsKnown[key] = true
+	end
+	-- Only friends on the list before: one you just added who's online didn't come online.
+	for _, key in ipairs(ns.Social_NewlyOnline(friendsOnline, set, known or {})) do
 		local info = now[key]
 		local short = Ambiguate(info.name, "short")
 		local where = info.area and info.area ~= "" and info.area or nil
@@ -272,10 +282,13 @@ function events:BN_FRIEND_ACCOUNT_ONLINE(bnetAccountID, isCompanionApp)
 			return -- also a character friend: announced from the friend list
 		end
 		local activity = Activity(game)
+		local short = ns.Social_ShortTag(info.battleTag)
 		Announce({
-			name = info.accountName,
-			names = { ns.Social_ShortTag(info.battleTag), info.battleTag, game and game.characterName },
+			name = info.accountName, -- the |K real name: shown, not saved
+			names = { short, info.battleTag, game and game.characterName },
+			recentTitle = short,
 			text = activity and ("Playing " .. activity) or nil,
+			idle = not (game and game.isOnline) or Idle(game),
 			bnToken = info.accountName,
 		})
 	end)
@@ -307,7 +320,7 @@ local function Preview()
 	end
 	Summary(true)
 	ns.Toast_Show({ owner = OWNER, label = "Friend online", accent = ACCENT, title = ClassColored("Jaina", "MAGE"),
-		text = "Level 90 - Silvermoon City", hold = 8 })
+		text = "Level 90 - Silvermoon City", hold = 8, test = true })
 end
 
 local function Activate()
@@ -324,6 +337,7 @@ end
 local function Deactivate()
 	events:UnregisterAllEvents()
 	friendsOnline = nil
+	friendsKnown = nil
 	ns.Toast_Clear(OWNER)
 end
 
@@ -340,7 +354,7 @@ local options = {
 	{ type = "header", label = "Coming online" },
 	{ type = "dropdown", key = "notify", label = "Toast when", choices = function()
 		return NOTIFY_CHOICES
-	end, tooltip = "All friends: every character and Battle.net friend. Watch list only: just the people below. Guildmates only ever come from the watch list." },
+	end, tooltip = "All friends: every character friend, and Battle.net friends who come online in a game (only in the Battle.net app: watch list only). Watch list only: just the people below. Guildmates only ever come from the watch list." },
 	{ type = "input", key = "watch", label = "Watch list", placeholder = "Anna, Thrall, Bjorn#2345", onChange = RebuildWatch,
 		tooltip = "Character names, guildmates or BattleTags (the number is optional), separated by commas. Watched people also flash the taskbar icon." },
 	{ type = "checkbox", key = "flash", label = "Flash for watched people",
