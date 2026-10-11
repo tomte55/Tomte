@@ -140,6 +140,8 @@ Lua 5.1, the game's version):
 for t in Tomte/tests/test_*.lua; do lua "$t"; done
 ```
 
+The tests share their `test`, `eq` and `near` helpers and the exit code through `tests/harness.lua`.
+
 Everything else is tested in game: `/reload`, then check behavior and BugSack for errors. The release workflow runs
 the unit tests too.
 

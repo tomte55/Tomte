@@ -4,21 +4,8 @@ assert(loadfile("Tomte/Modules/Pets/Data.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Pets/Strings.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Pets/Tamers.lua"))("Tomte", ns)
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, eq = H.test, H.eq
 local function list(t)
 	local out = {}
 	for i, v in ipairs(t or {}) do
@@ -433,7 +420,4 @@ test("tamer table: Collector Dyna has her world quest and Family Battler pages",
 	eq(list(index[223446]), "1589,1601")
 end)
 
-if failures > 0 then
-	print(failures .. " failed")
-	os.exit(1)
-end
+H.done()

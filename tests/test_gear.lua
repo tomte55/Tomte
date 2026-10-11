@@ -7,21 +7,8 @@ assert(loadfile("Tomte/Modules/Gear/Rules.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Gear/Advice.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Gear/Scales.lua"))("Tomte", ns)
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, eq = H.test, H.eq
 local function has(list, pattern)
 	for _, s in ipairs(list) do
 		if s:find(pattern) then
@@ -1226,5 +1213,4 @@ test("Maybe an upgrade: unsure, but stats say upgrade", function()
 	eq(ns.Gear_IsMaybeUpgrade(nil), false)
 end)
 
-print(failures == 0 and "all passed" or (failures .. " failed"))
-os.exit(failures == 0 and 0 or 1)
+H.done()

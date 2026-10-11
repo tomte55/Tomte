@@ -3,21 +3,8 @@ local ns = {}
 assert(loadfile("Tomte/Modules/Value/Data.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Gather/Data.lua"))("Tomte", ns)
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, eq = H.test, H.eq
 
 local function Slot(id, sub, src, n)
 	return { link = "item:" .. id, itemID = id, count = n or 1, quality = 1, classID = 7, subClassID = sub,
@@ -416,8 +403,4 @@ test("session summary and line", function()
 	eq(ns.Gather_SessionLine({ nodes = 3, value = 50 }), "gathered 3 nodes")
 end)
 
-if failures > 0 then
-	print(failures .. " failed")
-	os.exit(1)
-end
-print("all passed")
+H.done()

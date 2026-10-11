@@ -2,21 +2,8 @@
 local ns = {}
 assert(loadfile("Tomte/Modules/Minimap/Data.lua"))("Tomte", ns)
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-local function near(actual, expected, label)
-	if math.abs(actual - expected) > 0.001 then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, near = H.test, H.near
 
 test("Offset: round right", function()
 	local x, y = ns.Minimap_Offset(0, 75, 75, nil)
@@ -55,8 +42,4 @@ test("Angle wraps to 0-360", function()
 	near(ns.Minimap_Angle(-1, -1), 225)
 end)
 
-if failures > 0 then
-	print(failures .. " failed")
-	os.exit(1)
-end
-print("all passed")
+H.done()

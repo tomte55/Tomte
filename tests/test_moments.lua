@@ -2,21 +2,8 @@
 local ns = {}
 assert(loadfile("Tomte/Modules/Moments/Data.lua"))("Tomte", ns)
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, eq = H.test, H.eq
 
 test("DefaultStyles has every type", function()
 	local styles = ns.Moments_DefaultStyles()
@@ -228,8 +215,4 @@ test("ZoneStatus: strips brackets, nil when empty", function()
 	eq(ns.Moments_ZoneStatus(nil), nil)
 end)
 
-if failures > 0 then
-	print(failures .. " failed")
-	os.exit(1)
-end
-print("all passed")
+H.done()

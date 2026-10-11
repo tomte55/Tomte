@@ -5,21 +5,8 @@ assert(loadfile("Tomte/Data/WarWithin/Delves.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Data/Midnight/Delves.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Delves/Data.lua"))("Tomte", ns)
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, eq = H.test, H.eq
 
 test("delves data for both expansions", function()
 	for _, e in ipairs({ 10, 11 }) do
@@ -240,8 +227,4 @@ test("empty inputs", function()
 	eq(ns.Delves_Earned({}, "keys"), nil)
 end)
 
-
-if failures > 0 then
-	error(failures .. " test(s) failed")
-end
-print("all delves tests passed")
+H.done()

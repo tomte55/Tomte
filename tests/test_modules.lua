@@ -7,21 +7,8 @@ local ns = {
 }
 assert(loadfile("Tomte/Core/Modules.lua"))("Tomte", ns)
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, eq = H.test, H.eq
 
 -- Fresh registry for each test. Returns a module whose toggle calls are recorded in module.calls.
 local function reset()
@@ -396,8 +383,4 @@ test("PanelResume reopens where you were for a while, then Home", function()
 	eq((ns.PanelResume(nil, 1100, 300, ok)), "home", "first time")
 end)
 
-if failures > 0 then
-	print(failures .. " failed")
-	os.exit(1)
-end
-print("all passed")
+H.done()

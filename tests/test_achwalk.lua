@@ -1,21 +1,8 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_achwalk.lua
 -- The shared achievement walk with stubbed WoW globals; frames are driven by calling the stored OnUpdate.
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, eq = H.test, H.eq
 
 local COUNTS = { [1] = 2, [2] = 3, [3] = 1 }
 local frame
@@ -193,5 +180,4 @@ test("no categories finishes at once", function()
 	eq(a.finished, 1)
 end)
 
-print(failures == 0 and "all passed" or (failures .. " failed"))
-os.exit(failures == 0 and 0 or 1)
+H.done()

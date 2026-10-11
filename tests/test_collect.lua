@@ -2,21 +2,8 @@
 local ns = {}
 assert(loadfile("Tomte/Modules/Collect/Data.lua"))("Tomte", ns)
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, eq = H.test, H.eq
 local function has(list, value, label)
 	for _, v in ipairs(list) do
 		if v == value then
@@ -219,5 +206,4 @@ test("localized labels map to the same keys", function()
 	has(zh.Collect_ParseSource("|cFFFFD200区域：|r塔纳利斯").zones, "塔纳利斯", "full-width colon")
 end)
 
-print(failures == 0 and "all passed" or (failures .. " failed"))
-os.exit(failures == 0 and 0 or 1)
+H.done()

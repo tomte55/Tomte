@@ -3,21 +3,8 @@ local ns = {}
 assert(loadfile("Tomte/Modules/Social/Data.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Chat/Data.lua"))("Tomte", ns)
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, eq = H.test, H.eq
 local function has(list, value)
 	for _, v in ipairs(list) do
 		if v == value then
@@ -195,9 +182,4 @@ test("ShortenLine: leaves other lines alone", function()
 	eq(ns.Chat_ShortenLine(noprefix, ctx("short", true)), noprefix, "no N. prefix")
 end)
 
-if failures > 0 then
-	print(failures .. " failed")
-	os.exit(1)
-end
-
-print("all passed")
+H.done()

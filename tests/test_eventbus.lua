@@ -13,22 +13,13 @@ end
 local ns = {}
 assert(loadfile("Tomte/Core/Events.lua"))("Tomte", ns)
 
-local failures = 0
+local H = dofile("Tomte/tests/harness.lua")
+-- Each test starts with nothing registered on the fake frame API.
 local function test(name, fn)
 	for k in pairs(registered) do registered[k] = nil end
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
+	H.test(name, fn)
 end
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local eq = H.eq
 local function Fire(bus, event, ...)
 	bus.frame.scripts.OnEvent(bus.frame, event, ...)
 end
@@ -93,8 +84,4 @@ test("TryWatch survives an unknown event", function()
 	eq(bus:Watching("a", "NOPE"), false)
 end)
 
-if failures > 0 then
-	print(failures .. " failed")
-	os.exit(1)
-end
-print("all passed")
+H.done()

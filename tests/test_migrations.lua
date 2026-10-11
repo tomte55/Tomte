@@ -6,21 +6,8 @@ assert(loadfile("Tomte/Core/SessionData.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Moments/Data.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Core/Migrations.lua"))("Tomte", ns)
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, eq = H.test, H.eq
 
 test("an empty db runs every migration without error", function()
 	local db = {}
@@ -74,8 +61,4 @@ test("migrations don't run twice", function()
 	eq(db.way.cardDistance, 325)
 end)
 
-if failures > 0 then
-	print(failures .. " failed")
-	os.exit(1)
-end
-print("all passed")
+H.done()

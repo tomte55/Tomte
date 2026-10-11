@@ -6,22 +6,8 @@ assert(loadfile("Tomte/Modules/Alts/RosterData.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Alts/GearData.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Alts/Forget.lua"))("Tomte", ns)
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, eq = H.test, H.eq
 
 local BS, ALCH = 164, 171
 -- Axe needs 2 Alloy + 5 Dust; Alloy (makes 1) needs 4 Ore (3 ranks) + 1 Flux; Flux (makes 2) needs 1 Herb.
@@ -642,8 +628,4 @@ test("quality: one item level is a sure upgrade or none", function()
 	eq((ns.Alts_Upgrade(580, 580, { ilvl = 590 })), "no")
 end)
 
-if failures > 0 then
-	print(failures .. " failed")
-	os.exit(1)
-end
-print("all passed")
+H.done()

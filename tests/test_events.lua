@@ -5,21 +5,8 @@ assert(loadfile("Tomte/Modules/Holidays/Data.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Holidays/Table.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Holidays/Generated.lua"))("Tomte", ns)
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, eq = H.test, H.eq
 
 -- Facts ------------------------------------------------------------------------------------------------------------
 
@@ -313,7 +300,4 @@ test("merge todo rows: open extras after open rows, done at the end", function()
 	eq(rows[5].text, "x-done")
 end)
 
-if failures > 0 then
-	error(failures .. " test(s) failed")
-end
-print("all passed")
+H.done()

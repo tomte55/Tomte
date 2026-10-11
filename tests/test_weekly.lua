@@ -6,21 +6,8 @@ assert(loadfile("Tomte/Data/WarWithin/Weekly.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Data/Midnight/Weekly.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Weekly/Model.lua"))("Tomte", ns)
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, eq = H.test, H.eq
 
 local WEEK = 7 * 86400
 local NOW = 1800000000
@@ -487,6 +474,4 @@ test("home todo: open first, then done; knowledge, quests and capped crests", fu
 	eq(ns.Weekly_HomeTodo({ profs = {}, quests = {}, currencies = {} }, {})[1], nil, "empty")
 end)
 
-if failures > 0 then
-	os.exit(1)
-end
+H.done()

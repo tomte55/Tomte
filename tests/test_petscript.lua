@@ -3,21 +3,8 @@ local ns = {}
 assert(loadfile("Tomte/Modules/Pets/Data.lua"))("Tomte", ns) -- ns.PETS_MAX_LEVEL
 assert(loadfile("Tomte/Modules/Pets/Script.lua"))("Tomte", ns)
 
-local failures = 0
-local function test(name, fn)
-	local ok, err = pcall(fn)
-	if ok then
-		print("ok   " .. name)
-	else
-		failures = failures + 1
-		print("FAIL " .. name .. ": " .. tostring(err))
-	end
-end
-local function eq(actual, expected, label)
-	if actual ~= expected then
-		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
-	end
-end
+local H = dofile("Tomte/tests/harness.lua")
+local test, eq = H.test, H.eq
 
 -- A battle as plain tables, and the api the interpreter reads it through (Battle.lua gives the live one).
 local MODS = { ["8:5"] = 1.5, ["8:3"] = 2 / 3 } -- Beast is strong vs Critter, weak vs Flying
@@ -426,7 +413,4 @@ test("a full script plays turn by turn", function()
 	eq(Next(SCRIPT, b), "change 3")
 end)
 
-if failures > 0 then
-	print(failures .. " failed")
-	os.exit(1)
-end
+H.done()
