@@ -10,10 +10,11 @@ local db
 local gossipAt = -math.huge
 local lastKey -- the POI already handled, so a repeat event doesn't ask again
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+-- The module's event bus (Router.lua and Waypoint.lua share it). Guard loads first, so it runs before Router and
+-- Waypoint on shared events; that is harmless because Router defers every shared event by a frame.
+local events = ns.NewEvents()
+ns.Way_Events = events
+local OWNER = "guard"
 
 -- The POI on the player's map, or on a parent map up to zone level (directions can point out of a sub-map).
 local function FindPoi()
@@ -43,7 +44,7 @@ local function Place(mapID, info)
 	end)
 end
 
-function events:DYNAMIC_GOSSIP_POI_UPDATED()
+events:On(OWNER, "DYNAMIC_GOSSIP_POI_UPDATED", function()
 	local mapID, poiID, info = FindPoi()
 	if not mapID then
 		lastKey = nil
@@ -64,21 +65,22 @@ function events:DYNAMIC_GOSSIP_POI_UPDATED()
 			end
 		end
 	end
-end
+end)
 
-function events:GOSSIP_SHOW()
+local function GossipOpened()
 	gossipAt = GetTime()
 end
-events.GOSSIP_CLOSED = events.GOSSIP_SHOW
+events:On(OWNER, "GOSSIP_SHOW", GossipOpened)
+events:On(OWNER, "GOSSIP_CLOSED", GossipOpened)
 
 function ns.WayGuard_Toggle(active, saved)
 	db = saved
 	if active then
-		events:RegisterEvent("DYNAMIC_GOSSIP_POI_UPDATED")
-		events:RegisterEvent("GOSSIP_SHOW")
-		events:RegisterEvent("GOSSIP_CLOSED")
+		events:Watch(OWNER, "DYNAMIC_GOSSIP_POI_UPDATED")
+		events:Watch(OWNER, "GOSSIP_SHOW")
+		events:Watch(OWNER, "GOSSIP_CLOSED")
 	else
-		events:UnregisterAllEvents()
+		events:UnwatchAll(OWNER)
 		lastKey = nil
 	end
 end

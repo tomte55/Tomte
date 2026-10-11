@@ -20,10 +20,8 @@ local reached -- the step node the game said you reached (NAVIGATION_DESTINATION
 local NET = { nodes = ns.WAY_NET_NODES, edges = ns.WAY_NET_EDGES, volumes = ns.WAY_NET_VOLUMES,
 	conds = ns.WAY_NET_CONDS }
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.Way_Events
+local OWNER = "router"
 local ticker = CreateFrame("Frame")
 ticker:Hide()
 
@@ -340,12 +338,12 @@ local function CheckSoon()
 	end)
 end
 
-events.USER_WAYPOINT_UPDATED = CheckSoon
-events.SUPER_TRACKING_CHANGED = CheckSoon
-events.ZONE_CHANGED_NEW_AREA = CheckSoon
+events:On(OWNER, "USER_WAYPOINT_UPDATED", CheckSoon)
+events:On(OWNER, "SUPER_TRACKING_CHANGED", CheckSoon)
+events:On(OWNER, "ZONE_CHANGED_NEW_AREA", CheckSoon)
 
 local resumed
-function events:PLAYER_ENTERING_WORLD()
+events:On(OWNER, "PLAYER_ENTERING_WORLD", function()
 	if not resumed then
 		resumed = true
 		-- Next frame, like CheckSoon (presumably so the game's own login handling runs first; not measured).
@@ -358,13 +356,13 @@ function events:PLAYER_ENTERING_WORLD()
 		return
 	end
 	CheckSoon()
-end
+end)
 
 -- Blizzard stops tracking a map pin you reach (its radius can be wider than WAY_ROUTE_AT, so reaching it counts as
 -- standing at the step). A step with the next one on this map moves on (and that one is tracked); at a portal
 -- tracking stays off until you've taken it, so the two don't fight over it.
 -- Only when you're near the step itself: a quest destination reached mid-route mustn't skip a step.
-function events:NAVIGATION_DESTINATION_REACHED()
+events:On(OWNER, "NAVIGATION_DESTINATION_REACHED", function()
 	local node = route and route.legNode and NET.nodes[route.legNode]
 	local pos = node and PlayerPoint()
 	if pos and pos.map == node[1] then
@@ -375,7 +373,7 @@ function events:NAVIGATION_DESTINATION_REACHED()
 		end
 	end
 	CheckSoon()
-end
+end)
 
 local elapsed = 0
 ticker:SetScript("OnUpdate", function(_, dt)
@@ -421,7 +419,7 @@ function ns.WayRouter_Toggle(on, saved)
 	if on then
 		for _, event in ipairs({ "USER_WAYPOINT_UPDATED", "SUPER_TRACKING_CHANGED", "ZONE_CHANGED_NEW_AREA",
 			"PLAYER_ENTERING_WORLD", "NAVIGATION_DESTINATION_REACHED" }) do
-			events:RegisterEvent(event)
+			events:Watch(OWNER, event)
 		end
 		if IsLoggedIn() then
 			resumed = true
@@ -429,7 +427,7 @@ function ns.WayRouter_Toggle(on, saved)
 			CheckSoon()
 		end
 	else
-		events:UnregisterAllEvents()
+		events:UnwatchAll(OWNER)
 		if route then
 			Finish(false)
 		end

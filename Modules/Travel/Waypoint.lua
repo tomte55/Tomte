@@ -28,10 +28,8 @@ local alpha, alphaGoal = 0, 1
 local loadedAt = 0
 local hooked
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.Way_Events
+local OWNER = "way"
 local ticker = CreateFrame("Frame")
 ticker:Hide()
 
@@ -141,30 +139,30 @@ local function MarkDirty()
 end
 
 ns.Way_TargetChanged = MarkDirty
-events.SUPER_TRACKING_CHANGED = MarkDirty
-events.SUPER_TRACKING_PATH_UPDATED = MarkDirty
-events.QUEST_LOG_UPDATE = MarkDirty
-events.ZONE_CHANGED = MarkDirty
-events.ZONE_CHANGED_NEW_AREA = MarkDirty
-events.ZONE_CHANGED_INDOORS = MarkDirty
+events:On(OWNER, "SUPER_TRACKING_CHANGED", MarkDirty)
+events:On(OWNER, "SUPER_TRACKING_PATH_UPDATED", MarkDirty)
+events:On(OWNER, "QUEST_LOG_UPDATE", MarkDirty)
+events:On(OWNER, "ZONE_CHANGED", MarkDirty)
+events:On(OWNER, "ZONE_CHANGED_NEW_AREA", MarkDirty)
+events:On(OWNER, "ZONE_CHANGED_INDOORS", MarkDirty)
 
-function events:NAVIGATION_FRAME_CREATED()
+events:On(OWNER, "NAVIGATION_FRAME_CREATED", function()
 	Start()
-end
+end)
 
-function events:NAVIGATION_FRAME_DESTROYED()
+events:On(OWNER, "NAVIGATION_FRAME_DESTROYED", function()
 	navFrame = nil
 	ticker:Hide()
 	ns.WayMarker_Hide()
-end
+end)
 
-function events:PLAYER_ENTERING_WORLD()
+events:On(OWNER, "PLAYER_ENTERING_WORLD", function()
 	loadedAt = GetTime()
 	Start()
-end
+end)
 
 -- A new map pin gets tracked right away (next frame, after the map's own handling), like WaypointUI.
-function events:USER_WAYPOINT_UPDATED()
+events:On(OWNER, "USER_WAYPOINT_UPDATED", function()
 	targetDirty = true
 	if db.autoTrack and C_Map.HasUserWaypoint() and GetTime() - loadedAt > LOADING_GRACE then
 		C_Timer.After(0, function()
@@ -175,17 +173,18 @@ function events:USER_WAYPOINT_UPDATED()
 			end)
 		end)
 	end
-end
+end)
 
 local function ApplyLook()
 	ns.WayMarker_Apply(db)
 	targetDirty = true
 end
 
-function events:UI_SCALE_CHANGED()
+local function ScaleChanged()
 	ApplyLook()
 end
-events.DISPLAY_SIZE_CHANGED = events.UI_SCALE_CHANGED
+events:On(OWNER, "UI_SCALE_CHANGED", ScaleChanged)
+events:On(OWNER, "DISPLAY_SIZE_CHANGED", ScaleChanged)
 
 -- Commands -------------------------------------------------------------------------------------------------
 
@@ -248,21 +247,21 @@ end
 -- module doesn't take a command name). TomTom loads after Tomte, so the check waits for PLAYER_LOGIN. A slash command
 -- can't be taken back, so turning Waypoints off later leaves /way saying it's off. /tomte way <x> <y> always works.
 local wayClaimed, waitingForLogin
-local function ClaimWay()
+local ClaimWay
+events:On("login", "PLAYER_LOGIN", function()
+	events:Unwatch("login", "PLAYER_LOGIN")
+	waitingForLogin = false
+	if module.active then
+		ClaimWay()
+	end
+end)
+function ClaimWay()
 	if wayClaimed or waitingForLogin then
 		return
 	end
 	if not IsLoggedIn() then
 		waitingForLogin = true
-		local login = CreateFrame("Frame")
-		login:RegisterEvent("PLAYER_LOGIN")
-		login:SetScript("OnEvent", function(self)
-			self:UnregisterAllEvents()
-			waitingForLogin = false
-			if module.active then
-				ClaimWay()
-			end
-		end)
+		events:Watch("login", "PLAYER_LOGIN")
 		return
 	end
 	wayClaimed = true
@@ -346,7 +345,7 @@ module = ns.RegisterModule({
 			HookBlizzard()
 			ApplyLook()
 			for _, event in ipairs(EVENTS) do
-				events:RegisterEvent(event)
+				events:Watch(OWNER, event)
 			end
 			HideBlizzard()
 			Start()
@@ -356,7 +355,7 @@ module = ns.RegisterModule({
 		else
 			ns.WayGuard_Toggle(false, db)
 			ns.WayRouter_Toggle(false, db)
-			events:UnregisterAllEvents()
+			events:UnwatchAll(OWNER)
 			ticker:Hide()
 			ns.WayMarker_Hide()
 			navFrame, target = nil, nil
