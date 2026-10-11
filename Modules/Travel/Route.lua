@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 -- Waypoints, portal routes, pure logic: no WoW API calls (unit-tested with plain Lua). Unlock conditions, the
--- shortest way through Blizzard's waypoint network (Network.lua) from where you stand to a spot on another continent,
+-- shortest way through Blizzard's waypoint network (Network*.lua) from where you stand to a spot on another continent,
 -- and which step to point at. Points are { map = instance ID, x, y } in world yards, the same space as the network.
 -- Router.lua does the WoW side.
 
@@ -126,7 +126,7 @@ end
 
 -- Graph ----------------------------------------------------------------------------------------------------
 
--- net: { nodes, edges, volumes, conds } (Network.lua). Node fields: 1 map, 2 x, 3 y, 4 type, 5 volume, 6 condition,
+-- net: { nodes, edges, volumes, conds } (Network*.lua). Node fields: 1 map, 2 x, 3 y, 4 type, 5 volume, 6 condition,
 -- 7 name. A node in an interior volume (bounds false, like the Wizard's Sanctum) is only reached through its edges
 -- or from inside the same interior.
 local function Interior(net, node)

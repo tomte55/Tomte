@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Waypoints: routes to map pins on another continent. The game routes quests through portals, but not map pins:
 -- a pin on another continent gets no navigation at all. When the tracked map pin is on another map (instance), the
--- route through Blizzard's waypoint network (Network.lua, Route.lua) is walked one step at a time: the map pin moves
+-- route through Blizzard's waypoint network (Network*.lua, Route.lua) is walked one step at a time: the map pin moves
 -- to the next step (a portal, a zeppelin, a doorway) and is tracked, and once you're on the pin's continent your own
 -- pin comes back. The real pin is saved per character (db.routes) so a /reload mid-route keeps it.
 

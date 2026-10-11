@@ -1,6 +1,8 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_route.lua
 local ns = {}
-assert(loadfile("Tomte/Modules/Travel/Network.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Modules/Travel/NetworkNodes.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Modules/Travel/NetworkEdges.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Modules/Travel/NetworkConds.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Travel/Route.lua"))("Tomte", ns)
 
 local failures = 0

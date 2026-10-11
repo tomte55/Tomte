@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Waypoints module: replaces WaypointUI. Follows Blizzard's navigation frame (C_Navigation.GetFrame) with our own
 -- marker, close-up card and edge arrow, hides Blizzard's SuperTrackedFrame while on, and super-tracks map pins as
 -- soon as they're placed. Pure logic is in Data.lua, target info in Target.lua, frames in Marker.lua, guard
--- directions in Guard.lua, portal routes to other continents in Router.lua (Route.lua, Network.lua).
+-- directions in Guard.lua, portal routes to other continents in Router.lua (Route.lua, Network*.lua).
 -- The update frame only runs while a navigation frame exists.
 
 local TICK = 0.1 -- seconds between distance/state/text updates (position updates every frame)
