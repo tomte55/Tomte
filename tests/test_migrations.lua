@@ -1,0 +1,81 @@
+-- Run from the AddOns folder: lua Tomte/tests/test_migrations.lua
+local ns = { errorHandler = function(err) print("migration error: " .. tostring(err)) end }
+assert(loadfile("Tomte/Core/Modules.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Core/Setup.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Core/SessionData.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Modules/Moments/Data.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Core/Migrations.lua"))("Tomte", ns)
+
+local failures = 0
+local function test(name, fn)
+	local ok, err = pcall(fn)
+	if ok then
+		print("ok   " .. name)
+	else
+		failures = failures + 1
+		print("FAIL " .. name .. ": " .. tostring(err))
+	end
+end
+local function eq(actual, expected, label)
+	if actual ~= expected then
+		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
+	end
+end
+
+test("an empty db runs every migration without error", function()
+	local db = {}
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.schema, #ns.MIGRATIONS)
+end)
+test("the AFK module's old session moves to db.session", function()
+	local db = { schema = 3, afk = { session = { start = 5 } } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.session.start, 5)
+	eq(db.afk.session, nil)
+end)
+test("NextUp: old default column becomes characters, the flag goes", function()
+	local db = { schema = 3, next = { placement = "column" } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.next.placement, "characters")
+	eq(db.next.placedUnderChars, nil)
+end)
+test("NextUp: a column picked after the old fix stays", function()
+	local db = { schema = 3, next = { placement = "column", placedUnderChars = true } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.next.placement, "column")
+	eq(db.next.placedUnderChars, nil)
+end)
+test("Waypoints: the old 325 card distance becomes 110, others stay", function()
+	local db = { schema = 3, way = { cardDistance = 325 } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.way.cardDistance, 110)
+	local db2 = { schema = 3, way = { cardDistance = 200 } }
+	ns.RunMigrations(db2, ns.MIGRATIONS)
+	eq(db2.way.cardDistance, 200)
+end)
+test("Almost Done: a cache with records lacking topID is dropped, a current one kept", function()
+	local db = { schema = 3, ach = { cache = {
+		old = { records = { { id = 1, category = 92 } } },
+		new = { records = { { id = 2, category = 92, topID = 92 } } },
+	} } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.ach.cache.old, nil)
+	eq(db.ach.cache.new.records[1].topID, 92)
+end)
+test("Flight: paces without a flight count get one", function()
+	local db = { schema = 3, flight = { paces = { [12] = { seconds = 1000, distance = 10 } } } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.flight.paces[12].flights, 9)
+	eq(db.flight.paces[12].seconds, 1000)
+end)
+test("migrations don't run twice", function()
+	local db = { schema = #ns.MIGRATIONS, way = { cardDistance = 325 } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.way.cardDistance, 325)
+end)
+
+if failures > 0 then
+	print(failures .. " failed")
+	os.exit(1)
+end
+print("all passed")

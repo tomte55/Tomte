@@ -148,13 +148,7 @@ function ns.RecordPace(db, route, duration)
 	local pace = db.paces[route.mapID] or { seconds = 0, distance = 0, flights = 0 }
 	db.paces[route.mapID] = pace
 	local flights = pace.flights
-	if not flights then
-		-- Saved before the window existed (lifetime totals): keep the old pace, but only as much of it as
-		-- PACE_WINDOW - 1 flights of this length, so the new flight starts pulling it right away.
-		local scale = (PACE_WINDOW - 1) * distance / pace.distance
-		pace.seconds, pace.distance = pace.seconds * scale, pace.distance * scale
-		flights = PACE_WINDOW - 1
-	elseif flights >= PACE_WINDOW then
+	if flights >= PACE_WINDOW then
 		local keep = (PACE_WINDOW - 1) / PACE_WINDOW
 		pace.seconds, pace.distance = pace.seconds * keep, pace.distance * keep
 		flights = PACE_WINDOW - 1

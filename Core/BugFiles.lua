@@ -12,6 +12,7 @@ ns.BUG_FILES = {
 	"Themes/Emerald.lua",
 	"Themes/Void.lua",
 	"Core/Format.lua",
+	"Core/Migrations.lua",
 	"Core/Core.lua",
 	"Core/Modules.lua",
 	"Core/Setup.lua",

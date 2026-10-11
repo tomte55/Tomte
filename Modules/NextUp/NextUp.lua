@@ -223,13 +223,6 @@ module = ns.RegisterModule({
 	home = { Section },
 	init = function(saved)
 		db = saved
-		-- One-time move from the old default placement ("column") to "characters"; placedUnderChars marks it done.
-		if not db.placedUnderChars then
-			db.placedUnderChars = true
-			if db.placement == "column" then
-				db.placement = "characters"
-			end
-		end
 		-- Every module file has loaded by now, so every source is registered; fill in what's new.
 		for _, entry in ipairs(Sources()) do
 			if db.sources[entry.key] == nil then

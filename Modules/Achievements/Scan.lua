@@ -491,10 +491,6 @@ function ns.Ach_LoadCache()
 	wipe(records)
 	wipe(watch)
 	for _, record in ipairs(entry.records or {}) do
-		-- Caches saved by older versions may lack topID.
-		if not record.topID and record.category then
-			record.topID = CategoryInfo(record.category).topID
-		end
 		records[record.id] = record
 		watch[record.id] = true
 	end

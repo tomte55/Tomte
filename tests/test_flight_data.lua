@@ -438,13 +438,13 @@ test("RecordPace fades out flights older than the window", function()
 	eq(db.paces[5].flights, 10, "window stays full")
 end)
 
-test("RecordPace shrinks pace data saved without a flight count to one window", function()
+test("RecordPace on a migrated pace (9 flights, Core/Migrations.lua) adds the new flight to the totals", function()
 	local db = ns.Flight_InitDB(nil)
-	db.paces[5] = { seconds = 10000, distance = 100 } -- lifetime totals (pace 100) from before the window
+	db.paces[5] = { seconds = 1000, distance = 10, flights = 9 }
 	ns.RecordPace(db, paceRoute(), 80)
-	-- The old pace counts as 9 flights' worth of this flight's distance (1), then the new flight is added.
-	near(db.paces[5].seconds, 980, "seconds")
-	near(db.paces[5].distance, 10, "distance")
+	near(db.paces[5].seconds, 1080, "seconds")
+	near(db.paces[5].distance, 11, "distance")
+	near(db.paces[5].seconds / db.paces[5].distance, 1080 / 11, "ratio")
 	eq(db.paces[5].flights, 10, "flights")
 end)
 

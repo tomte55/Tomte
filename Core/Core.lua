@@ -24,28 +24,6 @@ local CORE_DEFAULTS = {
 	-- profileBackup = { at, text }: settings from before the last import (Panel/Share.lua), no default
 }
 
--- Settings migrations, in order, each run once per SavedVariables (TomteDB.schema, Modules.lua RunMigrations).
--- Only add to the end. Some modules still migrate their own keys on init: Session_Migrate (SessionData.lua),
--- Gear_MigrateHinted (Gear) and NextUp's placedUnderChars.
-local MIGRATIONS = {
-	-- 1: keys of removed features: the old panel's category filter, the old FlightTimer hand-over flag.
-	function(db)
-		if type(db.panel) == "table" then
-			db.panel.category = nil
-		end
-		db.flightImported = nil
-	end,
-	-- 2: the first-run picker (1.5): saved variables from before it are an existing user's. No picker and no
-	-- message for them; a fresh install was marked "pending" before the migrations ran.
-	function(db)
-		ns.Setup_Migrate(db)
-	end,
-	-- 3: Moments' "Cinematics only at max level" checkbox became the per-moment "Cinematic at max level" style.
-	function(db)
-		ns.Moments_MigrateAtMax(db.moments)
-	end,
-}
-
 -- Settings back to defaults, keeping collected data (Modules.lua). The caller reloads the UI: modules keep
 -- state in closures.
 function ns.ResetAll()
@@ -143,7 +121,7 @@ function f:ADDON_LOADED(name)
 	end
 	-- First, before anything draws: the theme picked in Settings (Panel/Window.lua).
 	ns.Theme.Apply(type(db.window) == "table" and db.window.theme or nil)
-	ns.RunMigrations(db, MIGRATIONS)
+	ns.RunMigrations(db, ns.MIGRATIONS)
 	TomteDB = ns.MergeDefaults(CORE_DEFAULTS, db)
 	ns.db = TomteDB
 	ns.Session_Init(TomteDB) -- before the modules: their world handlers read the session

@@ -22,7 +22,7 @@ function ns.MergeDefaults(src, dst)
 	return dst
 end
 
--- Settings schema: db.schema = how many of the ordered migrations (Core.lua) have run on these saved variables.
+-- Settings schema: db.schema = how many of the ordered migrations (Migrations.lua) have run on these saved variables.
 -- Each runs once, in order, before defaults are merged; a fresh install runs them all on an empty table, so a
 -- migration must cope with missing keys. One that errors stops the run (reported, retried next login).
 function ns.RunMigrations(db, migrations)

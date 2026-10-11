@@ -137,7 +137,6 @@ end
 -- From Core on ADDON_LOADED, before the modules start.
 function ns.Session_Init(saved)
 	db = saved
-	ns.Session_Migrate(db)
 	db.sessionLast = db.sessionLast or {}
 	for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "PLAYER_MONEY", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_LOGOUT",
 		"ZONE_CHANGED_NEW_AREA", "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "ACCOUNT_MONEY" }) do

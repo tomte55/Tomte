@@ -335,10 +335,6 @@ module = ns.RegisterModule({
 	},
 	init = function(saved)
 		db = saved
-		-- 325 yards is an old default that put the card too far out: a saved 325 becomes today's default.
-		if db.cardDistance == 325 then
-			db.cardDistance = 110
-		end
 	end,
 	blocked = function()
 		if C_AddOns.IsAddOnLoaded("WaypointUI") then
