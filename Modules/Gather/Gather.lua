@@ -16,9 +16,7 @@ events:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
 end)
 
-local function Money(copper)
-	return ns.Alts_Gold(copper)
-end
+local Money = ns.Gold
 ns.Gather_Money = Money
 
 local function Duration(seconds)

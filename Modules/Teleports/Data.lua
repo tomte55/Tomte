@@ -211,11 +211,5 @@ end
 
 -- "1:23:45", "12:34" or "45s" for a cooldown in seconds.
 function ns.Tp_FormatCooldown(seconds)
-	seconds = math.ceil(seconds)
-	if seconds >= 3600 then
-		return ("%d:%02d:%02d"):format(math.floor(seconds / 3600), math.floor(seconds % 3600 / 60), seconds % 60)
-	elseif seconds >= 60 then
-		return ("%d:%02d"):format(math.floor(seconds / 60), seconds % 60)
-	end
-	return seconds .. "s"
+	return ns.Clock(math.ceil(seconds))
 end

@@ -1,0 +1,90 @@
+-- Run from the AddOns folder: lua Tomte/tests/test_format.lua
+local ns = {}
+assert(loadfile("Tomte/Core/Format.lua"))("Tomte", ns)
+
+local failures = 0
+local function test(name, fn)
+	local ok, err = pcall(fn)
+	if ok then
+		print("ok   " .. name)
+	else
+		failures = failures + 1
+		print("FAIL " .. name .. ": " .. tostring(err))
+	end
+end
+local function eq(actual, expected, label)
+	if actual ~= expected then
+		error((label or "value") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2)
+	end
+end
+
+test("Thousands groups digits and floors", function()
+	eq(ns.Thousands(0), "0")
+	eq(ns.Thousands(nil), "0")
+	eq(ns.Thousands(999), "999")
+	eq(ns.Thousands(1000), "1,000")
+	eq(ns.Thousands(1234567), "1,234,567")
+	eq(ns.Thousands(1234.9), "1,234")
+end)
+test("Thousands keeps the minus sign outside the groups", function()
+	eq(ns.Thousands(-123), "-123")
+	eq(ns.Thousands(-1234), "-1,234")
+end)
+test("Gold is whole gold with a g", function()
+	eq(ns.Gold(1230000000), "123,000g")
+	eq(ns.Gold(1230050000), "123,005g")
+	eq(ns.Gold(nil), "0g")
+	eq(ns.Gold(9999), "0g")
+end)
+test("Price falls back to silver and copper", function()
+	eq(ns.Price(120000), "12g")
+	eq(ns.Price(123456), "12g")
+	eq(ns.Price(4500), "45s")
+	eq(ns.Price(80), "80c")
+	eq(ns.Price(nil), "0c")
+end)
+test("SignedGold", function()
+	eq(ns.SignedGold(nil), "")
+	eq(ns.SignedGold(0), "+0g")
+	eq(ns.SignedGold(-25000000), "-2,500g")
+	eq(ns.SignedGold(25000000), "+2,500g")
+end)
+test("Coins matches the AFK money text", function()
+	local icons = { gold = "%sg", silver = "%ss", copper = "%sc" }
+	eq(ns.Coins(500002312, false, icons), "50,000g")
+	eq(ns.Coins(12345678, false, icons), "1,234g")
+	eq(ns.Coins(9990000, false, icons), "999g")
+	eq(ns.Coins(5612, false, icons), "56s 12c")
+	eq(ns.Coins(5600, false, icons), "56s")
+	eq(ns.Coins(7, false, icons), "7c")
+	eq(ns.Coins(0, false, icons), "0c")
+	eq(ns.Coins(12345678, true, icons), "1,234g 56s")
+	eq(ns.Coins(12340078, true, icons), "1,234g")
+	eq(ns.Coins(1234567890, true, icons), "123,456g 78s")
+	eq(ns.Coins(5612, true, icons), "56s 12c")
+end)
+test("Ago", function()
+	eq(ns.Ago(0), "now")
+	eq(ns.Ago(nil), "now")
+	eq(ns.Ago(-5), "now")
+	eq(ns.Ago(10), "now")
+	eq(ns.Ago(300), "5m")
+	eq(ns.Ago(7200), "2h")
+	eq(ns.Ago(172800), "2d")
+	eq(ns.Ago(200000), "2d")
+end)
+test("Clock", function()
+	eq(ns.Clock(0), "0s")
+	eq(ns.Clock(59), "59s")
+	eq(ns.Clock(61), "1:01")
+	eq(ns.Clock(185), "3:05")
+	eq(ns.Clock(754), "12:34")
+	eq(ns.Clock(3601), "1:00:01")
+	eq(ns.Clock(5025), "1:23:45")
+end)
+
+if failures > 0 then
+	print(failures .. " failed")
+	os.exit(1)
+end
+print("all passed")

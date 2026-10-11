@@ -9,15 +9,6 @@ local addonName, ns = ...
 
 local floor, min, max = math.floor, math.min, math.max
 
-local function Thousands(n)
-	local text = tostring(floor(n or 0))
-	local replaced
-	repeat
-		text, replaced = text:gsub("^(%d+)(%d%d%d)", "%1,%2")
-	until replaced == 0
-	return text
-end
-
 local function Maxed(rec)
 	if rec.renown then
 		return rec.max ~= nil and (rec.level or 0) >= rec.max
@@ -69,7 +60,7 @@ function ns.Weekly_FactionDetail(rec)
 		elseif Maxed(rec) then
 			d.line2 = "Max rank"
 		else
-			d.line2 = (rec.threshold or 0) > 0 and ("%s / %s"):format(Thousands(rec.earned), Thousands(rec.threshold)) or ""
+			d.line2 = (rec.threshold or 0) > 0 and ("%s / %s"):format(ns.Thousands(rec.earned), ns.Thousands(rec.threshold)) or ""
 		end
 		return d
 	end
@@ -79,12 +70,12 @@ function ns.Weekly_FactionDetail(rec)
 			d.line2 = "Paragon reward waiting"
 		elseif p and (p.threshold or 0) > 0 then
 			local _, inRound = ParagonFrac(p)
-			d.line2 = ("Paragon %s / %s"):format(Thousands(inRound), Thousands(p.threshold))
+			d.line2 = ("Paragon %s / %s"):format(ns.Thousands(inRound), ns.Thousands(p.threshold))
 		else
 			d.line2 = "Max renown"
 		end
 	else
-		d.line2 = ("%s until next level"):format(Thousands((rec.threshold or 0) - (rec.earned or 0)))
+		d.line2 = ("%s until next level"):format(ns.Thousands((rec.threshold or 0) - (rec.earned or 0)))
 	end
 	return d
 end

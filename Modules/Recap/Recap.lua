@@ -377,7 +377,7 @@ module = ns.RegisterModule({
 					return "No sessions kept yet"
 				end
 				local n = ns.Recap_HistoryNumbers(list[1])
-				return ("Last: %s, %s%s"):format(ns.Recap_Duration(n.duration), n.net < 0 and "-" or "+", ns.Alts_Gold(math.abs(n.net)))
+				return ("Last: %s, %s"):format(ns.Recap_Duration(n.duration), ns.SignedGold(n.net))
 			end },
 		{ kind = "quick", key = "lastrecap", order = 2, name = "Last session recap", open = ShowLast, shown = function()
 			return ns.Session_Last(UnitGUID("player")) ~= nil

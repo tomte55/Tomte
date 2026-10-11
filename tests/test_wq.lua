@@ -1,5 +1,6 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_wq.lua
 local ns = {}
+assert(loadfile("Tomte/Core/Format.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Gear/Data.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/WorldQuests/Data.lua"))("Tomte", ns)
 

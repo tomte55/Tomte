@@ -1,5 +1,6 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_afk.lua
 local ns = {}
+assert(loadfile("Tomte/Core/Format.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/AFK/Data.lua"))("Tomte", ns)
 
 local failures = 0

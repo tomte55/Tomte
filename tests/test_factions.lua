@@ -1,5 +1,6 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_factions.lua
 local ns = {}
+assert(loadfile("Tomte/Core/Format.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Core/Content.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Data/WarWithin/Weekly.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Data/Midnight/Weekly.lua"))("Tomte", ns)

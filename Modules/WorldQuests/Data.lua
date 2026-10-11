@@ -42,18 +42,11 @@ local VERDICT_FIXED = {
 
 -- Formatting -----------------------------------------------------------------------------------------------------
 
-local function Thousands(n)
-	local s = tostring(n)
-	local out = s:reverse():gsub("(%d%d%d)", "%1,"):reverse()
-	return (out:gsub("^,", ""))
-end
-
 function ns.WQ_FormatGold(copper)
-	local gold = floor((copper or 0) / COPPER_PER_GOLD)
-	if gold < 1 then
+	if floor((copper or 0) / COPPER_PER_GOLD) < 1 then
 		return "<1g"
 	end
-	return Thousands(gold) .. "g"
+	return ns.Gold(copper)
 end
 
 -- text, tier ("critical" | "low" | "normal"), or nil when the game gives no time.

@@ -243,9 +243,7 @@ local function ModuleOn(key)
 	return module ~= nil and module.active
 end
 
-local function Signed(copper)
-	return (copper < 0 and "-" or "+") .. ns.Alts_Gold(math.abs(copper))
-end
+local Signed = ns.SignedGold
 
 local function TipPair(tip, left, right, role)
 	local lr, lg, lb = UI.Color("textMuted")

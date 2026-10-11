@@ -186,17 +186,8 @@ function ns.Social_FindMention(text, words)
 	return nil
 end
 
--- "now", "5m", "3h", "2d".
-function ns.Social_Ago(seconds)
-	if seconds < 60 then
-		return "now"
-	elseif seconds < 3600 then
-		return ("%dm"):format(math.floor(seconds / 60))
-	elseif seconds < 86400 then
-		return ("%dh"):format(math.floor(seconds / 3600))
-	end
-	return ("%dd"):format(math.floor(seconds / 86400))
-end
+-- "now", "5m", "3h", "2d" (Core/Format.lua).
+ns.Social_Ago = ns.Ago
 
 -- Toasts held back while busy -> one digest: { count, names } where names are distinct, in arrival order.
 function ns.Social_Digest(held)

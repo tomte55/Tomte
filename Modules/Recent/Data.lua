@@ -95,18 +95,8 @@ function ns.Recent_Unseen(visible, seenAt)
 	return n
 end
 
--- "now", "5m", "2h", "3d"
-function ns.Recent_Ago(seconds)
-	seconds = math.max(seconds or 0, 0)
-	if seconds < 60 then
-		return "now"
-	elseif seconds < 3600 then
-		return math.floor(seconds / 60) .. "m"
-	elseif seconds < 86400 then
-		return math.floor(seconds / 3600) .. "h"
-	end
-	return math.floor(seconds / 86400) .. "d"
-end
+-- "now", "5m", "2h", "3d" (Core/Format.lua).
+ns.Recent_Ago = ns.Ago
 
 -- Group label for a row: "Today" when it's from the same calendar day as now (dayOf(t) gives a day number), else
 -- "Earlier".

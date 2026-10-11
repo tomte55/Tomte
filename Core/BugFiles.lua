@@ -11,6 +11,7 @@ ns.BUG_FILES = {
 	"Themes/Forge.lua",
 	"Themes/Emerald.lua",
 	"Themes/Void.lua",
+	"Core/Format.lua",
 	"Core/Core.lua",
 	"Core/Modules.lua",
 	"Core/Setup.lua",

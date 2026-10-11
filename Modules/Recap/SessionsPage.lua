@@ -31,12 +31,7 @@ local function SetColor(fs, c)
 	fs:SetTextColor(UI.RGBA(c))
 end
 
-local function Signed(copper)
-	if not copper then
-		return ""
-	end
-	return (copper < 0 and "-" or "+") .. ns.Alts_Gold(math.abs(copper))
-end
+local Signed = ns.SignedGold
 
 local function ClassColor(class)
 	local c = class and C_ClassColor.GetClassColor(class)

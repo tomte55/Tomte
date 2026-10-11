@@ -45,13 +45,6 @@ function ns.Way_ApplyStyle(db, style)
 	return true
 end
 
--- 1234567 -> "1,234,567"
-local function Thousands(n)
-	local s = tostring(n)
-	local headLength = (#s - 1) % 3 + 1
-	return s:sub(1, headLength) .. s:sub(headLength + 1):gsub("%d%d%d", ",%0")
-end
-
 -- "1,240 yd", "850 m", "1.4 km". nil for a missing distance.
 function ns.Way_FormatDistance(yards, metric)
 	if not yards then
@@ -64,7 +57,7 @@ function ns.Way_FormatDistance(yards, metric)
 		end
 		return m .. " m"
 	end
-	return Thousands(math.floor(yards + 0.5)) .. " yd"
+	return ns.Thousands(math.floor(yards + 0.5)) .. " yd"
 end
 
 -- Slider labels: a yard setting shown in the user's unit, rounded to 5.
@@ -80,15 +73,7 @@ function ns.Way_FormatArrival(seconds)
 	if not seconds or seconds < 0 then
 		return nil
 	end
-	seconds = math.floor(seconds + 0.5)
-	if seconds < 60 then
-		return seconds .. "s"
-	end
-	local h, m, s = math.floor(seconds / 3600), math.floor(seconds % 3600 / 60), seconds % 60
-	if h > 0 then
-		return ("%d:%02d:%02d"):format(h, m, s)
-	end
-	return ("%d:%02d"):format(m, s)
+	return ns.Clock(math.floor(seconds + 0.5))
 end
 
 -- Arrival estimate from how fast the distance shrinks: an exponential moving average of the closing speed.

@@ -465,30 +465,9 @@ end
 
 -- Roster ------------------------------------------------------------------------------------------------------
 
--- "12,345g" (gold only; copper in, rounded down).
-function ns.Alts_Gold(copper)
-	local gold = floor((copper or 0) / 10000)
-	local text = tostring(gold)
-	while true do
-		local replaced
-		text, replaced = text:gsub("^(%d+)(%d%d%d)", "%1,%2")
-		if replaced == 0 then
-			break
-		end
-	end
-	return text .. "g"
-end
-
--- A price: "12g" from a gold up, else "45s" or "80c" (so a cheap reagent isn't "0g").
-function ns.Alts_Price(copper)
-	copper = floor(copper or 0)
-	if copper >= 10000 then
-		return ns.Alts_Gold(copper)
-	elseif copper >= 100 then
-		return floor(copper / 100) .. "s"
-	end
-	return copper .. "c"
-end
+-- Money text lives in Core/Format.lua; these names stay for the callers.
+ns.Alts_Gold = ns.Gold
+ns.Alts_Price = ns.Price
 
 -- "now" / "5 min" / "3 h" / "2 days" / "3 weeks"
 function ns.Alts_Ago(seconds)

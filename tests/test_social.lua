@@ -1,5 +1,6 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_social.lua
 local ns = {}
+assert(loadfile("Tomte/Core/Format.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Social/Data.lua"))("Tomte", ns)
 
 local failures = 0
