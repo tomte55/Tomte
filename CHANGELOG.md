@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.6.0 - 2026-10-11
+
 - Pet Battles: the tamer card (and its Heal button) stays visible when DialogueUI or a similar addon hides the UI
   while you talk to a tamer. Its "No strategy saved" hint no longer gets cut off.
 - Pet Battles: Guides is a new window with a Copy button per link and a line saying what each one is for (world
