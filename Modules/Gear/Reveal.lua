@@ -27,10 +27,7 @@ local settleUntil = 0
 local retryQueued
 local equipping -- { guid, name, icon, oldName, untilTime }: clicked on the toast, not worn yet
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.Gear_Events
 
 local function Secret(v)
 	return issecretvalue and issecretvalue(v)
@@ -287,12 +284,12 @@ local function NoteAll()
 	NoteWorn()
 end
 
-function events:PLAYER_ENTERING_WORLD()
+events:On("reveal", "PLAYER_ENTERING_WORLD", function()
 	settleUntil = GetTime() + SETTLE
 	NoteAll()
-end
+end)
 
-function events:BAG_UPDATE_DELAYED()
+events:On("reveal", "BAG_UPDATE_DELAYED", function()
 	if GetTime() < settleUntil then
 		NoteAll() -- bags still filling in after login
 		return
@@ -301,25 +298,25 @@ function events:BAG_UPDATE_DELAYED()
 	C_Timer.After(0, function()
 		Scan(false)
 	end)
-end
+end)
 
-function events:PLAYER_EQUIPMENT_CHANGED()
+events:On("reveal", "PLAYER_EQUIPMENT_CHANGED", function()
 	NoteWorn()
 	CheckEquipped()
-end
+end)
 
-function events:PLAYER_INTERACTION_MANAGER_FRAME_SHOW(kind)
+events:On("reveal", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", function(_, kind)
 	if BANKS[kind] then
 		banking[kind] = true
 	end
-end
+end)
 
-function events:PLAYER_INTERACTION_MANAGER_FRAME_HIDE(kind)
+events:On("reveal", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", function(_, kind)
 	if BANKS[kind] then
 		banking[kind] = nil
 		C_Timer.After(0, NoteAll) -- the last withdrawals may land after the bank closed
 	end
-end
+end)
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -345,14 +342,14 @@ function ns.GearReveal_Start(moduleDB)
 	db = moduleDB
 	for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "BAG_UPDATE_DELAYED", "PLAYER_EQUIPMENT_CHANGED",
 		"PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" }) do
-		events:RegisterEvent(event)
+		events:Watch("reveal", event)
 	end
 	settleUntil = GetTime() + SETTLE
 	NoteAll()
 end
 
 function ns.GearReveal_Stop()
-	events:UnregisterAllEvents()
+	events:UnwatchAll("reveal")
 	wipe(waiting)
 	wipe(banking)
 	equipping = nil

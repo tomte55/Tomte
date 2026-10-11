@@ -32,10 +32,8 @@ local MAYBE_ROLE = "warning" -- the tooltip's "Can't judge" color
 local MAX_ALT_LINES = 2
 
 local module, db
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.NewEvents() -- shared with Reveal.lua (owners "gear", "reveal")
+ns.Gear_Events = events
 
 local _, classToken, classID = UnitClass("player")
 
@@ -470,9 +468,9 @@ local function RereadWorn()
 	ns.GearSheet_Refresh()
 end
 
-function events:PLAYER_EQUIPMENT_CHANGED()
+events:On("gear", "PLAYER_EQUIPMENT_CHANGED", function()
 	RereadWorn()
-end
+end)
 
 -- Enchanting, socketing or upgrading worn gear changes its link: read the worn gear again, once per burst (the
 -- event also fires for new bag items).
@@ -490,7 +488,7 @@ local function WornChanged()
 	return changed
 end
 
-function events:UNIT_INVENTORY_CHANGED()
+events:On("gear", "UNIT_INVENTORY_CHANGED", function()
 	if inventoryQueued then
 		return
 	end
@@ -501,29 +499,29 @@ function events:UNIT_INVENTORY_CHANGED()
 			RereadWorn()
 		end
 	end)
-end
+end)
 
 -- Modules start on ADDON_LOADED, before the inventory has arrived: read worn gear and bags again once in the world.
-function events:PLAYER_ENTERING_WORLD()
+events:On("gear", "PLAYER_ENTERING_WORLD", function()
 	ns.GearItems_InvalidateEquipped()
 	ns.GearItems_InvalidateBags()
 	InvalidateVerdicts()
 	ns.GearSheet_Refresh()
-end
+end)
 
-function events:PLAYER_SPECIALIZATION_CHANGED(unit)
+events:On("gear", "PLAYER_SPECIALIZATION_CHANGED", function(_, unit)
 	if unit == "player" then
 		InvalidateVerdicts()
 		WeightsHint()
 		ns.GearSheet_Refresh()
 	end
-end
+end)
 
-function events:BAG_UPDATE_DELAYED()
+events:On("gear", "BAG_UPDATE_DELAYED", function()
 	ns.GearItems_InvalidateBags()
-end
+end)
 
-function events:PLAYER_LEVEL_UP(level)
+events:On("gear", "PLAYER_LEVEL_UP", function(_, level)
 	ns.GearItems_ClearCache()
 	InvalidateVerdicts()
 	ns.GearSheet_Refresh()
@@ -537,11 +535,11 @@ function events:PLAYER_LEVEL_UP(level)
 			ns.GearSheet_Refresh()
 		end
 	end)
-end
+end)
 
-function events:GET_ITEM_INFO_RECEIVED()
+events:On("gear", "GET_ITEM_INFO_RECEIVED", function()
 	ns.GearItems_InfoReceived()
-end
+end)
 
 -- Called by Items.lua once requested item data has arrived.
 ns.GearItems_OnReady = function()
@@ -806,13 +804,13 @@ ns.Gear_PrintSimSteps = PrintSimSteps
 ---------------------------------------------------------------------------------------------------------------
 
 local function Start()
-	events:RegisterEvent("PLAYER_ENTERING_WORLD")
-	events:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-	events:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-	events:RegisterEvent("PLAYER_LEVEL_UP")
-	events:RegisterEvent("GET_ITEM_INFO_RECEIVED")
-	events:RegisterEvent("BAG_UPDATE_DELAYED")
-	events:RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")
+	events:Watch("gear", "PLAYER_ENTERING_WORLD")
+	events:Watch("gear", "PLAYER_EQUIPMENT_CHANGED")
+	events:Watch("gear", "PLAYER_SPECIALIZATION_CHANGED")
+	events:Watch("gear", "PLAYER_LEVEL_UP")
+	events:Watch("gear", "GET_ITEM_INFO_RECEIVED")
+	events:Watch("gear", "BAG_UPDATE_DELAYED")
+	events:Watch("gear", "UNIT_INVENTORY_CHANGED", "player")
 	ns.GearItems_InvalidateBags()
 	if not module.tooltipHooked then
 		module.tooltipHooked = true -- post-calls can't be removed; OnItem checks module.active
@@ -833,7 +831,7 @@ local function Start()
 end
 
 local function Stop()
-	events:UnregisterAllEvents()
+	events:UnwatchAll("gear")
 	ns.GearReveal_Stop()
 	if dialog then
 		dialog:Hide()
