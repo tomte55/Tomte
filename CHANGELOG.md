@@ -5,6 +5,9 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.7.0 - 2026-10-11
+
+- Ready for patch 12.1.5: Tomte no longer uses game functions Blizzard is removing (the mailbox's postage line would have broken).
 - Gear Check: the character sheet panel's row highlight now follows your theme.
 - Smart Mount: its on-screen messages use your theme's heading color.
 - Events page: clicking an achievement in combat now waits, like Collect here ("the journal opens after combat"), instead of trying to open it.
@@ -18,7 +21,6 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - `/tomte help` lists `/tomte gather open` instead of a blank Gathering entry; `/tomte gather` still opens the page.
 - AFK screen: turning the module off right after a reload no longer leaves the camera zoomed out.
 - `/tomte mount why` no longer lists your last clicks (a leftover debugging aid).
-- Ready for patch 12.1.5: Tomte no longer uses game functions Blizzard is removing (the mailbox's postage line would have broken).
 
 ## v1.6.0 - 2026-10-11
 
