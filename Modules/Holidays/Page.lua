@@ -28,56 +28,7 @@ end
 
 local TipLine = UI.TipLine
 
--- Actions ------------------------------------------------------------------------------------------------------
-
-local function Link(e)
-	if e.kind == "mount" then
-		UI.InsertLink(e.spellID and C_MountJournal.GetMountLink(e.spellID))
-	elseif e.kind == "toy" then
-		UI.InsertLink(C_ToyBox.GetToyLink(e.id))
-	elseif e.kind == "ach" then
-		ns.Ach_Link(e.id)
-	end
-end
-
-local function OpenEntry(e)
-	if e.kind == "ach" then
-		ns.Ach_Open(e.id)
-		return
-	end
-	if InCombatLockdown() then
-		ns.Print("the journal opens after combat.")
-		return
-	end
-	if e.kind == "mount" then
-		SetCollectionsJournalShown(true, COLLECTIONS_JOURNAL_TAB_INDEX_MOUNTS)
-		if MountJournal_SelectByMountID then
-			MountJournal_SelectByMountID(e.id)
-		end
-	elseif e.kind == "pet" then
-		SetCollectionsJournalShown(true, COLLECTIONS_JOURNAL_TAB_INDEX_PETS)
-		if PetJournal and PetJournal_SelectSpecies then
-			PetJournal_SelectSpecies(PetJournal, e.id)
-		end
-	elseif e.kind == "toy" then
-		SetCollectionsJournalShown(true, COLLECTIONS_JOURNAL_TAB_INDEX_TOYS)
-	end
-end
-
-local function ModelFor(e)
-	if e.kind == "mount" then
-		local displayID, _, _, isSelfMount, _, sceneID = C_MountJournal.GetMountInfoExtraByID(e.id)
-		if not displayID then
-			local all = C_MountJournal.GetMountAllCreatureDisplayInfoByID(e.id)
-			displayID = all and all[1] and all[1].creatureDisplayID
-		end
-		return { sceneID = sceneID, displayID = displayID, selfMount = isSelfMount, name = e.name, sub = "Mount" }
-	elseif e.kind == "pet" then
-		local sceneID = C_PetJournal.GetPetModelSceneInfoBySpeciesID(e.id)
-		return { sceneID = sceneID, displayID = e.displayID, name = e.name, sub = "Battle pet" }
-	end
-	return nil
-end
+-- Tooltip ------------------------------------------------------------------------------------------------------
 
 local function EntryTooltip(row, e)
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
@@ -103,7 +54,7 @@ local function EntryTooltip(row, e)
 	end
 	GameTooltip:Show()
 	if page.preview then
-		ns.ModelPreview_Show(page.preview, ModelFor(e))
+		ns.ModelPreview_Show(page.preview, ns.Entry_Model(e))
 	end
 end
 
@@ -293,9 +244,9 @@ local function Lists(ev, y)
 					local row = Row(y, ROW_H, INDENT + 14, e.icon, e.name, "text", EntryRight(e), "textMuted", "item")
 					row.onClick = function()
 						if IsShiftKeyDown() then
-							Link(e)
+							ns.Entry_Link(e)
 						else
-							OpenEntry(e)
+							ns.Entry_Open(e)
 						end
 					end
 					row.tip = function(self)

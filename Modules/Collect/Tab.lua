@@ -19,57 +19,11 @@ local rows, used = {}, 0
 local tick = 0
 local Refresh
 
--- Actions -------------------------------------------------------------------------------------------------------
-
-local function Link(e)
-	if e.kind == "mount" then
-		UI.InsertLink(e.spellID and C_MountJournal.GetMountLink(e.spellID))
-	elseif e.kind == "ach" then
-		ns.Ach_Link(e.id)
-	end
-end
-
-local function OpenJournal(e)
-	if InCombatLockdown() then
-		ns.Print("the journal opens after combat.")
-		return
-	end
-	if e.kind == "ach" then
-		ns.Ach_Open(e.id)
-		return
-	end
-	local tabIndex = e.kind == "mount" and COLLECTIONS_JOURNAL_TAB_INDEX_MOUNTS or COLLECTIONS_JOURNAL_TAB_INDEX_PETS
-	SetCollectionsJournalShown(true, tabIndex)
-	if e.kind == "mount" and MountJournal_SelectByMountID then
-		MountJournal_SelectByMountID(e.id)
-	elseif e.kind == "pet" and PetJournal and PetJournal_SelectSpecies then
-		PetJournal_SelectSpecies(PetJournal, e.id)
-	end
-end
-
 -- Tooltip and model preview ------------------------------------------------------------------------------------------------------
-
--- The turning model next to the tooltip (Panel/ModelPreview.lua), for mounts and pets.
-local function ModelFor(e)
-	if e.kind == "mount" then
-		local displayID, _, _, isSelfMount, _, sceneID = C_MountJournal.GetMountInfoExtraByID(e.id)
-		if not displayID then
-			-- Mounts with several looks have no single display ID: use the first one.
-			local all = C_MountJournal.GetMountAllCreatureDisplayInfoByID(e.id)
-			displayID = all and all[1] and all[1].creatureDisplayID
-		end
-		return { sceneID = sceneID, displayID = displayID, selfMount = isSelfMount, name = e.name, sub = "Mount" }
-	elseif e.kind == "pet" then
-		local displayID = select(12, C_PetJournal.GetPetInfoBySpeciesID(e.id))
-		local sceneID = C_PetJournal.GetPetModelSceneInfoBySpeciesID(e.id)
-		return { sceneID = sceneID, displayID = displayID, name = e.name, sub = "Battle pet" }
-	end
-	return nil
-end
 
 local function ShowPreview(e)
 	if panel.preview then
-		ns.ModelPreview_Show(panel.preview, db.preview and ModelFor(e) or nil)
+		ns.ModelPreview_Show(panel.preview, db.preview and ns.Entry_Model(e) or nil)
 	end
 end
 
@@ -132,9 +86,9 @@ local function OnRowClick(self, button)
 	end
 	if button == "LeftButton" then
 		if IsShiftKeyDown() then
-			Link(e)
+			ns.Entry_Link(e)
 		else
-			OpenJournal(e)
+			ns.Entry_Open(e)
 		end
 	elseif button == "RightButton" and e.upNow then
 		ns.Collect_Waypoint(e.upNow, e.drop)

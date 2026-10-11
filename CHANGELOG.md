@@ -5,6 +5,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Events page: clicking an achievement in combat now waits, like Collect here ("the journal opens after combat"), instead of trying to open it.
 - Waypoints: a card distance of 325 yards no longer resets to 110 at every login.
 - The copy/paste window (settings export and import, bug report, team scripts) and Pet Battles' Guides window show
   in front of the Tomte window again instead of behind it.

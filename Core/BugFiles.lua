@@ -47,6 +47,7 @@ ns.BUG_FILES = {
 	"Panel/Setup.lua",
 	"Panel/MapTabs.lua",
 	"Panel/ModelPreview.lua",
+	"Panel/Entries.lua",
 	"Modules/Minimap/Data.lua",
 	"Modules/Minimap/Minimap.lua",
 	"Modules/Flight/Data.lua",
