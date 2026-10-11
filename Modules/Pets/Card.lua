@@ -1,8 +1,7 @@
 local addonName, ns = ...
 
 -- Pet Battles: the tamer card beside the gossip window (who this is, the team Tomte will use, whether your pets
--- are ready, Load team, guide links and the Heal button) and the guide links to copy (WoW can't open a browser), in
--- the shared text dialog (Panel/Dialog.lua).
+-- are ready, Load team, Guides and the Heal button). Guides opens the links window (Guides.lua).
 
 local UI = ns.UI
 local CARD_W = 280
@@ -15,23 +14,6 @@ local cardNPC
 
 function ns.PetsCard_Init(moduleDB)
 	db = moduleDB
-end
-
--- The guide links for an NPC, ready to copy.
-function ns.PetsCard_ShowLinks(npc)
-	local lines = {}
-	for _, e in ipairs(ns.PetsStore_Encounters(npc)) do
-		local section = ns.PetsStore_Section(e.section)
-		lines[#lines + 1] = ns.Pets_XufuURL(e.id) .. "   " .. (section and section.name or "")
-	end
-	lines[#lines + 1] = ns.Pets_WowheadURL(npc)
-	ns.Dialog_Show({
-		title = ns.PetsStore_NPCName(npc),
-		hint = "Ctrl+C copies the selected links. On Xu-Fu, a strategy's \"Rematch string\" button gives the text for Import strategy.",
-		text = table.concat(lines, "\n"),
-		readOnly = true,
-		height = 110 + #lines * 14,
-	})
 end
 
 -- Readiness text ---------------------------------------------------------------------------------------------
@@ -151,7 +133,8 @@ end
 ns.PetsCard_LoadTeam = LoadTeam
 
 local function BuildCard()
-	card = CreateFrame("Frame", "TomtePetsCard", UIParent)
+	-- On WorldFrame: dialogue addons (DialogueUI, Immersion) hide UIParent while you talk to the tamer.
+	card = CreateFrame("Frame", "TomtePetsCard", WorldFrame)
 	card:SetSize(CARD_W, 120)
 	card:SetFrameStrata("HIGH")
 	card:SetClampedToScreen(true)
@@ -200,7 +183,7 @@ local function BuildCard()
 	card.load:SetScript("OnClick", LoadTeam)
 	card.links = UI.Button(card, 70, "Guides")
 	card.links:SetScript("OnClick", function()
-		ns.PetsCard_ShowLinks(cardNPC)
+		ns.PetsGuides_ShowNPC(cardNPC)
 	end)
 	card.close = UI.Button(card, 20, "x")
 	card.close:SetPoint("TOPRIGHT", -6, -6)
@@ -262,6 +245,7 @@ function ns.PetsCard_Refresh()
 		card.team:ClearAllPoints()
 		card.team:SetPoint("TOPLEFT", PAD + (team and ICON * 3 + 16 or 0), -y - 7)
 		card.team:SetPoint("RIGHT", -PAD, 0)
+		card.team:SetWordWrap(team == nil) -- the no-strategy hint wraps; a team name stays on one line by its icons
 		card.team:SetText(team and team.name or UI.Wrap("No strategy saved. Get one from Xu-Fu (Guides).", "textMuted"))
 	end
 	for i, icon in ipairs(card.icons) do
@@ -273,7 +257,7 @@ function ns.PetsCard_Refresh()
 		ns.PetsCard_SetTeamIcons(card.icons, team)
 		y = y + ICON + 8
 	else
-		y = y + 22
+		y = y + math.max(22, card.team:GetStringHeight() + 10)
 	end
 
 	local problems = ns.PetsCard_Problems(team)
@@ -330,6 +314,7 @@ function ns.PetsCard_Show(npc)
 		BuildCard()
 	end
 	cardNPC = npc
+	card:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
 	card:ClearAllPoints()
 	if GossipFrame and GossipFrame:IsShown() then
 		card:SetPoint("TOPLEFT", GossipFrame, "TOPRIGHT", 8, 0)

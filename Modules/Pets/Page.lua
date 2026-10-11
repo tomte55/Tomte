@@ -368,17 +368,7 @@ local function TamersView(parent)
 						text = e.name,
 						right = table.concat(right, "   "),
 						onClick = function()
-							local lines = { ns.Pets_XufuURL(id) }
-							for _, npc in ipairs(e.npcs) do
-								lines[#lines + 1] = ns.Pets_WowheadURL(npc)
-							end
-							ns.Dialog_Show({
-								title = e.name,
-								hint = "Ctrl+C copies the links. On Xu-Fu, a strategy's \"Rematch string\" button gives the text for Teams > Import.",
-								text = table.concat(lines, "\n"),
-								readOnly = true,
-								height = 110 + #lines * 14,
-							})
+							ns.PetsGuides_ShowEncounter(id)
 						end,
 					}
 				end

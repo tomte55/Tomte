@@ -209,7 +209,8 @@ local function HealTooltip(self)
 end
 
 local function CreateHeal()
-	holder = CreateFrame("Frame", "TomtePetHealHolder", UIParent, "SecureFrameTemplate")
+	-- On WorldFrame like the tamer card, so a dialogue addon hiding UIParent doesn't take it along.
+	holder = CreateFrame("Frame", "TomtePetHealHolder", WorldFrame, "SecureFrameTemplate")
 	holder:SetSize(HEAL_SIZE, HEAL_SIZE)
 	holder:SetFrameStrata("DIALOG")
 	holder:Hide()
@@ -278,8 +279,9 @@ function ns.PetsHeal_Show(x, y)
 	if not holder then
 		CreateHeal()
 	end
+	holder:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale()) -- so x, y are UIParent units
 	holder:ClearAllPoints()
-	holder:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, y)
+	holder:SetPoint("BOTTOMLEFT", WorldFrame, "BOTTOMLEFT", x, y)
 	ns.PetsHeal_Refresh()
 	holder:Show()
 	return true

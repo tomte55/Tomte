@@ -454,7 +454,7 @@ local function Build()
 	frame.guide:SetPoint("TOPRIGHT", -26, -3)
 	frame.guide:SetScript("OnClick", function()
 		if ctx and ctx.npc then
-			ns.PetsCard_ShowLinks(ctx.npc)
+			ns.PetsGuides_ShowNPC(ctx.npc)
 		end
 	end)
 

@@ -181,6 +181,7 @@ ns.BUG_FILES = {
 	"Modules/Pets/Journal.lua",
 	"Modules/Pets/Battle.lua",
 	"Modules/Pets/Card.lua",
+	"Modules/Pets/Guides.lua",
 	"Modules/Pets/Page.lua",
 	"Modules/Pets/Pets.lua",
 	"Modules/Fishing/Data.lua",

@@ -5,6 +5,11 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Pet Battles: the tamer card (and its Heal button) stays visible when DialogueUI or a similar addon hides the UI
+  while you talk to a tamer. Its "No strategy saved" hint no longer gets cut off.
+- Pet Battles: Guides is a new window with a Copy button per link and a line saying what each one is for (world
+  quest, Family Battler achievement, Trading Post task, Wowhead). When the tamer's world quest is up, its link is
+  marked "Active now", comes first and is ready for Ctrl+C. Copied links no longer carry their label into the browser.
 - Moments: the level-up moment replaces Blizzard's "You've Reached Level" text instead of showing on top of it. Its
   sound still plays. Turn it off under Moments, "Replace Blizzard's level-up text".
 - Moments: each moment can now be set to "Cinematic at max level" (a banner while levelling), replacing the single

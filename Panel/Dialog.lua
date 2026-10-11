@@ -8,7 +8,8 @@ local UI = ns.UI
 local popup
 
 local function Build()
-	popup = CreateFrame("Frame", "TomteDialog", UIParent)
+	-- On WorldFrame: Guides on the tamer card opens it while a dialogue addon (DialogueUI, Immersion) hides UIParent.
+	popup = CreateFrame("Frame", "TomteDialog", WorldFrame)
 	popup:SetSize(460, 150)
 	popup:SetPoint("CENTER", 0, 120)
 	popup:SetFrameStrata("DIALOG")
@@ -107,6 +108,7 @@ function ns.Dialog_Show(spec)
 		Build()
 	end
 	popup.spec = spec
+	popup:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
 	popup.title:SetText(spec.title or "")
 	popup.hint:SetText(spec.hint or "")
 	popup.error:SetText("")
