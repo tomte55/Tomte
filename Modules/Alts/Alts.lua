@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Alts module: every character's snapshot (level, spec, item level, gold, zone, rest, professions) and their
 -- recipes, so the Alts page can answer "who makes this, and do we have the materials?" and list the characters.
--- Data.lua holds the logic, Collect.lua reads the game, CraftTab.lua (with CraftGear, CraftMats, CraftResults, Shop and
+-- PlanData, RosterData, GearData and Forget.lua hold the logic, Collect.lua reads the game, CraftTab.lua (with CraftGear, CraftMats, CraftResults, Shop and
 -- CraftDetail), ListTab.lua, RosterTab.lua and ProfTab.lua draw
 -- the page's tabs (ProfGear.lua: profession tools and accessories across characters). The crafting list and its
 -- tracker are List.lua (rules in ListData.lua), the mailbox and bank panels Send.lua (rules in SendData.lua), the
@@ -255,7 +255,7 @@ end
 -- Commands -------------------------------------------------------------------------------------------------
 
 -- One character out of every module's saved data (Alts, Weekly, Almost Done, Gear Check, Hunter Pets, Moments,
--- Waypoints, the last session, the Recap history and the Recent feed: Data.lua's FORGET_STORES), then the open views
+-- Waypoints, the last session, the Recap history and the Recent feed: Forget.lua's FORGET_STORES), then the open views
 -- redrawn. Never the character being played.
 function ns.Alts_ForgetCharacter(guid)
 	if not guid or guid == UnitGUID("player") then

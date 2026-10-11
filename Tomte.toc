@@ -148,7 +148,10 @@ Modules/Weekly/BoardPage.lua
 Modules/Weekly/Popup.lua
 Modules/Weekly/HomeSection.lua
 Modules/Weekly/Weekly.lua
-Modules/Alts/Data.lua
+Modules/Alts/PlanData.lua
+Modules/Alts/RosterData.lua
+Modules/Alts/GearData.lua
+Modules/Alts/Forget.lua
 Modules/Alts/SendData.lua
 Modules/Alts/ListData.lua
 Modules/Alts/Collect.lua

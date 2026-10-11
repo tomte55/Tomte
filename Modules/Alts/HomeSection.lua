@@ -9,7 +9,7 @@ local ROW_H = 24
 local FOOT_H = 84
 local HEADING_H = 40 -- room for the section heading above the rows
 
-local PROFESSIONS = ns.ALTS_PROFESSIONS -- the eleven, with stand-in icons (Data.lua)
+local PROFESSIONS = ns.ALTS_PROFESSIONS -- the eleven, with stand-in icons (RosterData.lua)
 
 -- Numbers (level, gold, counts) in the number font.
 local function Narrow(parent, size, role)

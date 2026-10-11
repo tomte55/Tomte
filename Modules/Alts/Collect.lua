@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Alts: reads the game into TomteDB.alts (layout in Data.lua). The character snapshot is refreshed on entering the
+-- Alts: reads the game into TomteDB.alts (layout in PlanData.lua). The character snapshot is refreshed on entering the
 -- world and on level, spec, gear (the worn items too, for Gear Check), zone, gold, rest and profession events,
 -- debounced to one read per second and never in combat. Recipes are read while this character's own profession
 -- window is open (not a linked, guild or NPC one): every recipe of the expansion the window shows, in small batches
@@ -281,7 +281,7 @@ local function ReadOutputLinks(id, info, itemID)
 	return link and { link, link } or nil
 end
 
--- out = { lowest, highest } and outQ = every quality's link (Data.lua). An error there costs only the item levels,
+-- out = { lowest, highest } and outQ = every quality's link (PlanData.lua). An error there costs only the item levels,
 -- not the recipe.
 local function OutputLinks(...)
 	local ok, out, outQ = pcall(ReadOutputLinks, ...)

@@ -1,7 +1,7 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_list.lua
 local ns = {}
 assert(loadfile("Tomte/Core/Format.lua"))("Tomte", ns)
-assert(loadfile("Tomte/Modules/Alts/Data.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Modules/Alts/PlanData.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Alts/ListData.lua"))("Tomte", ns)
 
 local failures = 0

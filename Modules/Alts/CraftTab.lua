@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Alts page, Crafting tab: search recipes on the left (who knows each one), the selected recipe on the right as a
 -- shopping list (materials: needed / have / where) and the crafts in order, crafted materials worked out through
--- other known recipes (Data.lua's plan). Item counts come from Syndicator when it's loaded (Collect.lua).
+-- other known recipes (PlanData.lua's plan). Item counts come from Syndicator when it's loaded (Collect.lua).
 -- This file holds the state and helpers the tab's files share and the entry points the page calls; the rest is in
 -- CraftGear.lua (gear for a character), CraftMats.lua (materials on hand, /tomte alts why), CraftResults.lua (search,
 -- filters, list), Shop.lua (the Auctionator shopping list link) and CraftDetail.lua (the selected recipe).

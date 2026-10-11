@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Alts page, Profession gear tab: each character's tool and accessories per profession (item level, from what was
 -- worn when they were last played) and the best tool or accessory somebody can craft for each, when it's an upgrade.
--- Click a profession to open that craft in the Crafting tab. Logic in ProfGear.lua and Data.lua.
+-- Click a profession to open that craft in the Crafting tab. Logic in ProfGear.lua and GearData.lua.
 
 local UI = ns.UI
 local CHAR_H, PROF_H = 26, 40
