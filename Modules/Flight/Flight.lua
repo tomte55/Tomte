@@ -454,7 +454,7 @@ local AROUND = {
 	kind = "around", key = "flightaround", order = 4, name = "Flight masters", maxRows = 2, icon = COVERAGE_ICON,
 	openText = "Opens the world map on this zone",
 	open = function()
-		-- Not in combat, the same rule as Home's world map click (Panel/Home.lua) and the modules' map tabs.
+		-- Not in combat, the same rule as Home's world map click (Panel/HomeHero.lua) and the modules' map tabs.
 		if InCombatLockdown() then
 			ns.Print("not in combat.")
 			return

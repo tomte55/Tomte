@@ -113,7 +113,7 @@ function ns.RegisterModule(module)
 end
 
 -- Home entries (module.home). Every entry has kind, a unique key, optional order (sort key, default 100) and optional
--- shown(); it shows while its module is active and shown() (if any) is true. By kind (Panel/Home.lua, Panel/Panel.lua):
+-- shown(); it shows while its module is active and shown() (if any) is true. By kind (Panel/Home*.lua, Panel/Rail.lua, Panel/Panel.lua):
 --   "page"     a page in the Tomte window and a rail row: name, icon or atlas, page = { Create(frame), Refresh(frame) },
 --              summary() (rail tooltip), pill() -> n and pillTip (a count on its rail row, shown above 0 while
 --              "Counts on the rail" is on; cheap, existing state only)
