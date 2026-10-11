@@ -12,22 +12,17 @@ fontTools for the font). Output is the same on every run (fixed seed).
 import argparse
 import math
 import random
-import shutil
+import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the -I flag leaves the script folder off sys.path
+import artlib
 from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 THEME = ROOT / "Media" / "Theme" / "Frost"
 FONTS = ROOT / "Media" / "Fonts"
 FONT = "FrostForum-Regular.ttf"
-
-
-def white(alpha):
-    """White RGBA image with `alpha` (an L image) as its alpha."""
-    out = Image.new("RGBA", alpha.size, (255, 255, 255, 0))
-    out.putalpha(alpha)
-    return out
 
 
 def snow(size=128, seed=11):
@@ -46,8 +41,7 @@ def snow(size=128, seed=11):
             for oy in (-n, 0, n):
                 cx, cy = x + ox, y + oy
                 d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=v)
-    alpha = img.resize((size, size), Image.LANCZOS)
-    return white(alpha)
+    return artlib.finish(img, size, size)
 
 
 def rime(size=512, seed=5, fade=470):
@@ -111,8 +105,7 @@ def rime(size=512, seed=5, fade=470):
                     tt = t + side * math.pi / 3
                     line(bx, by, bx + math.cos(tt) * arm * 0.35, by + math.sin(tt) * arm * 0.35, 0.8, 0.8)
 
-    alpha = img.filter(ImageFilter.GaussianBlur(0.4 * ss)).resize((size, size), Image.LANCZOS)
-    return white(alpha)
+    return artlib.finish(img.filter(ImageFilter.GaussianBlur(0.4 * ss)), size, size)
 
 
 def flourish(w=256, h=16):
@@ -136,31 +129,13 @@ def flourish(w=256, h=16):
         dx = cx + side * 11 * ss
         r = 1.8 * ss
         d.polygon([(dx - r, cy), (dx, cy - r), (dx + r, cy), (dx, cy + r)], fill=230)
-    pix = img.load()
-    start = 14 * ss
-    half = 0.5 * ss
-    for x in range(W):
-        ax = abs(x - cx)
-        if ax <= start:
-            continue
-        v = max(0.0, 1.0 - (ax - start) / (cx - start)) ** 1.4
-        for y in range(int(cy - half), int(cy + half)):
-            pix[x, y] = max(pix[x, y], int(255 * v))
-    alpha = img.resize((w, h), Image.LANCZOS)
-    return white(alpha)
+    artlib.hairline(img, cx, cy, 14 * ss, ss, 1.4, row_shift=0.5)
+    return artlib.finish(img, w, h)
 
 
 def font(src):
-    from fontTools.ttLib import TTFont
-
-    FONTS.mkdir(parents=True, exist_ok=True)
-    f = TTFont(src / "Forum-Regular.ttf")
-    if "fvar" in f:
-        from fontTools.varLib import instancer
-
-        f = instancer.instantiateVariableFont(f, {"wght": 400})
-    f.save(FONTS / FONT)
-    shutil.copy(src / "OFL.txt", FONTS / "OFL-Forum.txt")
+    artlib.static_font(src / "Forum-Regular.ttf", FONTS / FONT, 400)
+    artlib.copy_license(src, "OFL-Forum.txt")
 
 
 def verify():
@@ -210,12 +185,6 @@ def over(base, layer, alpha=1.0, pos=(0, 0)):
     base.paste(layer, pos, layer)
 
 
-def tint(img, color):
-    out = Image.new("RGBA", img.size, rgb(color) + (0,))
-    out.putalpha(img.getchannel("A"))
-    return out
-
-
 def preview(path):
     from PIL import ImageFont
 
@@ -231,7 +200,7 @@ def preview(path):
     glow = Image.open(ROOT / "Media" / "Theme" / "Glow.tga")
     g = glow.crop((128, 128, 256, 256)).resize((int(W * 0.7), int(H * 0.8)))
     over(im, g, ART["glow"])
-    rimeImg = tint(Image.open(THEME / "Rime.tga"), PAL["contour"])
+    rimeImg = artlib.tint(Image.open(THEME / "Rime.tga"), rgb(PAL["contour"]))
     over(im, rimeImg.crop((512 - W if W < 512 else 0, 512 - H, 512, 512)), ART["contours"], (max(0, W - 512), 0))
     snowImg = Image.open(THEME / "Snow.tga")
     for x in range(0, W, 128):
@@ -256,7 +225,7 @@ def preview(path):
     title = ImageFont.truetype(str(FONTS / FONT), 26)
     body = ImageFont.truetype("C:/Windows/Fonts/segoeui.ttf", 14)  # stands in for the client's font
     d.text((W / 2, 34), "Weekly Progress", font=title, fill=rgb(PAL["heading"]), anchor="mm")
-    fl = tint(Image.open(THEME / "Flourish.tga"), PAL["frame"]).resize((160, 10), Image.LANCZOS)
+    fl = artlib.tint(Image.open(THEME / "Flourish.tga"), rgb(PAL["frame"])).resize((160, 10), Image.LANCZOS)
     over(im, fl, 0.8, (W // 2 - 80, 52))
     d = ImageDraw.Draw(im, "RGBA")
     rule = rgb(PAL["rule"]) + (int(255 * PAL["rule"][1]),)

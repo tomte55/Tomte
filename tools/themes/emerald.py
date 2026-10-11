@@ -2,7 +2,7 @@
 
 Writes Media/Theme/Emerald/{Grain,Vines,Flourish}.tga and Media/Fonts/UncialAntiqua-Regular.ttf + its OFL text.
 
-  python tools/themes/emerald.py --fonts-src DIR
+  python tools/themes/emerald.py --fonts-src DIR     (or --art-only to skip the font)
 
 DIR holds Google Fonts' UncialAntiqua-Regular.ttf and OFL.txt (https://github.com/google/fonts, ofl/uncialantiqua).
 Needs Pillow and fontTools. Output is the same on every run (fixed seeds).
@@ -11,45 +11,29 @@ Needs Pillow and fontTools. Output is the same on every run (fixed seeds).
 import argparse
 import math
 import random
-import shutil
+import sys
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the -I flag leaves the script folder off sys.path
+import artlib
+from PIL import Image, ImageChops, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 OUT = ROOT / "Media" / "Theme" / "Emerald"
 FONTS = ROOT / "Media" / "Fonts"
 
 
-def _seamless_noise(size, rnd, sigma, blur):
-    """Gaussian noise around 128, blurred with wrap-around (tile 3x3, blur, take the middle) so it tiles."""
-    base = Image.new("L", (size, size))
-    base.putdata([max(0, min(255, int(rnd.gauss(128, sigma)))) for _ in range(size * size)])
-    big = Image.new("L", (size * 3, size * 3))
-    for x in range(3):
-        for y in range(3):
-            big.paste(base, (x * size, y * size))
-    big = big.filter(ImageFilter.GaussianBlur(blur))
-    return big.crop((size, size, size * 2, size * 2))
-
-
 def grain(size=256, seed=23):
     """Mossy grain: fine noise over soft blotches, grey around 128 with alpha growing with the distance from 128
     (lightens and darkens; drawn untinted)."""
     rnd = random.Random(seed)
-    fine = _seamless_noise(size, rnd, 46, 0.6)
-    mottle = _seamless_noise(size, rnd, 90, 6)
+    fine = artlib.seamless_noise(size, rnd, 46, 0.6)
+    mottle = artlib.seamless_noise(size, rnd, 90, 6)
     # The blotches are faint after the blur: stretch them back out around 128.
     mottle = mottle.point(lambda v: max(0, min(255, int(128 + (v - 128) * 9))))
-    out = Image.new("RGBA", (size, size))
-    px = []
-    for f, m in zip(fine.get_flattened_data(), mottle.get_flattened_data()):
-        d = (f - 128) * 0.75 + (m - 128) * 0.5
-        a = max(0, min(255, int(abs(d) * 1.5)))
-        c = 255 if d > 0 else 0
-        px.append((c, c, c, a))
-    out.putdata(px)
-    return out
+    return artlib.signed_rgba_values(((f - 128) * 0.75 + (m - 128) * 0.5
+                                      for f, m in zip(fine.get_flattened_data(), mottle.get_flattened_data())),
+                                     size, 1.5)
 
 
 def _leaf(draw, x, y, ang, length, width, lw, ss):
@@ -140,10 +124,7 @@ def vines(size=512, fade=500, seed=5):
         for x in range(size):
             r = math.hypot(c - x, c - y)
             mp[x, y] = int(255 * max(0.0, 1 - r / fade) ** 0.7)
-    alpha = ImageChops.multiply(alpha, mask)
-    out = Image.new("RGBA", (size, size), (255, 255, 255, 0))
-    out.putalpha(alpha)
-    return out
+    return artlib.white(ImageChops.multiply(alpha, mask))
 
 
 def flourish(w=256, h=16):
@@ -175,20 +156,12 @@ def flourish(w=256, h=16):
         draw.polygon([(a * ss, b * ss) for a, b in pts], fill=255)
     r = 1.6 * ss
     draw.ellipse((cx * ss - r, cy * ss - r, cx * ss + r, cy * ss + r), fill=255)
-    alpha = img.resize((w, h), Image.LANCZOS)
-    out = Image.new("RGBA", (w, h), (255, 255, 255, 0))
-    out.putalpha(alpha)
-    return out
+    return artlib.finish(img, w, h)
 
 
 def fonts(src):
-    from fontTools.ttLib import TTFont
-
-    FONTS.mkdir(parents=True, exist_ok=True)
-    f = TTFont(src / "UncialAntiqua-Regular.ttf")
-    assert "fvar" not in f, "expected the static file"
-    f.save(FONTS / "UncialAntiqua-Regular.ttf")
-    shutil.copy(src / "OFL.txt", FONTS / "OFL-UncialAntiqua.txt")
+    artlib.static_font(src / "UncialAntiqua-Regular.ttf", FONTS / "UncialAntiqua-Regular.ttf")
+    artlib.copy_license(src, "OFL-UncialAntiqua.txt")
 
 
 def verify():
@@ -209,13 +182,17 @@ def verify():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--fonts-src", type=Path, required=True)
+    ap.add_argument("--fonts-src", type=Path)
+    ap.add_argument("--art-only", action="store_true", help="skip the font step")
     args = ap.parse_args()
+    if not args.fonts_src and not args.art_only:
+        ap.error("--fonts-src is required unless --art-only is given")
     OUT.mkdir(parents=True, exist_ok=True)
     grain().save(OUT / "Grain.tga")
     vines().save(OUT / "Vines.tga")
     flourish().save(OUT / "Flourish.tga")
-    fonts(args.fonts_src)
+    if not args.art_only:
+        fonts(args.fonts_src)
     verify()
 
 

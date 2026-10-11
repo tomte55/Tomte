@@ -2,7 +2,7 @@
 
 Writes Media/Theme/{Grain,Contours,Flourish,Glow}.tga and Media/Fonts/*.ttf + OFL texts under the addon root.
 
-  python tools/theme_art.py --fonts-src DIR
+  python tools/theme_art.py --fonts-src DIR     (or --art-only to skip the fonts)
 
 DIR holds Google Fonts' variable files and licenses: Cinzel[wght].ttf, Alegreya[wght].ttf, OFL-Cinzel.txt,
 OFL-Alegreya.txt (https://github.com/google/fonts, ofl/cinzel and ofl/alegreya). Needs Pillow and fontTools.
@@ -12,10 +12,12 @@ Output is the same on every run (fixed seed).
 import argparse
 import math
 import random
-import shutil
+import sys
 from pathlib import Path
 
-from PIL import Image, ImageFilter
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # the -I flag leaves the script folder off sys.path
+import artlib
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 THEME = ROOT / "Media" / "Theme"
@@ -24,25 +26,7 @@ FONTS = ROOT / "Media" / "Fonts"
 
 def grain(size=128, seed=7):
     """Seamless fine noise: grey around 128 with alpha growing with distance from 128, so it lightens and darkens."""
-    rnd = random.Random(seed)
-    # Tile 3x3, blur, take the middle: the blur wraps around, so the result tiles.
-    base = Image.new("L", (size, size))
-    base.putdata([max(0, min(255, int(rnd.gauss(128, 46)))) for _ in range(size * size)])
-    big = Image.new("L", (size * 3, size * 3))
-    for x in range(3):
-        for y in range(3):
-            big.paste(base, (x * size, y * size))
-    big = big.filter(ImageFilter.GaussianBlur(0.6))
-    tile = big.crop((size, size, size * 2, size * 2))
-    out = Image.new("RGBA", (size, size))
-    px = []
-    for v in tile.get_flattened_data():
-        d = v - 128
-        a = max(0, min(255, int(abs(d) * 1.6)))
-        c = 255 if d > 0 else 0
-        px.append((c, c, c, a))
-    out.putdata(px)
-    return out
+    return artlib.signed_rgba(artlib.seamless_noise(size, random.Random(seed), 46, 0.6), 1.6)
 
 
 def contours(size=512, step=18, fade=500):
@@ -66,24 +50,7 @@ def contours(size=512, step=18, fade=500):
             if d < half + 0.5:
                 cov = min(1.0, half + 0.5 - d)
                 pix[x, y] = int(255 * cov * (1 - r / fade) ** 0.8)
-    alpha = img.resize((size, size), Image.LANCZOS)
-    out = Image.new("RGBA", (size, size), (255, 255, 255, 0))
-    out.putalpha(alpha)
-    return out
-
-
-def glow(size=256):
-    """Soft white spot fading out from the center (WoW has no radial gradients)."""
-    img = Image.new("L", (size, size))
-    pix = img.load()
-    c = (size - 1) / 2
-    for y in range(size):
-        for x in range(size):
-            d = math.hypot(x - c, y - c) / c
-            pix[x, y] = int(255 * max(0.0, 1 - d) ** 2)
-    out = Image.new("RGBA", (size, size), (255, 255, 255, 0))
-    out.putalpha(img)
-    return out
+    return artlib.finish(img, size, size)
 
 
 def flourish(w=256, h=16):
@@ -97,29 +64,19 @@ def flourish(w=256, h=16):
     for y in range(H):
         for x in range(W):
             ax, ay = abs(x - cx), abs(y - cy)
-            v = 0.0
             if ax + ay <= dia:
-                v = 1.0
-            elif ay <= 0.5 * ss and ax > dia:
-                v = max(0.0, 1.0 - (ax - dia) / (cx - dia)) ** 1.3
-            pix[x, y] = int(255 * v)
-    alpha = img.resize((w, h), Image.LANCZOS)
-    out = Image.new("RGBA", (w, h), (255, 255, 255, 0))
-    out.putalpha(alpha)
-    return out
+                pix[x, y] = 255
+    artlib.hairline(img, cx, cy, dia, ss, 1.3)
+    return artlib.finish(img, w, h)
 
 
 def fonts(src):
     from fontTools.ttLib import TTFont
-    from fontTools.varLib import instancer
 
     FONTS.mkdir(parents=True, exist_ok=True)
 
-    cinzel = instancer.instantiateVariableFont(TTFont(src / "Cinzel[wght].ttf"), {"wght": 500})
-    cinzel.save(FONTS / "Cinzel-Medium.ttf")
-
-    alegreya = instancer.instantiateVariableFont(TTFont(src / "Alegreya[wght].ttf"), {"wght": 400})
-    alegreya.save(FONTS / "Alegreya-Regular.ttf")
+    artlib.static_font(src / "Cinzel[wght].ttf", FONTS / "Cinzel-Medium.ttf", 500)
+    artlib.static_font(src / "Alegreya[wght].ttf", FONTS / "Alegreya-Regular.ttf", 400)
 
     # WoW can't turn on OpenType lnum/tnum, so make the tabular lining digits the default ones.
     nums = TTFont(FONTS / "Alegreya-Regular.ttf")
@@ -142,8 +99,8 @@ def fonts(src):
             rec.string = "AlegreyaNumbersTomte-Regular;modified from Alegreya"
     nums.save(FONTS / "AlegreyaNumbers-Regular.ttf")
 
-    shutil.copy(src / "OFL-Cinzel.txt", FONTS / "OFL-Cinzel.txt")
-    shutil.copy(src / "OFL-Alegreya.txt", FONTS / "OFL-Alegreya.txt")
+    artlib.copy_license(src, "OFL-Cinzel.txt", "OFL-Cinzel.txt")
+    artlib.copy_license(src, "OFL-Alegreya.txt", "OFL-Alegreya.txt")
 
 
 def verify():
@@ -163,14 +120,18 @@ def verify():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--fonts-src", type=Path, required=True)
+    ap.add_argument("--fonts-src", type=Path)
+    ap.add_argument("--art-only", action="store_true", help="skip the font step")
     args = ap.parse_args()
+    if not args.fonts_src and not args.art_only:
+        ap.error("--fonts-src is required unless --art-only is given")
     THEME.mkdir(parents=True, exist_ok=True)
     grain().save(THEME / "Grain.tga")
     contours().save(THEME / "Contours.tga")
     flourish().save(THEME / "Flourish.tga")
-    glow().save(THEME / "Glow.tga")
-    fonts(args.fonts_src)
+    artlib.glow().save(THEME / "Glow.tga")
+    if not args.art_only:
+        fonts(args.fonts_src)
     verify()
 
 

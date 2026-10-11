@@ -14,10 +14,12 @@ import argparse
 import math
 import random
 import re
-import shutil
+import sys
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the -I flag leaves the script folder off sys.path
+import artlib
+from PIL import Image, ImageChops, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 OUT = ROOT / "Media" / "Theme" / "Forge"
@@ -51,21 +53,7 @@ def grain(size=256, seed=55):
                 val[i] = val[i] * (1 - w) + shade * w
     noise = Image.new("L", (size, size))
     noise.putdata([max(0, min(255, int(128 + v + rnd.gauss(0, 12)))) for v in val])
-    # Tile 3x3, blur, take the middle: the blur wraps around, so the result tiles.
-    big = Image.new("L", (size * 3, size * 3))
-    for x in range(3):
-        for y in range(3):
-            big.paste(noise, (x * size, y * size))
-    tile = big.filter(ImageFilter.GaussianBlur(0.7)).crop((size, size, size * 2, size * 2))
-    out = Image.new("RGBA", (size, size))
-    px = []
-    for v in tile.get_flattened_data():
-        d = v - 128
-        a = max(0, min(255, int(abs(d) * 1.6)))
-        c = 255 if d > 0 else 0
-        px.append((c, c, c, a))
-    out.putdata(px)
-    return out
+    return artlib.signed_rgba(artlib.wrap_blur(noise, 0.7), 1.6)
 
 
 # Runes as strokes in a box: u across (-0.5..0.5), v up (0..1). Elder Futhark shapes.
@@ -157,24 +145,12 @@ def runes(size=512, fade=520, seed=11):
         for x in range(size):
             r = math.hypot(size - 1 - x, size - 1 - y)
             fp[x, y] = int(255 * max(0.0, 1 - r / fade) ** 0.8)
-    alpha = ImageChops.multiply(alpha, fall)
-    out = Image.new("RGBA", (size, size), (255, 255, 255, 0))
-    out.putalpha(alpha)
-    return out
+    return artlib.white(ImageChops.multiply(alpha, fall))
 
 
 def glow(size=256):
     """Soft spot fading out from the center. Ember-colored: UI.Panel draws the glow untinted."""
-    img = Image.new("L", (size, size))
-    pix = img.load()
-    c = (size - 1) / 2
-    for y in range(size):
-        for x in range(size):
-            d = math.hypot(x - c, y - c) / c
-            pix[x, y] = int(255 * max(0.0, 1 - d) ** 2)
-    out = Image.new("RGBA", (size, size), (255, 176, 112, 0))
-    out.putalpha(img)
-    return out
+    return artlib.glow(size, (255, 176, 112))
 
 
 def flourish(w=256, h=16):
@@ -194,31 +170,13 @@ def flourish(w=256, h=16):
         for off, r in ((12, 2.2), (19, 1.6)):
             x = cx + side * off * ss
             dr.polygon([(x - r * ss, cy), (x, cy - r * ss), (x + r * ss, cy), (x, cy + r * ss)], fill=255)
-    pix = img.load()
-    start = 24 * ss
-    for x in range(W):
-        ax = abs(x - cx)
-        if ax < start:
-            continue
-        v = max(0.0, 1.0 - (ax - start) / (cx - start)) ** 1.3
-        for y in range(H):
-            if abs(y + 0.5 - cy) <= 0.5 * ss:
-                pix[x, y] = int(255 * v)
-    alpha = img.resize((w, h), Image.LANCZOS)
-    out = Image.new("RGBA", (w, h), (255, 255, 255, 0))
-    out.putalpha(alpha)
-    return out
+    artlib.hairline(img, cx, cy, 24 * ss, ss, 1.3, row_shift=0.5, include_start=True)
+    return artlib.finish(img, w, h)
 
 
 def fonts(src):
-    from fontTools.ttLib import TTFont
-    from fontTools.varLib import instancer
-
-    FONTS.mkdir(parents=True, exist_ok=True)
-    grenze = instancer.instantiateVariableFont(TTFont(src / "Grenze[wght].ttf"), {"wght": 600},
-                                               updateFontNames=True)
-    grenze.save(FONTS / "Grenze-SemiBold.ttf")
-    shutil.copy(src / "OFL.txt", FONTS / "OFL-Grenze.txt")
+    artlib.static_font(src / "Grenze[wght].ttf", FONTS / "Grenze-SemiBold.ttf", 600, update_names=True)
+    artlib.copy_license(src, "OFL-Grenze.txt")
 
 
 def verify():
@@ -250,12 +208,6 @@ def palette():
     return colors, art
 
 
-def tinted(img, rgb, alpha):
-    out = Image.new("RGBA", img.size, rgb + (0,))
-    out.putalpha(img.getchannel("A").point(lambda a: int(a * alpha)))
-    return out
-
-
 def preview(path):
     from PIL import ImageFont
 
@@ -271,7 +223,7 @@ def preview(path):
     g = Image.open(OUT / "Glow.tga").crop((128, 128, 256, 256)).resize((int(W * 0.7), int(H * 0.8)))
     g.putalpha(g.getchannel("A").point(lambda a: int(a * art["glow"])))
     panel.alpha_composite(g)
-    panel.alpha_composite(tinted(Image.open(OUT / "Runes.tga"), rgb("contour"), art["contours"]),
+    panel.alpha_composite(artlib.tint(Image.open(OUT / "Runes.tga"), rgb("contour"), art["contours"]),
                           (W - 512, H - 512) if H >= 512 else (W - 512, 0), (0, 512 - H) if H < 512 else (0, 0))
     gr = Image.open(OUT / "Grain.tga")
     gr.putalpha(gr.getchannel("A").point(lambda a: int(a * art["grain"])))
@@ -295,7 +247,7 @@ def preview(path):
     body = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 14)  # stand-in for the client's Friz Quadrata
     small = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 12)
     d.text((W / 2, 30), "The Great Forge", font=title_font, fill=rgb("heading"), anchor="mt")
-    fl = tinted(Image.open(OUT / "Flourish.tga").resize((160, 10), Image.LANCZOS), rgb("frame"), 0.8)
+    fl = artlib.tint(Image.open(OUT / "Flourish.tga").resize((160, 10), Image.LANCZOS), rgb("frame"), 0.8)
     panel.alpha_composite(fl, (W // 2 - 80, 64))
 
     y = 92

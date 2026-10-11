@@ -13,9 +13,11 @@ Needs Pillow (and fontTools for the fonts). Output is the same on every run (fix
 import argparse
 import math
 import random
-import shutil
+import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the -I flag leaves the script folder off sys.path
+import artlib
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -54,15 +56,8 @@ def stars(size=256, seed=11):
                 r = 2.6 * ss
                 hdraw.ellipse((x + ox - r, y + oy - r, x + ox + r, y + oy + r), fill=60)
     # Blur the halos on a 3x3 tiling so the blur wraps too.
-    big = Image.new("L", (n * 3, n * 3))
-    for x in range(3):
-        for y in range(3):
-            big.paste(halos, (x * n, y * n))
-    halos = big.filter(ImageFilter.GaussianBlur(1.6 * ss)).crop((n, n, n * 2, n * 2))
-    alpha = ImageChops.lighter(img, halos).resize((size, size), Image.LANCZOS)
-    out = Image.new("RGBA", (size, size), (255, 255, 255, 0))
-    out.putalpha(alpha)
-    return out
+    halos = artlib.wrap_blur(halos, 1.6 * ss)
+    return artlib.finish(ImageChops.lighter(img, halos), size, size)
 
 
 def value_noise(size, cells, rnd):
@@ -142,10 +137,7 @@ def tendrils(size=512, seed=23):
             ep[xx, yy] = int(255 * max(0.0, 1 - d * 0.85) ** 0.9)
     lines = ImageChops.multiply(lines, edge)
 
-    alpha = ImageChops.lighter(lines, neb)
-    out = Image.new("RGBA", (size, size), (255, 255, 255, 0))
-    out.putalpha(alpha)
-    return out
+    return artlib.white(ImageChops.lighter(lines, neb))
 
 
 def flourish(w=256, h=16):
@@ -159,31 +151,18 @@ def flourish(w=256, h=16):
     for y in range(H):
         for x in range(W):
             ax, ay = abs(x - cx) / arm, abs(y - cy) / arm
-            v = 0.0
             # Astroid-like star: |x|^0.5 + |y|^0.5 <= 1 gives four thin points.
             if ax <= 1 and ay <= 1 and math.sqrt(ax) + math.sqrt(ay) <= 1:
-                v = 1.0
-            elif abs(y - cy) <= 0.5 * ss and abs(x - cx) > arm * 1.6:
-                d = abs(x - cx) - arm * 1.6
-                v = max(0.0, 1.0 - d / (cx - arm * 1.6)) ** 1.3
-            pix[x, y] = int(255 * v)
-    alpha = img.resize((w, h), Image.LANCZOS)
-    out = Image.new("RGBA", (w, h), (255, 255, 255, 0))
-    out.putalpha(alpha)
-    return out
+                pix[x, y] = 255
+    artlib.hairline(img, cx, cy, arm * 1.6, ss, 1.3)
+    return artlib.finish(img, w, h)
 
 
 def fonts(src):
-    from fontTools.ttLib import TTFont
-    from fontTools.varLib import instancer
-
-    FONTS.mkdir(parents=True, exist_ok=True)
+    # Google ships static Philosopher files; static_font pins the weight if that ever changes.
     for name in ("Philosopher-Regular.ttf", "Philosopher-Bold.ttf"):
-        f = TTFont(src / name)
-        if "fvar" in f:  # Google ships static Philosopher files; pin the weight if that ever changes
-            f = instancer.instantiateVariableFont(f, {"wght": 700 if "Bold" in name else 400})
-        f.save(FONTS / name)
-    shutil.copy(src / "OFL.txt", FONTS / "OFL-Philosopher.txt")
+        artlib.static_font(src / name, FONTS / name, 700 if "Bold" in name else 400)
+    artlib.copy_license(src, "OFL-Philosopher.txt")
 
 
 def verify():
@@ -228,11 +207,6 @@ def preview(path):
     ART = {"glow": 0.07, "contours": 0.16, "grain": 0.55, "vignette": 0.5, "outer": 2, "inset": 5, "rule": 0.4}
     W, H = 640, 400
 
-    def tint(img, color, alpha):
-        layer = Image.new("RGBA", img.size, color[:3] + (0,))
-        layer.putalpha(img.split()[3].point(lambda v: int(v * alpha)))
-        return layer
-
     base = Image.new("RGBA", (W, H))
     bp = base.load()
     for y in range(H):
@@ -249,15 +223,15 @@ def preview(path):
     g = Image.new("RGBA", (256, 256), (255, 255, 255, 0))
     g.putalpha(glow)
     g = g.crop((128, 128, 256, 256)).resize((int(W * 0.7), int(H * 0.8)))
-    base.alpha_composite(tint(g, (255, 255, 255, 255), ART["glow"]), (0, 0))
+    base.alpha_composite(artlib.tint(g, (255, 255, 255, 255), ART["glow"]), (0, 0))
     ten = Image.open(OUT / "Tendrils.tga")
     cw, ch = min(W, 512), min(H, 512)
     ten = ten.crop((512 - cw, 512 - ch, 512, 512))
-    base.alpha_composite(tint(ten, C["contour"], ART["contours"]), (W - cw, H - ch))
+    base.alpha_composite(artlib.tint(ten, C["contour"], ART["contours"]), (W - cw, H - ch))
     st = Image.open(OUT / "Stars.tga")
     for x in range(0, W, 256):
         for y in range(0, H, 256):
-            base.alpha_composite(tint(st, (255, 255, 255, 255), ART["grain"]), (x, y))
+            base.alpha_composite(artlib.tint(st, (255, 255, 255, 255), ART["grain"]), (x, y))
     vig = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     vp = vig.load()
     D = 26
@@ -282,7 +256,7 @@ def preview(path):
 
     tw = dr.textlength("Weekly Vault", font=title)
     dr.text(((W - tw) / 2, 22), "Weekly Vault", font=title, fill=C["heading"])
-    fl = tint(Image.open(OUT / "Flourish.tga").resize((160, 10)), C["frame"], 0.8)
+    fl = artlib.tint(Image.open(OUT / "Flourish.tga").resize((160, 10)), C["frame"], 0.8)
     base.paste(fl, ((W - 160) // 2, 54), fl)
 
     x0 = 32
