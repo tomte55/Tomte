@@ -80,6 +80,15 @@ test("Hex and Wrap", function()
 	eq(Theme.Wrap(3, "success"), "|cff8fbf7a3|r")
 end)
 
+test("Hex and Wrap take color tables as well as roles", function()
+	eq(Theme.Hex({ 1, 0.5, 0 }), "ffff8000", "array")
+	eq(Theme.Hex({ r = 0.0, g = 1, b = 0.2 }), "ff00ff33", "named")
+	eq(Theme.Hex({ 0.1, 0.2, 0.3, 0.5 }), "ff1a334d", "alpha is ignored")
+	eq(Theme.Wrap("x", { 1, 1, 1 }), "|cffffffffx|r")
+	assert(not pcall(Theme.Hex, {}), "an empty table is an error")
+	assert(not pcall(Theme.Hex, nil), "nil is an error")
+end)
+
 test("Latin clients get Cinzel, Alegreya and the Numbers build", function()
 	for _, loc in ipairs({ "enUS", "enGB", "deDE", "frFR", "esES", "esMX", "itIT", "ptBR" }) do
 		local f = Theme.FontsFor(loc)
@@ -296,10 +305,29 @@ test("no hardcoded colors or fonts outside Core/Theme.lua and Themes/", function
 	for _, file in ipairs(TocFiles()) do
 		if file ~= "Core/Theme.lua" and not file:find("^Themes/") then
 			local n = 0
+			local messagePending = false
 			for line in io.lines("Tomte/" .. file) do
 				n = n + 1
 				local code = line:gsub("%-%-.*$", "")
+				-- AddMessage(text, r, g, b): the text may hold a ")", so match the three trailing numbers on the
+				-- whole line; a call that doesn't close on its own line is checked on the next one too.
+				local pendingMessage = messagePending
+				messagePending = false
+				if code:find(":AddMessage%(") or pendingMessage then
+					local r, g, b = code:match(",%s*([%d%.]+)%s*,%s*([%d%.]+)%s*,%s*([%d%.]+)%s*%)")
+					if r then
+						if NumericColor(r .. "," .. g .. "," .. b) and not line:find("%-%- theme:") then
+							hits[#hits + 1] = file .. ":" .. n .. " numeric AddMessage"
+						end
+					elseif not code:find("%)%s*$") then
+						messagePending = true
+					end
+				end
 				if not line:find("%-%- theme:") then
+					-- Hand-built color codes: use UI.Wrap / Theme.Hex (roles or color tables) instead.
+					if code:find("%%02x%%02x%%02x") then
+						hits[#hits + 1] = file .. ":" .. n .. " hand-built hex color"
+					end
 					local bad
 					for _, fn in ipairs({ "SetColorTexture", "SetTextColor", "SetVertexColor", "CreateColor" }) do
 						for args in code:gmatch(fn .. "%(([^)]*)") do

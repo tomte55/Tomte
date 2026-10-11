@@ -98,8 +98,7 @@ local function Accent(e)
 end
 
 local function AccentWrap(e, text)
-	local r, g, b = Accent(e)
-	return ("|cff%02x%02x%02x%s|r"):format(r * 255, g * 255, b * 255, text)
+	return UI.Wrap(text, { Accent(e) })
 end
 
 local function SetIcon(texture, e)

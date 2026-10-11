@@ -227,15 +227,24 @@ function Theme.RGB(role)
 	return c[1], c[2], c[3]
 end
 
--- "ffrrggbb" for |c escapes.
-function Theme.Hex(role)
-	local c = Get(role)
+-- "ffrrggbb" for |c escapes. Takes a role name, or a color table { r, g, b[, a] } / { r =, g =, b = } for colors with
+-- game meaning (class, item quality); alpha is ignored.
+function Theme.Hex(roleOrColor)
+	local c
+	if type(roleOrColor) == "table" then
+		c = { roleOrColor[1] or roleOrColor.r, roleOrColor[2] or roleOrColor.g, roleOrColor[3] or roleOrColor.b }
+		if not (c[1] and c[2] and c[3]) then
+			error("Tomte theme: not a color table", 2)
+		end
+	else
+		c = Get(roleOrColor)
+	end
 	local function B(v)
 		return math.floor(v * 255 + 0.5)
 	end
 	return ("ff%02x%02x%02x"):format(B(c[1]), B(c[2]), B(c[3]))
 end
 
-function Theme.Wrap(text, role)
-	return "|c" .. Theme.Hex(role) .. tostring(text) .. "|r"
+function Theme.Wrap(text, roleOrColor)
+	return "|c" .. Theme.Hex(roleOrColor) .. tostring(text) .. "|r"
 end

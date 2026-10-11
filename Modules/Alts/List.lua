@@ -148,7 +148,7 @@ local function InQuality(text, itemID)
 		return text
 	end
 	local r, g, b = C_Item.GetItemQualityColor(quality)
-	return ("|cff%02x%02x%02x%s|r"):format(r * 255, g * 255, b * 255, text)
+	return UI.Wrap(text, { r, g, b })
 end
 
 local function Icon(icon, size)

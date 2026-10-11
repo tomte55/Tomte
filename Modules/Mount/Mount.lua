@@ -261,7 +261,7 @@ local function PreClick(_, mouseButton, down)
 		SetMacro("/leavevehicle")
 	elseif (IsMounted() or InTravelForm()) and IsFlying() and db.keepFlying then
 		SetMacro("")
-		UIErrorsFrame:AddMessage("Smart Mount: land first (or turn off \"Don't dismount while flying\").", 1, 0.82, 0)
+		UIErrorsFrame:AddMessage("Smart Mount: land first (or turn off \"Don't dismount while flying\").", ns.UI.RGB("heading"))
 	elseif IsMounted() then
 		SetMacro("/dismount")
 	elseif InTravelForm() then
@@ -285,7 +285,7 @@ local function PreClick(_, mouseButton, down)
 		else
 			SetMacro("")
 			UIErrorsFrame:AddMessage(IsIndoors() and "Smart Mount: you can't mount indoors."
-				or "Smart Mount: no usable mount here.", 1, 0.82, 0)
+				or "Smart Mount: no usable mount here.", ns.UI.RGB("heading"))
 		end
 	end
 end

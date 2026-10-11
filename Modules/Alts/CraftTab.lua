@@ -73,15 +73,11 @@ local function QualityColor(itemID)
 	return { r, g, b }
 end
 
-local function Hex(c)
-	return ("ff%02x%02x%02x"):format(c[1] * 255, c[2] * 255, c[3] * 255)
-end
-
 -- A recipe's name in its item's rarity color (white for recipes that make no item, like enchants).
 local function RecipeName(recipe)
 	local name = recipe and recipe.name or "?"
 	local color = recipe and QualityColor(recipe.item)
-	return color and ("|c%s%s|r"):format(Hex(color), name) or name
+	return color and UI.Wrap(name, color) or name
 end
 
 local function ProfName(base)

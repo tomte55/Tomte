@@ -247,8 +247,7 @@ local function FillDetailed(row, c)
 	for _, fs in ipairs(row.cells) do
 		fs:Hide()
 	end
-	local color = ClassColor(c)
-	local nameText = ("|cff%02x%02x%02x%s|r"):format(color[1] * 255, color[2] * 255, color[3] * 255, c.name or "?") -- class color
+	local nameText = UI.ClassColored(c.name or "?", c.class)
 	local parts = { nameText, tostring(c.level or "?") .. (c.spec and (" " .. c.spec) or "") }
 	if c.ilvl then
 		parts[#parts + 1] = ("iLvl %d"):format(c.ilvl)
