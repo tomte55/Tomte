@@ -11,6 +11,9 @@
 	<Binding name="TOMTE_GOLD" category="Tomte">
 		Tomte_Binding("GOLD")
 	</Binding>
+	<Binding name="TOMTE_SHOWCASE" category="Tomte">
+		Tomte_Binding("SHOWCASE")
+	</Binding>
 	<Binding name="CLICK TomteSmartMount:LeftButton" category="Tomte"/>
 	<Binding name="CLICK TomteSmartMount:RightButton" category="Tomte"/>
 	<Binding name="CLICK TomtePoison1:LeftButton" category="Tomte"/>

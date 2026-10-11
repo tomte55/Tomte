@@ -6,7 +6,11 @@ local addonName, ns = ...
 -- The letterbox swallows mouse input so the player can't move the camera; a click or Esc pauses (or calls
 -- opts.onDismiss, with opts.hint as the hint text). opts.passthrough instead leaves all input to the game
 -- and dismisses on any key or click (short cinematics that must never take control away). opts.escapeToGame also
--- lets Esc through to the game's own Esc handling (the logout card: Blizzard's Esc cancels the logout). A paused
+-- lets Esc through to the game's own Esc handling (the logout card: Blizzard's Esc cancels the logout).
+-- opts.interactive leaves the mouse to the world (drag turns the camera, the wheel zooms) while keys work as usual;
+-- the scene's own frames take the mouse where they need it (the Showcase module). opts.zoom: a camera distance to
+-- glide to, in or out (default: out to TARGET_ZOOM only). opts.pitch: the pitch limit to settle on (default
+-- CINEMATIC_PITCH). opts.bands = false: the vignette without the black bars. A paused
 -- cinematic comes back after state.resumeDelay seconds without clicks, key presses or open windows (the
 -- owner's tick decides when to Enter again).
 -- The UI must always come back: Exit is idempotent and waits for combat to end if needed.
@@ -76,6 +80,7 @@ local fadedWorldFrames = {} -- [frame] = its alpha: other addons' WorldFrame chi
 local fadedBubbles = {} -- chat bubbles we set to alpha 0 (never hidden, see HideWorldFrameAddons)
 local sinceWorldSweep = 0
 local cursorX, cursorY
+local bandsShown = true -- opts.bands of the active cinematic
 local mouseWasDown -- passthrough: a mouse button held at Enter (steering) mustn't dismiss, only a new press
 local pitcher = CreateFrame("Frame")
 local watcher = CreateFrame("Frame")
@@ -185,9 +190,13 @@ local function ShowUI()
 end
 
 -- Undo exactly the zoom we applied (GetCameraZoom is mid-animation or collision-shortened at times).
+-- state.zoomedOut is signed: below 0 when opts.zoom moved the camera in.
 local function RestoreZoom(state)
-	if state.zoomedOut and state.zoomedOut > 0 then
-		CameraZoomIn(state.zoomedOut)
+	local zoomed = state.zoomedOut
+	if zoomed and zoomed > 0 then
+		CameraZoomIn(zoomed)
+	elseif zoomed and zoomed < 0 then
+		CameraZoomOut(-zoomed)
 	end
 	state.zoomedOut = nil
 end
@@ -206,21 +215,21 @@ end
 
 -- The player's own limit, read before we lower it. The wiki notes GetCVar may not read pitchLimit: the game's
 -- default then.
-local function PlayerPitch()
+local function PlayerPitch(limit)
 	local ok, value = pcall(C_CVar.GetCVar, "pitchLimit")
 	value = ok and tonumber(value)
-	if value and value > CINEMATIC_PITCH then
+	if value and value > limit then
 		return value
 	end
 	return DEFAULT_PITCH
 end
 
-local function LimitPitch(state)
+local function LimitPitch(state, limit)
 	state.pitchLimited = true -- persisted so a /reload still resets the limit
 	-- In TomteDB.cinematic like the music volume: kept until restored (a limit we set must never become the backup).
 	local db = ns.db.cinematic
 	if not db.pitchLimitBackup then
-		db.pitchLimitBackup = PlayerPitch()
+		db.pitchLimitBackup = PlayerPitch(limit)
 	end
 	local from = db.pitchLimitBackup
 	pitchLimit = nil
@@ -230,10 +239,10 @@ local function LimitPitch(state)
 		if t < PITCH_EASE then
 			local p = Ease(t / PITCH_EASE)
 			-- Tenths of a degree: whole-degree steps make the camera stutter on the way down.
-			SetPitchLimit(math.floor((from + (CINEMATIC_PITCH - from) * p) * 10 + 0.5) / 10)
+			SetPitchLimit(math.floor((from + (limit - from) * p) * 10 + 0.5) / 10)
 		elseif not nudging then
 			nudging = true
-			SetPitchLimit(CINEMATIC_PITCH)
+			SetPitchLimit(limit)
 			MoveViewUpStart(PITCH_NUDGE_SPEED) -- "up" raises the camera (Down sent it under the character)
 		elseif t >= PITCH_EASE + PITCH_NUDGE_TIME then
 			MoveViewUpStop()
@@ -369,6 +378,12 @@ local function LetterboxOnUpdate(self, elapsed)
 		self.bandHeight = h
 		self.top:SetHeight(h)
 		self.bottom:SetHeight(h)
+	end
+	if bandsShown ~= self.bandsShown then
+		self.bandsShown = bandsShown
+		for _, band in ipairs({ self.top, self.bottom, self.topEdge, self.bottomEdge }) do
+			band:SetShown(bandsShown)
+		end
 	end
 	-- The bands keep their height and slide in from off screen, soft edge included (0 once fully in).
 	local offset = (1 - e) * (h + LETTERBOX_EDGE)
@@ -578,10 +593,13 @@ function C.Enter(newScene, state, opts)
 	watcher:Hide()
 	state.cinematic = true -- persisted so a /reload can clean up
 	if not opts.skipCamera then
-		local zoomOut = TARGET_ZOOM - GetCameraZoom()
-		if zoomOut > 0 then
-			CameraZoomOut(zoomOut)
-			state.zoomedOut = (state.zoomedOut or 0) + zoomOut
+		local delta = (opts.zoom or TARGET_ZOOM) - GetCameraZoom()
+		if delta > 0 then
+			CameraZoomOut(delta)
+			state.zoomedOut = (state.zoomedOut or 0) + delta
+		elseif delta < 0 and opts.zoom then
+			CameraZoomIn(-delta)
+			state.zoomedOut = (state.zoomedOut or 0) + delta
 		end
 	end
 	state.orbitFactor = nil
@@ -590,7 +608,7 @@ function C.Enter(newScene, state, opts)
 		state.orbitFactor = 1
 	end
 	if not opts.skipCamera then
-		LimitPitch(state)
+		LimitPitch(state, opts.pitch or CINEMATIC_PITCH)
 	end
 	if opts.music then
 		StartMusic(state, opts.music)
@@ -603,8 +621,10 @@ function C.Enter(newScene, state, opts)
 	passthrough = opts.passthrough
 	mouseWasDown = IsMouseButtonDown() and true or false
 	escapeToGame = opts.escapeToGame
-	letterbox:EnableMouse(not passthrough)
-	letterbox:EnableMouseWheel(not passthrough)
+	bandsShown = opts.bands ~= false
+	local takeMouse = not (passthrough or opts.interactive)
+	letterbox:EnableMouse(takeMouse)
+	letterbox:EnableMouseWheel(takeMouse)
 	letterbox:EnableKeyboard(true)
 	letterbox:SetPropagateKeyboardInput(true)
 	ShowHint()
