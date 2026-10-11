@@ -44,17 +44,13 @@ function ns.CharShow_Shoulder(zoom, toSide)
 	return floor((zoom or 0) * SHIFT_PER_ZOOM * 100 + 0.5) / 100
 end
 
--- After turning the camera left by `turned` degrees in all: the way back, the short way round.
--- -> "RIGHT" or "LEFT" and the degrees (0..180), or nil when it's already back.
-function ns.CharShow_TurnBack(turned)
-	local x = (turned or 0) % 360
-	if x < 0.5 or x > 359.5 then
-		return nil
-	end
-	if x <= 180 then
-		return "RIGHT", x
-	end
-	return "LEFT", 360 - x
+-- The swing's turn rate t seconds in: it rises from the slow turn to `from` over `ramp` seconds, and decays back
+-- down to `to` (the slow turn) by `duration`, sine-eased, so it starts and blends into the slow turn without a jolt.
+function ns.CharShow_SwingRate(t, duration, from, to, ramp)
+	local p = max(0, min(t / duration, 1))
+	local r = ramp and ramp > 0 and max(0, min(t / ramp, 1)) or 1
+	r = r * r * (3 - 2 * r)
+	return to + (from - to) * r * (1 + math.cos(math.pi * p)) / 2
 end
 
 -- Degrees per second for MoveViewLeftStart(speed): the speed scales the cameraYawMoveSpeed CVar.

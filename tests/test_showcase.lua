@@ -41,19 +41,18 @@ test("Shoulder follows the zoom, 0 when centered", function()
 	eq(ns.CharShow_Shoulder(4, false), 0)
 end)
 
-test("TurnBack takes the short way", function()
-	local dir, deg = ns.CharShow_TurnBack(150)
-	eq(dir, "RIGHT")
-	near(deg, 150)
-	dir, deg = ns.CharShow_TurnBack(250)
-	eq(dir, "LEFT")
-	near(deg, 110)
-	dir, deg = ns.CharShow_TurnBack(720 + 30)
-	eq(dir, "RIGHT")
-	near(deg, 30)
-	eq(ns.CharShow_TurnBack(360), nil, "a full turn")
-	eq(ns.CharShow_TurnBack(0), nil)
-	eq(ns.CharShow_TurnBack(nil), nil)
+test("SwingRate ramps up, then eases down into the slow turn", function()
+	near(ns.CharShow_SwingRate(0, 1.6, 220, 2, 0.4), 2, "starts at the slow turn, no jolt")
+	assert(ns.CharShow_SwingRate(0.4, 1.6, 220, 2, 0.4) > 150, "fast after the ramp")
+	near(ns.CharShow_SwingRate(1.6, 1.6, 220, 2, 0.4), 2)
+	near(ns.CharShow_SwingRate(9, 1.6, 220, 2, 0.4), 2, "clamped after the end")
+	near(ns.CharShow_SwingRate(0, 1, 100, 0), 100, "no ramp")
+	-- About 135 degrees in all: from behind round to a 3/4 front view.
+	local turned, dt = 0, 0.01
+	for t = 0, 1.6 - dt / 2, dt do
+		turned = turned + ns.CharShow_SwingRate(t + dt / 2, 1.6, 220, 2, 0.4) * dt
+	end
+	assert(turned > 130 and turned < 140, "turned " .. turned)
 end)
 
 test("YawRate scales the CVar", function()

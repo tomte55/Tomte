@@ -30,6 +30,7 @@ local DIAL_STEPS = 160 -- the progress arc is this many overlapping soft dots: a
 local TILE_X, TILE_H, GAP = 156, 58, 8
 local LEGEND_ROW = 46
 local SLOT_FADE_STEP = 0.035 -- each slot fades in a little after the one above
+local CLOSE_FADE = 0.3 -- seconds: everything fades out this fast on close, before the UI is back
 -- Secondary stat colors, by theme role.
 local STAT_ROLES = { crit = "danger", haste = "warning", mastery = "accent", versatility = "success" }
 
@@ -39,6 +40,9 @@ ns.CharShowScene = SCENE
 local root, tooltip, stats
 local groups = {} -- left, right, stats: scaled to the screen
 local shades = {}
+local shadeFrame -- holds the shades: gradient textures ignore their own alpha, so the frame fades them
+local rails = {}
+local closing, closeT = false, 0
 local slots = {} -- [slot] = slot widget
 local slotOrder = {} -- widgets in fade-in order
 local showHints = true
@@ -626,7 +630,7 @@ end
 -- Scene contract -----------------------------------------------------------------------------------------------------
 
 local function CreateShade(side, design)
-	local t = Tex(root, "BACKGROUND", nil, nil, -8)
+	local t = Tex(shadeFrame, "BACKGROUND", nil, nil, -8)
 	t:SetPoint("TOP" .. side)
 	t:SetPoint("BOTTOM" .. side)
 	local dark, clear = CreateColor(0, 0, 0, side == "LEFT" and 0.62 or 0.82), CreateColor(0, 0, 0, 0)
@@ -643,6 +647,7 @@ local function CreateGearGroup(key, list, side)
 	group:SetSize(BOX_W, DESIGN_H)
 	groups[key] = group
 	local rail = UI.VLine(group, 0.55)
+	rails[#rails + 1] = rail
 	local railX = side == "LEFT" and ICON_C or BOX_W - ICON_C
 	rail:SetPoint("TOP", group, "TOPLEFT", railX, -RAIL_TOP)
 	rail:SetPoint("BOTTOM", group, "TOPLEFT", railX, -RAIL_BOTTOM)
@@ -657,6 +662,9 @@ function SCENE.Create(parent)
 	root = parent
 	tooltip = CreateFrame("GameTooltip", "TomteShowcaseTooltip", root, "GameTooltipTemplate") -- named: the template
 	tooltip:SetFrameStrata("TOOLTIP")
+	shadeFrame = CreateFrame("Frame", nil, root)
+	shadeFrame:SetAllPoints(root)
+	shadeFrame:SetFrameLevel(root:GetFrameLevel()) -- under the gear and stats groups
 	CreateShade("LEFT", SHADE_LEFT)
 	CreateShade("RIGHT", SHADE_RIGHT)
 	CreateGearGroup("left", ns.CHARSHOW_LEFT, "LEFT")
@@ -691,6 +699,7 @@ function SCENE.Begin(state)
 	showHints = state.hints ~= false
 	Layout()
 	SCENE.Refresh()
+	closing, closeT = false, 0
 	root:SetAlpha(0)
 end
 
@@ -710,11 +719,17 @@ function SCENE.RefreshStats()
 	end
 end
 
-function SCENE.Update(contentAlpha)
+function SCENE.Update(contentAlpha, dt)
+	if closing then
+		closeT = closeT + (dt or 0)
+		root:SetAlpha(math.max(0, 1 - closeT / CLOSE_FADE))
+		return
+	end
 	root:SetAlpha(1)
 	stats:SetAlpha(contentAlpha)
-	for _, shade in pairs(shades) do
-		shade.tex:SetAlpha(math.min(contentAlpha * 1.5, 1))
+	shadeFrame:SetAlpha(math.min(contentAlpha * 1.5, 1))
+	for _, rail in ipairs(rails) do
+		rail:SetAlpha(contentAlpha)
 	end
 	for i, w in ipairs(slotOrder) do
 		w:SetAlpha(math.max(0, math.min(1, contentAlpha * 1.6 - (i - 1) * SLOT_FADE_STEP)))
@@ -722,6 +737,7 @@ function SCENE.Update(contentAlpha)
 end
 
 function SCENE.End()
+	closing, closeT = true, 0
 	tooltip:Hide()
 	ns.CharShow_OnEnd()
 end

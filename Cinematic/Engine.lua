@@ -10,7 +10,11 @@ local addonName, ns = ...
 -- opts.interactive leaves the mouse to the world (drag turns the camera, the wheel zooms) while keys work as usual;
 -- the scene's own frames take the mouse where they need it (the Showcase module). opts.zoom: a camera distance to
 -- glide to, in or out (default: out to TARGET_ZOOM only). opts.pitch: the pitch limit to settle on (default
--- CINEMATIC_PITCH). opts.bands = false: the vignette without the black bars. A paused
+-- CINEMATIC_PITCH). opts.bands = false: the vignette without the black bars. opts.instantHide: the UI goes in one
+-- frame instead of fading (a fade over a moving camera looks muddy). opts.noLift: no upward nudge after lowering the
+-- pitch limit (a second camera motion). opts.zoomTime: glide to opts.zoom over this many seconds, eased, instead
+-- of the game's own (fast) zoom. opts.saveView: a saved camera view (1-5) to keep the player's camera in at Enter and
+-- go back to at Exit (zoom, pitch and facing exactly as they were; it overwrites that view). A paused
 -- cinematic comes back after state.resumeDelay seconds without clicks, key presses or open windows (the
 -- owner's tick decides when to Enter again).
 -- The UI must always come back: Exit is idempotent and waits for combat to end if needed.
@@ -81,6 +85,8 @@ local fadedBubbles = {} -- chat bubbles we set to alpha 0 (never hidden, see Hid
 local sinceWorldSweep = 0
 local cursorX, cursorY
 local bandsShown = true -- opts.bands of the active cinematic
+local zoomer = CreateFrame("Frame") -- opts.zoomTime: the eased zoom
+local VIEW_DELAY = 0.1 -- seconds between Exit and going back to opts.saveView (opts.viewDelay overrides)
 local mouseWasDown -- passthrough: a mouse button held at Enter (steering) mustn't dismiss, only a new press
 local pitcher = CreateFrame("Frame")
 local watcher = CreateFrame("Frame")
@@ -158,11 +164,17 @@ local function FadeUI(from, to, duration, onDone)
 	end)
 end
 
-local function HideUI()
+local function HideUI(instant)
 	if InCombatLockdown() or not UIParent:IsShown() then
 		return
 	end
 	hidUI = true
+	if instant then
+		uiFader:SetScript("OnUpdate", nil)
+		UIParent:Hide()
+		UIParent:SetAlpha(1)
+		return
+	end
 	FadeUI(1, 0, UI_FADE_OUT, function()
 		if active and not InCombatLockdown() then
 			UIParent:Hide()
@@ -190,8 +202,30 @@ local function ShowUI()
 end
 
 -- Undo exactly the zoom we applied (GetCameraZoom is mid-animation or collision-shortened at times).
+-- Glides the camera `delta` yards out (in when negative) over `duration`, eased; state.zoomedOut keeps what's done so
+-- far, so an Exit halfway undoes exactly that.
+local function GlideZoom(state, delta, duration)
+	local t, done = 0, 0
+	zoomer:SetScript("OnUpdate", function(self, elapsed)
+		t = t + elapsed
+		local want = delta * ns.Smoothstep(math.min(t / duration, 1))
+		local step = want - done
+		if step > 0 then
+			CameraZoomOut(step)
+		elseif step < 0 then
+			CameraZoomIn(-step)
+		end
+		done = want
+		state.zoomedOut = (state.zoomedOut or 0) + step
+		if t >= duration then
+			self:SetScript("OnUpdate", nil)
+		end
+	end)
+end
+
 -- state.zoomedOut is signed: below 0 when opts.zoom moved the camera in.
 local function RestoreZoom(state)
+	zoomer:SetScript("OnUpdate", nil)
 	local zoomed = state.zoomedOut
 	if zoomed and zoomed > 0 then
 		CameraZoomIn(zoomed)
@@ -224,7 +258,7 @@ local function PlayerPitch(limit)
 	return DEFAULT_PITCH
 end
 
-local function LimitPitch(state, limit)
+local function LimitPitch(state, limit, noLift)
 	state.pitchLimited = true -- persisted so a /reload still resets the limit
 	-- In TomteDB.cinematic like the music volume: kept until restored (a limit we set must never become the backup).
 	local db = ns.db.cinematic
@@ -240,6 +274,9 @@ local function LimitPitch(state, limit)
 			local p = Ease(t / PITCH_EASE)
 			-- Tenths of a degree: whole-degree steps make the camera stutter on the way down.
 			SetPitchLimit(math.floor((from + (limit - from) * p) * 10 + 0.5) / 10)
+		elseif noLift then
+			SetPitchLimit(limit)
+			self:SetScript("OnUpdate", nil)
 		elseif not nudging then
 			nudging = true
 			SetPitchLimit(limit)
@@ -592,9 +629,16 @@ function C.Enter(newScene, state, opts)
 	watched = nil
 	watcher:Hide()
 	state.cinematic = true -- persisted so a /reload can clean up
+	if opts.saveView and not opts.skipCamera then
+		SaveView(opts.saveView)
+		state.savedView = opts.saveView -- persisted: a /reload still goes back to it
+		state.viewDelay = opts.viewDelay
+	end
 	if not opts.skipCamera then
 		local delta = (opts.zoom or TARGET_ZOOM) - GetCameraZoom()
-		if delta > 0 then
+		if opts.zoomTime and opts.zoom and delta ~= 0 then
+			GlideZoom(state, delta, opts.zoomTime)
+		elseif delta > 0 then
 			CameraZoomOut(delta)
 			state.zoomedOut = (state.zoomedOut or 0) + delta
 		elseif delta < 0 and opts.zoom then
@@ -608,7 +652,7 @@ function C.Enter(newScene, state, opts)
 		state.orbitFactor = 1
 	end
 	if not opts.skipCamera then
-		LimitPitch(state, opts.pitch or CINEMATIC_PITCH)
+		LimitPitch(state, opts.pitch or CINEMATIC_PITCH, opts.noLift)
 	end
 	if opts.music then
 		StartMusic(state, opts.music)
@@ -630,7 +674,7 @@ function C.Enter(newScene, state, opts)
 	ShowHint()
 	letterbox:Show()
 	ShowShowcase(opts.showcase) -- after the letterbox is shown, so the model renders
-	HideUI()
+	HideUI(opts.instantHide)
 	UpdateEvents()
 end
 
@@ -660,8 +704,24 @@ end
 function C.Exit(state)
 	if state and state.cinematic then
 		MoveViewLeftStop()
-		RestoreZoom(state)
-		RestorePitch(state)
+		if state.savedView then
+			-- The saved view puts zoom, pitch and facing back; the pitch limit first, or it would clamp the view. A moment
+			-- later, so the scene's own camera settings (restored in its End, below) don't change mid-blend: a jitter.
+			zoomer:SetScript("OnUpdate", nil)
+			state.zoomedOut = nil
+			RestorePitch(state)
+			local view = state.savedView
+			state.savedView = nil
+			C_Timer.After(state.viewDelay or VIEW_DELAY, function()
+				SetView(view)
+				if ns.CharShowCamera then
+					ns.CharShowCamera.Debug("SetView(" .. view .. ")")
+				end
+			end)
+		else
+			RestoreZoom(state)
+			RestorePitch(state)
+		end
 		StopMusic(state)
 		state.cinematic = nil
 		state.orbitFactor = nil

@@ -9,6 +9,9 @@ local addonName, ns = ...
 local OWNER = "showcase"
 local PITCH = 2 -- degrees: the camera settles level with the character's head
 local HEIGHT_CHANGE = 0.1 -- re-zoom when a fresh measurement differs this much (a fraction)
+-- The game's saved camera view the player's camera is kept in while open (close goes back to it exactly). 5, as
+-- Narcissus uses: the views players bind are mostly 1-3.
+local SAVED_VIEW = 5
 
 local module, db
 local state -- the open showcase's cinematic state (db.current), nil when closed
@@ -97,6 +100,11 @@ function ns.CharShow_Open()
 		zoom = Zoom(height),
 		pitch = PITCH,
 		interactive = true,
+		instantHide = true,
+		noLift = true,
+		zoomTime = 1.4,
+		saveView = SAVED_VIEW,
+		viewDelay = 0.3, -- after dynamic pitch is released (Camera.lua, PAD_CLOSE)
 		bands = db.bands,
 		hint = "Drag to turn, scroll to zoom, Esc to close",
 		onDismiss = function()
@@ -109,6 +117,7 @@ function ns.CharShow_Open()
 	end
 	ns.CharShowCamera.Start(state, {
 		toSide = db.toSide,
+		dynamicPitch = db.dynamicPitch,
 		turnSpeed = db.turn and db.turnSpeed or 0,
 		isOverOwn = ns.CharShowScene.MouseOverOwn,
 	})
@@ -226,6 +235,7 @@ module = ns.RegisterModule({
 		turn = true,
 		turnSpeed = 1,
 		toSide = true,
+		dynamicPitch = false, -- on: a one-frame camera twitch on close (12.1), not solved yet
 		hints = true,
 		bands = false,
 		distance = 1,
@@ -256,6 +266,10 @@ module = ns.RegisterModule({
 	commands = {
 		{ "", "open or close the Showcase", ns.CharShow_Toggle, hidden = true },
 		{ "open", "show your character, gear and stats", ns.CharShow_Open },
+		{ "debug", "chat lines for each camera step on close", function()
+			db.debugCamera = not db.debugCamera
+			ns.Print("Showcase camera debug " .. (db.debugCamera and "on" or "off") .. ".")
+		end, hidden = true },
 	},
 	options = {
 		{ type = "header", label = "Showcase" },
@@ -269,6 +283,9 @@ module = ns.RegisterModule({
 			format = Percent },
 		{ type = "slider", key = "distance", label = "Camera distance", min = 0.7, max = 1.6, step = 0.05,
 			format = Percent, tooltip = "How far the camera stays from your character. 100% frames the whole body." },
+		{ type = "checkbox", key = "dynamicPitch", label = "Head above center",
+			tooltip = "ActionCam's dynamic pitch while the Showcase is open: the camera aims a little lower, so your head "
+				.. "sits above the middle of the screen." },
 		{ type = "checkbox", key = "toSide", label = "Character to the side",
 			tooltip = "Your character stands left of center, between the gear columns. Off: in the middle." },
 		{ type = "checkbox", key = "bands", label = "Letterbox bars",
