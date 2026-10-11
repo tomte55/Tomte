@@ -108,7 +108,7 @@ function ns.Setup_MarkFresh(db)
 	db.setup = { state = "pending" }
 end
 
--- Settings migration 2 (Core.lua): saved variables from before the picker existed are an existing user's. They
+-- Settings migration 2 (Core/Migrations.lua): saved variables from before the picker existed are an existing user's. They
 -- never see the picker by surprise (only through /tomte setup) and get no message about it.
 function ns.Setup_Migrate(db)
 	if type(db.setup) ~= "table" then

@@ -48,12 +48,12 @@ local function ByName(chars, name)
 	return nil
 end
 
--- A realm name as GetNormalizedRealmName and GetAutoCompleteRealms give it: no spaces or dashes.
+-- A realm name as GetNormalizedRealmName and C_AutoComplete.GetAutoCompleteRealms give it: no spaces or dashes.
 local function NormalRealm(realm)
 	return (realm or ""):gsub("[%s%-]", "")
 end
 
--- The realms mail can reach: { [normalized realm] = true } from the connected realms (GetAutoCompleteRealms, which
+-- The realms mail can reach: { [normalized realm] = true } from the connected realms (C_AutoComplete.GetAutoCompleteRealms, which
 -- is empty on a realm that isn't connected) and your own.
 function ns.Alts_RealmSet(realms, myRealm)
 	local set = {}
