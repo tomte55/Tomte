@@ -25,16 +25,44 @@ test("DefaultStyles has every type", function()
 	end
 end)
 
-test("LevelStyle: cinematics become banners below max level, except mounts and tames", function()
-	eq(ns.Moments_LevelStyle("cinematic", "zone", 30, 80, true), "banner", "levelling")
-	eq(ns.Moments_LevelStyle("cinematic", "levelup", 80, 80, true), "cinematic", "reaching max")
-	eq(ns.Moments_LevelStyle("cinematic", "zone", 80, 80, true), "cinematic", "at max")
-	eq(ns.Moments_LevelStyle("cinematic", "mount", 30, 80, true), "cinematic", "mount")
-	eq(ns.Moments_LevelStyle("cinematic", "tame", 30, 80, true), "cinematic", "tame")
-	eq(ns.Moments_LevelStyle("cinematic", "zone", 30, 80, false), "cinematic", "setting off")
-	eq(ns.Moments_LevelStyle("off", "zone", 30, 80, true), "off", "off stays off")
-	eq(ns.Moments_LevelStyle("banner", "zone", 30, 80, true), "banner", "banner stays")
-	eq(ns.Moments_LevelStyle("cinematic", "zone", nil, 80, true), "cinematic", "unknown level")
+test("LevelStyle: Cinematic at max level is a banner below max level", function()
+	eq(ns.Moments_LevelStyle("cinematicMax", 30, 80), "banner", "levelling")
+	eq(ns.Moments_LevelStyle("cinematicMax", 80, 80), "cinematic", "at or reaching max")
+	eq(ns.Moments_LevelStyle("cinematicMax", nil, 80), "cinematic", "unknown level")
+	eq(ns.Moments_LevelStyle("cinematic", 30, 80), "cinematic", "cinematic always plays")
+	eq(ns.Moments_LevelStyle("off", 30, 80), "off", "off stays off")
+	eq(ns.Moments_LevelStyle("banner", 80, 80), "banner", "banner stays")
+end)
+
+test("Every default style is a choice", function()
+	local values = {}
+	for _, s in ipairs(ns.MOMENT_STYLES) do
+		values[s.value] = true
+	end
+	for _, t in ipairs(ns.MOMENT_TYPES) do
+		eq(values[t.style], true, t.key)
+	end
+end)
+
+test("MigrateAtMax: checkbox on turns Cinematic into Cinematic at max level, except mounts and tames", function()
+	local db = { cinematicsAtMax = true, styles = { zone = "cinematic", mount = "cinematic", tame = "cinematic",
+		pet = "banner", toy = "off" } }
+	ns.Moments_MigrateAtMax(db)
+	eq(db.styles.zone, "cinematicMax", "zone")
+	eq(db.styles.mount, "cinematic", "mount")
+	eq(db.styles.tame, "cinematic", "tame")
+	eq(db.styles.pet, "banner", "pet")
+	eq(db.styles.toy, "off", "toy")
+	eq(db.cinematicsAtMax, nil, "checkbox removed")
+end)
+
+test("MigrateAtMax: checkbox off keeps Cinematic; nothing saved is fine", function()
+	local db = { cinematicsAtMax = false, styles = { zone = "cinematic" } }
+	ns.Moments_MigrateAtMax(db)
+	eq(db.styles.zone, "cinematic", "zone")
+	eq(db.cinematicsAtMax, nil, "checkbox removed")
+	ns.Moments_MigrateAtMax(nil)
+	ns.Moments_MigrateAtMax({})
 end)
 
 test("Decide waits, then falls back to a banner", function()

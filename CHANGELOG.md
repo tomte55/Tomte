@@ -5,6 +5,10 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Moments: each moment can now be set to "Cinematic at max level" (a banner while levelling), replacing the single
+  "Cinematics only at max level" checkbox. New zones and campaign chapters play as cinematics at any level by
+  default; your current settings carry over unchanged.
+
 ## v1.5.0 - 2026-10-11
 
 - New installs start with a short welcome: pick Collector, Crafter, Minimal or Everything (`/tomte setup` any time).

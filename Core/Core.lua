@@ -37,6 +37,10 @@ local MIGRATIONS = {
 	function(db)
 		ns.Setup_Migrate(db)
 	end,
+	-- 3: Moments' "Cinematics only at max level" checkbox became the per-moment "Cinematic at max level" style.
+	function(db)
+		ns.Moments_MigrateAtMax(db.moments)
+	end,
 }
 
 -- Settings back to defaults, keeping collected data (Modules.lua). The caller reloads the UI: modules keep

@@ -163,8 +163,7 @@ end
 local function Show(kind, moment, force)
 	local style = force or ns.momentsDB.styles[kind] or "off"
 	if not force then
-		style = ns.Moments_LevelStyle(style, kind, LevelFor(moment), GetMaxLevelForPlayerExpansion(),
-			ns.momentsDB.cinematicsAtMax)
+		style = ns.Moments_LevelStyle(style, LevelFor(moment), GetMaxLevelForPlayerExpansion())
 	end
 	if style == "off" then
 		return
@@ -575,6 +574,9 @@ local function Preview(text)
 		return
 	end
 	local style = ns.momentsDB.styles[kind]
+	if style == "cinematicMax" then
+		style = "cinematic" -- the preview shows what max level looks like
+	end
 	if style == "cinematic" and not CanPlay(true) then
 		ns.Print("a cinematic moment waits until you're out of combat, instances and taxis (a banner after 10s).")
 	end
@@ -615,13 +617,11 @@ local options = {
 }
 for _, t in ipairs(ns.MOMENT_TYPES) do
 	options[#options + 1] = { type = "dropdown", key = "styles." .. t.key, label = t.name, choices = StyleChoices,
-		tooltip = "Off, a banner over the UI, or a short cinematic (UI hidden, letterbox). Cinematics wait until you're out of combat, instances and taxis; after 10 seconds they show as a banner." }
+		tooltip = "Off, a banner over the UI, or a short cinematic (UI hidden, letterbox). Cinematic at max level is a banner while levelling and a cinematic once you reach max level. Cinematics wait until you're out of combat, instances and taxis; after 10 seconds they show as a banner." }
 end
 options[#options + 1] = { type = "checkbox", key = "replaceZoneText", label = "Replace Blizzard's zone text",
 	tooltip = "When a discovery or new zone shows as a moment, hide Blizzard's own zone and subzone text and the yellow \"Discovered\" line for it. Banners always wait until Blizzard's center-screen text is gone." }
 options[#options + 1] = { type = "header", label = "Cinematic" }
-options[#options + 1] = { type = "checkbox", key = "cinematicsAtMax", label = "Cinematics only at max level",
-	tooltip = "While levelling, moments set to Cinematic show as a banner instead, so new levels, zones and chapters don't stop you every few minutes. New mounts and tamed pets keep their cinematic, and so does reaching max level." }
 options[#options + 1] = { type = "slider", key = "duration", label = "Cinematic length", min = 4, max = 15, step = 1,
 	format = function(value)
 		return value .. "s"
@@ -647,7 +647,6 @@ module = ns.RegisterModule({
 		previewKind = "levelup",
 		replaceZoneText = true,
 		revealSound = true,
-		cinematicsAtMax = true,
 		zones = {}, -- [player GUID] = { [zone mapID] = true } once its "new zone" moment ran
 	},
 	noShare = { "previewKind" }, -- not in settings strings (Core/Profile.lua)

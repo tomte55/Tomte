@@ -5,7 +5,7 @@ local addonName, ns = ...
 
 -- In options order. style = the default.
 ns.MOMENT_TYPES = {
-	{ key = "levelup", name = "Level up", style = "cinematic" },
+	{ key = "levelup", name = "Level up", style = "cinematicMax" },
 	{ key = "achievement", name = "Achievement", style = "banner" },
 	{ key = "mount", name = "New mount", style = "cinematic" },
 	{ key = "pet", name = "New battle pet", style = "banner" },
@@ -24,6 +24,7 @@ ns.MOMENT_STYLES = {
 	{ value = "off", text = "Off" },
 	{ value = "banner", text = "Banner" },
 	{ value = "cinematic", text = "Cinematic" },
+	{ value = "cinematicMax", text = "Cinematic at max level" },
 }
 
 function ns.Moments_DefaultStyles()
@@ -34,20 +35,35 @@ function ns.Moments_DefaultStyles()
 	return styles
 end
 
--- "Cinematics only at max level": below the expansion's max level a cinematic plays as a banner, so levelling
--- (a level, zone and chapter every few minutes) isn't a string of 7-second cutscenes. New mounts and tames stay
--- cinematic: they're rare, and the creature reveal is the point of them. The level-up that reaches max level
--- passes its new level, so it still gets its cinematic. level or maxLevel nil (unknown) = no change.
-ns.MOMENT_ALWAYS_CINEMATIC = { mount = true, tame = true }
-
-function ns.Moments_LevelStyle(style, kind, level, maxLevel, onlyAtMax)
-	if style ~= "cinematic" or not onlyAtMax or ns.MOMENT_ALWAYS_CINEMATIC[kind] then
+-- "Cinematic at max level" (cinematicMax): a banner below the expansion's max level, so levelling (a level every
+-- few minutes) isn't a string of 7-second cutscenes, and a cinematic from there on. The level-up that reaches max
+-- level passes its new level, so it still gets its cinematic. level or maxLevel nil (unknown) = cinematic.
+-- Returns "off", "banner" or "cinematic".
+function ns.Moments_LevelStyle(style, level, maxLevel)
+	if style ~= "cinematicMax" then
 		return style
 	end
 	if type(level) == "number" and type(maxLevel) == "number" and level < maxLevel then
 		return "banner"
 	end
-	return style
+	return "cinematic"
+end
+
+-- Settings from before 1.6 had one "Cinematics only at max level" checkbox (default on) that turned every
+-- Cinematic except mounts and tames into a banner while levelling. Keeps that behavior with the per-moment
+-- style: Cinematic becomes Cinematic at max level when the checkbox was on. db = the Moments settings or nil.
+function ns.Moments_MigrateAtMax(db)
+	if type(db) ~= "table" then
+		return
+	end
+	if db.cinematicsAtMax ~= false and type(db.styles) == "table" then
+		for key, style in pairs(db.styles) do
+			if style == "cinematic" and key ~= "mount" and key ~= "tame" then
+				db.styles[key] = "cinematicMax"
+			end
+		end
+	end
+	db.cinematicsAtMax = nil
 end
 
 -- A cinematic moment waits for a safe moment, then shows; after maxWait seconds it becomes a banner.
