@@ -180,6 +180,7 @@ local function Start()
 	ns.GearItems_InvalidateEquipped()
 	InvalidateVerdicts()
 	ns.GearSheet_Init()
+	ns.GearSlotLevels_Init()
 	ns.GearReveal_Start(db)
 	C_Timer.After(ns.inWorld and 0 or 8, WeightsHint) -- at login, after the chat flood
 end
@@ -190,6 +191,7 @@ local function Stop()
 	ns.GearWeights_HideDialog()
 	InvalidateVerdicts()
 	ns.GearSheet_Refresh()
+	ns.GearSlotLevels_Refresh()
 end
 
 module = ns.RegisterModule({
@@ -212,7 +214,7 @@ module = ns.RegisterModule({
 	description = "Says on each item's tooltip whether it's an upgrade, and why not when it isn't: wrong armor or "
 		.. "main stat, breaks your tier set, loses an embellishment or effect, unique limits. Trinkets and items "
 		.. "with effects are marked to sim instead of guessed. Also: upgrades for your other specs, the best gem "
-		.. "for empty sockets, and missing enchants. Can mark upgrades in Baganator and reveal new upgrades as a moment "
+		.. "for empty sockets, missing enchants, and item levels on the character sheet and Inspect slots. Can mark upgrades in Baganator and reveal new upgrades as a moment "
 		.. "with a click-to-equip toast. Warbound and Bind on Equip gear also says which of your other characters "
 		.. "it's an upgrade for.",
 	enabledByDefault = true,
@@ -232,6 +234,7 @@ module = ns.RegisterModule({
 		hinted = {},
 		sheetButton = true,
 		sheetOpen = false, -- the panel next to the character sheet
+		slotLevels = true,
 		reveal = true,
 		revealToast = true,
 		equipSound = true,
@@ -285,6 +288,10 @@ module = ns.RegisterModule({
 			ns.GearSheet_Refresh()
 		end, tooltip = "A Gear button under the trinkets that opens a panel with your stat weights, best gem and "
 			.. "missing enchants and sockets." },
+		{ type = "checkbox", key = "slotLevels", label = "Item level on gear slots", onChange = function()
+			ns.GearSlotLevels_Refresh()
+		end, tooltip = "Each item's level in the top-left corner of its slot on the character sheet and the Inspect "
+			.. "window, in the item's quality color." },
 		{ type = "header", label = "Bags" },
 		{ type = "checkbox", key = "baganator", label = "Mark upgrades in Baganator", onChange = InvalidateVerdicts,
 			tooltip = "Only clean upgrades get the arrow. In Baganator's settings (Icons), \"Tomte Gear Check\" is a "

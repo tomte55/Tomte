@@ -119,6 +119,7 @@ ns.BUG_FILES = {
 	"Modules/Gear/Scales.lua",
 	"Modules/Gear/Items.lua",
 	"Modules/Gear/Sheet.lua",
+	"Modules/Gear/SlotLevels.lua",
 	"Modules/Gear/Context.lua",
 	"Modules/Gear/Tooltip.lua",
 	"Modules/Gear/Hints.lua",
