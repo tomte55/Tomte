@@ -154,6 +154,11 @@ Modules/Alts/ListData.lua
 Modules/Alts/Collect.lua
 Modules/Alts/ProfGear.lua
 Modules/Alts/CraftTab.lua
+Modules/Alts/CraftGear.lua
+Modules/Alts/CraftMats.lua
+Modules/Alts/CraftResults.lua
+Modules/Alts/Shop.lua
+Modules/Alts/CraftDetail.lua
 Modules/Alts/RosterTab.lua
 Modules/Alts/ProfTab.lua
 Modules/Alts/HomeSection.lua

@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Profession gear across characters: what each one wears (Collect.lua stores the links), the best craft for each
 -- tool and accessory slot from the recipes somebody knows, and which bag items are an upgrade for whom. Used by the
--- Crafting tab's "Gear for" marks, the Profession gear tab, the mailbox (Send.lua) and Next up. Everything is
+-- Crafting tab's "Gear for" marks (CraftGear.lua), the Profession gear tab, the mailbox (Send.lua) and Next up. Everything is
 -- compared by item level: profession stats aren't in C_Item.GetItemStats under documented keys, so the "+n
 -- Multicraft" lines are only shown (read from the tooltip), not weighed. Pure parts in Data.lua.
 

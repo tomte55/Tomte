@@ -36,7 +36,7 @@ local refreshTimer
 
 local events = ns.Alts_Events
 local baganatorRegistered, syndicatorRegistered
--- Syndicator's callback registry stores callbacks per owner: its own table, not shared with CraftTab.lua.
+-- Syndicator's callback registry stores callbacks per owner: its own table, not shared with CraftMats.lua.
 local listOwner = {}
 
 -- Where things are ----------------------------------------------------------------------------------------------

@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- - n +, remove, what it costs and sells for, how far along it is) and the whole list's totals; right, every
 -- material the list needs with what's missing and what that costs, and the Auctionator shopping list. The to-do
 -- lines fold away underneath (the tracker and the mailbox walk you through them). Narrow, the columns stack.
--- Data from List.lua; the shopping list link is CraftTab.lua's ns.AltsShop_CreateLink.
+-- Data from List.lua; the shopping list link is Shop.lua's ns.AltsShop_CreateLink.
 
 local UI = ns.UI
 local HEADER_H = 34

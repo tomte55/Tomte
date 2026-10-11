@@ -14,14 +14,14 @@ local PRIMARY_KEYS = { [1] = "STR", [2] = "AGI", [4] = "INT" } -- LE_UNIT_STAT_*
 local BATCH = 30 -- recipes read per frame
 local RESCAN_AFTER = 30 -- seconds before the same profession is read again (the list event also fires on filters)
 local RECIPE_VERSION = 4 -- bump to re-read stored recipes (2: category and expansion name, 3: gear output links,
--- 4: output links at every quality and the number of qualities; CraftTab.lua checks for 4)
+-- 4: output links at every quality and the number of qualities; CraftGear.lua checks for 4)
 
 local db, guid
 local pending
 local scan -- { ids, i, prof, ticker }
 local lastScan = {} -- [expansion skill line] = GetTime() of the last finished scan
 
--- One bus for the module's files (CraftTab, Send and List attach to it); this file loads first.
+-- One bus for the module's files (CraftMats, Send and List attach to it); this file loads first.
 local events = ns.NewEvents()
 ns.Alts_Events = events
 

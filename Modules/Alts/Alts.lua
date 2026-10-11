@@ -2,7 +2,8 @@ local addonName, ns = ...
 
 -- Alts module: every character's snapshot (level, spec, item level, gold, zone, rest, professions) and their
 -- recipes, so the Alts page can answer "who makes this, and do we have the materials?" and list the characters.
--- Data.lua holds the logic, Collect.lua reads the game, CraftTab.lua, ListTab.lua, RosterTab.lua and ProfTab.lua draw
+-- Data.lua holds the logic, Collect.lua reads the game, CraftTab.lua (with CraftGear, CraftMats, CraftResults, Shop and
+-- CraftDetail), ListTab.lua, RosterTab.lua and ProfTab.lua draw
 -- the page's tabs (ProfGear.lua: profession tools and accessories across characters). The crafting list and its
 -- tracker are List.lua (rules in ListData.lua), the mailbox and bank panels Send.lua (rules in SendData.lua), the
 -- Home section HomeSection.lua.
