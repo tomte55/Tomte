@@ -11,33 +11,16 @@ Unlock conditions (PlayerCondition and its ModifierTree) are compiled into small
 Route.lua evaluates. What an addon can't check (areas, auras, world states, content tuning, reputation and the
 rest) becomes "?", unknown, which never blocks a route on its own.
 """
-import csv
 import os
 import sys
-import tempfile
-import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # the -I flag leaves the script folder off sys.path
+import wago
 
 TABLES = ["WaypointNode", "WaypointEdge", "WaypointSafeLocs", "WaypointMapVolume", "PlayerCondition", "ModifierTree"]
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Modules", "Travel")
-UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-      "Chrome/124.0 Safari/537.36")
 
 UNKNOWN = "?"
-
-
-def load(folder, build):
-    data = {}
-    for name in TABLES:
-        path = os.path.join(folder, name + ".csv")
-        if not os.path.exists(path):
-            url = "https://wago.tools/db2/%s/csv?build=%s" % (name, build)
-            print("downloading", url)
-            req = urllib.request.Request(url, headers={"User-Agent": UA})
-            with urllib.request.urlopen(req) as resp, open(path, "wb") as f:
-                f.write(resp.read())
-        with open(path, encoding="utf-8") as f:
-            data[name] = list(csv.DictReader(f))
-    return data
 
 
 def num(row, key):
@@ -318,8 +301,7 @@ def main():
         print(__doc__)
         sys.exit(1)
     build_id = sys.argv[1]
-    folder = sys.argv[2] if len(sys.argv) > 2 else tempfile.mkdtemp(prefix="waynet")
-    files, node_count, edge_count = build(load(folder, build_id), build_id)
+    files, node_count, edge_count = build(wago.load(wago.folder_from_argv("waynet"), TABLES, build_id), build_id)
     for name, text in files.items():
         with open(os.path.join(OUT_DIR, name), "w", encoding="utf-8", newline="\n") as f:
             f.write(text)

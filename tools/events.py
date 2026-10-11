@@ -12,20 +12,18 @@ Toys have no source API in game, so the toy -> holiday table is generated here w
 pets are matched in game (Catalog.lua) with localized names; the report lists the ones those rules would miss, to be
 placed by hand into `extra` in Table.lua. Toys the rules miss go into TOY_EXTRA below.
 """
-import csv
 import os
 import re
 import sys
-import tempfile
-import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # the -I flag leaves the script folder off sys.path
+import wago
 
 TABLES = ["Toy", "Mount", "BattlePetSpecies", "Holidays", "HolidayNames"]
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..")
 TABLE_LUA = os.path.join(ROOT, "Modules", "Holidays", "Table.lua")
 OUT = os.path.join(ROOT, "Modules", "Holidays", "Generated.lua")
-UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-      "Chrome/124.0 Safari/537.36")
 WORLD_EVENT = "6"  # SourceTypeEnum: World Event
 
 # English holiday names, dev time only (the game matches with the localized names it gives).
@@ -47,21 +45,6 @@ HINTS = ["headless horseman", "ahune", "direbrew", "hummel", "crown chemical", "
 
 # Toys whose source text matches but that aren't from the holiday: [itemID] (name in a comment).
 TOY_SKIP = []
-
-
-def load(folder, build):
-    data = {}
-    for name in TABLES:
-        path = os.path.join(folder, name + ".csv")
-        if not os.path.exists(path):
-            url = "https://wago.tools/db2/%s/csv?build=%s" % (name, build)
-            print("downloading", url)
-            req = urllib.request.Request(url, headers={"User-Agent": UA})
-            with urllib.request.urlopen(req) as resp, open(path, "wb") as f:
-                f.write(resp.read())
-        with open(path, encoding="utf-8") as f:
-            data[name] = list(csv.DictReader(f))
-    return data
 
 
 def table_signals():
@@ -141,8 +124,7 @@ def main():
         print(__doc__)
         sys.exit(1)
     build = sys.argv[1]
-    folder = sys.argv[2] if len(sys.argv) > 2 else tempfile.mkdtemp(prefix="tomte_events_")
-    data = load(folder, build)
+    data = wago.load(wago.folder_from_argv("tomte_events_"), TABLES, build)
     signals = table_signals()
 
     toys = {}

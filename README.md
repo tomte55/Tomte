@@ -125,7 +125,8 @@ Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, 
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 tools/       dev scripts (waynet.py builds Modules/Travel/Network*.lua from Blizzard's waypoint tables, events.py
              builds Modules/Holidays/Generated.lua from the client's toy and holiday tables, theme_art.py and themes/
-             build the themes' art and fonts, bugfiles.lua regenerates Core/BugFiles.lua)
+             build the themes' art and fonts, bugfiles.lua regenerates Core/BugFiles.lua; artlib.py and wago.py are the
+             helpers the art and data scripts share)
 docs/        design specs and implementation plans
 ```
 
