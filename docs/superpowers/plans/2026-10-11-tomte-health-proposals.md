@@ -948,9 +948,9 @@ end
 
 ### Task 11: Row actions shared by Collect and Holidays (needs one decision)
 
-**Decision for the user before starting:** Collect's tab blocks opening an achievement in combat ("the journal opens
-after combat"); Holidays' page opens it in combat. Recommended: Collect's rule for both (opening the load-on-demand
-Achievements UI in combat may be blocked).
+**Decided (user, 2026-10-11):** Collect's rule for both: in combat an achievement row says "the journal opens after
+combat" instead of opening (opening the load-on-demand Achievements UI in combat may be blocked). This changes the
+Events page: add a CHANGELOG line.
 
 **Files:** Create `Panel/Entries.lua` (after Panel/ModelPreview.lua in the TOC); modify `Modules/Collect/Tab.lua`,
 `Modules/Holidays/Page.lua`.
@@ -971,9 +971,9 @@ the live 12th return).
 
 ### Task 12: Theme-color conversions and a stricter theme test
 
-**Decision for the user before starting:** Mount's two `UIErrorsFrame` messages are Blizzard yellow today. Recommended
-`"heading"` (identical on the Blizzard theme, follows other themes). And the Gear sheet's row hover becomes the theme's
-"hover" color like every other row list (slightly stronger on Blizzard, tinted on other themes).
+**Decided (user, 2026-10-11):** Mount's two `UIErrorsFrame` messages use `UI.RGB("heading")` (identical on the
+Blizzard theme, follows other themes). The Gear sheet's row hover becomes the theme's "hover" color like every other
+row list (slightly stronger on Blizzard, tinted on other themes).
 
 **Files:** `Core/Theme.lua`, `Modules/Recent/Recent.lua`, `Modules/Alts/CraftTab.lua`, `Modules/Alts/List.lua`,
 `Modules/Alts/RosterTab.lua`, `Modules/Alts/Send.lua`, `Modules/Mount/Mount.lua`, `Modules/Gear/Sheet.lua`,
@@ -1283,5 +1283,5 @@ import artlib
 
 Phases run in order: 0 (commit) -> 1 (urgent, 12.1.5) -> 2 -> 3 -> 4 (Tasks 4-8) -> 5 (Tasks 9-11) -> 6 -> 7 (Tasks
 13-18; 16 after Task 5 because Gear's events move first; 14/15 after Task 7) -> 8. Each task that touches game code
-ends with the user's in-game check and a commit; Tasks 19-20 need no game. Two decisions are needed before their tasks
-start: the achievement-in-combat rule (Task 11) and the Mount message color (Task 12).
+ends with the user's in-game check and a commit; Tasks 19-20 need no game. Phase 0 is done (commit 88db809). Execution:
+subagent-driven (user's choice).
