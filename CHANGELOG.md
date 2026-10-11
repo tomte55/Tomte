@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Moments: the level-up moment replaces Blizzard's "You've Reached Level" text instead of showing on top of it. Its
+  sound still plays. Turn it off under Moments, "Replace Blizzard's level-up text".
 - Moments: each moment can now be set to "Cinematic at max level" (a banner while levelling), replacing the single
   "Cinematics only at max level" checkbox. New zones and campaign chapters play as cinematics at any level by
   default; your current settings carry over unchanged.

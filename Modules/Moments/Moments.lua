@@ -306,6 +306,57 @@ function events:PLAYER_LEVEL_UP(level)
 	end
 end
 
+-- Blizzard's "You've Reached Level N" toast (Blizzard_FrameXML EventToastManager.lua) says what our level-up
+-- moment says, in the same spot. It still runs its course, just unseen: skipping it would mean calling
+-- Blizzard's toast code (taint) and its timing holds back the toasts after it (new spells), which then show
+-- once our banner is nearly done. Only alpha and mouse change, restored on the next toast or when it hides.
+local hiddenToast
+local function RestoreToast()
+	if hiddenToast then
+		hiddenToast = nil
+		EventToastManagerFrame:SetAlpha(1)
+		EventToastManagerFrame:EnableMouse(true)
+	end
+end
+
+local function OnDisplayToast(self)
+	RestoreToast()
+	local info = self.currentDisplayingToast and self.currentDisplayingToast.toastInfo
+	local eventType = info and info.eventType
+	if not (module.active and ns.momentsDB.replaceLevelUp and ns.momentsDB.styles.levelup ~= "off")
+		or Secret(eventType) or eventType ~= Enum.EventToastEventType.LevelUp then
+		return
+	end
+	hiddenToast = true
+	self:SetAlpha(0)
+	self:EnableMouse(false) -- right-click dismiss and hover pause on an invisible frame
+end
+
+local toastHooked
+local function HookLevelUpToast()
+	if toastHooked or not (EventToastManagerFrame and EventToastManagerFrame.DisplayToast
+		and Enum.EventToastEventType and Enum.EventToastEventType.LevelUp) then
+		return
+	end
+	toastHooked = true
+	hooksecurefunc(EventToastManagerFrame, "DisplayToast", OnDisplayToast)
+	EventToastManagerFrame:HookScript("OnHide", RestoreToast)
+	-- Its closing fade animates the frame's alpha from 1, over our 0: the gold lines would flash. The next
+	-- toast's Reset hides them anyway.
+	local frame = EventToastManagerFrame
+	if frame.fastHide then
+		frame.fastHide:HookScript("OnPlay", function()
+			if hiddenToast then
+				for _, key in ipairs({ "GLine", "GLine2", "BlackBG" }) do
+					if frame[key] then
+						frame[key]:Hide()
+					end
+				end
+			end
+		end)
+	end
+end
+
 function events:ACHIEVEMENT_EARNED(achievementID, alreadyEarned)
 	if Secret(achievementID, alreadyEarned) then
 		return
@@ -591,6 +642,7 @@ local function Activate()
 		NoteZoneEntry()
 	end
 	ns.Moments_ZoneText(ns.momentsDB.zoneText)
+	HookLevelUpToast()
 end
 
 local function Deactivate()
@@ -600,6 +652,7 @@ local function Deactivate()
 	Stop()
 	ns.Banner_Clear("moments")
 	ns.Moments_ZoneText(false)
+	RestoreToast()
 end
 
 local function StyleChoices()
@@ -629,6 +682,9 @@ options[#options + 1] = { type = "checkbox", key = "zoneText", label = "Zone tex
 	end }
 options[#options + 1] = { type = "checkbox", key = "replaceZoneText", label = "No zone text under a discovery",
 	tooltip = "When a discovery or new zone shows as a moment, hide the zone and subzone text and the yellow \"Discovered\" line for it. Banners always wait until the zone text is gone." }
+options[#options + 1] = { type = "header", label = "Level up" }
+options[#options + 1] = { type = "checkbox", key = "replaceLevelUp", label = "Replace Blizzard's level-up text",
+	tooltip = "When level ups show as a moment, hide Blizzard's \"You've Reached Level\" text so only the moment shows. Its sound still plays, and the new-spell notices after it still show." }
 options[#options + 1] = { type = "header", label = "Cinematic" }
 options[#options + 1] = { type = "slider", key = "duration", label = "Cinematic length", min = 4, max = 15, step = 1,
 	format = function(value)
@@ -654,6 +710,7 @@ module = ns.RegisterModule({
 		duration = 7,
 		previewKind = "levelup",
 		replaceZoneText = true,
+		replaceLevelUp = true,
 		zoneText = true,
 		revealSound = true,
 		zones = {}, -- [player GUID] = { [zone mapID] = true } once its "new zone" moment ran
