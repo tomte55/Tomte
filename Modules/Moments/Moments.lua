@@ -590,6 +590,7 @@ local function Activate()
 	if ns.inWorld then
 		NoteZoneEntry()
 	end
+	ns.Moments_ZoneText(ns.momentsDB.zoneText)
 end
 
 local function Deactivate()
@@ -598,6 +599,7 @@ local function Deactivate()
 	ticker:Hide()
 	Stop()
 	ns.Banner_Clear("moments")
+	ns.Moments_ZoneText(false)
 end
 
 local function StyleChoices()
@@ -619,8 +621,14 @@ for _, t in ipairs(ns.MOMENT_TYPES) do
 	options[#options + 1] = { type = "dropdown", key = "styles." .. t.key, label = t.name, choices = StyleChoices,
 		tooltip = "Off, a banner over the UI, or a short cinematic (UI hidden, letterbox). Cinematic at max level is a banner while levelling and a cinematic once you reach max level. Cinematics wait until you're out of combat, instances and taxis; after 10 seconds they show as a banner." }
 end
-options[#options + 1] = { type = "checkbox", key = "replaceZoneText", label = "Replace Blizzard's zone text",
-	tooltip = "When a discovery or new zone shows as a moment, hide Blizzard's own zone and subzone text and the yellow \"Discovered\" line for it. Banners always wait until Blizzard's center-screen text is gone." }
+options[#options + 1] = { type = "header", label = "Zone text" }
+options[#options + 1] = { type = "checkbox", key = "zoneText", label = "Zone text in Tomte's style",
+	tooltip = "Show the zone and subzone name you enter (and Sanctuary, Contested and so on) in the Tomte theme instead of Blizzard's text. Same timing as Blizzard's.",
+	onChange = function(on)
+		ns.Moments_ZoneText(on and module.active)
+	end }
+options[#options + 1] = { type = "checkbox", key = "replaceZoneText", label = "No zone text under a discovery",
+	tooltip = "When a discovery or new zone shows as a moment, hide the zone and subzone text and the yellow \"Discovered\" line for it. Banners always wait until the zone text is gone." }
 options[#options + 1] = { type = "header", label = "Cinematic" }
 options[#options + 1] = { type = "slider", key = "duration", label = "Cinematic length", min = 4, max = 15, step = 1,
 	format = function(value)
@@ -646,6 +654,7 @@ module = ns.RegisterModule({
 		duration = 7,
 		previewKind = "levelup",
 		replaceZoneText = true,
+		zoneText = true,
 		revealSound = true,
 		zones = {}, -- [player GUID] = { [zone mapID] = true } once its "new zone" moment ran
 	},

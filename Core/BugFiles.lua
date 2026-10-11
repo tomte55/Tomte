@@ -75,6 +75,7 @@ ns.BUG_FILES = {
 	"Modules/AFK/AFK.lua",
 	"Modules/Moments/Data.lua",
 	"Modules/Moments/Scene.lua",
+	"Modules/Moments/ZoneText.lua",
 	"Modules/Moments/Moments.lua",
 	"Modules/Hunter/Data.lua",
 	"Modules/Hunter/Stable.lua",

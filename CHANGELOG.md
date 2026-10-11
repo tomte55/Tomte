@@ -8,6 +8,9 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Moments: each moment can now be set to "Cinematic at max level" (a banner while levelling), replacing the single
   "Cinematics only at max level" checkbox. New zones and campaign chapters play as cinematics at any level by
   default; your current settings carry over unchanged.
+- Moments: the zone and subzone names you see when entering an area (and Sanctuary, Contested and so on) now show in
+  the Tomte theme instead of Blizzard's text, with smoother changes when you cross several areas quickly. Turn it off
+  under Moments, "Zone text in Tomte's style".
 
 ## v1.5.0 - 2026-10-11
 

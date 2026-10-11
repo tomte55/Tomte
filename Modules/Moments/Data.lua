@@ -216,6 +216,29 @@ function ns.Moments_IsNewZone(before, after)
 	return before == 0
 end
 
+-- Zone text: the theme color role for C_PvP.GetZonePVPInfo's pvpType (Blizzard tints its zone text the same way).
+local ZONE_PVP_ROLES = {
+	sanctuary = "accent", friendly = "success", contested = "warning",
+	hostile = "danger", arena = "danger", combat = "danger",
+}
+
+function ns.Moments_ZonePvPRole(pvpType)
+	return ZONE_PVP_ROLES[pvpType] or "textMuted"
+end
+
+-- "(Sanctuary)" -> "Sanctuary": Blizzard's PvP line without its brackets (ASCII or full-width), nil when empty.
+function ns.Moments_ZoneStatus(text)
+	if type(text) ~= "string" then
+		return nil
+	end
+	text = text:gsub("^%s+", ""):gsub("%s+$", "")
+	text = text:gsub("^%((.*)%)$", "%1"):gsub("^\239\188\136(.*)\239\188\137$", "%1")
+	if text == "" then
+		return nil
+	end
+	return text
+end
+
 -- Reveal tiers for collected creatures (mount, battle pet, tame), lowest first. Each tier adds effects:
 -- rays = rotating light rays, spin = the model spins in, sparkles = rising sparks, bigFlash = a stronger
 -- screen flash, charge = seconds of build-up before the reveal, extraTime = seconds added to the moment.
