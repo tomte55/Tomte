@@ -399,18 +399,24 @@ local function ClearMaterials()
 	wipe(matsKept)
 end
 
-local matsEvents = CreateFrame("Frame")
-matsEvents:SetScript("OnEvent", ClearMaterials)
+local events = ns.Alts_Events
+local MATS_EVENTS = { "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED",
+	"MAIL_INBOX_UPDATE", "MAIL_SEND_SUCCESS", "PLAYER_ENTERING_WORLD" }
+for _, event in ipairs(MATS_EVENTS) do
+	events:On("mats", event, ClearMaterials)
+end
+-- Syndicator's callback registry stores callbacks per owner: its own table, not shared with List.lua.
+local matsOwner = {}
+-- Watched once the Craft tab is built and deliberately never unwatched, not even when the module turns off: clearing
+-- the kept verdicts is harmless.
 local function WatchMaterials()
-	for _, event in ipairs({ "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED",
-		"MAIL_INBOX_UPDATE", "MAIL_SEND_SUCCESS", "PLAYER_ENTERING_WORLD" }) do
-		-- RegisterEvent throws on an event name the client doesn't know: one renamed or removed in a patch mustn't stop
-		-- the others.
-		pcall(matsEvents.RegisterEvent, matsEvents, event)
+	for _, event in ipairs(MATS_EVENTS) do
+		-- An event name the client doesn't know must not stop the others.
+		events:TryWatch("mats", event)
 	end
 	if _G.Syndicator and Syndicator.CallbackRegistry then
 		for _, name in ipairs({ "Ready", "BagCacheUpdate", "MailCacheUpdate", "WarbandBankCacheUpdate" }) do
-			pcall(Syndicator.CallbackRegistry.RegisterCallback, Syndicator.CallbackRegistry, name, ClearMaterials, matsEvents)
+			pcall(Syndicator.CallbackRegistry.RegisterCallback, Syndicator.CallbackRegistry, name, ClearMaterials, matsOwner)
 		end
 	end
 end

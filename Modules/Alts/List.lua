@@ -34,10 +34,10 @@ local pending -- recipe spell ID of the craft that just started
 local inCombat = false
 local refreshTimer
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.Alts_Events
+local baganatorRegistered, syndicatorRegistered
+-- Syndicator's callback registry stores callbacks per owner: its own table, not shared with CraftTab.lua.
+local listOwner = {}
 
 -- Where things are ----------------------------------------------------------------------------------------------
 
@@ -670,13 +670,13 @@ function MarksChanged()
 	return false
 end
 
--- Once per session (events.baganator, like events.syndicator in AltsList_Start): neither registration is undone by
--- AltsList_Stop, so the callbacks check that the module is on.
+-- Once per session (baganatorRegistered, like syndicatorRegistered in AltsList_Start): neither registration is undone
+-- by AltsList_Stop, so the callbacks check that the module is on.
 local function RegisterBaganator()
-	if events.baganator or not (Baganator and Baganator.API and Baganator.API.RegisterCornerWidget) then
+	if baganatorRegistered or not (Baganator and Baganator.API and Baganator.API.RegisterCornerWidget) then
 		return
 	end
-	events.baganator = true
+	baganatorRegistered = true
 	Baganator.API.RegisterCornerWidget("Tomte Crafting list", BAGANATOR_ID, function(widget, details)
 		if not (db and db.listBaganator and ns.altsModule.active and details and details.itemID) then
 			return false
@@ -709,12 +709,12 @@ end
 
 -- Events ----------------------------------------------------------------------------------------------------------
 
-function events:TRADE_SKILL_CRAFT_BEGIN(recipeSpellID)
+events:On("list", "TRADE_SKILL_CRAFT_BEGIN", function(_, recipeSpellID)
 	pending = recipeSpellID
-end
+end)
 
 -- One result per craft (a multicraft is still one craft). Recipe IDs are the recipes' spell IDs.
-function events:TRADE_SKILL_ITEM_CRAFTED_RESULT(data)
+events:On("list", "TRADE_SKILL_ITEM_CRAFTED_RESULT", function(_, data)
 	if not data or data.bonusCraft then
 		return
 	end
@@ -727,28 +727,28 @@ function events:TRADE_SKILL_ITEM_CRAFTED_RESULT(data)
 		ns.Print(("%s done: %s."):format(RecipeName(recipeID), db.listDone == "auto" and "off the crafting list" or "right-click it in the tracker to remove it"))
 	end
 	ns.AltsList_Changed()
-end
+end)
 
-function events:TRADE_SKILL_CLOSE()
+events:On("list", "TRADE_SKILL_CLOSE", function()
 	pending = nil
-end
+end)
 
-function events:PLAYER_REGEN_DISABLED()
+events:On("list", "PLAYER_REGEN_DISABLED", function()
 	inCombat = true
 	ns.AltsList_Refresh()
-end
+end)
 
-function events:PLAYER_REGEN_ENABLED()
+events:On("list", "PLAYER_REGEN_ENABLED", function()
 	inCombat = false
 	ns.AltsList_Refresh()
-end
+end)
 
 local CHANGED = { "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED",
 	"MAIL_INBOX_UPDATE", "MAIL_SEND_SUCCESS", "PLAYER_ENTERING_WORLD" }
 for _, event in ipairs(CHANGED) do
-	events[event] = function()
+	events:On("list", event, function()
 		ns.AltsList_Changed()
-	end
+	end)
 end
 
 local EVENTS = { "TRADE_SKILL_CRAFT_BEGIN", "TRADE_SKILL_ITEM_CRAFTED_RESULT", "TRADE_SKILL_CLOSE",
@@ -758,27 +758,26 @@ function ns.AltsList_Start(moduleDB)
 	db = moduleDB
 	for _, list in ipairs({ EVENTS, CHANGED }) do
 		for _, event in ipairs(list) do
-			-- RegisterEvent throws on an event name the client doesn't know: one renamed or removed in a patch mustn't
-			-- stop the others.
-			pcall(events.RegisterEvent, events, event)
+			-- An event name the client doesn't know must not stop the others.
+			events:TryWatch("list", event)
 		end
 	end
 	RegisterBaganator()
-	if _G.Syndicator and Syndicator.CallbackRegistry and not events.syndicator then
-		events.syndicator = true
+	if _G.Syndicator and Syndicator.CallbackRegistry and not syndicatorRegistered then
+		syndicatorRegistered = true
 		for _, name in ipairs({ "BagCacheUpdate", "MailCacheUpdate", "WarbandBankCacheUpdate" }) do
 			pcall(Syndicator.CallbackRegistry.RegisterCallback, Syndicator.CallbackRegistry, name, function()
 				if ns.altsModule.active then
 					ns.AltsList_Changed()
 				end
-			end, events)
+			end, listOwner)
 		end
 	end
 	ns.AltsList_Changed()
 end
 
 function ns.AltsList_Stop()
-	events:UnregisterAllEvents()
+	events:UnwatchAll("list")
 	if frame then
 		frame:Hide()
 	end

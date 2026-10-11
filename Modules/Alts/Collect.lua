@@ -21,10 +21,9 @@ local pending
 local scan -- { ids, i, prof, ticker }
 local lastScan = {} -- [expansion skill line] = GetTime() of the last finished scan
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+-- One bus for the module's files (CraftTab, Send and List attach to it); this file loads first.
+local events = ns.NewEvents()
+ns.Alts_Events = events
 
 local function Try(reader, ...)
 	return xpcall(reader, function(err)
@@ -196,7 +195,7 @@ local function Refresh()
 		return
 	end
 	if InCombatLockdown() then
-		events:RegisterEvent("PLAYER_REGEN_ENABLED")
+		events:Watch("collect", "PLAYER_REGEN_ENABLED")
 		return
 	end
 	local c = Me()
@@ -508,65 +507,65 @@ local REFRESH_EVENTS = {
 	"UPDATE_EXHAUSTION", "SKILL_LINES_CHANGED", "TRAIT_TREE_CURRENCY_INFO_UPDATED", "TRADE_SKILL_SHOW",
 }
 for _, event in ipairs(REFRESH_EVENTS) do
-	events[event] = ns.AltsCollect_Request
+	events:On("collect", event, ns.AltsCollect_Request)
 end
 
-function events:PLAYER_ENTERING_WORLD()
+events:On("collect", "PLAYER_ENTERING_WORLD", function()
 	ns.AltsCollect_Request()
 	ReadWarband(false)
-end
+end)
 
-function events:ACCOUNT_MONEY()
+events:On("collect", "ACCOUNT_MONEY", function()
 	ReadWarband(true)
-end
+end)
 
-function events:BANKFRAME_OPENED()
+events:On("collect", "BANKFRAME_OPENED", function()
 	ReadWarband(true)
-end
+end)
 
-function events:BANKFRAME_CLOSED()
+events:On("collect", "BANKFRAME_CLOSED", function()
 	ReadWarband(true)
-end
+end)
 
 -- UnitLevel can still be the old level here.
-function events:PLAYER_LEVEL_UP(level)
+events:On("collect", "PLAYER_LEVEL_UP", function(_, level)
 	if db then
 		Me().levelUp = level
 	end
 	ns.AltsCollect_Request()
-end
+end)
 
-function events:TRADE_SKILL_LIST_UPDATE()
+events:On("collect", "TRADE_SKILL_LIST_UPDATE", function()
 	StartScan()
-end
+end)
 
-function events:TRADE_SKILL_CLOSE()
+events:On("collect", "TRADE_SKILL_CLOSE", function()
 	StopScan()
 	ns.AltsCollect_Request() -- knowledge points may have been spent
-end
+end)
 
-function events:NEW_RECIPE_LEARNED(recipeID)
+events:On("collect", "NEW_RECIPE_LEARNED", function(_, recipeID)
 	local recipe = db and db.recipes[recipeID]
 	local prof = recipe and Me().profs[recipe.base]
 	if prof then
 		prof.known[recipeID] = true
 		ns.Alts_RecipesChanged()
 	end
-end
+end)
 
-function events:PLAYER_REGEN_ENABLED()
-	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+events:On("collect", "PLAYER_REGEN_ENABLED", function(self)
+	self:Unwatch("collect", "PLAYER_REGEN_ENABLED")
 	ns.AltsCollect_Request()
-end
+end)
 
 -- Last played. Gold isn't read here: GetMoney() already says 0 during logout (seen 2026-10-05); the value from the
 -- last PLAYER_MONEY read stands.
-function events:PLAYER_LOGOUT()
+events:On("collect", "PLAYER_LOGOUT", function()
 	local c = db and guid and db.chars[guid]
 	if c then
 		c.seen = GetServerTime()
 	end
-end
+end)
 
 -- The window's expansion dropdown only switches the skill line it shows (no recipe list event fires), so the
 -- switch itself starts a read. A post-hook plus a timer: Blizzard's own call path isn't touched.
@@ -589,11 +588,11 @@ function ns.AltsCollect_Start(moduleDB)
 	db = moduleDB
 	HookSkillLineSwitch()
 	for _, event in ipairs(REFRESH_EVENTS) do
-		events:RegisterEvent(event)
+		events:Watch("collect", event)
 	end
 	for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "PLAYER_LEVEL_UP", "TRADE_SKILL_LIST_UPDATE", "TRADE_SKILL_CLOSE",
 		"NEW_RECIPE_LEARNED", "PLAYER_LOGOUT", "ACCOUNT_MONEY", "BANKFRAME_OPENED", "BANKFRAME_CLOSED" }) do
-		events:RegisterEvent(event)
+		events:Watch("collect", event)
 	end
 	if ns.inWorld then
 		ns.AltsCollect_Request()
@@ -602,7 +601,7 @@ function ns.AltsCollect_Start(moduleDB)
 end
 
 function ns.AltsCollect_Stop()
-	events:UnregisterAllEvents()
+	events:UnwatchAll("collect")
 	StopScan()
 	db = nil
 end

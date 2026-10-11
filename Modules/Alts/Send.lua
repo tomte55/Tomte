@@ -27,10 +27,7 @@ local bankOpen = false
 local TOPUP_WAIT = 30 -- seconds a gold top-up may wait for its confirmation before it's forgotten
 local REBUILD_EVERY = 1 -- seconds between rebuilds on bag changes at the mailbox or bank
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.Alts_Events
 
 local function ClassColor(c)
 	local color = c.class and C_ClassColor.GetClassColor(c.class)
@@ -668,21 +665,21 @@ local function ShowDock()
 	ns.AltsSend_Refresh()
 end
 
-function events:MAIL_SHOW()
+events:On("send", "MAIL_SHOW", function()
 	attached = nil
 	UsersChanged()
 	C_Timer.After(0.2, ShowDock) -- after the mail frame has opened
-end
+end)
 
-function events:MAIL_CLOSED()
+events:On("send", "MAIL_CLOSED", function()
 	attached = nil
 	ClearTopUp()
 	if dock then
 		dock:Hide()
 	end
-end
+end)
 
-function events:MAIL_SEND_SUCCESS()
+events:On("send", "MAIL_SEND_SUCCESS", function()
 	if attached then
 		local c = ns.altsDB.chars[attached.guid]
 		ns.Print(("sent %d stack%s to %s."):format(#attached.stacks, #attached.stacks == 1 and "" or "s", c and c.name or "?"))
@@ -703,9 +700,9 @@ function events:MAIL_SEND_SUCCESS()
 		end)
 	end
 	C_Timer.After(0.5, ShowDock) -- the bags have changed
-end
+end)
 
-function events:MAIL_FAILED()
+events:On("send", "MAIL_FAILED", function()
 	if toppingUp then
 		SetSendMailMoney(0) -- not left on the Send Mail tab for the next mail
 	end
@@ -714,11 +711,11 @@ function events:MAIL_FAILED()
 	if dock and dock:IsShown() then
 		ns.AltsSend_Refresh()
 	end
-end
+end)
 
-function events:NEW_RECIPE_LEARNED()
+events:On("send", "NEW_RECIPE_LEARNED", function()
 	UsersChanged()
-end
+end)
 
 local UpdateBankButton -- Warband bank, below
 
@@ -726,7 +723,7 @@ local UpdateBankButton -- Warband bank, below
 -- what there is to send or deposit may have too. At most once a second. At the mailbox not while something is
 -- attached: the attached stacks left the bags and the Send button must stay.
 local bagsPending
-function events:BAG_UPDATE_DELAYED()
+events:On("send", "BAG_UPDATE_DELAYED", function()
 	if bagsPending or not db or not ((MailFrame and MailFrame:IsShown()) or bankOpen) then
 		return
 	end
@@ -743,7 +740,7 @@ function events:BAG_UPDATE_DELAYED()
 			UpdateBankButton()
 		end
 	end)
-end
+end)
 
 -- Gear Check's items have loaded: the mailbox's gear groups may have changed.
 function ns.AltsSend_OnGearReady()
@@ -893,18 +890,18 @@ function UpdateBankButton()
 	bankButton:Update()
 end
 
-function events:BANKFRAME_OPENED()
+events:On("send", "BANKFRAME_OPENED", function()
 	bankOpen = true
 	UsersChanged()
 	C_Timer.After(0.3, UpdateBankButton) -- after the bank window (Blizzard's or Baganator's) has opened
-end
+end)
 
-function events:BANKFRAME_CLOSED()
+events:On("send", "BANKFRAME_CLOSED", function()
 	bankOpen = false
 	if bankButton then
 		bankButton:Hide()
 	end
-end
+end)
 
 -- Home line: what's waiting for whom (from the last bag read).
 function ns.AltsSend_Summary()
@@ -936,7 +933,7 @@ local hookedRecipes = false
 function ns.AltsSend_Start(moduleDB)
 	db = moduleDB
 	for _, event in ipairs(EVENTS) do
-		events:RegisterEvent(event)
+		events:Watch("send", event)
 	end
 	-- Recipes read or a character forgotten (Alts.lua, Collect.lua): the reagent users change. hooksecurefunc as a plain
 	-- post-hook on our own ns function, once (Start runs again each time the module is turned on).
@@ -947,7 +944,7 @@ function ns.AltsSend_Start(moduleDB)
 end
 
 function ns.AltsSend_Stop()
-	events:UnregisterAllEvents()
+	events:UnwatchAll("send")
 	if dock then
 		dock:Hide()
 	end
