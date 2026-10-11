@@ -1,26 +1,21 @@
 local addonName, ns = ...
 
--- Collect here: the data. Once per session the mount and pet catalogs are read a few milliseconds per frame (only
--- uncollected ones whose source names a zone are kept), then the achievement index rides the shared achievement
--- walk (Achievements/Walk.lua): lower-case "name\ndescription" of every achievement the account hasn't completed.
--- ns.Collect_ForMap answers for a map from those, cached per map until something changes. Journal filters are never
--- touched. Parsing and matching are in Data.lua.
+-- Collect here: the data. Once per session the mount and pet catalogs are read by the shared journal reader
+-- (Core/Journal.lua; only uncollected ones whose source names a zone are kept), then the achievement index rides the
+-- shared achievement walk (Achievements/Walk.lua): lower-case "name\ndescription" of every achievement the account
+-- hasn't completed. ns.Collect_ForMap answers for a map from those, cached per map until something changes. Parsing
+-- and matching are in Data.lua.
 
-local BUDGET_MS = 4
-local MAX_SPECIES = 6000 -- battle pet species IDs are read 1..MAX_SPECIES
 local WALK_KEY = "collect"
+local SCAN_KEY = "collect"
 
 local mounts, pets = {}, {} -- { kind, id, spellID, name, icon, source, parsed }
 local achIndex = {} -- [achievementID] = lower-case "name\ndescription"
 local pending -- achievement index being built
 local ready = { mounts = false, pets = false, achievements = false }
-local build -- { phase = "mounts" | "pets", ids, i }
 local cache = {} -- [mapID] = entries
 local running = false
 local onChanged = function() end
-
-local builder = CreateFrame("Frame")
-builder:Hide()
 
 local function Changed()
 	wipe(cache)
@@ -33,32 +28,19 @@ end
 
 -- Catalogs ---------------------------------------------------------------------------------------------------------
 
-local function AddMount(mountID)
-	local name, spellID, icon, _, _, _, _, _, _, shouldHideOnChar, isCollected = C_MountJournal.GetMountInfoByID(mountID)
-	if not name or isCollected or shouldHideOnChar then
-		return
-	end
-	local _, _, source = C_MountJournal.GetMountInfoExtraByID(mountID)
-	local parsed = ns.Collect_ParseSource(source)
+local function AddMount(mountID, info)
+	local parsed = ns.Collect_ParseSource(info.source)
 	if #parsed.zones > 0 then
-		mounts[#mounts + 1] = { kind = "mount", id = mountID, spellID = spellID, name = name, icon = icon,
-			source = source, parsed = parsed }
+		mounts[#mounts + 1] = { kind = "mount", id = mountID, spellID = info.spellID, name = info.name, icon = info.icon,
+			source = info.source, parsed = parsed }
 	end
 end
 
-local function AddPet(speciesID)
-	-- pcall: an unused species ID may error instead of returning nothing.
-	local ok, name, icon, _, _, sourceText, _, _, _, _, _, obtainable = pcall(C_PetJournal.GetPetInfoBySpeciesID, speciesID)
-	if not ok or not name or not obtainable then
-		return
-	end
-	local owned = C_PetJournal.GetNumCollectedInfo(speciesID)
-	if owned and owned > 0 then
-		return
-	end
-	local parsed = ns.Collect_ParseSource(sourceText)
+local function AddPet(speciesID, info)
+	local parsed = ns.Collect_ParseSource(info.source)
 	if #parsed.zones > 0 then
-		pets[#pets + 1] = { kind = "pet", id = speciesID, name = name, icon = icon, source = sourceText, parsed = parsed }
+		pets[#pets + 1] = { kind = "pet", id = speciesID, name = info.name, icon = info.icon, source = info.source,
+			parsed = parsed }
 	end
 end
 
@@ -80,34 +62,19 @@ local function StartWalk()
 	ns.AchWalk_Join(WALK_KEY, { visit = VisitAchievement, finish = WalkFinished })
 end
 
-builder:SetScript("OnUpdate", function(self)
-	local deadline = debugprofilestop() + BUDGET_MS
-	while debugprofilestop() < deadline do
-		if build.phase == "mounts" then
-			local mountID = build.ids[build.i]
-			if mountID then
-				AddMount(mountID)
-				build.i = build.i + 1
-			else
-				ready.mounts = true
-				build.phase, build.i = "pets", 1
-				Changed()
-			end
-		else
-			if build.i <= MAX_SPECIES then
-				AddPet(build.i)
-				build.i = build.i + 1
-			else
-				ready.pets = true
-				build = nil
-				self:Hide()
-				Changed()
-				StartWalk()
-				return
-			end
-		end
-	end
-end)
+local scanCallbacks = {
+	mount = AddMount,
+	pet = AddPet,
+	mountsDone = function()
+		ready.mounts = true
+		Changed()
+	end,
+	done = function()
+		ready.pets = true
+		Changed()
+		StartWalk()
+	end,
+}
 
 function ns.Collect_Start()
 	if running then
@@ -118,14 +85,13 @@ function ns.Collect_Start()
 	wipe(pets)
 	wipe(achIndex)
 	ready.mounts, ready.pets, ready.achievements = false, false, false
-	build = { phase = "mounts", ids = C_MountJournal.GetMountIDs() or {}, i = 1 }
-	builder:Show()
+	ns.Journal_Scan(SCAN_KEY, scanCallbacks)
 end
 
 function ns.Collect_Stop()
 	running = false
-	build, pending = nil, nil
-	builder:Hide()
+	pending = nil
+	ns.Journal_Stop(SCAN_KEY)
 	ns.AchWalk_Leave(WALK_KEY)
 	wipe(mounts)
 	wipe(pets)
@@ -137,15 +103,16 @@ end
 -- { mounts, pets, achievements (each true when ready), progress 0..1 }
 function ns.Collect_State()
 	local progress = 0
+	local phase, fraction = ns.Journal_Progress(SCAN_KEY)
 	if ready.mounts then
 		progress = progress + 1
-	elseif build and build.phase == "mounts" then
-		progress = progress + (build.i - 1) / math.max(#build.ids, 1)
+	elseif phase == "mounts" then
+		progress = progress + fraction
 	end
 	if ready.pets then
 		progress = progress + 1
-	elseif build and build.phase == "pets" then
-		progress = progress + (build.i - 1) / MAX_SPECIES
+	elseif phase == "pets" then
+		progress = progress + fraction
 	end
 	if ready.achievements then
 		progress = progress + 1
@@ -157,12 +124,7 @@ end
 
 -- A mount or pet entry isn't collected yet (read live: the catalog is built once per session).
 local function StillMissing(e)
-	if e.kind == "mount" then
-		local isCollected = select(11, C_MountJournal.GetMountInfoByID(e.id))
-		return not isCollected
-	end
-	local owned = C_PetJournal.GetNumCollectedInfo(e.id)
-	return not owned or owned == 0
+	return ns.Journal_StillMissing(e.kind, e.id)
 end
 
 -- An achievement was earned, or a mount or pet learned: the lists follow. Only entries of that kind leave the

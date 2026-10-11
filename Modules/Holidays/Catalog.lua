@@ -1,23 +1,18 @@
 local addonName, ns = ...
 
 -- Holidays & events: what's still missing from the holidays on now or soon. Mounts and pets come from the journals'
--- source text, read a few milliseconds per frame once per set of holidays (Collect here's shape), matched against
--- each holiday's signals (Data.lua). Toys come from the generated table (no toy source API), achievements from the
--- holiday's achievement category; both are read live. Journal filters are never touched.
+-- source text, read by the shared journal reader (Core/Journal.lua) once per set of holidays, matched against each
+-- holiday's signals (Data.lua). Toys come from the generated table (no toy source API), achievements from the
+-- holiday's achievement category; both are read live.
 
-local BUDGET_MS = 4
-local MAX_SPECIES = 6000 -- battle pet species IDs are read 1..MAX_SPECIES
+local SCAN_KEY = "holidays"
 
 local targets = {} -- [defKey] = signals
 local targetKey = ""
 local found = {} -- [defKey] = { mounts = {}, pets = {} }
-local build -- { phase = "mounts" | "pets", ids, i }
 local ready = false
 local onChanged = function() end
 local itemWaits = {} -- [itemID] = true while its name loads
-
-local builder = CreateFrame("Frame")
-builder:Hide()
 
 function ns.EventsCatalog_SetChanged(fn)
 	onChanged = fn
@@ -36,54 +31,20 @@ local function Store(kind, entry, raw)
 	end
 end
 
-local function ReadMount(mountID)
-	local name, spellID, icon, _, _, _, _, _, _, shouldHideOnChar, isCollected = C_MountJournal.GetMountInfoByID(mountID)
-	if not name or isCollected or shouldHideOnChar then
-		return
-	end
-	local _, _, source = C_MountJournal.GetMountInfoExtraByID(mountID)
-	Store("mount", { kind = "mount", id = mountID, spellID = spellID, name = name, icon = icon, source = source,
-		line = ns.Collect_ParseSource(source).line }, source)
-end
-
-local function ReadPet(speciesID)
-	-- pcall: an unused species ID may error instead of returning nothing.
-	local ok, name, icon, _, _, source, _, _, _, _, _, obtainable, displayID =
-		pcall(C_PetJournal.GetPetInfoBySpeciesID, speciesID)
-	if not ok or not name or not obtainable then
-		return
-	end
-	local owned = C_PetJournal.GetNumCollectedInfo(speciesID)
-	if owned and owned > 0 then
-		return
-	end
-	Store("pet", { kind = "pet", id = speciesID, name = name, icon = icon, source = source, displayID = displayID,
-		line = ns.Collect_ParseSource(source).line }, source)
-end
-
-builder:SetScript("OnUpdate", function(self)
-	local deadline = debugprofilestop() + BUDGET_MS
-	while debugprofilestop() < deadline do
-		if build.phase == "mounts" then
-			local mountID = build.ids[build.i]
-			if mountID then
-				ReadMount(mountID)
-				build.i = build.i + 1
-			else
-				build.phase, build.i = "pets", 1
-			end
-		elseif build.i <= MAX_SPECIES then
-			ReadPet(build.i)
-			build.i = build.i + 1
-		else
-			build = nil
-			ready = true
-			self:Hide()
-			onChanged()
-			return
-		end
-	end
-end)
+local scanCallbacks = {
+	mount = function(mountID, info)
+		Store("mount", { kind = "mount", id = mountID, spellID = info.spellID, name = info.name, icon = info.icon,
+			source = info.source, line = ns.Collect_ParseSource(info.source).line }, info.source)
+	end,
+	pet = function(speciesID, info)
+		Store("pet", { kind = "pet", id = speciesID, name = info.name, icon = info.icon, source = info.source,
+			displayID = info.displayID, line = ns.Collect_ParseSource(info.source).line }, info.source)
+	end,
+	done = function()
+		ready = true
+		onChanged()
+	end,
+}
 
 local function KeyOf(t)
 	local keys = {}
@@ -97,7 +58,7 @@ end
 -- targets: { [defKey] = signals }. Starts a read when the set of holidays changed; {} stops it.
 function ns.EventsCatalog_Start(newTargets)
 	local key = KeyOf(newTargets)
-	if key == targetKey and (ready or build) then
+	if key == targetKey and (ready or ns.Journal_Progress(SCAN_KEY)) then
 		targets = newTargets -- names may have loaded since; matching already ran
 		return
 	end
@@ -108,12 +69,10 @@ function ns.EventsCatalog_Start(newTargets)
 	end
 	ready = false
 	if key == "" then
-		build = nil
-		builder:Hide()
+		ns.Journal_Stop(SCAN_KEY)
 		return
 	end
-	build = { phase = "mounts", ids = C_MountJournal.GetMountIDs() or {}, i = 1 }
-	builder:Show()
+	ns.Journal_Scan(SCAN_KEY, scanCallbacks)
 end
 
 function ns.EventsCatalog_Stop()
@@ -123,22 +82,17 @@ end
 -- { ready, progress 0..1, empty (nothing to read) }
 function ns.EventsCatalog_State()
 	local progress = ready and 1 or 0
-	if build then
-		if build.phase == "mounts" then
-			progress = (build.i - 1) / math.max(#build.ids, 1) / 2
-		else
-			progress = 0.5 + (build.i - 1) / MAX_SPECIES / 2
-		end
+	local phase, fraction = ns.Journal_Progress(SCAN_KEY)
+	if phase == "mounts" then
+		progress = fraction / 2
+	elseif phase == "pets" then
+		progress = 0.5 + fraction / 2
 	end
 	return { ready = ready, progress = progress, empty = targetKey == "" }
 end
 
 local function StillMissing(e)
-	if e.kind == "mount" then
-		return not select(11, C_MountJournal.GetMountInfoByID(e.id))
-	end
-	local owned = C_PetJournal.GetNumCollectedInfo(e.id)
-	return not owned or owned == 0
+	return ns.Journal_StillMissing(e.kind, e.id)
 end
 
 -- A mount or pet was learned: drop the ones that are collected now.
