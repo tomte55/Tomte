@@ -51,6 +51,29 @@ test("ContentExpansion and ContentAtMax use the game's level rule", function()
 	eq(ns.ContentAtMax(80), true, "non-owner at 80")
 end)
 
+test("ContentExpansion follows Chromie Time for the player only", function()
+	_G.UnitLevel = function()
+		return 29
+	end
+	_G.GetExpansionForLevel = function()
+		return 0
+	end
+	_G.GetMaxLevelForExpansionLevel = function(e)
+		return ({ [0] = 30, [9] = 70, [10] = 80 })[e]
+	end
+	_G.UnitChromieTimeID = function()
+		return 16
+	end
+	eq(ns.ContentExpansion(), 9, "Chromie Time Dragonflight")
+	eq(ns.ContentAtMax(), false, "29 isn't Dragonflight's max")
+	eq(ns.ContentExpansion(29), 0, "explicit level ignores the player's Chromie Time")
+	_G.UnitChromieTimeID = function()
+		return 0
+	end
+	eq(ns.ContentExpansion(), 0, "not in Chromie Time: level band")
+	_G.UnitChromieTimeID = nil
+end)
+
 test("Register and Get per expansion", function()
 	ns.Content_Register(10, "raids", { 1 })
 	ns.Content_Register(11, "crests", { 2 })

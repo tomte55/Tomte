@@ -22,13 +22,21 @@ function ns.Content_Resolve(forLevel, owned)
 	return forLevel
 end
 
--- The content expansion for a level (default: the player's).
+-- Chromie Time option ID -> expansion (UIChromieTimeExpansionInfo.ExpansionMask, highest bit; via wago.tools).
+-- The API's ChromieTimeExpansionInfo has no expansion field.
+local CHROMIE_EXPANSION = { [5] = 3, [6] = 1, [7] = 2, [8] = 4, [9] = 5, [10] = 6, [14] = 8, [15] = 7, [16] = 9 }
+
+-- The content expansion for a level (default: the player's, following Chromie Time when they're in it).
 function ns.ContentExpansion(level)
+	local chromie
+	if not level and UnitChromieTimeID then
+		chromie = CHROMIE_EXPANSION[UnitChromieTimeID("player") or 0]
+	end
 	level = level or UnitLevel("player")
 	if issecretvalue and issecretvalue(level) then
 		level = nil
 	end
-	local forLevel = level and GetExpansionForLevel and GetExpansionForLevel(level)
+	local forLevel = chromie or (level and GetExpansionForLevel and GetExpansionForLevel(level))
 	return ns.Content_Resolve(forLevel, GetExpansionLevel and GetExpansionLevel())
 end
 
@@ -39,16 +47,18 @@ end
 
 -- True when the character is at its content expansion's max level (weekly snapshots, max-level views).
 function ns.ContentAtMax(level)
+	local expansion = ns.ContentExpansion(level)
 	level = level or UnitLevel("player")
 	if issecretvalue and issecretvalue(level) then
 		return false
 	end
-	local maxLevel = ns.ContentMaxLevel(ns.ContentExpansion(level))
+	local maxLevel = ns.ContentMaxLevel(expansion)
 	return not maxLevel or level >= maxLevel
 end
 
 function ns.ExpansionName(expansion)
-	return ns.EXPANSION_NAMES[expansion] or ("expansion " .. tostring(expansion))
+	return ns.EXPANSION_NAMES[expansion] or (expansion and _G["EXPANSION_NAME" .. expansion])
+		or ("expansion " .. tostring(expansion))
 end
 
 function ns.Content_Register(expansion, key, value)

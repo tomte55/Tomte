@@ -11,6 +11,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Moments: the zone and subzone names you see when entering an area (and Sanctuary, Contested and so on) now show in
   the Tomte theme instead of Blizzard's text, with smoother changes when you cross several areas quickly. Turn it off
   under Moments, "Zone text in Tomte's style".
+- Characters levelling in Chromie Time now see that expansion's content (for example Dragonflight renown on the
+  Weekly board's Factions tab) instead of whatever their level alone pointed to.
 
 ## v1.5.0 - 2026-10-11
 
