@@ -115,6 +115,8 @@ Core/        saved variables, module registry, /tomte, play session, which expan
 Data/        hand-kept data per expansion (WarWithin/, Midnight/): weekly activities, crests, raids, gear weights
 Cinematic/   shared cinematic engine and banners
 Panel/       Tomte window, settings and widgets
+Themes/      one file per theme (colors, fonts and art by role, registered with ns.Theme.Register)
+Media/       logo, theme art and fonts (with their OFL licenses)
 Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements,
              Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value, Minimap, Pets,
              Fishing, Gather, Delves, Holidays)
@@ -124,7 +126,7 @@ tools/       dev scripts (waynet.py builds Modules/Travel/Network.lua from Blizz
 docs/        design specs and implementation plans
 ```
 
-`tests/`, `tools/`, `docs/`, `CLAUDE.md` and `.github/` are left out of the release zip (`.gitattributes`).
+`tests/`, `tools/`, `docs/`, `CLAUDE.md`, `.github/` and `Media/Logo.svg` are left out of the release zip (`.gitattributes`).
 
 ## Tests
 

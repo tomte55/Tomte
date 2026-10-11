@@ -96,6 +96,6 @@ A World of Warcraft addon used by the user and a few friends. Shared through Git
 `.github/workflows/release.yml` runs on `v*` tags. It runs the unit tests with Lua 5.1, fails if the tag doesn't
 match the TOC version or `CHANGELOG.md` has no `## vX.Y.Z` section, builds the zip with
 `git archive --prefix=Tomte/` and publishes the release with that changelog section as its notes.
-`.gitattributes` (`export-ignore`) keeps `tests/`, `docs/`, `CLAUDE.md`, `.github/` and `Media/Logo.svg` out of
+`.gitattributes` (`export-ignore`) keeps `tests/`, `tools/`, `docs/`, `CLAUDE.md`, `.github/` and `Media/Logo.svg` out of
 the zip: add any new dev-only file there. If a run fails, fix it, delete the tag locally and on GitHub
 (`git tag -d vX.Y.Z`, `git push origin :refs/tags/vX.Y.Z`) and tag again.

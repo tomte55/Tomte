@@ -5,7 +5,7 @@
 ## Version: 1.6.0
 ## IconTexture: Interface\AddOns\Tomte\Media\Logo
 ## SavedVariables: TomteDB
-## OptionalDeps: Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI
+## OptionalDeps: Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI, Syndicator, Auctionator, TradeSkillMaster, DialogueUI
 ## AddonCompartmentFunc: Tomte_OnAddonCompartmentClick
 
 Core/Theme.lua
