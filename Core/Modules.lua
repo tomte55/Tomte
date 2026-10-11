@@ -245,6 +245,9 @@ local function Call(fn, arg)
 	end)
 end
 
+-- Functions called with a module after it started or stopped (the minimap buttons follow their module).
+ns.moduleToggled = {}
+
 -- Start or stop the module when its wanted state changed. module.active is set first, so a toggle(true)
 -- that errors still counts as active and turning the module off runs its cleanup.
 function ns.RefreshModule(module)
@@ -255,6 +258,9 @@ function ns.RefreshModule(module)
 	module.active = wanted
 	if module.toggle then
 		Call(module.toggle, wanted)
+	end
+	for _, fn in ipairs(ns.moduleToggled) do
+		Call(fn, module)
 	end
 end
 

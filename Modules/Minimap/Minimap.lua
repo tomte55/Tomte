@@ -1,54 +1,59 @@
 local addonName, ns = ...
 
--- Minimap Button module: a round button on the minimap's edge that opens the panel (right-click: the Weekly
--- board's popup). Drag it around the edge.
+-- Minimap Buttons module: round buttons on the minimap's edge, one per module that offers one and that the user ticked.
+-- Tomte's own opens the panel (right-click: the Weekly board's popup). Each is dragged around the edge on its own.
+-- A module offers a button with module.minimapButton = { name, icon, onClick(mouseButton), tooltip(GameTooltip),
+-- shownByDefault }; it shows while the module is active.
 -- Looks like LibDBIcon's retail buttons (same Blizzard textures and sizes), without the library.
 -- Positioning maths is in Data.lua.
 
 local DEFAULT_ANGLE = 225
+local STEP = -26 -- degrees between buttons placed or reset by Tomte (up the left edge); about one button apart
 local RADIUS = 5 -- how far outside the minimap's edge the button sits (LibDBIcon's default)
 
 local UI = ns.UI
-local module, button
+local module
+local buttons = {} -- [module key] = button frame
+local dragging -- the button being dragged
 
-local function Place()
+local function Saved(key)
+	return module.db.buttons[key]
+end
+
+local function Place(button)
 	-- GetMinimapShape isn't Blizzard's: minimap skin addons define it (the LibDBIcon convention). Without one it's round.
 	local shape = GetMinimapShape and GetMinimapShape() or "ROUND"
-	local x, y = ns.Minimap_Offset(module.db.angle, Minimap:GetWidth() / 2 + RADIUS, Minimap:GetHeight() / 2 + RADIUS, shape)
+	local x, y = ns.Minimap_Offset(Saved(button.key).angle, Minimap:GetWidth() / 2 + RADIUS,
+		Minimap:GetHeight() / 2 + RADIUS, shape)
 	button:ClearAllPoints()
 	button:SetPoint("CENTER", Minimap, "CENTER", x, y)
 end
 
-local function FollowCursor()
+local function FollowCursor(button)
 	local mx, my = Minimap:GetCenter()
 	local px, py = GetCursorPosition()
 	local scale = Minimap:GetEffectiveScale()
-	module.db.angle = ns.Minimap_Angle(px / scale - mx, py / scale - my)
-	Place()
+	Saved(button.key).angle = ns.Minimap_Angle(px / scale - mx, py / scale - my)
+	Place(button)
 end
 
-local function ShowTooltip(self)
-	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	GameTooltip:SetText("Tomte", UI.Color("heading"))
-	GameTooltip:AddLine("Click to open Tomte", 1, 1, 1)
-	if ns.Weekly_Active and ns.Weekly_Active() then
-		GameTooltip:AddLine("Right-click for this week's open items", 1, 1, 1)
+local function ShowTooltip(button)
+	if dragging then
+		return
 	end
-	local nextUp = ns.NextUp_TooltipLines and ns.NextUp_TooltipLines()
-	if nextUp and #nextUp > 0 then
-		GameTooltip:AddLine(" ")
-		GameTooltip:AddLine("Next up", UI.RGB("heading"))
-		for _, line in ipairs(nextUp) do
-			GameTooltip:AddLine(line, 1, 1, 1, true)
-		end
-		GameTooltip:AddLine(" ")
+	GameTooltip:SetOwner(button, "ANCHOR_LEFT")
+	GameTooltip:SetText(button.spec.name, UI.Color("heading"))
+	if button.spec.tooltip then
+		button.spec.tooltip(GameTooltip)
 	end
 	GameTooltip:AddLine("Drag to move", UI.RGB("textMuted"))
 	GameTooltip:Show()
 end
 
-local function Create()
-	button = CreateFrame("Button", nil, Minimap)
+local function Create(owner)
+	local spec = owner.minimapButton
+	local button = CreateFrame("Button", nil, Minimap)
+	button.key, button.spec = owner.key, spec
 	button:SetSize(31, 31)
 	button:SetFrameStrata("MEDIUM")
 	button:SetFixedFrameStrata(true)
@@ -63,7 +68,7 @@ local function Create()
 	background:SetSize(24, 24)
 	background:SetPoint("CENTER")
 	local icon = button:CreateTexture(nil, "ARTWORK")
-	icon:SetTexture(ns.ICON)
+	icon:SetTexture(spec.icon)
 	icon:SetSize(18, 18)
 	icon:SetPoint("CENTER")
 	UI.CircleMask(icon, button)
@@ -73,38 +78,57 @@ local function Create()
 	border:SetPoint("TOPLEFT")
 
 	button:SetScript("OnClick", function(_, mouseButton)
-		if mouseButton == "RightButton" then
-			if ns.Weekly_TogglePopup then -- Weekly board (it ignores the click while turned off)
-				ns.Weekly_TogglePopup()
-			end
-		else
-			ns.Panel_Toggle()
-		end
+		spec.onClick(mouseButton)
 	end)
 	button:SetScript("OnEnter", ShowTooltip)
 	button:SetScript("OnLeave", function()
 		GameTooltip:Hide()
 	end)
 	button:SetScript("OnDragStart", function(self)
+		dragging = self
 		GameTooltip:Hide()
 		self:LockHighlight()
 		self:SetScript("OnUpdate", FollowCursor)
 	end)
 	button:SetScript("OnDragStop", function(self)
+		dragging = nil
 		self:SetScript("OnUpdate", nil)
 		self:UnlockHighlight()
 	end)
-	-- Edit Mode can resize the minimap.
-	Minimap:HookScript("OnSizeChanged", function()
-		if button:IsShown() then
-			Place()
-		end
-	end)
+	buttons[owner.key] = button
+	return button
 end
 
--- A small dot on the button (Recent: something you haven't seen).
+-- Modules offering a button, in registration (TOC) order.
+local function Owners()
+	local list = {}
+	for _, owner in ipairs(ns.modules) do
+		if owner.minimapButton then
+			list[#list + 1] = owner
+		end
+	end
+	return list
+end
+
+local function Wanted(owner)
+	return module.active and owner.active and Saved(owner.key).shown
+end
+
+-- Angles of the buttons on the minimap now, but the one for skip.
+local function TakenAngles(skip)
+	local taken = {}
+	for key, button in pairs(buttons) do
+		if key ~= skip and button:IsShown() then
+			taken[#taken + 1] = Saved(key).angle
+		end
+	end
+	return taken
+end
+
+-- A small dot on Tomte's button (Recent: something you haven't seen).
 local dotWanted = false
 local function ApplyDot()
+	local button = buttons.minimap
 	if not button then
 		return
 	end
@@ -123,36 +147,121 @@ function ns.Minimap_SetDot(shown)
 	ApplyDot()
 end
 
-local function ResetPosition()
-	module.db.angle = DEFAULT_ANGLE
-	if button then
-		Place()
+-- Shows and hides every button to match its module and the user's ticks. A button shown for the first time gets a
+-- free spot on the edge.
+local function Refresh()
+	for _, owner in ipairs(Owners()) do
+		local button = buttons[owner.key]
+		if Wanted(owner) then
+			local saved = Saved(owner.key)
+			if not saved.angle then
+				saved.angle = ns.Minimap_FreeAngle(TakenAngles(owner.key), DEFAULT_ANGLE, STEP, math.abs(STEP))
+			end
+			button = button or Create(owner)
+			Place(button)
+			button:Show()
+		elseif button then
+			if dragging == button then
+				button:GetScript("OnDragStop")(button)
+			end
+			button:Hide()
+		end
+	end
+	ApplyDot()
+end
+
+local function ResetPositions()
+	local shown = {}
+	for _, owner in ipairs(Owners()) do
+		if Wanted(owner) then
+			shown[#shown + 1] = owner.key
+		end
+	end
+	local angles = ns.Minimap_Spread(#shown, DEFAULT_ANGLE, STEP)
+	for i, key in ipairs(shown) do
+		Saved(key).angle = angles[i]
+		Place(buttons[key])
+	end
+end
+
+local function TomteTooltip(tooltip)
+	tooltip:AddLine("Click to open Tomte", 1, 1, 1)
+	if ns.Weekly_Active and ns.Weekly_Active() then
+		tooltip:AddLine("Right-click for this week's open items", 1, 1, 1)
+	end
+	local nextUp = ns.NextUp_TooltipLines and ns.NextUp_TooltipLines()
+	if nextUp and #nextUp > 0 then
+		tooltip:AddLine(" ")
+		tooltip:AddLine("Next up", UI.RGB("heading"))
+		for _, line in ipairs(nextUp) do
+			tooltip:AddLine(line, 1, 1, 1, true)
+		end
+		tooltip:AddLine(" ")
 	end
 end
 
 module = ns.RegisterModule({
 	key = "minimap",
-	name = "Minimap Button",
+	name = "Minimap Buttons",
 	category = "General",
-	description = "A button on the minimap's edge that opens this window. Drag it to move it around the minimap.",
+	description = "Buttons on the minimap's edge: Tomte's opens this window, and some modules offer their own. "
+		.. "Tick the ones you want below. Drag a button to move it around the minimap.",
 	enabledByDefault = true,
-	defaults = {
-		angle = DEFAULT_ANGLE,
-	},
-	toggle = function(active)
-		if active then
-			if not button then
-				Create()
+	minimapButton = {
+		name = "Tomte",
+		icon = ns.ICON,
+		shownByDefault = true,
+		onClick = function(mouseButton)
+			if mouseButton == "RightButton" then
+				if ns.Weekly_TogglePopup then -- Weekly board (it ignores the click while turned off)
+					ns.Weekly_TogglePopup()
+				end
+			else
+				ns.Panel_Toggle()
 			end
-			Place()
-			button:Show()
-			ApplyDot()
-		elseif button then
-			button:Hide()
-		end
-	end,
-	options = {
-		{ type = "button", label = "Position", text = "Reset", onClick = ResetPosition,
-			tooltip = "Put the button back at the bottom left of the minimap." },
+		end,
+		tooltip = TomteTooltip,
 	},
+	defaults = {
+		buttons = {}, -- [module key] = { shown = bool, angle = degrees or nil until first shown }
+	},
+	init = function(saved)
+		-- One button before 1.10: its spot was saved.angle.
+		local first = saved.buttons.minimap == nil
+		local options = { { type = "header", label = "Buttons" } }
+		for _, owner in ipairs(Owners()) do
+			local entry = saved.buttons[owner.key]
+			if type(entry) ~= "table" then
+				entry = { shown = owner.minimapButton.shownByDefault == true }
+				saved.buttons[owner.key] = entry
+			end
+			options[#options + 1] = { type = "checkbox", key = "buttons." .. owner.key .. ".shown",
+				label = owner.minimapButton.name, onChange = Refresh,
+				tooltip = owner ~= module and ("Shows while the %s module is on."):format(owner.name) or nil }
+		end
+		if first and saved.angle then
+			saved.buttons.minimap.angle = saved.angle
+		end
+		saved.angle = nil
+		options[#options + 1] = { type = "button", label = "Positions", text = "Reset", onClick = ResetPositions,
+			tooltip = "Line the buttons up from the bottom left of the minimap." }
+		module.options = options
+	end,
+	toggle = Refresh,
 })
+
+-- Buttons follow their module on and off.
+ns.moduleToggled[#ns.moduleToggled + 1] = function(owner)
+	if owner ~= module and owner.minimapButton then
+		Refresh()
+	end
+end
+
+-- Edit Mode can resize the minimap.
+Minimap:HookScript("OnSizeChanged", function()
+	for _, button in pairs(buttons) do
+		if button:IsShown() then
+			Place(button)
+		end
+	end
+end)

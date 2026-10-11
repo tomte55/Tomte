@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Minimap Buttons: pick which buttons sit on the minimap's edge in its settings. New: a Gold world quests button that opens its window and shows what's up in its tooltip. Each button is dragged on its own; Reset lines them up.
+
 ## v1.9.1 - 2026-10-11
 
 - Pet Battles: the Guides window shows again when you open it from the tamer card while DialogueUI is open (it was invisible, only a grey bar). The copy/paste window got the same fix.

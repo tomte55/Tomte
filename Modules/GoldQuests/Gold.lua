@@ -18,6 +18,7 @@ local lastModel
 local char
 local viewExpansion -- the expansion picked in the window (this session); nil = the player's
 local currentCount = 0 -- gold quests up in the player's expansion at the last scan of it (Home)
+local currentGroup -- that scan's totals (minimap button tooltip)
 local loggedIn = false
 local refreshTimer
 local wqSeen = {} -- [questID] = true: world quests the scans saw this session (turn-ins only say the ID)
@@ -106,6 +107,7 @@ function ns.Gold_Scan()
 	end
 	if lastModel and expansion == ns.ContentExpansion() then
 		currentCount = lastModel.group.count
+		currentGroup = lastModel.group
 	end
 	return lastModel
 end
@@ -316,6 +318,17 @@ module = ns.RegisterModule({
 		.. "character's world quest gold this week and in all, and its caches. A line in chat at login with what's "
 		.. "up. Open it with /tomte wgq, a key binding or Home.",
 	enabledByDefault = true,
+	minimapButton = {
+		name = "Gold world quests",
+		icon = "Interface\\Icons\\INV_Misc_Coin_01",
+		onClick = function()
+			ns.GoldWindow_Toggle()
+		end,
+		tooltip = function(tooltip)
+			tooltip:AddLine(currentGroup and ns.Gold_Summary(currentGroup) or "Not scanned yet", 1, 1, 1)
+			tooltip:AddLine("Click to open or close the window", 1, 1, 1)
+		end,
+	},
 	home = {
 		{ kind = "quick", key = "goldquick", order = 4, name = "Gold world quests",
 			count = function()

@@ -42,4 +42,32 @@ test("Angle wraps to 0-360", function()
 	near(ns.Minimap_Angle(-1, -1), 225)
 end)
 
+test("FreeAngle: start when nothing is taken", function()
+	near(ns.Minimap_FreeAngle({}, 225, -26, 26), 225)
+end)
+
+test("FreeAngle: steps past taken angles", function()
+	near(ns.Minimap_FreeAngle({ 225 }, 225, -26, 26), 199)
+	near(ns.Minimap_FreeAngle({ 225, 200 }, 225, -26, 26), 173)
+end)
+
+test("FreeAngle: wraps around 0", function()
+	near(ns.Minimap_FreeAngle({ 10 }, 10, -26, 26), 344)
+end)
+
+test("FreeAngle: full edge falls back to start", function()
+	local taken = {}
+	for a = 0, 350, 10 do
+		taken[#taken + 1] = a
+	end
+	near(ns.Minimap_FreeAngle(taken, 225, -26, 26), 225)
+end)
+
+test("Spread: one step apart, wrapped", function()
+	local list = ns.Minimap_Spread(3, 20, -26)
+	near(list[1], 20)
+	near(list[2], 354)
+	near(list[3], 328)
+end)
+
 H.done()

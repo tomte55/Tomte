@@ -50,3 +50,36 @@ local atan2 = math.atan2 or math.atan -- WoW (Lua 5.1) has atan2; plain Lua 5.4 
 function ns.Minimap_Angle(dx, dy)
 	return math.deg(atan2(dy, dx)) % 360
 end
+
+-- How far apart two angles are around the circle, 0-180.
+local function Apart(a, b)
+	return math.abs((a - b + 180) % 360 - 180)
+end
+
+-- An angle for a newly shown button: the first of start, start + step, start + 2 * step, ... at least gap degrees
+-- from every taken angle; start when the whole edge is taken.
+function ns.Minimap_FreeAngle(taken, start, step, gap)
+	for i = 0, math.floor(360 / math.abs(step)) - 1 do
+		local angle = (start + i * step) % 360
+		local free = true
+		for _, other in ipairs(taken) do
+			if Apart(angle, other) < gap then
+				free = false
+				break
+			end
+		end
+		if free then
+			return angle
+		end
+	end
+	return start % 360
+end
+
+-- count angles one step apart from start, for Reset.
+function ns.Minimap_Spread(count, start, step)
+	local list = {}
+	for i = 1, count do
+		list[i] = (start + (i - 1) * step) % 360
+	end
+	return list
+end
