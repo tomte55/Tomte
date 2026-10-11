@@ -3,7 +3,7 @@ local ns = {}
 assert(loadfile("Tomte/Core/Content.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Data/WarWithin/Gear.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Data/Midnight/Gear.lua"))("Tomte", ns)
-assert(loadfile("Tomte/Modules/Gear/Data.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Modules/Gear/Rules.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Gear/Advice.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Gear/Scales.lua"))("Tomte", ns)
 
@@ -194,13 +194,13 @@ test("ParseStatText: game texts the old parser missed, and what isn't a stat", f
 	eq(s.HASTE, 13, "adds into")
 end)
 
--- Data.lua loaded again with a client language's globals (values from that client's GlobalStrings).
+-- Rules.lua loaded again with a client language's globals (values from that client's GlobalStrings).
 local function LoadWith(globals)
 	for k, v in pairs(globals) do
 		_G[k] = v
 	end
 	local loc = {}
-	assert(loadfile("Tomte/Modules/Gear/Data.lua"))("Tomte", loc)
+	assert(loadfile("Tomte/Modules/Gear/Rules.lua"))("Tomte", loc)
 	for k in pairs(globals) do
 		_G[k] = nil
 	end

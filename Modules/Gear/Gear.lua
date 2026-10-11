@@ -5,7 +5,7 @@ local addonName, ns = ...
 -- items whose value is an effect are sent to a sim instead of guessed. This file holds the module: its events,
 -- the verdict API for other files, the commands, the options and the start/stop. The rest is in Modules/Gear:
 -- evaluator contexts (Context.lua), tooltip lines (Tooltip.lua), chat hints (Hints.lua), Baganator arrows
--- (Baganator.lua), stat weights import and printouts (Weights.lua), rules in Data.lua, advice (weights source,
+-- (Baganator.lua), stat weights import and printouts (Weights.lua), rules in Rules.lua, advice (weights source,
 -- gems, enchants, off-spec) in Advice.lua, built-in weights and gem IDs per expansion in Data/<Expansion>/Gear.lua
 -- (picked by the character's content expansion, Scales.lua), item reading in Items.lua, the character sheet button
 -- and panel in Sheet.lua, upgrades for other characters in Alts.lua, the new-upgrade reveal and equip toast in

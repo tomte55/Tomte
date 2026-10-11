@@ -15,7 +15,7 @@ local OtherSpecs = ns.Gear_OtherSpecs
 local IsGearLink = ns.Gear_IsGearLink
 local Evaluate = ns.Gear_EvaluateLink
 
--- Verdict color keys (Data.lua) to theme roles.
+-- Verdict color keys (Rules.lua) to theme roles.
 -- Color codes are built when used: the theme is chosen on ADDON_LOADED.
 local COLOR_ROLES = { green = "success", yellow = "warning", grey = "textMuted", red = "danger", orange = "warning" }
 local function Label()

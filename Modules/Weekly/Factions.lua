@@ -2,10 +2,10 @@ local addonName, ns = ...
 
 -- Weekly board, Factions tab: the expansion's renown factions as emblems in progress rings (sub-factions as small
 -- rings beside their parent), a tooltip with the next rewards, and a detail panel for the selected faction with its
--- reward track. Read live each time it draws (renown is account-wide). Logic in FactionData.lua.
+-- reward track. Read live each time it draws (renown is account-wide). Logic in FactionModel.lua.
 
 local UI = ns.UI
--- Ring looks (FactionData.lua's "gold"/"blue"/"white") as roles: maxed or paragon, renown, plain reputation.
+-- Ring looks (FactionModel.lua's "gold"/"blue"/"white") as roles: maxed or paragon, renown, plain reputation.
 local RING_ROLES = { gold = "heading", blue = "accent", white = "textMuted" }
 local BIG, SMALL, GAP = 84, 40, 22
 local DETAIL_W, DETAIL_H = 250, 260

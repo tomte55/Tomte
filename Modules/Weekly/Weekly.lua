@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Weekly board module: what you haven't done this week (Great Vault, crests, weekly quests, professions, renown,
 -- lockouts) for this character and every other tracked one, aware of the weekly reset without logging them in.
--- Data.lua holds the logic, Collect.lua reads the game, BoardPage.lua and Popup.lua draw. This file wires them up,
+-- Model.lua holds the logic, Collect.lua reads the game, BoardPage.lua and Popup.lua draw. This file wires them up,
 -- owns the options and commands, and toasts when a character's Concentration fills up.
 
 local CONC_ICON = "Interface\\Icons\\INV_Misc_Gear_01" -- when the profession's own icon isn't known

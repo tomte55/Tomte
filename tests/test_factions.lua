@@ -4,7 +4,7 @@ assert(loadfile("Tomte/Core/Format.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Core/Content.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Data/WarWithin/Weekly.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Data/Midnight/Weekly.lua"))("Tomte", ns)
-assert(loadfile("Tomte/Modules/Weekly/FactionData.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Modules/Weekly/FactionModel.lua"))("Tomte", ns)
 
 local failures = 0
 local function test(name, fn)

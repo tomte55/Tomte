@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Weekly tab of the panel: six views behind buttons at the top. This week (the current character), Factions,
 -- Activities and Raids (each its own view object: .scroll and :Render(width), in Factions.lua, Activities.lua and
 -- Raids.lua), Characters (a grid, one column per character) and Professions (knowledge and Concentration per
--- character). The rows come from Data.lua's models; ns.WeeklyList draws a list of them and is shared with the popup.
+-- character). The rows come from Model.lua's models; ns.WeeklyList draws a list of them and is shared with the popup.
 
 local UI = ns.UI
 local STATE_ROLES = { done = "success", open = "text", warn = "warning", dim = "textFaint", gold = "accent" }

@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Gear Check item reading: turns an item link into the descriptor Data.lua judges, and keeps the equipped
+-- Gear Check item reading: turns an item link into the descriptor Rules.lua judges, and keeps the equipped
 -- snapshot. Everything here is plain item data (not secret in 12.x), but tooltip text is still checked with
 -- issecretvalue before use. Items the client hasn't cached return nil and are requested; ns.GearItems_OnReady
 -- (set by Gear.lua) runs once the data has arrived.

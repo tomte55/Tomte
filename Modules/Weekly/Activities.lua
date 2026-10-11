@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Weekly board, Activities tab: this week's activities grouped (a short hand-kept list, then learned weekly quests by
 -- their quest log header) with "Hide completed", and a Resources list (crests, then the expansion's currencies).
--- Logic in ActivityData.lua.
+-- Logic in ActivityModel.lua.
 
 local UI = ns.UI
 local SIDE_W = 240

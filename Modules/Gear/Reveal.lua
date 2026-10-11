@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- a clean upgrade gets a Moments reveal (the "Gear upgrade" type: banner or cinematic with the item icon) and a
 -- toast that equips it on click (and an "Equipped" toast once it's worn). New = an item GUID not seen in the bags
 -- or worn since login. Items taken out of a bank aren't new. Which items count (best per slot, minimum gain) is in
--- Data.lua.
+-- Rules.lua.
 
 local BAGS = ns.GEAR_BAGS -- Items.lua
 local EQUIP_SLOTS = ns.GEAR_EQUIP_SLOTS
