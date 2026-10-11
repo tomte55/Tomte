@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.10.0 - 2026-10-11
+
 - Minimap Buttons: pick which buttons sit on the minimap's edge in its settings. New: a Gold world quests button that opens its window and shows what's up in its tooltip. Each button is dragged on its own; Reset lines them up.
 - New module, Showcase: `/tomte showcase` (or a key binding, or its minimap button) turns the camera on your character, fades the UI out and lays your gear and stats around you: item level, upgrade track, enchants and gems on every slot, an item level dial and your secondary stats as one split bar. The camera turns slowly until you drag it; Esc or combat puts everything back.
 - Gear Check: "missing enchant" follows your expansion. War Within characters are no longer told to enchant their helm and shoulders, and do get told about back, wrists and legs.
