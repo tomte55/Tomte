@@ -43,7 +43,7 @@ end
 
 -- How many chat windows the client has. Also used by Chat/Tags.lua (loads after this file).
 local function MaxWindows()
-	return (Constants and Constants.ChatFrameConstants and Constants.ChatFrameConstants.MaxChatWindows) or NUM_CHAT_WINDOWS or 10
+	return Constants.ChatFrameConstants.MaxChatWindows
 end
 ns.Chat_MaxWindows = MaxWindows
 

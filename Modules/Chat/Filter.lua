@@ -144,19 +144,11 @@ local function Filter(chatFrame, event, text, ...)
 end
 
 local function AddFilter()
-	if ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter then
-		ChatFrameUtil.AddMessageEventFilter("CHAT_MSG_CHANNEL", Filter)
-	else
-		ChatFrame_AddMessageEventFilter("CHAT_MSG_CHANNEL", Filter)
-	end
+	ChatFrameUtil.AddMessageEventFilter("CHAT_MSG_CHANNEL", Filter)
 end
 
 local function RemoveFilter()
-	if ChatFrameUtil and ChatFrameUtil.RemoveMessageEventFilter then
-		ChatFrameUtil.RemoveMessageEventFilter("CHAT_MSG_CHANNEL", Filter)
-	else
-		ChatFrame_RemoveMessageEventFilter("CHAT_MSG_CHANNEL", Filter)
-	end
+	ChatFrameUtil.RemoveMessageEventFilter("CHAT_MSG_CHANNEL", Filter)
 end
 
 local warned

@@ -123,7 +123,7 @@ end
 -- The next press ------------------------------------------------------------------------------------------------
 
 local function Known()
-	if IsPlayerSpell(ns.FISHING_SPELL) then
+	if C_SpellBook.IsSpellKnown(ns.FISHING_SPELL) then
 		return true
 	end
 	local _, _, _, fishingIndex = GetProfessions()
@@ -134,7 +134,7 @@ local function Situation()
 	local s = {
 		known = Known(),
 		dead = UnitIsDeadOrGhost("player"),
-		blocked = UnitInVehicle("player") or UnitOnTaxi("player") or (C_PetBattles and C_PetBattles.IsInBattle()),
+		blocked = UnitInVehicle("player") or UnitOnTaxi("player") or C_PetBattles.IsInBattle(),
 		mounted = IsMounted(),
 		flying = IsFlying(),
 		swimming = IsSwimming(),

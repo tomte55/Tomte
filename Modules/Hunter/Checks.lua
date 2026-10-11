@@ -7,7 +7,6 @@ local addonName, ns = ...
 local ENTER_DELAY = 4 -- seconds after zoning in: the pet is summoned again by then
 local GROWL = 2649 -- the pet's Growl
 local WARNING = "warning" -- theme role for the chat lines and the banner accent
--- The globals only exist with the deprecation fallbacks loaded.
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
 local GetSpecializationInfo = C_SpecializationInfo.GetSpecializationInfo
 

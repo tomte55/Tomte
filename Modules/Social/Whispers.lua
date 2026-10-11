@@ -196,14 +196,14 @@ function ns.Whispers_Send(key, text)
 			return false
 		end
 		local sent
-		ok, sent = pcall(C_BattleNet.SendWhisper or BNSendWhisper, id, text)
+		ok, sent = pcall(C_BattleNet.SendWhisper, id, text)
 		if not ok then
 			err = sent
 		elseif sent == false then
 			ok, err = false, "Battle.net refused the whisper"
 		end
 	else
-		ok, err = pcall(C_ChatInfo.SendChatMessage or SendChatMessage, text, "WHISPER", nil, key)
+		ok, err = pcall(C_ChatInfo.SendChatMessage, text, "WHISPER", nil, key)
 	end
 	if not ok then
 		ns.Print("couldn't send: " .. tostring(err))

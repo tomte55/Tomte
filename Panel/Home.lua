@@ -580,7 +580,7 @@ local function CreateHero(parent, onOpen)
 		local dura = Durability()
 		local values = {
 			equipped and tostring(math.floor(equipped)) or "?",
-			ns.Alts_Gold and ns.Alts_Gold(GetMoney()) or GetCoinTextureString(GetMoney()),
+			ns.Alts_Gold(GetMoney()),
 			(dura or 100) .. "%",
 			GetSubZoneText() ~= "" and GetSubZoneText() or GetZoneText(),
 		}

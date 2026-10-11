@@ -63,8 +63,8 @@ local function BagStacks()
 end
 
 -- The realms mail reaches (ns.Alts_RealmSet), nil while that isn't known. The connected realms don't change in a
--- session, so a non-empty list is kept. GetAutoCompleteRealms moved to C_AutoComplete (the global is a deprecation
--- fallback since 12.0.5); either answers an empty list on a realm that isn't connected.
+-- session, so a non-empty list is kept. C_AutoComplete.GetAutoCompleteRealms answers an empty list on a realm that
+-- isn't connected.
 local realmSet
 function ns.Alts_MailRealms()
 	if realmSet then
@@ -74,11 +74,7 @@ function ns.Alts_MailRealms()
 	if not myRealm or myRealm == "" then
 		return nil
 	end
-	local get = (C_AutoComplete and C_AutoComplete.GetAutoCompleteRealms) or GetAutoCompleteRealms
-	local ok, realms = false, nil
-	if get then
-		ok, realms = pcall(get)
-	end
+	local ok, realms = pcall(C_AutoComplete.GetAutoCompleteRealms)
 	realms = ok and type(realms) == "table" and realms or {}
 	local set = ns.Alts_RealmSet(realms, myRealm)
 	if #realms > 0 then
@@ -642,7 +638,7 @@ function ns.AltsSend_Refresh()
 			end
 		end
 	end
-	dock.postage:SetText(attached and GetSendMailPrice and ("postage " .. GetCoinTextureString(GetSendMailPrice())) or "")
+	dock.postage:SetText(attached and GetSendMailPrice and ("postage " .. C_CurrencyInfo.GetCoinTextureString(GetSendMailPrice())) or "")
 	dock.note:ClearAllPoints()
 	dock.note:SetPoint("TOPLEFT", 12, -y)
 	dock.note:SetPoint("RIGHT", -12, 0)
@@ -808,7 +804,7 @@ end
 -- the fallback. Only looked at, never changed.
 local BAGANATOR_SKINS = { "blizzard", "blizzard_black", "dark", "elvui", "gw2_ui", "ndui", "ellesmereui" }
 local function BaganatorBankFrame()
-	if not (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Baganator")) then
+	if not C_AddOns.IsAddOnLoaded("Baganator") then
 		return nil
 	end
 	local skins = BAGANATOR_SKINS

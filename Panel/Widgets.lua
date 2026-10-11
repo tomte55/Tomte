@@ -63,12 +63,10 @@ function UI.Debounce(seconds, fn)
 	end
 end
 
--- Puts a link into the open chat edit box (shift-click). Does nothing for a nil link. ChatEdit_InsertLink moved to
--- ChatFrameUtil in recent clients; use whichever exists.
+-- Puts a link into the open chat edit box (shift-click). Does nothing for a nil link.
 function UI.InsertLink(link)
-	local insert = (ChatFrameUtil and ChatFrameUtil.InsertLink) or ChatEdit_InsertLink
-	if link and insert then
-		insert(link)
+	if link then
+		ChatFrameUtil.InsertLink(link)
 	end
 end
 

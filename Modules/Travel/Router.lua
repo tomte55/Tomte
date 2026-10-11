@@ -111,10 +111,7 @@ end
 -- Conditions -----------------------------------------------------------------------------------------------
 
 local function IsSpellKnown(id)
-	if C_SpellBook and C_SpellBook.IsSpellKnown then
-		return C_SpellBook.IsSpellKnown(id)
-	end
-	return IsPlayerSpell(id)
+	return C_SpellBook.IsSpellKnown(id)
 end
 
 local function Api()

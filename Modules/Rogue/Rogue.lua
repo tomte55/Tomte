@@ -16,7 +16,6 @@ local BUTTON_PREFIX = "TomtePoison"
 local BINDING = "CLICK " .. BUTTON_PREFIX .. "1:LeftButton"
 -- What Edit Mode shows: Deadly Poison missing, Crippling Poison with 7 minutes left.
 local PREVIEW = { { spellID = 2823, reason = "missing" }, { spellID = 3408, reason = "low", left = 420 } }
--- The globals only exist with the deprecation fallbacks loaded.
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
 local GetSpecializationInfo = C_SpecializationInfo.GetSpecializationInfo
 
@@ -41,9 +40,6 @@ local function CharDB()
 end
 
 local function Known(spellID)
-	if IsPlayerSpell and IsPlayerSpell(spellID) then
-		return true
-	end
 	return C_SpellBook.IsSpellKnown(spellID) and true or false
 end
 

@@ -108,7 +108,7 @@ end
 function ns.DelvesScan_List()
 	local expansion = ns.ContentExpansion()
 	local def = ns.Content_Get(expansion, "delves")
-	if not def or not (C_AreaPoiInfo and C_AreaPoiInfo.GetDelvesForMap) or ns.DelvesScan_MinLevel() then
+	if not def or ns.DelvesScan_MinLevel() then
 		return {}
 	end
 	local stale = not cache or cacheKey ~= expansion or GetTime() >= (cacheUntil or 0)

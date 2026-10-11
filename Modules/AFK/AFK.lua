@@ -47,7 +47,7 @@ end
 
 local function SceneBlocked()
 	return IsInInstance() or UnitOnTaxi("player") or InCombatLockdown()
-		or (C_PetBattles and C_PetBattles.IsInBattle())
+		or C_PetBattles.IsInBattle()
 		or (InCinematic and InCinematic()) or (IsInCinematicScene and IsInCinematicScene())
 		or (MovieFrame and MovieFrame:IsShown())
 		or ns.Cinematic.IsActive()
@@ -134,8 +134,7 @@ function Dismiss()
 	StayClosed()
 	-- The AFK "channel" toggles: only send it while the flag reads as set.
 	if not preview and ns.afkDB.clearAFK and IsAFK() and not InChatLockdown() then
-		local send = C_ChatInfo.SendChatMessage or SendChatMessage
-		send("", "AFK")
+		C_ChatInfo.SendChatMessage("", "AFK")
 	end
 end
 

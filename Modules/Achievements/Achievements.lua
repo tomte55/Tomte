@@ -196,18 +196,14 @@ function ns.Ach_FilterChoices()
 end
 
 -- The Achievements window is load-on-demand, and loading a Blizzard addon from addon code in combat is presumably
--- blocked or tainting (not measured), so in combat it only opens once it's loaded. ShowAchievementFrameForAchievement is the current
--- opener (Blizzard_AchievementUI_Bootstrap, loads the window); OpenAchievementFrameToAchievement is an older name.
+-- blocked or tainting (not measured), so in combat it only opens once it's loaded. ShowAchievementFrameForAchievement is the
+-- opener (Blizzard_AchievementUI_Bootstrap, loads the window).
 function ns.Ach_Open(id)
 	if InCombatLockdown() and not C_AddOns.IsAddOnLoaded("Blizzard_AchievementUI") then
 		ns.Print("the Achievements window opens after combat.")
 		return
 	end
-	if ShowAchievementFrameForAchievement then
-		ShowAchievementFrameForAchievement(id)
-	elseif OpenAchievementFrameToAchievement then
-		OpenAchievementFrameToAchievement(id)
-	end
+	ShowAchievementFrameForAchievement(id)
 end
 
 function ns.Ach_Link(id)
