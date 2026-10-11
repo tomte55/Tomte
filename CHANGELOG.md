@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.8.0 - 2026-10-11
+
 - New module, Gold world quests (`/tomte wgq`): a window with every gold world quest in your expansion's zones and their total, special assignments, weekly caches, a route that tracks the gold quests one by one, and world quest gold per character. Like GoldWQ, for The War Within and Midnight; a menu shows older expansions' gold quests too (Legion to Dragonflight).
 - World quests: a Route button in the map tab tracks the listed world quests one by one, nearest first, and moves on when you hand one in.
 
