@@ -91,17 +91,14 @@ bobberSpec.shown = function()
 end
 
 -- Angleur's override wins on its own key: say so once per session when both are on and a Tomte key is bound.
-local notice = CreateFrame("Frame")
-notice:RegisterEvent("PLAYER_ENTERING_WORLD")
-notice:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
-function notice:PLAYER_ENTERING_WORLD()
-	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+local events = ns.Fishing_Events
+events:Watch("notice", "PLAYER_ENTERING_WORLD")
+events:On("notice", "PLAYER_ENTERING_WORLD", function()
+	events:Unwatch("notice", "PLAYER_ENTERING_WORLD")
 	if module.active and C_AddOns.IsAddOnLoaded("Angleur") and GetBindingKey(ns.FISHING_BINDING) then
 		ns.Print("Angleur is on too. Disable it so your Fishing key works.")
 	end
-end
+end)
 
 module = ns.RegisterModule({
 	key = "fishing",

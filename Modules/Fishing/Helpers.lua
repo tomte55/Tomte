@@ -27,10 +27,10 @@ local function FishingNow()
 	return ns.Fishing_IsFishing ~= nil and ns.Fishing_IsFishing()
 end
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+-- The module's event bus (Key.lua and Fishing.lua share it). Helpers loads first, so its handlers run first.
+local events = ns.NewEvents()
+ns.Fishing_Events = events
+local OWNER = "helpers"
 
 function ns.FishingHelpers_Start()
 	if not db then
@@ -66,7 +66,7 @@ function ns.FishingHelpers_Stop()
 		Apply(ns.Fishing_RestoreList(now, Current()))
 		pending = next(db.restore) ~= nil
 		if pending then
-			events:RegisterEvent("PLAYER_REGEN_ENABLED")
+			events:Watch(OWNER, "PLAYER_REGEN_ENABLED")
 		end
 		return
 	end
@@ -83,30 +83,30 @@ function ns.FishingHelpers_Backups()
 	return db and db.restore or {}
 end
 
-function events:PLAYER_REGEN_ENABLED()
-	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+events:On(OWNER, "PLAYER_REGEN_ENABLED", function()
+	events:Unwatch(OWNER, "PLAYER_REGEN_ENABLED")
 	if pending and not FishingNow() then -- still fishing: the key's own stop restores later
 		ns.FishingHelpers_Stop()
 	end
-end
+end)
 
 -- Crash or disconnect recovery: a backup left from last session, with no cast out now.
-function events:PLAYER_ENTERING_WORLD()
-	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+events:On(OWNER, "PLAYER_ENTERING_WORLD", function()
+	events:Unwatch(OWNER, "PLAYER_ENTERING_WORLD")
 	C_Timer.After(0, function() -- after Key.lua's own PLAYER_ENTERING_WORLD has seen a cast still out (/reload)
 		if next(db.restore) and not FishingNow() then
 			ns.FishingHelpers_Stop()
 		end
 	end)
-end
+end)
 
 -- Logging out mid-cast: put the values back before the client saves them.
-function events:PLAYER_LOGOUT()
+events:On(OWNER, "PLAYER_LOGOUT", function()
 	ns.FishingHelpers_Stop()
-end
+end)
 
 function ns.FishingHelpers_Init(moduleDB)
 	db = moduleDB
-	events:RegisterEvent("PLAYER_ENTERING_WORLD")
-	events:RegisterEvent("PLAYER_LOGOUT")
+	events:Watch(OWNER, "PLAYER_ENTERING_WORLD")
+	events:Watch(OWNER, "PLAYER_LOGOUT")
 end

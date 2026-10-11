@@ -204,14 +204,14 @@ end
 
 -- The reel override -------------------------------------------------------------------------------------------
 
-local keyEvents = CreateFrame("Frame")
-keyEvents:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+-- Owns the override bindings; the events come through the module's bus.
+local bindingOwner = CreateFrame("Frame")
+local events = ns.Fishing_Events
+local OWNER = "key"
 
 local function ClearReel()
 	if next(overridden) then
-		ClearOverrideBindings(keyEvents)
+		ClearOverrideBindings(bindingOwner)
 		wipe(overridden)
 	end
 end
@@ -219,7 +219,7 @@ end
 local function SetReel()
 	ClearReel()
 	for _, key in ipairs(Keys()) do -- read after clearing: only the player's own bindings
-		SetOverrideBinding(keyEvents, true, key, "INTERACTTARGET")
+		SetOverrideBinding(bindingOwner, true, key, "INTERACTTARGET")
 		overridden[#overridden + 1] = key
 	end
 end
@@ -422,7 +422,7 @@ local function StopFishing()
 	ns.FishingKey_Refresh()
 end
 
-function keyEvents:UNIT_SPELLCAST_CHANNEL_START(unit, _, spellID)
+events:On(OWNER, "UNIT_SPELLCAST_CHANNEL_START", function(_, unit, _, spellID)
 	if unit ~= "player" or IsSecret(spellID) then
 		return
 	end
@@ -435,19 +435,19 @@ function keyEvents:UNIT_SPELLCAST_CHANNEL_START(unit, _, spellID)
 		StartReel()
 	end
 	ns.FishingKey_Refresh()
-end
+end)
 
 -- Every stop while fishing (or with an override left) cleans up, even without a matching start (reload, zoning).
-function keyEvents:UNIT_SPELLCAST_CHANNEL_STOP(unit)
+events:On(OWNER, "UNIT_SPELLCAST_CHANNEL_STOP", function(_, unit)
 	if unit ~= "player" or not (fishing or next(overridden)) then
 		return
 	end
 	StopFishing()
-end
+end)
 
 -- Fires just before the combat lockdown starts: the last moment bindings, attributes and secure CVars can change.
 -- In combat the key does nothing; clicking the bobber with the mouse still works.
-function keyEvents:PLAYER_REGEN_DISABLED()
+events:On(OWNER, "PLAYER_REGEN_DISABLED", function()
 	waiter:Hide()
 	ClearReel()
 	if button then
@@ -455,9 +455,9 @@ function keyEvents:PLAYER_REGEN_DISABLED()
 	end
 	ns.FishingHelpers_Stop()
 	ns.FishingKey_Refresh()
-end
+end)
 
-function keyEvents:PLAYER_REGEN_ENABLED()
+events:On(OWNER, "PLAYER_REGEN_ENABLED", function()
 	if not holder then
 		Create()
 	end
@@ -467,28 +467,28 @@ function keyEvents:PLAYER_REGEN_ENABLED()
 		StopFishing()
 	end
 	ns.FishingKey_Refresh()
-end
+end)
 
-function keyEvents:ADDON_RESTRICTION_STATE_CHANGED()
+events:On(OWNER, "ADDON_RESTRICTION_STATE_CHANGED", function()
 	if fishing and not next(overridden) and Engaged() then
 		StartReel() -- a cast that started under a restriction
 	elseif not fishing and next(overridden) and not waiter:IsShown() then
 		Wait("clear") -- an override the waiter gave up on while a restriction lasted
 	end
-end
+end)
 
 -- A key bound mid-cast gets the override (and the CVars, which weren't set while nothing was engaged). An override
 -- already in place stays on its keys until the cast ends (the keys are read again then): reading the bindings while
 -- our own override sits on them isn't reliable.
-function keyEvents:UPDATE_BINDINGS()
+events:On(OWNER, "UPDATE_BINDINGS", function()
 	if fishing and not next(overridden) and GetBindingKey(BINDING) and Engaged() then
 		StartReel()
 	end
 	ns.FishingKey_Refresh()
-end
+end)
 
 -- After a /reload mid-cast the override is gone: set it again.
-function keyEvents:PLAYER_ENTERING_WORLD()
+events:On(OWNER, "PLAYER_ENTERING_WORLD", function()
 	local name, _, _, _, _, _, _, spellID = UnitChannelInfo("player")
 	if not IsSecret(name) and not IsSecret(spellID) and name
 		and ns.Fishing_IsFishingSpell(spellID, name, FishingName()) then
@@ -501,25 +501,26 @@ function keyEvents:PLAYER_ENTERING_WORLD()
 		return
 	end
 	ns.FishingKey_Refresh()
-end
+end)
 
-function keyEvents:PLAYER_LEAVING_WORLD()
+events:On(OWNER, "PLAYER_LEAVING_WORLD", function()
 	waiter:Hide()
 	if not InCombatLockdown() then
 		ClearReel()
 	end
-end
+end)
 
-function keyEvents:LOOT_OPENED()
+local function LootOpened()
 	lootOpen = GetTime()
 	ns.FishingKey_Refresh()
 end
-keyEvents.LOOT_READY = keyEvents.LOOT_OPENED
+events:On(OWNER, "LOOT_OPENED", LootOpened)
+events:On(OWNER, "LOOT_READY", LootOpened)
 
-function keyEvents:LOOT_CLOSED()
+events:On(OWNER, "LOOT_CLOSED", function()
 	lootOpen = nil
 	ns.FishingKey_Refresh()
-end
+end)
 
 local EVENTS = {
 	"PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "UPDATE_BINDINGS", "PLAYER_ENTERING_WORLD",
@@ -542,20 +543,20 @@ function ns.FishingKey_Init(moduleDB, owner)
 	if not InCombatLockdown() then -- otherwise at PLAYER_REGEN_ENABLED (a /reload in combat)
 		Create()
 	end
-	keyEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
+	events:Watch(OWNER, "PLAYER_REGEN_ENABLED")
 end
 
 function ns.FishingKey_Toggle(active)
 	if active then
 		for _, event in ipairs(EVENTS) do
-			keyEvents:RegisterEvent(event)
+			events:Watch(OWNER, event)
 		end
-		keyEvents:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
-		keyEvents:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
-		keyEvents:RegisterEvent("ADDON_RESTRICTION_STATE_CHANGED") -- new in 12.0.0
+		events:Watch(OWNER, "UNIT_SPELLCAST_CHANNEL_START", "player")
+		events:Watch(OWNER, "UNIT_SPELLCAST_CHANNEL_STOP", "player")
+		events:Watch(OWNER, "ADDON_RESTRICTION_STATE_CHANGED") -- new in 12.0.0
 	else
-		keyEvents:UnregisterAllEvents()
-		keyEvents:RegisterEvent("PLAYER_REGEN_ENABLED") -- creates the button after a /reload in combat
+		events:UnwatchAll(OWNER)
+		events:Watch(OWNER, "PLAYER_REGEN_ENABLED") -- creates the button after a /reload in combat
 		waiter:Hide()
 		fishing = false
 		if not InCombatLockdown() then
