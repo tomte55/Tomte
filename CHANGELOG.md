@@ -15,6 +15,11 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
   Weekly board's Factions tab) instead of whatever their level alone pointed to.
 - Weekly board, Factions: rewards on the reward track highlight on hover and show a tooltip with what the reward is
   and the renown level it unlocks at.
+- New Chat category, all off until you turn them on:
+  - Trade Filter: Trade chat shows only messages that name your professions (BS, smith, JC...) or your own keywords,
+    and hides sellers and boosters. Matches are highlighted, with an optional toast.
+  - Chat Tabs: Trade and other busy channels get their own chat tab. Turning it off puts your chat back.
+  - Channel Tags: shorter tags such as [2. T] instead of [2. Trade - City], and [G] instead of [Guild].
 
 ## v1.5.0 - 2026-10-11
 

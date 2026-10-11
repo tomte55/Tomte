@@ -100,6 +100,10 @@ Modules/Social/Whispers.lua
 Modules/Social/Mentions.lua
 Modules/Social/Friends.lua
 Modules/Social/Alerts.lua
+Modules/Chat/Data.lua
+Modules/Chat/Tabs.lua
+Modules/Chat/Filter.lua
+Modules/Chat/Tags.lua
 Modules/Gear/Data.lua
 Modules/Gear/Advice.lua
 Modules/Gear/Scales.lua
