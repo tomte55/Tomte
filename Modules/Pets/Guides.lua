@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- is for and a Copy button: WoW can't open a browser or write the clipboard, so Copy selects that one link and
 -- Ctrl+C copies it. A pet battle world quest up next to you marks its link "Active now" and puts it first.
 -- On UIParent like every window, so it shows over the Tomte window (Pet Battles page). While a dialogue addon
--- (DialogueUI, Immersion) hides UIParent at a tamer it goes on WorldFrame instead (see Show).
+-- (DialogueUI, Immersion) hides UIParent at a tamer it goes on WorldFrame instead (UI.PlaceDialog).
 
 local UI = ns.UI
 local WIDTH = 460
@@ -137,16 +137,7 @@ local function Show(title, links)
 	if not popup then
 		Build()
 	end
-	-- WorldFrame's children draw under all of UIParent, so WorldFrame only while UIParent is hidden, scaled to
-	-- UIParent's size there. SetParent can carry the parent's strata over, so it's set again.
-	if UIParent:IsShown() then
-		popup:SetParent(UIParent)
-		popup:SetScale(1)
-	else
-		popup:SetParent(WorldFrame)
-		popup:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
-	end
-	popup:SetFrameStrata("DIALOG")
+	UI.PlaceDialog(popup)
 	popup.title:SetText(title or "")
 	local y = TITLE_TOP + TITLE_H + HINT_GAP + popup.hint:GetStringHeight() + LIST_GAP
 	for i, link in ipairs(links) do

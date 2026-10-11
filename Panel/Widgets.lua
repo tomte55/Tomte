@@ -85,7 +85,7 @@ end
 
 -- A hidden, movable, themed dialog window named `name`, centered (opts.y above the middle, default 0). height may be
 -- nil when the caller sizes it later. opts.parent defaults to UIParent; opts.escape (default true) lets Escape close
--- it. Callers that can show it while UIParent is hidden re-parent it themselves on every show.
+-- it. Callers that can show it while UIParent is hidden call UI.PlaceDialog on every show.
 function UI.Dialog(name, width, height, opts)
 	opts = opts or {}
 	local frame = CreateFrame("Frame", name, opts.parent or UIParent)
@@ -109,6 +109,22 @@ function UI.Dialog(name, width, height, opts)
 		tinsert(UISpecialFrames, name)
 	end
 	return frame
+end
+
+-- Puts a UI.Dialog on UIParent, like every other window (WorldFrame's children draw under all of UIParent whatever
+-- their strata, so there it would sit behind the Tomte window). Only while a dialogue addon hides UIParent does it go
+-- on WorldFrame, scaled to UIParent's size (the trick Cinematic/Engine.lua uses for its hint). DialogueUI hides it
+-- by fading it to alpha 0 while it stays shown, so a faded UIParent counts as hidden. SetParent can carry the
+-- parent's strata over, so it's set again.
+function UI.PlaceDialog(frame)
+	if UIParent:IsShown() and UIParent:GetAlpha() >= 0.99 then
+		frame:SetParent(UIParent)
+		frame:SetScale(1)
+	else
+		frame:SetParent(WorldFrame)
+		frame:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
+	end
+	frame:SetFrameStrata("DIALOG")
 end
 
 -- Clips texture to a circle: a mask created on parent (the frame that owns texture), covering texture. Returns it.

@@ -95,19 +95,7 @@ function ns.Dialog_Show(spec)
 		Build()
 	end
 	popup.spec = spec
-	-- On UIParent, like every other window: WorldFrame's children draw under all of UIParent whatever their strata,
-	-- so there it would sit behind the Tomte window. Only while a dialogue addon (DialogueUI, Immersion) hides
-	-- UIParent does it go on WorldFrame, so Guides on the tamer card still opens; there it's scaled to UIParent's
-	-- size (the trick Cinematic/Engine.lua uses for its hint). SetParent can carry the parent's strata over, so it's
-	-- set again.
-	if UIParent:IsShown() then
-		popup:SetParent(UIParent)
-		popup:SetScale(1)
-	else
-		popup:SetParent(WorldFrame)
-		popup:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
-	end
-	popup:SetFrameStrata("DIALOG")
+	UI.PlaceDialog(popup) -- WorldFrame while a dialogue addon hides UIParent, so it opens from the tamer card too
 	popup.title:SetText(spec.title or "")
 	popup.hint:SetText(spec.hint or "")
 	popup.error:SetText("")
