@@ -3,6 +3,7 @@ local addonName, ns = ...
 -- One event frame per module, shared by its files. Each file is an owner: it attaches handlers once (On, at file
 -- load) and says when it wants an event (Watch / Unwatch, from its Start/Stop). The frame registers an event while
 -- any owner watches it and calls only the watching owners' handlers, in attach order (TOC order across files).
+-- The first watcher's unit filter applies to every owner of that event: don't mix filtered and plain watches of one event.
 -- Unit-tested with a CreateFrame stub (tests/test_eventbus.lua).
 
 function ns.NewEvents()

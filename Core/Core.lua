@@ -63,12 +63,10 @@ function ns.Readable(...)
 	return not canaccessallvalues or canaccessallvalues(...)
 end
 
-local f = CreateFrame("Frame")
-f:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
-f:RegisterEvent("ADDON_LOADED")
-f:RegisterEvent("PLAYER_ENTERING_WORLD")
+local events = ns.NewEvents()
+ns.Core_Events = events
+events:Watch("core", "ADDON_LOADED")
+events:Watch("core", "PLAYER_ENTERING_WORLD")
 
 -- Map pins and super-tracking (C_Map.SetUserWaypoint, C_SuperTrack.Set*). Their events fire inside the call, so
 -- Blizzard's map refreshes its pins in our (tainted) code; in combat that hits a protected call
@@ -81,7 +79,7 @@ function ns.SafeTrack(fn)
 		return true
 	end
 	afterCombat = fn
-	f:RegisterEvent("PLAYER_REGEN_ENABLED")
+	events:Watch("safetrack", "PLAYER_REGEN_ENABLED")
 	return false
 end
 
@@ -100,20 +98,20 @@ function ns.TrackPin(mapID, x, y)
 	end)
 end
 
-function f:PLAYER_REGEN_ENABLED()
-	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+events:On("safetrack", "PLAYER_REGEN_ENABLED", function(self)
+	self:Unwatch("safetrack", "PLAYER_REGEN_ENABLED")
 	local fn = afterCombat
 	afterCombat = nil
 	if fn then
 		fn()
 	end
-end
+end)
 
-function f:ADDON_LOADED(name)
+events:On("core", "ADDON_LOADED", function(self, name)
 	if name ~= addonName then
 		return
 	end
-	self:UnregisterEvent("ADDON_LOADED")
+	self:Unwatch("core", "ADDON_LOADED")
 	local fresh = TomteDB == nil
 	local db = TomteDB or {}
 	if fresh then
@@ -127,13 +125,13 @@ function f:ADDON_LOADED(name)
 	ns.Session_Init(TomteDB) -- before the modules: their world handlers read the session
 	ns.InitModules(TomteDB)
 	ns.Panel_Init()
-end
+end)
 
 -- Modules turned on at runtime (from the panel) can rely on the world being there after this.
-function f:PLAYER_ENTERING_WORLD()
+events:On("core", "PLAYER_ENTERING_WORLD", function(self)
 	ns.inWorld = true
-	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
-end
+	self:Unwatch("core", "PLAYER_ENTERING_WORLD")
+end)
 
 -- One help line: the command in the accent, the description muted.
 local function PrintCommand(command, description)

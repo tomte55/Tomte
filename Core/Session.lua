@@ -6,10 +6,7 @@ local addonName, ns = ...
 
 local db
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.Core_Events
 
 local function XPFraction()
 	local max = UnitXPMax("player")
@@ -63,20 +60,20 @@ function ns.Session_Note(kind, entry)
 	end
 end
 
-function events:PLAYER_ENTERING_WORLD(isInitialLogin)
+events:On("session", "PLAYER_ENTERING_WORLD", function(self, isInitialLogin)
 	local session = Begin(isInitialLogin) -- registered before any module's handler, so they see the new session
 	-- A continued session (after /reload) is the saved one, and one saved before sessions kept name and class (or
 	-- taken over from the AFK module) has neither: Baseline only fills them in a new session.
 	session.name = session.name or UnitName("player")
 	session.class = session.class or select(2, UnitClass("player"))
 	ZoneTick(session)
-end
+end)
 
-function events:ZONE_CHANGED_NEW_AREA()
+events:On("session", "ZONE_CHANGED_NEW_AREA", function()
 	ZoneTick(ns.Session_Current())
-end
+end)
 
-function events:PLAYER_MONEY()
+events:On("session", "PLAYER_MONEY", function()
 	local session = ns.Session_Current()
 	local money = GetMoney()
 	local delta = money - (session.moneyNow or money)
@@ -85,7 +82,7 @@ function events:PLAYER_MONEY()
 	if delta ~= 0 and ns.Session_OnMoney then
 		ns.Session_OnMoney(session, delta)
 	end
-end
+end)
 
 -- Warband bank gold only changes at a bank, so it's read when the bank opens and every change while it's open is
 -- a deposit or withdrawal (PLAYER_MONEY already moved moneyNow; this keeps the net as it was).
@@ -99,23 +96,23 @@ local function WarbandMoney()
 	return ok and type(money) == "number" and money or nil
 end
 
-function events:BANKFRAME_OPENED()
+events:On("session", "BANKFRAME_OPENED", function()
 	bankOpen, warbandNow = true, WarbandMoney()
-end
+end)
 
-function events:BANKFRAME_CLOSED()
+events:On("session", "BANKFRAME_CLOSED", function()
 	bankOpen = nil
-end
+end)
 
-function events:ACCOUNT_MONEY()
+events:On("session", "ACCOUNT_MONEY", function()
 	local money = WarbandMoney()
 	if bankOpen and money and warbandNow and money ~= warbandNow then
 		ns.Session_WarbandMoved(ns.Session_Current(), money - warbandNow)
 	end
 	warbandNow = money or warbandNow
-end
+end)
 
-function events:PLAYER_XP_UPDATE(unit)
+local function OnXPUpdate(_, unit)
 	if unit and unit ~= "player" then
 		return
 	end
@@ -124,15 +121,17 @@ function events:PLAYER_XP_UPDATE(unit)
 	session.seen = GetServerTime()
 end
 
-events.PLAYER_LEVEL_UP = function(self)
-	self:PLAYER_XP_UPDATE("player")
-end
+events:On("session", "PLAYER_XP_UPDATE", OnXPUpdate)
 
-function events:PLAYER_LOGOUT()
+events:On("session", "PLAYER_LEVEL_UP", function(self)
+	OnXPUpdate(self, "player")
+end)
+
+events:On("session", "PLAYER_LOGOUT", function()
 	if type(db.session) == "table" then
 		db.session.seen = GetServerTime()
 	end
-end
+end)
 
 -- From Core on ADDON_LOADED, before the modules start.
 function ns.Session_Init(saved)
@@ -140,6 +139,6 @@ function ns.Session_Init(saved)
 	db.sessionLast = db.sessionLast or {}
 	for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "PLAYER_MONEY", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_LOGOUT",
 		"ZONE_CHANGED_NEW_AREA", "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "ACCOUNT_MONEY" }) do
-		events:RegisterEvent(event)
+		events:Watch("session", event)
 	end
 end
