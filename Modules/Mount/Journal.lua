@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- mount is a favorite for the zone or continent you're standing in; clicking it opens a menu to add or remove it
 -- for either. The journal is load-on-demand, so the star is built when Blizzard_Collections loads.
 
-local star, waiter
+local star, waiting
 
 -- The zone and continent you stand in: { { mapID, name, kind } }.
 local function Levels()
@@ -115,19 +115,9 @@ end
 
 -- Called from Mount.lua's init: build when the journal loads (or now, if it already has).
 function ns.MountJournal_Init()
-	if C_AddOns.IsAddOnLoaded("Blizzard_Collections") then
-		Build()
+	if waiting then
 		return
 	end
-	if waiter then
-		return
-	end
-	waiter = CreateFrame("Frame")
-	waiter:RegisterEvent("ADDON_LOADED")
-	waiter:SetScript("OnEvent", function(self, _, name)
-		if name == "Blizzard_Collections" then
-			self:UnregisterAllEvents()
-			Build()
-		end
-	end)
+	waiting = true -- repeated inits must not stack callbacks
+	EventUtil.ContinueOnAddOnLoaded("Blizzard_Collections", Build)
 end

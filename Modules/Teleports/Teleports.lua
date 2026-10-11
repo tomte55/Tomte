@@ -24,46 +24,44 @@ local function Dirty()
 	end)
 end
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.Tp_Events -- made in MapTab.lua, which also has the "secure" owner
+local OWNER = "teleports"
 
 local DIRTY_EVENTS = {
 	"SPELLS_CHANGED", "LEARNED_SPELL_IN_SKILL_LINE", "TOYS_UPDATED", "NEW_TOY_ADDED", "BAG_UPDATE_DELAYED",
 	"PLAYER_EQUIPMENT_CHANGED", "CHALLENGE_MODE_MAPS_UPDATE", "HEARTHSTONE_BOUND",
 }
 for _, event in ipairs(DIRTY_EVENTS) do
-	events[event] = Dirty
+	events:On(OWNER, event, Dirty)
 end
 
 -- Item and spell data loads happen all the time (bags, tooltips, other addons): only the list's own count.
-function events:ITEM_DATA_LOAD_RESULT(itemID)
+events:On(OWNER, "ITEM_DATA_LOAD_RESULT", function(_, itemID)
 	if ns.Tp_Watches("item", itemID) then
 		Dirty()
 	end
-end
+end)
 
-function events:SPELL_TEXT_UPDATE(spellID)
+events:On(OWNER, "SPELL_TEXT_UPDATE", function(_, spellID)
 	if ns.Tp_Watches("spell", spellID) then
 		Dirty()
 	end
-end
+end)
 
-function events:PLAYER_HOUSE_LIST_UPDATED(houseInfos)
+events:On(OWNER, "PLAYER_HOUSE_LIST_UPDATED", function(_, houseInfos)
 	ns.Tp_SetHouses(houseInfos)
 	Dirty()
-end
+end)
 
-function events:PLAYER_REGEN_DISABLED()
+events:On(OWNER, "PLAYER_REGEN_DISABLED", function()
 	ns.TpTab_CombatStart()
-end
+end)
 
-function events:PLAYER_REGEN_ENABLED()
+events:On(OWNER, "PLAYER_REGEN_ENABLED", function()
 	ns.TpTab_Refresh()
-end
+end)
 
-function events:PLAYER_ENTERING_WORLD()
+local function OnEnteringWorld()
 	if not requestedHouses and C_Housing and C_Housing.GetPlayerOwnedHouses then
 		requestedHouses = true
 		C_Housing.GetPlayerOwnedHouses() -- answers with PLAYER_HOUSE_LIST_UPDATED
@@ -74,24 +72,26 @@ function events:PLAYER_ENTERING_WORLD()
 	Dirty()
 end
 
+events:On(OWNER, "PLAYER_ENTERING_WORLD", OnEnteringWorld)
+
 local function Start()
 	for _, event in ipairs(DIRTY_EVENTS) do
-		events:RegisterEvent(event)
+		events:Watch(OWNER, event)
 	end
-	events:RegisterEvent("ITEM_DATA_LOAD_RESULT")
-	events:RegisterEvent("SPELL_TEXT_UPDATE")
-	events:RegisterEvent("PLAYER_HOUSE_LIST_UPDATED")
-	events:RegisterEvent("PLAYER_REGEN_DISABLED")
-	events:RegisterEvent("PLAYER_REGEN_ENABLED")
-	events:RegisterEvent("PLAYER_ENTERING_WORLD")
+	events:Watch(OWNER, "ITEM_DATA_LOAD_RESULT")
+	events:Watch(OWNER, "SPELL_TEXT_UPDATE")
+	events:Watch(OWNER, "PLAYER_HOUSE_LIST_UPDATED")
+	events:Watch(OWNER, "PLAYER_REGEN_DISABLED")
+	events:Watch(OWNER, "PLAYER_REGEN_ENABLED")
+	events:Watch(OWNER, "PLAYER_ENTERING_WORLD")
 	ns.TpTab_SetEnabled(true)
 	if ns.inWorld then
-		events:PLAYER_ENTERING_WORLD()
+		OnEnteringWorld()
 	end
 end
 
 local function Stop()
-	events:UnregisterAllEvents()
+	events:UnwatchAll(OWNER)
 	ns.TpTab_SetEnabled(false)
 end
 

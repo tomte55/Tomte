@@ -50,7 +50,7 @@ A World of Warcraft addon used by the user and a few friends. Shared through Git
 - Use the addon namespace: `local addonName, ns = ...`. No globals except SavedVariables and anything the TOC
   needs to reference (e.g. the compartment function).
 - Initialize SavedVariables on `ADDON_LOADED` (check `addonName`) and merge defaults so new keys appear.
-- Each file that handles events has one event frame that dispatches to handlers (`self[event](self, ...)`).
+- Use one event frame per module: `ns.NewEvents()` (Core/Events.lua), shared by the module's files (each file an owner; handlers attached once at file load).
 - Prefer `C_*` namespaced APIs over legacy globals when both exist.
 - Slash commands: `/<shortname>`, with a `help` subcommand.
 - Colors and fonts come from the theme by role (`Core/Theme.lua`, `ns.UI.Color("accent")`,

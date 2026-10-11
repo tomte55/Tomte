@@ -34,7 +34,7 @@ local SORTS = {
 	{ value = "name", text = "Name" },
 }
 
-local dock, handle, waiter
+local dock, handle, waiting
 local hooked = false
 local tab = "list"
 local searchText = ""
@@ -837,21 +837,11 @@ local function Hook()
 end
 
 -- The Achievements window is load-on-demand: build when it loads (or now, if it already has). Called on every
--- module turn-on; the one waiter frame keeps repeated calls from stacking listeners.
+-- module turn-on; the waiting flag keeps repeated calls from stacking callbacks.
 function ns.AchDock_Init()
-	if C_AddOns.IsAddOnLoaded("Blizzard_AchievementUI") then
-		Hook()
+	if waiting then
 		return
 	end
-	if waiter then
-		return
-	end
-	waiter = CreateFrame("Frame")
-	waiter:RegisterEvent("ADDON_LOADED")
-	waiter:SetScript("OnEvent", function(self, _, name)
-		if name == "Blizzard_AchievementUI" then
-			self:UnregisterAllEvents()
-			Hook()
-		end
-	end)
+	waiting = true
+	EventUtil.ContinueOnAddOnLoaded("Blizzard_AchievementUI", Hook)
 end

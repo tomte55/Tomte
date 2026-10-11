@@ -212,7 +212,18 @@ end
 
 -- Setting attributes on a secure button isn't allowed in combat: a tab built in combat (the module turned on, or a
 -- /reload mid-fight) gets its button when combat ends. Until then rows just show their tooltip.
-local waitForCombat
+-- The bus is shared with Teleports.lua, whose own PLAYER_REGEN_ENABLED handler (the "teleports" owner) runs after
+-- this one, so the button exists before the tab refreshes.
+local events = ns.NewEvents()
+ns.Tp_Events = events
+
+events:On("secure", "PLAYER_REGEN_ENABLED", function(self)
+	self:Unwatch("secure", "PLAYER_REGEN_ENABLED")
+	if not secure then
+		CreateSecure()
+	end
+end)
+
 local function EnsureSecure()
 	if secure then
 		return
@@ -221,16 +232,7 @@ local function EnsureSecure()
 		CreateSecure()
 		return
 	end
-	if not waitForCombat then
-		waitForCombat = CreateFrame("Frame")
-		waitForCombat:SetScript("OnEvent", function(self)
-			self:UnregisterAllEvents()
-			if not secure then
-				CreateSecure()
-			end
-		end)
-	end
-	waitForCombat:RegisterEvent("PLAYER_REGEN_ENABLED")
+	events:Watch("secure", "PLAYER_REGEN_ENABLED")
 end
 
 -- Rows --------------------------------------------------------------------------------------------------------------
