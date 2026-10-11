@@ -14,7 +14,7 @@ ns.SETUP_PRESETS = {
 		on = { "way", "mount", "tp", "flight", "collect", "ach", "pets", "wq", "moments", "next", "recent", "events",
 			"delves" } },
 	{ key = "crafter", name = "Crafter", text = "Professions, gathering, alts and gold.",
-		on = { "way", "mount", "tp", "gear", "alts", "value", "weekly", "next", "recent", "gather", "fishing" } },
+		on = { "way", "mount", "tp", "gear", "alts", "value", "weekly", "next", "recent", "gather", "fishing", "wgq" } },
 	{ key = "everything", name = "Everything", text = "All of Tomte, as it comes.", all = true },
 }
 

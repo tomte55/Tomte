@@ -304,6 +304,7 @@ module = ns.RegisterModule({
 				refreshTimer = nil
 			end
 			ns.WQTab_SetEnabled(false)
+			ns.WQRoute_Stop("wq", true)
 			ns.WQ_ClearCache()
 			ns.Toast_Clear(OWNER)
 		end

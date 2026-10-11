@@ -4,7 +4,8 @@ local addonName, ns = ...
 -- sections by reward. Rows are ordinary frames (nothing here is a protected action). Hover marks the quest on the
 -- map with our own pulsing highlight (Blizzard's MapCanvas.PingQuestID would make the map's pin pools tainted),
 -- click super-tracks it (what Blizzard's pin click does), shift-click links it, right-click opens its zone on a
--- continent or stops tracking it on a zone. Tab switching is Panel/MapTabs.lua.
+-- continent or stops tracking it on a zone. Route (Route.lua) tracks the listed quests one by one, nearest first.
+-- Tab switching is Panel/MapTabs.lua.
 
 local UI = ns.UI
 local KEY = "wq"
@@ -249,6 +250,11 @@ local function ShowTooltip(row)
 		Line(" ")
 		RewardLines(q)
 	end
+	local stop = ns.WQRoute_Index(q.id)
+	if stop then
+		Line(" ")
+		Line(("Route stop %d"):format(stop), "accent")
+	end
 	Line(" ")
 	Line(IsTracked(q) and "Click: stop tracking" or "Click: track it", "textMuted")
 	Line(panel.kind == "continent" and "Right-click: open its zone" or "Right-click: untrack", "textMuted")
@@ -402,7 +408,8 @@ local function SetQuest(row, q)
 	row.sub:Show()
 	row.icon:SetTexture(RowIcon(q))
 	row.icon:SetDesaturated(q.dim == true)
-	row.name:SetText(q.title)
+	local stop = ns.WQRoute_Index(q.id)
+	row.name:SetText(stop and (UI.Wrap(stop .. ".", "accent") .. " " .. q.title) or q.title)
 	UI.SetTextRole(row.name, q.dim and "textMuted" or "text")
 	row.sub:SetText(SubText(q))
 	local time, tier = ns.WQ_TimeText(q.seconds)
@@ -460,6 +467,7 @@ function Refresh()
 		return
 	end
 	local sections = ns.WQ_Sections(quests, Options())
+	panel.sections, panel.mapID, panel.mapName = sections, WorldMapFrame:GetMapID(), mapName
 	local count = Count(sections)
 	local note = ("%s  ·  %d %s"):format(mapName, count, count == 1 and "quest" or "quests")
 	if pending > 0 then
@@ -507,6 +515,35 @@ function Refresh()
 	end
 end
 
+-- Route: the quests listed in the open sections, in a route nearest first; it carries on with whichever of them are
+-- still up on this map.
+local function StartRoute()
+	local mapID = panel.mapID
+	local list = {}
+	for _, section in ipairs(panel.sections or {}) do
+		if not section.collapsed then
+			for _, q in ipairs(section.quests) do
+				list[#list + 1] = q
+			end
+		end
+	end
+	ns.WQRoute_Start(list, function()
+		local quests = ns.WQ_ForMap(mapID) or {}
+		local up = {}
+		for _, q in ipairs(quests) do
+			if ns.WQ_Filter(q, Options()) then
+				up[#up + 1] = q
+			end
+		end
+		return up
+	end, "wq", panel.mapName and ("the world quests in " .. panel.mapName) or nil)
+end
+
+local function UpdateRouteButton()
+	panel.route.label:SetText(ns.WQRoute_Active() and "Stop route" or "Route")
+	UI.FitButton(panel.route, 56, 16)
+end
+
 local function OnUpdate(_, elapsed)
 	tick, clock = tick + elapsed, clock + elapsed
 	if tick < LOADING_TICK then
@@ -535,6 +572,36 @@ local function Build()
 	if not panel then
 		return
 	end
+	panel.route = UI.Button(panel, 60, "Route")
+	panel.route:SetPoint("TOPRIGHT", -10, -8)
+	panel.route:SetScript("OnClick", function()
+		if ns.WQRoute_Active() then
+			ns.WQRoute_Stop()
+		else
+			StartRoute()
+		end
+	end)
+	panel.route:HookScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		if ns.WQRoute_Active() then
+			GameTooltip:SetText("Stop the route", 1, 1, 1)
+			if ns.WQRoute_Owner() ~= "wq" then
+				Line("Started in the Gold world quests window.", "textMuted")
+			end
+		else
+			GameTooltip:SetText("Route", 1, 1, 1)
+			Line("Tracks the quests listed here one by one, nearest first from where you stand. Hand one in and the "
+				.. "next is tracked. Fold a section to leave its quests out.", "text", true)
+		end
+		GameTooltip:Show()
+	end)
+	panel.route:HookScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
+	ns.WQRoute_Listen(function()
+		UpdateRouteButton()
+		Refresh()
+	end)
 	panel.note = UI.Text(panel, 11, "textMuted")
 	panel.note:SetPoint("TOPLEFT", panel.title, "BOTTOMLEFT", 0, -4)
 	panel.note:SetPoint("RIGHT", -10, 0)
@@ -547,6 +614,7 @@ local function Build()
 	panel.empty:SetPoint("RIGHT", -10, 0)
 	panel:SetScript("OnUpdate", OnUpdate)
 	panel.preview = ns.ModelPreview_Create(panel)
+	UpdateRouteButton()
 	-- The tab stays selected while the map is closed, and reopening it on the same map isn't a map change.
 	panel:HookScript("OnShow", function()
 		Refresh()

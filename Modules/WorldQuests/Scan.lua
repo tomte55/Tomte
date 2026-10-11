@@ -11,7 +11,7 @@ local GetQuestTimeLeftSeconds = C_TaskQuest.GetQuestTimeLeftSeconds
 local TYPES = {} -- Enum.QuestTagType value -> record type
 for enumKey, typeKey in pairs({
 	Profession = "profession", PvP = "pvp", PetBattle = "petbattle", Dungeon = "dungeon", Raid = "raid",
-	WorldBoss = "worldboss",
+	WorldBoss = "worldboss", Capstone = "capstone",
 }) do
 	local value = Enum.QuestTagType and Enum.QuestTagType[enumKey]
 	if value then
@@ -354,6 +354,25 @@ function ns.WQ_ForMap(viewedMapID)
 		end
 	end
 	return quests, info.name, kind, mapID, pending
+end
+
+-- Gold world quests: every zone in zoneIDs (an expansion's zones), each quest once. Gear verdicts are skipped (Gold
+-- doesn't use them). quests, pending (still loading).
+function ns.WQ_ForZones(zoneIDs)
+	local quests, seen = {}, {}
+	for _, zoneID in ipairs(zoneIDs) do
+		local info = C_Map.GetMapInfo(zoneID)
+		if info then
+			AddZone(quests, seen, zoneID, info.name, nil)
+		end
+	end
+	local pending = 0
+	for _, q in ipairs(quests) do
+		if not q.loaded and not q.failed then
+			pending = pending + 1
+		end
+	end
+	return quests, pending
 end
 
 -- XP-only rewards are worthless only at the account's level cap (not the content expansion's: a Midnight owner's 80

@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- records; this file filters them, picks each one's section and sort order, and writes the row and toast text.
 --
 -- Quest record: { id, title, zone, seconds, type ("pvp" | "petbattle" | "profession" | "dungeon" | "raid" |
---   "worldboss" | nil), elite, quality (0-2), profession, knownSkill, loaded, xp, money (copper),
+--   "worldboss" | "capstone" | nil), elite, quality (0-2), profession, knownSkill, loaded, xp, money (copper),
 --   items = { { name, icon, count, quality, itemID, link, ilvl, gear, collectible ("mount" | "pet" | "toy", only when
 --   missing), appearance (true when an appearance you can collect is missing), verdict (Gear Check's) } },
 --   currencies = { { id, name, icon, amount, capped } }, reps = { { name, amount, max } }, failed (gave up loading) }
@@ -30,7 +30,8 @@ local WORTH_TIER = { collectible = 4, upgrade = 3, appearance = 2, gold = 1 }
 local TIER_SCALE = 1e13 -- larger than any value within a tier (gold in copper), so a higher tier always sorts first
 local EMPTY_SLOT_PCT = 50 -- an empty slot sorts like a big upgrade
 local COLLECTIBLE_WORDS = { mount = "Mount", pet = "Pet", toy = "Toy" }
-local TYPE_TAGS = { dungeon = "Dungeon", raid = "Raid", worldboss = "World boss", pvp = "PvP", petbattle = "Pet battle" }
+local TYPE_TAGS = { dungeon = "Dungeon", raid = "Raid", worldboss = "World boss", pvp = "PvP", petbattle = "Pet battle",
+	capstone = "Special assignment" }
 local QUALITY_TAGS = { [1] = "Rare", [2] = "Epic" }
 local VERDICT_WORDS = {
 	upgrade = "Upgrade", upgradeBut = "Upgrade?", sidegrade = "Sidegrade", downgrade = "Downgrade",

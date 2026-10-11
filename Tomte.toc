@@ -37,6 +37,9 @@ Data/Midnight/Weekly.lua
 Data/Midnight/Gear.lua
 Data/WarWithin/Delves.lua
 Data/Midnight/Delves.lua
+Data/WarWithin/Gold.lua
+Data/Midnight/Gold.lua
+Data/Older/Gold.lua
 Cinematic/Engine.lua
 Cinematic/SceneKit.lua
 Cinematic/Showcase.lua
@@ -194,9 +197,15 @@ Modules/Holidays/Catalog.lua
 Modules/Holidays/Page.lua
 Modules/Holidays/Holidays.lua
 Modules/WorldQuests/Data.lua
+Modules/WorldQuests/RouteOrder.lua
+Modules/WorldQuests/Route.lua
 Modules/WorldQuests/Scan.lua
 Modules/WorldQuests/Tab.lua
 Modules/WorldQuests/WorldQuests.lua
+Modules/GoldQuests/Data.lua
+Modules/GoldQuests/Scan.lua
+Modules/GoldQuests/Window.lua
+Modules/GoldQuests/Gold.lua
 Modules/NextUp/Data.lua
 Modules/NextUp/NextUp.lua
 Modules/Recent/Data.lua
