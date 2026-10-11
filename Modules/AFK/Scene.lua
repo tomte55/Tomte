@@ -192,14 +192,7 @@ function scene.Create(parent, letterbox)
 
 	-- Top band: away time over the zone.
 	-- Offsets from the band's center (font strings by their top edge, roughly font size tall).
-	card.title = Text(card, 32, "heading", "title")
-	Place(card, card.title, "TOP", letterbox.top, "CENTER", 0, 22)
-	card.label = Text(card, 12, "textMuted")
-	Place(card, card.label, "TOP", letterbox.top, "CENTER", 0, 40)
-	card.line = ns.SceneLine(card, 300)
-	Place(card, card.line, "TOPRIGHT", letterbox.top, "CENTER", 0, -19)
-	card.subtitle = Text(card, 14, "textMuted")
-	Place(card, card.subtitle, "TOP", letterbox.top, "CENTER", 0, -26)
+	card.title, card.label, card.line, card.subtitle = ns.SceneTitleBand(card, letterbox)
 
 	-- Bottom band, left: character.
 	card.charName = Text(card, 19, "heading")

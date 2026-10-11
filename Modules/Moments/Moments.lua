@@ -33,17 +33,7 @@ end)
 local ticker = CreateFrame("Frame")
 ticker:Hide()
 
-local function Secret(...)
-	if not issecretvalue then
-		return false
-	end
-	for i = 1, select("#", ...) do
-		if issecretvalue((select(i, ...))) then
-			return true
-		end
-	end
-	return false
-end
+local Secret = ns.IsSecret
 
 local UI_PANEL_KEYS = { "left", "center", "right", "doublewide", "fullscreen" }
 

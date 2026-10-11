@@ -102,7 +102,7 @@ end
 function ns.DelvesScan_MinLevel()
 	local minLevel = C_DelvesUI and C_DelvesUI.GetDelvesMinRequiredLevel and C_DelvesUI.GetDelvesMinRequiredLevel()
 	local level = UnitLevel("player")
-	if minLevel and not (issecretvalue and issecretvalue(level)) and level < minLevel then
+	if minLevel and not ns.IsSecret(level) and level < minLevel then
 		return minLevel
 	end
 	return nil
@@ -139,14 +139,14 @@ function ns.Delves_Track(e)
 		ns.Print("can't place a map pin there.")
 		return
 	end
-	local now = ns.SafeTrack(function()
-		if mode == "poi" then
+	local now
+	if mode == "poi" then
+		now = ns.SafeTrack(function()
 			C_SuperTrack.SetSuperTrackedMapPin(Enum.SuperTrackingMapPinType.AreaPOI, e.poi)
-		else
-			C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(e.map, e.x, e.y))
-			C_SuperTrack.SetSuperTrackedUserWaypoint(true)
-		end
-	end)
+		end)
+	else
+		now = ns.TrackPin(e.map, e.x, e.y)
+	end
 	ns.Print(("%s %s."):format(now and "tracking" or "after combat: tracking", e.name or "the delve"))
 end
 

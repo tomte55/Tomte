@@ -12,10 +12,7 @@ local DETAIL_W, DETAIL_H = 250, 260
 local REWARD_H = 30
 local QUESTION = "Interface\\Icons\\INV_Misc_QuestionMark"
 
-local function TipLine(text, role)
-	local r, g, b = UI.Color(role)
-	GameTooltip:AddLine(text, r, g, b)
-end
+local TipLine = UI.TipLine
 
 local function AtlasExists(name)
 	return C_Texture.GetAtlasInfo(name) ~= nil

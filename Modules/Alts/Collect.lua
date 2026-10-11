@@ -486,7 +486,7 @@ local function ReadWarband(keepZero)
 		return
 	end
 	local ok, money = pcall(C_Bank.FetchDepositedMoney, Enum.BankType.Account)
-	if not ok or type(money) ~= "number" or (issecretvalue and issecretvalue(money)) then
+	if not ok or type(money) ~= "number" or ns.IsSecret(money) then
 		return
 	end
 	if money == 0 and not keepZero then

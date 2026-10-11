@@ -53,10 +53,19 @@ function ns.WeekStart()
 	return GetServerTime() + left - 7 * 86400
 end
 
--- 12.x secret values (opaque to tainted code). IsSecret is false on clients without issecretvalue; Readable is
--- true when every argument can be read (always on clients without canaccessallvalues).
-function ns.IsSecret(v)
-	return issecretvalue ~= nil and issecretvalue(v)
+-- 12.x secret values (opaque to tainted code). IsSecret is true when any argument is secret; without the API (older
+-- clients, tests) nothing is. Readable is true when every argument can be read (always on clients without
+-- canaccessallvalues).
+function ns.IsSecret(...)
+	if issecretvalue == nil then
+		return false
+	end
+	for i = 1, select("#", ...) do
+		if issecretvalue((select(i, ...))) then
+			return true
+		end
+	end
+	return false
 end
 
 function ns.Readable(...)

@@ -113,20 +113,7 @@ local function Row(i)
 end
 
 local function Build()
-	popup = CreateFrame("Frame", "TomtePetsGuides", UIParent)
-	popup:SetWidth(WIDTH)
-	popup:SetPoint("CENTER", 0, 120)
-	popup:SetFrameStrata("DIALOG")
-	popup:SetToplevel(true)
-	popup:EnableMouse(true)
-	popup:SetMovable(true)
-	popup:SetClampedToScreen(true)
-	popup:RegisterForDrag("LeftButton")
-	popup:SetScript("OnDragStart", popup.StartMoving)
-	popup:SetScript("OnDragStop", popup.StopMovingOrSizing)
-	popup:Hide()
-	UI.Panel(popup)
-	tinsert(UISpecialFrames, "TomtePetsGuides") -- Escape closes it
+	popup = UI.Dialog("TomtePetsGuides", WIDTH, nil, { y = 120 }) -- Escape closes it
 	popup.title = UI.Text(popup, 14, "heading", "title")
 	popup.title:SetPoint("TOPLEFT", PAD, -TITLE_TOP)
 	popup.hint = UI.Text(popup, 11, "textMuted")

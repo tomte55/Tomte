@@ -223,7 +223,7 @@ end
 function Setup.button(row, module, spec)
 	row.label:SetText(type(spec.label) == "function" and spec.label() or spec.label)
 	row.button.label:SetText(spec.text)
-	row.button:SetWidth(math.max(80, math.ceil(row.button.label:GetStringWidth()) + 24)) -- room for "Reload now"
+	UI.FitButton(row.button, 80, 24) -- room for "Reload now"
 end
 
 -- Text box; the value is saved on Enter or when the box loses focus (Esc restores the saved text).

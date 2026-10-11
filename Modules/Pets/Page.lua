@@ -163,7 +163,7 @@ local function List(parent)
 					local spec = item.buttons[i]
 					local b = RowButton(row, i)
 					b.label:SetText(spec.text)
-					b:SetWidth(math.max(math.ceil(b.label:GetUnboundedStringWidth()) + 18, 40))
+					UI.FitButton(b, 40, 18, true)
 					b:ClearAllPoints()
 					b:SetPoint("RIGHT", rightEdge, 0)
 					b:SetScript("OnClick", spec.onClick)
@@ -749,7 +749,7 @@ ns.PetsPage = {
 		local prev
 		for _, view in ipairs(VIEWS) do
 			local b = UI.Button(page, 80, view.text)
-			b:SetWidth(math.max(math.ceil(b.label:GetUnboundedStringWidth()) + 22, 56))
+			UI.FitButton(b, 56, 22, true)
 			b.key = view.key
 			b.selected = b:CreateTexture(nil, "ARTWORK")
 			b.selected:SetColorTexture(UI.RGBA("accent", 0.9))

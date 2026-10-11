@@ -33,7 +33,7 @@ ticker:Hide()
 -- true/false, or nil when the flag is a secret value (chat lockdown: instances, encounters, PvP matches).
 local function IsAFK()
 	local afk = UnitIsAFK("player")
-	if issecretvalue and issecretvalue(afk) then
+	if ns.IsSecret(afk) then
 		return nil
 	end
 	return afk and true or false

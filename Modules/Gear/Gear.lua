@@ -243,7 +243,7 @@ local function AltLines(link, data, Add)
 	end
 	local location
 	local guid = data and data.guid
-	if guid and not (issecretvalue and issecretvalue(guid)) and C_Item.GetItemLocation then
+	if guid and not ns.IsSecret(guid) and C_Item.GetItemLocation then
 		-- pcall: a GUID the API can't resolve (or rejects) must mean no location, with bind state then from the
 		-- tooltip lines, never a Lua error inside the tooltip hook.
 		local ok, loc = pcall(C_Item.GetItemLocation, guid)
@@ -270,7 +270,7 @@ local function OnItem(tooltip, data)
 		return
 	end
 	local _, link = TooltipUtil.GetDisplayedItem(tooltip)
-	if not link or (issecretvalue and issecretvalue(link)) then
+	if not link or ns.IsSecret(link) then
 		return
 	end
 	local labeled = false

@@ -83,6 +83,34 @@ function UI.ClassColored(name, class)
 	return color and color:WrapTextInColorCode(name) or name
 end
 
+-- A hidden, movable, themed dialog window named `name`, centered (opts.y above the middle, default 0). height may be
+-- nil when the caller sizes it later. opts.parent defaults to UIParent; opts.escape (default true) lets Escape close
+-- it. Callers that can show it while UIParent is hidden re-parent it themselves on every show.
+function UI.Dialog(name, width, height, opts)
+	opts = opts or {}
+	local frame = CreateFrame("Frame", name, opts.parent or UIParent)
+	if height then
+		frame:SetSize(width, height)
+	else
+		frame:SetWidth(width)
+	end
+	frame:SetPoint("CENTER", 0, opts.y or 0)
+	frame:SetFrameStrata("DIALOG")
+	frame:SetToplevel(true)
+	frame:EnableMouse(true)
+	frame:SetMovable(true)
+	frame:SetClampedToScreen(true)
+	frame:RegisterForDrag("LeftButton")
+	frame:SetScript("OnDragStart", frame.StartMoving)
+	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+	frame:Hide()
+	UI.Panel(frame)
+	if opts.escape ~= false then
+		tinsert(UISpecialFrames, name)
+	end
+	return frame
+end
+
 -- Clips texture to a circle: a mask created on parent (the frame that owns texture), covering texture. Returns it.
 function UI.CircleMask(texture, parent)
 	local mask = parent:CreateMaskTexture()
@@ -493,6 +521,14 @@ function UI.Button(parent, width, text)
 		self.label:SetPoint("CENTER", 0, self.labelY)
 	end)
 	return b
+end
+
+-- Sizes a UI.Button to its label: at least minWidth, label width + pad (default 24). unbounded uses
+-- GetUnboundedStringWidth.
+function UI.FitButton(button, minWidth, pad, unbounded)
+	local fs = button.label
+	local w = unbounded and fs:GetUnboundedStringWidth() or fs:GetStringWidth()
+	button:SetWidth(math.max(minWidth or 0, math.ceil(w) + (pad or 24)))
 end
 
 -- On-screen widgets (Almost Done, Crafting list): a minus/plus in the top-right corner that shows while the mouse is

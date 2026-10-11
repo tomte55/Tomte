@@ -56,11 +56,7 @@ end
 
 local function ShowToast(label, sender, guid, text, channelIndex, preview)
 	local short = Ambiguate(sender, "short")
-	local title = short
-	local color = C_ClassColor.GetClassColor(SenderClass(guid) or "")
-	if color then
-		title = color:WrapTextInColorCode(short)
-	end
+	local title = UI.ClassColored(short, SenderClass(guid))
 	ns.Toast_Show({
 		owner = OWNER,
 		label = label,

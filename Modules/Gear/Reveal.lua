@@ -29,9 +29,7 @@ local equipping -- { guid, name, icon, oldName, untilTime }: clicked on the toas
 
 local events = ns.Gear_Events
 
-local function Secret(v)
-	return issecretvalue and issecretvalue(v)
-end
+local Secret = ns.IsSecret
 
 local function GUIDAt(location)
 	if not C_Item.DoesItemExist(location) then

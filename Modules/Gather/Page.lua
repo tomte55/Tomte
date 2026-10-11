@@ -426,7 +426,7 @@ ns.GatherPage = {
 		local prev
 		for _, view in ipairs(VIEWS) do
 			local b = UI.Button(page, 80, view.text)
-			b:SetWidth(math.max(math.ceil(b.label:GetUnboundedStringWidth()) + 22, 56))
+			UI.FitButton(b, 56, 22, true)
 			b.key = view.key
 			b.selected = b:CreateTexture(nil, "ARTWORK")
 			b.selected:SetColorTexture(UI.RGBA("accent", 0.9))

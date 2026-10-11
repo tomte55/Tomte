@@ -14,17 +14,7 @@ local pending
 local settleUntil = 0
 local lastTame -- { rare = target was a rare spawn, at = GetTime() } from the last Tame Beast cast
 
-local function Secret(...)
-	if not issecretvalue then
-		return false
-	end
-	for i = 1, select("#", ...) do
-		if issecretvalue((select(i, ...))) then
-			return true
-		end
-	end
-	return false
-end
+local Secret = ns.IsSecret
 
 -- Tame Beast started: remember whether the beast is a rare spawn (the stable only says exotic).
 function ns.Stable_OnSpellcast(spellID)

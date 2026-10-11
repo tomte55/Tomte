@@ -83,20 +83,7 @@ local function Apply()
 end
 
 local function BuildPreview()
-	preview = CreateFrame("Frame", "TomteImportPreview", UIParent)
-	preview:SetSize(520, 460)
-	preview:SetPoint("CENTER")
-	preview:SetFrameStrata("DIALOG")
-	preview:SetToplevel(true)
-	preview:EnableMouse(true)
-	preview:SetMovable(true)
-	preview:SetClampedToScreen(true)
-	preview:RegisterForDrag("LeftButton")
-	preview:SetScript("OnDragStart", preview.StartMoving)
-	preview:SetScript("OnDragStop", preview.StopMovingOrSizing)
-	preview:Hide()
-	UI.Panel(preview)
-	tinsert(UISpecialFrames, "TomteImportPreview") -- Escape closes it
+	preview = UI.Dialog("TomteImportPreview", 520, 460) -- Escape closes it
 
 	preview.title = UI.Text(preview, 14, "heading", "title")
 	preview.title:SetPoint("TOPLEFT", 14, -12)

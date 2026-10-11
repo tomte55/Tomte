@@ -64,7 +64,7 @@ local function SpellDesc(spellID)
 		watched.spell[spellID] = true
 	end
 	local desc = spellID and C_Spell.GetSpellDescription(spellID)
-	if issecretvalue and issecretvalue(desc) then
+	if ns.IsSecret(desc) then
 		return nil
 	end
 	return desc ~= "" and desc or nil
@@ -289,17 +289,7 @@ function ns.Tp_PinPosition(e, mapNames)
 	return nil
 end
 
-local function Secret(...)
-	if not issecretvalue then
-		return false
-	end
-	for i = 1, select("#", ...) do
-		if issecretvalue((select(i, ...))) then
-			return true
-		end
-	end
-	return false
-end
+local Secret = ns.IsSecret
 
 -- Seconds left, 0 when ready, nil when the game hides the values (secret, e.g. in combat or M+).
 local function Remaining(start, duration, enabled)

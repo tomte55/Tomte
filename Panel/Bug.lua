@@ -121,7 +121,7 @@ local function Info(full)
 	end)
 	Part(info, {}, function()
 		local level = UnitLevel("player")
-		if not (issecretvalue and issecretvalue(level)) then
+		if not ns.IsSecret(level) then
 			info.level = level
 		end
 		info.class = UnitClass("player")

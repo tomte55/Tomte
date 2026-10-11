@@ -21,10 +21,7 @@ local function ClassColor(class)
 	return color and { color.r, color.g, color.b } or "text"
 end
 
-local function TipLine(text, role)
-	local r, g, b = UI.Color(role)
-	GameTooltip:AddLine(text, r, g, b)
-end
+local TipLine = UI.TipLine
 
 -- Model rows drawn top-down into a frame: ns.WeeklyRows(parent) -> rows; rows:Render(items) returns the height used.
 -- ns.WeeklyList wraps it in a UI.Scroll; the board's week view puts two of them side by side.
@@ -379,7 +376,7 @@ ns.WeeklyBoardPage = {
 		local prev
 		for _, view in ipairs(VIEWS) do
 			local b = UI.Button(page, 80, view.text)
-			b:SetWidth(math.max(math.ceil(b.label:GetUnboundedStringWidth()) + 22, 56))
+			UI.FitButton(b, 56, 22, true)
 			b.key = view.key
 			b.selected = b:CreateTexture(nil, "ARTWORK")
 			b.selected:SetColorTexture(UI.RGBA("accent", 0.9))

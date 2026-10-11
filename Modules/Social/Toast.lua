@@ -205,7 +205,7 @@ end
 
 -- A measurement of a region holding a secret may itself be secret.
 local function Measured(value, fallback)
-	if issecretvalue and issecretvalue(value) then
+	if ns.IsSecret(value) then
 		return fallback
 	end
 	return value

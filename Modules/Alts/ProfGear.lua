@@ -53,7 +53,7 @@ function ns.AltsItem_StatLines(link)
 	local out = {}
 	for _, line in ipairs(data and data.lines or {}) do
 		local text = line.leftText
-		if text and not (issecretvalue and issecretvalue(text)) and text:find(STAT_LINE) then
+		if text and not ns.IsSecret(text) and text:find(STAT_LINE) then
 			out[#out + 1] = text
 		end
 	end

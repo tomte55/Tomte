@@ -52,6 +52,21 @@ function ns.SceneSnap(card)
 	end
 end
 
+-- The top band's title card on card (spaced label, title, hairline, subtitle), placed from the center of the
+-- letterbox's top band. Returns title, label, line, subtitle for the scene to keep.
+function ns.SceneTitleBand(card, letterbox)
+	local top = letterbox.top
+	local title = ns.SceneText(card, 32, "heading", "title")
+	ns.ScenePlace(card, title, "TOP", top, "CENTER", 0, 22)
+	local label = ns.SceneText(card, 12, "textMuted")
+	ns.ScenePlace(card, label, "TOP", top, "CENTER", 0, 40)
+	local line = ns.SceneLine(card, 300)
+	ns.ScenePlace(card, line, "TOPRIGHT", top, "CENTER", 0, -19)
+	local subtitle = ns.SceneText(card, 14, "textMuted")
+	ns.ScenePlace(card, subtitle, "TOP", top, "CENTER", 0, -26)
+	return title, label, line, subtitle
+end
+
 -- "Now flying to" -> "N O W   F L Y I N G   T O"
 function ns.Spaced(text)
 	return (text:upper():gsub("[%z\1-\127\194-\244][\128-\191]*", "%0 "):sub(1, -2)) -- whole UTF-8 characters

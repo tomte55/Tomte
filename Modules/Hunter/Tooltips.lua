@@ -8,17 +8,7 @@ local addonName, ns = ...
 
 local UI = ns.UI
 
-local function Secret(...)
-	if not issecretvalue then
-		return false
-	end
-	for i = 1, select("#", ...) do
-		if issecretvalue((select(i, ...))) then
-			return true
-		end
-	end
-	return false
-end
+local Secret = ns.IsSecret
 
 local callPetIndex = {}
 for i, spellID in ipairs(ns.CALL_PET_SPELLS) do

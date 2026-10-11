@@ -213,7 +213,7 @@ local function OnItem(tooltip, data)
 		return
 	end
 	local itemID = data.id
-	if not itemID or (issecretvalue and issecretvalue(itemID)) or type(itemID) ~= "number" then
+	if not itemID or ns.IsSecret(itemID) or type(itemID) ~= "number" then
 		return
 	end
 	local classID = select(6, C_Item.GetItemInfoInstant(itemID))

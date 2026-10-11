@@ -30,15 +30,7 @@ local events = ns.NewEvents() -- shared with Recap.lua (owners "track", "recap")
 ns.Recap_Events = events
 
 local function Readable(...)
-	if not issecretvalue then
-		return true
-	end
-	for i = 1, select("#", ...) do
-		if issecretvalue((select(i, ...))) then
-			return false
-		end
-	end
-	return true
+	return not ns.IsSecret(...)
 end
 
 -- Every note goes through here (ours and the ones from other modules via ns.Session_Note).
