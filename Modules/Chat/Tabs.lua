@@ -15,10 +15,7 @@ local pending -- an Apply waiting for combat to end
 local restored -- "Restore my chat" this session: don't set the tab up again until the module is turned on again
 local worldReady = false
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.NewEvents() -- owners "login" (once, at file load) and "tabs" (while the module is on)
 
 local function CharacterKey()
 	return (UnitName("player") or "?") .. "-" .. (GetNormalizedRealmName() or "?")
@@ -107,7 +104,7 @@ local function Apply()
 	end
 	if InCombatLockdown() then
 		pending = true
-		events:RegisterEvent("PLAYER_REGEN_ENABLED")
+		events:Watch("tabs", "PLAYER_REGEN_ENABLED")
 		return
 	end
 	local name = TabName()
@@ -206,23 +203,22 @@ end
 
 -- Chat windows get their saved names and channels around the first loading screen; looking earlier could miss the
 -- tab and open a second one. One second after it is safe.
-local loginWatch = CreateFrame("Frame")
-loginWatch:RegisterEvent("PLAYER_ENTERING_WORLD")
-loginWatch:SetScript("OnEvent", function(self)
-	self:UnregisterAllEvents()
+events:On("login", "PLAYER_ENTERING_WORLD", function(self)
+	self:UnwatchAll("login")
 	C_Timer.After(LOGIN_SETTLE, function()
 		worldReady = true
 		Apply()
 	end)
 end)
+events:Watch("login", "PLAYER_ENTERING_WORLD")
 
-function events:PLAYER_REGEN_ENABLED()
-	events:UnregisterEvent("PLAYER_REGEN_ENABLED")
+events:On("tabs", "PLAYER_REGEN_ENABLED", function(self)
+	self:Unwatch("tabs", "PLAYER_REGEN_ENABLED")
 	if pending then
 		pending = false
 		Apply()
 	end
-end
+end)
 
 local function Activate()
 	restored = false
@@ -230,7 +226,7 @@ local function Activate()
 end
 
 local function Deactivate()
-	events:UnregisterAllEvents()
+	events:UnwatchAll("tabs")
 	pending = false
 	Restore()
 end

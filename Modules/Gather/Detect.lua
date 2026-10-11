@@ -24,10 +24,8 @@ for kind, line in pairs(ns.GATHER_SKILL_LINES) do
 	KIND_OF_LINE[line] = kind
 end
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.NewEvents() -- shared with Tracker.lua and Gather.lua (owners "detect", "tracker", "gather")
+ns.Gather_Events = events
 
 local Secret = ns.IsSecret
 
@@ -142,15 +140,15 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- Casts
 
-function events:UNIT_SPELLCAST_SENT(unit, target, castGUID, spellID)
+events:On("detect", "UNIT_SPELLCAST_SENT", function(_, unit, target, castGUID, spellID)
 	if Readable(castGUID) and Readable(target) and type(target) == "string" and target ~= "" then
 		sentGUID, sentTarget = castGUID, target
 	else
 		sentGUID, sentTarget = nil, nil
 	end
-end
+end)
 
-function events:UNIT_SPELLCAST_SUCCEEDED(unit, castGUID, spellID)
+events:On("detect", "UNIT_SPELLCAST_SUCCEEDED", function(_, unit, castGUID, spellID)
 	if not Readable(spellID) or type(spellID) ~= "number" then
 		lastCast = nil
 		return
@@ -166,7 +164,7 @@ function events:UNIT_SPELLCAST_SUCCEEDED(unit, castGUID, spellID)
 	local kind = ns.Gather_SpellKind(spellID, name, names, db.spells)
 	lastCast = { spellID = spellID, name = name, at = GetTime(), target = target, kind = kind,
 		notGather = not kind and name ~= nil and notNames[name] == true or nil }
-end
+end)
 
 ---------------------------------------------------------------------------------------------------------------
 -- The loot window
@@ -325,11 +323,11 @@ local function Open()
 	win.at = GetTime()
 end
 
-function events:LOOT_READY()
+events:On("detect", "LOOT_READY", function()
 	Open()
-end
+end)
 
-function events:LOOT_OPENED(autoLoot, isFromItem)
+events:On("detect", "LOOT_OPENED", function(_, autoLoot, isFromItem)
 	if isFromItem == true then
 		Open()
 		if win.committed then
@@ -344,9 +342,9 @@ function events:LOOT_OPENED(autoLoot, isFromItem)
 	end
 	Open()
 	Commit()
-end
+end)
 
-function events:LOOT_SLOT_CLEARED(slot)
+events:On("detect", "LOOT_SLOT_CLEARED", function(_, slot)
 	Commit()
 	if not Readable(slot) then
 		return
@@ -359,23 +357,24 @@ function events:LOOT_SLOT_CLEARED(slot)
 			Call("find", { kind = "item", itemID = it.itemID, link = it.link, at = it.at })
 		end
 	end
-end
+end)
 
-function events:LOOT_CLOSED()
+events:On("detect", "LOOT_CLOSED", function()
 	Commit()
 	win = nil
 	wipe(pending)
 	if progressDirty then
 		ns.GatherDetect_ReadProgress()
 	end
-end
+end)
 
-function events:SKILL_LINES_CHANGED()
+local function SkillsChanged()
 	if handlers and handlers.running and handlers.running() then
 		ns.GatherDetect_ReadProgress()
 	end
 end
-events.TRAIT_TREE_CURRENCY_INFO_UPDATED = events.SKILL_LINES_CHANGED
+events:On("detect", "SKILL_LINES_CHANGED", SkillsChanged)
+events:On("detect", "TRAIT_TREE_CURRENCY_INFO_UPDATED", SkillsChanged)
 
 ---------------------------------------------------------------------------------------------------------------
 -- Start, stop, why
@@ -404,10 +403,10 @@ function ns.GatherDetect_Start(saved, h)
 			notNames[name] = true
 		end
 	end
-	events:RegisterUnitEvent("UNIT_SPELLCAST_SENT", "player")
-	events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+	events:Watch("detect", "UNIT_SPELLCAST_SENT", "player")
+	events:Watch("detect", "UNIT_SPELLCAST_SUCCEEDED", "player")
 	for _, event in ipairs(EVENTS) do
-		events:RegisterEvent(event)
+		events:Watch("detect", event)
 	end
 	-- Baseline for the weekly drops (a later rise is a find).
 	for _, p in ipairs(ns.GatherDetect_Profs()) do
@@ -417,7 +416,7 @@ end
 
 function ns.GatherDetect_Stop()
 	running = false
-	events:UnregisterAllEvents()
+	events:UnwatchAll("detect")
 	win, lastCast = nil, nil
 	wipe(pending)
 end

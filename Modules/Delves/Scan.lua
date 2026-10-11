@@ -10,6 +10,9 @@ local addonName, ns = ...
 -- Tracking: an AreaPOI super-track on the same continent (the Waypoints marker shows the delve's name and atlas),
 -- else a map pin at the entrance so Waypoints routes it.
 
+-- The event bus of the Delves files (owners "read", "entrance", "delves"); Scan loads first.
+ns.Delves_Events = ns.NewEvents()
+
 local MAX_DEPTH = 10
 local MAX_PROBED = 8 -- more bountiful finds than this from the ID probe alone means it isn't telling active ones
 

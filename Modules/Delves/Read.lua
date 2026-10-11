@@ -12,10 +12,7 @@ local timer
 local primed = {} -- [faction] = true once read this session (the first read only stores the level)
 local reported = {} -- [part] = true once its read error was printed
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.Delves_Events
 
 local function Def()
 	local expansion = ns.ContentExpansion()
@@ -192,7 +189,7 @@ local ORDER = { "keys", "vault", "companion" }
 -- PLAYER_REGEN_ENABLED.
 local function ReadDirty()
 	if InCombatLockdown() then
-		events:RegisterEvent("PLAYER_REGEN_ENABLED")
+		events:Watch("read", "PLAYER_REGEN_ENABLED")
 		return
 	end
 	local def, expansion = Def()
@@ -216,10 +213,10 @@ local function ReadDirty()
 	end
 end
 
-function events:PLAYER_REGEN_ENABLED()
-	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+events:On("read", "PLAYER_REGEN_ENABLED", function(self)
+	self:Unwatch("read", "PLAYER_REGEN_ENABLED")
 	ReadDirty()
-end
+end)
 
 -- part: "keys", "vault", "companion" or nil for all. One read a second later (out of combat).
 function ns.DelvesRead_Dirty(part)
@@ -243,7 +240,7 @@ function ns.DelvesRead_Stop()
 		timer:Cancel()
 		timer = nil
 	end
-	events:UnregisterEvent("PLAYER_REGEN_ENABLED")
+	events:Unwatch("read", "PLAYER_REGEN_ENABLED")
 end
 
 function ns.DelvesRead_Init(saved)

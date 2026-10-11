@@ -17,10 +17,7 @@ local TOAST_HOLD = 15
 local module, db
 local playing -- engine state of the card on screen
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.Recap_Events
 local ticker = CreateFrame("Frame")
 ticker:Hide()
 
@@ -283,7 +280,7 @@ end
 
 -- /camp, the game menu's Log Out and the idle logout. Not /quit: hiding the UI hides Blizzard's quit popup, and
 -- its OnHide then tries CancelLogout from our (insecure) call, which the game blocks.
-function events:PLAYER_CAMPING()
+events:On("recap", "PLAYER_CAMPING", function()
 	if not db.logoutCard then
 		return
 	end
@@ -297,14 +294,14 @@ function events:PLAYER_CAMPING()
 	if Play(state, true) then
 		session.shownAtLogout = true -- no login toast for a session that got its card
 	end
-end
+end)
 
-function events:LOGOUT_CANCEL()
+events:On("recap", "LOGOUT_CANCEL", function()
 	ns.Session_Current().shownAtLogout = nil
 	if playing and playing.logoutAt then
 		Stop()
 	end
-end
+end)
 
 local function LoginToast()
 	if not (module.active and db.loginToast) then
@@ -334,23 +331,23 @@ local function LoginToast()
 	})
 end
 
-function events:PLAYER_ENTERING_WORLD(isInitialLogin)
+events:On("recap", "PLAYER_ENTERING_WORLD", function(_, isInitialLogin)
 	if isInitialLogin then
 		C_Timer.After(LOGIN_DELAY, LoginToast)
 	end
-end
+end)
 
 ---------------------------------------------------------------------------------------------------------------
 
 local function Activate()
 	for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "PLAYER_CAMPING", "LOGOUT_CANCEL" }) do
-		events:RegisterEvent(event)
+		events:Watch("recap", event)
 	end
 	ns.RecapTrack_Start()
 end
 
 local function Deactivate()
-	events:UnregisterAllEvents()
+	events:UnwatchAll("recap")
 	ns.RecapTrack_Stop()
 	Stop()
 	ns.Toast_Clear("recap")

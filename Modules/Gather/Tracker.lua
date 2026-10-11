@@ -16,15 +16,12 @@ local db
 local frame
 local elapsed = 0
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.Gather_Events
 
 function ns.GatherTracker_Init(saved)
 	db = saved
 	for _, event in ipairs({ "PET_BATTLE_OPENING_START", "PET_BATTLE_CLOSE", "PLAYER_ENTERING_WORLD" }) do
-		events:RegisterEvent(event)
+		events:Watch("tracker", event)
 	end
 end
 
@@ -353,11 +350,12 @@ function ns.GatherTracker_ResetPosition()
 	end
 end
 
-function events:PET_BATTLE_OPENING_START()
+local function Refresh()
 	ns.GatherTracker_Refresh()
 end
-events.PET_BATTLE_CLOSE = events.PET_BATTLE_OPENING_START
-events.PLAYER_ENTERING_WORLD = events.PET_BATTLE_OPENING_START
+events:On("tracker", "PET_BATTLE_OPENING_START", Refresh)
+events:On("tracker", "PET_BATTLE_CLOSE", Refresh)
+events:On("tracker", "PLAYER_ENTERING_WORLD", Refresh)
 
 ns.EditMode_Register({
 	name = "Gathering run",

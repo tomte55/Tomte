@@ -12,10 +12,7 @@ local NEXT_BOUNTIFUL_CHOICES = {
 	{ value = "always", text = "Always" },
 }
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.Delves_Events
 
 local function Open()
 	ns.Panel_OpenPage("delves")
@@ -37,28 +34,30 @@ end)
 
 -- Events ---------------------------------------------------------------------------------------------------------
 
-function events:PLAYER_ENTERING_WORLD()
+events:On("delves", "PLAYER_ENTERING_WORLD", function()
 	refreshScan()
 	ns.DelvesRead_Dirty()
-end
-events.ZONE_CHANGED_NEW_AREA = refreshScan
-events.AREA_POIS_UPDATED = refreshScan
+end)
+events:On("delves", "ZONE_CHANGED_NEW_AREA", refreshScan)
+events:On("delves", "AREA_POIS_UPDATED", refreshScan)
 
-function events:CURRENCY_DISPLAY_UPDATE()
+local function KeysChanged()
 	ns.DelvesRead_Dirty("keys")
 end
-events.BAG_UPDATE_DELAYED = events.CURRENCY_DISPLAY_UPDATE
+events:On("delves", "CURRENCY_DISPLAY_UPDATE", KeysChanged)
+events:On("delves", "BAG_UPDATE_DELAYED", KeysChanged)
 
-function events:WEEKLY_REWARDS_UPDATE()
+events:On("delves", "WEEKLY_REWARDS_UPDATE", function()
 	ns.DelvesRead_Dirty("vault")
-end
+end)
 
-function events:UPDATE_FACTION()
+local function CompanionChanged()
 	ns.DelvesRead_Dirty("companion")
 end
-events.TRAIT_CONFIG_UPDATED = events.UPDATE_FACTION
-events.DELVES_ACCOUNT_DATA_ELEMENT_CHANGED = events.UPDATE_FACTION
-events.PLAYER_SPECIALIZATION_CHANGED = events.UPDATE_FACTION
+events:On("delves", "UPDATE_FACTION", CompanionChanged)
+events:On("delves", "TRAIT_CONFIG_UPDATED", CompanionChanged)
+events:On("delves", "DELVES_ACCOUNT_DATA_ELEMENT_CHANGED", CompanionChanged)
+events:On("delves", "PLAYER_SPECIALIZATION_CHANGED", CompanionChanged)
 
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "AREA_POIS_UPDATED", "CURRENCY_DISPLAY_UPDATE",
@@ -69,13 +68,13 @@ local EVENTS = {
 local function Toggle(active)
 	if active then
 		for _, event in ipairs(EVENTS) do
-			events:RegisterEvent(event)
+			events:Watch("delves", event)
 		end
-		events:RegisterUnitEvent("PLAYER_SPECIALIZATION_CHANGED", "player")
+		events:Watch("delves", "PLAYER_SPECIALIZATION_CHANGED", "player")
 		ns.DelvesScan_Invalidate()
 		ns.DelvesRead_Dirty()
 	else
-		events:UnregisterAllEvents()
+		events:UnwatchAll("delves")
 		ns.DelvesRead_Stop()
 	end
 	ns.DelvesEntrance_Toggle(active)

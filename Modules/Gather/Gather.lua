@@ -11,10 +11,7 @@ local IDLE_CHECK = 15
 local module, db
 local ticker
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.Gather_Events
 
 local Money = ns.Gold
 ns.Gather_Money = Money
@@ -159,9 +156,9 @@ local function Resume()
 	Refresh()
 end
 
-function events:PLAYER_ENTERING_WORLD()
+events:On("gather", "PLAYER_ENTERING_WORLD", function()
 	Resume()
-end
+end)
 
 ---------------------------------------------------------------------------------------------------------------
 -- What Detect.lua hands over
@@ -349,13 +346,13 @@ module = ns.RegisterModule({
 	toggle = function(active)
 		if active then
 			ns.GatherDetect_Start(db, handlers)
-			events:RegisterEvent("PLAYER_ENTERING_WORLD")
+			events:Watch("gather", "PLAYER_ENTERING_WORLD")
 			if ns.inWorld then
 				Resume()
 			end
 		else
 			ns.GatherDetect_Stop()
-			events:UnregisterAllEvents()
+			events:UnwatchAll("gather")
 			StopTicker()
 		end
 		Refresh()

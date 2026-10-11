@@ -26,10 +26,8 @@ local context = {} -- { loot, vendor, mail, auction } = true while open
 local candidates, candidateCount = {}, 0 -- [guid] = name: rares seen this session
 local lootPatterns
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local events = ns.NewEvents() -- shared with Recap.lua (owners "track", "recap")
+ns.Recap_Events = events
 
 local function Readable(...)
 	if not issecretvalue then
@@ -67,7 +65,7 @@ end
 
 local lootWindows = 0 -- counts openings: a close only ends the loot context if no new window opened since
 
-function events:LOOT_OPENED()
+events:On("track", "LOOT_OPENED", function()
 	lootWindows = lootWindows + 1
 	context.loot = true
 	for slot = 1, GetNumLootItems() do
@@ -79,9 +77,9 @@ function events:LOOT_OPENED()
 			end
 		end
 	end
-end
+end)
 
-function events:LOOT_CLOSED()
+events:On("track", "LOOT_CLOSED", function()
 	-- Auto-loot: the money can land just after the window closes.
 	local opened = lootWindows
 	C_Timer.After(0.5, function()
@@ -89,19 +87,19 @@ function events:LOOT_CLOSED()
 			context.loot = nil
 		end
 	end)
-end
+end)
 
-function events:PLAYER_INTERACTION_MANAGER_FRAME_SHOW(kind)
+events:On("track", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", function(_, kind)
 	if CONTEXTS[kind] then
 		context[CONTEXTS[kind]] = true
 	end
-end
+end)
 
-function events:PLAYER_INTERACTION_MANAGER_FRAME_HIDE(kind)
+events:On("track", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", function(_, kind)
 	if CONTEXTS[kind] then
 		context[CONTEXTS[kind]] = nil
 	end
-end
+end)
 
 ---------------------------------------------------------------------------------------------------------------
 -- Loot
@@ -126,7 +124,7 @@ local function NoteItem(link, tries, count)
 	end
 end
 
-function events:CHAT_MSG_LOOT(text)
+events:On("track", "CHAT_MSG_LOOT", function(_, text)
 	if not Readable(text) then
 		return -- chat lockdown
 	end
@@ -141,7 +139,7 @@ function events:CHAT_MSG_LOOT(text)
 	if link then
 		NoteItem(link, 0, count)
 	end
-end
+end)
 
 ---------------------------------------------------------------------------------------------------------------
 -- Rares
@@ -172,11 +170,11 @@ local function ScanVignettes()
 	end
 end
 
-events.VIGNETTES_UPDATED = ScanVignettes
+events:On("track", "VIGNETTES_UPDATED", ScanVignettes)
 
-function events:VIGNETTE_MINIMAP_UPDATED(vignetteGUID)
+events:On("track", "VIGNETTE_MINIMAP_UPDATED", function(_, vignetteGUID)
 	CheckVignette(vignetteGUID)
-end
+end)
 
 local function NoteUnit(unit)
 	local guid = UnitGUID(unit)
@@ -193,32 +191,32 @@ local function NoteUnit(unit)
 	end
 end
 
-function events:PLAYER_TARGET_CHANGED()
+events:On("track", "PLAYER_TARGET_CHANGED", function()
 	NoteUnit("target")
-end
+end)
 
-function events:UPDATE_MOUSEOVER_UNIT()
+events:On("track", "UPDATE_MOUSEOVER_UNIT", function()
 	NoteUnit("mouseover")
-end
+end)
 
-function events:PLAYER_TARGET_DIED()
+events:On("track", "PLAYER_TARGET_DIED", function()
 	local guid = UnitGUID("target")
 	if guid and Readable(guid) and candidates[guid] then
 		Note({ kind = "rare", guid = guid, title = candidates[guid] })
 	end
-end
+end)
 
-function events:PARTY_KILL(_, targetGUID)
+events:On("track", "PARTY_KILL", function(_, _, targetGUID)
 	if targetGUID and Readable(targetGUID) and candidates[targetGUID] then
 		Note({ kind = "rare", guid = targetGUID, title = candidates[targetGUID] })
 	end
-end
+end)
 
 ---------------------------------------------------------------------------------------------------------------
 
 function ns.RecapTrack_Start()
 	for _, event in ipairs(EVENTS) do
-		events:RegisterEvent(event)
+		events:Watch("track", event)
 	end
 	ns.Recap_OnNote = Note
 	ns.Session_OnMoney = OnMoney
@@ -228,7 +226,7 @@ function ns.RecapTrack_Start()
 end
 
 function ns.RecapTrack_Stop()
-	events:UnregisterAllEvents()
+	events:UnwatchAll("track")
 	ns.Recap_OnNote = nil
 	ns.Session_OnMoney = nil
 	wipe(context)
