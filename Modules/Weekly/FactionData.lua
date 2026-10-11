@@ -95,7 +95,7 @@ function ns.Weekly_RewardTrack(rec, levels, rewardsFor)
 	for _, info in ipairs(levels or {}) do
 		local rewards = {}
 		for _, r in ipairs(rewardsFor(info.level) or {}) do
-			rewards[#rewards + 1] = { name = r.name or "?", icon = r.icon, uiOrder = r.uiOrder }
+			rewards[#rewards + 1] = { name = r.name or "?", icon = r.icon, uiOrder = r.uiOrder, info = r }
 		end
 		table.sort(rewards, function(a, b)
 			if a.uiOrder and b.uiOrder and a.uiOrder ~= b.uiOrder then

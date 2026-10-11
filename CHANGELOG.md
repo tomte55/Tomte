@@ -13,6 +13,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
   under Moments, "Zone text in Tomte's style".
 - Characters levelling in Chromie Time now see that expansion's content (for example Dragonflight renown on the
   Weekly board's Factions tab) instead of whatever their level alone pointed to.
+- Weekly board, Factions: rewards on the reward track highlight on hover and show a tooltip with what the reward is
+  and the renown level it unlocks at.
 
 ## v1.5.0 - 2026-10-11
 

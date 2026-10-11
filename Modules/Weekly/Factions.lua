@@ -132,6 +132,42 @@ local function Tooltip(owner, rec)
 	GameTooltip:Show()
 end
 
+-- A reward on the track: the item's own tooltip when it is one, else Blizzard's renown text (name, description).
+local function RewardTooltip(row)
+	local reward, info = row.reward, row.reward.info or {}
+	-- Beside the name, not the row's far edge: rows span the whole track width.
+	GameTooltip:SetOwner(row, "ANCHOR_NONE")
+	GameTooltip:SetPoint("LEFT", row.name, "LEFT", math.min(row.name:GetStringWidth(), row.name:GetWidth()) + 16, 0)
+	if info.itemID then
+		GameTooltip:SetItemByID(info.itemID)
+	else
+		local name, description = reward.name, info.description
+		if RenownRewardUtil and RenownRewardUtil.GetRenownRewardInfo then
+			local _, n, d = RenownRewardUtil.GetRenownRewardInfo(info, function()
+				if GameTooltip:IsOwned(row) then
+					RewardTooltip(row)
+				end
+			end)
+			name, description = n or name, d or description
+		end
+		GameTooltip:SetText(name, UI.Color("text"))
+		if info.isAccountUnlock and RENOWN_REWARD_ACCOUNT_UNLOCK_LABEL then
+			TipLine(RENOWN_REWARD_ACCOUNT_UNLOCK_LABEL, "accent")
+		end
+		if description and description ~= "" then
+			local r, g, b = UI.Color("heading")
+			GameTooltip:AddLine(description, r, g, b, true)
+		end
+	end
+	GameTooltip:AddLine(" ")
+	if row.earned then
+		TipLine(("Earned at Renown %d"):format(row.renownLevel), "success")
+	else
+		TipLine(("Unlocks at Renown %d"):format(row.renownLevel), "textMuted")
+	end
+	GameTooltip:Show()
+end
+
 function ns.WeeklyFactionsView(parent)
 	local Kit = ns.HomeKit
 	local view = { rings = {}, rewardRows = {} }
@@ -202,6 +238,19 @@ function ns.WeeklyFactionsView(parent)
 		if not row then
 			row = CreateFrame("Frame", nil, c)
 			row:SetHeight(REWARD_H)
+			row.hover = row:CreateTexture(nil, "BACKGROUND")
+			row.hover:SetAllPoints()
+			row.hover:SetColorTexture(UI.Color("hover"))
+			row.hover:Hide()
+			row:EnableMouse(true)
+			row:SetScript("OnEnter", function(self)
+				self.hover:Show()
+				RewardTooltip(self)
+			end)
+			row:SetScript("OnLeave", function(self)
+				self.hover:Hide()
+				GameTooltip:Hide()
+			end)
 			row.level = row:CreateFontString(nil, "OVERLAY")
 			UI.SetFont(row.level, Kit.NARROW_FONT, 18)
 			row.level:SetPoint("LEFT", 0, 0)
@@ -307,6 +356,7 @@ function ns.WeeklyFactionsView(parent)
 				row:ClearAllPoints()
 				row:SetPoint("TOPLEFT", gridX, -trackY)
 				row:SetWidth(gridW)
+				row.reward, row.renownLevel, row.earned = reward, step.level, step.earned
 				row.level:SetText(r == 1 and tostring(step.level) or "")
 				UI.SetTextRole(row.level, step.earned and "textFaint" or "heading")
 				row.icon:SetTexture(reward.icon or QUESTION)
