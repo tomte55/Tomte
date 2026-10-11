@@ -13,6 +13,8 @@ ns.Content_Register(11, "gear", {
 	season = 37, -- Midnight S2
 	final = false, -- set true once the next expansion is out (no newer Midnight season will come)
 	seasonName = "Midnight S2",
+	-- Slots with an enchant: head, shoulders, chest, feet, rings, main hand.
+	enchantSlots = { [1] = true, [3] = true, [5] = true, [8] = true, [11] = true, [12] = true, [16] = true },
 	specs = {
 		-- Warrior
 		[71] = { -- Arms

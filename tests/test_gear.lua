@@ -761,6 +761,15 @@ test("Enchant slots: off-hand only when it's a weapon", function()
 	eq(ns.Gear_EnchantSlot(17, "INVTYPE_HOLDABLE"), false)
 end)
 
+test("Enchant slots follow the expansion", function()
+	eq(ns.Gear_EnchantSlot(1, "INVTYPE_HEAD", 10), false, "War Within: no head enchant")
+	eq(ns.Gear_EnchantSlot(9, "INVTYPE_WRIST", 10), true, "War Within: wrists")
+	eq(ns.Gear_EnchantSlot(15, "INVTYPE_CLOAK", 10), true, "War Within: back")
+	eq(ns.Gear_EnchantSlot(1, "INVTYPE_HEAD", 11), true, "Midnight: head")
+	eq(ns.Gear_EnchantSlot(9, "INVTYPE_WRIST", 11), false, "Midnight: no wrists")
+	eq(ns.Gear_EnchantSlot(17, "INVTYPE_WEAPON", 10), true, "off-hand weapon in both")
+end)
+
 test("Audit: missing enchants and empty sockets", function()
 	local e = {
 		[1] = { equipLoc = "INVTYPE_HEAD", enchanted = false, sockets = 1, gems = 0 },

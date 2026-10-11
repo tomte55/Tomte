@@ -81,6 +81,7 @@ local TIER_SLOTS = { [1] = true, [3] = true, [5] = true, [7] = true, [10] = true
 -- use). The English trackString stays as the fallback for an item without one.
 local CATALYST_TRACK_IDS = { [972] = true, [973] = true, [974] = true, [978] = true }
 local CATALYST_TRACKS = { Veteran = true, Champion = true, Hero = true, Myth = true }
+-- Enchantable slots without expansion data (Midnight's); each expansion's own are its gear data's enchantSlots.
 local ENCHANT_SLOTS = { [1] = true, [3] = true, [5] = true, [8] = true, [11] = true, [12] = true, [16] = true }
 
 -- A Blizzard global string in the client's language; the English text where it's missing (plain-Lua tests).
@@ -328,12 +329,19 @@ function ns.Gear_LinkGemIDs(link)
 	return ids
 end
 
+-- The enchantable slots of an expansion (default: the player's content expansion; the tests have no UnitLevel).
+local function EnchantSlots(expansion)
+	expansion = expansion or (UnitLevel and ns.ContentExpansion())
+	local gear = ns.Content_Get(expansion, "gear")
+	return gear and gear.enchantSlots or ENCHANT_SLOTS
+end
+
 -- Whether what's worn in slot takes an enchant. The off-hand only when it's a weapon (not a shield or frill).
-function ns.Gear_EnchantSlot(slot, equipLoc)
+function ns.Gear_EnchantSlot(slot, equipLoc, expansion)
 	if slot == 17 then
 		return OFFHAND_WEAPON[equipLoc] == true
 	end
-	return ENCHANT_SLOTS[slot] == true
+	return EnchantSlots(expansion)[slot] == true
 end
 
 -- "Unique-Equipped: Embellished (2)" -> { category = "Embellished", max = 2 }; "Unique-Equipped" -> max 1. The
@@ -601,7 +609,7 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 			elseif lostSockets > 1 then
 				info[#info + 1] = ("Loses %d sockets"):format(lostSockets)
 			end
-			if desc.enchanted and ENCHANT_SLOTS[s] and not cand.enchanted then
+			if desc.enchanted and EnchantSlots()[s] and not cand.enchanted then
 				info[#info + 1] = "Current one is enchanted: re-enchant"
 			end
 			if gemValue == 0 and (cand.sockets or 0) > (desc.sockets or 0) then

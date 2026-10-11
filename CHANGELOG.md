@@ -6,6 +6,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 ## Unreleased
 
 - Minimap Buttons: pick which buttons sit on the minimap's edge in its settings. New: a Gold world quests button that opens its window and shows what's up in its tooltip. Each button is dragged on its own; Reset lines them up.
+- Gear Check: "missing enchant" follows your expansion. War Within characters are no longer told to enchant their helm and shoulders, and do get told about back, wrists and legs.
 
 ## v1.9.1 - 2026-10-11
 

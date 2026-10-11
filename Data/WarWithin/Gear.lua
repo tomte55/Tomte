@@ -19,6 +19,8 @@ ns.Content_Register(10, "gear", {
 	season = 30, -- War Within S3
 	final = true, -- no newer War Within season will come
 	seasonName = "War Within S3",
+	-- Slots with an enchant: back, chest, wrists, legs (armor kits, spellthread), feet, rings, main hand.
+	enchantSlots = { [5] = true, [7] = true, [8] = true, [9] = true, [11] = true, [12] = true, [15] = true, [16] = true },
 	specs = {
 		-- Warrior
 		[71] = { -- Arms (snapshot 2025-11-27)
