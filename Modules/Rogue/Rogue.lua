@@ -242,19 +242,7 @@ end
 -- Poison check (banner) ---------------------------------------------------------------------------------------
 
 -- verbose: also report when everything's fine, and list what was found (the slash command and options button).
-local function Check(verbose)
-	if not module.active then
-		if verbose then
-			ns.Print("Rogue Poisons is off.")
-		end
-		return
-	end
-	if InCombatLockdown() or UnitIsDeadOrGhost("player") then
-		if verbose then
-			ns.Print("poison check: not in combat or while dead.")
-		end
-		return
-	end
+local function FindProblems(verbose)
 	local s = Situation()
 	if verbose then
 		local known, active = {}, {}
@@ -274,29 +262,28 @@ local function Check(verbose)
 			.. (s.twoEach and " (Dragon-Tempered Blades: two of each)" or ""))
 	end
 	local problems = ns.Rogue_PoisonProblems(s, Rules())
-	if #problems == 0 then
-		if verbose then
-			ns.Print("poison check: all good.")
-		end
-		return
-	end
 	local lines = {}
 	for i, p in ipairs(problems) do
 		lines[i] = ProblemText(p)
-		ns.Print(UI.Wrap(lines[i], "warning"))
 	end
-	if db.check.banner and not verbose then
-		ns.Banner_Show({
-			owner = "rogue",
-			label = "Poison check",
-			accent = "danger",
-			title = lines[1],
-			subtitle = #lines > 1 and table.concat(lines, "   -   ", 2) or nil,
-			icon = C_Spell.GetSpellTexture(problems[1].spellID) or ICON,
-			hold = 5,
-		})
-		PlaySound(SOUNDKIT.RAID_WARNING)
-	end
+	return lines, problems[1] and (C_Spell.GetSpellTexture(problems[1].spellID) or ICON)
+end
+
+local function Check(verbose)
+	ns.Check_Report({
+		active = module.active,
+		verbose = verbose,
+		offMessage = "Rogue Poisons is off.",
+		name = "poison check",
+		find = function()
+			return FindProblems(verbose)
+		end,
+		banner = db.check.banner,
+		bannerOnVerbose = false,
+		owner = "rogue",
+		label = "Poison check",
+		accent = "danger",
+	})
 end
 
 -- Events ------------------------------------------------------------------------------------------------------
@@ -311,12 +298,9 @@ function events:PLAYER_ENTERING_WORLD()
 	if not db.check.onEnter then
 		return
 	end
-	local _, instanceType, difficultyID = GetInstanceInfo()
-	if ns.Hunter_ContentKind(instanceType, difficultyID) then
-		C_Timer.After(ENTER_DELAY, function()
-			Check(false)
-		end)
-	end
+	ns.Check_OnEnterWorld(ENTER_DELAY, function()
+		Check(false)
+	end)
 end
 
 function events:READY_CHECK()

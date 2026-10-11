@@ -6,7 +6,8 @@ local addonName, ns = ...
 
 local ENTER_DELAY = 4 -- seconds after zoning in: the pet is summoned again by then
 local GROWL = 2649 -- the pet's Growl
-local WARNING = "warning" -- theme role for the chat lines and the banner accent
+local WARNING = "warning" -- theme role for the banner accent (the chat lines use it too)
+local ICON = "Interface\\Icons\\Ability_Hunter_BeastCall"
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
 local GetSpecializationInfo = C_SpecializationInfo.GetSpecializationInfo
 
@@ -76,50 +77,31 @@ local function Situation()
 end
 
 -- verbose: also say so when everything is fine (the slash command and the options button).
+local function FindProblems()
+	return ns.Hunter_Problems(Situation(), ns.hunterDB.check), ICON
+end
+
 function ns.Checks_Run(verbose)
-	if not ns.hunterModule.active then
-		return
-	end
-	if InCombatLockdown() or UnitIsDeadOrGhost("player") then
-		if verbose then
-			ns.Print("pet check: not in combat or while dead.")
-		end
-		return
-	end
-	local problems = ns.Hunter_Problems(Situation(), ns.hunterDB.check)
-	if #problems == 0 then
-		if verbose then
-			ns.Print("pet check: all good.")
-		end
-		return
-	end
-	for _, problem in ipairs(problems) do
-		ns.Print(ns.UI.Wrap(problem, WARNING))
-	end
-	if ns.hunterDB.check.banner then
-		ns.Banner_Show({
-			owner = "hunter",
-			label = "Pet check",
-			accent = WARNING,
-			title = problems[1],
-			subtitle = #problems > 1 and table.concat(problems, "   -   ", 2) or nil,
-			icon = "Interface\\Icons\\Ability_Hunter_BeastCall",
-			hold = 5,
-		})
-		PlaySound(SOUNDKIT.RAID_WARNING)
-	end
+	ns.Check_Report({
+		active = ns.hunterModule.active,
+		verbose = verbose,
+		name = "pet check",
+		find = FindProblems,
+		banner = ns.hunterDB.check.banner,
+		bannerOnVerbose = true,
+		owner = "hunter",
+		label = "Pet check",
+		accent = WARNING,
+	})
 end
 
 function ns.Checks_OnEnterWorld()
 	if not ns.hunterDB.check.onEnter then
 		return
 	end
-	local _, instanceType, difficultyID = GetInstanceInfo()
-	if ns.Hunter_ContentKind(instanceType, difficultyID) then
-		C_Timer.After(ENTER_DELAY, function()
-			ns.Checks_Run(false)
-		end)
-	end
+	ns.Check_OnEnterWorld(ENTER_DELAY, function()
+		ns.Checks_Run(false)
+	end)
 end
 
 function ns.Checks_OnReadyCheck()
