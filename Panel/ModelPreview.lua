@@ -139,11 +139,7 @@ local function FitCamera(p, guess)
 		scene:SetCameraOrientationByYawPitchRoll(angles.camYaw, -angles.camPitch, angles.camRoll)
 		fx, fy, fz = scene:GetCameraForward()
 	end
-	scene:SetLightVisible(true)
-	scene:SetLightType(Enum.ModelLightType and Enum.ModelLightType.Directional or 0)
-	scene:SetLightDirection(fx, fy, fz)
-	scene:SetLightAmbientColor(0.7, 0.7, 0.7)
-	scene:SetLightDiffuseColor(0.8, 0.8, 0.8)
+	ns.ModelLight(scene)
 
 	-- The camera looks at (lookX, lookY, lookZ) from `distance` away. Each pass centers the box on screen (how far a
 	-- step of the look point moves things on screen is measured) and scales the distance by how far the box reaches

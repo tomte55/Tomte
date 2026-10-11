@@ -89,6 +89,30 @@ function ns.SceneLine(parent, width, alpha, role)
 	return left
 end
 
+-- Model scenes (model previews, showcase, moments). Each keeps its own framing constants and fit; these are the
+-- pieces they share.
+
+-- Points the camera along yaw pi at pitch, looking down: the pitch's sign differs from what one would assume, so it
+-- is flipped when the camera ends up looking up. Returns the camera's forward vector.
+function ns.ModelLookDown(scene, pitch)
+	scene:SetCameraOrientationByYawPitchRoll(math.pi, pitch, 0)
+	local fx, fy, fz = scene:GetCameraForward()
+	if fz > 0 then
+		scene:SetCameraOrientationByYawPitchRoll(math.pi, -pitch, 0)
+		fx, fy, fz = scene:GetCameraForward()
+	end
+	return fx, fy, fz
+end
+
+-- A directional light along the camera's view (set the camera's orientation first).
+function ns.ModelLight(scene)
+	scene:SetLightVisible(true)
+	scene:SetLightType(Enum.ModelLightType and Enum.ModelLightType.Directional or 0)
+	scene:SetLightDirection(scene:GetCameraForward())
+	scene:SetLightAmbientColor(0.7, 0.7, 0.7)
+	scene:SetLightDiffuseColor(0.8, 0.8, 0.8)
+end
+
 -- Fade a group out, run swap.fn(), fade it back in.
 function ns.NewSwap(group)
 	return { group = group }

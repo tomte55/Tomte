@@ -145,20 +145,11 @@ local function FitCamera(guess)
 	local radius = math.sqrt(ring * ring + halfHeight * halfHeight)
 
 	local scene = panel.model
-	scene:SetCameraOrientationByYawPitchRoll(math.pi, CAMERA_PITCH, 0)
-	local fx, fy, fz = scene:GetCameraForward()
-	if fz > 0 then -- the pitch's sign differs from what we assumed: we want to look down
-		scene:SetCameraOrientationByYawPitchRoll(math.pi, -CAMERA_PITCH, 0)
-		fx, fy, fz = scene:GetCameraForward()
-	end
+	local fx, fy, fz = ns.ModelLookDown(scene, CAMERA_PITCH)
 	local function PlaceCamera(distance)
 		scene:SetCameraPosition(-fx * distance, -fy * distance, halfHeight - fz * distance)
 	end
-	scene:SetLightVisible(true)
-	scene:SetLightType(Enum.ModelLightType and Enum.ModelLightType.Directional or 0)
-	scene:SetLightDirection(fx, fy, fz)
-	scene:SetLightAmbientColor(0.7, 0.7, 0.7)
-	scene:SetLightDiffuseColor(0.8, 0.8, 0.8)
+	ns.ModelLight(scene)
 
 	-- Sizes on screen shrink with the distance: a few passes settle it.
 	local distance = radius / math.tan(CAMERA_FOV / 2)

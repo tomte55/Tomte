@@ -251,20 +251,11 @@ local function FitCamera(guess)
 	local radius = math.sqrt(ring * ring + halfHeight * halfHeight)
 
 	local modelScene = stage.model
-	modelScene:SetCameraOrientationByYawPitchRoll(math.pi, CAMERA_PITCH, 0)
-	local forwardX, forwardY, forwardZ = modelScene:GetCameraForward()
-	if forwardZ > 0 then -- the pitch's sign differs from what we assumed: we want to look down
-		modelScene:SetCameraOrientationByYawPitchRoll(math.pi, -CAMERA_PITCH, 0)
-		forwardX, forwardY, forwardZ = modelScene:GetCameraForward()
-	end
+	local forwardX, forwardY, forwardZ = ns.ModelLookDown(modelScene, CAMERA_PITCH)
 	local function PlaceCamera(distance)
 		modelScene:SetCameraPosition(-forwardX * distance, -forwardY * distance, halfHeight - forwardZ * distance)
 	end
-	modelScene:SetLightVisible(true)
-	modelScene:SetLightType(Enum.ModelLightType and Enum.ModelLightType.Directional or 0)
-	modelScene:SetLightDirection(forwardX, forwardY, forwardZ)
-	modelScene:SetLightAmbientColor(0.7, 0.7, 0.7)
-	modelScene:SetLightDiffuseColor(0.8, 0.8, 0.8)
+	ns.ModelLight(modelScene)
 
 	-- A pinhole starting guess. It's off (the FOV applies to the frame's diagonal, measured in 12.1), and sizes on
 	-- screen shrink with the distance: a few passes with the game's own projection settle it.
