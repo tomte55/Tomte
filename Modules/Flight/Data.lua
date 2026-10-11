@@ -1,24 +1,25 @@
 local addonName, ns = ...
 
--- Pure logic only: no WoW API calls in this file (unit-tested with plain Lua).
+-- Flight Timer, pure logic: no WoW API calls (unit-tested with plain Lua). Saved-data defaults, route and hop
+-- times, learned pace per map, calibration, pass and landing detection, stats, and the timer and cinematic maths.
 
-ns.PASS_RADIUS = 0.015 -- normalized map distance that counts as "at" a waypoint
-ns.PASS_MARGIN = 0.002 -- how far past the closest point before committing the pass
-ns.SKIP_MARGIN = 0.03 -- how far past a never-reached waypoint before giving up on it
-ns.LAND_RADIUS = 0.02 -- normalized map distance from destination that counts as arrived
-ns.MIN_FLIGHT = 5 -- shorter flights are discarded
-ns.CALIBRATION_WINDOW = 10
-ns.CALIBRATION_MAX_ERROR = 0.5 -- ignore samples off by more than this fraction of the estimate
-ns.ALERT_LEAD = 5 -- seconds before the expected end to alert
-ns.CINEMATIC_DELAY = 2 -- seconds after takeoff before going cinematic
-ns.CINEMATIC_END_LEAD = 3 -- seconds before the expected landing to bring the UI back
-ns.CINEMATIC_MIN = 20 -- default: known flights shorter than this stay normal
-ns.ARRIVAL_SHOT = 6 -- seconds before landing the orbit starts easing out
-ns.ARRIVAL_RATIO = 0.8 -- without a position, a flight this close to the expected time counts as arrived
-ns.PACE_WINDOW = 10 -- flights per map that make up the learned pace; older ones fade out (faster taxis show up)
+local PASS_RADIUS = 0.015 -- normalized map distance that counts as "at" a waypoint
+local PASS_MARGIN = 0.002 -- how far past the closest point before committing the pass
+local SKIP_MARGIN = 0.03 -- how far past a never-reached waypoint before giving up on it
+local LAND_RADIUS = 0.02 -- normalized map distance from destination that counts as arrived
+local MIN_FLIGHT = 5 -- shorter flights are discarded
+local CALIBRATION_WINDOW = 10 -- samples in the calibration average; after that it's a moving average
+local CALIBRATION_MAX_ERROR = 0.5 -- ignore samples off by more than this fraction of the estimate
+ns.FLIGHT_ALERT_LEAD = 5 -- seconds before the expected end to alert (Flight.lua's tooltip text says it too)
+local CINEMATIC_DELAY = 2 -- seconds after takeoff before going cinematic
+local CINEMATIC_END_LEAD = 3 -- seconds before the expected landing to bring the UI back
+local CINEMATIC_MIN = 20 -- known flights shorter than this stay normal (same as the cinematicMin default below)
+local ARRIVAL_SHOT = 6 -- seconds before landing the orbit starts easing out
+local ARRIVAL_RATIO = 0.8 -- without a position, a flight this close to the expected time counts as arrived
+local PACE_WINDOW = 10 -- flights per map that make up the learned pace; older ones fade out (faster taxis show up)
+local LANDING_CONFIRM = 1 -- seconds off the taxi before a landing counts (loading screens blip UnitOnTaxi)
 
-
-ns.defaults = {
+ns.Flight_Defaults = {
 	routes = {},
 	hops = {},
 	frame = { point = "TOP", relPoint = "TOP", x = 0, y = -150, locked = true },
@@ -29,9 +30,9 @@ ns.defaults = {
 	showcase = true,
 	music = false,
 	musicTrack = 1,
-	cinematicMin = 20,
+	cinematicMin = 20, -- seconds; keep equal to CINEMATIC_MIN, CinematicWanted's fallback when it gets no minimum
 	resumeDelay = 20, -- seconds of idle before a paused cinematic comes back
-	paces = {}, -- [uiMapID] = { seconds, distance }: learned flight speed per taxi map
+	paces = {}, -- [uiMapID] = { seconds, distance, flights }: learned flight speed per taxi map (RecordPace)
 	stats = {
 		flights = 0,
 		seconds = 0,
@@ -44,6 +45,10 @@ ns.defaults = {
 	},
 }
 
+-- A copy of ns.MergeDefaults (Core/Modules.lua): tests/test_flight_data.lua loads this file alone. One difference:
+-- a saved table where the default is a plain value is kept here, ns.MergeDefaults replaces it with the default.
+-- In game the module registry merges with ns.MergeDefaults; this one only puts back the stats table that
+-- Flight.lua's ResetStats clears.
 local function MergeDefaults(src, dst)
 	for k, v in pairs(src) do
 		if type(v) == "table" then
@@ -58,8 +63,8 @@ local function MergeDefaults(src, dst)
 	return dst
 end
 
-function ns.InitDB(db)
-	return MergeDefaults(ns.defaults, db or {})
+function ns.Flight_InitDB(db)
+	return MergeDefaults(ns.Flight_Defaults, db or {})
 end
 
 function ns.HopKey(a, b)
@@ -146,13 +151,13 @@ function ns.RecordPace(db, route, duration)
 	if not flights then
 		-- Saved before the window existed (lifetime totals): keep the old pace, but only as much of it as
 		-- PACE_WINDOW - 1 flights of this length, so the new flight starts pulling it right away.
-		local scale = (ns.PACE_WINDOW - 1) * distance / pace.distance
+		local scale = (PACE_WINDOW - 1) * distance / pace.distance
 		pace.seconds, pace.distance = pace.seconds * scale, pace.distance * scale
-		flights = ns.PACE_WINDOW - 1
-	elseif flights >= ns.PACE_WINDOW then
-		local keep = (ns.PACE_WINDOW - 1) / ns.PACE_WINDOW
+		flights = PACE_WINDOW - 1
+	elseif flights >= PACE_WINDOW then
+		local keep = (PACE_WINDOW - 1) / PACE_WINDOW
 		pace.seconds, pace.distance = pace.seconds * keep, pace.distance * keep
-		flights = ns.PACE_WINDOW - 1
+		flights = PACE_WINDOW - 1
 	end
 	pace.seconds = pace.seconds + duration
 	pace.distance = pace.distance + distance
@@ -179,6 +184,7 @@ function ns.RecordFlight(db, path, total, passes)
 	end
 end
 
+-- "01:23", "1:02:05". Also used by AFK/Scene.lua.
 function ns.FormatTime(seconds)
 	seconds = Round(seconds)
 	local h = math.floor(seconds / 3600)
@@ -204,11 +210,11 @@ function ns.UpdatePassTracker(tracker, x, y, t)
 	local d = math.sqrt(dx * dx + dy * dy)
 	if not tracker.best or d < tracker.best then
 		tracker.best, tracker.bestTime = d, t
-	elseif tracker.best <= ns.PASS_RADIUS and d > tracker.best + ns.PASS_MARGIN then
+	elseif tracker.best <= PASS_RADIUS and d > tracker.best + PASS_MARGIN then
 		tracker.passes[p.index] = tracker.bestTime
 		tracker.nextPoint = tracker.nextPoint + 1
 		tracker.best, tracker.bestTime = nil, nil
-	elseif tracker.best > ns.PASS_RADIUS and d > tracker.best + ns.SKIP_MARGIN then
+	elseif tracker.best > PASS_RADIUS and d > tracker.best + SKIP_MARGIN then
 		-- Never got close enough and now clearly moving away: give up on it so later waypoints still get timed.
 		tracker.nextPoint = tracker.nextPoint + 1
 		tracker.best, tracker.bestTime = nil, nil
@@ -218,19 +224,17 @@ end
 -- distance: normalized distance to the destination at landing, or nil if the position is unknown.
 -- expected: previously known time for the route, or nil.
 function ns.IsArrival(distance, duration, expected)
-	if duration < ns.MIN_FLIGHT then
+	if duration < MIN_FLIGHT then
 		return false
 	end
 	if distance then
-		return distance <= ns.LAND_RADIUS
+		return distance <= LAND_RADIUS
 	end
 	if expected then
-		return duration >= expected * ns.ARRIVAL_RATIO
+		return duration >= expected * ARRIVAL_RATIO
 	end
 	return true
 end
-
-ns.LANDING_CONFIRM = 1 -- seconds off the taxi before a landing counts (loading screens blip UnitOnTaxi)
 
 -- Returns the time the player first went off the taxi once that has held for LANDING_CONFIRM, else nil.
 -- suppressed: true during/just after a loading screen, when UnitOnTaxi can't be trusted.
@@ -240,7 +244,7 @@ function ns.UpdateLanding(watch, onTaxi, now, suppressed)
 		return nil
 	end
 	watch.offSince = watch.offSince or now
-	if now - watch.offSince >= ns.LANDING_CONFIRM then
+	if now - watch.offSince >= LANDING_CONFIRM then
 		return watch.offSince
 	end
 end
@@ -248,11 +252,11 @@ end
 -- Estimates miss the takeoff and landing that pass-through hop timings don't include; learn that gap.
 function ns.CalibrateEstimate(db, rawEstimate, actual)
 	local err = actual - rawEstimate
-	if math.abs(err) > rawEstimate * ns.CALIBRATION_MAX_ERROR then
+	if math.abs(err) > rawEstimate * CALIBRATION_MAX_ERROR then
 		return
 	end
 	local c = db.calibration
-	c.samples = math.min(c.samples + 1, ns.CALIBRATION_WINDOW)
+	c.samples = math.min(c.samples + 1, CALIBRATION_WINDOW)
 	c.offset = c.offset + (err - c.offset) / c.samples
 end
 
@@ -299,17 +303,17 @@ function ns.StopFractions(db, route)
 end
 
 function ns.ShouldAlert(expected, elapsed)
-	return expected ~= nil and expected - elapsed <= ns.ALERT_LEAD
+	return expected ~= nil and expected - elapsed <= ns.FLIGHT_ALERT_LEAD
 end
 
 function ns.CinematicWanted(expected, elapsed, minLength)
-	if expected and expected < (minLength or ns.CINEMATIC_MIN) then
+	if expected and expected < (minLength or CINEMATIC_MIN) then
 		return false
 	end
-	if elapsed < ns.CINEMATIC_DELAY then
+	if elapsed < CINEMATIC_DELAY then
 		return false
 	end
-	if expected and expected - elapsed <= ns.CINEMATIC_END_LEAD then
+	if expected and expected - elapsed <= CINEMATIC_END_LEAD then
 		return false
 	end
 	return true
@@ -332,7 +336,8 @@ function ns.RecordStats(db, duration, routeName, originName, mapID)
 	stats.routeCounts[routeName] = (stats.routeCounts[routeName] or 0) + 1
 end
 
-function ns.TopEntry(tbl)
+-- The key with the largest value (and that value), nil for an empty table.
+function ns.Flight_TopEntry(tbl)
 	local bestKey, bestValue
 	for k, v in pairs(tbl) do
 		if not bestValue or v > bestValue then
@@ -348,13 +353,13 @@ function ns.OrbitFactor(expected, elapsed)
 		return 1
 	end
 	local remaining = expected - elapsed
-	if remaining >= ns.ARRIVAL_SHOT then
+	if remaining >= ARRIVAL_SHOT then
 		return 1
 	end
-	if remaining <= ns.CINEMATIC_END_LEAD then
+	if remaining <= CINEMATIC_END_LEAD then
 		return 0
 	end
-	return (remaining - ns.CINEMATIC_END_LEAD) / (ns.ARRIVAL_SHOT - ns.CINEMATIC_END_LEAD)
+	return (remaining - CINEMATIC_END_LEAD) / (ARRIVAL_SHOT - CINEMATIC_END_LEAD)
 end
 
 -- Display text for the timer. Returns text, fill (0..1 remaining, nil when recording), remaining seconds (nil when recording).

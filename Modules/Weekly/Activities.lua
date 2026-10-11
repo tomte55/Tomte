@@ -149,7 +149,6 @@ function ns.WeeklyActivitiesView(parent)
 			local role = r.dim and "textMuted" or "text"
 			UI.SetTextRole(row.name, role)
 			UI.SetTextRole(row.text, role)
-
 			y = y + RES_H
 		end
 		local leftBottom = y

@@ -1,6 +1,7 @@
 local addonName, ns = ...
 
--- Title-card banner over the normal UI (Moments, pet check): an optional icon, a spaced label, the title in
+-- Title-card banner over the normal UI (Moments, and warnings from Hunter Pets, Pet Health, Rogue Poisons and
+-- Durability): an optional icon, a spaced label, the title in
 -- the theme's title font, a line with a small diamond and a subtitle. Drifts up while fading in, holds,
 -- fades out. Click-through. Banners queue and wait while a cinematic hides the UI, and while Blizzard's own
 -- center-screen text (zone text, event toasts, raid warnings, boss emotes) is up, so they never overlap it.
@@ -25,9 +26,7 @@ local current, t, wait = nil, nil, 0
 local clearWait = 0 -- how long the next banner has waited for Blizzard's text
 local suppressUntil = 0 -- Blizzard's zone text stays hidden until then
 
-local function Smooth(p)
-	return p * p * (3 - 2 * p)
-end
+local Smooth = ns.Smoothstep
 
 local function ScreenBusy()
 	for _, name in ipairs(BLIZZARD_FRAMES) do
@@ -47,6 +46,8 @@ end
 local function Build()
 	frame = CreateFrame("Frame", nil, UIParent)
 	frame:SetAllPoints(UIParent)
+	-- HIGH: over ordinary windows (MEDIUM) so an open bag or character pane doesn't cover the card; it's
+	-- click-through, so it never blocks them either.
 	frame:SetFrameStrata("HIGH")
 	frame:EnableMouse(false)
 	frame:Hide()

@@ -9,7 +9,7 @@ local UI = ns.UI
 local module, db
 
 local function KeyLine()
-	local key = GetBindingKey("CLICK TomteFishing:LeftButton")
+	local key = GetBindingKey(ns.FISHING_BINDING)
 	return key and ("Key: " .. GetBindingText(key)) or "No key: Key Bindings > Tomte > Fishing"
 end
 
@@ -98,7 +98,7 @@ notice:SetScript("OnEvent", function(self, event, ...)
 end)
 function notice:PLAYER_ENTERING_WORLD()
 	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
-	if module.active and C_AddOns.IsAddOnLoaded("Angleur") and GetBindingKey("CLICK TomteFishing:LeftButton") then
+	if module.active and C_AddOns.IsAddOnLoaded("Angleur") and GetBindingKey(ns.FISHING_BINDING) then
 		ns.Print("Angleur is on too. Disable it so your Fishing key works.")
 	end
 end

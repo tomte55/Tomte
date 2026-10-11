@@ -27,6 +27,8 @@ end
 local CHROMIE_EXPANSION = { [5] = 3, [6] = 1, [7] = 2, [8] = 4, [9] = 5, [10] = 6, [14] = 8, [15] = 7, [16] = 9 }
 
 -- The content expansion for a level (default: the player's, following Chromie Time when they're in it).
+-- The existence checks on UnitChromieTimeID, GetExpansionForLevel, GetExpansionLevel and
+-- GetMaxLevelForExpansionLevel (here and below) are for the unit tests, which stub only some of them.
 function ns.ContentExpansion(level)
 	local chromie
 	if not level and UnitChromieTimeID then

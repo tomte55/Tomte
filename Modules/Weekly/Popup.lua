@@ -46,6 +46,7 @@ end
 local function Build()
 	frame = CreateFrame("Frame", nil, UIParent)
 	frame:SetWidth(WIDTH)
+	-- Above ordinary windows (MEDIUM strata).
 	frame:SetFrameStrata("HIGH")
 	frame:SetMovable(true)
 	frame:SetClampedToScreen(true)
@@ -83,7 +84,6 @@ local function Build()
 	list.scroll:SetPoint("TOPLEFT", 4, -TITLE_H - 4)
 	list.scroll:SetPoint("BOTTOMRIGHT", -10, FOOT_H)
 	frame.empty = UI.Text(frame, 13, "text")
-
 	frame.empty:SetPoint("TOPLEFT", 16, -TITLE_H - 16)
 	frame.empty:SetPoint("RIGHT", -16, 0)
 	frame.empty:SetWordWrap(true)

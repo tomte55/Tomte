@@ -24,6 +24,7 @@ local function HeroPath()
 		local seen = {}
 		for id in pairs(HERO_PATH_FLYOUTS) do
 			local name = GetFlyoutInfo(id)
+			-- "\239\188\154" is the full-width colon (U+FF1A) that Chinese clients write.
 			local prefix = type(name) == "string" and (name:match("^(.-)%s*:") or name:match("^(.-)%s*\239\188\154"))
 			if prefix and #prefix >= 4 then
 				if seen[prefix] then

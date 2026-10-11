@@ -5,6 +5,16 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- The copy/paste window (settings export and import, bug report, team scripts) and Pet Battles' Guides window show
+  in front of the Tomte window again instead of behind it.
+- Flight masters: "Around you" and the flight map's counts list only the flight masters in your zone (neighbors' ones
+  showed up too, and clicking one did nothing). The Flight coverage page files each flight master under its own zone.
+- Recent: Gathering, Trade Filter and the Rogue poison check can now be left out under "Include", like the others.
+- Gear Check: the Baganator arrow settings describe the arrow colors correctly (they follow your theme).
+- `/tomte help` lists `/tomte gather open` instead of a blank Gathering entry; `/tomte gather` still opens the page.
+- AFK screen: turning the module off right after a reload no longer leaves the camera zoomed out.
+- `/tomte mount why` no longer lists your last clicks (a leftover debugging aid).
+
 ## v1.6.0 - 2026-10-11
 
 - Pet Battles: the tamer card (and its Heal button) stays visible when DialogueUI or a similar addon hides the UI

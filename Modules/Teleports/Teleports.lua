@@ -1,9 +1,10 @@
 local addonName, ns = ...
 
 -- Teleports: every teleport this character can use, in a tab of the world map's side panel (MapTab.lua). What's
--- owned comes from Owned.lua; this file keeps it current and registers the module.
+-- owned comes from Owned.lua, IDs and pure logic from Data.lua; this file keeps it current and registers the module.
 
 local REFRESH_DELAY = 0.3 -- coalesce bursts of bag and spell events
+local PORTAL_ICON = "Interface\\Icons\\Spell_Arcane_PortalDalaran"
 
 local module, db
 local pending = false
@@ -119,6 +120,17 @@ local function Scan()
 	print(("  hearthstone toys owned: %d"):format(#ns.Tp_OwnedHearthToys()))
 end
 
+-- Known teleports off cooldown, for Home.
+local function ReadyCount()
+	local ready = 0
+	for _, e in ipairs(ns.Tp_Entries(db)) do
+		if e.known and ns.Tp_Cooldown(e) == 0 then
+			ready = ready + 1
+		end
+	end
+	return ready
+end
+
 module = ns.RegisterModule({
 	key = "tp",
 	name = "Teleports",
@@ -126,32 +138,20 @@ module = ns.RegisterModule({
 	description = "A Teleports tab in the world map's side panel: your hearthstone (and a random hearthstone toy), house, dungeon teleports (this season first), class teleports and teleport items, with cooldowns. Teleports that go to the map you're looking at float to the top. Click to use, right-click to favorite.",
 	enabledByDefault = true,
 	home = {
-		{ kind = "map", key = "teleports", order = 2, name = "Teleports", icon = "Interface\\Icons\\Spell_Arcane_PortalDalaran",
+		{ kind = "map", key = "teleports", order = 2, name = "Teleports", icon = PORTAL_ICON,
 			open = function()
 				ns.TpTab_Open()
 			end,
 			summary = function()
-				local ready = 0
-				for _, e in ipairs(ns.Tp_Entries(db)) do
-					if e.known and ns.Tp_Cooldown(e) == 0 then
-						ready = ready + 1
-					end
-				end
-				return ready .. " ready"
+				return ReadyCount() .. " ready"
 			end },
 		{ kind = "around", key = "teleportsaround", order = 3, name = "Teleports", maxRows = 3,
-			icon = "Interface\\Icons\\Spell_Arcane_PortalDalaran",
+			icon = PORTAL_ICON,
 			open = function()
 				ns.TpTab_Open()
 			end,
 			title = function()
-				local ready = 0
-				for _, e in ipairs(ns.Tp_Entries(db)) do
-					if e.known and ns.Tp_Cooldown(e) == 0 then
-						ready = ready + 1
-					end
-				end
-				return ("Teleports: %d ready"):format(ready)
+				return ("Teleports: %d ready"):format(ReadyCount())
 			end,
 			items = function(limit)
 				local rows = {}

@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- - n +, remove, what it costs and sells for, how far along it is) and the whole list's totals; right, every
 -- material the list needs with what's missing and what that costs, and the Auctionator shopping list. The to-do
 -- lines fold away underneath (the tracker and the mailbox walk you through them). Narrow, the columns stack.
--- Data from List.lua.
+-- Data from List.lua; the shopping list link is CraftTab.lua's ns.AltsShop_CreateLink.
 
 local UI = ns.UI
 local HEADER_H = 34
@@ -21,7 +21,7 @@ local tab
 local cards, matRows, lines, headers = {}, {}, {}, {}
 local totals, tableHead, buyText, todoToggle, partialNote
 
-local function SetColor(fs, role)
+local function SetRole(fs, role)
 	UI.SetTextRole(fs, role)
 end
 
@@ -35,8 +35,7 @@ local function CharName(guid)
 	if not c then
 		return nil
 	end
-	local color = c.class and C_ClassColor.GetClassColor(c.class)
-	return color and color:WrapTextInColorCode(c.name) or c.name
+	return UI.ClassColored(c.name, c.class)
 end
 
 -- A section heading with its rule, x and w being the column.
@@ -253,15 +252,13 @@ local function PlaceCard(i, t, x, y, w)
 	card.quality:SetShown(hasQuality)
 	if hasQuality then
 		card.crafter:SetPoint("TOPRIGHT", card.quality, "TOPLEFT", -10, -4) -- the dropdown's top is 4 above the text's
+		card.quality:Refresh()
 	else
 		card.crafter:SetPoint("TOPRIGHT", -10, -32)
 	end
-	if hasQuality then
-		card.quality:Refresh()
-	end
 	local status, color = Status(t)
 	card.status:SetText(status)
-	SetColor(card.status, color)
+	SetRole(card.status, color)
 
 	local who = CharName(t.crafter)
 	local crafter = who and (who .. " crafts it") or UI.Wrap("nobody knows it", "danger")
@@ -458,7 +455,7 @@ local function PlaceShopping(todos, x, y, w)
 		tableHead:EnableMouse(false)
 		tableHead.stripe:Hide()
 		for _, fs in ipairs({ tableHead.name, tableHead.have, tableHead.missing, tableHead.cost }) do
-			SetColor(fs, "textMuted")
+			SetRole(fs, "textMuted")
 		end
 		tableHead.name:SetText("Material")
 		tableHead.have:SetText("Have / need")
@@ -600,10 +597,10 @@ local function CreateTodoToggle(parent)
 	b.line:SetPoint("TOPLEFT", 0, -30)
 	b.line:SetPoint("TOPRIGHT", 0, -30)
 	b:SetScript("OnEnter", function(self)
-		SetColor(self.text, "text")
+		SetRole(self.text, "text")
 	end)
 	b:SetScript("OnLeave", function(self)
-		SetColor(self.text, "heading")
+		SetRole(self.text, "heading")
 	end)
 	b:SetScript("OnClick", function()
 		ns.altsDB.listTodoOpen = not ns.altsDB.listTodoOpen or nil
@@ -691,7 +688,7 @@ local function PlaceTodo(todos, y)
 		n = n + 1
 		local l = Line(n, y)
 		l.text:SetText("Nothing here: this character has nothing to move or craft.")
-		SetColor(l.text, "textMuted")
+		SetRole(l.text, "textMuted")
 		y = y + LINE_H
 	end
 	for _, item in ipairs(mine) do
@@ -700,7 +697,7 @@ local function PlaceTodo(todos, y)
 		l.itemID = item.line.itemID
 		l.search = item.line.kind ~= "missing" and item.line.itemID ~= nil
 		l.text:SetText(ItemText(item))
-		SetColor(l.text, item.line.kind == "missing" and "danger" or (item.line.kind == "ready" and "success" or "text"))
+		SetRole(l.text, item.line.kind == "missing" and "danger" or (item.line.kind == "ready" and "success" or "text"))
 		l.right:SetText(showCraft and CraftsText(item) or "")
 		y = y + LINE_H
 	end
@@ -708,14 +705,14 @@ local function PlaceTodo(todos, y)
 		n = n + 1
 		local l = Line(n, y + 6)
 		l.text:SetText("Elsewhere")
-		SetColor(l.text, "heading")
+		SetRole(l.text, "heading")
 		y = y + LINE_H + 6
 		for _, item in ipairs(others) do
 			n = n + 1
 			local l = Line(n, y)
 			l.itemID = item.line.itemID
 			l.text:SetText(ItemText(item))
-			SetColor(l.text, "textMuted")
+			SetRole(l.text, "textMuted")
 			l.right:SetText(showCraft and CraftsText(item) or "")
 			y = y + LINE_H
 		end

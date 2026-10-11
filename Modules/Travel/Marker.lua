@@ -15,6 +15,8 @@ local CARD_COMPACT_W = 220
 local CARD_ICON = 32
 local CARD_COMPACT_ICON = 20
 local CARD_LINES = 3
+-- Card height with text lines: top padding, the name line, the gap above the lines, the lines, bottom padding.
+local CARD_PAD_TOP, CARD_NAME_H, CARD_LINES_GAP, CARD_PAD_BOTTOM = 8, 18, 4, 10
 local ARROW_R = 34 -- chevron tip distance from the arrow's center
 local ARROW_ARM = 16
 local EDGE_RX, EDGE_RY = 0.4, 0.36 -- edge ellipse radii as a share of the screen size
@@ -115,7 +117,7 @@ local function CreateCard()
 	card.name:SetPoint("RIGHT", card.distance, "LEFT", -6, 0)
 	card.name:SetWordWrap(false)
 	card.lines = Shadowed(UI.Text(card, 13, "text"))
-	card.lines:SetPoint("TOPLEFT", card.name, "BOTTOMLEFT", 0, -4)
+	card.lines:SetPoint("TOPLEFT", card.name, "BOTTOMLEFT", 0, -CARD_LINES_GAP)
 	card.lines:SetWidth(CARD_W - (10 + CARD_ICON + 8) - 8) -- explicit: the height is measured before the card is placed
 	card.lines:SetSpacing(2)
 	card.lines:SetJustifyV("TOP")
@@ -158,6 +160,7 @@ end
 
 local function Build()
 	holder = CreateFrame("Frame")
+	-- The bottom of the UI: the marker stands in for something in the world, so every window draws over it.
 	holder:SetFrameStrata("BACKGROUND")
 	holder:SetFrameLevel(1)
 	CreateFar()
@@ -180,6 +183,7 @@ function ns.WayMarker_Apply(saved)
 	local parent = db.showWhenHidden and WorldFrame or UIParent
 	holder:SetParent(parent)
 	holder:SetAllPoints(parent)
+	-- Again after SetParent, which can carry the new parent's strata over.
 	holder:SetFrameStrata("BACKGROUND")
 	-- On WorldFrame, match UIParent's scale so sizes don't jump when the option changes.
 	holder:SetScale(parent == WorldFrame and UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale() or 1)
@@ -219,7 +223,8 @@ function ns.WayMarker_SetTarget(target)
 	if card.compact or #lines == 0 then
 		card:SetHeight(card.compact and CARD_COMPACT_ICON + 16 or CARD_ICON + 16)
 	else
-		card:SetHeight(math.max(CARD_ICON + 16, 8 + 18 + 4 + card.lines:GetStringHeight() + 10))
+		card:SetHeight(math.max(CARD_ICON + 16, CARD_PAD_TOP + CARD_NAME_H + CARD_LINES_GAP + card.lines:GetStringHeight()
+			+ CARD_PAD_BOTTOM))
 	end
 end
 

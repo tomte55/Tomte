@@ -10,7 +10,7 @@ local addonName, ns = ...
 local PAD = 48
 local CENTER_LINE = 300
 local REFRESH = 0.25
-local ROWS = 6
+local CAMP_TIME = 20 -- Recap.lua's CAMP_TIME: the countdown length when the state doesn't carry one
 local ROW_WIDTH = 380
 local ICON = 22
 local LIST_PAD = 80 -- from the right screen edge
@@ -65,7 +65,7 @@ local function UpdateTimer()
 	timer:Show()
 	local left = ns.Recap_LogoutLeft(state)
 	SetText(timer.number, tostring(math.ceil(left)))
-	local p = math.min(math.max(left / (state.logoutTotal or 20), 0), 1)
+	local p = math.min(math.max(left / (state.logoutTotal or CAMP_TIME), 0), 1)
 	timer.fill:SetWidth(math.max(TIMER_BAR * p, 0.01))
 end
 
@@ -192,11 +192,11 @@ function scene.Create(parent, letterbox)
 	-- Bottom band, center: net gold over a hairline and where it came from.
 	card.gold = Text(card, 24, "text", "number")
 	Place(card, card.gold, "TOP", letterbox.bottom, "CENTER", 0, 32)
-	local track = card:CreateTexture(nil, "OVERLAY")
-	track:SetColorTexture(1, 1, 1, 0.16)
-	track:SetSize(CENTER_LINE, 1)
-	track.pixelHeight = 1
-	Place(card, track, "TOP", letterbox.bottom, "CENTER", 0, -6)
+	local goldLine = card:CreateTexture(nil, "OVERLAY")
+	goldLine:SetColorTexture(1, 1, 1, 0.16)
+	goldLine:SetSize(CENTER_LINE, 1)
+	goldLine.pixelHeight = 1
+	Place(card, goldLine, "TOP", letterbox.bottom, "CENTER", 0, -6)
 	card.sources = Text(card, 11, "textMuted")
 	Place(card, card.sources, "TOP", letterbox.bottom, "CENTER", 0, -17)
 

@@ -10,13 +10,12 @@ local addonName, ns = ...
 -- "In instance" conversation and reply goes to Blizzard's last tell target.
 
 local OWNER = "whispers"
-local BADGE = "whispers"
+local RECAP = "whispers" -- Toast_Pin key of the unread recap card
 local RESTRICTED = "restricted" -- key of the session-only conversation with secret whispers
 local DAY = 86400
 -- Cards in the player's chat colors (ns.Toast_ChatColor): whisper pink, Battle.net whisper blue.
 local WHISPER, BN_WHISPER = "WHISPER", "BN_WHISPER"
 local GM_ACCENT = { 0.25, 0.75, 1 } -- theme: game meaning (GM); Blizzard has no GM chat color to read
-local OUT_EVENTS = { "CHAT_MSG_WHISPER_INFORM", "CHAT_MSG_BN_WHISPER_INFORM" }
 local EVENTS = { "CHAT_MSG_WHISPER", "CHAT_MSG_BN_WHISPER", "CHAT_MSG_WHISPER_INFORM", "CHAT_MSG_BN_WHISPER_INFORM",
 	"PLAYER_FLAGS_CHANGED" }
 local SAMPLES = {
@@ -37,9 +36,7 @@ events:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
 end)
 
-local function Readable(...)
-	return not canaccessallvalues or canaccessallvalues(...)
-end
+local Readable = ns.Readable
 
 local function Store()
 	return ns.whispersDB.store
@@ -76,11 +73,11 @@ end
 
 -- The unread card only comes up when you're back from AFK; after that it follows the unread count until
 -- everything's read (answered, opened in the inbox, or right-clicked).
-local function UpdateBadge(show)
+local function UpdateRecap(show)
 	local total, convos = UnreadTotal()
 	if total == 0 or not ns.whispersDB.badge or not module.active then
 		recapUp = false
-		ns.Toast_Unpin(BADGE)
+		ns.Toast_Unpin(RECAP)
 		return
 	end
 	if not (show or recapUp) then
@@ -94,7 +91,7 @@ local function UpdateBadge(show)
 	if restricted.unread > 0 then
 		names[#names + 1] = "in instance"
 	end
-	ns.Toast_Pin(BADGE, {
+	ns.Toast_Pin(RECAP, {
 		owner = OWNER,
 		label = "While you were away",
 		accent = ns.Toast_ChatColor(WHISPER),
@@ -111,7 +108,7 @@ local function UpdateBadge(show)
 end
 
 local function Changed()
-	UpdateBadge()
+	UpdateRecap()
 	ns.Inbox_Refresh()
 end
 
@@ -130,12 +127,14 @@ function ns.Whispers_MarkAllRead()
 	Changed()
 end
 
--- This session's |K name for a Battle.net friend by BattleTag (saved conversations from earlier sessions).
-local function FindBNetToken(battleTag)
+-- This session's account info for a Battle.net friend by BattleTag, nil when not on the friend list. Its accountName
+-- is the |K name replies need (saved conversations from earlier sessions), its bnetAccountID what
+-- C_BattleNet.SendWhisper takes.
+local function FindBNetFriend(battleTag)
 	for i = 1, BNGetNumFriends() do
 		local info = C_BattleNet.GetFriendAccountInfo(i)
 		if info and info.battleTag == battleTag then
-			return info.accountName
+			return info
 		end
 	end
 	return nil
@@ -156,7 +155,11 @@ function ns.Whispers_Reply(key)
 		return
 	end
 	if convo.bn then
-		local token = bnTokens[key] or FindBNetToken(key:sub(4))
+		local token = bnTokens[key]
+		if not token then
+			local friend = FindBNetFriend(key:sub(4))
+			token = friend and friend.accountName
+		end
 		if token then
 			ChatFrameUtil.SendBNetTell(token)
 		else
@@ -167,18 +170,7 @@ function ns.Whispers_Reply(key)
 	ChatFrameUtil.SendTell(key)
 end
 
--- This session's bnetAccountID for a BattleTag (what C_BattleNet.SendWhisper takes).
-local function FindBNetAccountID(battleTag)
-	for i = 1, BNGetNumFriends() do
-		local info = C_BattleNet.GetFriendAccountInfo(i)
-		if info and info.battleTag == battleTag then
-			return info.bnetAccountID
-		end
-	end
-	return nil
-end
-
-function ns.Whispers_CanSend(key)
+local function CanSend(key)
 	return key ~= nil and key ~= RESTRICTED and not (C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown())
 end
 
@@ -189,7 +181,7 @@ function ns.Whispers_Send(key, text)
 	if text == "" then
 		return true
 	end
-	if not ns.Whispers_CanSend(key) then
+	if not CanSend(key) then
 		ns.Print("can't send from the inbox during instance chat restrictions; use the chat box.")
 		ns.Whispers_Reply(key)
 		return false
@@ -197,7 +189,8 @@ function ns.Whispers_Send(key, text)
 	local convo = Store().convos[key]
 	local ok, err
 	if convo and convo.bn then
-		local id = FindBNetAccountID(key:sub(4))
+		local friend = FindBNetFriend(key:sub(4))
+		local id = friend and friend.bnetAccountID
 		if not id then
 			ns.Print(convo.name .. " isn't online on Battle.net.")
 			return false
@@ -220,7 +213,7 @@ function ns.Whispers_Send(key, text)
 end
 
 -- The reply keybind: the newest unread conversation, else whoever whispered last.
-function ns.Whispers_ReplyNewest()
+local function ReplyNewest()
 	local _, convos = UnreadTotal()
 	if restricted.unread > 0 then
 		ns.Whispers_Reply(RESTRICTED)
@@ -245,10 +238,7 @@ local function Toast(info)
 	local title = info.name
 	local icon
 	if not info.secret and info.class then
-		local color = C_ClassColor.GetClassColor(info.class)
-		if color then
-			title = color:WrapTextInColorCode(info.name)
-		end
+		title = ns.UI.ClassColored(info.name, info.class)
 		icon = GetClassAtlas(info.class:lower())
 	end
 	ns.Toast_Show({
@@ -396,13 +386,15 @@ end
 -- Back from AFK with unread whispers: one recap card instead of the toasts still up or held back.
 function events:PLAYER_FLAGS_CHANGED(unit)
 	local afk = UnitIsAFK("player")
+	-- The unit token and the AFK flag can come in as secret values under addon restrictions: compare them only
+	-- when readable.
 	if not Readable(unit, afk) or unit ~= "player" then
 		return
 	end
 	afk = afk and true or false
 	if wasAFK and not afk and ns.whispersDB.badge and UnreadTotal() > 0 then
 		ns.Toast_Clear(OWNER)
-		UpdateBadge(true)
+		UpdateRecap(true)
 	end
 	wasAFK = afk
 end
@@ -435,7 +427,7 @@ end
 local function Deactivate()
 	events:UnregisterAllEvents()
 	ns.Toast_Clear(OWNER)
-	ns.Toast_Unpin(BADGE)
+	ns.Toast_Unpin(RECAP)
 	recapUp = false
 	ns.Inbox_Hide()
 end
@@ -451,7 +443,7 @@ end
 -- Keybinds (Bindings.xml, Key Bindings > Tomte), through Core's Tomte_Binding.
 ns.bindings.WHISPER_REPLY = function()
 	if module and module.active then
-		ns.Whispers_ReplyNewest()
+		ReplyNewest()
 	end
 end
 ns.bindings.WHISPER_INBOX = function()
@@ -467,7 +459,7 @@ local options = {
 	{ type = "checkbox", key = "toasts", label = "Toasts",
 		tooltip = "A toast for every whisper. Left-click replies, right-click dismisses. More whispers from the same person while the toast is up go into it." },
 	{ type = "checkbox", key = "badge", label = "Unread recap after AFK", onChange = function()
-		UpdateBadge()
+		UpdateRecap()
 	end,
 		tooltip = "Back from AFK with unread whispers: one card with who wrote, in place of their toasts. It stays on top until you answer, open the inbox or right-click it." },
 	{ type = "checkbox", key = "holdInCombat", label = "Hold toasts during combat",
@@ -478,7 +470,7 @@ local options = {
 	{ type = "header", label = "Inbox" },
 	{ type = "button", label = "Whisper inbox", text = "Open", onClick = function()
 		ns.Inbox_Toggle()
-	end, tooltip = "Your whisper conversations. Also /tomte whispers inbox, a click on the badge, or a keybind (Options > Keybindings > Tomte)." },
+	end, tooltip = "Your whisper conversations. Also /tomte whispers inbox, a click on the unread recap, or a keybind (Options > Keybindings > Tomte)." },
 	{ type = "checkbox", key = "keepHistory", label = "Keep history between sessions",
 		tooltip = "Off: the inbox starts empty at every login. Whispers in instances are never saved (the game hides them from addons)." },
 	{ type = "slider", key = "historyDays", label = "Keep conversations for", min = 1, max = 30, step = 1,

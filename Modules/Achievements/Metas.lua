@@ -7,7 +7,8 @@ local addonName, ns = ...
 local CRITERIA_TYPE_ACHIEVEMENT = 8
 local MAX_DEPTH = 3 -- how deep the expansion fill follows nested metas
 
--- Newest first. IDs from AlmostCompletedAchievements' meta list.
+-- Newest first. The achievement IDs (game facts) are the ones in the AlmostCompletedAchievements addon's meta list;
+-- no code was taken from it.
 local ROOTS = {
 	{ id = 62386, expansion = "Midnight" }, -- Light Up the Night
 	{ id = 61451, expansion = "The War Within" }, -- Worldsoul-Searching
@@ -30,7 +31,8 @@ function ns.Ach_MetaRoots()
 	return ROOTS
 end
 
-function ns.Ach_MetaChildren(metaID)
+-- A meta's child achievement IDs (empty for a non-meta), cached for the session.
+local function MetaChildren(metaID)
 	local cached = childCache[metaID]
 	if cached then
 		return cached
@@ -52,8 +54,8 @@ function ns.Ach_MetaChildren(metaID)
 	return list
 end
 
-function ns.Ach_IsMeta(id)
-	return #ns.Ach_MetaChildren(id) > 0
+local function IsMeta(id)
+	return #MetaChildren(id) > 0
 end
 
 -- Metas an achievement is part of: from the scan, plus the extra children lists.
@@ -87,7 +89,7 @@ local function FillFrom(id, expansion, depth)
 	if depth > MAX_DEPTH then
 		return
 	end
-	for _, child in ipairs(ns.Ach_MetaChildren(id)) do
+	for _, child in ipairs(MetaChildren(id)) do
 		if not metaExpansion[child] then
 			metaExpansion[child] = expansion
 			FillFrom(child, expansion, depth + 1)
@@ -117,10 +119,10 @@ function ns.Ach_MetaNode(metaID)
 		return nil
 	end
 	local children = {}
-	for _, id in ipairs(ns.Ach_MetaChildren(metaID)) do
+	for _, id in ipairs(MetaChildren(metaID)) do
 		local child = ns.Ach_ReadAchievement(id)
 		if child then
-			child.isMeta = ns.Ach_IsMeta(id)
+			child.isMeta = IsMeta(id)
 			children[#children + 1] = child
 		end
 	end

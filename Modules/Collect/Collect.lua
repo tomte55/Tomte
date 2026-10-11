@@ -7,14 +7,15 @@ local addonName, ns = ...
 local OWNER = "collect"
 local START_DELAY = 6 -- seconds after the first loading screen before the journals are read
 local ZONE_DELAY = 2 -- seconds after arriving before the zone toast
-local DEBOUNCE = 1
-local CRITERIA_DEBOUNCE = 2
+local DEBOUNCE = 1 -- seconds of vignette updates gathered into one rare check
+local CRITERIA_DEBOUNCE = 2 -- seconds between tab redraws for criteria progress
 local ACCENT = "success" -- toast accent (a role)
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "NEW_MOUNT_ADDED", "NEW_PET_ADDED", "ACHIEVEMENT_EARNED",
 	"CRITERIA_UPDATE", "VIGNETTES_UPDATED", "VIGNETTE_MINIMAP_UPDATED",
 }
 local KIND_WORDS = { mount = "mount", pet = "pet" }
+local ICON = "Interface\\Icons\\Ability_Mount_RidingHorse" -- the same horse as the map tab's (Tab.lua)
 
 local module, db
 local started = false
@@ -30,6 +31,11 @@ end)
 
 local function PlayerMap()
 	return C_Map.GetBestMapForUnit("player")
+end
+
+-- The db.show key for a mount or pet entry.
+local function ShowKey(kind)
+	return kind == "mount" and "mounts" or "pets"
 end
 
 -- Counts of what's shown (hidden kinds count as none).
@@ -64,7 +70,7 @@ local function ShowZoneToast(name, counts, sample)
 	ns.Toast_Show({
 		owner = OWNER, label = "Collect here", accent = ACCENT, title = name,
 		text = ns.Collect_ZoneToastText(counts) .. (sample and "" or "\nClick for the list."),
-		icon = "Interface\\Icons\\Ability_Mount_RidingHorse", mergeKey = "collect:zone", holdInCombat = true, hold = 10,
+		icon = ICON, mergeKey = "collect:zone", holdInCombat = true, hold = 10,
 		test = sample or nil, onClick = not sample and ns.CollectTab_Open or nil,
 	})
 end
@@ -134,7 +140,7 @@ local function RareCheck()
 	if db.toasts.rare then
 		local byRare, order = {}, {}
 		for _, f in ipairs(found) do
-			if db.show[f.entry.kind == "mount" and "mounts" or "pets"] ~= false and not toastedRares[f.guid] then
+			if db.show[ShowKey(f.entry.kind)] ~= false and not toastedRares[f.guid] then
 				local rare = byRare[f.guid]
 				if not rare then
 					rare = { name = f.name, drops = {} }
@@ -292,7 +298,7 @@ module = ns.RegisterModule({
 				local list = {}
 				for _, f in ipairs(ns.Collect_ApplyVignettes(entries, mapID)) do
 					local e = f.entry
-					if db.show[e.kind == "mount" and "mounts" or "pets"] ~= false and e.upNow then
+					if db.show[ShowKey(e.kind)] ~= false and e.upNow then
 						local upNow = e.upNow
 						list[#list + 1] = {
 							key = "collect:rare:" .. f.name, state = f.guid,
@@ -307,7 +313,7 @@ module = ns.RegisterModule({
 				end
 				return list
 			end },
-		{ kind = "map", key = "collect", order = 1, name = "Collect here", icon = "Interface\\Icons\\Ability_Mount_RidingHorse",
+		{ kind = "map", key = "collect", order = 1, name = "Collect here", icon = ICON,
 			open = function()
 				ns.CollectTab_Open()
 			end,
@@ -320,7 +326,7 @@ module = ns.RegisterModule({
 				return entries and (ns.Collect_ZoneToastText(ShownCounts(entries)) or "Nothing left here") or nil
 			end },
 		{ kind = "around", key = "collectaround", order = 1, name = "Collect here", keepEmpty = true,
-			icon = "Interface\\Icons\\Ability_Mount_RidingHorse",
+			icon = ICON,
 			open = function()
 				ns.CollectTab_Open()
 			end,

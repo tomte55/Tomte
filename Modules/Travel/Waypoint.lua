@@ -118,9 +118,6 @@ local function OnUpdate(_, dt)
 		return
 	end
 	alpha = math.min(alpha + dt / FADE_IN, alphaGoal)
-	if alpha > alphaGoal then
-		alpha = alphaGoal
-	end
 	ns.WayMarker_SetAlpha(alpha * db.alpha)
 	ns.WayMarker_Show(state, navFrame, sx, sy, footer, distanceText, scale)
 end
@@ -219,10 +216,7 @@ local function TestPin()
 		y = y - math.cos(facing) * TEST_DISTANCE / height
 	end
 	x, y = math.min(math.max(x, 0), 1), math.min(math.max(y, 0), 1)
-	ns.SafeTrack(function()
-		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x, y))
-		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
-	end)
+	ns.TrackPin(mapID, x, y)
 end
 
 -- "45.2 67.8", "45.2, 67.8" or TomTom's "#2248 45.2 67.8" (a map ID first). Anything after the coordinates
@@ -244,10 +238,7 @@ local function PinAt(text)
 		ns.Print("can't place a map pin on that map.")
 		return
 	end
-	local now = ns.SafeTrack(function()
-		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x / 100, y / 100))
-		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
-	end)
+	local now = ns.TrackPin(mapID, x / 100, y / 100)
 	local info = C_Map.GetMapInfo(mapID)
 	ns.Print(("%s %.1f, %.1f in %s."):format(now and "tracking" or "after combat: tracking", x, y,
 		info and info.name or ("map " .. mapID)))
@@ -344,8 +335,9 @@ module = ns.RegisterModule({
 	},
 	init = function(saved)
 		db = saved
+		-- 325 yards is an old default that put the card too far out: a saved 325 becomes today's default.
 		if db.cardDistance == 325 then
-			db.cardDistance = 110 -- the first test build's default was too far out
+			db.cardDistance = 110
 		end
 	end,
 	blocked = function()

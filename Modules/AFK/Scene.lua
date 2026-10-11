@@ -250,6 +250,8 @@ end
 
 function scene.Begin(s)
 	state = s
+	-- The card lives on WorldFrame (the cinematic hides UIParent): this gives it the same on-screen size as normal UI
+	-- text, whatever the UI scale.
 	card:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
 	ns.SceneSnap(card)
 	ns.ResetSwap(statsSwap)

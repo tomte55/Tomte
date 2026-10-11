@@ -14,10 +14,8 @@ local BODY = FONTS .. "Philosopher-Regular.ttf"
 
 -- Philosopher has Latin and Cyrillic, no Korean or Chinese. Its digits are proportional, so numbers keep the
 -- client's font everywhere.
-local CLIENT_FONTS = { koKR = true, zhCN = true, zhTW = true }
-
 local function Fonts(locale)
-	if CLIENT_FONTS[locale] then
+	if Theme.CJK_LOCALES[locale] then
 		return Theme.ClientFonts()
 	end
 	return { title = TITLE, body = BODY, number = STANDARD_TEXT_FONT }

@@ -1,10 +1,10 @@
 local addonName, ns = ...
 
 -- Almost Done: the list docked to the right of the Achievements window. Two tabs: List (search, reward and sort
--- dropdowns, a filters menu, the threshold, the rows) and Metas (the big expansion metas and the metas you're close on; open one
--- to see its children). Hovering a row shows its tooltip beside the dock and, for mounts, pets and appearances, a
--- reward preview next to the tooltip. When closed, a small tab on the window's edge opens it again. Built the
--- first time the Achievements window shows.
+-- dropdowns, a filters menu, the threshold, the rows) and Metas (the big expansion metas and the metas you're close
+-- on; open one to see its children). Hovering a row shows its tooltip beside the dock and, for mounts, pets and
+-- appearances, a reward preview next to the tooltip. When closed, a small tab on the window's edge opens it again.
+-- Built once Blizzard_AchievementUI has loaded.
 
 local UI = ns.UI
 local WIDTH = 380
@@ -13,6 +13,9 @@ local META_ROW_H = 28
 local INDENT = 16
 local ICON = 24
 local TOOLTIP_GAP = 18 -- from a row's right edge to the tooltip: past the scroll thumb and the dock's edge
+-- Levels of child rows the Metas tab shows under an open meta. A display limit only, separate from Metas.lua's
+-- MAX_DEPTH (how deep the expansion fill follows nested metas).
+local MAX_NESTING = 4
 local REWARD_FILTERS = {
 	{ value = "any", text = "Any reward" },
 	{ value = "reward", text = "Has a reward" },
@@ -453,7 +456,7 @@ local function ChildRows(y, node, indent, depth)
 				Refresh()
 			end or nil,
 		})
-		if child.isMeta and open and depth < 4 then
+		if child.isMeta and open and depth < MAX_NESTING then
 			local sub = ns.Ach_MetaNode(child.id)
 			if sub then
 				h = h + ChildRows(y + h, sub, indent + INDENT, depth + 1)
@@ -833,7 +836,8 @@ local function Hook()
 	ns.AchDock_Refresh()
 end
 
--- The Achievements window is load-on-demand: build when it loads (or now, if it already has).
+-- The Achievements window is load-on-demand: build when it loads (or now, if it already has). Called on every
+-- module turn-on; the one waiter frame keeps repeated calls from stacking listeners.
 function ns.AchDock_Init()
 	if C_AddOns.IsAddOnLoaded("Blizzard_AchievementUI") then
 		Hook()

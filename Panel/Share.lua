@@ -189,7 +189,7 @@ local function ShowPreview(result, title, undo)
 		for _, row in ipairs(group.rows) do
 			lineIndex = lineIndex + 1
 			local fs = Line(lineIndex)
-			fs:SetText(("%s: %s%s%s"):format(row.label, ns.Theme.Wrap(ns.Profile_ValueText(row.old), "textMuted"),
+			fs:SetText(("%s: %s%s%s"):format(row.label, UI.Wrap(ns.Profile_ValueText(row.old), "textMuted"),
 				ARROW, ns.Profile_ValueText(row.new)))
 			fs:ClearAllPoints()
 			fs:SetPoint("TOPLEFT", content, "TOPLEFT", 26, -y)

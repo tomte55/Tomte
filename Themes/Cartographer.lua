@@ -13,15 +13,13 @@ local ALEGREYA = FONTS .. "Alegreya-Regular.ttf"
 local NUMBERS = FONTS .. "AlegreyaNumbers-Regular.ttf"
 
 -- Cinzel has no Cyrillic; neither font has Korean or Chinese. Those clients keep their own fonts for what's missing.
-local CLIENT_FONTS = { koKR = true, zhCN = true, zhTW = true }
-
 local function Fonts(locale)
-	if CLIENT_FONTS[locale] then
+	if Theme.CJK_LOCALES[locale] then
 		return Theme.ClientFonts()
 	end
 	local title = CINZEL
 	if locale == "ruRU" then
-		title = GameFontNormalHuge:GetFont()
+		title = Theme.GameTitleFont()
 	end
 	return { title = title, body = ALEGREYA, number = NUMBERS }
 end

@@ -2,7 +2,8 @@ local addonName, ns = ...
 
 -- Hunter Pets module: Call Pet tooltips, a Stable tab (pets, families, tame log), a tame-log line on beast
 -- tooltips, and a pet readiness check for dungeons, raids, delves and ready checks. Hunters only.
--- Pure logic is in Data.lua.
+-- Stable.lua reads the stable, StablePage.lua draws the tab, Tooltips.lua and Checks.lua do what their names say,
+-- pure logic is in Data.lua.
 
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "READY_CHECK", "PET_STABLE_SHOW", "PET_STABLE_UPDATE",

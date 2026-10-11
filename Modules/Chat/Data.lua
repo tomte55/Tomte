@@ -19,7 +19,7 @@ end
 
 -- Common trade chat abbreviations per primary profession (base skill line ID), on top of the localized name.
 -- English slang, used on most servers whatever the client language.
-ns.CHAT_PROF_ABBREVIATIONS = {
+local PROF_ABBREVIATIONS = {
 	[164] = { "bs", "smith", "blacksmith" }, -- Blacksmithing
 	[165] = { "lw", "leatherworker" }, -- Leatherworking
 	[197] = { "tailor" }, -- Tailoring
@@ -47,7 +47,7 @@ function ns.Chat_BuildKeywords(profs, useProfs, extraText)
 	if useProfs then
 		for _, prof in ipairs(profs or {}) do
 			Add(prof.name)
-			for _, abbr in ipairs(ns.CHAT_PROF_ABBREVIATIONS[prof.skillLine] or {}) do
+			for _, abbr in ipairs(PROF_ABBREVIATIONS[prof.skillLine] or {}) do
 				Add(abbr)
 			end
 		end
@@ -69,7 +69,7 @@ function ns.Chat_Decide(text, keywords, ignoreWords)
 	return true
 end
 
--- Highlight ----------------------------------------------------------------------------------------------
+-- Keyword highlighting (Trade Filter).
 
 -- A letter or digit (ASCII), or any byte of a multi-byte UTF-8 character: part of a word (as in Social/Data.lua).
 local function WordByte(b)
@@ -147,7 +147,7 @@ function ns.Chat_Highlight(text, words, wrap)
 	return table.concat(out)
 end
 
--- Channel tags -------------------------------------------------------------------------------------------
+-- Channel tags (Channel Tags).
 
 ns.CHAT_TAG_STYLES = {
 	{ value = "full", text = "[2. Trade - City]" },

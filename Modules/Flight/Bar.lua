@@ -1,6 +1,7 @@
 local addonName, ns = ...
 
--- Countdown bar while flying. Created the first time it is needed (a flight, or unlocking it to move it).
+-- Flight Timer: the countdown bar while flying. Created the first time it is needed (a flight, or unlocking it or
+-- opening Edit Mode to move it). Its position is saved in ns.flightDB.frame.
 
 local UI = ns.UI
 local WIDTH, HEIGHT = 240, 18
@@ -12,7 +13,7 @@ local TICK_AHEAD_ALPHA, TICK_PASSED_ALPHA = 0.9, 0.25
 local TEXT_INTERVAL = 0.15 -- seconds between time/ETA text updates; the fill and the spark move every frame
 
 local bar
-local active -- { destName, expected, isEstimate, start, stops, preview }
+local active -- { destName, expected, isEstimate, start, stops, preview, nextText = GetTime() of the next text update }
 
 local function SavePosition()
 	local point, _, relPoint, x, y = bar:GetPoint()
@@ -150,10 +151,7 @@ local function CreateBar()
 	bar.dot:SetSize(10, 10)
 	bar.dot:SetPoint("LEFT", bar, "LEFT", 5, 0)
 	bar.dot:SetColorTexture(UI.Color("danger"))
-	local mask = bar:CreateMaskTexture()
-	mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-	mask:SetAllPoints(bar.dot)
-	bar.dot:AddMaskTexture(mask)
+	UI.CircleMask(bar.dot, bar)
 
 	bar.pulse = bar.dot:CreateAnimationGroup()
 	bar.pulse:SetLooping("BOUNCE")
@@ -283,6 +281,4 @@ function ns.Bar_Frame()
 	return bar
 end
 
-function ns.Bar_SavePosition()
-	SavePosition()
-end
+ns.Bar_SavePosition = SavePosition

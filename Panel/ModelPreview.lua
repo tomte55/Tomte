@@ -1,8 +1,9 @@
 local addonName, ns = ...
 
 -- A 3D model card next to GameTooltip: a creature (mount or pet) standing as in its journal, or an appearance tried
--- on the player and turning, with a name and a line under it. Almost Done's reward preview, Collect here's and World
--- quests' rows use it.
+-- on the player and turning, with a name and a line under it. Almost Done's reward preview and the rows of Collect
+-- here, World quests and the Holidays page use it. Two scenes: p.creatureScene (our own camera, fitted below) and
+-- p.appearanceScene (Blizzard's dress-up scene).
 --
 -- ns.ModelPreview_Create(parent) -> p
 -- ns.ModelPreview_Show(p, model): model = { displayID, sceneID, selfMount } (a mount or pet; sceneID is its journal
@@ -31,8 +32,8 @@ local RESUME = 0.5 -- seconds a hidden preview keeps its model, so a redraw's hi
 
 local function ClearModel(p)
 	p.modelKey, p.actor, p.fitting = nil, nil, nil
-	p.scene:Hide()
-	p.creature:Hide()
+	p.appearanceScene:Hide()
+	p.creatureScene:Hide()
 	p.creatureActor:ClearModel()
 end
 
@@ -131,7 +132,7 @@ local function FitCamera(p, guess)
 	local angles = p.angles
 	local corners = Corners(bx, by, bz, tx, ty, tz, angles.yaw)
 
-	local scene = p.creature
+	local scene = p.creatureScene
 	scene:SetCameraOrientationByYawPitchRoll(angles.camYaw, angles.camPitch, angles.camRoll)
 	local fx, fy, fz = scene:GetCameraForward()
 	if angles == DEFAULT_ANGLES and fz > 0 then -- the pitch's sign differs from what we assumed: we want to look down
@@ -191,8 +192,8 @@ local function SetCreature(p, model, key)
 	end
 	p.modelKey = key
 	p.actor = nil -- stands still
-	p.scene:Hide()
-	p.creature:Show()
+	p.appearanceScene:Hide()
+	p.creatureScene:Show()
 	p.angles = JournalAngles(model.sceneID) or DEFAULT_ANGLES
 	local actor = p.creatureActor
 	-- Invisible until it's measured and the camera fitted (the 3D model ignores the frame alpha).
@@ -215,11 +216,11 @@ local function SetAppearance(p, link, key)
 	end
 	p.modelKey = key
 	p.actor, p.fitting = nil, nil
-	p.creature:Hide()
-	p.scene:Show()
-	p.scene:TransitionToModelSceneID(DRESS_UP_SCENE, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
-	SetupPlayerForModelScene(p.scene, nil, nil, true, true)
-	local actor = p.scene:GetPlayerActor()
+	p.creatureScene:Hide()
+	p.appearanceScene:Show()
+	p.appearanceScene:TransitionToModelSceneID(DRESS_UP_SCENE, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
+	SetupPlayerForModelScene(p.appearanceScene, nil, nil, true, true)
+	local actor = p.appearanceScene:GetPlayerActor()
 	if actor then
 		actor:TryOn(link)
 		p.actor, p.baseYaw, p.turn = actor, actor:GetYaw(), 0
@@ -284,15 +285,15 @@ function ns.ModelPreview_Create(parent)
 	p:SetClampedToScreen(true)
 	p:Hide()
 	UI.Panel(p, { size = "medium" })
-	p.scene = CreateFrame("ModelScene", nil, p, "NoCameraControlModelSceneMixinTemplate")
-	p.scene:SetPoint("TOPLEFT", 4, -4)
-	p.scene:SetPoint("BOTTOMRIGHT", -4, 40)
-	p.creature = CreateFrame("ModelScene", nil, p)
-	p.creature:SetPoint("TOPLEFT", 4, -4)
-	p.creature:SetPoint("BOTTOMRIGHT", -4, 40)
-	p.creature:SetCameraFieldOfView(CAMERA_FOV)
-	p.creature:Hide()
-	p.creatureActor = p.creature:CreateActor()
+	p.appearanceScene = CreateFrame("ModelScene", nil, p, "NoCameraControlModelSceneMixinTemplate")
+	p.appearanceScene:SetPoint("TOPLEFT", 4, -4)
+	p.appearanceScene:SetPoint("BOTTOMRIGHT", -4, 40)
+	p.creatureScene = CreateFrame("ModelScene", nil, p)
+	p.creatureScene:SetPoint("TOPLEFT", 4, -4)
+	p.creatureScene:SetPoint("BOTTOMRIGHT", -4, 40)
+	p.creatureScene:SetCameraFieldOfView(CAMERA_FOV)
+	p.creatureScene:Hide()
+	p.creatureActor = p.creatureScene:CreateActor()
 	-- Its width and depth centered on its position, feet at height 0 (the default can be the model's center).
 	p.creatureActor:SetUseCenterForOrigin(true, true, false)
 	p:SetScript("OnUpdate", function(_, dt)

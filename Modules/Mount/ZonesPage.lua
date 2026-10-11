@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
--- Zones tab of Smart Mount in the panel: every zone or continent with favorites, its mounts under it. Click the x on
--- a mount to remove it, or Clear to drop a whole list. Adding happens with the star in the Mount Journal.
+-- Zones tab of Smart Mount in the panel: every zone or continent with favorites, its mounts under it. Remove takes a
+-- mount off its list, Clear drops a whole list. Adding happens with the star in the Mount Journal.
 
 local UI = ns.UI
 local HEADER_H, ROW_H, ICON = 26, 22, 18

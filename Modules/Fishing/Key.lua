@@ -11,7 +11,8 @@ local addonName, ns = ...
 
 local UI = ns.UI
 local BUTTON_NAME, BAR_NAME = "TomteFishing", "TomteFishingBar"
-local BINDING = "CLICK " .. BUTTON_NAME .. ":LeftButton"
+local BINDING = "CLICK " .. BUTTON_NAME .. ":LeftButton" -- also in Bindings.xml
+ns.FISHING_BINDING = BINDING -- Fishing.lua (loads after this file) reads the key from it
 local SIZE = 40
 local WAIT_STEP, WAIT_LIMIT = 0.05, 10 -- seconds between key checks, and when to give up waiting for a release
 local TICK = 1 -- the visible button's refresh
@@ -19,14 +20,11 @@ local RESTRICTIONS = { "Combat", "Encounter", "ChallengeMode", "PvPMatch" }
 
 local db, module, holder, button, ticker
 local fishing = false -- a fishing channel runs
-local lastCast -- GetTime() of the last fishing channel stop
 local lootOpen -- GetTime() of the last LOOT_OPENED/LOOT_READY, nil once closed
 local overridden = {} -- keys that point at INTERACTTARGET right now
 local want -- what the waiter applies once the keys are up: "reel" or "clear"
 
-local function IsSecret(v)
-	return issecretvalue ~= nil and issecretvalue(v)
-end
+local IsSecret = ns.IsSecret
 
 local function FishingName()
 	return C_Spell.GetSpellName(ns.FISHING_SPELL) or PROFESSIONS_FISHING
@@ -288,6 +286,9 @@ local function ApplyLayout()
 	holder:SetScale(db.button.scale)
 end
 
+-- The holder is what Edit Mode moves and what shows or hides. It's protected (SecureFrameTemplate) because a protected
+-- frame can't be anchored to an ordinary one ("Cannot anchor protected frames to regions"), so the secure button needs
+-- a protected parent to SetAllPoints on. That also makes the holder's show, hide and layout out of combat only.
 local function Create()
 	holder = CreateFrame("Frame", BAR_NAME, UIParent, "SecureFrameTemplate")
 	holder:SetSize(SIZE, SIZE)
@@ -297,6 +298,8 @@ local function Create()
 	holder:Hide()
 	button = CreateFrame("Button", BUTTON_NAME, holder, "SecureActionButtonTemplate")
 	button:SetAllPoints()
+	-- Act on the press, not the release: with useOnKeyDown the secure handler runs the action on the down click, and
+	-- the button has to be registered for down clicks to get it. The reel override then waits for that key's release.
 	button:RegisterForClicks("AnyDown")
 	button:SetAttribute("useOnKeyDown", true)
 	button:SetScript("PreClick", PreClick)
@@ -414,7 +417,6 @@ end
 
 local function StopFishing()
 	fishing = false
-	lastCast = GetTime()
 	ns.FishingHelpers_Stop()
 	Wait("clear")
 	ns.FishingKey_Refresh()
@@ -530,13 +532,9 @@ function ns.Fishing_IsFishing()
 	return fishing
 end
 
-function ns.Fishing_LastCast()
-	return lastCast
-end
-
+-- For /tomte fishing status.
 function ns.FishingKey_Status()
-	return { keys = Keys(), fishing = fishing, lootOpen = LootOpen(), overridden = #overridden > 0,
-		overriddenKeys = overridden }
+	return { fishing = fishing, lootOpen = LootOpen(), overridden = #overridden > 0, overriddenKeys = overridden }
 end
 
 function ns.FishingKey_Init(moduleDB, owner)

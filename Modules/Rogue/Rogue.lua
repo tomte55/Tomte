@@ -8,19 +8,22 @@ local addonName, ns = ...
 local BUTTONS = 4 -- two lethal and two non-lethal with Dragon-Tempered Blades
 local SIZE, GAP = 40, 6
 local TICK = 5 -- seconds between checks out of combat (counts down "low" poisons, catches them running low)
-local ENTER_DELAY = 4
+local ENTER_DELAY = 4 -- seconds after zoning in before the poison check
 local UI = ns.UI
 local ICON = "Interface\\Icons\\Ability_Rogue_DualWeild"
+-- Global names: the CLICK binding in Bindings.xml needs the first button's.
+local BUTTON_PREFIX = "TomtePoison"
+local BINDING = "CLICK " .. BUTTON_PREFIX .. "1:LeftButton"
+-- What Edit Mode shows: Deadly Poison missing, Crippling Poison with 7 minutes left.
 local PREVIEW = { { spellID = 2823, reason = "missing" }, { spellID = 3408, reason = "low", left = 420 } }
+-- The globals only exist with the deprecation fallbacks loaded.
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
 local GetSpecializationInfo = C_SpecializationInfo.GetSpecializationInfo
 
 local module, db, holder, ticker
 local buttons = {}
 
-local function IsSecret(v)
-	return issecretvalue ~= nil and issecretvalue(v)
-end
+local IsSecret = ns.IsSecret
 
 local function IsRogue()
 	local _, class = UnitClass("player")
@@ -106,7 +109,7 @@ local function ButtonOnEnter(self)
 	GameTooltip:AddLine(p.reason == "low" and ("Runs out in " .. ns.Rogue_FormatLeft(p.left) .. ".")
 		or "Not on your weapons.", UI.RGB(p.reason == "low" and "warning" or "danger"))
 	GameTooltip:AddLine("Click to apply it.", UI.RGB("success"))
-	local key = GetBindingKey("CLICK TomtePoison1:LeftButton")
+	local key = GetBindingKey(BINDING)
 	if key and self:GetID() == 1 then
 		GameTooltip:AddLine("Key: " .. GetBindingText(key), UI.RGB("textMuted"))
 	end
@@ -114,7 +117,7 @@ local function ButtonOnEnter(self)
 end
 
 local function CreateButton(i)
-	local b = CreateFrame("Button", "TomtePoison" .. i, holder, "SecureActionButtonTemplate")
+	local b = CreateFrame("Button", BUTTON_PREFIX .. i, holder, "SecureActionButtonTemplate")
 	b:SetID(i)
 	b:SetSize(SIZE, SIZE)
 	if i == 1 then
@@ -389,6 +392,7 @@ local function Relayout()
 	end
 end
 
+-- The same position as the `frame` default below.
 local function ResetPosition()
 	db.frame.point, db.frame.relPoint, db.frame.x, db.frame.y = "CENTER", "CENTER", 0, -120
 	Relayout()
@@ -427,7 +431,7 @@ module = ns.RegisterModule({
 		lowMinutes = 10,
 		hideResting = false,
 		scale = 1,
-		frame = { point = "CENTER", relPoint = "CENTER", x = 0, y = -120 },
+		frame = { point = "CENTER", relPoint = "CENTER", x = 0, y = -120 }, -- ResetPosition repeats it
 		check = { onEnter = true, onReadyCheck = true, banner = true },
 		chars = {}, -- [player GUID] = { last = { lethal = { spellIDs }, nonLethal = { spellIDs } } }, newest first
 	},
@@ -480,4 +484,4 @@ module = ns.RegisterModule({
 	},
 })
 
-_G["BINDING_NAME_CLICK TomtePoison1:LeftButton"] = "Apply missing poison"
+_G["BINDING_NAME_" .. BINDING] = "Apply missing poison"

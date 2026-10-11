@@ -62,6 +62,8 @@ local function PinFor(node)
 	if C_Map.CanSetUserWaypointOnMap(mapID) then
 		bestID, bestX, bestY = mapID, pos.x, pos.y
 	end
+	-- Down through child maps (continent > zone > city > ...), at most 5 levels: a safety cap so the walk
+	-- always ends.
 	for _ = 1, 5 do
 		local child = C_Map.GetMapInfoAtPosition(mapID, pos.x, pos.y)
 		if not child or child.mapID == mapID then
@@ -164,12 +166,7 @@ local function Stop()
 	Changed()
 end
 
-local function Track(mapID, x, y)
-	ns.SafeTrack(function()
-		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x, y))
-		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
-	end)
-end
+local Track = ns.TrackPin
 
 -- On the pin's continent: your own pin back, tracked. failMap: the route broke on this map, so the pin coming back
 -- isn't routed again from here (that would loop, or say "no route" a second time).
@@ -332,6 +329,8 @@ end
 
 -- Events ---------------------------------------------------------------------------------------------------
 
+-- Next frame, after the game's own handling of the event (the same reason as Waypoint.lua's USER_WAYPOINT_UPDATED),
+-- and several events in one frame make one check.
 local pending
 local function CheckSoon()
 	if pending then
@@ -352,6 +351,7 @@ local resumed
 function events:PLAYER_ENTERING_WORLD()
 	if not resumed then
 		resumed = true
+		-- Next frame, like CheckSoon (presumably so the game's own login handling runs first; not measured).
 		C_Timer.After(0, function()
 			if active then
 				Resume()
@@ -372,6 +372,7 @@ function events:NAVIGATION_DESTINATION_REACHED()
 	local pos = node and PlayerPoint()
 	if pos and pos.map == node[1] then
 		local dx, dy = pos.x - node[2], pos.y - node[3]
+		-- "Near": three times our own standing radius, room for the game's wider arrival radius.
 		if math.sqrt(dx * dx + dy * dy) <= 3 * ns.WAY_ROUTE_AT then
 			reached = route.legNode
 		end

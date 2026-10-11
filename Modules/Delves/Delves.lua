@@ -12,8 +12,8 @@ local NEXT_BOUNTIFUL_CHOICES = {
 	{ value = "always", text = "Always" },
 }
 
-local f = CreateFrame("Frame")
-f:SetScript("OnEvent", function(self, event, ...)
+local events = CreateFrame("Frame")
+events:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
 end)
 
@@ -37,28 +37,28 @@ end)
 
 -- Events ---------------------------------------------------------------------------------------------------------
 
-function f:PLAYER_ENTERING_WORLD()
+function events:PLAYER_ENTERING_WORLD()
 	refreshScan()
 	ns.DelvesRead_Dirty()
 end
-f.ZONE_CHANGED_NEW_AREA = refreshScan
-f.AREA_POIS_UPDATED = refreshScan
+events.ZONE_CHANGED_NEW_AREA = refreshScan
+events.AREA_POIS_UPDATED = refreshScan
 
-function f:CURRENCY_DISPLAY_UPDATE()
+function events:CURRENCY_DISPLAY_UPDATE()
 	ns.DelvesRead_Dirty("keys")
 end
-f.BAG_UPDATE_DELAYED = f.CURRENCY_DISPLAY_UPDATE
+events.BAG_UPDATE_DELAYED = events.CURRENCY_DISPLAY_UPDATE
 
-function f:WEEKLY_REWARDS_UPDATE()
+function events:WEEKLY_REWARDS_UPDATE()
 	ns.DelvesRead_Dirty("vault")
 end
 
-function f:UPDATE_FACTION()
+function events:UPDATE_FACTION()
 	ns.DelvesRead_Dirty("companion")
 end
-f.TRAIT_CONFIG_UPDATED = f.UPDATE_FACTION
-f.DELVES_ACCOUNT_DATA_ELEMENT_CHANGED = f.UPDATE_FACTION
-f.PLAYER_SPECIALIZATION_CHANGED = f.UPDATE_FACTION
+events.TRAIT_CONFIG_UPDATED = events.UPDATE_FACTION
+events.DELVES_ACCOUNT_DATA_ELEMENT_CHANGED = events.UPDATE_FACTION
+events.PLAYER_SPECIALIZATION_CHANGED = events.UPDATE_FACTION
 
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "AREA_POIS_UPDATED", "CURRENCY_DISPLAY_UPDATE",
@@ -69,13 +69,13 @@ local EVENTS = {
 local function Toggle(active)
 	if active then
 		for _, event in ipairs(EVENTS) do
-			f:RegisterEvent(event)
+			events:RegisterEvent(event)
 		end
-		f:RegisterUnitEvent("PLAYER_SPECIALIZATION_CHANGED", "player")
+		events:RegisterUnitEvent("PLAYER_SPECIALIZATION_CHANGED", "player")
 		ns.DelvesScan_Invalidate()
 		ns.DelvesRead_Dirty()
 	else
-		f:UnregisterAllEvents()
+		events:UnregisterAllEvents()
 		ns.DelvesRead_Stop()
 	end
 	ns.DelvesEntrance_Toggle(active)

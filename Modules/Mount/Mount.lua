@@ -3,12 +3,14 @@ local addonName, ns = ...
 -- Smart Mount: one key binding (Tomte > Smart Mount) on a secure button. Out of combat its PreClick looks at the
 -- situation and sets the button up: leave the vehicle, dismount, leave travel form / Ghost Wolf, or cast a mount
 -- picked for where you are (zone favorites, then journal favorites, then every usable mount). In combat the
--- attributes can't change, so entering combat leaves a macro that only gets you out. Rules in Data.lua.
+-- attributes can't change, so entering combat leaves a macro that only gets you out. Picking rules and the action bar
+-- macro's text in Data.lua, the zone favorite star in Journal.lua, the panel's Zones tab in ZonesPage.lua.
 
 local BUTTON_NAME = "TomteSmartMount" -- global: the CLICK binding in Bindings.xml needs it
 local SKYRIDING_AURA = 404464 -- "Flight Style: Skyriding" on the player (confirmed in game)
 local TRAVEL_FORMS = { [783] = true, [210053] = true, [2645] = true } -- Travel Form, Mount Form, Ghost Wolf
-local MAX_DEPTH = 10
+local MAX_DEPTH = 10 -- map levels walked up from where you stand; a guard against a parent loop
+local MOUNT_ICON = "Interface\\Icons\\Ability_Mount_Charger"
 
 local module, db, button
 local lastMount
@@ -105,7 +107,7 @@ local function ZoneFavorites()
 		return nil
 	end
 	local chain, infos = ns.Mount_Chain()
-	local list, mapID = ns.Mount_ZoneList(chain, ns.mountDB.zones)
+	local list, mapID = ns.Mount_ZoneList(chain, db.zones)
 	if not list then
 		return nil
 	end
@@ -210,6 +212,15 @@ local function G99Mount()
 	return nil
 end
 
+-- The mount's spell name when it's usable where you stand, or nil.
+local function StillUsable(mountID)
+	local name, spellID, _, _, isUsable = C_MountJournal.GetMountInfoByID(mountID)
+	if name and isUsable and C_MountJournal.GetMountUsabilityByID(mountID, true) then
+		return C_Spell.GetSpellName(spellID) or name
+	end
+	return nil
+end
+
 local function G99Spell()
 	for _, ability in ipairs(C_ZoneAbility.GetActiveAbilities() or {}) do
 		local name = C_Spell.GetSpellName(ability.spellID)
@@ -221,31 +232,22 @@ local function G99Spell()
 	if not mountID then
 		return nil
 	end
-	local name, spellID, _, _, isUsable = C_MountJournal.GetMountInfoByID(mountID)
-	if name and isUsable and C_MountJournal.GetMountUsabilityByID(mountID, true) then
-		return C_Spell.GetSpellName(spellID) or name
-	end
-	return nil
+	return StillUsable(mountID)
 end
 
 -- LeftButton = the Smart Mount key, RightButton = "normal mount" (its own binding, and Shift + your Smart Mount key).
 -- Modifiers can't be read here: during a binding's click IsShiftKeyDown() is false even with Shift held (measured).
 local downSeen = false
--- The latest clicks the button got (newest first), for /tomte mount why: which ones a key or a mouse click brings.
-local CLICK_LOG_SIZE = 6
-local clickLog = {}
 local function PreClick(_, mouseButton, down)
-	-- Every press brings a down and an up click (the key binding, and the action bar macro's two /click lines). Only
-	-- one of them acts (the down one for a key, the up one for a mouse click), so the up click keeps the down click's
-	-- pick instead of choosing again.
-	local entry = { at = GetTime(), button = tostring(mouseButton), down = down and "down" or "up" }
-	table.insert(clickLog, 1, entry)
-	clickLog[CLICK_LOG_SIZE + 1] = nil
+	-- Every press brings a down and an up click: the key binding (the button is registered for both), and the action
+	-- bar macro's two /click lines when it falls back to clicking the button (Data.lua's Mount_MacroBody: no spell to
+	-- show, or over 255 characters; normally the bar macro casts the mount itself). Only one of them acts (the down
+	-- one for a key, the up one for a mouse click), so the up click keeps the down click's pick instead of choosing
+	-- again.
 	if down then
 		downSeen = true
 	elseif downSeen then
 		downSeen = false
-		entry.note = "kept the down click's pick"
 		return
 	end
 	if InCombatLockdown() then
@@ -290,17 +292,11 @@ end
 
 local function CreateButton()
 	button = CreateFrame("Button", BUTTON_NAME, UIParent, "SecureActionButtonTemplate")
-	button:Hide() -- clicked through the binding or the action bar macro only
-	button:RegisterForClicks("AnyDown", "AnyUp") -- up too: a mouse click on the action bar macro acts on the up click
+	button:Hide() -- clicked through the binding or the action bar macro's /click fallback only
+	-- Up too: a mouse click on the action bar macro's /click fallback acts on the up click.
+	button:RegisterForClicks("AnyDown", "AnyUp")
 	button:SetAttribute("useOnKeyDown", true)
 	button:SetScript("PreClick", PreClick)
-	button:SetScript("PostClick", function(self)
-		local entry = clickLog[1]
-		if entry and not entry.type then
-			entry.type = tostring(self:GetAttribute("type"))
-			entry.macro = tostring(self:GetAttribute("macrotext"))
-		end
-	end)
 end
 
 local events = CreateFrame("Frame")
@@ -338,9 +334,9 @@ local function UpdateShiftBindings()
 	end
 end
 
--- The action bar macro (/tomte mount macro): Tomte keeps its "#showtooltip <mount>" on what the key would summon,
--- so the bar greys it out when you can't mount, like a mount spell on your bar. Only touched while the macro exists
--- and out of combat (macros can't be edited in combat).
+-- The action bar macro (/tomte mount macro): Tomte keeps it showing and casting what the key would summon (text from
+-- Data.lua's Mount_MacroBody), so the bar greys it out when you can't mount, like a mount spell on your bar. Only
+-- touched while the macro exists and out of combat (macros can't be edited in combat).
 local MACRO_NAME = "Smart Mount"
 local MACRO_ICON = 134400 -- the question mark: the icon then follows #showtooltip
 local MAX_GENERAL_MACROS = 120
@@ -379,14 +375,6 @@ local function PickKey()
 		tostring(C_UnitAuras.GetPlayerAuraBySpellID(SKYRIDING_AURA) ~= nil), tostring(zoneMap),
 		list and table.concat(list, ",") or "", tostring(db.preferGround),
 	}, ":")
-end
-
-local function StillUsable(mountID)
-	local name, spellID, _, _, isUsable = C_MountJournal.GetMountInfoByID(mountID)
-	if name and isUsable and C_MountJournal.GetMountUsabilityByID(mountID, true) then
-		return C_Spell.GetSpellName(spellID) or name
-	end
-	return nil
 end
 
 -- The spell the macro shows: the mount you ride, the G-99, or the next pick (kept while it still suits).
@@ -510,26 +498,11 @@ local function SettingChanged()
 	QueueMacroUpdate()
 end
 
-local function Clicks()
-	local index = GetMacroIndexByName(MACRO_NAME)
-	print("  action bar macro: " .. (index > 0 and (GetMacroBody(index) or ""):gsub("\n", " | ") or "none"))
-	if #clickLog == 0 then
-		print("  clicks: none since the last /reload")
-	end
-	local now = GetTime()
-	for _, c in ipairs(clickLog) do
-		print(("  click %.1fs ago: %s %s, type %s, macro %s%s"):format(now - c.at, c.button, c.down,
-			c.type or "-", c.macro or "-", c.note and (" (" .. c.note .. ")") or ""))
-	end
-end
-
 local function Why()
 	if not lastWhy then
 		ns.Print("press the Smart Mount key first.")
-		Clicks()
 		return
 	end
-	Clicks()
 	local w, st = lastWhy, lastWhy.stats
 	if not st then -- the G-99, no mount was picked
 		ns.Print(("%s: %s"):format(w.context, w.macro))
@@ -557,7 +530,7 @@ local function ZoneCommand()
 	local chain, infos = ns.Mount_Chain()
 	local any = false
 	for i, mapID in ipairs(chain) do
-		local list = ns.mountDB.zones[mapID]
+		local list = db.zones[mapID]
 		if list then
 			any = true
 			local names = {}
@@ -587,7 +560,7 @@ end
 
 local AROUND = {
 	kind = "around", key = "mountaround", order = 5, name = "Mount favorites", maxRows = 2,
-	icon = "Interface\\Icons\\Ability_Mount_Charger", openText = "Opens Mount zones",
+	icon = MOUNT_ICON, openText = "Opens Mount zones",
 	open = function()
 		ns.Panel_OpenPage("mountzones")
 	end,
@@ -634,7 +607,7 @@ module = ns.RegisterModule({
 	},
 	init = function(moduleDB)
 		db = moduleDB
-		ns.mountDB = db
+		ns.mountDB = db -- for Journal.lua and ZonesPage.lua; settings resets refill this same table
 		CreateButton()
 		ns.MountJournal_Init()
 	end,
@@ -680,10 +653,10 @@ module = ns.RegisterModule({
 			tooltip = "The key does nothing in the air, so you can't fall off by accident." },
 	},
 	home = {
-		{ kind = "page", key = "mountzones", order = 5, name = "Mount zones", icon = "Interface\\Icons\\Ability_Mount_Charger",
+		{ kind = "page", key = "mountzones", order = 5, name = "Mount zones", icon = MOUNT_ICON,
 			page = ns.MountZonesPage,
 			summary = function()
-				local list = ns.Mount_ZoneList(ns.Mount_Chain(), ns.mountDB.zones)
+				local list = ns.Mount_ZoneList(ns.Mount_Chain(), db.zones)
 				local n = list and #list or 0
 				return n == 1 and "1 zone favorite here" or (n .. " zone favorites here")
 			end },

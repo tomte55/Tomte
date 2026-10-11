@@ -2,17 +2,18 @@ local addonName, ns = ...
 
 -- Gear Check's upgrade reveal: gear that's new to your bags (loot, quest rewards, the vault, mail, trades) and is
 -- a clean upgrade gets a Moments reveal (the "Gear upgrade" type: banner or cinematic with the item icon) and a
--- toast that equips it on click (and an "Equipped" toast once it's worn). New = an item GUID not seen in the bags or worn since login. Items taken out of
--- a bank aren't new. Which items count (best per slot, minimum gain) is in Data.lua.
+-- toast that equips it on click (and an "Equipped" toast once it's worn). New = an item GUID not seen in the bags
+-- or worn since login. Items taken out of a bank aren't new. Which items count (best per slot, minimum gain) is in
+-- Data.lua.
 
-local BAGS = { 0, 1, 2, 3, 4 } -- backpack and the four bags (gear never goes in the reagent bag)
-local EQUIP_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 }
+local BAGS = ns.GEAR_BAGS -- Items.lua
+local EQUIP_SLOTS = ns.GEAR_EQUIP_SLOTS
 local SETTLE = 8 -- seconds after login or a loading screen in which bag items are only noted (bags fill in)
 local RETRY = 1 -- seconds between tries for items that are still loading
 local MAX_TRIES = 12 -- longer than Items.lua's UNREAD_GRACE, so gear that really has no stats gets judged
 local MAX_REVEALS = 3 -- at once (a vault or a mailbox full of gear)
-local TOAST_HOLD = 30
-local EQUIPPED_HOLD = 5
+local TOAST_HOLD = 30 -- seconds the click-to-equip toast stays
+local EQUIPPED_HOLD = 5 -- seconds for the "Equipped" toast
 local EQUIP_WAIT = 60 -- seconds a clicked item may take to be worn (a Bind on Equip popup waits for you)
 local P = Enum.PlayerInteractionType
 local BANKS = { [P.Banker] = true, [P.GuildBanker] = true, [P.CharacterBanker] = true, [P.AccountBanker] = true,
@@ -183,9 +184,8 @@ local function Reveal(item)
 	end
 end
 
--- Judges the given bag items and reveals the best per slot. Returns how many were revealed; nil when some
--- weren't loaded yet (they're left in `notReady`). An item or worn gear read without stats (unread: its bonus data
--- hadn't arrived) isn't judged yet either: it would score 0, or make the new item a "replaces no stats" upgrade.
+-- Whether the item or any worn gear was read without stats (unread: its bonus data hadn't arrived). Such an item
+-- isn't judged yet: it would score 0, or make the new item a "replaces no stats" upgrade.
 local function Unread(cand, equipped)
 	if cand.unread then
 		return true
@@ -198,6 +198,8 @@ local function Unread(cand, equipped)
 	return false
 end
 
+-- Judges the given bag items and reveals the best per slot (at most MAX_REVEALS). Returns how many qualified; items
+-- not loaded or unread yet go into notReady (when given) instead.
 local function Judge(list, notReady)
 	local judged = {}
 	for _, item in ipairs(list) do

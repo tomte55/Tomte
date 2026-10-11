@@ -31,8 +31,6 @@ local function wrap(word)
 	return "<" .. word .. ">"
 end
 
--- Keywords --------------------------------------------------------------------------------------------
-
 test("BuildKeywords: profession names and abbreviations", function()
 	local words = ns.Chat_BuildKeywords({ { name = "Blacksmithing", skillLine = 164 }, { name = "Mining", skillLine = 186 } }, true, "")
 	for _, w in ipairs({ "blacksmithing", "bs", "smith", "blacksmith", "mining", "miner", "ore" }) do
@@ -64,8 +62,6 @@ test("BuildKeywords: professions off, unknown skill line, empty", function()
 	eq(#ns.Chat_BuildKeywords(nil, true, nil), 0, "nil")
 end)
 
--- Decide ------------------------------------------------------------------------------------------------
-
 test("Decide: keyword shows, no keyword hides, ignore word hides", function()
 	local kw, ignore = { "bs", "blacksmithing" }, { "wts", "boost" }
 	eq(ns.Chat_Decide("LF BS for crafting order", kw, ignore), true)
@@ -80,8 +76,6 @@ test("Decide: keyword inside an item link counts", function()
 	local text = "WTB |cffffffff|Hitem:12359::::::::80|h[Thorium Bar]|h|r x20"
 	eq(ns.Chat_Decide(text, { "thorium" }, {}), true)
 end)
-
--- Highlight ----------------------------------------------------------------------------------------------
 
 test("Highlight: whole words, original case kept", function()
 	eq(ns.Chat_Highlight("LF BS, need a bs now", { "bs" }, wrap), "LF <BS>, need a <bs> now")
@@ -105,8 +99,6 @@ end)
 test("Highlight: no words, no change", function()
 	eq(ns.Chat_Highlight("hello", {}, wrap), "hello")
 end)
-
--- Tags ---------------------------------------------------------------------------------------------------
 
 test("ParseLabels", function()
 	local labels = ns.Chat_ParseLabels("Trade=T, Services = Srv,bad, Guild=Gu,=x")

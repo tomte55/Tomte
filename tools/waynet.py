@@ -1,7 +1,7 @@
 """Builds Modules/Travel/Network.lua from Blizzard's waypoint tables (the network the game uses to route quests
 through portals, zeppelins and tunnels), read from wago.tools CSV exports. Dev-only, not in the release zip.
 
-    python tools/waynet.py <build> [csv-dir]
+    python -I tools/waynet.py <build> [csv-dir]
 
 <build> is the client build, e.g. 12.1.0.69933. With no csv-dir the tables are downloaded into a temp folder.
 Tables: WaypointNode, WaypointEdge, WaypointSafeLocs, WaypointMapVolume, PlayerCondition, ModifierTree.
@@ -172,30 +172,34 @@ class Compiler:
         return UNKNOWN if expr is True else ["and", expr, UNKNOWN]
 
     def leaf(self, r):
+        """A ModifierTree row with a Type: the check it makes on Asset (a) and SecondaryAsset (b). Every other type
+        is unknown to the script."""
         t, a, b = int(r["Type"]), int(r["Asset"]), int(r["SecondaryAsset"])
-        if t == 2:
+        if t == 2:  # meets PlayerCondition a
             return self.condition(a)
-        if t == 73:
+        if t == 73:  # meets ModifierTree a
             return self.tree(str(a))
-        if t == 116:
+        if t == 116:  # faction: a = 0 Horde, else Alliance
             return ["faction", "Horde" if a == 0 else "Alliance"]
-        if t == 26:
+        if t == 26:  # class ID a
             return ["class", [a]]
-        if t == 84:
+        if t == 84:  # on quest a
             return ["onquest", a]
-        if t == 110:
+        if t == 110:  # quest a completed
             return ["quest", a]
-        if t == 111:
+        if t == 111:  # quest a ready to turn in
             return ["ready", a]
-        if t == 271:
+        if t == 271:  # quest a completed or on it
             return ["questor", a]
-        if t == 369:
+        if t == 369:  # quest a completed or on it, and quest b neither
             return AND([["questor", a], NOT(["questor", b])])
-        if t == 86:
+        if t == 86:  # achievement a earned
             return ["ach", a]
         return UNKNOWN
 
     def tree(self, tid):
+        """Operator 3 negates the row (NOT), 8 needs at least Amount of the children (OR when Amount is 1); any
+        other operator on a parent row is read as all children (AND)."""
         r = self.mt.get(str(tid))
         if not r:
             return UNKNOWN
@@ -249,6 +253,8 @@ def build(data, build_id):
     for r in data["WaypointEdge"]:
         if r["Start"] in nodes and r["End"] in nodes:
             cond = comp.condition(r["PlayerConditionID"])
+            # Field_8_1_5_29281_005 is the edge's cost (an unnamed column in the export, named after the build it
+            # first appeared in).
             if cond is not False:
                 edges.append((int(r["Start"]), int(r["End"]), num(r, "Field_8_1_5_29281_005"), cond))
     volumes = {}

@@ -29,10 +29,6 @@ events:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
 end)
 
-local function Options()
-	return { show = db.show, worth = db.worth, collapsed = {}, maxLevel = ns.WQ_MaxLevel() }
-end
-
 -- Redraws an open tab, debounced (QUEST_LOG_UPDATE and item info come in bursts).
 local function RefreshSoon()
 	if refreshTimer or not ns.WQTab_IsShown() then
@@ -61,7 +57,7 @@ local function WorthToasting()
 		return nil
 	end
 	local list = {}
-	for _, section in ipairs(ns.WQ_Sections(quests, Options())) do
+	for _, section in ipairs(ns.WQ_Sections(quests, ns.WQ_Options())) do
 		if section.key == "worth" then
 			for _, q in ipairs(section.quests) do
 				if TOAST_REASONS[q.reason] and not toasted[q.id] then
@@ -158,13 +154,9 @@ local function Here()
 		ns.Print("no zone here.")
 		return
 	end
-	local opts = Options()
-	local shown = 0
-	local sections = ns.WQ_Sections(quests, opts)
-	for _, s in ipairs(sections) do
-		shown = shown + #s.quests
-	end
-	ns.Print(("%s (%s): %d world quests, %d listed, %d still loading."):format(name, kind, #quests, shown, pending))
+	local sections = ns.WQ_Sections(quests, ns.WQ_Options())
+	ns.Print(("%s (%s): %d world quests, %d listed, %d still loading."):format(name, kind, #quests,
+		ns.WQ_Count(sections), pending))
 	for _, s in ipairs(sections) do
 		print("  " .. s.title .. ":")
 		for _, q in ipairs(s.quests) do
@@ -217,10 +209,7 @@ module = ns.RegisterModule({
 				if not quests then
 					return nil
 				end
-				local n = 0
-				for _, s in ipairs(ns.WQ_Sections(quests, ns.WQ_Options())) do
-					n = n + #s.quests
-				end
+				local n = ns.WQ_Count(ns.WQ_Sections(quests, ns.WQ_Options()))
 				return n == 1 and "1 world quest around here" or (n .. " world quests around here")
 			end },
 		{ kind = "next", key = "nextwq", name = "World quests worth doing", score = 80,
@@ -259,11 +248,7 @@ module = ns.RegisterModule({
 				if not quests then
 					return "World quests: none on this map"
 				end
-				local n = 0
-				for _, s in ipairs(ns.WQ_Sections(quests, ns.WQ_Options())) do
-					n = n + #s.quests
-				end
-				return ("World quests: %d here"):format(n)
+				return ("World quests: %d here"):format(ns.WQ_Count(ns.WQ_Sections(quests, ns.WQ_Options())))
 			end,
 			-- The tab's own order: worth-it rewards first.
 			items = function(limit)

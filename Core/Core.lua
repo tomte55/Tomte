@@ -4,7 +4,8 @@ local addonName, ns = ...
 -- (Modules.lua); everything is started here on ADDON_LOADED.
 
 ns.VERSION = C_AddOns.GetAddOnMetadata(addonName, "Version") or "?" -- the TOC's ## Version
--- Panel title bar and minimap button. The TOC's IconTexture is set separately (it can't read this).
+-- Tomte's logo, wherever Tomte shows its own icon (panel title bar, minimap button, Home, toasts, feed rows without
+-- one). The TOC's IconTexture is set separately (it can't read this).
 ns.ICON = "Interface\\AddOns\\Tomte\\Media\\Logo" -- Media/Logo.svg is the source
 ns.ownFrames = {} -- our frames on WorldFrame that the cinematic must not hide (bar, letterbox)
 ns.errorHandler = function(err)
@@ -13,7 +14,9 @@ end
 
 local CORE_DEFAULTS = {
 	enabled = {}, -- [moduleKey] = bool, only for modules the user has toggled
-	panel = { collapsed = {} }, -- also layout = saved size and position, selected = module key
+	-- also layout = saved size and position, selected = module key, last = { view, page, at } when the window
+	-- closed (Panel/Panel.lua reopens there for a while)
+	panel = { collapsed = {} },
 	cinematic = {}, -- engine-owned (musicVolumeBackup, pitchLimitBackup)
 	toast = {}, -- social toasts: point = saved position
 	setup = {}, -- first-run picker (Core/Setup.lua, Panel/Setup.lua): state = "pending" | "done", preset = last applied
@@ -50,12 +53,36 @@ function ns.ResetAll()
 end
 
 -- "Tomte: " in the accent color, built when used: the theme is only chosen on ADDON_LOADED.
-function ns.Prefix()
+local function Prefix()
 	return ns.Theme.Wrap("Tomte", "accent") .. ": "
 end
 
 function ns.Print(msg)
-	print(ns.Prefix() .. msg)
+	print(Prefix() .. msg)
+end
+
+-- Smoothstep easing: 0..1 -> 0..1, slow at both ends. Doesn't clamp p; callers that can overshoot clamp first.
+function ns.Smoothstep(p)
+	return p * p * (3 - 2 * p)
+end
+
+-- When this week began (server time): the next weekly reset minus a week. nil when the client gives no reset time.
+function ns.WeekStart()
+	local left = C_DateAndTime.GetSecondsUntilWeeklyReset()
+	if not left then
+		return nil
+	end
+	return GetServerTime() + left - 7 * 86400
+end
+
+-- 12.x secret values (opaque to tainted code). IsSecret is false on clients without issecretvalue; Readable is
+-- true when every argument can be read (always on clients without canaccessallvalues).
+function ns.IsSecret(v)
+	return issecretvalue ~= nil and issecretvalue(v)
+end
+
+function ns.Readable(...)
+	return not canaccessallvalues or canaccessallvalues(...)
 end
 
 local f = CreateFrame("Frame")
@@ -83,6 +110,16 @@ end
 -- A pin change is waiting for the end of combat (the map's pin isn't the one we placed yet).
 function ns.SafeTrack_Waiting()
 	return afterCombat ~= nil
+end
+
+-- A map pin at x, y (0..1) on mapID, super-tracked so Blizzard's arrow and Waypoints show it, through SafeTrack.
+-- Returns true when placed now, false when it waits for the end of combat. The caller checks
+-- C_Map.CanSetUserWaypointOnMap first.
+function ns.TrackPin(mapID, x, y)
+	return ns.SafeTrack(function()
+		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x, y))
+		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	end)
 end
 
 function f:PLAYER_REGEN_ENABLED()
@@ -200,7 +237,8 @@ SlashCmdList.TOMTE = function(msg)
 	elseif word == "help" then
 		PrintHelp()
 	elseif word == "version" then
-		ns.Print(("version %s, game %s (%s)."):format(ns.VERSION, GetBuildInfo(), select(2, GetBuildInfo())))
+		local gameVersion, build = GetBuildInfo()
+		ns.Print(("version %s, game %s (%s)."):format(ns.VERSION, gameVersion, build))
 	elseif word == "data" then
 		ns.Content_Report()
 	elseif word == "setup" then

@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
--- Small drawing helpers shared by the cinematic scenes (flight, AFK): text, divider lines and a
--- fade-out/swap/fade-in group used for rotating stat pages. Colors and fonts are theme roles (Core/Theme.lua).
+-- Small drawing helpers shared by the cinematic scenes (flight, AFK, recap, moments): text, divider lines and a
+-- fade-out/swap/fade-in group used for rotating stat pages. ns.Spaced and ns.SceneLine are also used outside the
+-- scenes (engine hint, banner, showcase, module titles). Colors and fonts are theme roles (Core/Theme.lua).
 
 local SWAP_FADE = 0.3 -- cross-fade half time
 

@@ -11,6 +11,7 @@ local addonName, ns = ...
 ns.EVENTS_INDEX = ns.Events_Index(ns.EVENTS_DEFS)
 
 local CACHE_SECONDS = 60
+local DEFAULT_SOON_DAYS = 7 -- before Events_Init (and the module default)
 local FILTER_CVARS = {
 	{ cvar = "calendarShowHolidays", what = "Holidays" },
 	{ cvar = "calendarShowDarkmoon", what = "Darkmoon Faire" },
@@ -24,9 +25,7 @@ function ns.Events_Init(moduleDB)
 	db = moduleDB
 end
 
-local function Secret(value)
-	return issecretvalue ~= nil and issecretvalue(value)
-end
+local Secret = ns.IsSecret
 
 local function Lockdown()
 	return C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown()
@@ -115,12 +114,13 @@ end
 local function Build()
 	local s = { list = {}, bosses = {}, timewalking = nil, hidden = Filters(), at = GetTime() }
 	local now = C_DateAndTime.GetCurrentCalendarTime()
-	local rows = ns.Events_ReadRows(db and db.soonDays or 7)
+	local soonDays = db and db.soonDays or DEFAULT_SOON_DAYS
+	local rows = ns.Events_ReadRows(soonDays)
 	if not rows then
 		s.lockdown = true
 		rows = {}
 	end
-	local list = now and now.monthDay and ns.Events_Collect(rows, now, (db and db.soonDays or 7) * 1440, ns.EVENTS_INDEX) or {}
+	local list = now and now.monthDay and ns.Events_Collect(rows, now, soonDays * 1440, ns.EVENTS_INDEX) or {}
 	local bosses, tw = ns.Events_SplitDungeons(ns.Events_ReadDungeons(), ns.EVENTS_INDEX.byLFG)
 	local twEvent = tw and ns.Events_Timewalking(tw, C_DateAndTime.GetSecondsUntilWeeklyReset(), ns.EVENTS_TIMEWALKING)
 	list = ns.Events_FoldTimewalking(list, twEvent, ns.EVENTS_TW_TEXTURES)
@@ -148,15 +148,6 @@ end
 
 function ns.Events_Invalidate()
 	state = nil
-end
-
-function ns.Events_Find(key)
-	for _, ev in ipairs(ns.Events_Current().list) do
-		if ev.key == key then
-			return ev
-		end
-	end
-	return nil
 end
 
 -- The names a holiday goes by on this client: the calendar's, its achievement category's and its maps'.
@@ -193,6 +184,8 @@ function ns.Events_BossesFor(ev)
 	return out
 end
 
+-- The character's professions (archaeology, fishing and cooking too): a list of skill lines and
+-- [skillLine] = localized name.
 local function SkillLines()
 	local lines, names = {}, {}
 	local p1, p2, arch, fish, cook = GetProfessions()
@@ -207,6 +200,7 @@ local function SkillLines()
 	end
 	return lines, names
 end
+ns.Events_SkillLines = SkillLines
 
 local function QuestTitle(questID)
 	local title = C_QuestLog.GetTitleForQuestID(questID)
@@ -242,7 +236,7 @@ function ns.Events_DarkmoonNow()
 	return rows
 end
 
--- Opens the Dungeon Finder, with the boss selected unless that's turned off. Never queues.
+-- Opens the Dungeon Finder, with the boss selected only when the opt-in selectInFinder setting is on. Never queues.
 function ns.Events_OpenFinder(dungeonID)
 	if InCombatLockdown() then
 		ns.Print("after combat: open the Dungeon Finder.")

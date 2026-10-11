@@ -1,8 +1,9 @@
 local addonName, ns = ...
 
 -- Next up: pure ranking (unit-tested with plain Lua). Sources are module.home entries of kind "next"; each returns
--- candidates { key, text, why, icon, right, state, bonus, onClick, stay }. The final score is the source's priority
--- (the user's setting, else the entry's own score) plus bonus/10 (0-9, the order inside one source).
+-- candidates { key, text, why, icon, right, color, rightColor, hint, state, bonus, onClick, stay }. The final score is
+-- the source's priority (the user's setting, else the entry's own score) plus bonus/10 (0-9, the order inside one
+-- source).
 
 -- lists: { { source = entry key, score = default priority, items = { candidates } } }
 -- opts: { enabled = { [source] = false to skip }, priority = { [source] = 0-100 }, dismissed = { [key] = state|true },

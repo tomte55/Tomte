@@ -18,7 +18,7 @@ Works better with (all optional): Baganator + Syndicator, Auctionator or TradeSk
 
 ## What it does
 
-One addon with toggleable modules. Type `/tomte` to open the settings panel (also from the minimap
+One addon with toggleable modules. Type `/tomte` to open the Tomte window (also from the minimap
 button, the addon compartment or a key binding), or `/tomte help` for all commands. `/tomte version` (also in the window's title bar) says which version you
 have: mention it when you report a bug. The panel is resizable and remembers its
 size and position.
@@ -44,7 +44,7 @@ are Tomte window settings.
 
 | Module | Category | What it does |
 | --- | --- | --- |
-| Pet Battles | General | Help to win pet battles. In a battle, a helper shows the enemy team, which attack types hit the active enemy hard, its attack types, your best pet against it ("Swap to X?") and, in wild battles, rare pets you don't own yet. Talking to a pet tamer shows a card with the team Tomte will use, whether your pets are ready (dead, hurt, too low, missing), Load team, Heal (Revive Battle Pets or a bandage) and Xu-Fu's Pet Guides and Wowhead links. Paste strategies from Xu-Fu (a strategy's "Rematch string"): Load team picks your best copy of each pet and sets the abilities, the steps show during the fight, and a Next move button (key in Key Bindings > Tomte) plays the strategy's script, one press per action. A leveling slot swaps in the next pet from a queue once one reaches 25. A Pet Battles page lists every tamer fight (524, from Xu-Fu), your teams, the leveling queue and a type chart. |
+| Pet Battles | General | Help to win pet battles. In a battle, a helper shows the enemy team, which attack types hit the active enemy hard, its attack types, your best pet against it ("Swap to X?") and, in wild battles, rare pets you don't own yet. Talking to a pet tamer shows a card with the team Tomte will use, whether your pets are ready (dead, hurt, too low, missing), Load team, Heal (Revive Battle Pets or a bandage) and Xu-Fu's Pet Guides and Wowhead links. Paste strategies from Xu-Fu (a strategy's "Rematch string"): Load team picks your best copy of each pet and sets the abilities, the steps show during the fight, and a Next move button (key in Key Bindings > Tomte) plays the strategy's script, one press per action. A leveling slot swaps in the next pet from a queue once one reaches 25. A Pet Battles page lists every tamer fight on Xu-Fu's Pet Guides (524), your teams, the leveling queue and a type chart. |
 | Minimap Button | General | A button on the minimap's edge that opens the panel (right-click: the Weekly board popup). Drag it to move it. |
 | Next up | General | A short ranked list on Home of the best things to do right now: Great Vault rewards waiting, a rare up that drops a mount or pet you're missing, low durability, full Concentration, world quests worth doing, a vault slot one activity away, achievements one step from done, open knowledge sources, materials for your alts. Click one to start it (waypoint, track, open), right-click for "not now". Placement, rows, sources and their priority are settings. |
 | Recent | General | Every toast and banner also goes into a Recent list (a rail page with a quick action that counts what's new, or a block on Home), so one you missed can be read and clicked later. Saved across reloads, account-wide or per character, per-toast-type filters, optional dot on the minimap button. |
@@ -53,7 +53,9 @@ are Tomte window settings.
 | Alts | General | Every character at a glance and crafting across them (who makes it, materials and where, crafts in order). Send to alt: at a mailbox a "For your alts" panel attaches and sends what your other characters craft with (12 stacks a mail), and at the bank "Deposit for alts" puts it in the Warband bank. Manual rules and gold top-ups are settings. Crafting list: add a craft with its amount from the Crafting tab, and a tracker on screen says what the character you're on has to do ("Grab 10 Iron Ingot from your bank", "Mail 20 Mycobloom to Mira", "Craft 3 Flask: you have everything"); the mailbox sends each craft's exact materials, Baganator marks the items to move, and crafts count down as you make them. With Auctionator, a "Shopping list" link on the materials headings makes an Auctionator shopping list of what's missing. Recipe items (patterns, plans...) say on their tooltip who knows the recipe or who could learn it. "Gear for" in the Crafting tab keeps only what one character can use (their armor type, weapons their class equips, their main stat, tools for their professions), "you" follows whoever is logged in, and each row marks how the craft's item level compares with what they wear (green +n at every quality, yellow +n only at the higher qualities). Profession gear: a Profession gear tab shows each character's tool and accessories per profession with the best one somebody can craft when it's an upgrade (click to open it in the Crafting tab), "Gear for" marks tools and accessories too, the mailbox's "Gear for <name>" groups include profession gear from your bags that's an upgrade for another character, and a Next up suggestion says when a better tool or accessory can be crafted with the materials on hand. Profession gear is compared by item level; its stats are shown, not weighed. The detailed Characters view shows each max-level character's Great Vault and Concentration (from Weekly); an unlit profession icon says who has a free profession slot; totals include the Warband bank's gold. Each character's worn gear and spec are stored for Gear Check's upgrades for alts: at the mailbox a "Gear for Mira" group attaches the Bind on Equip upgrades for that character, and "Deposit for alts" puts warbound ones in the Warband bank. |
 | Gathering | General | Tracks gathering runs (mining, herbalism, skinning, fishing): nodes and nodes per hour, items with their quality rank, value and gold per hour (from Gold & value), rare finds, skill and knowledge gained, and zones. A run starts with your first gather and ends after 10 minutes without one. A small tracker (Edit Mode moves it), a toast when a run ends, a Gathering page (runs, items, zones), and the recap card and Sessions page show what you gathered. |
 | Fishing | General | One key (Key Bindings > Tomte > Fishing) casts, and while the bobber is out the same key reels in and loots. Auto loot while fishing, and a press while the loot window is open does nothing. Tomte turns on the game's interact setting while you fish and puts it back after. Optional (settings): louder splash (music and ambience down, effects up), a fishing raft when you're swimming, the Oversized Bobber toy, dismount with the key, and an on-screen button. Replaces Angleur's One Key. |
+| World quests | World | A tab in the world map's side panel with the world quests on the map you're looking at, grouped by reward and sorted by what they're worth: missing mounts, pets and toys and real gear upgrades (from Gear Check) on top, then gear, gold, currencies and reputation, with time left. Click one to track it. A toast when you arrive in a zone with one worth doing. |
 | Delves | World | Today's bountiful delves (click one to track it with the Waypoints marker, or a routed map pin on another continent), your Restored Coffer Keys and shards, which delve tier raises your Great Vault's World slots, and your companion's level, role and curios. A note beside Blizzard's tier picker at a delve entrance, a Delves block in Around you, Next up suggestions (bountiful delves while you hold a key, or always) and a companion level moment. |
+| Collect here | Collections | A tab in the world map's side panel with the mounts and battle pets (from the journals' source text) and achievements still missing on the map you're looking at. A toast when you arrive in a zone with mounts or pets left, and when a rare that drops one is up. |
 | Holidays & events | Collections | The world events on now and starting soon, what you're still missing from each holiday (mounts, battle pets, toys, achievements), the holiday's daily boss and the Darkmoon Faire profession quests. On Home, on an Events page, in Next up, in the Weekly board's "Still open" list, and as a toast when a holiday starts (optionally a day before). |
 | Flight Timer | Travel | Times flight paths account-wide and shows a countdown while flying, with an optional cinematic flight mode. Coverage tab and a flight master map show which routes you've timed. |
 | Waypoints | Travel | An in-world marker for whatever you track (quest, map pin, POI, rare, corpse): icon, optional beam, name, distance and arrival time. Up close it turns into a card with the objectives; off-screen, an arrow at the edge points to it. Classic or Minimal style. Map pins are tracked as soon as you place them, a map pin on another continent is routed through the portals, zeppelins and boats on the way, and a guard's directions can become a map pin (Never, Ask or Always). Replaces WaypointUI. |
@@ -117,12 +119,13 @@ Cinematic/   shared cinematic engine and banners
 Panel/       Tomte window, settings and widgets
 Themes/      one file per theme (colors, fonts and art by role, registered with ns.Theme.Register)
 Media/       logo, theme art and fonts (with their OFL licenses)
-Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Combat, Social, Gear, Achievements,
-             Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value, Minimap, Pets,
-             Fishing, Gather, Delves, Holidays)
+Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Rogue, Combat, Social, Chat, Gear,
+             Achievements, Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value,
+             Minimap, Pets, Fishing, Gather, Delves, Holidays)
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 tools/       dev scripts (waynet.py builds Modules/Travel/Network.lua from Blizzard's waypoint tables, events.py
-             builds Modules/Holidays/Generated.lua from the client's toy and holiday tables)
+             builds Modules/Holidays/Generated.lua from the client's toy and holiday tables, theme_art.py and themes/
+             build the themes' art and fonts, bugfiles.lua regenerates Core/BugFiles.lua)
 docs/        design specs and implementation plans
 ```
 
@@ -130,7 +133,8 @@ docs/        design specs and implementation plans
 
 ## Tests
 
-Run from the folder above the repo (the `AddOns` folder) with a standalone Lua interpreter:
+Run from the folder above the repo (the `AddOns` folder) with a standalone Lua interpreter (the release workflow uses
+Lua 5.1, the game's version):
 
 ```sh
 for t in Tomte/tests/test_*.lua; do lua "$t"; done
@@ -164,6 +168,7 @@ or modules, major for changes that reset or break settings.
 - Almost Done follows [Almost Completed Achievements](https://www.curseforge.com/wow/addons/almost-completed-achievements);
   Waypoints follows [WaypointUI](https://github.com/Adaptvx/Waypoint-UI); Gear Check reads the
   [Pawn](https://www.curseforge.com/wow/addons/pawn) scale string format that Raidbots exports. No code from them.
+  Almost Done's meta achievement IDs come from Almost Completed Achievements' meta list (IDs only).
 - Profession weekly IDs and places from WeeklyKnowledge.
 - Built-in stat weights: Midnight from SimulationCraft sims published by mythicsim.com for damage and tank specs and
   the Icy Veins and Method guides for healers; The War Within (Season 3) from the Icy Veins stat priority guides.
@@ -176,13 +181,13 @@ or modules, major for changes that reset or break settings.
   and [SpartanUI](https://github.com/spartanui-wow/SpartanUI); the G-99 Breakneck's spell IDs from
   [LiteMount](https://github.com/xod-wow/LiteMount)'s notes. Flyout and achievement category IDs from the game data
   on [wago.tools](https://wago.tools).
-
-- Pet Battles: the tamer list maps NPC ids to encounter pages of [Xu-Fu's Pet Guides](https://www.wow-petguide.com)
-  (ids only; Tomte links to the site and never ships its strategies, which you paste in yourself). Team strings follow
+- Pet Battles: the tamer list takes from [Xu-Fu's Pet Guides](https://www.wow-petguide.com) its encounter page ids,
+  the game's NPC ids for each fight, its section names and the English encounter names. No strategies: Tomte links to
+  the site, and strategies are pasted in by you. Team strings follow
   the format [Rematch](https://www.curseforge.com/wow/addons/rematch) and Xu-Fu share. The script interpreter is Tomte's
   own implementation of the [Pet Battle Scripts](https://github.com/axc450/pbs) language (MIT; formerly
   tdBattlePetScript), written from its documented behavior. No code from either addon.
-- Fishing: the fishing channel spell IDs and the bobber object ID come from
+- Fishing: the fishing channel spell IDs come from
   [Angleur](https://www.curseforge.com/wow/addons/angleur) by LegolandoBloom (IDs only; no code taken).
 - Gathering: gathering spell IDs as listed in [GatherMate2](https://github.com/Nevcairiel/GatherMate2)'s collector and
   on Wowhead (IDs only).
@@ -190,7 +195,6 @@ or modules, major for changes that reset or break settings.
   (IDs only); Midnight map IDs also from RareScanner.
 - Holidays & events: holiday, Dungeon Finder, achievement category and toy source data from the client's tables on
   [wago.tools](https://wago.tools); Darkmoon Faire quest IDs from warcraft.wiki.gg.
-
 - Fonts: [Cinzel](https://github.com/NDISCOVER/Cinzel) by Natanael Gama and
   [Alegreya](https://github.com/huertatipografica/Alegreya) by Juan Pablo del Peral (Huerta Tipográfica), both under
   the SIL Open Font License 1.1 (texts in `Media/Fonts`). `AlegreyaNumbers-Regular.ttf` is a modified Alegreya with

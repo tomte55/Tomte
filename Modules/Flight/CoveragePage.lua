@@ -1,8 +1,8 @@
 local addonName, ns = ...
 
--- Coverage tab of the Flight Timer entry in the panel: how many flight masters have a recorded time, as
--- continents > zones > flight masters (click a continent or zone to expand it). Rebuilt every time the tab
--- is shown, so a flight that just landed counts.
+-- Flight Timer: the "Flight coverage" page on Home (registered in Flight.lua): how many flight masters have a
+-- recorded time, as continents > zones > flight masters (click a continent or zone to expand it). The data comes
+-- from Atlas.lua and Coverage.lua and is rebuilt after a flight or once it's REBUILD_AFTER seconds old.
 
 local UI = ns.UI
 local ROW_H, NODE_H = 22, 18
@@ -11,7 +11,7 @@ local INDENT_ZONE, INDENT_NODE = 14, 30
 local STATE_ROLE = { timed = "accent", known = "text", undiscovered = "textFaint" }
 local STATE_TEXT = { timed = "", known = "no time yet", undiscovered = "undiscovered" }
 
-local REBUILD_AFTER = 30 -- seconds
+local REBUILD_AFTER = 30 -- seconds before the data is rebuilt even without a new flight
 
 local page
 local data
@@ -22,7 +22,7 @@ local rows, used = {}, 0
 local Layout
 
 -- "Dornogal, Isle of Dorn" -> "Dornogal" (the zone is the row above)
-local function Place(name)
+local function PlaceName(name)
 	return name:match("^(.-),") or name
 end
 
@@ -60,10 +60,7 @@ local function NewRow()
 	row.dot = row:CreateTexture(nil, "ARTWORK")
 	row.dot:SetColorTexture(1, 1, 1, 1)
 	row.dot:SetSize(6, 6)
-	local mask = row:CreateMaskTexture()
-	mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-	mask:SetAllPoints(row.dot)
-	row.dot:AddMaskTexture(mask)
+	UI.CircleMask(row.dot, row)
 	row:SetScript("OnEnter", function(self)
 		self.hover:SetShown(self.onClick ~= nil)
 	end)
@@ -140,7 +137,7 @@ local function NodeRow(y, node)
 	row.name:ClearAllPoints()
 	row.name:SetPoint("LEFT", row.dot, "RIGHT", 8, 0)
 	row.name:SetPoint("RIGHT", row.extra, "LEFT", -8, 0)
-	row.name:SetText(Place(node.name))
+	row.name:SetText(PlaceName(node.name))
 	UI.SetTextRole(row.name, role)
 	return row
 end

@@ -76,8 +76,9 @@ function ns.ResetModuleSettings(module)
 	ns.MergeDefaults(defaults, db) -- in place: modules keep their reference to module.db
 end
 
--- Every module's settings, which modules are on, and the window's place and layout. coreDefaults: Core.lua's.
--- TomteDB.cinematic (the engine's music volume and pitch limit backups) is kept.
+-- Every module's settings (as above), which modules are on (enabled), the window's place and layout (panel) and the
+-- social toast's position (toast). coreDefaults: Core.lua's. Every other top-level key is kept: cinematic (the
+-- engine's music volume and pitch limit backups), setup, bugs, profileBackup, schema and the session data.
 function ns.ResetAllSettings(db, coreDefaults)
 	for _, module in ipairs(ns.modules) do
 		ns.ResetModuleSettings(module)
@@ -111,12 +112,21 @@ function ns.RegisterModule(module)
 	return module
 end
 
--- Home entries (module.home): kind "page" (a page in the Tomte window), "map" (opens a world map tab) or "quick"
--- (an action button). An entry shows while its module is active and its optional shown() is true.
--- A page entry may have pill() -> n: a count on its rail row (same contract as a quick action's count: cheap,
--- existing state only, called through ns.HomeCall); shown above 0 while "Counts on the rail" is on, pillTip says
--- what it counts in the row's tooltip.
--- A module's summary/count/shown/items: errors go to BugSack and count as "nothing".
+-- Home entries (module.home). Every entry has kind, a unique key, optional order (sort key, default 100) and optional
+-- shown(); it shows while its module is active and shown() (if any) is true. By kind (Panel/Home.lua, Panel/Panel.lua):
+--   "page"     a page in the Tomte window and a rail row: name, icon or atlas, page = { Create(frame), Refresh(frame) },
+--              summary() (rail tooltip), pill() -> n and pillTip (a count on its rail row, shown above 0 while
+--              "Counts on the rail" is on; cheap, existing state only)
+--   "map"      a rail row that opens a world map tab: name, icon or atlas, summary(), open()
+--   "quick"    an action button under the hero: name, count() -> n (shown above 0), open()
+--   "around"   a block in Home's "Around you" column: name, icon, title() ("Name: counts"), items(limit) -> rows
+--              { icon, text, color, right, rightColor, onEnter, onClick }, maxRows, keepEmpty, open(), openText
+--              (the heading's tooltip); the user can untick it in the Tomte window settings
+--   "section"  a Home section that draws itself: slot ("week", "characters", "next", "recent", "events"; the first
+--              entry per slot wins), Create(frame, kit), Refresh(frame) -> wanted height
+--   "next"     a Next up source (Modules/NextUp): name, candidates(now), score
+-- A module's summary/count/shown/items/...: called through ns.HomeCall, so errors go to BugSack and count as
+-- "nothing".
 function ns.HomeCall(fn, ...)
 	if not fn then
 		return nil
@@ -248,6 +258,8 @@ function ns.RefreshModule(module)
 	end
 end
 
+-- Core.lua has already set ns.db and merged its defaults; the tests call this directly with a bare table, so it
+-- sets ns.db and db.enabled itself.
 function ns.InitModules(db)
 	ns.db = db
 	db.enabled = db.enabled or {}

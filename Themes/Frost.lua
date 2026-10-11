@@ -11,11 +11,9 @@ local ART = Theme.MEDIA .. "Theme\\Frost\\"
 local FORUM = Theme.MEDIA .. "Fonts\\FrostForum-Regular.ttf"
 
 -- Forum has Latin and Cyrillic; Korean and Chinese keep the client's fonts.
-local CLIENT_FONTS = { koKR = true, zhCN = true, zhTW = true }
-
 local function Fonts(locale)
 	local fonts = Theme.ClientFonts()
-	if not CLIENT_FONTS[locale] then
+	if not Theme.CJK_LOCALES[locale] then
 		fonts.title = FORUM
 	end
 	return fonts

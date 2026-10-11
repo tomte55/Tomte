@@ -25,10 +25,9 @@ local SECTIONS = {
 	{ key = "rep", title = "Reputation" },
 	{ key = "other", title = "Other" },
 }
-ns.WQ_SECTIONS = SECTIONS
 
 local WORTH_TIER = { collectible = 4, upgrade = 3, appearance = 2, gold = 1 }
-local TIER_SCALE = 1e13
+local TIER_SCALE = 1e13 -- larger than any value within a tier (gold in copper), so a higher tier always sorts first
 local EMPTY_SLOT_PCT = 50 -- an empty slot sorts like a big upgrade
 local COLLECTIBLE_WORDS = { mount = "Mount", pet = "Pet", toy = "Toy" }
 local TYPE_TAGS = { dungeon = "Dungeon", raid = "Raid", worldboss = "World boss", pvp = "PvP", petbattle = "Pet battle" }
@@ -37,7 +36,8 @@ local VERDICT_WORDS = {
 	upgrade = "Upgrade", upgradeBut = "Upgrade?", sidegrade = "Sidegrade", downgrade = "Downgrade",
 }
 local VERDICT_FIXED = {
-	empty = "Upgrade (empty slot)", noStats = "Upgrade (yours has no stats)", ilvl = "No stats", notForYou = "Not for you", simIt = "Sim it", pair = "Replaces your two-hander",
+	empty = "Upgrade (empty slot)", noStats = "Upgrade (yours has no stats)", ilvl = "No stats",
+	notForYou = "Not for you", simIt = "Sim it", pair = "Replaces your two-hander",
 }
 
 -- Formatting -----------------------------------------------------------------------------------------------------
@@ -205,6 +205,7 @@ local function WorthReason(q, opts)
 	return nil
 end
 
+-- Gear with a percentage verdict sorts above gear with any other verdict, which sorts above gear without one.
 local function GearRank(item)
 	local v = item.verdict
 	if v and v.pct then

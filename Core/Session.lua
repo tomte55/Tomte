@@ -65,6 +65,8 @@ end
 
 function events:PLAYER_ENTERING_WORLD(isInitialLogin)
 	local session = Begin(isInitialLogin) -- registered before any module's handler, so they see the new session
+	-- A continued session (after /reload) is the saved one, and one saved before sessions kept name and class (or
+	-- taken over from the AFK module) has neither: Baseline only fills them in a new session.
 	session.name = session.name or UnitName("player")
 	session.class = session.class or select(2, UnitClass("player"))
 	ZoneTick(session)

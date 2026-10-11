@@ -4,8 +4,9 @@ local addonName, ns = ...
 -- nothing it can't value is at stake: set bonuses, embellishments, effects and unique limits are checked, and
 -- items whose value is an effect are sent to a sim instead of guessed. Rules in Data.lua, advice (weights source,
 -- gems, enchants, off-spec) in Advice.lua, built-in weights and gem IDs per expansion in Data/<Expansion>/Gear.lua
--- (picked by the character's content expansion, Scales.lua), item reading in Items.lua,
--- the character sheet button and panel in Sheet.lua, upgrades for other characters in Alts.lua.
+-- (picked by the character's content expansion, Scales.lua), item reading in Items.lua, the character sheet button
+-- and panel in Sheet.lua, upgrades for other characters in Alts.lua, the new-upgrade reveal and equip toast in
+-- Reveal.lua.
 -- Weights: imported Pawn string per character and spec > built-in for the spec > primary 1 / secondaries 0.5.
 
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
@@ -57,7 +58,8 @@ local function CharWeights()
 	return db.weights[guid]
 end
 
--- Display season ID, nil when the game doesn't say (0 between seasons).
+-- Display season ID, nil when the game doesn't say (0 between seasons) or the client has no such API (guarded, so
+-- that's nil rather than an error).
 local function CurrentSeason()
 	local id = C_SeasonInfo and C_SeasonInfo.GetCurrentDisplaySeasonID and C_SeasonInfo.GetCurrentDisplaySeasonID()
 	return (id and id > 0) and id or nil
@@ -81,8 +83,8 @@ local function ContextFor(spec, guid, class, level)
 	return ctx
 end
 
--- This character's context, kept until RefreshBags (spec, level, weights, items arrived): Baganator and tooltips ask
--- for one per item. Not kept while the gems load (no best gem yet), like Alts.lua does.
+-- This character's context, kept until InvalidateVerdicts (spec, level, weights, items arrived): Baganator and
+-- tooltips ask for one per item. Not kept while the gems load (no best gem yet), like Alts.lua does.
 local ownCtx
 local function Context()
 	local spec = Spec()
@@ -119,6 +121,12 @@ local function OtherSpecs(current)
 	return list
 end
 
+-- Whether a link is gear with a slot to judge, from GetItemInfoInstant alone (no item data or tooltip read).
+local function IsGearLink(link)
+	local equipLoc = select(4, C_Item.GetItemInfoInstant(link))
+	return equipLoc and ns.Gear_Slots(equipLoc)
+end
+
 -- verdict (nil when worn), candidate descriptor, equipped snapshot. Nothing while items load.
 local function Evaluate(link, ctx)
 	ctx = ctx or Context()
@@ -133,9 +141,9 @@ local function Evaluate(link, ctx)
 	return verdict, cand, equipped
 end
 
--- For other modules (World quests): the context to judge many items with (nil while Gear Check is off or there's
--- no spec), and verdict, headline, color key for an item link. Gear_Verdict is nil while Gear Check is off, items
--- load, there's no spec, or the item is worn. Pass one Gear_Context() when judging a batch.
+-- For other files (World quests, the character sheet panel): the context to judge many items with (nil while Gear
+-- Check is off or there's no spec), and verdict, headline, color key for an item link. Gear_Verdict is nil while
+-- Gear Check is off, items load, there's no spec, or the item is worn. Pass one Gear_Context() when judging a batch.
 function ns.Gear_Context()
 	if not (module and module.active) then
 		return nil
@@ -178,9 +186,9 @@ local function OwnLines(tooltip, link, ctx, verdict, cand, equipped, Add)
 
 	local worn = ns.Gear_WornSlot(link, equipped)
 	if db.rank and worn and ns.Gear_Rankable(cand) then
-		local pair = cand.equipLoc == "INVTYPE_FINGER" and 2 or 1 -- trinkets aren't ranked
+		local pairSize = cand.equipLoc == "INVTYPE_FINGER" and 2 or 1 -- trinkets aren't ranked
 		local others = {}
-		local partner = pair == 2 and equipped[worn == 11 and 12 or 11]
+		local partner = pairSize == 2 and equipped[worn == 11 and 12 or 11]
 		if partner then
 			others[1] = partner
 		end
@@ -197,7 +205,7 @@ local function OwnLines(tooltip, link, ctx, verdict, cand, equipped, Add)
 				end
 				local rank, better = ns.Gear_Rank(cand, worn, others, bag, sctx, Score)
 				local betterName = better and C_Item.GetItemNameByID(better.itemID)
-				local text, color = ns.Gear_RankLine(spec.name, rank, pair, betterName)
+				local text, color = ns.Gear_RankLine(spec.name, rank, pairSize, betterName)
 				if text then
 					Add(text, color)
 				end
@@ -232,16 +240,14 @@ end
 -- "Upgrade for Mira (Holy): +8.2%" for other characters, when the item can get to them (Alts.lua). A bag item is
 -- found by its GUID for its exact bind state; else the tooltip's own bind line, else the item's bind type.
 local function AltLines(link, data, Add)
-	if db.altUpgrades == "off" then
-		return
-	end
-	local equipLoc = select(4, C_Item.GetItemInfoInstant(link))
-	if not (equipLoc and ns.Gear_Slots(equipLoc)) then
+	if db.altUpgrades == "off" or not IsGearLink(link) then
 		return
 	end
 	local location
 	local guid = data and data.guid
 	if guid and not (issecretvalue and issecretvalue(guid)) and C_Item.GetItemLocation then
+		-- pcall: a GUID the API can't resolve (or rejects) must mean no location, with bind state then from the
+		-- tooltip lines, never a Lua error inside the tooltip hook.
 		local ok, loc = pcall(C_Item.GetItemLocation, guid)
 		location = ok and loc or nil
 	end
@@ -291,7 +297,8 @@ end
 
 local noWeightsSaid = {}
 
--- This character's db.hinted table ([specID] = seen), with the old account-wide keys of its class moved in.
+-- This character's db.hinted table ([specID] = seen). Saved data from older versions may still hold account-wide
+-- [specID] keys; those of this character's class are moved in (Gear_MigrateHinted).
 local function CharHinted()
 	local guid = UnitGUID("player")
 	if not db.hinted[guid] then
@@ -366,7 +373,8 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- Baganator
 
-local function RefreshBags()
+-- Drops the cached contexts (ownCtx, specCtx) and has Baganator ask for every item's arrows again.
+local function InvalidateVerdicts()
 	ownCtx = nil
 	wipe(specCtx)
 	if Baganator and Baganator.API and Baganator.API.RequestItemButtonsRefresh then
@@ -385,8 +393,7 @@ local function RegisterBaganator()
 		end
 		-- Baganator asks for every item on every refresh. Anything that isn't gear stops here: Evaluate would build a
 		-- context and read the item's tooltip, and items without stats are never cached, so they'd be read every time.
-		local equipLoc = select(4, C_Item.GetItemInfoInstant(link))
-		if not (equipLoc and ns.Gear_Slots(equipLoc)) then
+		if not IsGearLink(link) then
 			return false
 		end
 		return ns.Gear_IsCleanUpgrade(Evaluate(link))
@@ -426,11 +433,7 @@ local function RegisterBaganator()
 	-- arrow above, and before the alt arrow so a maybe for you wins over an alt's upgrade.
 	Baganator.API.RegisterCornerWidget("Tomte Gear Check: maybe an upgrade", BAGANATOR_MAYBE_ID, function(_, details)
 		local link = details.itemLink
-		if not (module.active and db.baganator and db.maybeBaganator and link) then
-			return false
-		end
-		local equipLoc = select(4, C_Item.GetItemInfoInstant(link))
-		if not (equipLoc and ns.Gear_Slots(equipLoc)) then
+		if not (module.active and db.baganator and db.maybeBaganator and link) or not IsGearLink(link) then
 			return false
 		end
 		return ns.Gear_IsMaybeUpgrade(Evaluate(link))
@@ -442,11 +445,7 @@ local function RegisterBaganator()
 	-- corners. Items still loading say false, like the arrow above, and are asked again on GearItems_OnReady.
 	Baganator.API.RegisterCornerWidget("Tomte Gear Check: upgrade for an alt", BAGANATOR_ALT_ID, function(_, details)
 		local link = details.itemLink
-		if not (module.active and db.altBaganator and db.altUpgrades ~= "off" and link) then
-			return false
-		end
-		local equipLoc = select(4, C_Item.GetItemInfoInstant(link))
-		if not (equipLoc and ns.Gear_Slots(equipLoc)) then
+		if not (module.active and db.altBaganator and db.altUpgrades ~= "off" and link) or not IsGearLink(link) then
 			return false
 		end
 		local own = Evaluate(link)
@@ -465,10 +464,14 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- Events
 
-function events:PLAYER_EQUIPMENT_CHANGED()
+local function RereadWorn()
 	ns.GearItems_InvalidateEquipped()
-	RefreshBags()
+	InvalidateVerdicts()
 	ns.GearSheet_Refresh()
+end
+
+function events:PLAYER_EQUIPMENT_CHANGED()
+	RereadWorn()
 end
 
 -- Enchanting, socketing or upgrading worn gear changes its link: read the worn gear again, once per burst (the
@@ -495,9 +498,7 @@ function events:UNIT_INVENTORY_CHANGED()
 	C_Timer.After(0.5, function()
 		inventoryQueued = false
 		if module.active and WornChanged() then
-			ns.GearItems_InvalidateEquipped()
-			RefreshBags()
-			ns.GearSheet_Refresh()
+			RereadWorn()
 		end
 	end)
 end
@@ -506,13 +507,13 @@ end
 function events:PLAYER_ENTERING_WORLD()
 	ns.GearItems_InvalidateEquipped()
 	ns.GearItems_InvalidateBags()
-	RefreshBags()
+	InvalidateVerdicts()
 	ns.GearSheet_Refresh()
 end
 
 function events:PLAYER_SPECIALIZATION_CHANGED(unit)
 	if unit == "player" then
-		RefreshBags()
+		InvalidateVerdicts()
 		WeightsHint()
 		ns.GearSheet_Refresh()
 	end
@@ -524,7 +525,7 @@ end
 
 function events:PLAYER_LEVEL_UP(level)
 	ns.GearItems_ClearCache()
-	RefreshBags()
+	InvalidateVerdicts()
 	ns.GearSheet_Refresh()
 	WeightsHint(level)
 	-- UnitLevel (and so the red "Requires Level" lines) can lag behind the event: read everything again once it's
@@ -532,7 +533,7 @@ function events:PLAYER_LEVEL_UP(level)
 	C_Timer.After(2, function()
 		if module.active then
 			ns.GearItems_ClearCache()
-			RefreshBags()
+			InvalidateVerdicts()
 			ns.GearSheet_Refresh()
 		end
 	end)
@@ -542,9 +543,10 @@ function events:GET_ITEM_INFO_RECEIVED()
 	ns.GearItems_InfoReceived()
 end
 
+-- Called by Items.lua once requested item data has arrived.
 ns.GearItems_OnReady = function()
 	if module.active then
-		RefreshBags()
+		InvalidateVerdicts()
 		ns.GearSheet_Refresh()
 		if ns.AltsSend_OnGearReady then
 			ns.AltsSend_OnGearReady() -- the mailbox's "Gear for" groups
@@ -626,7 +628,7 @@ local function ClearWeights()
 		ns.GearAlts_Invalidate()
 		local after = ctx.scales.specs[ctx.spec.id] and "the built-in weights" or "item level"
 		ns.Print(("Gear Check: imported weights for %s cleared, back to %s."):format(ctx.spec.name, after))
-		RefreshBags()
+		InvalidateVerdicts()
 		ns.GearSheet_Refresh()
 	end
 end
@@ -648,7 +650,7 @@ local function Import(text)
 	CharWeights()[ctx.spec.id] = { name = parsed.name, weights = parsed.weights }
 	ns.GearAlts_Invalidate()
 	ns.Print(("Gear Check: imported \"%s\" for %s."):format(parsed.name, ctx.spec.name))
-	RefreshBags()
+	InvalidateVerdicts()
 	ns.GearSheet_Refresh()
 	return nil
 end
@@ -790,9 +792,6 @@ local function PrintSpecs()
 	ns.Print(bad == 0 and "every spec matches the built-in set." or (bad .. " to check."))
 end
 
--- ns.Gear_Context (above, nil while Gear Check is off) is for the character sheet panel and the upgrade reveal too.
--- For judging gear for another character: ns.Gear_ContextFor({ id, name, primary }, guid, classToken, level).
-ns.Gear_ContextFor = ContextFor
 -- Another character's context from Alts' stored snapshot (chars[guid]: specID, spec, primary, class token); nil
 -- until their spec has been read. Their level picks their built-in set (content expansion); whether they can wear an
 -- item is Gear_AltVerdict's.
@@ -827,7 +826,7 @@ local function Start()
 		end)
 	end
 	ns.GearItems_InvalidateEquipped()
-	RefreshBags()
+	InvalidateVerdicts()
 	ns.GearSheet_Init()
 	ns.GearReveal_Start(db)
 	C_Timer.After(ns.inWorld and 0 or 8, WeightsHint) -- at login, after the chat flood
@@ -839,7 +838,7 @@ local function Stop()
 	if dialog then
 		dialog:Hide()
 	end
-	RefreshBags()
+	InvalidateVerdicts()
 	ns.GearSheet_Refresh()
 end
 
@@ -878,8 +877,9 @@ module = ns.RegisterModule({
 		gemHints = true,
 		enchantHints = true,
 		weights = {}, -- [playerGUID][specID] = { name, weights = { AGI = 1, ... } }
-		hinted = {}, -- [playerGUID][specID] = which built-in weights hint was shown ("max" or "stale:<season>";
-		-- "builtin" from before, which was per spec only: [specID] = ..., moved to a character by CharHinted)
+		-- [playerGUID][specID] = which built-in weights hint was shown ("max" or "stale:<season>"). Saved data
+		-- from older versions may hold "builtin" values and account-wide [specID] keys; CharHinted moves those.
+		hinted = {},
 		sheetButton = true,
 		sheetOpen = false, -- the panel next to the character sheet
 		reveal = true,
@@ -936,26 +936,28 @@ module = ns.RegisterModule({
 		end, tooltip = "A Gear button under the trinkets that opens a panel with your stat weights, best gem and "
 			.. "missing enchants and sockets." },
 		{ type = "header", label = "Bags" },
-		{ type = "checkbox", key = "baganator", label = "Mark upgrades in Baganator", onChange = RefreshBags,
+		{ type = "checkbox", key = "baganator", label = "Mark upgrades in Baganator", onChange = InvalidateVerdicts,
 			tooltip = "Only clean upgrades get the arrow. In Baganator's settings (Icons), \"Tomte Gear Check\" is a "
 				.. "corner icon (the arrow) and an upgrade source (the upgrade search and category)." },
-		{ type = "checkbox", key = "maybeBaganator", label = "Mark maybe-upgrades in Baganator", onChange = RefreshBags,
-			tooltip = "An orange arrow on gear whose stats say upgrade but that needs checking: a trinket or effect to "
+		{ type = "checkbox", key = "maybeBaganator", label = "Mark maybe-upgrades in Baganator",
+			onChange = InvalidateVerdicts,
+			tooltip = "An arrow in the theme's warning color on gear whose stats say upgrade but that needs checking: a trinket or effect to "
 				.. "sim, same item level with different stats, or a warning like breaking your set. Not in the upgrade "
 				.. "search. In Baganator's settings (Icons) it's \"Tomte Gear Check: maybe an upgrade\"." },
 		{ type = "header", label = "Upgrades for alts" },
 		{ type = "dropdown", key = "altUpgrades", label = "Upgrades for alts", onChange = function()
 			ns.GearAlts_Invalidate()
-			RefreshBags()
+			InvalidateVerdicts()
 		end, choices = function()
 			return { { value = "all", text = "All characters" }, { value = "max", text = "Max level only" },
 				{ value = "off", text = "Off" } }
 		end, tooltip = "\"Upgrade for Mira (Holy): +8.2%\" on gear that can get to another character (warbound, or Bind "
 			.. "on Equip and not bound yet), judged with what they wore, their spec, level and stat weights when you "
 			.. "last played them. Only clean upgrades. Characters not played for 60 days are left out. Needs Alts." },
-		{ type = "checkbox", key = "altBaganator", label = "Mark alt upgrades in Baganator", onChange = RefreshBags,
-			tooltip = "A small blue arrow on gear that's an upgrade for another character and not for you (your own "
-				.. "upgrades keep the gold arrow). In Baganator's settings (Icons) it's \"Tomte Gear Check: upgrade for an "
+		{ type = "checkbox", key = "altBaganator", label = "Mark alt upgrades in Baganator",
+			onChange = InvalidateVerdicts,
+			tooltip = "An arrow in the theme's accent color (like Tomte's map markers) on gear that's an upgrade for "
+				.. "another character and not for you (your own upgrades keep the green arrow). In Baganator's settings (Icons) it's \"Tomte Gear Check: upgrade for an "
 				.. "alt\"." },
 		{ type = "checkbox", key = "altMail", label = "Gear for alts at the mailbox",
 			tooltip = "In Send to alt's \"For your alts\" panel: a \"Gear for Mira\" group with the Bind on Equip "

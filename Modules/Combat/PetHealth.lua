@@ -6,6 +6,7 @@ local addonName, ns = ...
 -- through the profiles there (hunters for now).
 
 local PREVIEW_PERIOD = 6 -- seconds for the unlocked preview to sweep 100% -> 5% -> 100%
+-- Seconds after combat before the "pet is dead" reminder; a new pull within it skips the reminder.
 local COMBAT_END_DELAY = 1
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
 local GetSpecializationInfo = C_SpecializationInfo.GetSpecializationInfo
@@ -18,9 +19,7 @@ local lastReminder = {}
 local previewTime = 0
 local spellsDirty = true -- the spell row is rebuilt on the next Update (spellbook or spec changed)
 
-local function IsSecret(v)
-	return issecretvalue ~= nil and issecretvalue(v)
-end
+local IsSecret = ns.IsSecret
 
 local function SpecID()
 	local index = GetSpecialization()
@@ -328,6 +327,7 @@ local function Relayout()
 	Update()
 end
 
+-- Same position as defaults.frame below.
 local function ResetPosition()
 	db.frame.point, db.frame.relPoint, db.frame.x, db.frame.y = "CENTER", "CENTER", 0, -170
 	Relayout()
@@ -363,7 +363,7 @@ module = ns.RegisterModule({
 	description = "A pet health bar under your character that turns red and glows when your pet needs healing, with Mend Pet and Exhilaration cooldowns, and reminders when your pet dies or you pull without one.",
 	enabledByDefault = true,
 	defaults = {
-		frame = { point = "CENTER", relPoint = "CENTER", x = 0, y = -170, locked = true },
+		frame = { point = "CENTER", relPoint = "CENTER", x = 0, y = -170, locked = true }, -- position: see ResetPosition
 		scale = 1,
 		threshold = 40, -- percent
 		showPercent = true,

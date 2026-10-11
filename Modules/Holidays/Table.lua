@@ -1,6 +1,10 @@
 local addonName, ns = ...
 
--- Holidays & events: facts. Holiday IDs and texture fileIDs (start, ongoing, end) from the client's Holidays table,
+-- Holidays & events: facts, kept by hand (Generated.lua is the generated part). tools/events.py reads each entry's
+-- `currencies` and `icons` from this file with a regex: keep every entry starting with `key = "..."`, both lists on
+-- one `{ ... }` each with no nested braces, and the Darkmoon quest table after every holiday entry (the script stops
+-- reading at its name, so don't write that name in a comment above it).
+-- Holiday IDs and texture fileIDs (start, ongoing, end) from the client's Holidays table,
 -- achievement categories from Achievement_Category (World Events, 155), LFG dungeons from LFGDungeons (wago.tools).
 -- icons: cost-icon paths (lower case, no .blp) that holiday vendors' source text carries, language-free.
 -- maps: uiMapIDs whose localized name counts as the holiday's name in source text.

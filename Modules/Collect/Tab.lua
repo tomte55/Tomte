@@ -21,16 +21,9 @@ local Refresh
 
 -- Actions -------------------------------------------------------------------------------------------------------
 
-local function InsertLink(link)
-	local insert = (ChatFrameUtil and ChatFrameUtil.InsertLink) or ChatEdit_InsertLink
-	if link and insert then
-		insert(link)
-	end
-end
-
 local function Link(e)
 	if e.kind == "mount" then
-		InsertLink(e.spellID and C_MountJournal.GetMountLink(e.spellID))
+		UI.InsertLink(e.spellID and C_MountJournal.GetMountLink(e.spellID))
 	elseif e.kind == "ach" then
 		ns.Ach_Link(e.id)
 	end

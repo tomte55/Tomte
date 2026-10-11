@@ -227,11 +227,11 @@ end
 
 -- A point in the model's space on the model frame, as fractions of the frame's half size from its
 -- center (x right, y up). nil when it isn't on screen. The projection is in pixels from the frame's
--- bottom left.
+-- bottom left. The width serves both axes because the model frame is always square.
 local function Project(x, y, z)
-	local scene = stage.model
-	local px, py = scene:Project3DPointTo2D(x, y, z)
-	local half = scene:GetWidth() * scene:GetEffectiveScale() / 2
+	local modelScene = stage.model
+	local px, py = modelScene:Project3DPointTo2D(x, y, z)
+	local half = modelScene:GetWidth() * modelScene:GetEffectiveScale() / 2
 	if not (px and py) or half <= 0 then
 		return nil
 	end
@@ -257,23 +257,24 @@ local function FitCamera(guess)
 	local halfHeight = (tz - bz) / 2
 	local radius = math.sqrt(ring * ring + halfHeight * halfHeight)
 
-	local scene = stage.model
-	scene:SetCameraOrientationByYawPitchRoll(math.pi, CAMERA_PITCH, 0)
-	local fx, fy, fz = scene:GetCameraForward()
-	if fz > 0 then -- the pitch's sign differs from what we assumed: we want to look down
-		scene:SetCameraOrientationByYawPitchRoll(math.pi, -CAMERA_PITCH, 0)
-		fx, fy, fz = scene:GetCameraForward()
+	local modelScene = stage.model
+	modelScene:SetCameraOrientationByYawPitchRoll(math.pi, CAMERA_PITCH, 0)
+	local forwardX, forwardY, forwardZ = modelScene:GetCameraForward()
+	if forwardZ > 0 then -- the pitch's sign differs from what we assumed: we want to look down
+		modelScene:SetCameraOrientationByYawPitchRoll(math.pi, -CAMERA_PITCH, 0)
+		forwardX, forwardY, forwardZ = modelScene:GetCameraForward()
 	end
 	local function PlaceCamera(distance)
-		scene:SetCameraPosition(-fx * distance, -fy * distance, halfHeight - fz * distance)
+		modelScene:SetCameraPosition(-forwardX * distance, -forwardY * distance, halfHeight - forwardZ * distance)
 	end
-	scene:SetLightVisible(true)
-	scene:SetLightType(Enum.ModelLightType and Enum.ModelLightType.Directional or 0)
-	scene:SetLightDirection(fx, fy, fz)
-	scene:SetLightAmbientColor(0.7, 0.7, 0.7)
-	scene:SetLightDiffuseColor(0.8, 0.8, 0.8)
+	modelScene:SetLightVisible(true)
+	modelScene:SetLightType(Enum.ModelLightType and Enum.ModelLightType.Directional or 0)
+	modelScene:SetLightDirection(forwardX, forwardY, forwardZ)
+	modelScene:SetLightAmbientColor(0.7, 0.7, 0.7)
+	modelScene:SetLightDiffuseColor(0.8, 0.8, 0.8)
 
-	-- Sizes on screen shrink with the distance: a few passes settle it.
+	-- A pinhole starting guess. It's off (the FOV applies to the frame's diagonal, measured in 12.1), and sizes on
+	-- screen shrink with the distance: a few passes with the game's own projection settle it.
 	local distance = radius / math.tan(CAMERA_FOV / 2)
 	for _ = 1, FIT_PASSES do
 		PlaceCamera(distance)
@@ -311,6 +312,8 @@ end
 -- play the sounds. displayID reveals a creature, itemIcon an item (framed in itemColor).
 function scene.Begin(state)
 	local m = state.moment
+	-- Card and stage live on WorldFrame (the cinematic hides UIParent): this gives them the same on-screen size as
+	-- normal UI, whatever the UI scale.
 	local scale = UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale()
 	card:SetScale(scale)
 	stage:SetScale(scale)

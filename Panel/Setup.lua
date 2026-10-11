@@ -9,6 +9,8 @@ local W, H = 660, 540
 local PAD = 16
 local CARD_W = (W - PAD * 2 - 12) / 2
 local CARD_H = 172
+local FIRST_RUN_DELAY = 3 -- seconds after PLAYER_ENTERING_WORLD before the first-run picker tries to show
+local BUSY_RETRY = 5 -- seconds between tries while a cinematic or movie plays
 
 local frame, selected, fromCommand
 
@@ -51,7 +53,9 @@ end
 local function ChooseMyself()
 	Done()
 	frame:Hide()
-	ns.Panel_OpenModule(ns.modules[1].key) -- the settings list, on the Tomte window's own page
+	-- The settings list, on the Tomte window's own page: ns.modules[1] is "window" because Panel/Window.lua is the
+	-- first file in Tomte.toc that registers a module.
+	ns.Panel_OpenModule(ns.modules[1].key)
 end
 
 local function CreateCard(parent, preset)
@@ -216,7 +220,7 @@ local function TryShow()
 		return
 	end
 	if Busy() then
-		C_Timer.After(5, TryShow)
+		C_Timer.After(BUSY_RETRY, TryShow)
 		return
 	end
 	fromCommand = false
@@ -226,7 +230,9 @@ end
 function events:PLAYER_ENTERING_WORLD()
 	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
 	if ns.db and ns.db.setup.state == "pending" then
-		C_Timer.After(3, TryShow)
+		-- A few seconds in, not on the first frame: lets the world settle after the loading screen and gives a
+		-- cinematic that starts right after login (a new character's intro) time to show, so Busy() sees it.
+		C_Timer.After(FIRST_RUN_DELAY, TryShow)
 	end
 end
 

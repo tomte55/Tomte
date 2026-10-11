@@ -7,8 +7,8 @@ local addonName, ns = ...
 -- withdraw is GetGuildBankWithdrawMoney(): what you may still take out today, -1 for the guild leader (no limit).
 -- bankMoney is GetGuildBankMoney(): the guild can't pay more than it has (if it reads 0 because the client hasn't
 -- heard from the bank yet, own gold pays: safe). Like Blizzard's tooltip: available = the limit capped
--- by the bank. RepairAllItems(true) quietly takes the rest from your own gold, so the guild only counts when it covers
--- the whole bill.
+-- by the bank. The guild only counts when it covers the whole bill: whether RepairAllItems(true) can split a bill
+-- between guild and own gold is unverified. Vendor.lua checks afterwards and pays whatever is left with own gold.
 function ns.Upkeep_RepairPlan(cost, money, useGuild, canGuild, withdraw, bankMoney)
 	if not cost or cost <= 0 then
 		return nil

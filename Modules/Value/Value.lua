@@ -8,7 +8,7 @@ local addonName, ns = ...
 --   Crafting tab   what the materials cost, what the result sells for and the difference.
 -- Choices are in Data.lua (unit-tested).
 
-local DEBOUNCE = 2
+local DEBOUNCE = 2 -- seconds of quiet bags before they're priced
 local CALLER = "Tomte" -- Auctionator wants the calling addon's name
 local BAGS = { 0, 1, 2, 3, 4, 5 } -- Backpack .. ReagentBag (Enum.BagIndex)
 local BANK = { 6, 7, 8, 9, 10, 11 } -- CharacterBankTab_1..6
@@ -23,7 +23,7 @@ events:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
 end)
 
--- Price sources ---------------------------------------------------------------------------------------------------
+-- Price sources.
 
 local function HasAuctionator()
 	return Auctionator ~= nil and type(Auctionator.API) == "table" and type(Auctionator.API.v1) == "table"
@@ -122,7 +122,7 @@ function ns.Value_Text(copper, stale)
 	return ns.Alts_Gold(copper) .. (stale and ns.UI.Wrap("?", "textMuted") or "")
 end
 
--- Session loot ---------------------------------------------------------------------------------------------------
+-- Session loot.
 
 -- Every looted item (Recap/Track.lua). Priced now, so the session remembers what it was worth that day.
 function ns.Value_NoteLoot(link, count)
@@ -166,7 +166,7 @@ function ns.Value_SessionLootText(session)
 	return text
 end
 
--- Carried value --------------------------------------------------------------------------------------------------
+-- Carried value (Alts).
 
 local function BagsValue(bags)
 	local stacks = {}
@@ -263,7 +263,7 @@ function events:BANKFRAME_CLOSED()
 	bankOpen = false
 end
 
--- Crafting tab ---------------------------------------------------------------------------------------------------
+-- Crafting tab.
 
 -- Plan value for the Crafting tab: { cost, complete, sells, profit } or nil. plan from ns.Alts_Plan, recipe from
 -- the Alts recipes, crafts = how many.
@@ -291,11 +291,9 @@ function ns.Value_Plan(plan, recipe, crafts)
 	return { cost = cost, complete = complete, sells = sells, profit = sells and (sells - cost) or nil }
 end
 
--- Module --------------------------------------------------------------------------------------------------------
-
 local EVENTS = { "PLAYER_ENTERING_WORLD", "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED" }
 
--- text: lower-cased by /tomte; rawText: as typed (nil from an older dispatcher), so a link keeps its bonus IDs and
+-- text: lower-cased by /tomte; rawText: as typed (Core/Core.lua passes both), so a link keeps its bonus IDs and
 -- prints as a link.
 local function PrintPrice(text, rawText)
 	text = strtrim(rawText or text or "")
@@ -342,7 +340,6 @@ module = ns.RegisterModule({
 	},
 	init = function(saved)
 		db = saved
-		ns.valueDB = saved
 	end,
 	toggle = function(active)
 		for _, event in ipairs(EVENTS) do

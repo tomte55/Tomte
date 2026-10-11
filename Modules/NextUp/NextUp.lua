@@ -3,10 +3,14 @@ local addonName, ns = ...
 -- Next up: a short ranked list on Home of the best things to do right now (vault rewards waiting, a rare up that
 -- drops something you're missing, low durability, full Concentration, a world quest worth doing, ...). It only ranks
 -- what other modules already know: each source is a module.home entry of kind "next" with
--- candidates(now) -> { { key, text, why, icon, right, state, bonus, onClick, stay } }. Ranking in Data.lua.
+-- candidates(now) -> { { key, text, why, icon, right, color, rightColor, hint, state, bonus, onClick, stay } }.
+-- color and rightColor are theme roles for the text and the right-hand value, hint the tooltip's click line.
+-- Ranking in Data.lua.
 
 local UI = ns.UI
 local HEAD_H = 40
+local COL_GAP = 24
+local TWO_COLS_W = 760 -- the strip splits into two columns from this width
 
 local module, db
 local dismissed = {} -- [candidate key] = state | true, this session only
@@ -24,7 +28,7 @@ local function Sources()
 end
 
 -- The ranked candidates of every visible source.
-function ns.NextUp_Current(limit)
+local function Current(limit)
 	local lists = {}
 	local now = GetServerTime()
 	for _, entry in ipairs(ns.HomeEntries("next")) do
@@ -70,7 +74,7 @@ local function Tooltip(row, c)
 	GameTooltip:Show()
 end
 
--- Home section ---------------------------------------------------------------------------------------------------
+-- The Home section.
 
 local function Create(frame, Kit)
 	frame.heading = Kit.Heading(frame)
@@ -87,7 +91,7 @@ end
 -- Returns the height it used.
 local function Refresh(frame)
 	local Kit = frame.Kit
-	local list = ns.NextUp_Current()
+	local list = Current()
 	frame.heading:Set("Next up")
 	-- The action on the first line, the reason in grey under it; all rows one height so columns line up.
 	local twoLines = false
@@ -99,14 +103,14 @@ local function Refresh(frame)
 	local rowH = twoLines and Kit.ROW2_H or Kit.ROW_H
 	local strip = db.placement == "strip"
 	-- Two columns in the strip when it's wide enough.
-	local cols = strip and frame:GetWidth() >= 760 and 2 or 1
+	local cols = strip and frame:GetWidth() >= TWO_COLS_W and 2 or 1
 	-- As many rows as the room Home gives (it can be short under Your characters).
 	local fit = math.max(math.floor((frame:GetHeight() - HEAD_H) / rowH), 1) * cols
 	for i = #list, fit + 1, -1 do
 		list[i] = nil
 	end
 	local n = #list
-	local colW = (frame:GetWidth() - (cols - 1) * 24) / cols
+	local colW = (frame:GetWidth() - (cols - 1) * COL_GAP) / cols
 	local perCol = math.ceil(n / cols)
 	for i, c in ipairs(list) do
 		local row = Kit.PoolRow(frame.rows, i, frame)
@@ -125,7 +129,7 @@ local function Refresh(frame)
 		local col = math.floor((i - 1) / perCol)
 		local line = (i - 1) % perCol
 		row:ClearAllPoints()
-		row:SetPoint("TOPLEFT", col * (colW + 24), -(HEAD_H + line * rowH))
+		row:SetPoint("TOPLEFT", col * (colW + COL_GAP), -(HEAD_H + line * rowH))
 		row:SetWidth(colW)
 	end
 	Kit.HideFrom(frame.rows, n + 1)
@@ -152,13 +156,14 @@ function ns.NextUp_TooltipLines()
 		return nil
 	end
 	local lines = {}
-	for _, c in ipairs(ns.NextUp_Current(3)) do
+	for _, c in ipairs(Current(3)) do
 		lines[#lines + 1] = c.text
 	end
 	return lines
 end
 
--- Options: one checkbox and a priority slider per source, built when the panel shows them.
+-- Options: one checkbox and a priority slider per source, built in init (every source is registered by then) and
+-- again by the priorities' Reset button.
 local function BuildOptions()
 	local options = {
 		{ type = "checkbox", key = "home", label = "Show on Home" },
@@ -218,7 +223,7 @@ module = ns.RegisterModule({
 	home = { Section },
 	init = function(saved)
 		db = saved
-		-- "Under Your characters" became the default after the first build; move the old default over once.
+		-- One-time move from the old default placement ("column") to "characters"; placedUnderChars marks it done.
 		if not db.placedUnderChars then
 			db.placedUnderChars = true
 			if db.placement == "column" then
@@ -239,7 +244,7 @@ module = ns.RegisterModule({
 	options = {},
 	commands = {
 		{ "list", "print what Next up suggests now", function()
-			local list = ns.NextUp_Current()
+			local list = Current()
 			if #list == 0 then
 				ns.Print("nothing pressing.")
 			end

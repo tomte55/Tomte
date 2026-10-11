@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- circle, an inner disc on top that leaves only a ring showing, the emblem (atlas, file or creature portrait) in the
 -- middle, a level badge under it and an optional pulsing glow (a paragon reward waiting).
 -- The swipe is set up like Plumber's faction rings (reverse, rotated 180 degrees so it starts and ends at the badge,
--- paused before SetCooldown); not yet measured in game.
+-- paused before SetCooldown). How exactly its ends line up with the badge hasn't been measured in game.
 
 local UI = ns.UI
 local CIRCLE = "Interface\\CHARACTERFRAME\\TempPortraitAlphaMask"

@@ -47,9 +47,7 @@ local pool = {}
 local heldCheck = 0
 local dodgeX, dodgeTarget, dodgeCheck = 0, 0, DODGE_CHECK
 
-local function Smooth(p)
-	return p * p * (3 - 2 * p)
-end
+local Smooth = ns.Smoothstep
 
 local function EaseOut(p)
 	local q = 1 - p
@@ -86,7 +84,7 @@ local function PlaceAnchor()
 	anchor:SetPoint(p[1], UIParent, p[2], p[3], p[4])
 end
 
-local OnUpdate
+local OnUpdate, Unlock
 
 local function BuildAnchor()
 	anchor = CreateFrame("Frame", nil, UIParent)
@@ -276,6 +274,7 @@ local function Place(spec, pinKey)
 	local card = Acquire()
 	Fill(card, spec)
 	card.pinKey = pinKey
+	-- Shown before OffscreenOffset, which reads the anchor's position.
 	anchor:Show()
 	card.enter, card.pulse = 0, nil
 	dodgeCheck = DODGE_CHECK -- a new card changes the stack height: look at the panels right away
@@ -289,7 +288,6 @@ local function Place(spec, pinKey)
 	else
 		shown[#shown + 1] = card
 	end
-	anchor:Show()
 end
 
 local function Unpinned()
@@ -533,7 +531,7 @@ local function BuildMover()
 	end)
 	mover:SetScript("OnMouseUp", function(_, button)
 		if button == "RightButton" then
-			ns.Toast_Unlock(false)
+			Unlock(false)
 		end
 	end)
 	mover:Hide()
@@ -627,7 +625,8 @@ function ns.Toast_SetDigest(owner, fn)
 	digests[owner] = fn
 end
 
-function ns.Toast_Unlock(unlock)
+-- Shows (true), hides (false) or toggles (nil) the drag handle, with a sample card when the stack is empty.
+function Unlock(unlock)
 	Ensure()
 	if unlock == nil then
 		unlock = not mover:IsShown()
@@ -666,7 +665,7 @@ ns.EditMode_Register({
 	end,
 })
 
-function ns.Toast_ResetPosition()
+local function ResetPosition()
 	ns.db.toast.point = nil
 	if anchor then
 		PlaceAnchor()
@@ -693,9 +692,9 @@ end
 function ns.Toast_Options(options)
 	options[#options + 1] = { type = "header", label = "Toast position" }
 	options[#options + 1] = { type = "button", label = "Move toasts", text = "Unlock", onClick = function()
-		ns.Toast_Unlock()
+		Unlock()
 	end, tooltip = "Show a handle above the toasts: drag it to move them, right-click it (or click this again) to lock. Shared by all social modules. Blizzard's Edit Mode moves them too." }
-	options[#options + 1] = { type = "button", label = "Reset position", text = "Reset", onClick = ns.Toast_ResetPosition,
+	options[#options + 1] = { type = "button", label = "Reset position", text = "Reset", onClick = ResetPosition,
 		tooltip = "Put the toasts back on the left side of the screen, above the chat." }
 	return options
 end

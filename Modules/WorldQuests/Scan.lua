@@ -256,7 +256,7 @@ end
 
 -- A fresh record (Data.lua's shape) for a quest; the static part is shared, item tables are copied. gearCtx is
 -- ns.Gear_Context(), built once per scan.
-function ns.WQ_ReadQuest(questID, zoneID, zoneName, gearCtx)
+local function ReadQuest(questID, zoneID, zoneName, gearCtx)
 	local seconds = GetQuestTimeLeftSeconds(questID)
 	local s = Static(questID, seconds)
 	local q = {
@@ -304,7 +304,7 @@ local function QuestZone(questID)
 	return zoneID and (ns.MapTabs_ResolveMap(zoneID)) or nil
 end
 
--- mapID is zoneID or one of its child maps (a city inside a zone).
+-- mapID is zoneID or one of its child maps (a city inside a zone). The depth cap stops a bad parent chain looping.
 local function IsWithin(mapID, zoneID)
 	local depth = 0
 	while mapID and mapID > 0 and depth < 10 do
@@ -326,7 +326,7 @@ local function AddZone(quests, seen, zoneID, zoneName, gearCtx)
 			if home == nil or IsWithin(home, zoneID) then
 				seen[id] = true
 				local homeInfo = home and home ~= zoneID and C_Map.GetMapInfo(home)
-				quests[#quests + 1] = ns.WQ_ReadQuest(id, home or zoneID, homeInfo and homeInfo.name or zoneName, gearCtx)
+				quests[#quests + 1] = ReadQuest(id, home or zoneID, homeInfo and homeInfo.name or zoneName, gearCtx)
 			end
 		end
 	end

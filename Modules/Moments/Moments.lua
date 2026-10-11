@@ -5,7 +5,7 @@ local addonName, ns = ...
 -- without camera moves: letterbox, hidden UI, title card, character showcase or creature model). A
 -- cinematic waits for a safe moment (out of combat, no instance or taxi, standing still); if none comes
 -- soon, it shows as a banner instead. It never takes control: every key and click goes to the game and
--- ends the moment. Pure logic is in Data.lua.
+-- ends the moment. The cinematic scene is Scene.lua, Tomte's zone text ZoneText.lua, pure logic Data.lua.
 
 local TICK = 0.25
 local MAX_WAIT = 10 -- seconds a cinematic moment waits before it becomes a banner
@@ -528,6 +528,7 @@ function events:RECEIVED_HOUSE_LEVEL_REWARDS(level)
 		Show("house", { label = "House level", title = "Level " .. level, subtitle = "Your house has grown" })
 	end
 end
+
 -- Previews: sample data, shown in the type's style (a cinematic when the type is off). Creature samples
 -- take a tier (nil = the sample's own).
 local SAMPLES = {

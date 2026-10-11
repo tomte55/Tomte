@@ -3,7 +3,9 @@ local addonName, ns = ...
 -- Alts module: every character's snapshot (level, spec, item level, gold, zone, rest, professions) and their
 -- recipes, so the Alts page can answer "who makes this, and do we have the materials?" and list the characters.
 -- Data.lua holds the logic, Collect.lua reads the game, CraftTab.lua, ListTab.lua, RosterTab.lua and ProfTab.lua draw
--- the page's tabs (ProfGear.lua: profession tools and accessories across characters).
+-- the page's tabs (ProfGear.lua: profession tools and accessories across characters). The crafting list and its
+-- tracker are List.lua (rules in ListData.lua), the mailbox and bank panels Send.lua (rules in SendData.lua), the
+-- Home section HomeSection.lua.
 -- This file wires them up and adds "Crafted by" lines to item tooltips ("Known by" / "Learnable by" on recipe items).
 
 local UI = ns.UI
@@ -22,7 +24,7 @@ local function ShowTab(key)
 	db.view = key
 	drawnKey, drawnAt = key, GetTime()
 	page.craft:SetShown(key == "craft")
-	page.roster:SetShown(key == "chars")
+	page.roster:SetShown(key == "chars") -- the Characters tab: its key "chars" is saved in db.view, its frame is roster
 	page.list:SetShown(key == "list")
 	page.prof:SetShown(key == "prof")
 	page.chain:SetShown(key == "craft")
@@ -252,7 +254,8 @@ end
 -- Commands -------------------------------------------------------------------------------------------------
 
 -- One character out of every module's saved data (Alts, Weekly, Almost Done, Gear Check, Hunter Pets, Moments,
--- the last session, the Recap history and the Recent feed), then the open views redrawn. Never the character being played.
+-- Waypoints, the last session, the Recap history and the Recent feed: Data.lua's FORGET_STORES), then the open views
+-- redrawn. Never the character being played.
 function ns.Alts_ForgetCharacter(guid)
 	if not guid or guid == UnitGUID("player") then
 		ns.Print("can't forget the character you're playing.")

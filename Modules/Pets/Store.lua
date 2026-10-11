@@ -122,6 +122,9 @@ end
 
 -- Teams --------------------------------------------------------------------------------------------------------
 
+-- A team's id is its key in db.teams. The readers below also stamp it on the team (team.id) so callers can pass a
+-- team around without its key; that copy lands in the saved data too and always equals the key.
+
 local function NewID()
 	local id
 	repeat
@@ -155,12 +158,6 @@ function ns.PetsStore_Delete(id)
 		if active == id then
 			db.active[npc] = nil
 		end
-	end
-end
-
-function ns.PetsStore_Rename(id, name)
-	if db.teams[id] and name and name ~= "" then
-		db.teams[id].name = name
 	end
 end
 

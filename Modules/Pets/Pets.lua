@@ -2,8 +2,10 @@ local addonName, ns = ...
 
 -- Pet Battles module: a battle helper (matchups, best pet, the strategy's steps and a Next move button that plays
 -- its script one press at a time), a card for the tamer you talk to (team, readiness, Load team, Xu-Fu and Wowhead
--- links, Heal), imported Xu-Fu strategies, a leveling slot and a page in the Tomte window. Pure rules are in
--- Data.lua, Strings.lua and Script.lua; the tamer table in Tamers.lua.
+-- links, Heal), imported Xu-Fu strategies, a leveling slot and a page in the Tomte window. The battle and its events
+-- are in Battle.lua, the pet journal and the Heal button in Journal.lua, saved teams in Store.lua, the card in
+-- Card.lua, the links window in Guides.lua and the page in Page.lua. Pure rules are in Data.lua, Strings.lua and
+-- Script.lua; the tamer table in Tamers.lua.
 
 local module
 
@@ -45,6 +47,8 @@ module = ns.RegisterModule({
 	category = "General",
 	description = "Help to win pet battles: a battle helper with what hits the enemy hard and your best pet, a card for pet tamers (team, readiness, Load team, Xu-Fu guide links, Heal), Xu-Fu strategies you paste in, played one key press per turn, and a leveling slot.",
 	enabledByDefault = true,
+	-- Saved keys without a default: cache (round counters, Battle.lua), advisor.point (the helper's dragged position,
+	-- Battle.lua) and nextID (the next team id, Store.lua).
 	defaults = {
 		advisor = { shown = true, steps = true, collapsed = false, locked = false, scale = 1 },
 		card = { shown = true, autoLoad = false },
@@ -58,7 +62,6 @@ module = ns.RegisterModule({
 		learned = {}, -- [npcID] = { name, species, types, seen }
 	},
 	init = function(db)
-		ns.petsDB = db
 		ns.PetsStore_Init(db)
 		ns.PetsCard_Init(db)
 		ns.PetsPage_Init(db)
@@ -134,4 +137,3 @@ module = ns.RegisterModule({
 		end },
 	},
 })
-ns.petsModule = module

@@ -38,13 +38,6 @@ local Refresh
 
 -- Actions -------------------------------------------------------------------------------------------------------
 
-local function InsertLink(link)
-	local insert = (ChatFrameUtil and ChatFrameUtil.InsertLink) or ChatEdit_InsertLink
-	if link and insert then
-		insert(link)
-	end
-end
-
 local function IsTracked(q)
 	return C_SuperTrack.GetSuperTrackedQuestID() == q.id
 end
@@ -191,11 +184,7 @@ local function HidePreview()
 	end
 end
 
--- role: theme color role ("text" by default).
-local function Line(text, role, wrap)
-	local r, g, b = UI.Color(role or "text")
-	GameTooltip:AddLine(text, r, g, b, wrap)
-end
+local Line = UI.TipLine
 
 local function QuestLines(q, header)
 	if header then
@@ -284,7 +273,7 @@ local function OnRowClick(self, button)
 	end
 	if button == "LeftButton" then
 		if IsShiftKeyDown() then
-			InsertLink(GetQuestLink(q.id))
+			UI.InsertLink(GetQuestLink(q.id))
 		else
 			Track(q)
 		end
@@ -430,6 +419,7 @@ local function Options()
 end
 ns.WQ_Options = Options
 
+-- Quests in a WQ_Sections list.
 local function Count(sections)
 	local n = 0
 	for _, s in ipairs(sections) do
@@ -437,6 +427,7 @@ local function Count(sections)
 	end
 	return n
 end
+ns.WQ_Count = Count
 
 function Refresh()
 	if not panel or not panel:IsShown() then

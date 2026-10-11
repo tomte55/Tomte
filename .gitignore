@@ -1,3 +1,4 @@
 luac.out
 *.zip
 __pycache__/
+.superpowers/

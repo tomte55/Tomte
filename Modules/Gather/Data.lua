@@ -29,13 +29,14 @@ ns.GATHER_NOT = { [3365] = true, [22810] = true, [1804] = true, [73979] = true, 
 local OPENING = { [3365] = true, [22810] = true }
 
 local CAST_FRESH = 3 -- seconds a cast stays linked to the loot window that follows
+ns.GATHER_CAST_FRESH = CAST_FRESH -- Detect.lua's FreshCast uses the same window
 local SEEN_MAX = 500
 local FINDS_MAX = 20
 local ITEMS_KEPT = 15
 local LIVE_TAIL = 120 -- a live run's clock stops this long after its last gather
 local MIN_DURATION = 60
 
-local TRADEGOODS = 7
+local TRADEGOODS = 7 -- Enum.ItemClass.Tradegoods
 local ITEM_KINDS = { [7] = "mining", [9] = "herbalism", [6] = "skinning" } -- Tradeskill subclasses
 
 -- "GameObject-0-1-2-3-410000-0001" -> "GameObject", 410000. The id is the 6th field (nil for Item GUIDs).
@@ -232,6 +233,16 @@ local function Remember(run, guid)
 	end
 end
 
+-- The run's entry for a zone, created on first use.
+local function Zone(run, mapID)
+	local zone = run.zones[mapID]
+	if not zone then
+		zone = { nodes = 0, v = 0 }
+		run.zones[mapID] = zone
+	end
+	return zone
+end
+
 -- g = { at, kind, sources = { guid... }, mapID, objectID, nodeName }. One gather per source; a source GUID not seen
 -- before in this run is a new node (a rich vein mined three times is one node). No readable source: one of each.
 function ns.Gather_AddGather(run, g)
@@ -241,14 +252,7 @@ function ns.Gather_AddGather(run, g)
 		k = { nodes = 0, gathers = 0 }
 		run.kinds[kind] = k
 	end
-	local zone
-	if g.mapID then
-		zone = run.zones[g.mapID]
-		if not zone then
-			zone = { nodes = 0, v = 0 }
-			run.zones[g.mapID] = zone
-		end
-	end
+	local zone = g.mapID and Zone(run, g.mapID)
 	local sources = g.sources or {}
 	local newNodes, gathers = 0, math.max(#sources, 1)
 	if #sources == 0 then
@@ -290,11 +294,7 @@ function ns.Gather_AddItem(run, it)
 	e.q = it.quality or e.q
 	e.kind = it.kind or e.kind
 	if it.mapID then
-		local zone = run.zones[it.mapID]
-		if not zone then
-			zone = { nodes = 0, v = 0 }
-			run.zones[it.mapID] = zone
-		end
+		local zone = Zone(run, it.mapID)
 		zone.v = zone.v + (it.unit or 0) * (it.count or 1)
 	end
 	return e
@@ -423,7 +423,18 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- History
 
--- The copy kept for a finished run: no seen GUIDs, only the 15 most valuable items.
+-- Sort order for { key, v, n } rows: value, then count, then key.
+local function MostValuable(a, b)
+	if a.v ~= b.v then
+		return a.v > b.v
+	end
+	if a.n ~= b.n then
+		return a.n > b.n
+	end
+	return tostring(a.key) < tostring(b.key)
+end
+
+-- The copy kept for a finished run: no seen GUIDs, only the ITEMS_KEPT (15) most valuable items.
 function ns.Gather_Compact(run)
 	local copy = {}
 	for k, v in pairs(run) do
@@ -435,15 +446,7 @@ function ns.Gather_Compact(run)
 	for key, e in pairs(run.items or {}) do
 		list[#list + 1] = { key = key, v = e.v or 0, n = e.n or 0, e = e }
 	end
-	table.sort(list, function(a, b)
-		if a.v ~= b.v then
-			return a.v > b.v
-		end
-		if a.n ~= b.n then
-			return a.n > b.n
-		end
-		return tostring(a.key) < tostring(b.key)
-	end)
+	table.sort(list, MostValuable)
 	copy.items = {}
 	for i = 1, math.min(#list, ITEMS_KEPT) do
 		copy.items[list[i].key] = list[i].e
@@ -525,15 +528,7 @@ function ns.Gather_ItemTotals(list)
 			end
 		end
 	end
-	table.sort(rows, function(a, b)
-		if a.v ~= b.v then
-			return a.v > b.v
-		end
-		if a.n ~= b.n then
-			return a.n > b.n
-		end
-		return tostring(a.key) < tostring(b.key)
-	end)
+	table.sort(rows, MostValuable)
 	return rows
 end
 

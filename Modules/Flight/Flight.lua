@@ -1,8 +1,11 @@
 local addonName, ns = ...
 
 -- Flight Timer module: times flight paths account-wide, shows a countdown bar and drives the cinematic
--- flight scene. Pure logic is in Data.lua. Nothing ticks on the ground: the ticker frame is only shown
--- while a picked route waits for takeoff or a flight is in progress.
+-- flight scene. Pure logic is in Data.lua and Coverage.lua, the bar in Bar.lua, the cinematic scene in Scene.lua
+-- and ZoneText.lua, taxi map tooltips in Tooltip.lua, the flight map's coverage strip in MapCoverage.lua, the
+-- flight master list in Atlas.lua and Home's "Flight coverage" page in CoveragePage.lua.
+-- Nothing ticks on the ground: the ticker frame is only shown while a picked route waits for takeoff or a flight
+-- is in progress.
 
 local TICK = 0.2 -- seconds between taxi/position checks
 local START_TIMEOUT = 10 -- seconds to wait for the taxi to start after TakeTaxiNode
@@ -11,6 +14,7 @@ local LOADING_GRACE = 3 -- seconds after a loading screen before UnitOnTaxi is t
 local ALERT_SOUND = SOUNDKIT.ALARM_CLOCK_WARNING_3
 local ALERT_GAP = 0.2 -- seconds between the two dings
 local PREVIEW_SECONDS = 15
+local COVERAGE_ICON = "Interface\\Icons\\Ability_Mount_Wyvern_01"
 local EVENTS = { "PLAYER_ENTERING_WORLD", "LOADING_SCREEN_ENABLED", "LOADING_SCREEN_DISABLED", "ZONE_CHANGED_NEW_AREA" }
 
 local module
@@ -29,8 +33,9 @@ end)
 local ticker = CreateFrame("Frame")
 ticker:Hide()
 
--- Resolves the hop path to a destination slot. Only valid while the taxi map is open.
-function ns.BuildRoute(destSlot)
+-- Resolves the hop path to a destination slot. Only valid while the taxi map is open. Returns { mapID, path
+-- (node IDs), points (stops between), origin, dest, originName, destName, cost }, or nil. Tooltip.lua uses it too.
+function ns.Flight_BuildRoute(destSlot)
 	local mapID = GetTaxiMapID()
 	if not mapID then
 		return nil
@@ -70,7 +75,7 @@ function ns.BuildRoute(destSlot)
 			route.origin = { x = x, y = y }
 		elseif i == #nodes then
 			route.dest = { x = x, y = y }
-		elseif i > 1 then
+		else
 			route.points[#route.points + 1] = { index = i, x = x, y = y, name = info.name }
 		end
 	end
@@ -96,7 +101,7 @@ end
 
 local function ResetStats()
 	ns.flightDB.stats = nil
-	ns.InitDB(ns.flightDB)
+	ns.Flight_InitDB(ns.flightDB) -- puts back a fresh stats table
 	ns.Print("flight stats cleared.")
 end
 
@@ -108,11 +113,11 @@ local function PrintStats()
 	if st.longest > 0 then
 		print(("  Longest: %s (%s)"):format(st.longestRoute, ns.FormatTime(st.longest)))
 	end
-	local visited, visits = ns.TopEntry(st.departures)
+	local visited, visits = ns.Flight_TopEntry(st.departures)
 	if visited then
 		print(("  Most visited: %s (%d departures)"):format(visited, visits))
 	end
-	local route, count = ns.TopEntry(st.routeCounts)
+	local route, count = ns.Flight_TopEntry(st.routeCounts)
 	if route then
 		print(("  Most flown: %s (%d times)"):format(route, count))
 	end
@@ -180,7 +185,7 @@ local function StartFlight(route, startTime)
 	ticker:Show()
 end
 
--- Once per flight: 5s before a known landing, or on landing when the time was unknown.
+-- Once per flight: FLIGHT_ALERT_LEAD seconds before a known landing, or on landing when the time was unknown.
 local function Alert()
 	flight.alerted = true
 	if ns.flightDB.alert then
@@ -349,7 +354,7 @@ local function InstallHooks()
 		if not module.active then
 			return
 		end
-		local route = ns.BuildRoute(slot)
+		local route = ns.Flight_BuildRoute(slot)
 		if route then
 			route.requested = GetTime()
 			pending = route
@@ -413,11 +418,7 @@ end
 
 -- Home's "Around you": flight masters in your zone you haven't timed a route from ---------------------------------
 
-local COVERAGE_ICON = "Interface\\Icons\\Ability_Mount_Wyvern_01"
-
-local function Secret(value)
-	return issecretvalue ~= nil and issecretvalue(value)
-end
+local Secret = ns.IsSecret
 
 -- Untimed flight masters in the zone you're in, nearest first (Coverage_Untimed), and that zone's map ID.
 local function UntimedHere()
@@ -440,10 +441,7 @@ local function Waypoint(node, mapID)
 		ns.Print("can't place a map pin there.")
 		return
 	end
-	local now = ns.SafeTrack(function()
-		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, node.x, node.y))
-		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
-	end)
+	local now = ns.TrackPin(mapID, node.x, node.y)
 	ns.Print(("%s: %s."):format(now and "waypoint" or "waypoint after combat", node.name))
 end
 
@@ -456,6 +454,7 @@ local AROUND = {
 	kind = "around", key = "flightaround", order = 4, name = "Flight masters", maxRows = 2, icon = COVERAGE_ICON,
 	openText = "Opens the world map on this zone",
 	open = function()
+		-- Not in combat, the same rule as Home's world map click (Panel/Home.lua) and the modules' map tabs.
 		if InCombatLockdown() then
 			ns.Print("not in combat.")
 			return
@@ -509,7 +508,7 @@ module = ns.RegisterModule({
 	category = "Travel",
 	description = "Times flight paths account-wide and shows a countdown while flying, with an optional cinematic flight mode.",
 	enabledByDefault = true,
-	defaults = ns.defaults,
+	defaults = ns.Flight_Defaults,
 	keep = { "calibration", "stats" }, -- collected data: a settings reset keeps it
 	init = function(db)
 		ns.flightDB = db
@@ -525,7 +524,7 @@ module = ns.RegisterModule({
 		return flight
 	end,
 	home = {
-		{ kind = "page", key = "coverage", order = 4, name = "Flight coverage", icon = "Interface\\Icons\\Ability_Mount_Wyvern_01",
+		{ kind = "page", key = "coverage", order = 4, name = "Flight coverage", icon = COVERAGE_ICON,
 			page = ns.CoveragePage,
 			summary = function()
 				local n = 0
@@ -565,7 +564,7 @@ module = ns.RegisterModule({
 				end
 			end },
 		{ type = "checkbox", key = "alert", label = "Arrival alert",
-			tooltip = "Two dings and a flashing taskbar icon 5 seconds before landing." },
+			tooltip = ("Two dings and a flashing taskbar icon %d seconds before landing."):format(ns.FLIGHT_ALERT_LEAD) },
 		{ type = "button", label = "Arrival alert sound", text = "Test", onClick = PlayAlert,
 			tooltip = "Play the arrival alert." },
 

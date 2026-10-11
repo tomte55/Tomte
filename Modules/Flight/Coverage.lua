@@ -15,6 +15,7 @@ function ns.Coverage_Timed(db)
 			if a > b then
 				a, b = b, a
 			end
+			-- ns.HopKey's format, built here because tests/test_coverage.lua loads this file without Data.lua.
 			local pair = a .. ">" .. b
 			if not seen[pair] then
 				seen[pair] = true
@@ -30,7 +31,7 @@ function ns.Coverage_Timed(db)
 	return timed, legs
 end
 
--- node = { nodeID, name, undiscovered }
+-- node = { nodeID, name, undiscovered }. Returns "timed", "known" or "undiscovered".
 function ns.Coverage_NodeState(node, timed)
 	if timed[node.nodeID] then
 		return "timed"
@@ -100,6 +101,15 @@ function ns.Coverage_Summarize(atlas, db)
 		end
 	end
 	return result
+end
+
+-- C_TaxiMap.GetTaxiNodesForMap also returns flight masters of neighboring maps, positioned relative to the map asked
+-- for (outside 0..1, measured in Valdrakken: x 1.16, y -0.75). True when pos is on the map, or there's no position.
+function ns.Coverage_OnMap(pos)
+	if not pos then
+		return true
+	end
+	return pos.x >= 0 and pos.x <= 1 and pos.y >= 0 and pos.y <= 1
 end
 
 -- Flight masters on one map you haven't timed a route from (known or still undiscovered), nearest first, then by

@@ -4,11 +4,13 @@ local addonName, ns = ...
 -- reads the battle into plain tables for the matchup rules (Data.lua) and the script interpreter (Script.lua),
 -- keeps the round counters the scripts use (they survive a /reload), and draws the battle helper: the enemy team,
 -- what hits it hard, your best pet, the strategy's steps and the Next move button. Next move does one action per
--- press (a click, or its key from WoW's Key Bindings menu); nothing acts on its own.
+-- press (a click, or its key from WoW's Key Bindings menu); nothing acts on its own. After a battle it refills the
+-- leveling slot and shows the Heal button (both live in Journal.lua), waiting for combat to end when needed.
 
 local UI = ns.UI
 local ALLY, ENEMY = 1, 2
 local NPC_FRESH = 60 -- seconds a talked-to NPC counts as "the one you're fighting"
+local AFTER_SECONDS = 5 -- how long after the after-battle work a journal update still redoes it (see afterUntil)
 local WIDTH = 460
 local CELL = 38
 local LINE_H = 20
@@ -28,9 +30,7 @@ local afterBattleDone = true
 local afterUntil -- the journal may get the battle's results after PET_BATTLE_CLOSE: redo the checks until then
 local afterInCombat -- the battle ended in combat: do the after-battle work when it's over
 
-local function IsSecret(v)
-	return issecretvalue ~= nil and issecretvalue(v)
-end
+local IsSecret = ns.IsSecret
 
 local function InBattle()
 	return C_PetBattles.IsInBattle()
@@ -106,7 +106,6 @@ end
 -- The live api for the interpreter (Script.lua lists the methods) ------------------------------------------------
 
 local api = {}
-ns.PetsBattle_API = api
 
 function api:NumPets(o)
 	return C_PetBattles.GetNumPets(o) or 0
@@ -400,12 +399,16 @@ local function NextOnClick()
 		return
 	end
 	Perform(ScriptAction())
+	-- A short wait, presumably so the battle state reflects the action before the button shows the next one.
 	C_Timer.After(0.2, ns.PetsBattle_Refresh)
 end
 
+-- A plain Button, not a secure one: the pet battle actions need a hardware event but aren't protected. Its global
+-- name is what the key binding clicks (Bindings.xml).
 local function CreateNextButton(parent)
 	local b = CreateFrame("Button", "TomtePetNext", parent)
 	b:SetSize(36, 36)
+	-- Down clicks only: a key binding's CLICK sends a down and an up, and one press must be one action.
 	b:RegisterForClicks("AnyDown")
 	b.icon = b:CreateTexture(nil, "ARTWORK")
 	b.icon:SetAllPoints()
@@ -779,34 +782,7 @@ local function AfterBattle()
 		return
 	end
 	AfterBattleWork()
-	afterUntil = GetTime() + 5
-end
-
--- The heal button by itself where the helper sits, for a while after a battle.
-local healTimer
-function ns.PetsHeal_AfterBattleShown()
-	return healTimer ~= nil
-end
-
-function ns.PetsHeal_ShowAfterBattle(anchor)
-	local x, y
-	if anchor and anchor:GetLeft() then
-		local scale = anchor:GetEffectiveScale() / UIParent:GetEffectiveScale()
-		x, y = anchor:GetLeft() * scale + 10, (anchor:GetTop() - 40) * scale
-	else
-		x, y = UIParent:GetWidth() / 2 - 16, 215
-	end
-	if ns.PetsHeal_Show(x, y) then
-		if healTimer then
-			healTimer:Cancel()
-		end
-		healTimer = C_Timer.NewTimer(30, function()
-			healTimer = nil
-			if not (ns.PetsCard_Shown and ns.PetsCard_Shown()) then
-				ns.PetsHeal_Hide()
-			end
-		end)
-	end
+	afterUntil = GetTime() + AFTER_SECONDS
 end
 
 local events = CreateFrame("Frame")
@@ -882,7 +858,7 @@ function events:PLAYER_REGEN_ENABLED()
 	if afterInCombat then
 		afterInCombat = false
 		AfterBattleWork()
-		afterUntil = GetTime() + 5
+		afterUntil = GetTime() + AFTER_SECONDS
 	end
 end
 
@@ -956,10 +932,6 @@ function ns.PetsBattle_Relayout()
 	if frame then
 		Place()
 	end
-end
-
-function ns.PetsBattle_Context()
-	return ctx
 end
 
 _G["BINDING_NAME_CLICK TomtePetNext:LeftButton"] = "Next pet battle move"

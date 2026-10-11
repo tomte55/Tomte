@@ -2,7 +2,8 @@ local addonName, ns = ...
 
 -- Pet Battles: the pet journal side. Reads your battle pets (C_PetJournal.GetOwnedPetIDs, which ignores the
 -- journal's own filters, so Tomte never touches them), the current team, loads a saved team, refills the leveling
--- slot, and owns the secure Heal button (Revive Battle Pets, or a Battle Pet Bandage while it's on cooldown).
+-- slot, and owns the secure Heal button (Revive Battle Pets, or a Battle Pet Bandage while it's on cooldown), shown
+-- on the tamer card (Card.lua) and for a while after a battle.
 
 local UI = ns.UI
 local REVIVE = 125439 -- Revive Battle Pets (the journal's heal button)
@@ -11,9 +12,7 @@ local HEAL_SIZE = 32
 
 local owned, dirty = nil, true
 
-local function IsSecret(v)
-	return issecretvalue ~= nil and issecretvalue(v)
-end
+local IsSecret = ns.IsSecret
 
 -- Owned pets ---------------------------------------------------------------------------------------------------
 
@@ -156,11 +155,11 @@ function ns.PetsJournal_RefillLeveling(db)
 		return nil, reason
 	end
 	ns.PetsJournal_MarkDirty()
-	local owned = ns.PetsJournal_Owned()
-	if #owned == 0 then -- the journal hasn't loaded: never prune the queue against nothing
+	local pets = ns.PetsJournal_Owned()
+	if #pets == 0 then -- the journal hasn't loaded: never prune the queue against nothing
 		return nil
 	end
-	local guid, queue = ns.Pets_NextLeveling(db.levelQueue, owned)
+	local guid, queue = ns.Pets_NextLeveling(db.levelQueue, pets)
 	db.levelQueue = queue
 	local slot = db.leveling.slot
 	if not guid or C_PetJournal.GetPetLoadOutInfo(slot) == guid then
@@ -209,13 +208,16 @@ local function HealTooltip(self)
 end
 
 local function CreateHeal()
-	-- On WorldFrame like the tamer card, so a dialogue addon hiding UIParent doesn't take it along.
+	-- On WorldFrame like the tamer card, so a dialogue addon hiding UIParent doesn't take it along. DIALOG: above the
+	-- card (HIGH) it's placed on. The button's global name is what its key binding clicks (Bindings.xml).
 	holder = CreateFrame("Frame", "TomtePetHealHolder", WorldFrame, "SecureFrameTemplate")
 	holder:SetSize(HEAL_SIZE, HEAL_SIZE)
 	holder:SetFrameStrata("DIALOG")
 	holder:Hide()
 	heal = CreateFrame("Button", "TomtePetHeal", holder, "SecureActionButtonTemplate")
 	heal:SetAllPoints()
+	-- Acts on the press: down clicks only (a key binding's CLICK sends a down and an up), and useOnKeyDown tells the
+	-- secure template to act on that down click whatever the ActionButtonUseKeyDown setting is.
 	heal:RegisterForClicks("AnyDown")
 	heal:SetAttribute("useOnKeyDown", true)
 	heal.icon = heal:CreateTexture(nil, "ARTWORK")
@@ -257,6 +259,8 @@ function ns.PetsHeal_Refresh()
 		heal.count:SetText(bandages)
 		heal.label:SetText("Bandage")
 	else
+		-- A /cast macro rather than type=spell: on 12.1 type=spell silently failed to cast mounts (Smart Mount), and
+		-- whether it would work for Revive Battle Pets hasn't been tested.
 		heal:SetAttribute("type", name and "macro" or nil)
 		heal:SetAttribute("macrotext", name and ("/cast " .. name) or nil)
 		heal.icon:SetTexture(C_Spell.GetSpellTexture(REVIVE))
@@ -295,6 +299,35 @@ end
 
 function ns.PetsHeal_Shown()
 	return holder ~= nil and holder:IsShown()
+end
+
+-- After a battle (Battle.lua) the button shows by itself where the helper sits, for a while; when the time is up it
+-- stays if the tamer card is showing it.
+local AFTER_BATTLE_SECONDS = 30 -- the Heal option's tooltip (Pets.lua) says 30 seconds
+local healTimer
+function ns.PetsHeal_AfterBattleShown()
+	return healTimer ~= nil
+end
+
+function ns.PetsHeal_ShowAfterBattle(anchor)
+	local x, y
+	if anchor and anchor:GetLeft() then
+		local scale = anchor:GetEffectiveScale() / UIParent:GetEffectiveScale()
+		x, y = anchor:GetLeft() * scale + 10, (anchor:GetTop() - 40) * scale
+	else
+		x, y = UIParent:GetWidth() / 2 - 16, 215
+	end
+	if ns.PetsHeal_Show(x, y) then
+		if healTimer then
+			healTimer:Cancel()
+		end
+		healTimer = C_Timer.NewTimer(AFTER_BATTLE_SECONDS, function()
+			healTimer = nil
+			if not (ns.PetsCard_Shown and ns.PetsCard_Shown()) then
+				ns.PetsHeal_Hide()
+			end
+		end)
+	end
 end
 
 -- Its holder hides when combat starts (secure frames can't change in combat).

@@ -13,17 +13,13 @@ local TAB_ICON = "Interface\\Icons\\Spell_Arcane_PortalDalaran"
 local TICK = 1 -- seconds between cooldown text updates
 local PIN_SIZE = 34
 local KEY = "tp"
+local QUESTION_MARK_ICON = 134400 -- for an entry whose icon hasn't loaded
 
 local db
 local panel, secure, pin
 local rows, used = {}, 0
-local hoverRow
 local tick = 0
 local Refresh
-
-local function InCombat()
-	return InCombatLockdown()
-end
 
 -- Tooltip -----------------------------------------------------------------------------------------------------------
 
@@ -47,7 +43,7 @@ local function ShowTooltip(owner, e)
 	if not e.known then
 		local r, g, b = UI.Color("warning")
 		GameTooltip:AddLine("Not earned yet: time this dungeon on Mythic+ to get it.", r, g, b, true)
-	elseif InCombat() then
+	elseif InCombatLockdown() then
 		GameTooltip:AddLine("In combat: teleports are off until combat ends.", UI.RGB("danger"))
 	else
 		GameTooltip:AddLine(db.favorites[e.key] and "Right-click: remove from favorites" or "Right-click: add to favorites",
@@ -78,6 +74,7 @@ local function ShowPin(e)
 		pin.ring:SetVertexColor(UI.Color("accent"))
 	end
 	pin:SetParent(canvas)
+	-- Far above the canvas: Blizzard's own map pins (delve pins among them) sit well above the canvas's frame level.
 	pin:SetFrameLevel(canvas:GetFrameLevel() + 2000)
 	local scale = WorldMapFrame.ScrollContainer:GetCanvasScale()
 	pin:SetSize(PIN_SIZE / scale, PIN_SIZE / scale)
@@ -118,7 +115,7 @@ local function Detach()
 	if not secure then
 		return
 	end
-	if not InCombat() then
+	if not InCombatLockdown() then
 		secure:Hide()
 		secure:ClearAllPoints()
 	end
@@ -154,7 +151,7 @@ local function PlaceOver(row)
 end
 
 local function Attach(row)
-	if not secure or InCombat() or not row.entry or not row.entry.known then
+	if not secure or InCombatLockdown() or not row.entry or not row.entry.known then
 		return false
 	end
 	if not PlaceOver(row) then
@@ -168,6 +165,7 @@ end
 
 local function CreateSecure()
 	secure = CreateFrame("Button", nil, UIParent, "SecureActionButtonTemplate")
+	-- It lives on UIParent but has to sit above the world map, over the row it covers, to get the mouse.
 	secure:SetFrameStrata("FULLSCREEN_DIALOG")
 	secure:Hide()
 	secure:RegisterForClicks("AnyUp")
@@ -198,7 +196,7 @@ local function CreateSecure()
 			Detach()
 			GameTooltip:Hide()
 			Refresh()
-		elseif e.kind == "random" and not InCombat() then
+		elseif e.kind == "random" and not InCombatLockdown() then
 			SetAction(e) -- a different toy next time
 		end
 	end)
@@ -219,7 +217,7 @@ local function EnsureSecure()
 	if secure then
 		return
 	end
-	if not InCombat() then
+	if not InCombatLockdown() then
 		CreateSecure()
 		return
 	end
@@ -270,7 +268,6 @@ local function NewRow()
 		if not self.entry then
 			return
 		end
-		hoverRow = self
 		local owner = Attach(self) and secure or self
 		SetHover(self, true)
 		ShowTooltip(owner, self.entry)
@@ -308,7 +305,7 @@ local function UpdateCooldown(row)
 	else
 		row.cd:SetText("")
 	end
-	local usable = e.known and ready and not InCombat()
+	local usable = e.known and ready and not InCombatLockdown()
 	row.icon:SetDesaturated(not usable)
 	UI.SetTextRole(row.name, e.known and (usable and "text" or "textMuted") or "textFaint")
 end
@@ -321,7 +318,7 @@ local function SetEntry(row, e)
 	row.name:Show()
 	row.sub:Show()
 	row.cd:Show()
-	row.icon:SetTexture(e.icon or 134400)
+	row.icon:SetTexture(e.icon or QUESTION_MARK_ICON)
 	row.name:SetText(e.name)
 	local sub = e.dest or e.group or ""
 	if e.equips then
@@ -354,7 +351,6 @@ local function ViewedMapNames()
 	return ns.Tp_MapNames(mapID)
 end
 
--- IsVisible: the tab stays selected (and shown) while the map is closed; bag and spell events mustn't redraw it then.
 -- [mapNames][text] = whether it goes there: matching every entry against every name under a continent is a lot of
 -- string work, and the answer only changes with the map.
 local mentions = setmetatable({}, { __mode = "k" })
@@ -374,6 +370,8 @@ local function Mentions(text, mapNames)
 end
 
 function Refresh()
+	-- IsVisible: the tab stays selected (and shown) while the map is closed; bag and spell events mustn't redraw it
+	-- then.
 	if not panel or not panel:IsVisible() then
 		return
 	end
@@ -417,7 +415,7 @@ function Refresh()
 	end
 	panel.empty:SetShown(#sections == 0)
 	panel.scroll:SetContentHeight(y)
-	panel.note:SetText(InCombat() and UI.Wrap("In combat: teleports are off until combat ends.", "danger")
+	panel.note:SetText(InCombatLockdown() and UI.Wrap("In combat: teleports are off until combat ends.", "danger")
 		or "Click to teleport, right-click to favorite.")
 end
 
@@ -511,7 +509,7 @@ end
 
 -- /tomte tp open: the map with this tab showing.
 function ns.TpTab_Open()
-	if InCombat() then
+	if InCombatLockdown() then
 		ns.Print("not in combat.")
 		return
 	end

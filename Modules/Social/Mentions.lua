@@ -32,9 +32,7 @@ events:SetScript("OnEvent", function(self, event, ...)
 	self:OnChat(event, ...)
 end)
 
-local function Readable(...)
-	return not canaccessallvalues or canaccessallvalues(...)
-end
+local Readable = ns.Readable
 
 local function RebuildWords()
 	local db = ns.mentionsDB
@@ -60,11 +58,7 @@ local function RegisterEvents()
 end
 
 local function ShowMention(label, sender, class, text, slash, preview)
-	local title = sender
-	local color = class and C_ClassColor.GetClassColor(class)
-	if color then
-		title = color:WrapTextInColorCode(sender)
-	end
+	local title = ns.UI.ClassColored(sender, class)
 	ns.Toast_Show({
 		owner = OWNER,
 		label = "Mention - " .. label,

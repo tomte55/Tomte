@@ -3,12 +3,15 @@ local addonName, ns = ...
 -- Pet Battles: the Guides window. One row per guide link (Xu-Fu encounter pages, Wowhead), each with what the fight
 -- is for and a Copy button: WoW can't open a browser or write the clipboard, so Copy selects that one link and
 -- Ctrl+C copies it. A pet battle world quest up next to you marks its link "Active now" and puts it first.
--- On WorldFrame: it opens from the tamer card, while dialogue addons (DialogueUI, Immersion) hide UIParent.
+-- On UIParent like every window, so it shows over the Tomte window (Pet Battles page). While a dialogue addon
+-- (DialogueUI, Immersion) hides UIParent at a tamer it goes on WorldFrame instead (see Show).
 
 local UI = ns.UI
 local WIDTH = 460
 local PAD = 14
 local ROW_H = 58
+-- The header's heights, top down: title offset, title line, gap, (the hint's own height), gap before the first row.
+local TITLE_TOP, TITLE_H, HINT_GAP, LIST_GAP = 12, 16, 4, 12
 local NEAR_YARDS = 60 -- a pet battle world quest's map pin sits on its tamer
 
 local KIND_NOTE = {
@@ -110,7 +113,7 @@ local function Row(i)
 end
 
 local function Build()
-	popup = CreateFrame("Frame", "TomtePetsGuides", WorldFrame)
+	popup = CreateFrame("Frame", "TomtePetsGuides", UIParent)
 	popup:SetWidth(WIDTH)
 	popup:SetPoint("CENTER", 0, 120)
 	popup:SetFrameStrata("DIALOG")
@@ -125,9 +128,9 @@ local function Build()
 	UI.Panel(popup)
 	tinsert(UISpecialFrames, "TomtePetsGuides") -- Escape closes it
 	popup.title = UI.Text(popup, 14, "heading", "title")
-	popup.title:SetPoint("TOPLEFT", PAD, -12)
+	popup.title:SetPoint("TOPLEFT", PAD, -TITLE_TOP)
 	popup.hint = UI.Text(popup, 11, "textMuted")
-	popup.hint:SetPoint("TOPLEFT", popup.title, "BOTTOMLEFT", 0, -4)
+	popup.hint:SetPoint("TOPLEFT", popup.title, "BOTTOMLEFT", 0, -HINT_GAP)
 	popup.hint:SetPoint("RIGHT", -PAD, 0)
 	popup.hint:SetJustifyH("LEFT")
 	popup.hint:SetText("Copy a link, then press Ctrl+C and paste it in your browser.")
@@ -147,9 +150,18 @@ local function Show(title, links)
 	if not popup then
 		Build()
 	end
-	popup:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
+	-- WorldFrame's children draw under all of UIParent, so WorldFrame only while UIParent is hidden, scaled to
+	-- UIParent's size there. SetParent can carry the parent's strata over, so it's set again.
+	if UIParent:IsShown() then
+		popup:SetParent(UIParent)
+		popup:SetScale(1)
+	else
+		popup:SetParent(WorldFrame)
+		popup:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
+	end
+	popup:SetFrameStrata("DIALOG")
 	popup.title:SetText(title or "")
-	local y = 12 + 16 + 4 + popup.hint:GetStringHeight() + 12
+	local y = TITLE_TOP + TITLE_H + HINT_GAP + popup.hint:GetStringHeight() + LIST_GAP
 	for i, link in ipairs(links) do
 		local row = Row(i)
 		row:ClearAllPoints()

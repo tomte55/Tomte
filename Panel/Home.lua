@@ -1,13 +1,15 @@
 local addonName, ns = ...
 
--- The panel's Home view and the rail beside every view but Settings. Home shows real content instead of
--- launcher tiles:
+-- The panel's Home view and the rail beside every view but Settings. Home's parts:
 --   hero     the current character in 3D (drag to turn) with its name, item level, gold, durability and location
 --            (each a button: a tooltip with more, and a click while the module behind it is on), and the quick
 --            actions (module.home entries of kind "quick") under it
 --   week     a module section in slot "week" across the top (Weekly board)
---   columns  a section in slot "characters" (Alts) on the left, and "Around you" on the right: every entry of kind
---            "around" as an accent heading (it opens the world map) with a few rows
+--   next     a section in slot "next" (Next up): a strip under the week, under the character list, or on top of the
+--            right column, by its place() and the room there is
+--   columns  a section in slot "characters" (Alts) on the left; on the right, sections in slots "recent" (Recent)
+--            and "events" (Holidays) stacked over "Around you": every entry of kind "around" as an accent heading
+--            (it opens the world map) with a few rows
 -- Sections draw themselves (entry.Create/Refresh) with the kit below; "around" entries only return data. The hero
 -- column hides when the window is narrow. Everything is read again each time Home is shown.
 
@@ -22,7 +24,8 @@ local ROW_H = 24
 local ROW2_H = 36 -- a row with a second line
 local NEXT_UNDER_MIN = 40 + 2 * ROW2_H -- Next up's heading and two rows: less room under the characters, it moves right
 local RAIL_ROW_H, RAIL_HEADER_H = 24, 30
-ns.RAIL_W = 170
+local RAIL_W = 170
+local RESIZE_DELAY = 0.15 -- seconds between Home layouts while the window is resized
 
 -- ns.HomeCall (Core/Modules.lua): a module's summary/count/shown/items; errors go to BugSack and count as "nothing".
 
@@ -98,7 +101,8 @@ function Kit.Heading(parent)
 end
 
 -- List row: icon, text and right-aligned text (number font). row:Set(icon, text, color, right, rightColor, sub)
--- (colors: roles or color tables). With sub the row gets a small muted second line and is Kit.ROW2_H tall (else ROW_H); sub "" is tall, one line.
+-- (colors: roles or color tables). With sub the row gets a small muted second line and is Kit.ROW2_H tall (else
+-- ROW_H); sub "" is tall, one line.
 -- Optional row.onClick / row.onRightClick / row.onEnter(row).
 function Kit.Row(parent)
 	local row = CreateFrame("Button", nil, parent)
@@ -185,7 +189,8 @@ function Kit.Row(parent)
 	return row
 end
 
--- Rows kept per owner: Rows(pool, i, parent) gives the i-th row, creating it the first time.
+-- Rows kept per owner: Kit.PoolRow(pool, i, parent) gives the i-th row, creating it the first time, shown and with
+-- its click and hover handlers cleared.
 function Kit.PoolRow(pool, i, parent)
 	local row = pool[i]
 	if not row then
@@ -248,9 +253,7 @@ local function TipPair(tip, left, right, role)
 	tip:AddDoubleLine(left, right, lr, lg, lb, r, g, b)
 end
 
-local function Secret(value)
-	return issecretvalue ~= nil and issecretvalue(value)
-end
+local Secret = ns.IsSecret
 
 local function Capitalized(text)
 	return (text:gsub("^%l", string.upper))
@@ -747,6 +750,8 @@ function ns.PanelHome_Create(parent, onOpen)
 	home.colLine = VLine(home.content)
 	home.around = CreateAround(home.content, onOpen)
 	home.sections = {} -- [entry] = frame
+	-- Shown when no module adds a section or an "Around you" block. Its text names a few of the modules that do,
+	-- not all of them.
 	home.empty = UI.Text(home.content, 13, "textMuted")
 	home.empty:SetPoint("TOPLEFT", PAD, -PAD)
 	home.empty:SetPoint("RIGHT", -PAD, 0)
@@ -911,11 +916,13 @@ function ns.PanelHome_Create(parent, onOpen)
 		self.empty:SetShown(not (week or chars or hasAround or nextUp or byslot.recent or byslot.events))
 	end
 
-	-- Size changes come every frame while the window is dragged bigger; refresh once they settle.
+	-- Size changes come every frame while the window is dragged bigger: refresh at most every RESIZE_DELAY seconds
+	-- (a full Home layout per frame is too much, and a short wait still feels live). The timer reads the size when it
+	-- fires, so the last size is always drawn.
 	home:SetScript("OnSizeChanged", function(self)
 		if self:IsVisible() and not self.resizePending then
 			self.resizePending = true
-			C_Timer.After(0.15, function()
+			C_Timer.After(RESIZE_DELAY, function()
 				self.resizePending = false
 				if self:IsVisible() then
 					self:Refresh()
@@ -1006,7 +1013,7 @@ end
 -- onSelect(entry) runs on a click; entry is nil for the Home row.
 function ns.PanelRail_Create(parent, onSelect)
 	local rail = CreateFrame("Frame", nil, parent)
-	rail:SetWidth(ns.RAIL_W)
+	rail:SetWidth(RAIL_W)
 	local bg = rail:CreateTexture(nil, "BACKGROUND")
 	bg:SetAllPoints()
 	bg:SetColorTexture(0, 0, 0, 0.25)

@@ -2,8 +2,8 @@ local addonName, ns = ...
 
 -- Send to alt: at a mailbox, a panel beside the mail frame lists what this character carries that another
 -- character uses (reagents of recipes they know, the Crafting tab's plan, manual rules), grouped by who gets it.
--- Per group: "Attach" fills the Send Mail tab (recipient, subject, up to 12 stacks), then "Send" sends it. At the
--- bank, "Deposit for alts" puts the suggested items that may go into the Warband bank there. With Gear Check's
+-- Per group: "Attach" fills the Send Mail tab (recipient, subject, up to MAX_ATTACH stacks), then "Send" sends it.
+-- At the bank, "Deposit for alts" puts the suggested items that may go into the Warband bank there. With Gear Check's
 -- upgrades for alts, Bind on Equip gear that's a clean upgrade for another character gets a "Gear for <name>" group
 -- at the mailbox, and warbound gear goes in the Warband bank with the rest. Every move is one click; nothing happens
 -- in combat. Rules in SendData.lua.
@@ -11,10 +11,10 @@ local addonName, ns = ...
 local UI = ns.UI
 local WIDTH = 270
 local ROW_H = 18
-local MAX_ATTACH = ATTACHMENTS_MAX_SEND or 12
+local MAX_ATTACH = ATTACHMENTS_MAX_SEND or 12 -- stacks per mail
+local POSTAGE_SLACK = 10000 -- copper (1 gold) a top-up's spent gold may exceed its amount by: the postage
 local MAX_ITEM_ROWS = 4 -- per group; the rest is "+n more"
-local TRADESKILL = 7 -- Enum.ItemClass.Tradegoods
-local QUEST = 12
+local QUEST = 12 -- Enum.ItemClass.Questitem
 
 local db
 local dock, bankButton
@@ -31,10 +31,6 @@ local events = CreateFrame("Frame")
 events:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
 end)
-
-local function Say(text)
-	ns.Print(text)
-end
 
 local function ClassColor(c)
 	local color = c.class and C_ClassColor.GetClassColor(c.class)
@@ -97,7 +93,6 @@ local usersCache, usersAt
 local function UsersChanged()
 	usersCache = nil
 end
-ns.AltsSend_UsersChanged = UsersChanged
 
 local function Users()
 	local now = GetTime()
@@ -194,7 +189,7 @@ end
 
 local function Busy()
 	if InCombatLockdown() then
-		Say("not in combat.")
+		ns.Print("not in combat.")
 		return true
 	end
 	return false
@@ -257,11 +252,11 @@ local function Attach(g)
 		MailFrameTab_OnClick(nil, 2)
 	end
 	if not SendTabShown() then
-		Say("open the Send Mail tab first.")
+		ns.Print("open the Send Mail tab first.")
 		return
 	end
 	if AttachmentCount() > 0 then
-		Say("the Send Mail tab already has items attached: send or remove them first.")
+		ns.Print("the Send Mail tab already has items attached: send or remove them first.")
 		return
 	end
 	local c = ns.altsDB.chars[g.guid]
@@ -275,7 +270,7 @@ local function Attach(g)
 		end
 	end
 	if not fresh then
-		Say(("nothing left in your bags for %s."):format(c and c.name or "?"))
+		ns.Print(("nothing left in your bags for %s."):format(c and c.name or "?"))
 		ns.AltsSend_Refresh()
 		return
 	end
@@ -305,11 +300,11 @@ local function AttachCraft(cm)
 		MailFrameTab_OnClick(nil, 2)
 	end
 	if not SendTabShown() then
-		Say("open the Send Mail tab first.")
+		ns.Print("open the Send Mail tab first.")
 		return
 	end
 	if AttachmentCount() > 0 then
-		Say("the Send Mail tab already has items attached: send or remove them first.")
+		ns.Print("the Send Mail tab already has items attached: send or remove them first.")
 		return
 	end
 	local stacks = {}
@@ -320,7 +315,7 @@ local function AttachCraft(cm)
 	end
 	local plan = ns.Alts_AttachPlan(cm.wants, stacks, db.listMail ~= "stacks", MAX_ATTACH)
 	if #plan == 0 then
-		Say("nothing in your bags for that craft.")
+		ns.Print("nothing in your bags for that craft.")
 		return
 	end
 	ClearCursor()
@@ -347,14 +342,14 @@ local function Send()
 		return
 	end
 	if not SendTabShown() or AttachmentCount() == 0 then
-		Say("nothing attached to send.")
+		ns.Print("nothing attached to send.")
 		attached = nil
 		ns.AltsSend_Refresh()
 		return
 	end
 	local price = GetSendMailPrice and GetSendMailPrice() or 0
 	if price > GetMoney() then
-		Say("not enough gold for the postage.")
+		ns.Print("not enough gold for the postage.")
 		return
 	end
 	-- Items only: no gold or C.O.D. left over from a top-up or typed in earlier (Blizzard's Send button resets
@@ -372,7 +367,7 @@ local function TopUp(c, amount)
 		MailFrameTab_OnClick(nil, 2)
 	end
 	if not SendTabShown() or AttachmentCount() > 0 then
-		Say("open an empty Send Mail tab first.")
+		ns.Print("open an empty Send Mail tab first.")
 		return
 	end
 	SendMailNameEditBox:SetText(ns.Alts_MailName(c, GetRealmName()))
@@ -607,7 +602,7 @@ function ns.AltsSend_Refresh()
 			fs:ClearAllPoints()
 			fs:SetPoint("TOPLEFT", 22, -y)
 			fs:SetPoint("RIGHT", -12, 0)
-			fs:SetText(UI.Wrap(("%d mails (12 stacks each)"):format(math.ceil(#g.stacks / MAX_ATTACH)), "textMuted"))
+			fs:SetText(UI.Wrap(("%d mails (%d stacks each)"):format(math.ceil(#g.stacks / MAX_ATTACH), MAX_ATTACH), "textMuted"))
 			y = y + ROW_H
 		end
 		y = y + 8
@@ -694,7 +689,7 @@ end
 function events:MAIL_SEND_SUCCESS()
 	if attached then
 		local c = ns.altsDB.chars[attached.guid]
-		Say(("sent %d stack%s to %s."):format(#attached.stacks, #attached.stacks == 1 and "" or "s", c and c.name or "?"))
+		ns.Print(("sent %d stack%s to %s."):format(#attached.stacks, #attached.stacks == 1 and "" or "s", c and c.name or "?"))
 	end
 	local topUp = toppingUp
 	attached = nil
@@ -705,7 +700,7 @@ function events:MAIL_SEND_SUCCESS()
 		-- later, as the money may not have updated yet.
 		C_Timer.After(0.3, function()
 			local spent = topUp.money - GetMoney()
-			if spent >= topUp.amount and spent <= topUp.amount + 10000 then
+			if spent >= topUp.amount and spent <= topUp.amount + POSTAGE_SLACK then
 				topUp.c.money = (topUp.c.money or 0) + topUp.amount
 				ns.AltsSend_Refresh()
 			end
@@ -799,7 +794,7 @@ local function Deposit()
 		end
 	end
 	depositing = false
-	Say(n == 0 and "nothing to put in the Warband bank for your alts." or ("put %d stack%s in the Warband bank for your alts."):format(n, n == 1 and "" or "s"))
+	ns.Print(n == 0 and "nothing to put in the Warband bank for your alts." or ("put %d stack%s in the Warband bank for your alts."):format(n, n == 1 and "" or "s"))
 	C_Timer.After(0.5, function()
 		if bankButton and bankOpen then
 			bankButton:Update()
@@ -947,7 +942,8 @@ function ns.AltsSend_Start(moduleDB)
 	for _, event in ipairs(EVENTS) do
 		events:RegisterEvent(event)
 	end
-	-- Recipes read or a character forgotten (Alts.lua, Collect.lua): the reagent users change.
+	-- Recipes read or a character forgotten (Alts.lua, Collect.lua): the reagent users change. hooksecurefunc as a plain
+	-- post-hook on our own ns function, once (Start runs again each time the module is turned on).
 	if not hookedRecipes and type(ns.Alts_RecipesChanged) == "function" then
 		hookedRecipes = true
 		hooksecurefunc(ns, "Alts_RecipesChanged", UsersChanged)

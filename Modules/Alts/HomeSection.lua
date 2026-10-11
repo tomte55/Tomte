@@ -7,6 +7,7 @@ local addonName, ns = ...
 local UI = ns.UI
 local ROW_H = 24
 local FOOT_H = 84
+local HEADING_H = 40 -- room for the section heading above the rows
 
 local PROFESSIONS = ns.ALTS_PROFESSIONS -- the eleven, with stand-in icons (Data.lua)
 
@@ -180,13 +181,12 @@ local function Create(frame, Kit)
 end
 
 local function Refresh(frame)
-	local Kit = ns.HomeKit
 	local db = ns.altsDB
 	frame.heading:Set("Your characters", nil, "Open Alts", function()
 		ns.Panel_OpenPage("alts")
 	end)
 	local list = ns.Alts_Roster(db.chars, "level", UnitGUID("player"))
-	local room = math.max(math.floor((frame:GetHeight() - 40 - FOOT_H) / ROW_H), 1)
+	local room = math.max(math.floor((frame:GetHeight() - HEADING_H - FOOT_H) / ROW_H), 1)
 	local shown = math.min(#list, room)
 	for i = 1, shown do
 		local row = frame.rows[i]
@@ -196,7 +196,7 @@ local function Refresh(frame)
 		end
 		SetRow(row, list[i])
 		row:ClearAllPoints()
-		row:SetPoint("TOPLEFT", 0, -(40 + (i - 1) * ROW_H))
+		row:SetPoint("TOPLEFT", 0, -(HEADING_H + (i - 1) * ROW_H))
 		row:SetPoint("RIGHT")
 		row:Show()
 	end
@@ -205,7 +205,7 @@ local function Refresh(frame)
 	end
 	frame.hint:SetShown(#list <= 2)
 	frame.hint:ClearAllPoints()
-	frame.hint:SetPoint("TOPLEFT", 0, -(40 + shown * ROW_H + 12))
+	frame.hint:SetPoint("TOPLEFT", 0, -(HEADING_H + shown * ROW_H + 12))
 	frame.hint:SetPoint("RIGHT")
 
 	local foot = frame.foot
@@ -240,7 +240,7 @@ local function Refresh(frame)
 		b:SetPoint("BOTTOMLEFT", (i - 1) * step, 2)
 	end
 	-- The height the heading, rows and hint use from the top (the footer sits at the bottom).
-	local used = 40 + shown * ROW_H
+	local used = HEADING_H + shown * ROW_H
 	if frame.hint:IsShown() then
 		used = used + 12 + frame.hint:GetStringHeight()
 	end

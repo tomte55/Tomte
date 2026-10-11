@@ -432,7 +432,6 @@ ns.WeeklyBoardPage = {
 		page.reset = UI.Text(page, 13, "textMuted")
 		page.reset:SetPoint("TOPRIGHT", -12, -6)
 		page.note = UI.Text(page, 12, "textMuted")
-
 		page.note:SetPoint("TOPLEFT", 8, -38)
 		page.note:SetPoint("RIGHT", -8, 0)
 		page.note:SetWordWrap(true)

@@ -10,14 +10,17 @@ local ROW_H = 42
 local BLOCK_ROW_H = 24
 local BLOCK_ROWS = 4
 local HEAD_H = 40
+local MERGE_WINDOW = 10 -- a toast merges with an entry with its mergeKey among this many newest (ns.Recent_Add)
+local TRIM_SETTLE = 2 -- seconds after the "Entries kept" slider stops before the list is trimmed
 
 -- Owners with a checkbox under "Include" (anything else is always included).
 local OWNERS = {
 	{ "whispers", "Whispers" }, { "mentions", "Mentions" }, { "friends", "Friends online" },
 	{ "gear", "Gear upgrades" }, { "ach", "Almost Done" }, { "collect", "Collect here" }, { "wq", "World quests" },
-	{ "events", "Holidays & events" },
+	{ "events", "Holidays & events" }, { "gather", "Gathering" }, { "tradefilter", "Trade Filter" },
 	{ "weekly", "Concentration" }, { "dura", "Durability" }, { "vendor", "Vendor" }, { "recap", "Session recap" },
 	{ "moments", "Moments (banners)" }, { "hunter", "Hunter pet check (banners)" }, { "pet", "Pet health (banners)" },
+	{ "rogue", "Rogue poison check (banners)" },
 }
 local SKIP = { toast = true } -- the "Toast position" sample
 
@@ -26,9 +29,7 @@ local actions = setmetatable({}, { __mode = "k" }) -- [entry] = onClick, this se
 local page
 local trimTimer
 
-local function Secret(value)
-	return issecretvalue ~= nil and issecretvalue(value)
-end
+local Secret = ns.IsSecret
 
 local function Who()
 	local _, class = UnitClass("player")
@@ -60,7 +61,7 @@ function ns.Recent_Note(spec, banner)
 	end
 	local ok, err = pcall(function()
 		local entry = ns.Recent_FromSpec(spec, Who(), GetServerTime(), Secret, banner)
-		ns.Recent_Add(db.entries, entry, db.max, 10)
+		ns.Recent_Add(db.entries, entry, db.max, MERGE_WINDOW)
 		if spec.onClick then
 			actions[entry] = spec.onClick
 		end
@@ -124,7 +125,7 @@ local function Tooltip(row, e)
 	GameTooltip:Show()
 end
 
--- Page ------------------------------------------------------------------------------------------------------------
+-- The Recent page in the Home rail (setting "Show as: Page + quick action").
 
 local function CreateRow(parent)
 	local row = CreateFrame("Button", nil, parent)
@@ -268,7 +269,7 @@ local RecentPage = {
 	end,
 }
 
--- Home block (setting "Show as: Block on Home") --------------------------------------------------------------------
+-- Home block (setting "Show as: Block on Home").
 
 local function CreateBlock(frame, Kit)
 	frame.Kit = Kit
@@ -315,8 +316,6 @@ local function RefreshBlock(frame)
 	return HEAD_H + n * BLOCK_ROW_H
 end
 
--- Options ---------------------------------------------------------------------------------------------------------
-
 local function BuildOptions()
 	local options = {
 		{ type = "dropdown", key = "show", label = "Show as", choices = function()
@@ -329,11 +328,11 @@ local function BuildOptions()
 		{ type = "checkbox", key = "keep", label = "Keep after reload",
 			tooltip = "Saved entries come back after a reload or the next login (greyed out: their click only works in the session they came from)." },
 		{ type = "slider", key = "max", label = "Entries kept", min = 20, max = 100, step = 10, onChange = function()
-			-- Trim once the slider settles, so dragging down and back doesn't throw entries away
+			-- Trim once the slider settles, so dragging down and back doesn't throw entries away.
 			if trimTimer then
 				trimTimer:Cancel()
 			end
-			trimTimer = C_Timer.NewTimer(2, function()
+			trimTimer = C_Timer.NewTimer(TRIM_SETTLE, function()
 				trimTimer = nil
 				ns.Recent_Trim(db.entries, db.max)
 				if page and page:IsVisible() then
@@ -410,7 +409,7 @@ module = ns.RegisterModule({
 		end
 		module.options = BuildOptions()
 	end,
-	toggle = function(active)
+	toggle = function()
 		UpdateDot()
 	end,
 	options = {},

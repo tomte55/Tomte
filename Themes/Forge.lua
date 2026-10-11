@@ -12,15 +12,13 @@ local GRENZE = Theme.MEDIA .. "Fonts\\Grenze-SemiBold.ttf"
 
 -- Grenze has no Cyrillic, Korean or Chinese. Text and numbers stay in the client's font everywhere (it reads best in
 -- lists); only titles are Grenze.
-local CLIENT_FONTS = { koKR = true, zhCN = true, zhTW = true }
-
 local function Fonts(locale)
 	local fonts = Theme.ClientFonts()
-	if CLIENT_FONTS[locale] then
+	if Theme.CJK_LOCALES[locale] then
 		return fonts
 	end
 	if locale == "ruRU" then
-		fonts.title = GameFontNormalHuge:GetFont()
+		fonts.title = Theme.GameTitleFont()
 	else
 		fonts.title = GRENZE
 	end

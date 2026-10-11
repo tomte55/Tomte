@@ -6,6 +6,7 @@ local addonName, ns = ...
 -- is cached per character, so the list shows right away after a login.
 
 local GetAchievementInfo = GetAchievementInfo
+local GetAchievementCategory = GetAchievementCategory
 local GetAchievementNumCriteria = GetAchievementNumCriteria
 local GetAchievementCriteriaInfo = GetAchievementCriteriaInfo
 local GetCategoryInfo = GetCategoryInfo
@@ -29,10 +30,7 @@ local ready = false -- a full scan finished this session; live updates wait for 
 local onChanged = function() end
 local debounceTimer
 local saveTimer
-
-ns.AchWalk_SetSkipped(function(categoryID)
-	return SKIPPED_TOP[ns.Ach_CategoryInfo(categoryID).topID] == true
-end)
+local ClearQueue -- defined with the recalculation queue below
 
 -- Reading -------------------------------------------------------------------------------------------------
 
@@ -40,14 +38,15 @@ local function Settings()
 	return ns.achDB
 end
 
-function ns.Ach_CategoryInfo(categoryID)
+-- { name, topID, top, expansion } of a category, cached for the session.
+local function CategoryInfo(categoryID)
 	local info = catInfo[categoryID]
 	if info then
 		return info
 	end
 	local name, parent = GetCategoryInfo(categoryID)
 	local chain, ids, topID, top = { name or "" }, { categoryID }, categoryID, name
-	local guard = 0
+	local guard = 0 -- at most 10 parents, so a broken parent chain can't loop forever
 	while parent and parent > 0 and guard < 10 do
 		local parentName, nextParent = GetCategoryInfo(parent)
 		if not parentName then
@@ -62,6 +61,10 @@ function ns.Ach_CategoryInfo(categoryID)
 	catInfo[categoryID] = info
 	return info
 end
+
+ns.AchWalk_SetSkipped(function(categoryID)
+	return SKIPPED_TOP[CategoryInfo(categoryID).topID] == true
+end)
 
 -- Criteria of an achievement: { name, completed, quantity, required, type, asset }.
 function ns.Ach_ReadCriteria(id)
@@ -136,7 +139,7 @@ local function BuildRecord(id, categoryID, pinned, links)
 	if not percent or (percent <= 0 and not pinned) then
 		return nil, criteria
 	end
-	local cat = ns.Ach_CategoryInfo(categoryID)
+	local cat = CategoryInfo(categoryID)
 	return {
 		id = id, name = name, icon = icon, points = points, category = categoryID, catName = cat.name, top = cat.top,
 		topID = cat.topID, expansion = cat.expansion or ns.Ach_MetaExpansion(id), percent = percent, done = done,
@@ -225,7 +228,7 @@ function ns.Ach_StartScan()
 		saveTimer:Cancel()
 		saveTimer = nil
 	end
-	ns.Ach_ClearQueue()
+	ClearQueue()
 	scan = { records = {}, metaLinks = {}, pins = ns.Ach_PinSet() }
 	ns.AchWalk_Join("ach", { visit = Visit, category = CategoryDone, finish = Finish })
 	onChanged(nil, nil)
@@ -235,7 +238,7 @@ function ns.Ach_StopScan()
 	ns.Ach_FlushCache()
 	scan = nil
 	ns.AchWalk_Leave("ach")
-	ns.Ach_ClearQueue()
+	ClearQueue()
 	if debounceTimer then
 		debounceTimer:Cancel()
 		debounceTimer = nil
@@ -252,10 +255,6 @@ end
 
 function ns.Ach_Records()
 	return records
-end
-
-function ns.Ach_IsWatched(id)
-	return watch[id] == true
 end
 
 function ns.Ach_MetaLinks()
@@ -276,7 +275,7 @@ end
 local function Recalculate(id, pins)
 	local old = records[id]
 	local categoryID = old and old.category or GetAchievementCategory(id)
-	if not categoryID or SKIPPED_TOP[ns.Ach_CategoryInfo(categoryID).topID] then
+	if not categoryID or SKIPPED_TOP[CategoryInfo(categoryID).topID] then
 		return false
 	end
 	local record, criteria = BuildRecord(id, categoryID, pins[id], metaLinks)
@@ -340,14 +339,12 @@ recalculator:SetScript("OnUpdate", function(self)
 	end
 end)
 
-local function ClearQueue()
+function ClearQueue()
 	wipe(queue.ids)
 	wipe(queue.queued)
 	queue.changed, queue.milestones = {}, {}
 	recalculator:Hide()
 end
-
-ns.Ach_ClearQueue = ClearQueue
 
 local function RecalculateMany(ids)
 	for _, id in ipairs(ids) do
@@ -494,9 +491,9 @@ function ns.Ach_LoadCache()
 	wipe(records)
 	wipe(watch)
 	for _, record in ipairs(entry.records or {}) do
-		-- Caches from before topID was saved.
+		-- Caches saved by older versions may lack topID.
 		if not record.topID and record.category then
-			record.topID = ns.Ach_CategoryInfo(record.category).topID
+			record.topID = CategoryInfo(record.category).topID
 		end
 		records[record.id] = record
 		watch[record.id] = true

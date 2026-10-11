@@ -5,8 +5,8 @@ local addonName, ns = ...
 -- banner plus a chat line. The rules live in Data.lua. Out of combat only.
 
 local ENTER_DELAY = 4 -- seconds after zoning in: the pet is summoned again by then
-local GROWL = 2649
-local WARNING = "warning" -- banner accent (a role)
+local GROWL = 2649 -- the pet's Growl
+local WARNING = "warning" -- theme role for the chat lines and the banner accent
 -- The globals only exist with the deprecation fallbacks loaded.
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
 local GetSpecializationInfo = C_SpecializationInfo.GetSpecializationInfo
@@ -95,7 +95,7 @@ function ns.Checks_Run(verbose)
 		return
 	end
 	for _, problem in ipairs(problems) do
-		ns.Print(ns.UI.Wrap(problem, "warning"))
+		ns.Print(ns.UI.Wrap(problem, WARNING))
 	end
 	if ns.hunterDB.check.banner then
 		ns.Banner_Show({

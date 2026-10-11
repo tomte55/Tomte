@@ -155,7 +155,15 @@ function ns.Collect_State()
 	return { mounts = ready.mounts, pets = ready.pets, achievements = ready.achievements, progress = progress / 3 }
 end
 
-local StillMissing
+-- A mount or pet entry isn't collected yet (read live: the catalog is built once per session).
+local function StillMissing(e)
+	if e.kind == "mount" then
+		local isCollected = select(11, C_MountJournal.GetMountInfoByID(e.id))
+		return not isCollected
+	end
+	local owned = C_PetJournal.GetNumCollectedInfo(e.id)
+	return not owned or owned == 0
+end
 
 -- An achievement was earned, or a mount or pet learned: the lists follow. Only entries of that kind leave the
 -- cached maps; their achievement matching (the slow part) is kept.
@@ -213,15 +221,6 @@ local function Groups(mapID, info, kind)
 		achNames[#achNames + 1] = child.name
 	end
 	return groups, achNames
-end
-
-function StillMissing(e)
-	if e.kind == "mount" then
-		local isCollected = select(11, C_MountJournal.GetMountInfoByID(e.id))
-		return not isCollected
-	end
-	local owned = C_PetJournal.GetNumCollectedInfo(e.id)
-	return not owned or owned == 0
 end
 
 local function AddMatches(entries, list, groups)
@@ -310,9 +309,7 @@ end
 
 -- Vignettes --------------------------------------------------------------------------------------------------------
 
-local function Secret(value)
-	return issecretvalue ~= nil and issecretvalue(value)
-end
+local Secret = ns.IsSecret
 
 -- Pins the rare and tracks it (like /way). Prefers the map you stand on: a continent can't take a map pin.
 function ns.Collect_Waypoint(upNow, name)
@@ -326,10 +323,7 @@ function ns.Collect_Waypoint(upNow, name)
 		ns.Print("can't place a map pin there.")
 		return
 	end
-	local now = ns.SafeTrack(function()
-		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x, y))
-		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
-	end)
+	local now = ns.TrackPin(mapID, x, y)
 	ns.Print(("%s %s."):format(now and "tracking" or "after combat: tracking", name or "the rare"))
 end
 

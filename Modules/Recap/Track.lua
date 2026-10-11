@@ -11,6 +11,7 @@ local addonName, ns = ...
 local MAX_ENTRIES = 40
 local MAX_CANDIDATES = 200
 local ITEM_RETRY = 1 -- seconds before looking at an uncached item again
+local ITEM_TRIES = 5 -- retries before an item that never loads is skipped
 local P = Enum.PlayerInteractionType
 local CONTEXTS = { [P.Merchant] = "vendor", [P.MailInfo] = "mail", [P.Auctioneer] = "auction" }
 local LOOT_FORMATS = { "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE", "LOOT_ITEM_PUSHED_SELF",
@@ -108,7 +109,7 @@ end
 local function NoteItem(link, tries, count)
 	local name, _, quality, _, _, _, _, _, _, icon = C_Item.GetItemInfo(link)
 	if not name then
-		if tries < 5 then
+		if tries < ITEM_TRIES then
 			C_Timer.After(ITEM_RETRY, function()
 				if ns.recapModule.active then
 					NoteItem(link, tries + 1, count)

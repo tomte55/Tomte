@@ -39,7 +39,7 @@ test("keys", function()
 end)
 
 test("InitDB fresh", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	eq(type(db.routes), "table", "routes")
 	eq(type(db.hops), "table", "hops")
 	eq(db.frame.locked, true, "locked")
@@ -47,7 +47,7 @@ test("InitDB fresh", function()
 end)
 
 test("InitDB keeps existing values and adds missing keys", function()
-	local db = ns.InitDB({ routes = { ["1>2"] = 50 }, frame = { locked = false } })
+	local db = ns.Flight_InitDB({ routes = { ["1>2"] = 50 }, frame = { locked = false } })
 	eq(db.routes["1>2"], 50, "route kept")
 	eq(type(db.hops), "table", "hops added")
 	eq(db.frame.locked, false, "locked kept")
@@ -55,28 +55,28 @@ test("InitDB keeps existing values and adds missing keys", function()
 end)
 
 test("InitDB does not share default tables between calls", function()
-	local a = ns.InitDB(nil)
+	local a = ns.Flight_InitDB(nil)
 	a.routes["1>2"] = 10
-	local b = ns.InitDB(nil)
+	local b = ns.Flight_InitDB(nil)
 	eq(b.routes["1>2"], nil)
 end)
 
 test("LookupTime unknown / degenerate", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	eq(ns.LookupTime(db, { 1, 2 }), nil, "unknown")
 	eq(ns.LookupTime(db, { 1 }), nil, "single node")
 	eq(ns.LookupTime(db, {}), nil, "empty")
 end)
 
 test("LookupTime exact route is not an estimate", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	db.routes["1>2>3"] = 100
 	local t, est = ns.LookupTime(db, { 1, 2, 3 })
 	eq(t, 100); eq(est, false, "isEstimate")
 end)
 
 test("LookupTime sums hops and falls back to reverse", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	db.hops["1>2"] = 40
 	db.hops["3>2"] = 55 -- only reverse of 2>3 known
 	local t, est = ns.LookupTime(db, { 1, 2, 3 })
@@ -84,13 +84,13 @@ test("LookupTime sums hops and falls back to reverse", function()
 end)
 
 test("LookupTime missing hop is unknown", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	db.hops["1>2"] = 40
 	eq(ns.LookupTime(db, { 1, 2, 3 }), nil)
 end)
 
 test("RecordFlight direct route", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	ns.RecordFlight(db, { 1, 2 }, 60.4, {})
 	eq(db.routes["1>2"], 60, "route")
 	eq(db.hops["1>2"], 60, "hop")
@@ -101,7 +101,7 @@ test("RecordFlight direct route", function()
 end)
 
 test("RecordFlight multi-hop with pass times teaches each hop", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	ns.RecordFlight(db, { 1, 2, 3 }, 100.2, { [2] = 40.3 })
 	eq(db.routes["1>2>3"], 100, "route")
 	eq(db.hops["1>2"], 40, "hop 1")
@@ -113,7 +113,7 @@ test("RecordFlight multi-hop with pass times teaches each hop", function()
 end)
 
 test("RecordFlight without pass times saves only the route", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	ns.RecordFlight(db, { 1, 2, 3 }, 100, {})
 	eq(db.routes["1>2>3"], 100, "route")
 	eq(db.hops["1>2"], nil, "hop 1")
@@ -121,14 +121,14 @@ test("RecordFlight without pass times saves only the route", function()
 end)
 
 test("RecordFlight ignores impossible pass times", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	ns.RecordFlight(db, { 1, 2, 3 }, 100, { [2] = 120 })
 	eq(db.hops["1>2"], 120, "hop 1 still positive")
 	eq(db.hops["2>3"], nil, "negative hop skipped")
 end)
 
 test("RecordFlight overwrites old measurement", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	ns.RecordFlight(db, { 1, 2 }, 60, {})
 	ns.RecordFlight(db, { 1, 2 }, 70, {})
 	eq(db.routes["1>2"], 70)
@@ -220,15 +220,15 @@ test("UpdateLanding never lands while suppressed (loading screen)", function()
 end)
 
 test("InitDB adds calibration and alert defaults, keeps alert=false", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	eq(db.calibration.offset, 0, "offset")
 	eq(db.calibration.samples, 0, "samples")
 	eq(db.alert, true, "alert")
-	eq(ns.InitDB({ alert = false }).alert, false, "kept")
+	eq(ns.Flight_InitDB({ alert = false }).alert, false, "kept")
 end)
 
 test("LookupTime adds the calibration offset to estimates only", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	db.calibration.offset = 7
 	db.hops["1>2"] = 40
 	db.hops["3>2"] = 55
@@ -240,14 +240,14 @@ test("LookupTime adds the calibration offset to estimates only", function()
 end)
 
 test("LookupTime never returns an estimate below 1s", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	db.calibration.offset = -10
 	db.hops["1>2"] = 3
 	eq(ns.LookupTime(db, { 1, 2 }), 1)
 end)
 
 test("CalibrateEstimate averages the first samples", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	ns.CalibrateEstimate(db, 100, 107)
 	eq(db.calibration.offset, 7, "first"); eq(db.calibration.samples, 1, "n")
 	ns.CalibrateEstimate(db, 100, 103)
@@ -255,25 +255,25 @@ test("CalibrateEstimate averages the first samples", function()
 end)
 
 test("CalibrateEstimate becomes a moving average after the window", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	db.calibration.samples = 10
 	ns.CalibrateEstimate(db, 100, 110)
 	eq(db.calibration.offset, 1); eq(db.calibration.samples, 10, "capped")
 end)
 
 test("CalibrateEstimate ignores outliers", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	ns.CalibrateEstimate(db, 100, 200)
 	eq(db.calibration.offset, 0); eq(db.calibration.samples, 0, "n")
 end)
 
 test("StopFractions direct route has no stops", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	eq(#ns.StopFractions(db, { path = { 1, 2 }, points = {}, dest = { x = 1, y = 1 } }), 0)
 end)
 
 test("StopFractions uses hop times when all are known", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	db.hops["1>2"] = 30
 	db.hops["3>2"] = 90
 	local fr = ns.StopFractions(db, { path = { 1, 2, 3 }, points = { { index = 2, x = 0, y = 0 } }, dest = { x = 0, y = 0 } })
@@ -281,7 +281,7 @@ test("StopFractions uses hop times when all are known", function()
 end)
 
 test("StopFractions falls back to distance between flight masters", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	local route = {
 		path = { 1, 2, 3 },
 		origin = { x = 0, y = 0 },
@@ -292,7 +292,7 @@ test("StopFractions falls back to distance between flight masters", function()
 end)
 
 test("StopFractions without origin and unknown hops is nil", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	eq(ns.StopFractions(db, { path = { 1, 2, 3 }, points = { { index = 2, x = 0, y = 0 } }, dest = { x = 1, y = 1 } }), nil)
 end)
 
@@ -314,7 +314,7 @@ test("CinematicWanted waits for takeoff and leaves before landing", function()
 end)
 
 test("RecordStats counts, sums and keeps the longest", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	eq(db.stats.flights, 0, "fresh")
 	eq(db.cinematic, true, "cinematic default")
 	ns.RecordStats(db, 100, "A → B")
@@ -336,7 +336,7 @@ local function paceRoute()
 end
 
 test("RecordPace accumulates seconds and distance per map", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	ns.RecordPace(db, paceRoute(), 100)
 	ns.RecordPace(db, paceRoute(), 120)
 	eq(db.paces[5].seconds, 220, "seconds")
@@ -344,7 +344,7 @@ test("RecordPace accumulates seconds and distance per map", function()
 end)
 
 test("RecordPace skips routes without positions", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	local route = paceRoute()
 	route.origin = nil
 	ns.RecordPace(db, route, 100)
@@ -352,7 +352,7 @@ test("RecordPace skips routes without positions", function()
 end)
 
 test("LookupTime fills an unknown leg from the map pace, without calibration", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	db.calibration.offset = 7
 	db.paces[5] = { seconds = 100, distance = 1 }
 	db.hops["1>2"] = 40
@@ -364,13 +364,13 @@ test("LookupTime fills an unknown leg from the map pace, without calibration", f
 end)
 
 test("LookupTime estimates a never-flown route from pace alone", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	db.paces[5] = { seconds = 100, distance = 1 }
 	near(ns.LookupTime(db, { 1, 2, 3 }, paceRoute()), 100)
 end)
 
 test("LookupTime without pace or route stays unknown", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	db.hops["1>2"] = 40
 	eq(ns.LookupTime(db, { 1, 2, 3 }, paceRoute()), nil, "no pace for map")
 	db.paces[5] = { seconds = 100, distance = 1 }
@@ -378,7 +378,7 @@ test("LookupTime without pace or route stays unknown", function()
 end)
 
 test("LookupTime from hops only is not rough and keeps calibration", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	db.calibration.offset = 7
 	db.paces[5] = { seconds = 100, distance = 1 }
 	db.hops["1>2"] = 40
@@ -398,7 +398,7 @@ test("TimerText for countdown, estimate, overrun and recording", function()
 end)
 
 test("RecordStats tracks per-map time, departures and route counts", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	ns.RecordStats(db, 100, "A to B", "A", 7)
 	ns.RecordStats(db, 50, "A to C", "A", 7)
 	ns.RecordStats(db, 30, "A to B", "A", 9)
@@ -409,9 +409,9 @@ test("RecordStats tracks per-map time, departures and route counts", function()
 end)
 
 test("TopEntry returns the largest value", function()
-	local k, v = ns.TopEntry({ a = 1, b = 5, c = 3 })
+	local k, v = ns.Flight_TopEntry({ a = 1, b = 5, c = 3 })
 	eq(k, "b"); eq(v, 5)
-	eq(ns.TopEntry({}), nil, "empty")
+	eq(ns.Flight_TopEntry({}), nil, "empty")
 end)
 
 test("OrbitFactor eases the orbit out before landing", function()
@@ -424,7 +424,7 @@ test("OrbitFactor eases the orbit out before landing", function()
 end)
 
 test("RecordPace fades out flights older than the window", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	for _ = 1, 10 do
 		ns.RecordPace(db, paceRoute(), 100) -- 100s per unit of distance
 	end
@@ -439,7 +439,7 @@ test("RecordPace fades out flights older than the window", function()
 end)
 
 test("RecordPace shrinks pace data saved without a flight count to one window", function()
-	local db = ns.InitDB(nil)
+	local db = ns.Flight_InitDB(nil)
 	db.paces[5] = { seconds = 10000, distance = 100 } -- lifetime totals (pace 100) from before the window
 	ns.RecordPace(db, paceRoute(), 80)
 	-- The old pace counts as 9 flights' worth of this flight's distance (1), then the new flight is added.

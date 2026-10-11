@@ -6,7 +6,7 @@ local addonName, ns = ...
 -- owns the options and commands, and toasts when a character's Concentration fills up.
 
 local CONC_ICON = "Interface\\Icons\\INV_Misc_Gear_01" -- when the profession's own icon isn't known
-local MAX_TIMER = 86400
+local MAX_TIMER = 86400 -- caps the Concentration toast timer at one day; it re-checks and re-arms when it fires
 
 local module, db
 local toastTimer
@@ -19,6 +19,23 @@ local function Tracked()
 		end
 	end
 	return chars
+end
+
+local function ConcFull(prof, now)
+	local qty = ns.Weekly_ConcNow(prof.conc, now)
+	return qty and prof.conc.max and qty >= prof.conc.max
+end
+
+local function OpenBoard(view)
+	return function()
+		if view then
+			ns.weeklyDB.view = view
+		end
+		ns.Panel_OpenPage("weekly")
+		if ns.WeeklyBoard_Refresh then
+			ns.WeeklyBoard_Refresh()
+		end
+	end
 end
 
 -- Views of every tracked character, the current one first.
@@ -58,11 +75,7 @@ local function CheckToasts()
 			owner = "weekly", label = "Concentration", accent = "accent", title = snap.name or "?",
 			text = (prof.name or "Profession") .. " Concentration is full. Craft before it goes to waste.",
 			icon = prof.icon or CONC_ICON, hold = 10, holdInCombat = true,
-			onClick = function()
-				ns.weeklyDB.view = "profs"
-				ns.Panel_OpenPage("weekly")
-				ns.WeeklyBoard_Refresh()
-			end,
+			onClick = OpenBoard("profs"),
 		})
 	end
 	local nextFull = ns.Weekly_NextConcFull(chars, now)
@@ -72,18 +85,6 @@ local function CheckToasts()
 end
 
 -- Next up sources -----------------------------------------------------------------------------------------------
-
-local function OpenBoard(view)
-	return function()
-		if view then
-			ns.weeklyDB.view = view
-		end
-		ns.Panel_OpenPage("weekly")
-		if ns.WeeklyBoard_Refresh then
-			ns.WeeklyBoard_Refresh()
-		end
-	end
-end
 
 local function NextVaultReady()
 	local v = ns.Weekly_CurrentView()
@@ -101,8 +102,7 @@ local function NextConcentration(now)
 	local me = UnitGUID("player")
 	for guid, snap in pairs(Tracked()) do
 		for skillLine, prof in pairs(snap.profs or {}) do
-			local qty = ns.Weekly_ConcNow(prof.conc, now)
-			if qty and prof.conc.max and qty >= prof.conc.max then
+			if ConcFull(prof, now) then
 				local mine = guid == me
 				list[#list + 1] = {
 					key = ("weekly:conc:%s:%s"):format(guid, skillLine),
@@ -172,8 +172,7 @@ local function Pill()
 	local now = GetServerTime()
 	for _, snap in pairs(Tracked()) do
 		for _, prof in pairs(snap.profs or {}) do
-			local qty = ns.Weekly_ConcNow(prof.conc, now)
-			if qty and prof.conc.max and qty >= prof.conc.max then
+			if ConcFull(prof, now) then
 				n = n + 1
 				break
 			end
@@ -296,7 +295,6 @@ local function PrintIDs()
 				local title = C_QuestLog.GetTitleForQuestID(k)
 				print(("  %d  %s  %s"):format(k, title or ns.UI.Wrap("(no title)", "textMuted"),
 					C_QuestLog.IsQuestFlaggedCompleted(k) and ns.UI.Wrap("done", "success") or "open"))
-
 			end
 		else
 			print("  not in the table")
@@ -446,7 +444,7 @@ module = ns.RegisterModule({
 		learned = true,
 		hideCompleted = true, -- Activities tab
 		raidCollapsed = {}, -- Raids tab: [journalInstanceID] = true
-		-- faction: the Factions tab's selected faction ID (nil = the first one)
+		-- faction (no default, so it starts nil = the first one): the Factions tab's selected faction ID
 	},
 	init = function(moduleDB)
 		db = moduleDB
@@ -503,10 +501,7 @@ function ns.Weekly_SetWaypoint(loc)
 		ns.Print("can't place a map pin on that map.")
 		return
 	end
-	local now = ns.SafeTrack(function()
-		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(loc.map, loc.x / 100, loc.y / 100))
-		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
-	end)
+	local now = ns.TrackPin(loc.map, loc.x / 100, loc.y / 100)
 	local info = C_Map.GetMapInfo(loc.map)
 	ns.Print(("%s: %s, %s %.1f %.1f"):format(now and "waypoint" or "waypoint after combat", loc.text or "?",
 		info and info.name or "?", loc.x, loc.y))

@@ -363,7 +363,6 @@ function ns.WeeklyFactionsView(parent)
 				row.icon:SetDesaturated(step.earned)
 				row.name:SetText(reward.name)
 				UI.SetTextRole(row.name, step.earned and "textFaint" or "text")
-
 				row.line:SetShown(r == 1)
 				trackY = trackY + REWARD_H
 			end

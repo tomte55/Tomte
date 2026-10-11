@@ -192,9 +192,7 @@ local function RestoreZoom(state)
 	state.zoomedOut = nil
 end
 
-local function Ease(p)
-	return p * p * (3 - 2 * p)
-end
+local Ease = ns.Smoothstep
 
 -- No API reads or sets the camera pitch. Lowering the pitch limit drags a high camera down with it; a short
 -- upward push then lifts a low camera until it rests on the limit. Either way it ends at CINEMATIC_PITCH.
@@ -306,10 +304,6 @@ local function WatcherOnUpdate(self, elapsed)
 	end
 end
 
-local function Spaced(text)
-	return (text:upper():gsub("[%z\1-\127\194-\244][\128-\191]*", "%0 "):sub(1, -2)) -- whole UTF-8 characters
-end
-
 local function ShowHint()
 	hintTimer = HINT_TIME
 end
@@ -396,7 +390,7 @@ local function LetterboxOnUpdate(self, elapsed)
 	end
 	UpdateHint(contentAlpha, elapsed)
 	if showcaseCreated then
-		ns.Showcase_Update(math.max((e - 0.7) / 0.3, 0), elapsed)
+		ns.Showcase_Update(math.max((e - 0.7) / 0.3, 0))
 	end
 	if progress == 0 and target == 0 then
 		self:Hide()
@@ -574,7 +568,8 @@ function C.Enter(newScene, state, opts)
 	end
 	scene = newScene
 	dismiss = opts.onDismiss
-	hint:SetText(Spaced(opts.hint or "Click or Esc to pause"))
+	-- ns.Spaced is SceneKit.lua's, which loads after this file: fine at run time.
+	hint:SetText(ns.Spaced(opts.hint or "Click or Esc to pause"))
 	active = true
 	current = state
 	state.resumeAt = nil

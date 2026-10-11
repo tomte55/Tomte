@@ -3,11 +3,12 @@ local addonName, ns = ...
 -- Weekly board: reads the game into the current character's snapshot (TomteDB.weekly.chars[guid]) and learns weekly
 -- quests from the quest log. Only characters at their content expansion's max level get a snapshot (ns.ContentAtMax:
 -- a Midnight owner's level 80 alt gets a War Within one), and it stores that expansion. Nothing is read in combat;
--- refreshes are debounced to one per second. Each part is read on its own, so one failing API leaves the others working.
--- Weekly.lua starts and stops it; ns.Weekly_Changed runs after every refresh.
+-- refreshes are debounced to one per DEBOUNCE seconds. Each part is read on its own, so one failing API leaves the
+-- others working. Weekly.lua starts and stops it; ns.Weekly_Changed runs after every refresh.
 
 local DEBOUNCE = 3 -- currency and loot events come in bursts while farming; one full read per burst
 local RESET_SLACK = 30 -- seconds after the weekly reset before reading again
+local WEEK = 7 * 86400
 
 local db, guid
 local pending, resetTimer
@@ -185,7 +186,7 @@ local function ScheduleResetRefresh(snap, now)
 		resetTimer = nil
 	end
 	local wait = snap.nextReset and snap.nextReset - now + RESET_SLACK
-	if wait and wait > 0 and wait < 7 * 86400 then
+	if wait and wait > 0 and wait < WEEK then
 		resetTimer = C_Timer.NewTimer(wait, ns.WeeklyCollect_Request)
 	end
 end

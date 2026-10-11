@@ -41,11 +41,11 @@ local function ShowTooltip(row)
 	GameTooltip:SetText(entry.name, UI.Color("heading"))
 	GameTooltip:AddLine(ns.Ach_ProgressText(entry), 1, 1, 1)
 	if entry.last then
-		local r, g, b = UI.Color("textMuted")
+		local r, g, b = UI.RGB("textMuted") -- unpacked: a call in mid-list gives only its first value
 		GameTooltip:AddLine("Left: " .. entry.last, r, g, b, true)
 	end
 	if entry.reward ~= "" then
-		local r, g, b = UI.Color("success")
+		local r, g, b = UI.RGB("success")
 		GameTooltip:AddLine(entry.reward, r, g, b, true)
 	end
 	GameTooltip:AddLine(entry.pinned and "Right-click to unpin" or "Right-click to pin", UI.RGB("textMuted"))

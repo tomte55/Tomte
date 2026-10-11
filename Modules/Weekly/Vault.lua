@@ -35,6 +35,5 @@ function ns.WeeklySlot_Set(slot, s, isNext, showLater)
 		local show = s and (isNext or showLater)
 		slot.text:SetText(show and ("%d/%d"):format(s.progress, s.threshold) or "")
 		UI.SetTextRole(slot.text, isNext and "textMuted" or "textFaint")
-
 	end
 end

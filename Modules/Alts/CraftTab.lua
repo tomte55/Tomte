@@ -3,6 +3,8 @@ local addonName, ns = ...
 -- Alts page, Crafting tab: search recipes on the left (who knows each one), the selected recipe on the right as a
 -- shopping list (materials: needed / have / where) and the crafts in order, crafted materials worked out through
 -- other known recipes (Data.lua's plan). Item counts come from Syndicator when it's loaded (Collect.lua).
+-- Also here: the Auctionator "Shopping list" link (ns.AltsShop_CreateLink, the List tab uses it too) and
+-- /tomte alts why (ns.AltsCraft_Why).
 
 local UI = ns.UI
 local LIST_W = 0.38 -- of the tab's width
@@ -22,8 +24,7 @@ local function SetColor(fs, c)
 end
 
 local function ClassName(c)
-	local color = c.class and C_ClassColor.GetClassColor(c.class)
-	return color and color:WrapTextInColorCode(c.name or "?") or (c.name or "?")
+	return UI.ClassColored(c.name or "?", c.class)
 end
 
 local function Names(chars, limit)
@@ -151,6 +152,7 @@ local function Worn(c)
 	local main = c.gear and c.gear[16]
 	if main then
 		local _, _, _, loc, _, _, sub = C_Item.GetItemInfoInstant(main)
+		-- INVTYPE_RANGEDRIGHT is guns, crossbows and wands; a wand (Enum.ItemWeaponSubclass 19) leaves the off hand free.
 		worn.twoHand = loc == "INVTYPE_2HWEAPON" or loc == "INVTYPE_RANGED" or (loc == "INVTYPE_RANGEDRIGHT" and sub ~= 19)
 	end
 	local off = c.gear and c.gear[17]
@@ -402,6 +404,8 @@ matsEvents:SetScript("OnEvent", ClearMaterials)
 local function WatchMaterials()
 	for _, event in ipairs({ "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED",
 		"MAIL_INBOX_UPDATE", "MAIL_SEND_SUCCESS", "PLAYER_ENTERING_WORLD" }) do
+		-- RegisterEvent throws on an event name the client doesn't know: one renamed or removed in a patch mustn't stop
+		-- the others.
 		pcall(matsEvents.RegisterEvent, matsEvents, event)
 	end
 	if _G.Syndicator and Syndicator.CallbackRegistry then
@@ -858,6 +862,10 @@ end
 
 local LayoutDetail -- below
 
+-- The detail's text lines in headers[], each made on first use: the materials and steps headings, the "Syndicator
+-- isn't loaded" note, the Gold & value line and the "For <name>:" line.
+local H_MATERIALS, H_STEPS, H_SYNDICATOR, H_VALUE, H_FOR = 1, 2, 3, 4, 5
+
 local function Header(i, text, y)
 	local fs = headers[i]
 	if not fs then
@@ -998,7 +1006,7 @@ end
 function LayoutDetail()
 	local d = tab.detail
 	for _, list in ipairs({ matRows, stepRows, headers }) do
-		for _, row in pairs(list) do -- pairs: headers has gaps (3 only exists without Syndicator)
+		for _, row in pairs(list) do -- pairs: headers has gaps (H_SYNDICATOR, H_VALUE and H_FOR are conditional)
 			row:Hide()
 		end
 	end
@@ -1071,8 +1079,8 @@ function LayoutDetail()
 	end
 	local forChar = ForChar()
 	if forChar then
-		local fs = headers[5] or UI.Text(content, 12, "text")
-		headers[5] = fs
+		local fs = headers[H_FOR] or UI.Text(content, 12, "text")
+		headers[H_FOR] = fs
 		fs:SetWordWrap(true)
 		fs:SetJustifyH("LEFT")
 		fs:SetText(("%s %s"):format(UI.Wrap(("For %s:"):format(ClassName(forChar)), "heading"),
@@ -1085,7 +1093,7 @@ function LayoutDetail()
 	end
 	d.shop:ClearAllPoints()
 	d.shop:SetPoint("TOPRIGHT", -4, -(y + 8)) -- on the materials heading's line
-	y = Header(1, "Materials (have / need)", y)
+	y = Header(H_MATERIALS, "Materials (have / need)", y)
 	d.shop:Set("Tomte: " .. (recipe.name or "?"), ns.Alts_ShoppingItems(plan, db.chain))
 	for i, m in ipairs(plan.materials) do
 		local row = matRows[i] or CreateMatRow(content)
@@ -1131,9 +1139,9 @@ function LayoutDetail()
 			parts[#parts + 1] = UI.Wrap(("%s %s"):format(profit >= 0 and "profit" or "loss", ns.Alts_Gold(math.abs(profit))),
 				profit >= 0 and "success" or "danger")
 		end
-		y = Header(4, table.concat(parts, "  ·  ") .. "  " .. UI.Wrap(("(%s)"):format(ns.Value_SourceName()), "textMuted"), y + 4)
+		y = Header(H_VALUE, table.concat(parts, "  ·  ") .. "  " .. UI.Wrap(("(%s)"):format(ns.Value_SourceName()), "textMuted"), y + 4)
 	end
-	y = Header(2, "Craft in order", y + 4)
+	y = Header(H_STEPS, "Craft in order", y + 4)
 	for i, step in ipairs(plan.steps) do
 		local row = stepRows[i] or CreateStepRow(content)
 		stepRows[i] = row
@@ -1146,7 +1154,7 @@ function LayoutDetail()
 		y = y + STEP_H
 	end
 	if not ns.Alts_HasSyndicator() then
-		y = Header(3, "Syndicator isn't loaded: only this character's bags, bank and the Warband bank are counted.", y + 4)
+		y = Header(H_SYNDICATOR, "Syndicator isn't loaded: only this character's bags, bank and the Warband bank are counted.", y + 4)
 	end
 	d.scroll:SetContentHeight(y + 8)
 end
@@ -1194,7 +1202,6 @@ local function CreateDetail(parent)
 	d.status:SetPoint("TOPLEFT", d.sub, "BOTTOMLEFT", 0, -5)
 	d.status:SetPoint("RIGHT", -114, 0)
 
-	-- How many times to craft it: - x1 +
 	-- How many times to craft it: - [n] + (type a number, Enter or click away to apply).
 	local MAX_CRAFTS = 999
 	local crafts = CreateFrame("Frame", nil, d)

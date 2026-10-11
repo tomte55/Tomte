@@ -8,6 +8,7 @@ local addonName, ns = ...
 local OWNER = "tradefilter"
 local TOAST_GAP = 300 -- seconds between toasts for the same sender
 local SEEN_LIMIT = 500
+local PROF_RECHECK = 5 -- seconds after the first loading screen before looking at the professions again
 
 local UI = ns.UI
 local module
@@ -22,9 +23,7 @@ events:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
 end)
 
-local function Readable(...)
-	return not canaccessallvalues or canaccessallvalues(...)
-end
+local Readable = ns.Readable
 
 local function ReadProfessions()
 	local profs = {}
@@ -175,7 +174,7 @@ function events:PLAYER_ENTERING_WORLD()
 	RebuildWords()
 	if not worldEntered then
 		worldEntered = true
-		C_Timer.After(5, function()
+		C_Timer.After(PROF_RECHECK, function()
 			if module.active then
 				RebuildWords()
 				WarnIfEmpty()
@@ -278,6 +277,8 @@ local options = {
 		tooltip = "A message with one of your keywords is still hidden when it also has one of these words. Keeps sellers and boosters out." },
 	{ type = "header", label = "Channels" },
 }
+-- LocalDefense isn't offered (and has no default, so it's never filtered): it carries the game's "under attack"
+-- notices, which no keyword would match, so filtering it would only hide them. Chat Tabs can still move it.
 for _, channel in ipairs(ns.CHAT_CHANNELS) do
 	if channel.key ~= "defense" then
 		options[#options + 1] = { type = "checkbox", key = "channels." .. channel.key, label = channel.label }

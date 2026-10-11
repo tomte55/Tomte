@@ -2,11 +2,11 @@ local addonName, ns = ...
 
 -- Alts: reads the game into TomteDB.alts (layout in Data.lua). The character snapshot is refreshed on entering the
 -- world and on level, spec, gear (the worn items too, for Gear Check), zone, gold, rest and profession events,
--- debounced to one read per second and never in combat. Recipes are read while this character's own profession window is open (not a linked, guild or
--- NPC one): every recipe of the player's expansion for that profession, in small batches so the window doesn't
--- hitch. The Warband bank's gold is read once per account. Each part is read on its own, so one failing API leaves
--- the others working.
--- APIs: Blizzard UI source 12.1.0 (69933) + warcraft.wiki.gg, see the Alts spec.
+-- debounced to one read per second and never in combat. Recipes are read while this character's own profession
+-- window is open (not a linked, guild or NPC one): every recipe of the expansion the window shows, in small batches
+-- so the window doesn't hitch. The Warband bank's gold is read once per account. Each part is read on its own, so
+-- one failing API leaves the others working.
+-- APIs: Blizzard UI source 12.1.0 (69933) + warcraft.wiki.gg (docs/superpowers/specs/2026-10-05-tomte-alts-design.md).
 
 local DEBOUNCE = 1
 local GEAR_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 } -- worn gear without shirt (4) and tabard
@@ -154,7 +154,6 @@ local function ExpansionLine(base)
 	end
 	return def and def.child
 end
-ns.Alts_ExpansionLine = ExpansionLine
 
 local function ReadUnspent(line)
 	if not (line and C_ProfSpecs.SkillLineHasSpecialization(line)) then
@@ -387,7 +386,7 @@ local function StartScan(force)
 		StopScan() -- the window switched to another expansion: read that one instead
 	end
 	if not force and lastScan[line] and GetTime() - lastScan[line] < RESCAN_AFTER then
-		return "read less than 30 seconds ago"
+		return ("read less than %d seconds ago"):format(RESCAN_AFTER)
 	end
 	local all = C_TradeSkillUI.GetAllRecipeIDs and C_TradeSkillUI.GetAllRecipeIDs()
 	if not all or #all == 0 then

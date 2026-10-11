@@ -8,7 +8,8 @@ local GUILD_CHECK_DELAY = 1 -- seconds before checking that a guild repair went 
 local ACCENT = "accent" -- toast accent (a role)
 
 local module, db
-local last -- { repaired, funds, sold, junkValue, poor } from the latest visit, for /tomte vendor last
+-- { repaired, funds, poor, unpaid, pending, sold, junkValue } from the latest visit, for /tomte vendor last
+local last
 
 -- Hold off in combat and during a boss encounter. The other addon restrictions (M+, maps, chat) hide combat
 -- information; repairing and selling don't need any.
@@ -117,8 +118,9 @@ local function Repair(visit)
 	if plan == "guild" then
 		RepairAllItems(true)
 		visit.repaired, visit.funds, visit.pending = cost, "guild", true
-		-- If the guild bank didn't pay after all (bank empty, limit changed), pay with our own gold. The summary
-		-- waits for this. A guild-funds repair never takes our own gold: it pays in full or not at all.
+		-- If the guild bank didn't pay after all (bank empty, limit changed), pay whatever is still unrepaired with our
+		-- own gold. The summary waits for this. Whether a guild repair can pay part of a bill is unverified, so this
+		-- reads the cost again instead of assuming all or nothing.
 		C_Timer.After(GUILD_CHECK_DELAY, function()
 			visit.pending = nil
 			if MerchantFrame:IsShown() and CanMerchantRepair() then

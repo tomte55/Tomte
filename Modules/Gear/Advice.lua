@@ -27,9 +27,9 @@ function ns.Gear_ResolveWeights(saved, builtin, primary)
 	return ns.Gear_DefaultWeights(primary), "none", nil
 end
 
--- The weights for any character and spec: weightsByGuid is the saved db.weights ([guid][specID] = imported),
--- scales is the character's built-in set (Gear_ScalesFor). Same order and returns as Gear_ResolveWeights. Works for another character's guid
--- and spec too (alts).
+-- The weights for any character and spec, this one or an alt: weightsByGuid is the saved db.weights
+-- ([guid][specID] = imported), scales is that character's built-in set (Gear_ScalesFor). Same order and returns as
+-- Gear_ResolveWeights.
 function ns.Gear_WeightsFor(weightsByGuid, guid, specID, primary, scales)
 	local mine = weightsByGuid and guid and weightsByGuid[guid]
 	return ns.Gear_ResolveWeights(mine and mine[specID], scales and scales.specs[specID], primary)
@@ -56,9 +56,9 @@ local function AtMax(level, maxLevel)
 end
 
 -- One-time chat hint for built-in weights, only at max level (built-in is fine while leveling). seen is what was
--- already said for this character and spec (saved): nil, "builtin" (the old any-level hint, which doesn't count),
--- "max", or "stale:<season>". currentSeason is nil when the game can't say. Returns the hint kind ("max" |
--- "stale") and the new seen value, or nil when there's nothing to say.
+-- already said for this character and spec (saved): nil, "builtin" (an any-level hint saved by older versions,
+-- which doesn't count), "max", or "stale:<season>". currentSeason is nil when the game can't say. Returns the hint
+-- kind ("max" | "stale") and the new seen value, or nil when there's nothing to say.
 -- Stale only for a set that isn't final: the display season is global (a War Within character on a Midnight
 -- client sees Midnight's season), and a final set is its expansion's last season, so nothing newer exists for it.
 function ns.Gear_WeightsHint(source, builtin, seen, currentSeason, level, maxLevel)
@@ -83,9 +83,9 @@ function ns.Gear_SimSuggested(source, level, maxLevel)
 	return source == "builtin" and AtMax(level, maxLevel)
 end
 
--- db.hinted used to be [specID] = seen for the whole account; now it's [guid][specID]. Moves the old keys for
--- this character's class (specIDs: { [specID] = true }) to guid; other classes' keys wait for one of theirs.
--- Returns the character's table.
+-- db.hinted is [guid][specID] = seen; saved data from older versions may also hold account-wide [specID] = seen
+-- keys. Moves those for this character's class (specIDs: { [specID] = true }) to guid; other classes' keys wait for
+-- one of their characters. Returns the character's table.
 function ns.Gear_MigrateHinted(hinted, guid, specIDs)
 	hinted[guid] = hinted[guid] or {}
 	local mine = hinted[guid]
@@ -264,7 +264,7 @@ function ns.Gear_Rankable(desc)
 end
 
 -- Whether item can take the worn item's place: fits that slot (weapons: same kind), usable by the spec, rankable.
-function ns.Gear_RankPeer(item, worn, slot, ctx)
+local function RankPeer(item, worn, slot, ctx)
 	if item.link == worn.link or not ns.Gear_Rankable(item) then
 		return false
 	end
@@ -290,12 +290,12 @@ function ns.Gear_Rank(worn, slot, others, bag, ctx, score)
 	local mine, rank = score(worn), 1
 	local better, betterScore
 	for _, item in ipairs(others) do
-		if ns.Gear_RankPeer(item, worn, slot, ctx) and score(item) > mine then
+		if RankPeer(item, worn, slot, ctx) and score(item) > mine then
 			rank = rank + 1
 		end
 	end
 	for _, item in ipairs(bag) do
-		if ns.Gear_RankPeer(item, worn, slot, ctx) then
+		if RankPeer(item, worn, slot, ctx) then
 			local value = score(item)
 			if value > mine then
 				rank = rank + 1

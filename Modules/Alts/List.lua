@@ -4,6 +4,8 @@ local addonName, ns = ...
 -- on ("Grab 10 Iron Ingot from bank", "Mail 20 Mycobloom to Mira", "Ready: craft 3 Flask"),
 -- crafts counted down as they're made, and marks on the items to move in Baganator's bags and bank. The mailbox rows
 -- are in Send.lua, the List tab in ListTab.lua, the rules in ListData.lua.
+-- Also the shared labels the Alts files draw items and recipes with: Alts_QualityMarkup, Alts_RankMarkup,
+-- Alts_ItemLabel, Alts_RecipeLabel and Alts_MissingText.
 
 local UI = ns.UI
 local WIDTH = 300
@@ -295,6 +297,7 @@ function ns.AltsList_Changed()
 	if refreshTimer then
 		return
 	end
+	-- One redraw for a burst of changes (bag, mail and Syndicator events come several at a time).
 	refreshTimer = C_Timer.NewTimer(0.3, function()
 		refreshTimer = nil
 		ns.AltsList_Refresh()
@@ -317,16 +320,6 @@ function ns.AltsList_Add(recipeID, crafts, choice)
 	ns.Alts_ListAdd(ns.altsDB.list, recipeID, crafts, GetServerTime(), choice)
 	ns.Print(("added %d %s to the crafting list."):format(crafts, ns.Alts_RecipeLabel(recipeID, nil, choice and choice.quality)))
 	ns.AltsList_Changed()
-end
-
--- The listed entry of a recipe, nil when it isn't listed.
-function ns.AltsList_Entry(recipeID)
-	for _, e in ipairs(ns.altsDB.list) do
-		if e.recipeID == recipeID then
-			return e
-		end
-	end
-	return nil
 end
 
 function ns.AltsList_Remove(recipeID)
@@ -677,6 +670,8 @@ function MarksChanged()
 	return false
 end
 
+-- Once per session (events.baganator, like events.syndicator in AltsList_Start): neither registration is undone by
+-- AltsList_Stop, so the callbacks check that the module is on.
 local function RegisterBaganator()
 	if events.baganator or not (Baganator and Baganator.API and Baganator.API.RegisterCornerWidget) then
 		return
@@ -763,6 +758,8 @@ function ns.AltsList_Start(moduleDB)
 	db = moduleDB
 	for _, list in ipairs({ EVENTS, CHANGED }) do
 		for _, event in ipairs(list) do
+			-- RegisterEvent throws on an event name the client doesn't know: one renamed or removed in a patch mustn't
+			-- stop the others.
 			pcall(events.RegisterEvent, events, event)
 		end
 	end

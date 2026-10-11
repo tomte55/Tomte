@@ -10,9 +10,9 @@ local addonName, ns = ...
 -- Tomte never installs an error handler of its own (it would sit in the path of Blizzard's secure code's errors).
 
 local MAX_SCAN = 200
--- Besides every module's uses/conflicts: the error catchers, TomTom and the TOC's OptionalDeps.
+-- Listed in every report besides each module's uses/conflicts: the error catchers, TomTom and the TOC's OptionalDeps.
 local WATCHED = { "BugSack", "!BugGrabber", "TomTom", "Baganator", "Syndicator", "Auctionator", "TradeSkillMaster",
-	"MountJournalEnhanced", "AlmostCompletedAchievements", "WaypointUI" }
+	"MountJournalEnhanced", "AlmostCompletedAchievements", "WaypointUI", "DialogueUI" }
 
 local function Loaded(name)
 	return C_AddOns.IsAddOnLoaded(name) and true or false
@@ -26,7 +26,8 @@ local function Version(name)
 	return nil
 end
 
-local function BugGrabberDB()
+-- The BugGrabber addon object when it's loaded and has GetDB, else nil.
+local function BugGrabberAddon()
 	local bg = BugGrabber
 	if type(bg) == "table" and type(bg.GetDB) == "function" then
 		return bg
@@ -35,7 +36,7 @@ local function BugGrabberDB()
 end
 
 local function FromBugGrabber()
-	local bg = BugGrabberDB()
+	local bg = BugGrabberAddon()
 	local list = {}
 	local db = bg and bg:GetDB()
 	if type(db) ~= "table" then
@@ -74,10 +75,10 @@ local function FromSaved()
 	return list
 end
 
--- errors, total, catcher text
+-- Returns errors, total, catcher text (which error list was read).
 local function Errors()
 	local lists, catcher
-	if BugGrabberDB() then
+	if BugGrabberAddon() then
 		lists = { FromBugGrabber() }
 		local version = Version("!BugGrabber") or "?"
 		catcher = Loaded("BugSack") and ("BugSack (BugGrabber %s)"):format(version) or ("BugGrabber " .. version)
@@ -225,7 +226,7 @@ function ns.BugUI_Clear()
 		end
 	end
 	ns.Print("saved errors cleared.")
-	if BugGrabberDB() then
+	if BugGrabberAddon() then
 		ns.Print("BugSack keeps its own list: /bugsack reset.")
 	end
 end
@@ -244,7 +245,7 @@ end)
 events:RegisterEvent("PLAYER_LOGOUT")
 
 function events:PLAYER_LOGOUT()
-	if not ns.db or BugGrabberDB() then
+	if not ns.db or BugGrabberAddon() then
 		return
 	end
 	pcall(function()

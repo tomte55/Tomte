@@ -6,9 +6,11 @@ local addonName, ns = ...
 -- screen. The session itself is Core/Session.lua; tracking is Track.lua; pure logic is Data.lua.
 
 local TICK = 0.25
-local ROWS = 6
+local ROWS = 6 -- highlights on the card
 local CARD_TIME = 20 -- seconds a /tomte recap card stays
-local CAMP_TIME = 20 -- the logout countdown
+local CAMP_TIME = 20 -- the logout countdown (Scene.lua keeps the same value as its fallback)
+local LOGOUT_GRACE = 5 -- seconds past the countdown before the card decides the logout didn't happen
+local PREVIEW_ENTRIES = 40 -- Track.lua's MAX_ENTRIES
 local LOGIN_DELAY = 8 -- seconds after login before the last-session toast
 local TOAST_HOLD = 15
 
@@ -143,7 +145,7 @@ local function Tick()
 		if playing.left <= 0 then
 			Stop()
 		end
-	elseif playing.logoutAt and ns.Recap_LogoutLeft(playing) <= 0 and GetTime() > playing.logoutAt + 5 then
+	elseif playing.logoutAt and ns.Recap_LogoutLeft(playing) <= 0 and GetTime() > playing.logoutAt + LOGOUT_GRACE then
 		Stop() -- still here well after the countdown: the logout didn't happen
 	end
 end
@@ -157,6 +159,15 @@ ticker:SetScript("OnUpdate", function(self, elapsed)
 	end
 end)
 
+-- Commands and buttons while the module is off: says so and returns true.
+local function IsOff()
+	if not module.active then
+		ns.Print("Session recap is off.")
+		return true
+	end
+	return false
+end
+
 local function PlayOrSay(state)
 	local reason = BlockedReason()
 	if reason then
@@ -167,16 +178,14 @@ local function PlayOrSay(state)
 end
 
 local function ShowCurrent()
-	if not module.active then
-		ns.Print("Session recap is off.")
+	if IsOff() then
 		return
 	end
 	PlayOrSay({ summary = CurrentSummary(), build = CurrentSummary, left = CARD_TIME })
 end
 
 local function ShowLast()
-	if not module.active then
-		ns.Print("Session recap is off.")
+	if IsOff() then
 		return
 	end
 	local last = ns.Session_Last(UnitGUID("player"))
@@ -189,8 +198,7 @@ end
 
 -- A session from the history (Sessions page).
 function ns.Recap_ShowStored(h)
-	if not module.active then
-		ns.Print("Session recap is off.")
+	if IsOff() then
 		return
 	end
 	local label = ("%s, %s"):format(h.name or "Session", date("%a %d %b", h.start))
@@ -224,8 +232,7 @@ local SAMPLE_LOG = {
 }
 
 local function Preview()
-	if not module.active then
-		ns.Print("Session recap is off.")
+	if IsOff() then
 		return
 	end
 	local now = GetServerTime()
@@ -239,7 +246,7 @@ local function Preview()
 			entry[k] = v
 		end
 		entry.at, entry.ago = now - sample.ago, nil
-		ns.Recap_AddNote(session.log, entry, 40)
+		ns.Recap_AddNote(session.log, entry, PREVIEW_ENTRIES)
 	end
 	PlayOrSay({ summary = Summarize(session, "Session recap", false), left = CARD_TIME })
 end
@@ -428,6 +435,7 @@ module = ns.RegisterModule({
 		{ type = "button", label = "Preview", text = "Show", onClick = Preview,
 			tooltip = "Show the recap card with sample data. Any key or click closes it." },
 		{ type = "header", label = "Sessions page" },
+		-- "2 minutes" is History.lua's MIN_SECONDS.
 		{ type = "checkbox", key = "keepHistory", label = "Keep history",
 			tooltip = "Keep finished sessions (2 minutes or longer) for the Sessions page. A session is kept when the next one starts." },
 		{ type = "dropdown", key = "keepBy", label = "Keep by", choices = function()

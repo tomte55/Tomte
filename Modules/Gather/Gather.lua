@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- ranks, value and gold per hour, rare finds, skill and knowledge, zones. A small tracker while a run is on, an
 -- end-of-run toast and a Gathering page. Detection is Detect.lua, pure logic Data.lua. It only reads and counts.
 
-local IDLE_DEFAULT = 600 -- seconds without a gather that end a run (user decision 2026-10-10: keep it named)
+local IDLE_DEFAULT = 600 -- seconds without a gather that end a run (the "End a run after" slider's default)
 local MIN_NODES_DEFAULT = 5 -- automatic runs with fewer nodes aren't kept
 local IDLE_CHECK = 15
 
@@ -341,7 +341,6 @@ module = ns.RegisterModule({
 	noShare = { "pageScope", "pageRange", "pageKind", "pageView" },
 	init = function(saved)
 		db = saved
-		ns.gatherDB = db
 		if ns.GatherTracker_Init then
 			ns.GatherTracker_Init(db)
 		end
@@ -370,7 +369,8 @@ module = ns.RegisterModule({
 			description = "Weekly knowledge drops your gathering professions can still find." },
 	},
 	commands = {
-		{ "", "open the Gathering page", ns.Gather_Open },
+		{ "", "open the Gathering page", ns.Gather_Open, hidden = true },
+		{ "open", "open the Gathering page", ns.Gather_Open },
 		{ "start", "start a gathering run now (kept even when short)", function()
 			if ns.Gather_Start(true) then
 				ns.Print("gathering run started.")

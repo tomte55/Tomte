@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Generic unit health bar for combat modules (Pet Health is the first user). Health is secret in combat
 -- (Midnight), so nothing here reads it: the bar value goes straight into SetValue, and color, warning glow
 -- and percent text come from curves the game evaluates (UnitHealthPercent with a curve). Out of the box:
--- name, bar, percent, a threshold tick, a pulsing red glow below the threshold, a dead/missing state, and an
+-- name, bar, percent, a threshold tick, a pulsing red glow below the threshold, a dead/missing state, and a
 -- row of spell icons under the bar (cooldown swipe and seconds, plus "<buff> 6s" while one spell's buff
 -- is on the unit).
 
@@ -15,9 +15,7 @@ local SKULL = "Interface\\TargetingFrame\\UI-TargetingFrame-Skull"
 local BAR_TEXTURE = "Interface\\RaidFrame\\Raid-Bar-Hp-Fill"
 local SMOOTH = Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.ExponentialEaseOut
 
-local function IsSecret(v)
-	return issecretvalue ~= nil and issecretvalue(v)
-end
+local IsSecret = ns.IsSecret
 
 local function IsSecretTable(t)
 	return issecrettable ~= nil and issecrettable(t)

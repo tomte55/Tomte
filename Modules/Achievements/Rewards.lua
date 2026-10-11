@@ -60,6 +60,8 @@ local function ToyInfo(itemID)
 	return { type = "toy", owned = PlayerHasToy(itemID) and true or false, name = name, icon = icon }
 end
 
+-- Housing decor. The housing API is checked first in case it's missing, and both journal lookups here are
+-- pcalled: any reward item gets asked, and one the journal can't take must mean "not this type", never an error.
 local function DecorInfo(itemID)
 	if not (C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem) then
 		return nil
@@ -72,6 +74,7 @@ local function DecorInfo(itemID)
 	return { type = "decor", owned = have > 0, name = entry.name, icon = entry.iconTexture }
 end
 
+-- pcall like DecorInfo's.
 local function AppearanceInfo(itemID)
 	local ok, appearanceID = pcall(C_TransmogCollection.GetItemInfo, itemID)
 	if not (ok and appearanceID) then

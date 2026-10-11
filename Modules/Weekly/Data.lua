@@ -155,14 +155,14 @@ local function AnyUnlocked(vault)
 end
 
 -- No known reset time (the API gave none) counts as current rather than reset forever.
-function ns.Weekly_IsStale(snap, now)
+local function IsStale(snap, now)
 	return snap.nextReset ~= nil and now >= snap.nextReset
 end
 
 -- The snapshot as it is at `now`: after a weekly reset, weekly progress shows as reset and a vault with unlocked
 -- slots is waiting; lockouts drop at their own expiry; Concentration is predicted.
 function ns.Weekly_View(snap, now)
-	local stale = ns.Weekly_IsStale(snap, now)
+	local stale = IsStale(snap, now)
 	local v = {
 		guid = snap.guid, name = snap.name, realm = snap.realm, class = snap.class, at = snap.at, seen = snap.seen,
 		stale = stale, vault = {}, currencies = {}, quests = {}, renown = snap.renown or {}, lockouts = {}, profs = {},

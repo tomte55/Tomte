@@ -2,13 +2,15 @@ local addonName, ns = ...
 
 -- Almost Done module: near-complete achievements in a list docked to the Achievements window (Dock.lua), a Top 5
 -- tracker (Tracker.lua) and toasts at milestones (almost done, one step left, progress on a pinned one).
--- Scanning in Scan.lua, rewards in Rewards.lua, metas in Metas.lua, pure logic in Data.lua. Replaces
--- AlmostCompletedAchievements.
+-- Scanning in Scan.lua (riding the shared achievement walk in Walk.lua), rewards in Rewards.lua, metas in Metas.lua,
+-- pure logic in Data.lua. Holiday names for the world events filter come from Holidays' calendar reader
+-- (Modules/Holidays/Calendar.lua). Replaces AlmostCompletedAchievements.
 
 local OWNER = "ach"
 local MAX_PINS = 5
 local SCAN_DELAY = 5 -- seconds after the first loading screen
 local HOLIDAY_TTL = 300 -- seconds the calendar's holiday list is reused
+local HOLIDAY_SOON = 1440 -- minutes (a day): an event starting this soon already counts as running
 local ACCENTS = { almost = "warning", lastStep = "success", pinned = "accent" } -- toast accent roles
 local LABELS = { almost = "Almost done", lastStep = "One step left", pinned = "Pinned" }
 local EVENTS = {
@@ -18,7 +20,7 @@ local EVENTS = {
 }
 
 local module, db
-local scheduled = false
+local started = false -- StartUp ran (reset when the module is turned off)
 local holidays, holidaysAt = nil, 0
 local professions
 
@@ -33,10 +35,6 @@ local function Pins()
 	local guid = UnitGUID("player") or "?"
 	db.pins[guid] = db.pins[guid] or {}
 	return db.pins[guid]
-end
-
-function ns.Ach_Pins()
-	return Pins()
 end
 
 -- Read-only: built once and reused until the pins change (the list asks once per row).
@@ -122,43 +120,22 @@ local function Professions()
 	return professions
 end
 
--- Lower-case holiday titles from yesterday to tomorrow (this month only: the calendar is opened on this month).
+-- Lower-case names of the world events on now or starting within a day, from the shared calendar reader
+-- (Holidays & events, whatever its "Other events" setting). With each event's achievement category name too, which
+-- is exactly what IsRunningEvent looks for (the finder's Timewalking dungeon name may not contain it).
 local function Holidays()
 	if holidays and GetTime() - holidaysAt < HOLIDAY_TTL then
 		return holidays
 	end
 	holidays, holidaysAt = {}, GetTime()
-	-- The shared calendar reader (Holidays & events): on now or starting within a day, whatever its "Other events"
-	-- setting. With each event's achievement category name too, which is exactly what IsRunningEvent looks for
-	-- (the finder's Timewalking dungeon name may not contain it).
-	if ns.Events_Current then
-		local s = ns.Events_Current()
-		if s.lockdown then
-			holidaysAt = 0 -- nothing read in chat lockdown: ask again next time instead of keeping it for minutes
-		end
-		for _, ev in ipairs(s.all or s.list) do
-			if ev.active or (ev.startsIn or 0) <= 1440 then
-				for _, name in ipairs(ns.Events_Names(ev)) do
-					holidays[#holidays + 1] = name:lower()
-				end
-			end
-		end
-		return holidays
+	local s = ns.Events_Current()
+	if s.lockdown then
+		holidaysAt = 0 -- nothing read in chat lockdown: ask again next time instead of keeping it for minutes
 	end
-	local now = C_DateAndTime.GetCurrentCalendarTime()
-	local selected = C_Calendar.GetMonthInfo(0)
-	if not (now and now.monthDay and selected and selected.month) then
-		return holidays
-	end
-	-- Offsets count from the calendar's selected month, which isn't always this one.
-	local offset = (now.year - selected.year) * 12 + (now.month - selected.month)
-	for day = math.max(now.monthDay - 1, 1), now.monthDay + 1 do
-		-- pcall: the day after the last of the month isn't a valid day.
-		local ok, count = pcall(C_Calendar.GetNumDayEvents, offset, day)
-		for i = 1, ok and count or 0 do
-			local info = (offset == 0 or offset == 1) and C_Calendar.GetHolidayInfo(offset, day, i)
-			if info and info.name then
-				holidays[#holidays + 1] = info.name:lower()
+	for _, ev in ipairs(s.all or s.list) do
+		if ev.active or (ev.startsIn or 0) <= HOLIDAY_SOON then
+			for _, name in ipairs(ns.Events_Names(ev)) do
+				holidays[#holidays + 1] = name:lower()
 			end
 		end
 	end
@@ -199,10 +176,6 @@ function ns.Ach_Top(n)
 	return ns.Ach_TopN(list, Pins(), ns.Ach_Records(), n)
 end
 
-function ns.Ach_Settings()
-	return db
-end
-
 -- Every top category and expansion the records have, for the filter menu.
 function ns.Ach_FilterChoices()
 	local tops, seen = {}, {}
@@ -222,6 +195,9 @@ function ns.Ach_FilterChoices()
 	return tops, expansions
 end
 
+-- The Achievements window is load-on-demand, and loading a Blizzard addon from addon code in combat is presumably
+-- blocked or tainting (not measured), so in combat it only opens once it's loaded. ShowAchievementFrameForAchievement is the current
+-- opener (Blizzard_AchievementUI_Bootstrap, loads the window); OpenAchievementFrameToAchievement is an older name.
 function ns.Ach_Open(id)
 	if InCombatLockdown() and not C_AddOns.IsAddOnLoaded("Blizzard_AchievementUI") then
 		ns.Print("the Achievements window opens after combat.")
@@ -235,23 +211,16 @@ function ns.Ach_Open(id)
 end
 
 function ns.Ach_Link(id)
-	local link = GetAchievementLink(id)
-	-- ChatEdit_InsertLink moved to ChatFrameUtil in recent clients; use whichever exists.
-	local insert = (ChatFrameUtil and ChatFrameUtil.InsertLink) or ChatEdit_InsertLink
-	if link and insert then
-		insert(link)
-	end
+	ns.UI.InsertLink(GetAchievementLink(id))
 end
 
 -- Toasts ------------------------------------------------------------------------------------------------------
 
-local ProgressText = ns.Ach_ProgressText
-
 local function ToastText(kind, record)
 	if kind == "lastStep" then
-		return record.last and ("Left: " .. record.last) or ProgressText(record)
+		return record.last and ("Left: " .. record.last) or ns.Ach_ProgressText(record)
 	end
-	local text = ProgressText(record)
+	local text = ns.Ach_ProgressText(record)
 	if kind == "almost" and record.reward ~= "" then
 		text = text .. "\n" .. record.reward
 	end
@@ -283,17 +252,15 @@ end
 -- Events ------------------------------------------------------------------------------------------------------
 
 local function StartUp()
-	if scheduled then
+	if started then
 		return
 	end
-	scheduled = true
+	started = true
 	ns.Ach_LoadCache()
 	ns.AchTracker_Apply(InCombatLockdown())
-	if not ns.Events_Request then
-		C_Calendar.OpenCalendar()
-	end
 	C_Timer.After(SCAN_DELAY, function()
-		-- The shared reader sets this month first; asked after the loading screen, when the answer comes.
+		-- The calendar request (Holidays' reader sets this month first) goes out after the loading screen, when the
+		-- answer comes.
 		if ns.Events_Request then
 			ns.Events_Request()
 		end
@@ -307,7 +274,7 @@ function events:PLAYER_ENTERING_WORLD()
 	StartUp()
 end
 
-events.CRITERIA_UPDATE = function()
+function events:CRITERIA_UPDATE()
 	ns.Ach_OnCriteriaUpdate()
 end
 
@@ -485,7 +452,7 @@ module = ns.RegisterModule({
 			end
 		else
 			events:UnregisterAllEvents()
-			scheduled = false
+			started = false
 			ns.Ach_StopScan()
 			ns.AchTracker_Apply()
 			ns.AchDock_Refresh()

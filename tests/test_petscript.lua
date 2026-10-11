@@ -1,5 +1,6 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_petscript.lua
 local ns = {}
+assert(loadfile("Tomte/Modules/Pets/Data.lua"))("Tomte", ns) -- ns.PETS_MAX_LEVEL
 assert(loadfile("Tomte/Modules/Pets/Script.lua"))("Tomte", ns)
 
 local failures = 0

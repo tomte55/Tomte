@@ -42,19 +42,11 @@ local function MapName(mapID)
 	return info and info.name or (mapID and ("map " .. mapID) or "?")
 end
 
-local function WeekStart()
-	local left = C_DateAndTime.GetSecondsUntilWeeklyReset()
-	if not left then
-		return nil
-	end
-	return GetServerTime() + left - 7 * 86400
-end
-
 local function ClassName(name, class)
-	local color = class and C_ClassColor.GetClassColor(class)
-	return color and color:WrapTextInColorCode(name or "?") or (name or "?")
+	return UI.ClassColored(name or "?", class)
 end
 
+-- Money, or a faint dash for nil (no price).
 local function Money(v)
 	return v and ns.Gather_Money(v) or UI.Wrap("-", "textFaint")
 end
@@ -163,7 +155,7 @@ end
 
 -- The live run (when it matches the filters) and the kept runs.
 local function Filtered()
-	local since = db.pageRange == "week" and WeekStart() or nil
+	local since = db.pageRange == "week" and ns.WeekStart() or nil
 	local list = {}
 	local live = ns.Gather_Current()
 	if live then
@@ -262,7 +254,7 @@ local function ItemsView(y)
 			ns.Gather_ItemIcon(g.first.itemID, 14) .. ns.Gather_ItemName(g.first.itemID, g.first.link),
 			ranked and table.concat(ranks, " · ") or "",
 			tostring(g.n),
-			g.v > 0 and ns.Gather_Money(g.v) or UI.Wrap("-", "textFaint"),
+			Money(g.v > 0 and g.v or nil),
 		})
 		y = y + ROW_H
 	end

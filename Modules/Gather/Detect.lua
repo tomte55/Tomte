@@ -10,9 +10,10 @@ local running = false
 local names = {} -- [localized anchor spell name] = kind
 local notNames = {} -- [localized name of a GATHER_NOT spell] = true (Opening has many spell IDs, one name)
 local learning = {} -- Gather_Learn's pending counts (per login)
-local lastCast -- { spellID, kind, at, name, target }
+local lastCast -- { spellID, kind, at, name, target, notGather }
 local sentGUID, sentTarget -- the last UNIT_SPELLCAST_SENT, for the node's name
-local win -- the open loot window: { slots, fishing, fromItem, kind, reason, committed, gather, cast }
+-- The open loot window (Build): { slots, fishing, cast, kind, reason, sources, objectID, nodeName, at, committed }.
+local win
 local pending = {} -- [slot] = item, booked when the slot is looted
 local lastWhy -- what the last loot window was, for /tomte gather why
 local dropsDone = {} -- [base skill line] = weekly drops done, last reading
@@ -28,9 +29,7 @@ events:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
 end)
 
-local function Secret(v)
-	return issecretvalue ~= nil and issecretvalue(v)
-end
+local Secret = ns.IsSecret
 
 local function Readable(v)
 	return v ~= nil and not Secret(v)
@@ -212,7 +211,7 @@ local function ReadSlots()
 end
 
 local function FreshCast()
-	if lastCast and GetTime() - lastCast.at <= 3 then
+	if lastCast and GetTime() - lastCast.at <= ns.GATHER_CAST_FRESH then
 		return lastCast
 	end
 	return nil
@@ -249,6 +248,7 @@ local function Build()
 		kind, reason = nil, "opening (spell " .. cast.spellID .. ")" -- an Opening/Survey variant Tomte doesn't list
 	end
 	local learned
+	-- Gather_Learn refuses GATHER_NOT spells too; checking here skips the contents scan for them.
 	if cast and not cast.kind and not cast.notGather and not ns.GATHER_NOT[cast.spellID] and not w.fishing then
 		-- An unknown readable cast: learn it from the node it opened, by its contents, and only for a profession the
 		-- character has. Never from corpses: skinning ranks share the "Skinning" name, which already matches, and a
@@ -453,6 +453,7 @@ function ns.GatherDetect_Why()
 			lines[#lines + 1] = ("cast: spell %d%s, %.1fs before, %s."):format(c.spellID, c.name and (" (" .. c.name .. ")") or "",
 				c.age, c.kind and ("gathering: " .. c.kind) or "not a known gathering spell")
 		else
+			-- "3 seconds" is ns.GATHER_CAST_FRESH (Data.lua): change both together.
 			lines[#lines + 1] = "cast: none readable in the 3 seconds before."
 		end
 		if w.learned then

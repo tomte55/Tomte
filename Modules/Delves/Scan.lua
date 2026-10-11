@@ -112,6 +112,7 @@ function ns.DelvesScan_List()
 		return {}
 	end
 	local stale = not cache or cacheKey ~= expansion or GetTime() >= (cacheUntil or 0)
+	-- In combat the old list stays: no scans mid-fight, the same precaution as Read.lua's readers.
 	if stale and not InCombatLockdown() then
 		local ok, list = pcall(Read, def)
 		if ok then

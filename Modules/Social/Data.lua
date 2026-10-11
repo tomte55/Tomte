@@ -1,8 +1,9 @@
 local addonName, ns = ...
 
 -- Social modules, pure logic: no WoW API calls (unit-tested with plain Lua). Whisper conversations and
--- unread counts, name mentions, word lists and the small text helpers the toasts use.
+-- unread counts, name mentions, word lists, who came online for Friends and the small text helpers the toasts use.
 
+-- Values other than "off" are keys of SOUNDS in Toast.lua (ns.Social_PlaySound).
 ns.SOCIAL_SOUND_CHOICES = {
 	{ value = "off", text = "Off" },
 	{ value = "whisper", text = "Whisper" },

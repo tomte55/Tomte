@@ -13,14 +13,12 @@ local active = false
 local open = false -- the tier picker interaction is on (between its _SHOW and _HIDE)
 local card
 
-local f = CreateFrame("Frame")
-f:SetScript("OnEvent", function(self, event, ...)
+local events = CreateFrame("Frame")
+events:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
 end)
 
-local function Secret(v)
-	return issecretvalue ~= nil and issecretvalue(v)
-end
+local Secret = ns.IsSecret
 
 local function Picker()
 	return DelvesDifficultyPickerFrame
@@ -182,7 +180,7 @@ local function Hide()
 	end
 end
 
-function f:PLAYER_INTERACTION_MANAGER_FRAME_SHOW(kind)
+function events:PLAYER_INTERACTION_MANAGER_FRAME_SHOW(kind)
 	if kind == Enum.PlayerInteractionType.TieredEntrance and db.entrance then
 		open = true
 		ns.DelvesRead_Dirty() -- fresh numbers for the card; it redraws when they arrive
@@ -192,14 +190,14 @@ function f:PLAYER_INTERACTION_MANAGER_FRAME_SHOW(kind)
 	end
 end
 
-function f:PLAYER_INTERACTION_MANAGER_FRAME_HIDE(kind)
+function events:PLAYER_INTERACTION_MANAGER_FRAME_HIDE(kind)
 	if kind == Enum.PlayerInteractionType.TieredEntrance then
 		open = false
 		Hide()
 	end
 end
 
-function f:PLAYER_REGEN_DISABLED()
+function events:PLAYER_REGEN_DISABLED()
 	Hide()
 end
 
@@ -217,11 +215,11 @@ end
 function ns.DelvesEntrance_Toggle(on)
 	active = on
 	if on then
-		f:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
-		f:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
-		f:RegisterEvent("PLAYER_REGEN_DISABLED")
+		events:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
+		events:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
+		events:RegisterEvent("PLAYER_REGEN_DISABLED")
 	else
-		f:UnregisterAllEvents()
+		events:UnregisterAllEvents()
 		open = false
 		Hide()
 	end

@@ -41,8 +41,8 @@ ns.Content_Register(E, "subfactions", {
 })
 
 -- Crest sets, newest first, each lowest tier first. Season 3 Ethereal crests (Weathered 3284, Carved 3286, Runed
--- 3288, Gilded 3290; names checked on Wowhead 2026-10-09). Before 2026-10-09 every account listed Midnight's
--- Mistcrests, which a War Within account never discovers, so no crests showed.
+-- 3288, Gilded 3290; names checked on Wowhead 2026-10-09). Midnight's Mistcrests are in Data/Midnight/Weekly.lua: a
+-- War Within account never discovers them.
 ns.Content_Register(E, "crests", {
 	{ label = "Ethereal crests", ids = { 3284, 3286, 3288, 3290 } },
 })

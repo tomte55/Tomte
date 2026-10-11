@@ -87,12 +87,12 @@ local function Update()
 		lastTame = nil
 	end
 	for _, pet in ipairs(tames) do
-		ns.Session_Note("tame", { title = pet.name, icon = pet.icon,
-			detail = pet.family and (pet.exotic and ("Exotic " .. pet.family) or pet.family) or nil })
+		local family = pet.family and (pet.exotic and ("Exotic " .. pet.family) or pet.family) or nil
+		ns.Session_Note("tame", { title = pet.name, icon = pet.icon, detail = family })
 		if ns.Moments_Trigger then
 			ns.Moments_Trigger("tame", {
 				title = pet.name,
-				subtitle = pet.family and (pet.exotic and ("Exotic " .. pet.family) or pet.family) or nil,
+				subtitle = family,
 				icon = pet.icon,
 				displayID = pet.displayID,
 				exotic = pet.exotic,
@@ -133,5 +133,3 @@ function ns.Stable_SummonedSlot()
 	end
 	return nil
 end
-
-ns.CALL_PET_SPELLS = { 883, 83242, 83243, 83244, 83245 }

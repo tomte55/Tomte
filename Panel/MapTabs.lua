@@ -1,6 +1,7 @@
 local addonName, ns = ...
 
--- Tomte's tabs in the world map's side panel, stacked under Blizzard's Map Legend tab (Teleports, Collect here).
+-- Tomte's tabs in the world map's side panel, stacked under Blizzard's Map Legend tab (Teleports, Collect here,
+-- World quests).
 -- Only one content frame shows at a time: picking one of ours hides Blizzard's frames and our other panels;
 -- picking one of Blizzard's tabs gives its frames back.
 --
@@ -116,6 +117,7 @@ end
 local function CreatePanel(spec)
 	local panel = CreateFrame("Frame", nil, QuestMapFrame)
 	panel:SetPoint("TOPLEFT", QuestMapFrame.ContentsAnchor, "TOPLEFT")
+	-- -22: the right inset Blizzard's own content frames use (QuestsFrame, MapLegend in QuestMapFrame.xml).
 	panel:SetPoint("BOTTOMRIGHT", QuestMapFrame.ContentsAnchor, "BOTTOMRIGHT", -22, 0)
 	panel:Hide()
 	panel.look = UI.Panel(panel, { size = "medium", alpha = 0.96 })

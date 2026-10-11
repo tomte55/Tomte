@@ -5,6 +5,7 @@ local addonName, ns = ...
 -- taskbar flash where Blizzard has none (summons). Blizzard's own popups and sounds stay as they are.
 
 local TICK = 0.5
+local POPUP_DELAY = 0.2 -- seconds: Blizzard's popup shows on the same event as ours
 local EVENTS = { "PARTY_INVITE_REQUEST", "LFG_PROPOSAL_SHOW", "UPDATE_BATTLEFIELD_STATUS", "READY_CHECK", "CONFIRM_SUMMON" }
 
 local module
@@ -97,7 +98,7 @@ end)
 
 -- Popups show on the same event: check they're up a moment later.
 local function TriggerSoon(key)
-	C_Timer.After(0.2, function()
+	C_Timer.After(POPUP_DELAY, function()
 		if module.active and byKey[key].pending() then
 			Trigger(key)
 		end

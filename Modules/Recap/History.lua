@@ -6,10 +6,10 @@ local addonName, ns = ...
 -- highlights and counts.
 
 local FULL = 5 -- newest copies that keep the whole log and the loot list
-local MIN_SECONDS = 120 -- shorter sessions (a reload, a quick swap) aren't kept
+-- Shorter sessions (a reload, a quick swap) aren't kept. Recap.lua's Keep history tooltip and SessionsPage.lua's
+-- empty chart text say "2 minutes" as plain text: change them together.
+local MIN_SECONDS = 120
 local KEEP_HIGHLIGHTS = 8
-
-ns.RECAP_HISTORY_MIN = MIN_SECONDS
 
 -- The copy kept for a finished session, or nil when it's too short. extra = { zone, lootValue, lootBy }.
 function ns.Recap_Compact(session, extra)

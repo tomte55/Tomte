@@ -15,7 +15,6 @@ local MAX_ROWS = math.floor((HEIGHT - TITLE_H - 16) / ROW_H)
 local INPUT_H = 24
 
 local frame
-local CreateInput
 local rows = {}
 local scroll = 0 -- conversations scrolled past at the top of the list
 local current -- conversation key on the right
@@ -29,11 +28,7 @@ function ns.Inbox_ColoredName(convo)
 	elseif convo.bn then
 		return FRIENDS_BNET_NAME_COLOR and FRIENDS_BNET_NAME_COLOR:WrapTextInColorCode(name) or UI.Wrap(name, "accent")
 	end
-	local color = convo.class and C_ClassColor.GetClassColor(convo.class)
-	if color then
-		return color:WrapTextInColorCode(name)
-	end
-	return name
+	return UI.ClassColored(name, convo.class)
 end
 
 local function Clock(at)
@@ -77,7 +72,8 @@ local function ShowConversation()
 		end
 		local who = m.out and "You" or (m.sender or ns.Inbox_ColoredName(convo))
 		local r, g, b = UI.Color(m.out and "textMuted" or "text")
-		-- format and AddMessage take secrets (the sender and text of "In instance" messages).
+		-- format and AddMessage take secrets (the sender and text of "In instance" messages). The pcall is a guard in
+		-- case one of them refuses a secret after all: that line is skipped instead of breaking the whole redraw.
 		pcall(messages.AddMessage, messages, ("%s  %s: %s"):format(UI.Wrap(Clock(m.at), "textFaint"), who, m.text), r, g, b)
 	end
 	if convo.restricted then
@@ -152,10 +148,9 @@ function ns.Inbox_Refresh()
 	if current and not ns.Whispers_Get(current) then
 		current = nil
 	end
-	local maxRows = MAX_ROWS
-	scroll = math.max(math.min(scroll, #list - maxRows), 0)
+	scroll = math.max(math.min(scroll, #list - MAX_ROWS), 0)
 	local now = time()
-	for i = 1, math.min(#list - scroll, maxRows) do
+	for i = 1, math.min(#list - scroll, MAX_ROWS) do
 		local convo = list[i + scroll]
 		local row = rows[i] or NewRow(i)
 		row.key = convo.key
@@ -172,7 +167,7 @@ function ns.Inbox_Refresh()
 		row.bar:SetShown(convo.key == current)
 		row:Show()
 	end
-	for i = math.min(#list - scroll, maxRows) + 1, #rows do
+	for i = math.min(#list - scroll, MAX_ROWS) + 1, #rows do
 		rows[i]:Hide()
 	end
 	ShowConversation()
@@ -180,7 +175,7 @@ end
 
 -- The chat line under the conversation: Enter sends to whoever is open and keeps the box focused for the
 -- next line, Esc leaves it. Not focused on open, so movement keys keep working while you read.
-function CreateInput(parent)
+local function CreateInput(parent)
 	local box = CreateFrame("EditBox", nil, parent)
 	box:SetHeight(INPUT_H)
 	box:SetPoint("BOTTOMLEFT")

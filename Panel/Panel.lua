@@ -1,8 +1,9 @@
 local addonName, ns = ...
 
 -- The Tomte window: standalone and resizable (/tomte, the addon compartment, the minimap button; Esc closes it).
--- Size and position are saved. Three views:
---   home     tiles for content pages and world map tabs, a Quick row (Home.lua). Every open starts here.
+-- Size and position are saved. Opening it goes back to the last view if it was closed a little while ago, else Home
+-- (ns.Panel_Open). Three views:
+--   home     the character, module sections and "Around you" (Home.lua), with the rail on the left.
 --   page     a content page (module.home entry of kind "page") with the rail (Home.lua) on the left.
 --   settings left: search and every module grouped under collapsible categories, each with an on/off checkbox.
 --            Right: the selected module: header, dependency lines, "Open <page>" buttons, its options (Options.lua).

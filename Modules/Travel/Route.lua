@@ -5,8 +5,8 @@ local addonName, ns = ...
 -- and which step to point at. Points are { map = instance ID, x, y } in world yards, the same space as the network.
 -- Router.lua does the WoW side.
 
-ns.WAY_ROUTE_SPEED = 10 -- yards per cost unit: edge costs are about seconds, flying covers ground quickly
-ns.WAY_ROUTE_AT = 25 -- yards: standing at a step
+local ROUTE_SPEED = 10 -- yards per cost unit: edge costs are about seconds, flying covers ground quickly
+ns.WAY_ROUTE_AT = 25 -- yards: standing at a step (Router.lua uses it too)
 
 -- Conditions -----------------------------------------------------------------------------------------------
 
@@ -117,7 +117,7 @@ function Eval(expr, api, conds)
 	end
 	return leaf(expr, api) and true or false
 end
-ns.WayRoute_Eval = Eval
+ns.WayRoute_Eval = Eval -- used by tests
 
 -- Usable unless it's known to be locked: what an addon can't check never blocks a route.
 function ns.WayRoute_Allowed(expr, api, conds)
@@ -132,7 +132,7 @@ end
 local function Interior(net, node)
 	return node[5] ~= 0 and net.volumes[node[5]] == false
 end
-ns.WayRoute_Interior = Interior
+ns.WayRoute_Interior = Interior -- used by tests
 
 local function Dist(ax, ay, bx, by)
 	local dx, dy = ax - bx, ay - by
@@ -194,7 +194,7 @@ function ns.WayRoute_Find(net, start, dest, api)
 			if d <= ns.WAY_ROUTE_AT then
 				dist[id] = 0
 			elseif not Interior(net, node) then
-				dist[id] = d / ns.WAY_ROUTE_SPEED
+				dist[id] = d / ROUTE_SPEED
 			end
 		end
 	end
@@ -226,11 +226,11 @@ function ns.WayRoute_Find(net, start, dest, api)
 		for _, id in ipairs(byMap[node[1]]) do
 			local other = nodes[id]
 			if id ~= best and CanWalk(net, node, other) then
-				Relax(id, Dist(node[2], node[3], other[2], other[3]) / ns.WAY_ROUTE_SPEED)
+				Relax(id, Dist(node[2], node[3], other[2], other[3]) / ROUTE_SPEED)
 			end
 		end
 		if node[1] == dest.map then
-			Relax(DEST, Dist(node[2], node[3], dest.x, dest.y) / ns.WAY_ROUTE_SPEED)
+			Relax(DEST, Dist(node[2], node[3], dest.x, dest.y) / ROUTE_SPEED)
 		end
 	end
 	local path, id = {}, prev[DEST]

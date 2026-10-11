@@ -12,8 +12,8 @@ local timer
 local primed = {} -- [faction] = true once read this session (the first read only stores the level)
 local reported = {} -- [part] = true once its read error was printed
 
-local f = CreateFrame("Frame")
-f:SetScript("OnEvent", function(self, event, ...)
+local events = CreateFrame("Frame")
+events:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
 end)
 
@@ -188,9 +188,11 @@ local READERS = {
 }
 local ORDER = { "keys", "vault", "companion" }
 
+-- No reads in combat, as a precaution: nothing here is needed mid-fight. The cache stays as it was until
+-- PLAYER_REGEN_ENABLED.
 local function ReadDirty()
 	if InCombatLockdown() then
-		f:RegisterEvent("PLAYER_REGEN_ENABLED")
+		events:RegisterEvent("PLAYER_REGEN_ENABLED")
 		return
 	end
 	local def, expansion = Def()
@@ -214,7 +216,7 @@ local function ReadDirty()
 	end
 end
 
-function f:PLAYER_REGEN_ENABLED()
+function events:PLAYER_REGEN_ENABLED()
 	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
 	ReadDirty()
 end
@@ -241,7 +243,7 @@ function ns.DelvesRead_Stop()
 		timer:Cancel()
 		timer = nil
 	end
-	f:UnregisterEvent("PLAYER_REGEN_ENABLED")
+	events:UnregisterEvent("PLAYER_REGEN_ENABLED")
 end
 
 function ns.DelvesRead_Init(saved)
@@ -252,7 +254,7 @@ function ns.DelvesRead_State()
 	return state
 end
 
--- The season's delve faction and its expansion, for /tomte data.
+-- The season's delve faction, its expansion and its companion ID, for /tomte data.
 function ns.DelvesRead_Season()
 	if not C_DelvesUI then
 		return nil

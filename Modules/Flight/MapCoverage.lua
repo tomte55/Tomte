@@ -4,13 +4,13 @@ local addonName, ns = ...
 -- screen and the zone the player is in, and a warning-colored dot on every flight master without a recorded time
 -- (its tooltip says so too). Refreshed each time the map opens, one frame after Blizzard places the pins.
 
+local UI = ns.UI
 local STRIP_PAD = 12
 
 local strip
 local timed = {} -- [nodeID] = true, from the last refresh (pin tooltips read it)
 
 local function CreateStrip()
-	local UI = ns.UI
 	strip = CreateFrame("Frame", nil, FlightMapFrame)
 	strip:SetHeight(24)
 	strip:SetPoint("TOP", FlightMapFrame.ScrollContainer, "TOP", 0, -8)
@@ -22,18 +22,15 @@ end
 
 local function Line(name, nodes)
 	local n, total = ns.Coverage_Count(nodes, timed)
-	return ("%s  %d / %d"):format(ns.UI.Wrap(name, "heading"), n, total)
+	return ("%s  %d / %d"):format(UI.Wrap(name, "heading"), n, total)
 end
 
 local function Dot(pin)
 	local dot = pin:CreateTexture(nil, "OVERLAY", nil, 7)
-	dot:SetColorTexture(ns.UI.Color("warning"))
+	dot:SetColorTexture(UI.Color("warning"))
 	dot:SetSize(7, 7)
 	dot:SetPoint("CENTER", pin, "TOPRIGHT", -2, -2)
-	local mask = pin:CreateMaskTexture()
-	mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-	mask:SetAllPoints(dot)
-	dot:AddMaskTexture(mask)
+	UI.CircleMask(dot, pin)
 	pin.tomteDot = dot
 	return dot
 end

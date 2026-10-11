@@ -7,6 +7,8 @@ local UI = ns.UI
 local CARD_W = 280
 local PAD = 10
 local ICON = 26
+-- The header's heights, top down: label, gap, tamer name, the section line (when there is one), gap before Team.
+local LABEL_H, NAME_GAP, NAME_H, SECTION_H, HEADER_GAP = 10, 3, 16, 14, 8
 
 local db
 local card
@@ -127,13 +129,15 @@ local function LoadTeam()
 		return false
 	end
 	ns.PetsJournal_LoadAndReport(team, LevelingGuid())
+	-- A short wait, presumably so the journal reads back the new loadout.
 	C_Timer.After(0.3, ns.PetsCard_Refresh)
 	return true
 end
 ns.PetsCard_LoadTeam = LoadTeam
 
 local function BuildCard()
-	-- On WorldFrame: dialogue addons (DialogueUI, Immersion) hide UIParent while you talk to the tamer.
+	-- On WorldFrame: dialogue addons (DialogueUI, Immersion) hide UIParent while you talk to the tamer. HIGH keeps it
+	-- above the gossip window and other panels; the Heal button on it is one strata higher (Journal.lua).
 	card = CreateFrame("Frame", "TomtePetsCard", WorldFrame)
 	card:SetSize(CARD_W, 120)
 	card:SetFrameStrata("HIGH")
@@ -226,7 +230,7 @@ function ns.PetsCard_Refresh()
 	end
 	card.section:SetText(table.concat(sections, ", "))
 
-	local y = PAD + 10 + 3 + 16 + (#sections > 0 and 14 or 0) + 8
+	local y = PAD + LABEL_H + NAME_GAP + NAME_H + (#sections > 0 and SECTION_H or 0) + HEADER_GAP
 	local team = ns.PetsStore_TeamFor(npc)
 	local teams = ns.PetsStore_TeamsFor(npc)
 	card.teamLabel:ClearAllPoints()
@@ -319,6 +323,7 @@ function ns.PetsCard_Show(npc)
 	if GossipFrame and GossipFrame:IsShown() then
 		card:SetPoint("TOPLEFT", GossipFrame, "TOPRIGHT", 8, 0)
 	else
+		-- No Blizzard gossip window (a dialogue addon replaced it): roughly where its right edge would be.
 		card:SetPoint("LEFT", UIParent, "LEFT", 420, 80)
 	end
 	card:Show()
@@ -353,7 +358,7 @@ function ns.PetsCard_Hide()
 		card:Hide()
 	end
 	cardNPC = nil
-	if not ns.PetsHeal_AfterBattleShown() then -- the after-battle button keeps its 30 seconds
+	if not ns.PetsHeal_AfterBattleShown() then -- the after-battle button keeps its time
 		ns.PetsHeal_Hide()
 	end
 end

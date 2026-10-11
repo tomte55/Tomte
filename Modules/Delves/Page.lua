@@ -2,7 +2,8 @@ local addonName, ns = ...
 
 -- Delves page in the Tomte window: keys and the Delver's Journey, today's delves (bountiful first, click to track),
 -- the Great Vault's World track with the tier advice and ladder, and the companion. It renders the readers' cache
--- (Read.lua) and the scan's (Scan.lua); it never reads the game itself.
+-- (Read.lua) and the scan's (Scan.lua); of its own it reads only display bits (the key currency's icon, atlas
+-- checks, Blizzard's quality names).
 
 local UI = ns.UI
 local Kit = ns.HomeKit

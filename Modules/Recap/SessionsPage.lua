@@ -43,16 +43,8 @@ local function ClassColor(class)
 	return c and { c.r, c.g, c.b } or { UI.Color("text") }
 end
 
-local function WeekStart()
-	local left = C_DateAndTime.GetSecondsUntilWeeklyReset()
-	if not left then
-		return nil
-	end
-	return GetServerTime() + left - 7 * 86400
-end
-
 local function List()
-	local since = db.pageRange == "week" and WeekStart() or nil
+	local since = db.pageRange == "week" and ns.WeekStart() or nil
 	return ns.Recap_HistoryFilter(db.history, db.pageScope, UnitGUID("player"), since)
 end
 
@@ -195,6 +187,7 @@ local function DrawChart(chart, list)
 	end
 	chart.none = chart.none or UI.Text(chart, 13, "textMuted")
 	chart.none:SetPoint("CENTER")
+	-- "2 minutes" is History.lua's MIN_SECONDS.
 	chart.none:SetText("No sessions here yet. A session is kept when you log in again after it (2 minutes or longer).")
 	chart.none:SetShown(n == 0)
 end

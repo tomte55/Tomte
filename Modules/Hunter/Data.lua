@@ -6,6 +6,9 @@ local addonName, ns = ...
 local SPEC_BM, SPEC_MM, SPEC_SV = 253, 254, 255
 local DELVE_DIFFICULTY = 208
 
+-- Call Pet 1-5, in slot order (Stable.lua and Tooltips.lua).
+ns.CALL_PET_SPELLS = { 883, 83242, 83243, 83244, 83245 }
+
 -- Creature families that aren't hunter pets (warlock demons, DK ghouls, mage elementals), by CreatureFamily ID
 -- (UnitCreatureFamily's second return), so any client language works.
 local NOT_HUNTER_FAMILY_IDS = {
@@ -88,7 +91,6 @@ local function EachPet(snapshot, fn)
 		fn(pet)
 	end
 end
-ns.Hunter_EachPet = EachPet
 
 -- The pet with this pet number in the snapshot, or nil (a pet table from an older snapshot -> its new copy).
 function ns.Hunter_FindPet(snapshot, petNumber)

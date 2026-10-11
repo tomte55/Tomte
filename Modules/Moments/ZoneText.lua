@@ -8,6 +8,7 @@ local addonName, ns = ...
 -- flips the subzone back and forth), with a quick fade out and in.
 
 local LINE_WIDTH = 260
+local CARD_WIDTH = LINE_WIDTH + 200 -- the card and its text lines: room for long names beyond the line
 local FROM_TOP = 128 -- px, where Blizzard's ZoneTextFrame sits
 local BLIZZARD_STRINGS = { "ZoneTextString", "PVPInfoTextString", "SubZoneTextString", "PVPArenaTextString" }
 local SETTLE = 0.4 -- seconds a new place must hold before the card shows it
@@ -17,7 +18,7 @@ local enabled, hooked = false, false
 
 local function Build()
 	frame = CreateFrame("Frame", nil, UIParent)
-	frame:SetSize(LINE_WIDTH + 200, 100)
+	frame:SetSize(CARD_WIDTH, 100)
 	frame:SetPoint("TOP", UIParent, "TOP", 0, -FROM_TOP)
 	frame:SetFrameStrata("LOW")
 	frame:EnableMouse(false)
@@ -32,7 +33,7 @@ local function Build()
 	block.title:SetShadowOffset(2, -2)
 	block.title:SetShadowColor(0, 0, 0, 0.9)
 	block.title:SetPoint("TOP")
-	block.title:SetWidth(LINE_WIDTH + 200)
+	block.title:SetWidth(CARD_WIDTH)
 
 	block.line = ns.SceneLine(block, LINE_WIDTH, 0.8)
 	block.line:SetPoint("TOPLEFT", block.title, "BOTTOM", -LINE_WIDTH / 2, -6)
@@ -48,7 +49,7 @@ local function Build()
 	block.subtitle:SetShadowOffset(1, -1)
 	block.subtitle:SetShadowColor(0, 0, 0, 0.9)
 	block.subtitle:SetPoint("TOP", block.title, "BOTTOM", 0, -14)
-	block.subtitle:SetWidth(LINE_WIDTH + 200)
+	block.subtitle:SetWidth(CARD_WIDTH)
 
 	block.status = block:CreateFontString(nil, "OVERLAY")
 	ns.Theme.SetFont(block.status, "label", 11)
@@ -92,7 +93,8 @@ local function RanOut(f)
 	return not f.startTime or FadingFrame_GetRemainingTime(f) <= 0.1
 end
 
--- The card fades on its own clock with Blizzard's times: Blizzard restarts its fade from 0 on every zone event,
+-- The card fades on its own clock with Blizzard's times (the ZoneFadeInDuration, ZoneHoldDuration and
+-- ZoneFadeOutDuration globals from its ZoneText.lua): Blizzard restarts its fade from 0 on every zone event,
 -- even for the same text, and copying that made the card blink. A new place or a restart only tops it back up.
 local alpha, holdLeft = 0, 0
 local shownKey, pendingKey, pendingFor

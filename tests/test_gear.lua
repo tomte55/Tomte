@@ -630,7 +630,7 @@ test("WeightsHint: only at max level, once per spec, again when the season moves
 	eq(kind, "max")
 	eq(seen, "max")
 	eq(ns.Gear_WeightsHint("builtin", b, seen, 1, 80, 80), nil)
-	-- The old any-level hint doesn't count as told.
+	-- A "builtin" value (an any-level hint saved by older versions) doesn't count as told.
 	eq(select(1, ns.Gear_WeightsHint("builtin", b, "builtin", 1, 80, 80)), "max")
 	kind, seen = ns.Gear_WeightsHint("builtin", b, seen, 2, 80, 80)
 	eq(kind, "stale")

@@ -104,6 +104,7 @@ local function UserWaypoint()
 end
 
 local function HousingIcon(plotDataID)
+	-- pcall: if this call errors, only the plot icon is lost, not the whole target.
 	local ok, plots = pcall(C_HousingNeighborhood.GetNeighborhoodMapData)
 	for _, plot in ipairs(ok and plots or {}) do
 		if plot.plotDataID == plotDataID then
@@ -116,6 +117,7 @@ end
 local function MapPin()
 	local pinType, id = C_SuperTrack.GetSuperTrackedMapPin()
 	local name, description = ItemName()
+	-- No questID, not even for a quest offer: it isn't in the log yet, so there's no quest area to hide in.
 	local target = { kind = "mappin", name = name, icon = ICON_PIN, lines = {} }
 	if pinType == PIN.AreaPOI and id then
 		local info = C_AreaPoiInfo.GetAreaPOIInfo(nil, id)
@@ -129,7 +131,6 @@ local function MapPin()
 	elseif pinType == PIN.QuestOffer and id then
 		target.name = C_QuestLog.GetTitleForQuestID(id) or name
 		target.icon = QuestIcon(id, true) or ICON_DEFAULT
-		target.questID = nil -- not in the log yet: no quest area to hide in
 	elseif pinType == PIN.TaxiNode then
 		target.icon = ICON_TAXI
 	elseif pinType == PIN.DigSite then

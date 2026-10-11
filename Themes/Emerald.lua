@@ -12,14 +12,12 @@ local UNCIAL = Theme.MEDIA .. "Fonts\\UncialAntiqua-Regular.ttf"
 
 -- Uncial Antiqua has no Cyrillic, Korean or Chinese: those clients keep their own fonts for titles. Body text and
 -- numbers are always the client's font (lists stay plain and readable).
-local CLIENT_FONTS = { koKR = true, zhCN = true, zhTW = true }
-
 local function Fonts(locale)
 	local fonts = Theme.ClientFonts()
 	fonts.label = STANDARD_TEXT_FONT -- Uncial is too ornate for small button and list-header labels
 	if locale == "ruRU" then
-		fonts.title = GameFontNormalHuge:GetFont()
-	elseif not CLIENT_FONTS[locale] then
+		fonts.title = Theme.GameTitleFont()
+	elseif not Theme.CJK_LOCALES[locale] then
 		fonts.title = UNCIAL
 	end
 	return fonts

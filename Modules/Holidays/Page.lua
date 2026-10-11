@@ -26,25 +26,15 @@ function ns.EventsPage_Init(moduleDB)
 	db = moduleDB
 end
 
-local function TipLine(text, role, wrap)
-	local r, g, b = UI.Color(role or "text")
-	GameTooltip:AddLine(text, r, g, b, wrap)
-end
+local TipLine = UI.TipLine
 
 -- Actions ------------------------------------------------------------------------------------------------------
 
-local function InsertLink(link)
-	local insert = (ChatFrameUtil and ChatFrameUtil.InsertLink) or ChatEdit_InsertLink
-	if link and insert then
-		insert(link)
-	end
-end
-
 local function Link(e)
 	if e.kind == "mount" then
-		InsertLink(e.spellID and C_MountJournal.GetMountLink(e.spellID))
+		UI.InsertLink(e.spellID and C_MountJournal.GetMountLink(e.spellID))
 	elseif e.kind == "toy" then
-		InsertLink(C_ToyBox.GetToyLink(e.id))
+		UI.InsertLink(C_ToyBox.GetToyLink(e.id))
 	elseif e.kind == "ach" then
 		ns.Ach_Link(e.id)
 	end
@@ -196,6 +186,7 @@ end
 
 -- Layout ---------------------------------------------------------------------------------------------------------
 
+-- Folding is remembered per holiday, not per occurrence: ev.key's ":<start minute>" suffix is dropped.
 local function Collapsed(ev, kind)
 	return db.collapsed[ev.key:gsub(":%d+$", "") .. kind] == true
 end

@@ -1,16 +1,21 @@
 local addonName, ns = ...
 
 -- Alts: pure logic (no WoW API calls; tested with plain Lua). Collect.lua reads the game into TomteDB.alts:
---   chars[guid]   = { guid, name, realm, class (token, "PRIEST"), race, level, spec (name), specID, primary ("STR" |
---                     "AGI" | "INT", the spec's main stat), ilvl, money, zone, seen, rested (0-150 %, nil at max level),
---                     gear = { [invSlot] = itemLink } (worn, slots 1-17 without the shirt), gearAt (when the gear
---                     last changed), profs = { [skillLine] = { name, base, skill, max, unspent, known = { [recipeID] } } } }
---                   specID, primary and gear are for Gear Check's upgrades for alts (Gear/Alts.lua).
---                   profGear = { [invSlot] = itemLink } (worn profession tools and accessories, slots 20-30), profGearAt.
---   recipes[id]   = { name, line (expansion skill line), base (profession skill line), item, qMin, qMax, out =
---                     { link at the lowest quality, at the highest } (gear and tools, Collect.lua), outQ = { link
---                     at each quality, lowest first } (gear and tools), nq (how many qualities, nil for one),
---                     reagents = { { items = { itemID, ... (quality ranks) }, qty } } }
+--   chars[guid]   = { guid, name, realm, class (token, "PRIEST"), race, level, levelUp (PLAYER_LEVEL_UP's level until
+--                     the next read), spec (name), specID, primary ("STR" | "AGI" | "INT", the spec's main stat), ilvl,
+--                     money, zone, seen, rested (0-150 %, nil at max level), gear = { [invSlot] = itemLink } (worn,
+--                     slots 1-17 without the shirt), gearAt (when the gear last changed), profGear = { [invSlot] =
+--                     itemLink } (worn profession tools and accessories, slots 20-30), profGearAt,
+--                     profs = { [base skill line] = { name, icon, base, line (the content expansion's skill line),
+--                     skill, max, unspent, known = { [recipeID] = true }, scannedAt (last recipe read), secondary (true
+--                     for archaeology, fishing and cooking) } } }
+--                   specID, primary and gear are for Gear Check's upgrades for alts (Gear/Alts.lua); worth (bag and
+--                   bank value) is written by Modules/Value/Value.lua.
+--   recipes[id]   = { v (Collect.lua's RECIPE_VERSION), name, icon, line (expansion skill line), lineName, category,
+--                     base (profession skill line), item, qMin, qMax, out = { link at the lowest quality, at the
+--                     highest } (gear and tools), outQ = { link at each quality, lowest first } (gear and tools), nq
+--                     (how many qualities, nil for one), reagents = { { items = { itemID, ... (quality ranks) }, qty } } }
+--   warbandMoney, warbandAt = the Warband bank's gold (copper) and when it was read; warbandWorth is Value.lua's.
 -- A plan answers "what does it take to craft this recipe with what the account has": a shopping list of materials
 -- (needed, have, missing) and the crafts in order, crafted materials worked out from other known recipes.
 
@@ -127,7 +132,7 @@ end
 
 -- Search results as a grouped list: profession > expansion > category > recipes, like the profession window.
 -- opts = { profName = function(base) -> name, current = function(recipe) -> true for the expansion you're in,
---          collapsed = { [key] = true | false }, expand = true to ignore collapsed (while searching) }
+--          collapsed = { [key] = true | false }, expand = true to ignore collapsed (while searching),
 --          lineName = function(recipe) -> expansion name when the recipe didn't store one (optional) }
 -- A group without a saved state is open, except expansions other than the current one (when one is current).
 -- Levels that would say nothing are left out: an expansion named like its profession (no name known), and a lone
@@ -932,9 +937,10 @@ end
 -- Profession gear: each profession has a tool slot and accessory slots (two; cooking one; archaeology none).
 -- Worn profession gear is stored per character (Collect.lua, slots 20-30); an item's profession is its subclass.
 
+local ARCHAEOLOGY = 794 -- base skill line; it has no gear slots
 local PROF_BY_SUBCLASS = {}
 for base, sub in pairs(PROF_SUBCLASS) do
-	if base ~= 794 then -- archaeology has no gear slots
+	if base ~= ARCHAEOLOGY then
 		PROF_BY_SUBCLASS[sub] = base
 	end
 end
@@ -956,7 +962,7 @@ end
 
 -- How many slots of a kind a profession has.
 function ns.Alts_ProfSlots(base, kind)
-	if base == 794 or not PROF_SUBCLASS[base] then
+	if base == ARCHAEOLOGY or not PROF_SUBCLASS[base] then
 		return 0
 	end
 	return kind == "tool" and 1 or (ACCESSORY_SLOTS[base] or 2)

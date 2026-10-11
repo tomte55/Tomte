@@ -67,6 +67,16 @@ function Theme.ClientFonts()
 	return { title = STANDARD_TEXT_FONT, body = STANDARD_TEXT_FONT, number = STANDARD_TEXT_FONT }
 end
 
+-- For theme files: client languages none of the bundled font files have glyphs for (Korean and Chinese). Themes give
+-- these clients Theme.ClientFonts() for every role their own files would cover.
+Theme.CJK_LOCALES = { koKR = true, zhCN = true, zhTW = true }
+
+-- For theme files: the game's large title font, used for titles on ruRU clients when a theme's title font has no
+-- Cyrillic.
+function Theme.GameTitleFont()
+	return (GameFontNormalHuge:GetFont())
+end
+
 -- Adds a theme. def:
 --   label   the Settings dropdown text
 --   order   sort key in the dropdown (lower first)
@@ -148,7 +158,8 @@ function Theme.HasOrnaments()
 	return Theme.panel == "art" and Theme.art.ornaments and true or false
 end
 
--- `name`'s fonts for a client language (default: the current theme).
+-- `name`'s fonts for a client language (default: the current theme). Used by tests/test_theme.lua; the addon itself
+-- resolves fonts through Theme.Font.
 function Theme.FontsFor(locale, name)
 	return THEMES[name or Theme.name].fonts(locale)
 end

@@ -6,13 +6,14 @@ local addonName, ns = ...
 
 local atan2 = math.atan2 or math.atan -- WoW (5.1) has atan2; plain Lua 5.4 takes atan(y, x)
 
-ns.WAY_YARD_TO_METER = 0.9144
+local YARD_TO_METER = 0.9144
+-- Distance scaling (Way_DistanceScale); exported for the tests.
 ns.WAY_SCALE_DISTANCE = 600 -- yards where the marker is drawn at its set size
 ns.WAY_SCALE_MIN = 0.7
 ns.WAY_SCALE_MAX = 1.3
 
 -- Style presets: picking one sets these keys; each can still be changed on its own afterwards.
-ns.WAY_STYLES = {
+local STYLES = {
 	classic = { beam = true, footer = "all", card = true, arrow = true, scale = 1 },
 	minimal = { beam = false, footer = "distance", card = true, arrow = true, scale = 0.85 },
 }
@@ -33,7 +34,7 @@ ns.WAY_GUARD_MODES = { "never", "ask", "always" }
 ns.WAY_GUARD_NAMES = { never = "Never", ask = "Ask", always = "Always" }
 
 function ns.Way_ApplyStyle(db, style)
-	local preset = ns.WAY_STYLES[style]
+	local preset = STYLES[style]
 	if not preset then
 		return false
 	end
@@ -57,7 +58,7 @@ function ns.Way_FormatDistance(yards, metric)
 		return nil
 	end
 	if metric then
-		local m = math.floor(yards * ns.WAY_YARD_TO_METER + 0.5)
+		local m = math.floor(yards * YARD_TO_METER + 0.5)
 		if m >= 1000 then
 			return ("%.1f km"):format(m / 1000)
 		end
@@ -69,7 +70,7 @@ end
 -- Slider labels: a yard setting shown in the user's unit, rounded to 5.
 function ns.Way_FormatSetting(yards, metric)
 	if metric then
-		return (math.floor(yards * ns.WAY_YARD_TO_METER / 5 + 0.5) * 5) .. " m"
+		return (math.floor(yards * YARD_TO_METER / 5 + 0.5) * 5) .. " m"
 	end
 	return yards .. " yd"
 end

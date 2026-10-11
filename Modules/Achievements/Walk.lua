@@ -12,7 +12,8 @@ local BUDGET_MS = 4
 
 local subs = {} -- [key] = { handlers, active (gets the current category), left (categories to go, nil until started) }
 local categories -- the list of this walk; nil while idle
-local ci, ai, count, started = 1, 1, 0, false
+-- Position: category index, achievement index in it, the category's achievement count, whether it was started.
+local categoryIndex, achIndex, count, started = 1, 1, 0, false
 local skipped = function()
 	return false
 end
@@ -30,7 +31,7 @@ local function StartCategory()
 		sub.left = sub.left or #categories
 		sub.active = true
 	end
-	local categoryID = categories[ci]
+	local categoryID = categories[categoryIndex]
 	count = skipped(categoryID) and 0 or (GetCategoryNumAchievements(categoryID) or 0)
 	started = true
 end
@@ -54,9 +55,9 @@ local function EndCategory()
 		done[#done + 1] = subs[key]
 		subs[key] = nil
 	end
-	ci, ai, started = ci + 1, 1, false
-	if ci > #categories then
-		ci = 1
+	categoryIndex, achIndex, started = categoryIndex + 1, 1, false
+	if categoryIndex > #categories then
+		categoryIndex = 1
 	end
 	for _, sub in ipairs(done) do
 		if sub.handlers.finish then
@@ -75,12 +76,12 @@ local function Step()
 		if not started then
 			StartCategory()
 		end
-		if ai > count then
+		if achIndex > count then
 			EndCategory()
 		else
-			local categoryID = categories[ci]
-			local id = GetAchievementInfo(categoryID, ai)
-			ai = ai + 1
+			local categoryID = categories[categoryIndex]
+			local id = GetAchievementInfo(categoryID, achIndex)
+			achIndex = achIndex + 1
 			if id then
 				for _, sub in pairs(subs) do
 					if sub.active then
@@ -100,7 +101,7 @@ frame:SetScript("OnUpdate", Step)
 function ns.AchWalk_Join(key, handlers)
 	if not categories then
 		categories = GetCategoryList() or {}
-		ci, ai, count, started = 1, 1, 0, false
+		categoryIndex, achIndex, count, started = 1, 1, 0, false
 	end
 	if #categories == 0 then
 		subs[key] = nil

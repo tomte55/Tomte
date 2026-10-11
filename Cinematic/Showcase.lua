@@ -7,7 +7,10 @@ local addonName, ns = ...
 -- projection (Project3DPointTo2D), which also tells where the feet are: the model frame is moved so the
 -- feet stand on the shadow whatever the race or size.
 
-local GEAR_SLOTS = { 1, 2, 3, 15, 5, 9, 10, 6, 7, 8, 11, 12, 13, 14, 16, 17 } -- shirt/tabard left out
+-- Strip order; shirt and tabard left out.
+local GEAR_SLOTS = { INVSLOT_HEAD, INVSLOT_NECK, INVSLOT_SHOULDER, INVSLOT_BACK, INVSLOT_CHEST, INVSLOT_WRIST,
+	INVSLOT_HAND, INVSLOT_WAIST, INVSLOT_LEGS, INVSLOT_FEET, INVSLOT_FINGER1, INVSLOT_FINGER2, INVSLOT_TRINKET1,
+	INVSLOT_TRINKET2, INVSLOT_MAINHAND, INVSLOT_OFFHAND }
 local PER_ROW = 8
 local CENTER_X = 250 -- showcase center, from the left screen edge
 local MODEL_W, MODEL_H = 300, 420
@@ -24,6 +27,7 @@ local FIT_PASSES = 3
 local FIT_TIMEOUT = 1.5 -- seconds: a model that reports no size by then is fitted with a guessed one
 local GUESS_BOX = { -0.5, -0.5, 0, 0.5, 0.5, 2 }
 local GRADIENT_WIDTH = 620
+local LINE_ALPHA = 0.7 -- the gear strip's lines at their middle
 local STAND_ANIM = 0
 
 local panel
@@ -34,25 +38,10 @@ local function Idle(actor)
 	actor:SetAnimation(STAND_ANIM)
 end
 
-local function Line(width)
-	local r, g, b = ns.Theme.Color("frame")
-	local half = width / 2
-	local left = panel:CreateTexture(nil, "OVERLAY")
-	left:SetColorTexture(1, 1, 1, 1)
-	left:SetSize(half, 1)
-	left:SetGradient("HORIZONTAL", CreateColor(r, g, b, 0), CreateColor(r, g, b, 0.7))
-	local right = panel:CreateTexture(nil, "OVERLAY")
-	right:SetColorTexture(1, 1, 1, 1)
-	right:SetSize(half, 1)
-	right:SetGradient("HORIZONTAL", CreateColor(r, g, b, 0.7), CreateColor(r, g, b, 0))
-	right:SetPoint("LEFT", left, "RIGHT")
-	left.right = right
-	return left
-end
-
+-- line: an ns.SceneLine (its left half; .pair is the right one).
 local function ShowLine(line, shown)
 	line:SetShown(shown)
-	line.right:SetShown(shown)
+	line.pair:SetShown(shown)
 end
 
 -- Soft ellipse from stacked translucent circles (no soft radial texture to rely on).
@@ -63,10 +52,8 @@ local function SoftEllipse(width, height, alpha)
 		local tex = panel:CreateTexture(nil, "BACKGROUND", nil, i - 1)
 		tex:SetColorTexture(0, 0, 0, alpha)
 		tex:SetSize(width * f, height * f)
-		local mask = panel:CreateMaskTexture()
-		mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-		mask:SetAllPoints(tex)
-		tex:AddMaskTexture(mask)
+		-- Panel/Widgets.lua loads after this file; this only runs later, from Showcase_Create.
+		ns.UI.CircleMask(tex, panel)
 		layers[i] = tex
 	end
 	return layers
@@ -98,7 +85,7 @@ local function LayoutGear()
 		end
 	end
 	local step = ICON + 2 + GAP
-	for i, f in ipairs(icons) do
+	for _, f in ipairs(icons) do
 		f:Hide()
 	end
 	for i, location in ipairs(equipped) do
@@ -246,9 +233,9 @@ function ns.Showcase_Create(letterbox)
 	-- Gear strip under the feet, between two thin lines.
 	local stripWidth = PER_ROW * (ICON + 2 + GAP) + 40
 	panel.stripWidth = stripWidth
-	panel.gearTop = Line(stripWidth)
+	panel.gearTop = ns.SceneLine(panel, stripWidth, LINE_ALPHA)
 	panel.gearTop:SetPoint("TOPLEFT", panel.stand, "BOTTOM", -stripWidth / 2, -GEAR_TOP)
-	panel.gearBottom = Line(stripWidth)
+	panel.gearBottom = ns.SceneLine(panel, stripWidth, LINE_ALPHA)
 end
 
 -- Called when a cinematic starts. enabled = the showcase setting.

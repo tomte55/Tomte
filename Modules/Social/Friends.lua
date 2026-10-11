@@ -30,14 +30,9 @@ events:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
 end)
 
-local function Readable(...)
-	return not canaccessallvalues or canaccessallvalues(...)
-end
+local Readable = ns.Readable
 
-local function ClassColored(name, class)
-	local color = class and C_ClassColor.GetClassColor(class)
-	return color and color:WrapTextInColorCode(name) or name
-end
+local ClassColored = ns.UI.ClassColored
 
 local function ClassOf(guid)
 	if guid and guid ~= "" then

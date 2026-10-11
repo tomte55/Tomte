@@ -36,7 +36,8 @@ local function Fill(session)
 	session.xpNow = session.xpNow or session.xpFraction
 end
 
--- The live session for this character, and whether it was just started. baseline = { money, level, xpFraction }.
+-- The live session for this character, and whether it was just started.
+-- baseline = { money, level, xpFraction, name, class (the class file name) }.
 function ns.Session_Begin(db, guid, newLogin, now, baseline)
 	db.sessionLast = db.sessionLast or {}
 	local session = db.session

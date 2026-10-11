@@ -8,8 +8,9 @@ local addonName, ns = ...
 local UI = ns.UI
 local OWNER = "events"
 local START_DELAY = 5 -- seconds after the first loading screen before the calendar is asked for
-local DEBOUNCE = 1
-local TOASTED_DAYS = 60
+local DEBOUNCE = 1 -- seconds of events gathered into one refresh
+local TOASTED_DAYS = 60 -- days a toasted occurrence is remembered
+local ENDING_MINUTES = 2 * 1440 -- Next up's "Holiday ending": ends within two days
 local HEAD_H = 40
 local ICON = "Interface\\Icons\\INV_Misc_Toy_10"
 local EVENTS = {
@@ -168,6 +169,7 @@ local function ScheduleReset()
 	if not seconds or seconds <= 0 then
 		return
 	end
+	-- A few seconds past the reset, presumably so the server's data has rolled over when it's read.
 	resetTimer = C_Timer.NewTimer(seconds + 5, function()
 		resetTimer = nil
 		if module.active then
@@ -265,10 +267,7 @@ local function RightText(ev)
 	return nil, nil -- the time left is next to the name
 end
 
-local function TipLine(text, role, wrap)
-	local r, g, b = UI.Color(role or "text")
-	GameTooltip:AddLine(text, r, g, b, wrap)
-end
+local TipLine = UI.TipLine
 
 function ns.Events_Tooltip(owner, ev)
 	GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
@@ -373,7 +372,7 @@ end
 local function EndingCandidates()
 	local list = {}
 	for _, ev in ipairs(ns.Events_Current().list) do
-		if ev.active and ev.def and ev.endsIn <= 2880 then
+		if ev.active and ev.def and ev.endsIn <= ENDING_MINUTES then
 			local counts = Counts(ev)
 			local total = counts and ns.Events_Total(counts) or 0
 			if total > 0 then
@@ -469,7 +468,8 @@ local function Stamp(t)
 	return ("%d-%02d-%02d %02d:%02d"):format(t.year or 0, t.month or 0, t.monthDay or 0, t.hour or 0, t.minute or 0)
 end
 
--- Raw calendar rows for today (the first in-game check: are eventIDs the holiday IDs, do filters hide rows).
+-- Raw calendar rows for today and the calendar filter CVars: shows whether a row's eventID is a holiday ID the
+-- table knows and whether a filter hides rows.
 local function CalendarDump()
 	local rows = ns.Events_ReadRows(1)
 	if not rows then
@@ -490,16 +490,7 @@ local function CalendarDump()
 end
 
 local function Ids()
-	local names = {}
-	local p1, p2, arch, fish, cook = GetProfessions()
-	for _, i in ipairs({ p1 or 0, p2 or 0, arch or 0, fish or 0, cook or 0 }) do
-		if i > 0 then
-			local name, _, _, _, _, _, skillLine = GetProfessionInfo(i)
-			if skillLine then
-				names[skillLine] = name
-			end
-		end
-	end
+	local _, names = ns.Events_SkillLines()
 	local lines = {}
 	for skillLine, questID in pairs(ns.EVENTS_DARKMOON_QUESTS) do
 		lines[#lines + 1] = { skillLine = skillLine, questID = questID }
@@ -650,8 +641,7 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "weekly", label = "Weekly board rows", onChange = Redraw,
 			tooltip = "While the Darkmoon Faire is on, its profession quests in the Weekly board's \"Still open\" list on Home, and the holiday's daily boss." },
 		{ type = "checkbox", key = "selectInFinder", label = "Select the boss in the Dungeon Finder",
-			tooltip = "Clicking a daily boss opens the Dungeon Finder with the boss picked. Turn this off if queueing afterwards gives an error: the finder then opens without picking." },
+			tooltip = "Clicking a daily boss opens the Dungeon Finder with the boss picked. Off by default: picking it from an addon may make queueing afterwards give an error, and off, the finder opens without picking." },
 		{ type = "button", label = "Calendar", text = "Open", onClick = OpenCalendar },
 	},
 })
-ns.eventsModule = module

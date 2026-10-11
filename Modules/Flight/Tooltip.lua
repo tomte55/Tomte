@@ -7,7 +7,7 @@ local function AddTimeLine(slot)
 	if not ns.flightModule.active then
 		return
 	end
-	local route = ns.BuildRoute(slot)
+	local route = ns.Flight_BuildRoute(slot)
 	if not route then
 		return
 	end
@@ -50,7 +50,9 @@ function ns.HookFlightMap()
 	end
 end
 
+-- Blizzard's other taxi window (TaxiFrame and its node buttons), besides the flight map above.
 function ns.HookTaxiFrame()
+	-- hooksecurefunc errors on a missing global: skip the hook if this client doesn't define it.
 	if not TaxiNodeOnButtonEnter then
 		return
 	end

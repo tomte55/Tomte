@@ -36,6 +36,7 @@ local function Box(spec, frame)
 		return box
 	end
 	box = CreateFrame("Frame", nil, frame)
+	-- Well above the widget's own children (rows, icons, buttons), so the box draws over them and takes the drag.
 	box:SetFrameLevel(frame:GetFrameLevel() + 100)
 	box:SetIgnoreParentAlpha(true)
 	box:EnableMouse(true)

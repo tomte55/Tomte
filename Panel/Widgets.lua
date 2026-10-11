@@ -11,12 +11,12 @@ UI.Color = Theme.Color
 UI.RGB = Theme.RGB
 UI.Hex = Theme.Hex
 UI.Wrap = Theme.Wrap
-UI.Font = Theme.Font
 UI.SetFont = Theme.SetFont
 -- The top-left quarter of this texture is a gear (used the same way by Leatrix Maps).
 UI.GEAR = "Interface\\WorldMap\\Gear_64.png"
 
--- A role name or (during the migration) a color table → r, g, b, a.
+-- A role name, or a color table { r, g, b[, a] } for colors with game meaning (item quality, class) -> r, g, b, a.
+-- alpha overrides the color's own.
 local function RGBA(color, alpha)
 	if type(color) == "string" then
 		local r, g, b, a = Theme.Color(color)
@@ -63,6 +63,37 @@ function UI.Debounce(seconds, fn)
 	end
 end
 
+-- Puts a link into the open chat edit box (shift-click). Does nothing for a nil link. ChatEdit_InsertLink moved to
+-- ChatFrameUtil in recent clients; use whichever exists.
+function UI.InsertLink(link)
+	local insert = (ChatFrameUtil and ChatFrameUtil.InsertLink) or ChatEdit_InsertLink
+	if link and insert then
+		insert(link)
+	end
+end
+
+-- A GameTooltip line in a theme color role ("text" by default). AddLine's 5th argument is wrap, so not UI.Color's alpha.
+function UI.TipLine(text, role, wrap)
+	local r, g, b = UI.Color(role or "text")
+	GameTooltip:AddLine(text, r, g, b, wrap)
+end
+
+-- name in its class color (class: the English class file name, e.g. "PALADIN"); name unchanged for a nil or unknown
+-- class.
+function UI.ClassColored(name, class)
+	local color = class and C_ClassColor.GetClassColor(class)
+	return color and color:WrapTextInColorCode(name) or name
+end
+
+-- Clips texture to a circle: a mask created on parent (the frame that owns texture), covering texture. Returns it.
+function UI.CircleMask(texture, parent)
+	local mask = parent:CreateMaskTexture()
+	mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+	mask:SetAllPoints(texture)
+	texture:AddMaskTexture(mask)
+	return mask
+end
+
 -- Four edges `pixels` screen pixels thick (default 1), `inset` units inside the frame. Returns
 -- { top, bottom, left, right }.
 local function Edges(frame, inset, layer, sublevel, r, g, b, a, pixels)
@@ -94,20 +125,14 @@ local function Edges(frame, inset, layer, sublevel, r, g, b, a, pixels)
 	return edges
 end
 
--- 1px border inside the frame's edges: UI.Border(frame, role, alpha) (role defaults to "frame"); the old
--- UI.Border(frame, r, g, b, a) form still works.
-function UI.Border(frame, r, g, b, a)
-	if type(r) ~= "number" then
-		r, g, b, a = RGBA(r or "frame", g)
-	end
+-- 1px border inside the frame's edges in a color role (default "frame"). UI.SetBorderColor recolors it.
+function UI.Border(frame, role, alpha)
+	local r, g, b, a = RGBA(role or "frame", alpha)
 	frame.borderEdges = Edges(frame, 0, "BORDER", 0, r, g, b, a or 1)
 end
 
--- UI.SetBorderColor(frame, role, alpha) or (frame, r, g, b, a).
-function UI.SetBorderColor(frame, r, g, b, a)
-	if type(r) ~= "number" then
-		r, g, b, a = RGBA(r or "frame", g)
-	end
+function UI.SetBorderColor(frame, role, alpha)
+	local r, g, b, a = RGBA(role or "frame", alpha)
 	for _, t in ipairs(frame.borderEdges) do
 		t:SetColorTexture(r, g, b, a or 1)
 	end
@@ -358,23 +383,6 @@ function UI.Surface(frame, borderAlpha)
 	bg:SetColorTexture(Theme.Color("surface"))
 	UI.Border(frame, "frame", borderAlpha or 0.35)
 	return bg
-end
-
--- Centered title in the title font with the ink flourish under it. Returns the font string (fs.flourish is the
--- flourish texture; hide it where there's no room).
-function UI.Title(parent, text, size)
-	local fs = UI.Text(parent, size or 18, "heading", "title")
-	fs:SetJustifyH("CENTER")
-	fs:SetText(text or "")
-	local f = parent:CreateTexture(nil, "ARTWORK")
-	f:SetTexture(Theme.media.flourish)
-	f:SetSize(160, 10)
-	f:SetPoint("TOP", fs, "BOTTOM", 0, -2)
-	f:SetVertexColor(Theme.Color("frame"))
-	f:SetAlpha(0.8)
-	f:SetShown(Theme.HasOrnaments())
-	fs.flourish = f
-	return fs
 end
 
 -- Progress bar: a sunken track and a fill that runs from accentDeep to accent (or a status role).

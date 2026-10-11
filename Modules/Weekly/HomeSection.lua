@@ -20,6 +20,10 @@ local function ResetText()
 	return ("resets in %d h"):format(math.max(hours, 1))
 end
 
+local function OpenBoard()
+	ns.Panel_OpenPage("weekly")
+end
+
 local function Create(frame, Kit)
 	frame.heading = Kit.Heading(frame)
 	frame.heading:SetPoint("TOPLEFT")
@@ -84,9 +88,7 @@ local function Refresh(frame)
 		return 64
 	end
 
-	frame.todoHead:Set(("Still open for %s"):format(UnitName("player")), nil, "Open Weekly board", function()
-		ns.Panel_OpenPage("weekly")
-	end)
+	frame.todoHead:Set(("Still open for %s"):format(UnitName("player")), nil, "Open Weekly board", OpenBoard)
 	local rows = ns.Weekly_HomeTodo(v, ns.weeklyDB.learned and ns.weeklyDB.quests or {})
 	if ns.Events_WeeklyRows then
 		ns.Events_MergeTodo(rows, ns.Events_WeeklyRows()) -- Darkmoon Faire quests and the holiday boss (Holidays & events)
@@ -102,7 +104,6 @@ local function Refresh(frame)
 		local row = Kit.PoolRow(frame.todo, i, frame)
 		row:SetHeight(TODO_H)
 		row:Set(nil, r.text, r.done and "textFaint" or "text", r.right, r.done and "textFaint" or "textMuted")
-
 		local col, line = math.floor((i - 1) / perCol), (i - 1) % perCol
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", left + col * (colW + 28), -(36 + line * TODO_H))
@@ -110,9 +111,7 @@ local function Refresh(frame)
 	end
 	Kit.HideFrom(frame.todo, shown + 1)
 	if #rows == 0 then
-		frame.todoHead:Set(("Nothing tracked yet for %s"):format(UnitName("player")), nil, "Open Weekly board", function()
-			ns.Panel_OpenPage("weekly")
-		end)
+		frame.todoHead:Set(("Nothing tracked yet for %s"):format(UnitName("player")), nil, "Open Weekly board", OpenBoard)
 	end
 end
 

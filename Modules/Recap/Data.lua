@@ -5,7 +5,7 @@ local addonName, ns = ...
 -- kinds: loot, upgrade, mount, pet, toy, achievement, rare, tame, renown.
 
 local DEDUPE_WINDOW = 120 -- seconds: a loot note and an upgrade note of the same item are one find
-local MIN_WORTH_TIME = 600
+local MIN_WORTH_TIME = 600 -- seconds; Recap.lua's login toast tooltip says "at least 10 minutes"
 local MIN_WORTH_MONEY = 10000 -- 1 gold
 local QUALITY_EPIC, QUALITY_LEGENDARY = 4, 5
 

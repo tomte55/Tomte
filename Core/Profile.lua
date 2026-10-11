@@ -226,34 +226,24 @@ local function SortRows(rows)
 	end)
 end
 
--- result = { groups = { { key, name, rows = { { path, label, old, new } } } }, changes = n, skipped = n }, or nil, err.
--- The module on/off group (key "_enabled") comes first, then modules in registration order. Only values that
--- differ from db are rows.
-function ns.Profile_Check(payload, modules, db)
-	if type(payload) ~= "table" or type(payload.v) ~= "number" or payload.v < 1 then
-		return nil, ERR_NOT
+-- The pasted string is untrusted: at most PROFILE_MAX_ENTRIES entries of it are read (on/off states and settings
+-- together, in that order), however large the decoded tables are. Take(budget) counts one entry, false when it's
+-- used up.
+local function Take(budget)
+	if budget.read >= ns.PROFILE_MAX_ENTRIES then
+		return false
 	end
-	if payload.v > ns.PROFILE_VERSION then
-		return nil, ERR_NEWER
-	end
-	local byKey = {}
-	for _, module in ipairs(modules) do
-		byKey[module.key] = module
-	end
-	local read, skipped, changes = 0, 0, 0
-	local function Budget()
-		if read >= ns.PROFILE_MAX_ENTRIES then
-			return false
-		end
-		read = read + 1
-		return true
-	end
+	budget.read = budget.read + 1
+	return true
+end
 
-	local groups = {}
+-- Rows for the modules whose on/off state the payload changes, and how many entries were skipped.
+local function EnabledRows(payload, byKey, db, budget)
+	local skipped = 0
 	local enabledRows = {}
 	if type(payload.enabled) == "table" then
 		for key, on in pairs(payload.enabled) do
-			if not Budget() then
+			if not Take(budget) then
 				break
 			end
 			local module = type(key) == "string" and byKey[key]
@@ -267,26 +257,26 @@ function ns.Profile_Check(payload, modules, db)
 			end
 		end
 	end
-	if #enabledRows > 0 then
-		SortRows(enabledRows)
-		groups[1] = { key = ENABLED, name = "Modules on/off", rows = enabledRows }
-		changes = changes + #enabledRows
-	end
+	return enabledRows, skipped
+end
 
+-- { [module key] = rows } for the settings the payload changes, how many rows, and how many entries were skipped.
+local function SettingsRows(payload, byKey, db, budget)
+	local skipped, changes = 0, 0
 	local settings = type(payload.settings) == "table" and payload.settings or {}
 	local rowsByModule = {}
 	for key, values in pairs(settings) do
-		if read >= ns.PROFILE_MAX_ENTRIES then
+		if budget.read >= ns.PROFILE_MAX_ENTRIES then
 			break
 		end
 		local module = type(key) == "string" and byKey[key]
 		if type(values) ~= "table" then
-			if Budget() then
+			if Take(budget) then
 				skipped = skipped + 1
 			end
 		elseif not module then
 			for _ in pairs(values) do
-				if not Budget() then
+				if not Take(budget) then
 					break
 				end
 				skipped = skipped + 1
@@ -296,7 +286,7 @@ function ns.Profile_Check(payload, modules, db)
 			local mdb = type(db[module.key]) == "table" and db[module.key] or {}
 			local rows = {}
 			for path, value in pairs(values) do
-				if not Budget() then
+				if not Take(budget) then
 					break
 				end
 				local t = TypeFor(schema, path)
@@ -319,6 +309,37 @@ function ns.Profile_Check(payload, modules, db)
 			end
 		end
 	end
+	return rowsByModule, changes, skipped
+end
+
+-- result = { groups = { { key, name, rows = { { path, label, old, new } } } }, changes = n, skipped = n }, or nil, err.
+-- The module on/off group (key "_enabled") comes first, then modules in registration order. Only values that
+-- differ from db are rows.
+function ns.Profile_Check(payload, modules, db)
+	if type(payload) ~= "table" or type(payload.v) ~= "number" or payload.v < 1 then
+		return nil, ERR_NOT
+	end
+	if payload.v > ns.PROFILE_VERSION then
+		return nil, ERR_NEWER
+	end
+	local byKey = {}
+	for _, module in ipairs(modules) do
+		byKey[module.key] = module
+	end
+	local budget = { read = 0 }
+
+	local groups = {}
+	local enabledRows, skipped = EnabledRows(payload, byKey, db, budget)
+	local changes = 0
+	if #enabledRows > 0 then
+		SortRows(enabledRows)
+		groups[1] = { key = ENABLED, name = "Modules on/off", rows = enabledRows }
+		changes = changes + #enabledRows
+	end
+
+	local rowsByModule, settingChanges, settingSkipped = SettingsRows(payload, byKey, db, budget)
+	changes = changes + settingChanges
+	skipped = skipped + settingSkipped
 	for _, module in ipairs(modules) do
 		local rows = rowsByModule[module.key]
 		if rows then

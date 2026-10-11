@@ -32,7 +32,8 @@ local function Rebuild()
 	end)
 end
 
--- The shortened line, or nil when there's nothing to change.
+-- The shortened line, or nil when there's nothing to change. The pcall is a guard: this runs on every chat line
+-- from inside Blizzard's AddMessage, and a line format the parser didn't expect must not raise an error per message.
 local function Shorten(line)
 	local ok, short = pcall(ns.Chat_ShortenLine, line, ctx)
 	if ok and type(short) == "string" and short ~= line then
@@ -41,9 +42,7 @@ local function Shorten(line)
 	return nil
 end
 
-local function MaxWindows()
-	return (Constants and Constants.ChatFrameConstants and Constants.ChatFrameConstants.MaxChatWindows) or NUM_CHAT_WINDOWS or 10
-end
+local MaxWindows = ns.Chat_MaxWindows -- Chat/Tabs.lua
 
 -- Runs after the window stored line. Rewrites that one entry (the first stored entry with exactly this text).
 local function AfterAddMessage(frame, line)

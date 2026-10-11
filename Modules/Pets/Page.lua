@@ -15,6 +15,8 @@ local ROW_H, TALL_H, HEADER_H = 22, 40, 28
 local ICON = 26
 local TOP = 30 -- below the view buttons
 local MAX_ADD = 150 -- pets in the "add to the queue" list
+local TIP_LINES = 18 -- strategy note lines in a team's tooltip before "..."
+local NONE_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 
 local db
 local page
@@ -24,10 +26,7 @@ function ns.PetsPage_Init(moduleDB)
 	db = moduleDB
 end
 
-local function TipLine(text, role, wrap)
-	local r, g, b = UI.Color(role or "text")
-	GameTooltip:AddLine(text, r, g, b, wrap)
-end
+local TipLine = UI.TipLine
 
 -- Rows ---------------------------------------------------------------------------------------------------------
 
@@ -252,7 +251,7 @@ local function TeamTip(team)
 			local lines = 0
 			for line in ns.Pets_CleanNotes(team.notes):gmatch("[^\n]+") do
 				lines = lines + 1
-				if lines > 18 then
+				if lines > TIP_LINES then
 					TipLine("...", "textMuted")
 					break
 				end
@@ -275,14 +274,14 @@ local function TeamIcons(team)
 		local tag = team.pets[i]
 		if tag.kind == "species" then
 			local _, icon = C_PetJournal.GetPetInfoBySpeciesID(tag.species)
-			icons[i] = icon or "Interface\\Icons\\INV_Misc_QuestionMark"
+			icons[i] = icon or NONE_ICON
 			grey[i] = not owned[tag.species]
 		elseif tag.kind == "leveling" then
 			icons[i] = "Interface\\Icons\\INV_Pet_BattlePetTraining"
 		elseif tag.kind == "random" then
 			icons[i] = "Interface\\Icons\\INV_Misc_Dice_01"
 		else
-			icons[i] = "Interface\\Icons\\INV_Misc_QuestionMark"
+			icons[i] = NONE_ICON
 			grey[i] = true
 		end
 	end
@@ -457,6 +456,7 @@ local function TeamsView(parent)
 				{ text = "Load", disabled = not canChange, tip = canChange and "Put this team in your pet journal."
 					or ("Can't now: " .. why .. "."), onClick = function()
 						LoadTeam(team)
+						-- A short wait, presumably so the journal reads back the new loadout.
 						C_Timer.After(0.3, ns.PetsPage_Refresh)
 					end },
 				{ text = "Script", tip = team.script and "See or edit its script." or "Add a script.",
@@ -592,7 +592,7 @@ local function LevelingView(parent)
 			items[#items + 1] = {
 				text = ("%d.  %s"):format(i, p and p.name or UI.Wrap("(not found)", "textMuted")),
 				right = p and (done and UI.Wrap("25: done", "success") or ("level " .. p.level)) or "",
-				icons = { p and p.icon or "Interface\\Icons\\INV_Misc_QuestionMark" },
+				icons = { p and p.icon or NONE_ICON },
 				buttons = {
 					{ text = "Up", disabled = i == 1, onClick = function()
 						Move(i, -1)

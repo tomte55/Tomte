@@ -11,7 +11,7 @@ local EFFECT_TYPES = {
 }
 local GEM_TEXT = LINE.GemSocketEnchantment
 local SKIP_RED = { [LINE.ItemName] = true, [LINE.FlavorText] = true, [LINE.ItemSpellTriggerLearn] = true }
-local EQUIP_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 }
+local EQUIP_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 } -- worn gear slots (no shirt, tabard)
 local MAX_CACHE = 1000
 local UNREAD_GRACE = 10 -- seconds an item without stats is read again before it's taken as it is
 local EFFECT_CHARS = 60
@@ -20,6 +20,9 @@ local EFFECT_CHARS = 60
 local RED_TTL = 5
 
 local BAGS = { 0, 1, 2, 3, 4 } -- backpack and the four bags (gear never goes in the reagent bag)
+-- Shared with Reveal.lua (loads after this file).
+ns.GEAR_BAGS = BAGS
+ns.GEAR_EQUIP_SLOTS = EQUIP_SLOTS
 -- "Durability 0 / 120", in the client's language: red on a broken item, which is still usable gear.
 local DURABILITY = ns.Gear_FormatPattern(DURABILITY_TEMPLATE, true)
 
@@ -29,9 +32,7 @@ local bagGear -- descriptors of the gear in the bags; nil when it has to be rebu
 local waiting = false -- something we asked for hasn't loaded yet
 local unreadSince = {} -- [link] = when it was first read without stats
 
-local function Secret(v)
-	return issecretvalue ~= nil and issecretvalue(v)
-end
+local Secret = ns.IsSecret
 
 -- Blizzard's red (RED_FONT_COLOR 1, 0.125, 0.125): something about the item the player can't use.
 local function IsRed(color)

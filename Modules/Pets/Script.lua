@@ -156,6 +156,7 @@ end })
 Def("hp.full", { type = "bool", fn = function(api, o, p)
 	return api:Health(o, p) == api:MaxHealth(o, p)
 end })
+-- Low enough to die to the enemy pet's explosion (Pet Battle Scripts' 40% of the exploding pet's max health).
 Def("hp.can_explode hp.can_be_exploded", { type = "bool", nilSafe = true, fn = function(api, o, p)
 	local opp = Opponent(o)
 	local oppPet = api:Active(opp)
@@ -235,7 +236,7 @@ Def("level", { type = "compare", fn = function(api, o, p)
 	return api:Level(o, p)
 end })
 Def("level.max", { type = "bool", nilSafe = true, fn = function(api, o, p)
-	return api:Level(o, p) == 25
+	return api:Level(o, p) == ns.PETS_MAX_LEVEL -- Data.lua
 end })
 Def("speed.fast", { type = "bool", pet = false, fn = function(api, o, p)
 	local opp = Opponent(o)

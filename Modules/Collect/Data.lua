@@ -8,13 +8,16 @@ local addonName, ns = ...
 
 local G = _G or {}
 
+-- The full-width colon zhCN and zhTW labels end with (UTF-8 bytes of U+FF1A).
+local FULL_WIDTH_COLON = "\239\188\154"
+
 -- A global's text without its trailing colon, lower case; nil when the global isn't there.
 local function GlobalLabel(name)
 	local text = type(G[name]) == "string" and G[name] or nil
 	if not text then
 		return nil
 	end
-	text = text:gsub("%s*:%s*$", ""):gsub("%s*：%s*$", "") -- ":" or the full-width "：" (zhCN/zhTW)
+	text = text:gsub("%s*:%s*$", ""):gsub("%s*" .. FULL_WIDTH_COLON .. "%s*$", "")
 	return text ~= "" and text:lower() or nil
 end
 
@@ -132,8 +135,6 @@ function ns.Collect_Candidates(value)
 	end
 	return out
 end
-
-local FULL_WIDTH_COLON = "\239\188\154"
 
 -- "Zone: Tanaris" -> "Zone", "Tanaris". Splits at the first ":" or full-width colon; frFR's "Zone : " is trimmed.
 local function SplitLabel(plain)
@@ -259,7 +260,8 @@ function ns.Collect_LowerMentions(lower, names)
 	return false
 end
 
--- A name (4+ characters) appears as whole words in the text, ignoring case.
+-- A name (4+ characters) appears as whole words in the text, ignoring case. Used by tests; the addon calls
+-- Collect_LowerMentions with text it has already lowered.
 function ns.Collect_TextMentions(text, names)
 	if not text then
 		return false

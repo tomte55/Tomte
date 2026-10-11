@@ -54,14 +54,15 @@ local function ForPlayer(info, faction)
 	return true
 end
 
--- x, y: where it is on the map it was read from (0..1, the position the world map places its pin at).
+-- x, y: where it is on the map it was read from (0..1, the position the world map places its pin at; callers keep
+-- only nodes on that map, ns.Coverage_OnMap).
 local function Node(info)
 	local pos = info.position
 	return { nodeID = info.nodeID, name = info.name, undiscovered = info.isUndiscovered, x = pos and pos.x,
 		y = pos and pos.y }
 end
 
--- { continents = { { mapID, name, zones = { { mapID, name, nodes = { { nodeID, name, undiscovered } } } } } } },
+-- { continents = { { mapID, name, zones = { { mapID, name, nodes = { { nodeID, name, undiscovered, x, y } } } } } } },
 -- continents in map ID order (roughly expansion order). Each flight master is in one zone only.
 function ns.Atlas_Build()
 	if not zones then
@@ -73,7 +74,8 @@ function ns.Atlas_Build()
 		if C_TaxiMap.ShouldMapShowTaxiNodes(zone.mapID) then
 			local nodes = {}
 			for _, info in ipairs(C_TaxiMap.GetTaxiNodesForMap(zone.mapID) or {}) do
-				if not claimed[info.nodeID] and ForPlayer(info, faction) then
+				-- Off-map nodes belong to a neighbor: a city mustn't claim the flight masters of the zone around it.
+				if not claimed[info.nodeID] and ForPlayer(info, faction) and ns.Coverage_OnMap(info.position) then
 					claimed[info.nodeID] = true
 					nodes[#nodes + 1] = Node(info)
 				end
@@ -95,12 +97,13 @@ function ns.Atlas_Build()
 	return { continents = list }
 end
 
--- Flight masters for the player on one map (any map type), each once, with their x, y on that map.
+-- Flight masters for the player on one map (any map type), each once, with their x, y on that map. Neighbors'
+-- flight masters the API also returns (off the map) are left out.
 function ns.Atlas_MapNodes(mapID)
 	local faction = UnitFactionGroup("player")
 	local nodes, seen = {}, {}
 	for _, info in ipairs(C_TaxiMap.GetTaxiNodesForMap(mapID) or {}) do
-		if not seen[info.nodeID] and ForPlayer(info, faction) then
+		if not seen[info.nodeID] and ForPlayer(info, faction) and ns.Coverage_OnMap(info.position) then
 			seen[info.nodeID] = true
 			nodes[#nodes + 1] = Node(info)
 		end

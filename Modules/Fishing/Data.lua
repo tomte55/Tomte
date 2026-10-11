@@ -1,11 +1,10 @@
 local addonName, ns = ...
 
 -- Fishing: pure rules (no WoW API; unit-tested in tests/test_fishing.lua).
--- Fishing channel spell IDs and the bobber's game-object ID (35591) are game facts taken from Angleur's tables
--- (LegolandoBloom, All Rights Reserved: IDs only, no code). Toy and aura IDs checked on wowhead.
+-- Fishing channel spell IDs are game facts taken from Angleur's tables (LegolandoBloom, All Rights Reserved: IDs
+-- only, no code). Toy and aura IDs checked on wowhead.
 
 ns.FISHING_SPELL = 131474 -- the Fishing spell you cast (spellbook); its channel is 131476
-ns.FISHING_BOBBER_OBJECT = 35591
 ns.FISHING_RAFT_RENEW = 60 -- renew a raft with less than this many seconds left
 ns.FISHING_LOOT_TIMEOUT = 3 -- loot protection never blocks longer than this
 ns.FISHING_CHANNELS = {}
@@ -39,7 +38,7 @@ function ns.Fishing_IsFishingSpell(spellID, spellName, fishingName)
 	return type(spellName) == "string" and type(fishingName) == "string" and spellName == fishingName
 end
 
--- "GameObject-0-server-instance-zone-<id>-spawn" -> id. Anything else -> nil.
+-- "GameObject-0-server-instance-zone-<id>-spawn" -> id. Anything else -> nil. Used by tests only.
 function ns.Fishing_ObjectID(guid)
 	if type(guid) ~= "string" then
 		return nil
@@ -72,7 +71,11 @@ local function Action(kind, reason, item)
 	return { kind = kind, reason = reason, item = item }
 end
 
--- What the next press of the key does. s: the game right now, opts: the settings (see the plan's interface).
+-- What the next press of the key does: { kind = "none"|"cast"|"dismount"|"toy", reason, item (toy only) }.
+-- s, the game right now (Key.lua Situation): lootOpen, fishing (a channel is out), dead, blocked (vehicle, taxi, pet
+-- battle), known (Fishing learned), mounted, flying, swimming, rafts (owned raft item IDs), raftLeft (seconds on a raft
+-- aura, nil when none), bobberOwned, bobberReady (off cooldown), bobberUp (buff on).
+-- opts, the settings: lootProtect, dismount, raft = { on, pick }, bobber, random (math.random, injectable for tests).
 -- Order: loot protection, a cast already out, can't act, not learned, mounted, swimming, bobber toy, raft renew, cast.
 function ns.Fishing_NextAction(s, opts)
 	local raftOn = opts.raft and opts.raft.on
@@ -124,7 +127,6 @@ local function Same(a, b)
 	end
 	return a == b
 end
-ns.Fishing_SameValue = Same
 
 -- The CVars to set while a cast is out: { [cvar] = value }, only those whose value would change.
 function ns.Fishing_CVarPlan(opts, current)

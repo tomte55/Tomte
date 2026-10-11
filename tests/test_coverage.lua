@@ -131,6 +131,14 @@ test("Untimed without the player's position or a node's goes by name, unknown di
 	eq(#ns.Coverage_Untimed(nodes, { [1] = true, [2] = true, [3] = true }), 0, "all timed")
 end)
 
+test("OnMap keeps positions inside the map, and nodes without one", function()
+	eq(ns.Coverage_OnMap({ x = 0.5, y = 0.5 }), true, "inside")
+	eq(ns.Coverage_OnMap({ x = 0, y = 1 }), true, "edge")
+	eq(ns.Coverage_OnMap(nil), true, "no position")
+	eq(ns.Coverage_OnMap({ x = 1.162215, y = -0.745266 }), false, "a neighbor's flight master")
+	eq(ns.Coverage_OnMap({ x = -0.1, y = 0.5 }), false, "left of the map")
+end)
+
 if failures > 0 then
 	print(failures .. " failed")
 	os.exit(1)

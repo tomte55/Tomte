@@ -1,8 +1,8 @@
 local addonName, ns = ...
 
 -- Crafting list: pure logic (unit-tested with plain Lua). Tracked crafts, where their materials are, and the to-do
--- for the character you're on. List.lua reads the game (Syndicator, bags) and draws the tracker, the List tab, the
--- mailbox rows and the bank marks.
+-- for the character you're on. List.lua reads the game (Syndicator, bags) and draws the tracker and the Baganator
+-- marks; the List tab is ListTab.lua, the mailbox rows are Send.lua.
 --
 -- A pool holds what the account has per item and place: pool.places[itemID] = { { guid, where, n } } with where =
 -- "bags" | "bank" | "mail" | "warband" (guid nil for the Warband bank). Crafts take from it in list order, so two
@@ -359,7 +359,8 @@ function ns.Alts_CraftMail(todo)
 end
 
 -- How to attach `wants` from bag stacks ({ bag, slot, itemID, count }): { { bag, slot, split = n | nil } } with at most
--- `max` attachments. exact: split stacks to send only what's needed; else whole stacks until it's covered.
+-- maxSlots attachments (default 12, the mail limit). exact: split stacks to send only what's needed; else whole
+-- stacks until it's covered.
 function ns.Alts_AttachPlan(wants, stacks, exact, maxSlots)
 	local out = {}
 	local used = {}

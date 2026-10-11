@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Tomte classic: the look before the Cartographer redesign (the tree before commit 8906b7a). A flat near-black fill
+-- Tomte classic: recreates Tomte's look from before the Cartographer redesign. A flat near-black fill
 -- with a 1 px gold border on the edge, gold headings and accents, light grey text, Morpheus titles, Friz Quadrata
 -- text and Arial Narrow numbers. No grain, glow, corner art, vignette or flourishes. Values are the old UI.GOLD,
 -- UI.WHITE, UI.GREY, UI.DIM, UI.BG and UI.BOX and the modules' old GREEN, ORANGE and RED.
@@ -11,10 +11,8 @@ local GOLD = { 1, 0.82, 0.45 }
 
 -- The old code used these files directly. Morpheus has a Cyrillic build; neither it nor Arial Narrow has Korean or
 -- Chinese, so those clients keep their own fonts.
-local CLIENT_FONTS = { koKR = true, zhCN = true, zhTW = true }
-
 local function Fonts(locale)
-	if CLIENT_FONTS[locale] then
+	if Theme.CJK_LOCALES[locale] then
 		return Theme.ClientFonts()
 	end
 	local title = locale == "ruRU" and "Fonts\\MORPHEUS_CYR.TTF" or "Fonts\\MORPHEUS.TTF"

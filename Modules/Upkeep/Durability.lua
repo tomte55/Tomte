@@ -2,11 +2,11 @@ local addonName, ns = ...
 
 -- Durability: a toast when the worst equipped item drops under a threshold (once per crossing) and a red one when
 -- something breaks; plus a banner when you zone into a dungeon, raid or delve with low gear, the same way the
--- hunter pet check does. Rules in Data.lua.
+-- hunter pet check (Modules/Hunter/Checks.lua) does. Rules in Data.lua.
 
-local ENTER_DELAY = 4 -- seconds after zoning in, as the pet check
+local ENTER_DELAY = 4 -- seconds after zoning in, as Modules/Hunter/Checks.lua
 local ACCENT = "warning" -- toast and banner accents (roles)
-local RED = "danger"
+local BROKEN_ROLE = "danger"
 local ICON = "Interface\\Icons\\Trade_BlackSmithing"
 
 local SLOT_NAMES = {
@@ -58,10 +58,11 @@ local function Check()
 	local alert = ns.Durability_Alert(alertState, lowest, broken, db.threshold / 100, Swapped())
 	if alert == "broken" and db.broken then
 		ns.Toast_Show({
-			owner = "dura", label = "Broken", accent = RED, title = broken == 1 and "An item broke" or (broken .. " items broke"),
+			owner = "dura", label = "Broken", accent = BROKEN_ROLE, title = broken == 1 and "An item broke" or (broken .. " items broke"),
 			text = SlotText(slot) .. "\nIts stats don't count until you repair it.", icon = ICON, hold = 10,
 			holdInCombat = true,
 		})
+	-- With the "When an item breaks" toast off, a break still gets the plain low-durability toast.
 	elseif alert == "broken" or alert == "low" then
 		ns.Toast_Show({
 			owner = "dura", label = "Durability", accent = ACCENT, title = "Gear at " .. ns.Durability_Percent(lowest),
@@ -184,7 +185,7 @@ module = ns.RegisterModule({
 					key = "dura:low", state = math.floor(pct / 10),
 					text = (broken or 0) > 0 and "Repair: something broke" or ("Repair: gear at %d%%"):format(pct),
 					why = "Worst: " .. SlotText(slot), right = Percent(pct), icon = ICON,
-					color = (broken or 0) > 0 and RED or nil,
+					color = (broken or 0) > 0 and BROKEN_ROLE or nil,
 				} }
 			end },
 	},

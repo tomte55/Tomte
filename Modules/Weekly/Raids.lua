@@ -1,22 +1,24 @@
 local addonName, ns = ...
 
 -- Weekly board, Raids tab: the content expansion's raids, each boss with four dots (LFR, Normal, Heroic, Mythic)
--- filled when killed this week. The raid list is the Encounter Journal's tier for the expansion (read once per
--- session, out of combat and not while Blizzard's journal is open, the selected tier restored afterwards), else
--- `raids` in Data/<Expansion>/Weekly.lua. The Encounter Journal API is global state: bosses are read once per
--- session, only when this tab shows, with the journal's difficulty restored and Blizzard's journal kept from
--- reacting meanwhile (as Plumber does).
+-- filled when killed this week. The raid list is the Encounter Journal's tier for the expansion, else `raids` in
+-- Data/<Expansion>/Weekly.lua. The Encounter Journal API is global state, so it is read once per session when this
+-- tab (or /tomte data) asks: the tier list out of combat and not while Blizzard's journal is open, the selected tier
+-- and difficulty restored afterwards, and Blizzard's journal kept from reacting meanwhile (as Plumber does).
 
 local UI = ns.UI
 local RAID_H, BOSS_H, DOT, COL_W = 30, 24, 10, 52
 local CIRCLE = "Interface\\CHARACTERFRAME\\TempPortraitAlphaMask"
+local RETRY = 5 -- seconds an incomplete read is reused before the journal is read again
+local NORMAL_RAID = 14 -- difficulty ID of Normal raid (DifficultyUtil.ID.PrimaryRaidNormal)
 
 local raids = {} -- [expansion] = the full read, once per session
 local partial, partialAt = {}, {} -- an incomplete read, kept a few seconds so redraws don't touch the journal each time
 local journal = {} -- [expansion] = the journal tier's raid IDs (oldest first, world bosses left out), false: can't
 local source = {} -- [expansion] = "journal" | "table", for /tomte data
-local RETRY = 5
 
+-- Our tier and difficulty changes fire these events and Blizzard's journal reacts to them; they're registered again
+-- on the next frame (as Plumber does).
 local function MuteJournal()
 	local frame = EncounterJournal
 	if not frame then
@@ -88,14 +90,14 @@ local function ReadRaids(expansion)
 	if partial[expansion] and GetTime() - partialAt[expansion] < RETRY then
 		return partial[expansion], source[expansion]
 	end
-	local list, complete = {}, true
+	local list = {}
 	MuteJournal()
 	local fromJournal = ReadJournalTier(expansion)
-	complete = fromJournal ~= nil -- read the journal tier later (in combat, or Blizzard's journal is open)
+	local complete = fromJournal ~= nil -- read the journal tier later (in combat, or Blizzard's journal is open)
 	local ids = ns.Weekly_RaidOrder(fromJournal or nil, ns.Content_Get(expansion, "raids"))
 	source[expansion] = fromJournal and #fromJournal > 0 and "journal" or "table"
 	local before = EJ_GetDifficulty()
-	EJ_SetDifficulty(14) -- EJ_GetEncounterInfoByIndex returns nil without a difficulty set
+	EJ_SetDifficulty(NORMAL_RAID) -- EJ_GetEncounterInfoByIndex returns nil without a difficulty set
 	for _, jid in ipairs(ids) do
 		local name, _, _, _, _, _, _, _, _, mapID = EJ_GetInstanceInfo(jid)
 		if name then
@@ -232,7 +234,6 @@ function ns.WeeklyRaidsView(parent)
 				else
 					local killed = item.dots[d]
 					cell.dot:SetVertexColor(UI.RGBA(killed and "success" or "textFaint", killed and 1 or 0.6))
-
 				end
 			end
 			y = y + (raid and RAID_H + 4 or BOSS_H + 2)

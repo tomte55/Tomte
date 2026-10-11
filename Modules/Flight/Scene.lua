@@ -54,13 +54,13 @@ local function BuildPages()
 			return "Flight #" .. (live.flights + 1), ns.FormatTime(live.seconds + elapsed) .. " in the air"
 		end,
 	}
-	local visited = ns.TopEntry(stats.departures)
+	local visited = ns.Flight_TopEntry(stats.departures)
 	if visited then
 		pages[#pages + 1] = function()
 			return "Most visited", visited
 		end
 	end
-	local route = ns.TopEntry(stats.routeCounts)
+	local route = ns.Flight_TopEntry(stats.routeCounts)
 	if route then
 		pages[#pages + 1] = function()
 			return "Most flown", route
@@ -120,18 +120,12 @@ function scene.Create(parent, letterbox)
 	card.head:SetColorTexture(1, 1, 1, 1)
 	card.head:SetSize(5, 5)
 	card.head:SetPoint("CENTER", card.fill, "RIGHT")
-	local headMask = card:CreateMaskTexture()
-	headMask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-	headMask:SetAllPoints(card.head)
-	card.head:AddMaskTexture(headMask)
+	ns.UI.CircleMask(card.head, card)
 	card.halo = card:CreateTexture(nil, "OVERLAY", nil, 2)
 	card.halo:SetColorTexture(ns.UI.RGBA("accent", 0.25))
 	card.halo:SetSize(13, 13)
 	card.halo:SetPoint("CENTER", card.head)
-	local haloMask = card:CreateMaskTexture()
-	haloMask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-	haloMask:SetAllPoints(card.halo)
-	card.halo:AddMaskTexture(haloMask)
+	ns.UI.CircleMask(card.halo, card)
 	card.eta = Text(card, 10, "textMuted")
 	Place(card, card.eta, "TOP", letterbox.bottom, "CENTER", 0, -19)
 

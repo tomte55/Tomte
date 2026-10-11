@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- AFK Screen module: while the game flags you AFK, the cinematic engine shows the AFK scene (orbiting
 -- camera, letterbox, character showcase, time away, clock, session stats, whispers received). Click or Esc
 -- closes it and clears the AFK flag; a queue pop, ready check or invite closes it so the popup is visible.
--- Pure logic is in Data.lua. Nothing ticks while you're not AFK.
+-- The scene's layout is in Scene.lua, pure logic in Data.lua. Nothing ticks while you're not AFK.
 
 local TICK = 1 -- seconds between checks while AFK and the screen isn't up
 local RESUME_DELAY = 20 -- combat paused the screen: back after this long idle
@@ -13,6 +13,7 @@ local AWAY_EVENTS = { -- only while AFK
 	"CHAT_MSG_WHISPER", "CHAT_MSG_BN_WHISPER",
 	"LFG_PROPOSAL_SHOW", "UPDATE_BATTLEFIELD_STATUS", "READY_CHECK", "PARTY_INVITE_REQUEST",
 }
+local SAMPLE_AWAY = 754 -- seconds: the preview reads "Away for 12:34"
 local SAMPLE_WHISPERS = {
 	{ ago = 540, sender = "Thrall", class = "SHAMAN", text = "Raid tonight at 8, are you in?" },
 	{ ago = 310, sender = "Jaina", class = "MAGE", text = "Left you a few Sunwell Shards in the mail. Don't spend them all at once." },
@@ -38,9 +39,7 @@ local function IsAFK()
 	return afk and true or false
 end
 
-local function Readable(...)
-	return not canaccessallvalues or canaccessallvalues(...)
-end
+local Readable = ns.Readable
 
 local function InChatLockdown()
 	return C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() or false
@@ -260,7 +259,7 @@ local function Preview()
 	for _, sample in ipairs(SAMPLE_WHISPERS) do
 		whispers[#whispers + 1] = { at = time() - sample.ago, sender = sample.sender, class = sample.class, bn = sample.bn, text = sample.text }
 	end
-	BeginAway({ since = GetTime() - 754, whispers = whispers, preview = true })
+	BeginAway({ since = GetTime() - SAMPLE_AWAY, whispers = whispers, preview = true })
 end
 
 local function Activate()
@@ -278,11 +277,12 @@ local function Deactivate()
 	for _, event in ipairs(EVENTS) do
 		events:UnregisterEvent(event)
 	end
+	-- A state saved before a /reload and not resumed yet still holds the camera zoom, pitch and music to restore.
+	-- Finish releases only the live one (away) and forgets the saved one, so read it first.
+	local saved, live = ns.afkDB.current, away
 	Finish()
-	local cur = ns.afkDB.current
-	if cur then
-		ns.Cinematic.Release(cur)
-		ns.afkDB.current = nil
+	if saved and saved ~= live then
+		ns.Cinematic.Release(saved)
 	end
 end
 

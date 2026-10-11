@@ -8,6 +8,8 @@ local addonName, ns = ...
 -- Channels are recognized by zone channel ID, the way Blizzard's chat frame does (zoneChannelList), since the saved
 -- name can differ from the shortcut.
 
+local LOGIN_SETTLE = 1 -- seconds after the first loading screen before the tab is looked for
+
 local module
 local pending -- an Apply waiting for combat to end
 local restored -- "Restore my chat" this session: don't set the tab up again until the module is turned on again
@@ -39,9 +41,11 @@ local function State(create)
 	return state
 end
 
+-- How many chat windows the client has. Also used by Chat/Tags.lua (loads after this file).
 local function MaxWindows()
 	return (Constants and Constants.ChatFrameConstants and Constants.ChatFrameConstants.MaxChatWindows) or NUM_CHAT_WINDOWS or 10
 end
+ns.Chat_MaxWindows = MaxWindows
 
 local function FirstFreeIndex()
 	return C_ChatInfo.GetNumReservedChatWindows() + 1
@@ -206,7 +210,7 @@ local loginWatch = CreateFrame("Frame")
 loginWatch:RegisterEvent("PLAYER_ENTERING_WORLD")
 loginWatch:SetScript("OnEvent", function(self)
 	self:UnregisterAllEvents()
-	C_Timer.After(1, function()
+	C_Timer.After(LOGIN_SETTLE, function()
 		worldReady = true
 		Apply()
 	end)

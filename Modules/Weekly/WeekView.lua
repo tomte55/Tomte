@@ -107,7 +107,6 @@ function ns.WeeklyWeekView(parent)
 				track.note:SetPoint("LEFT", track.slots[3], "RIGHT", 20, 0)
 				track.note:SetText(row.note)
 				UI.SetTextRole(track.note, row.done and "accent" or "textMuted")
-
 				y = y + SLOT_H + SLOT_GAP
 			end
 		end

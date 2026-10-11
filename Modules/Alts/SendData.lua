@@ -7,7 +7,7 @@ local addonName, ns = ...
 function ns.Alts_ReagentUsers(chars, recipes)
 	local users = {}
 	for guid, c in pairs(chars) do
-		for base, prof in pairs(c.profs or {}) do
+		for _, prof in pairs(c.profs or {}) do
 			for recipeID in pairs(prof.known or {}) do
 				local recipe = recipes[recipeID]
 				for _, slot in ipairs(recipe and recipe.reagents or {}) do
@@ -26,7 +26,8 @@ function ns.Alts_ReagentUsers(chars, recipes)
 	return users
 end
 
--- "12345 = Mira, linen cloth = Tolvan" -> { { match = 12345 | "linen cloth", to = "mira" } }. Lines or commas.
+-- "12345 = Mira, linen cloth = Tolvan" -> { { match = 12345 | "linen cloth", to = "mira" } }. Rules split on
+-- commas, semicolons or new lines.
 function ns.Alts_ParseRules(text)
 	local rules = {}
 	for part in (text or ""):gmatch("[^,\n;]+") do
@@ -155,7 +156,7 @@ function ns.Alts_Unclaimed(stacks, claims)
 	return out
 end
 
--- The next mail's stacks: the first `max` (12) of a group.
+-- The next mail's stacks: the first `max` (default 12, the mail limit) of a group.
 function ns.Alts_NextMail(group, max)
 	local list = {}
 	for i = 1, math.min(#group.stacks, max or 12) do

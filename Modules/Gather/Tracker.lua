@@ -248,7 +248,8 @@ local function Shown()
 	return not IsInInstance()
 end
 
-local function Place2(fs, y)
+-- Places a full-width line at y and returns the y below it.
+local function PlaceLine(fs, y)
 	fs:ClearAllPoints()
 	fs:SetPoint("TOPLEFT", PAD, -y)
 	fs:SetPoint("RIGHT", -PAD, 0)
@@ -328,17 +329,17 @@ function ns.GatherTracker_Refresh()
 		local fs = frame.items[i]
 		fs:SetText(("%s%s %s  %s"):format(ns.Gather_ItemIcon(itemID, 14), ns.Gather_ItemName(itemID, e.link),
 			ns.Gather_RankMarkup(itemID, e.rank, 14), UI.Wrap("x" .. e.n, "textMuted")))
-		y = Place2(fs, y)
+		y = PlaceLine(fs, y)
 	end
 	local finds = FindsText(run)
 	if finds then
 		frame.finds:SetText(finds)
-		y = Place2(frame.finds, y)
+		y = PlaceLine(frame.finds, y)
 	end
 	local progress = ns.Gather_ProgressText(run, sample)
 	if progress then
 		frame.progress:SetText(progress)
-		y = Place2(frame.progress, y)
+		y = PlaceLine(frame.progress, y)
 	end
 	frame:SetHeight(y + 6)
 	ns.GatherTracker_Tick()

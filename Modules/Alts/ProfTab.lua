@@ -14,8 +14,7 @@ local tab, db
 local charRows, profRows = {}, {}
 
 local function ClassName(c)
-	local color = c.class and C_ClassColor.GetClassColor(c.class)
-	return color and color:WrapTextInColorCode(c.name or "?") or (c.name or "?")
+	return UI.ClassColored(c.name or "?", c.class)
 end
 
 -- "[Name] 590" with the item's link (rarity color), "..." while its item level loads.

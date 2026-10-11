@@ -34,6 +34,7 @@ local function Readable(v)
 	return nil
 end
 
+-- A shortened path in text whose tail matches the end of one of Tomte's files (files: paths inside the addon folder).
 local function OwnTail(text, files)
 	for tail in text:gmatch(TAIL) do
 		if #tail >= TAIL_MIN then
@@ -202,8 +203,17 @@ local function UseText(use)
 	return use[1] .. " loaded"
 end
 
--- info: see the plan (docs/superpowers/plans/2026-10-10-tomte-friend-extras.md, Task 3). Any field may be missing
--- ("?"); a list field may be a "(could not read: ...)" string instead. No names, realms or gold go in here.
+-- info (built by Panel/Bug.lua):
+--   version, build, interface, locale, theme, preset   Tomte and client versions, the theme and the setup preset
+--   level, class, spec, specID, content                 the character, and the expansion whose content Tomte follows
+--   on, off                                             module keys (always-on modules left out)
+--   blocked                                             { { module key, reason } }
+--   uses                                                { { addon, version | true (loaded) | false (not loaded) } }
+--   others                                              other loaded addons' names
+--   errors, total, catcher                              ns.Bug_Collect's list and count, which error list was read
+--   full, profile                                       "full" report: locals and the settings export text
+-- Any field may be missing ("?"); a list field may be a "(could not read: ...)" string instead. No names, realms or
+-- gold go in here.
 function ns.Bug_ReportText(info)
 	local lines = { "Tomte bug report" }
 	local function add(s)

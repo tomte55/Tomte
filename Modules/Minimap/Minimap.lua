@@ -12,6 +12,7 @@ local UI = ns.UI
 local module, button
 
 local function Place()
+	-- GetMinimapShape isn't Blizzard's: minimap skin addons define it (the LibDBIcon convention). Without one it's round.
 	local shape = GetMinimapShape and GetMinimapShape() or "ROUND"
 	local x, y = ns.Minimap_Offset(module.db.angle, Minimap:GetWidth() / 2 + RADIUS, Minimap:GetHeight() / 2 + RADIUS, shape)
 	button:ClearAllPoints()
@@ -65,10 +66,7 @@ local function Create()
 	icon:SetTexture(ns.ICON)
 	icon:SetSize(18, 18)
 	icon:SetPoint("CENTER")
-	local mask = button:CreateMaskTexture()
-	mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-	mask:SetAllPoints(icon)
-	icon:AddMaskTexture(mask)
+	UI.CircleMask(icon, button)
 	local border = button:CreateTexture(nil, "OVERLAY")
 	border:SetTexture(136430) -- Interface\Minimap\MiniMap-TrackingBorder
 	border:SetSize(50, 50)

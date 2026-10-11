@@ -1,15 +1,15 @@
 local addonName, ns = ...
 
 -- One text dialog for copying and pasting: guide links and team scripts (Pet Battles), bug reports, settings
--- strings. Read-only text comes selected for Ctrl+C, which also closes the dialog; editable text gets a Save (or spec.saveText) button whose
--- onSave may return an error to show instead of closing.
+-- strings. Read-only text comes selected for Ctrl+C, which also closes the dialog; editable text gets a Save (or
+-- spec.saveText) button whose onSave may return an error to show instead of closing.
 
 local UI = ns.UI
 local popup
 
 local function Build()
-	-- On WorldFrame: Guides on the tamer card opens it while a dialogue addon (DialogueUI, Immersion) hides UIParent.
-	popup = CreateFrame("Frame", "TomteDialog", WorldFrame)
+	-- Parent and scale are set on every show (ns.Dialog_Show).
+	popup = CreateFrame("Frame", "TomteDialog", UIParent)
 	popup:SetSize(460, 150)
 	popup:SetPoint("CENTER", 0, 120)
 	popup:SetFrameStrata("DIALOG")
@@ -108,7 +108,19 @@ function ns.Dialog_Show(spec)
 		Build()
 	end
 	popup.spec = spec
-	popup:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
+	-- On UIParent, like every other window: WorldFrame's children draw under all of UIParent whatever their strata,
+	-- so there it would sit behind the Tomte window. Only while a dialogue addon (DialogueUI, Immersion) hides
+	-- UIParent does it go on WorldFrame, so Guides on the tamer card still opens; there it's scaled to UIParent's
+	-- size (the trick Cinematic/Engine.lua uses for its hint). SetParent can carry the parent's strata over, so it's
+	-- set again.
+	if UIParent:IsShown() then
+		popup:SetParent(UIParent)
+		popup:SetScale(1)
+	else
+		popup:SetParent(WorldFrame)
+		popup:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
+	end
+	popup:SetFrameStrata("DIALOG")
 	popup.title:SetText(spec.title or "")
 	popup.hint:SetText(spec.hint or "")
 	popup.error:SetText("")
@@ -124,11 +136,5 @@ function ns.Dialog_Show(spec)
 		popup.edit:HighlightText()
 	else
 		popup.edit:SetCursorPosition(0)
-	end
-end
-
-function ns.Dialog_Hide()
-	if popup then
-		popup:Hide()
 	end
 end
