@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.9.0 - 2026-10-11
+
 - Gear Check: each gear slot on the character sheet and the Inspect window shows its item level in the corner, in the item's quality color (option "Item level on gear slots").
 
 ## v1.8.0 - 2026-10-11
