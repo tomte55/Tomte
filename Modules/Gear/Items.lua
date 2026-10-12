@@ -113,6 +113,7 @@ function ns.GearItems_Describe(link)
 		enchanted = enchanted,
 		gems = gems,
 		gemIDs = ns.Gear_LinkGemIDs(link),
+		gemSlots = ns.Gear_LinkGemSlots(link), -- by socket, with holes
 		sockets = C_Item.GetItemNumSockets(link) or 0,
 		setID = select(16, C_Item.GetItemInfo(link)),
 		minLevel = select(5, C_Item.GetItemInfo(link)), -- for other characters (their red level line isn't ours)

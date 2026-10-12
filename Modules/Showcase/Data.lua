@@ -192,3 +192,138 @@ function ns.CharShow_Title(title)
 	title = title:gsub("%%s", ""):gsub("^%s+", ""):gsub("%s+$", "")
 	return title ~= "" and title or nil
 end
+
+-- Slot card ----------------------------------------------------------------------------------------------------------
+
+-- The card's stat rows from Gear Check's normalized stats (Rules.lua's keys): armor, the spec's primary stat (one
+-- of STR, AGI, INT; others on the item are left out), stamina, then the secondaries. labels: [key] = the stat's
+-- name in the client's language. -> { { key, amount, text = "+39 Agility", secondary = bool } }
+local CARD_SECONDARY = { "CRIT", "HASTE", "MASTERY", "VERS" }
+function ns.CharShow_CardStats(stats, primary, labels)
+	local rows = {}
+	local function Add(key, amount, secondary)
+		if amount and amount > 0 then
+			local label = labels[key] or key
+			local text = key == "ARMOR" and ("%s %s"):format(ns.Thousands(amount), label)
+				or ("+%s %s"):format(ns.Thousands(amount), label)
+			rows[#rows + 1] = { key = key, amount = amount, text = text, secondary = secondary }
+		end
+	end
+	stats = stats or {}
+	Add("ARMOR", stats.ARMOR, false)
+	if primary and stats.PRIMARY then
+		Add(primary, stats.PRIMARY[primary], false)
+	end
+	Add("STA", stats.STA, false)
+	for _, key in ipairs(CARD_SECONDARY) do
+		Add(key, stats[key], true)
+	end
+	return rows
+end
+
+-- "Head · Mail · Soulbound": the non-empty parts.
+function ns.CharShow_MetaLine(...)
+	local parts = {}
+	for i = 1, select("#", ...) do
+		local part = select(i, ...)
+		if type(part) == "string" and part ~= "" then
+			parts[#parts + 1] = part
+		end
+	end
+	return table.concat(parts, " · ")
+end
+
+-- "1.72%" (nil without a value).
+function ns.CharShow_Percent(value)
+	if type(value) ~= "number" then
+		return nil
+	end
+	return ("%.2f%%"):format(value)
+end
+
+-- Gear menu ----------------------------------------------------------------------------------------------------------
+
+-- Each status: text, theme role.
+function ns.CharShow_EquipStatus(count, slotName)
+	if count == 0 then
+		return ("No other item for %s"):format(slotName or "this slot"), "danger"
+	end
+	return ("%d %s in your bags"):format(count, count == 1 and "item" or "items"), "textMuted"
+end
+
+-- takes: the slot takes an enchant (at max level); current: the enchant's text; count: enchants in the bags for it.
+function ns.CharShow_EnchantStatus(takes, current, count)
+	if current then
+		return current, "success"
+	elseif takes then
+		return "No enchant", "danger"
+	elseif count > 0 then
+		return ("%d in your bags"):format(count), "textMuted"
+	end
+	return "Doesn't take one", "textMuted"
+end
+
+function ns.CharShow_GemStatus(sockets, empty)
+	if sockets == 0 then
+		return "No socket", "danger"
+	elseif empty > 0 then
+		return ("%d empty %s"):format(empty, empty == 1 and "socket" or "sockets"), "warning"
+	end
+	return "All sockets filled", "textMuted"
+end
+
+-- Item Enhancement (item class 8) subclasses -> the slots they enchant. Weapon kinds go by the worn item's
+-- equipLoc: 11 any weapon (current weapon enchants go on two-handers and ranged too), 12 two-handers (ranged
+-- included), 13 shields and off-hand frills.
+local ENCHANT_SUBCLASS_SLOTS = {
+	[0] = { [1] = true }, [1] = { [2] = true }, [2] = { [3] = true }, [3] = { [15] = true }, [4] = { [5] = true },
+	[5] = { [9] = true }, [6] = { [10] = true }, [7] = { [6] = true }, [8] = { [7] = true }, [9] = { [8] = true },
+	[10] = { [11] = true, [12] = true },
+}
+local TWO_HAND_LOCS = { INVTYPE_2HWEAPON = true, INVTYPE_RANGED = true, INVTYPE_RANGEDRIGHT = true }
+local OFF_HAND_LOCS = { INVTYPE_SHIELD = true, INVTYPE_HOLDABLE = true }
+local ENHANCEMENT_CLASS, CONSUMABLE_CLASS, CONSUMABLE_ENHANCEMENT = 8, 0, 6
+
+-- Whether a bag item (its class and subclass) enchants what's worn in slot (its equipLoc). -> "permanent",
+-- "temporary" (oils and stones: weapons only) or nil.
+function ns.CharShow_EnchantFits(slot, equipLoc, classID, subclassID)
+	if classID == ENHANCEMENT_CLASS then
+		local slots = ENCHANT_SUBCLASS_SLOTS[subclassID]
+		if slots then
+			return slots[slot] and "permanent" or nil
+		end
+		if slot ~= 16 and slot ~= 17 then
+			return nil
+		end
+		if (subclassID == 11 and equipLoc and not OFF_HAND_LOCS[equipLoc])
+			or (subclassID == 12 and TWO_HAND_LOCS[equipLoc]) or (subclassID == 13 and OFF_HAND_LOCS[equipLoc]) then
+			return "permanent"
+		end
+		return nil
+	end
+	if classID == CONSUMABLE_CLASS and subclassID == CONSUMABLE_ENHANCEMENT and (slot == 16 or slot == 17)
+		and not OFF_HAND_LOCS[equipLoc] then
+		return "temporary"
+	end
+	return nil
+end
+
+-- The secure macro that uses a bag item on an equipped slot.
+function ns.CharShow_EnchantMacro(bag, bagSlot, slot)
+	return ("/use %d %d\n/use %d"):format(bag, bagSlot, slot)
+end
+
+-- Gem class 3; relics (subclass 11) don't go in gear sockets.
+function ns.CharShow_IsGem(classID, subclassID)
+	return classID == 3 and subclassID ~= 11
+end
+
+-- The socket the gem list fills: the first empty one, else the first. gems: [i] = gem item ID or nil.
+function ns.CharShow_PickSocket(sockets, gems)
+	for i = 1, sockets do
+		if not gems[i] then
+			return i
+		end
+	end
+	return sockets > 0 and 1 or nil
+end

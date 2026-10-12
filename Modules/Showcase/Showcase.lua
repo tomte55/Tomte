@@ -15,8 +15,9 @@ local SAVED_VIEW = 5
 
 local module, db
 local state -- the open showcase's cinematic state (db.current), nil when closed
-local events = ns.NewEvents()
+local events = ns.CharShow_Events -- Card.lua's; Menu.lua watches its own events on it
 local refreshTimer
+local refreshAll = false -- a pending refresh includes the gear, not only the stats
 
 local function Blocked()
 	return InCombatLockdown() or ns.Cinematic.IsActive() or UnitOnTaxi("player")
@@ -29,17 +30,22 @@ local function Zoom(height)
 	return ns.CharShow_Zoom(height, IsMounted(), db.distance)
 end
 
+-- One refresh per burst. A gear change is followed by stat events: the pending refresh stays a full one (a stats
+-- event after PLAYER_EQUIPMENT_CHANGED must not turn it into a stats-only one).
 local function RefreshSoon(statsOnly)
 	if not state then
 		return
 	end
+	refreshAll = refreshAll or not statsOnly
 	if refreshTimer then
 		refreshTimer:Cancel()
 	end
 	refreshTimer = C_Timer.NewTimer(0.2, function()
 		refreshTimer = nil
+		local all = refreshAll
+		refreshAll = false
 		if state then
-			if statsOnly then
+			if not all then
 				ns.CharShowScene.RefreshStats()
 			else
 				ns.CharShowScene.Refresh()
@@ -51,13 +57,19 @@ end
 local function WatchOpen(on)
 	local list = { "PLAYER_EQUIPMENT_CHANGED", "GET_ITEM_INFO_RECEIVED", "UNIT_STATS", "COMBAT_RATING_UPDATE",
 		"MASTERY_UPDATE", "SPEED_UPDATE", "LIFESTEAL_UPDATE", "AVOIDANCE_UPDATE", "UNIT_MAXHEALTH",
-		"PLAYER_AVG_ITEM_LEVEL_UPDATE", "PLAYER_STARTED_MOVING" }
+		"PLAYER_AVG_ITEM_LEVEL_UPDATE", "PLAYER_STARTED_MOVING", "BAG_UPDATE_DELAYED" }
 	for _, event in ipairs(list) do
 		if on then
 			events:Watch(OWNER, event)
 		else
 			events:Unwatch(OWNER, event)
 		end
+	end
+	-- Gems and enchants change the worn item's link without PLAYER_EQUIPMENT_CHANGED.
+	if on then
+		events:Watch(OWNER, "UNIT_INVENTORY_CHANGED", "player")
+	else
+		events:Unwatch(OWNER, "UNIT_INVENTORY_CHANGED")
 	end
 end
 
@@ -193,6 +205,12 @@ events:On(OWNER, "PLAYER_EQUIPMENT_CHANGED", function()
 end)
 events:On(OWNER, "GET_ITEM_INFO_RECEIVED", function()
 	RefreshSoon(false)
+end)
+events:On(OWNER, "UNIT_INVENTORY_CHANGED", function()
+	RefreshSoon(false)
+end)
+events:On(OWNER, "BAG_UPDATE_DELAYED", function()
+	RefreshSoon(false) -- new gear in the bags: the upgrade marks
 end)
 for _, event in ipairs({ "COMBAT_RATING_UPDATE", "MASTERY_UPDATE", "SPEED_UPDATE", "LIFESTEAL_UPDATE",
 	"AVOIDANCE_UPDATE", "PLAYER_AVG_ITEM_LEVEL_UPDATE" }) do

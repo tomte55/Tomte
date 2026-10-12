@@ -28,18 +28,19 @@ local MAX_REASONS = 3
 local MAX_ALT_LINES = 2
 
 -- This character's lines: verdict, reasons, rank, off-spec, gems, enchant.
-local function OwnLines(tooltip, link, ctx, verdict, cand, equipped, Add)
+-- AddReason(text): a muted, wrapped reason line under the headline. noHints: leave out the gem and enchant lines
+-- (the Showcase card shows those itself).
+local function OwnLines(AddReason, link, ctx, verdict, cand, equipped, Add, noHints)
 	if verdict and not (verdict.kind == "downgrade" and not DB().showDowngrades) then
 		local headline, color = ns.Gear_Headline(verdict)
 		Add(headline, color)
 		if DB().showReasons then
 			for i = 1, math.min(#verdict.reasons, MAX_REASONS) do
-				tooltip:AddLine(Reason() .. "   " .. verdict.reasons[i] .. "|r", nil, nil, nil, true)
+				AddReason(verdict.reasons[i])
 			end
 		end
 		if ctx.source == "none" and verdict.kind ~= "notForYou" then
-			tooltip:AddLine(Reason() .. ("   No weights for %s: item level only. /tomte gear import"):format(
-				ctx.spec.name) .. "|r", nil, nil, nil, true)
+			AddReason(("No weights for %s: item level only. /tomte gear import"):format(ctx.spec.name))
 		end
 	end
 	if verdict and verdict.kind == "notForYou" then
@@ -86,6 +87,9 @@ local function OwnLines(tooltip, link, ctx, verdict, cand, equipped, Add)
 		end
 	end
 
+	if noHints then
+		return
+	end
 	if DB().gemHints then
 		local diamond = not ns.Gear_WearsGem(equipped, ctx.scales.diamondIDs) and ctx.scales.diamondName or nil
 		local lines = ns.Gear_GemLines(cand, ctx.best, ctx.bestValue, worn ~= nil, ns.GearItems_GemStats,
@@ -146,7 +150,9 @@ local function OnItem(tooltip, data)
 	local ctx = Context()
 	local verdict, cand, equipped = Evaluate(link, ctx)
 	if cand and ns.Gear_Slots(cand.equipLoc) then
-		OwnLines(tooltip, link, ctx, verdict, cand, equipped, Add)
+		OwnLines(function(text)
+			tooltip:AddLine(Reason() .. "   " .. text .. "|r", nil, nil, nil, true)
+		end, link, ctx, verdict, cand, equipped, Add)
 	end
 	if not compare then -- comparison tooltips show what you wear: about you only
 		AltLines(link, data, Add)
@@ -154,3 +160,51 @@ local function OnItem(tooltip, data)
 end
 
 ns.GearTooltip_OnItem = OnItem
+
+-- The bag item that beats what's worn in slot for your current spec (the tooltip's "bag has better" line), or nil.
+-- nil while Gear Check is off, for trinkets and effect items (not ranked) and while items load.
+function ns.Gear_BagBetter(slot)
+	if not (ns.gearModule and ns.gearModule.active) then
+		return nil
+	end
+	local equipped = ns.GearItems_Equipped()
+	local worn = equipped and equipped[slot]
+	local ctx = Context()
+	if not (worn and ctx and ns.Gear_Rankable(worn)) or ns.Gear_Unusable(worn, ctx) then
+		return nil
+	end
+	local pairSize = worn.equipLoc == "INVTYPE_FINGER" and 2 or 1
+	local others = {}
+	local partner = pairSize == 2 and equipped[slot == 11 and 12 or 11]
+	if partner then
+		others[1] = partner
+	end
+	local function Score(d)
+		return ns.Gear_Score(d, ctx.weights, ctx.primary, ctx.gemValue)
+	end
+	local rank, better = ns.Gear_Rank(worn, slot, others, ns.GearItems_BagGear(), ctx, Score)
+	if not better or rank == 1 or (rank == 2 and pairSize == 2) then
+		return nil
+	end
+	return better
+end
+
+-- This character's Gear Check lines for an item without a tooltip (the Showcase's slot card): { { text, role,
+-- reason = true for the muted reason lines } }, without the gem and enchant lines. Empty while Gear Check is off
+-- or the item isn't gear.
+function ns.Gear_ItemLines(link)
+	local lines = {}
+	if not (ns.gearModule and ns.gearModule.active) or not link or ns.IsSecret(link) then
+		return lines
+	end
+	local ctx = Context()
+	local verdict, cand, equipped = Evaluate(link, ctx)
+	if cand and ns.Gear_Slots(cand.equipLoc) then
+		OwnLines(function(text)
+			lines[#lines + 1] = { text = text, role = "textMuted", reason = true }
+		end, link, ctx, verdict, cand, equipped, function(text, color)
+			lines[#lines + 1] = { text = text, role = COLOR_ROLES[color] }
+		end, true)
+	end
+	return lines
+end

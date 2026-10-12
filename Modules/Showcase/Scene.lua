@@ -5,7 +5,8 @@ local addonName, ns = ...
 -- by secondary stat rating, and chips for the rest.
 -- Layout is in design units of a 1600 x 900 screen (the mockup): each group is scaled to the real screen height and
 -- placed at the same fraction of the width. Textures come from tools/showcase_art.py (Media/Showcase), tinted by
--- theme role or item quality. GameTooltip lives on the hidden UIParent, so the slots have their own tooltip.
+-- theme role or item quality. GameTooltip lives on the hidden UIParent, so the slots have their own card (Card.lua,
+-- Alt shows the full tooltip on our own GameTooltip) and a click opens the gear menu (Menu.lua).
 
 local UI = ns.UI
 local ART = ns.Theme.MEDIA .. "Showcase\\"
@@ -112,29 +113,23 @@ end
 -- Slots --------------------------------------------------------------------------------------------------------------
 
 local function SlotOnEnter(self)
-	if not GetInventoryItemLink("player", self.slot) then
+	if not GetInventoryItemLink("player", self.slot) or ns.CharShowMenu.IsOpen() then
 		return
 	end
-	-- Pinned by hand: the slot sits in a scaled group, and the ANCHOR_ modes put the tooltip far from it.
-	tooltip:SetOwner(self, "ANCHOR_NONE")
-	tooltip:ClearAllPoints()
-	if self.side == "LEFT" then
-		tooltip:SetPoint("TOPLEFT", self, "TOPLEFT", TEXT_X + TEXT_W, 0) -- after the text
-	else
-		tooltip:SetPoint("TOPLEFT", self, "TOPRIGHT", 8, 0) -- right of the icon, toward the stats
-	end
-	tooltip:SetInventoryItem("player", self.slot)
-	tooltip:Show()
+	ns.CharShowCard.Show(self)
 end
 
 local function SlotOnLeave()
-	tooltip:Hide()
+	ns.CharShowCard.Hide()
 end
 
 local function SlotOnClick(self)
 	if IsModifiedClick("CHATLINK") then
 		UI.InsertLink(GetInventoryItemLink("player", self.slot))
+		return
 	end
+	ns.CharShowCard.Hide()
+	ns.CharShowMenu.Toggle(self)
 end
 
 -- Puts region with its top corner (on the slot's side) x units in from the box's side, y down.
@@ -146,6 +141,7 @@ end
 local function CreateSlot(group, slot, side, row)
 	local w = CreateFrame("Button", nil, group)
 	w.slot, w.side, w.sign = slot, side, side == "LEFT" and 1 or -1
+	w.cardX = TEXT_X + TEXT_W -- the card and menu sit after the text (left column) or right of the icon
 	w:SetSize(BOX_W, BOX_H)
 	w:SetPoint("TOP" .. side, group, "TOP" .. side, 0, -(TOP + (row - 1) * ROW))
 	w:RegisterForClicks("LeftButtonUp")
@@ -197,6 +193,12 @@ local function CreateSlot(group, slot, side, row)
 		w.sockets[i] = { gem = s, ring = ring }
 	end
 
+	-- Gear Check: something in the bags is better for your spec (the card says what).
+	w.better = Tex(w, "OVERLAY", DIAMOND, 14)
+	w.better:SetPoint("CENTER", w, "TOP" .. side, w.sign * (ICON_C + 19), -ICON_C + 19)
+	Tint(w.better, "warning", 1)
+	w.better:Hide()
+
 	w.star = Tex(w, "ARTWORK", STAR, 12)
 	Put(w, w.star, TEXT_X, -46)
 	w.hint = UI.Text(w, 13, "success")
@@ -222,7 +224,20 @@ local function HideHintParts(w)
 	w.hint:Hide()
 end
 
+-- Only the icon and the text take the mouse, not the whole box (it's far wider than most names).
+local function SetHitWidth(w, width)
+	local cut = math.max(BOX_W - math.ceil(width) - 6, 0)
+	if w.side == "LEFT" then
+		w:SetHitRectInsets(0, cut, 0, 0)
+	else
+		w:SetHitRectInsets(cut, 0, 0, 0)
+	end
+end
+
 local function ShowEmpty(w)
+	w.desc, w.hints, w.ilvl, w.color = nil, nil, nil, nil
+	w.better:Hide()
+	SetHitWidth(w, 2 * ICON_C)
 	local _, emptyTexture = GetInventorySlotInfo(ns.CHARSHOW_SLOT_NAMES[w.slot])
 	w.icon:SetTexture(emptyTexture)
 	w.icon:SetDesaturated(true)
@@ -235,6 +250,7 @@ local function ShowEmpty(w)
 end
 
 -- The second line, from the icon outward: item level pill, track word and pips, sockets. Then the enchant line.
+-- Returns how far the slot's content reaches from its side.
 local function LayoutDetails(w, color, ilvl, desc, hints)
 	local x = TEXT_X
 	w.pillText:SetText(ilvl or "")
@@ -248,7 +264,7 @@ local function LayoutDetails(w, color, ilvl, desc, hints)
 
 	HideHintParts(w)
 	if not showHints then
-		return
+		return x
 	end
 	local track, cur, max = ns.CharShow_Track(desc and desc.upgrade)
 	if track then
@@ -266,10 +282,10 @@ local function LayoutDetails(w, color, ilvl, desc, hints)
 		x = x + 5
 	end
 	for i, s in ipairs(w.sockets) do
-		local gemID = desc and desc.gemIDs and desc.gemIDs[i]
+		local gemID = desc and desc.gemSlots and desc.gemSlots[i]
 		if i <= hints.gems + hints.empty then
 			Put(w, s.gem, x, -27)
-			if i <= hints.gems and gemID then
+			if gemID then
 				s.gem:SetTexture(C_Item.GetItemIconByID(gemID))
 				s.gem:Show()
 				Tint(s.ring, color, 0.8)
@@ -287,13 +303,16 @@ local function LayoutDetails(w, color, ilvl, desc, hints)
 	elseif hints.enchant then
 		text, role = hints.enchant, "success"
 	end
+	local reach = x
 	if text then
 		w.hint:SetText(text)
 		w.hint:SetTextColor(UI.Color(role))
 		Tint(w.star, role, 1)
 		w.hint:Show()
 		w.star:Show()
+		reach = math.max(reach, TEXT_X + 16 + math.min(w.hint:GetUnboundedStringWidth(), TEXT_W - 16))
 	end
+	return reach
 end
 
 local function RefreshSlot(w)
@@ -322,7 +341,10 @@ local function RefreshSlot(w)
 	local desc = ns.GearItems_Describe and ns.GearItems_Describe(link)
 	local hints = desc and ns.CharShow_Hints(desc, ns.Gear_EnchantSlot(slot, desc.equipLoc), AtMaxLevel(),
 		desc.enchanted and EnchantText(slot)) or { gems = 0, empty = 0, missing = false }
-	LayoutDetails(w, color, ilvl, desc, hints)
+	w.desc, w.hints, w.ilvl, w.color = desc, hints, ilvl, color -- for the card and the menu
+	w.better:SetShown(ns.Gear_BagBetter ~= nil and ns.Gear_BagBetter(slot) ~= nil)
+	local reach = LayoutDetails(w, color, ilvl, desc, hints)
+	SetHitWidth(w, math.max(reach, TEXT_X + math.min(w.name:GetUnboundedStringWidth(), TEXT_W)))
 end
 
 -- Stats --------------------------------------------------------------------------------------------------------------
@@ -670,6 +692,8 @@ function SCENE.Create(parent)
 	CreateGearGroup("left", ns.CHARSHOW_LEFT, "LEFT")
 	CreateGearGroup("right", ns.CHARSHOW_RIGHT, "RIGHT")
 	CreateStats()
+	ns.CharShowCard.Create(root, tooltip)
+	ns.CharShowMenu.Create(root)
 end
 
 -- Groups are scaled so the design's 900 units fill the screen height, and placed at the design's fraction of the width.
@@ -711,6 +735,8 @@ function SCENE.Refresh()
 		RefreshSlot(w)
 	end
 	RefreshStats()
+	ns.CharShowCard.Refresh()
+	ns.CharShowMenu.Refresh()
 end
 
 function SCENE.RefreshStats()
@@ -738,7 +764,8 @@ end
 
 function SCENE.End()
 	closing, closeT = true, 0
-	tooltip:Hide()
+	ns.CharShowCard.Hide()
+	ns.CharShowMenu.Close()
 	ns.CharShow_OnEnd()
 end
 
@@ -747,7 +774,7 @@ function SCENE.MouseOverOwn()
 	if not root or not root:IsVisible() then
 		return false
 	end
-	if stats:IsMouseOver() then
+	if stats:IsMouseOver() or ns.CharShowMenu.IsMouseOver() then
 		return true
 	end
 	for _, w in ipairs(slotOrder) do

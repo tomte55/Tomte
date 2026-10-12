@@ -329,6 +329,18 @@ function ns.Gear_LinkGemIDs(link)
 	return ids
 end
 
+-- Socketed gem item IDs by socket: [socket] = item ID, nil for an empty socket (the Showcase's socket rows).
+function ns.Gear_LinkGemSlots(link)
+	local slots = {}
+	local g1, g2, g3, g4 = (link or ""):match("item:%-?%d+:[^:|]*:([^:|]*):([^:|]*):([^:|]*):([^:|]*)")
+	for i, g in ipairs({ g1 or "", g2 or "", g3 or "", g4 or "" }) do
+		if (tonumber(g) or 0) > 0 then
+			slots[i] = tonumber(g)
+		end
+	end
+	return slots
+end
+
 -- The enchantable slots of an expansion (default: the player's content expansion; the tests have no UnitLevel).
 local function EnchantSlots(expansion)
 	expansion = expansion or (UnitLevel and ns.ContentExpansion())
