@@ -119,6 +119,18 @@ test("NextIndex: inside the sanctum it points at the portal", function()
 	eq(NET.nodes[path[i]][7], "Take the portal from Stormwind to Dornogal")
 end)
 
+-- The sanctum's exit teleporter drops you outdoors right by the entrance, within reach of the interior's own nodes.
+test("Outdoors at the entrance: the route goes in through the entrance, not straight to the portal", function()
+	local path = ns.WayRoute_Find(NET, STORMWIND, DORNOGAL, Api("Alliance"))
+	local entrance = NET.nodes[path[1]]
+	local outside = { map = 0, x = entrance[2], y = entrance[3], outdoors = true }
+	local again = ns.WayRoute_Find(NET, outside, DORNOGAL, Api("Alliance"))
+	eq(ns.WayRoute_Interior(NET, NET.nodes[again[1]]), false, "starts outside the interior")
+	local i = ns.WayRoute_NextIndex(NET, again, 1, outside)
+	eq(ns.WayRoute_Interior(NET, NET.nodes[again[i]]), false, "points at the entrance")
+	eq(ns.WayRoute_NextIndex(NET, again, 1, outside, true), i, "reached by the game: still the entrance")
+end)
+
 test("NextIndex: reached by the game's radius counts as standing at it", function()
 	local path = ns.WayRoute_Find(NET, STORMWIND, DORNOGAL, Api("Alliance"))
 	local entrance = NET.nodes[path[1]]

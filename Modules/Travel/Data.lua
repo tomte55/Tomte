@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
 -- Waypoints, pure logic: no WoW API calls (unit-tested with plain Lua). Distance and arrival text, the
--- marker's state (far, close-up card, hidden), distance scaling, the edge arrow's position and angle, and the
+-- marker's state (far, close-up card, compass, hidden), distance scaling, the edge arrow's position and angle, the
+-- indoor compass, and the
 -- Classic/Minimal style presets. Distances are in yards everywhere; only the text converts to meters.
 
 local atan2 = math.atan2 or math.atan -- WoW (5.1) has atan2; plain Lua 5.4 takes atan(y, x)
@@ -137,16 +138,20 @@ function ns.Way_FooterText(mode, distanceText, arrivalText, name)
 	return line
 end
 
--- What the marker shows. info: { distance, valid, inQuestArea, offscreen, hasDetails }; opts: { card,
+-- What the marker shows. info: { distance, valid, inQuestArea, offscreen, hasDetails, compass }; opts: { card,
 -- cardDistance, hideDistance }. Returns "none" (nothing tracked or no position), "hidden" (arrived or inside the
--- quest area), "offscreen" (edge arrow), "card" (close-up card) or "far" (diamond and footer). Targets without
--- details (objectives, description, route step) never get a card: it would only repeat the name.
+-- quest area), "compass" (a route step indoors, see Way_Compass), "offscreen" (edge arrow), "card" (close-up card)
+-- or "far" (diamond and footer). Targets without details (objectives, description, route step) never get a card:
+-- it would only repeat the name.
 function ns.Way_State(info, opts)
 	if not info.valid or not info.distance then
 		return "none"
 	end
 	if info.distance <= opts.hideDistance or info.inQuestArea then
 		return "hidden"
+	end
+	if info.compass then
+		return "compass"
 	end
 	if info.offscreen then
 		return "offscreen"
@@ -175,6 +180,14 @@ function ns.Way_EdgePoint(dx, dy, rx, ry)
 	end
 	local ratio = rx * ry / math.sqrt(rx * rx * dy * dy + ry * ry * dx * dx)
 	return dx * ratio, dy * ratio, atan2(dy, dx) - math.pi / 2
+end
+
+-- Compass for a route step indoors, where the game's navigation points the wrong way (Router.lua): the distance
+-- from the player to the target and the arrow's screen angle (radians, 0 = right, up = ahead). World points are
+-- (north, west) as UnitPosition returns them; facing is GetPlayerFacing (0 = north, growing as you turn left).
+function ns.Way_Compass(px, py, facing, tx, ty)
+	local north, west = tx - px, ty - py
+	return math.sqrt(north * north + west * west), math.pi / 2 + atan2(west, north) - facing
 end
 
 -- Shortest-way step from one angle toward another, by `rate` (0-1) of the difference.

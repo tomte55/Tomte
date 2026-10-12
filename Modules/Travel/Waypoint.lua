@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 -- Waypoints module: replaces WaypointUI. Follows Blizzard's navigation frame (C_Navigation.GetFrame) with our own
--- marker, close-up card and edge arrow, hides Blizzard's SuperTrackedFrame while on, and super-tracks map pins as
+-- marker, close-up card and edge arrow (or a compass of our own for a route step indoors), hides Blizzard's SuperTrackedFrame while on, and super-tracks map pins as
 -- soon as they're placed. Pure logic is in Data.lua, target info in Target.lua, frames in Marker.lua, guard
 -- directions in Guard.lua, portal routes to other continents in Router.lua (Route.lua, Network*.lua).
 -- The update frame only runs while a navigation frame exists.
@@ -69,6 +69,21 @@ local function RefreshTarget()
 	end
 end
 
+-- An indoor route step (Target.lua): the distance and arrow angle from your own position and facing, or nil when
+-- they can't be read (another map, or secret values).
+local function Compass()
+	local spot = target and target.indoor
+	if not spot then
+		return nil
+	end
+	local x, y, _, map = UnitPosition("player")
+	local facing = GetPlayerFacing()
+	if not x or not facing or ns.IsSecret(x, y, map, facing) or map ~= spot.map then
+		return nil
+	end
+	return ns.Way_Compass(x, y, facing, spot.x, spot.y)
+end
+
 local function UpdateInfo()
 	if targetDirty then
 		RefreshTarget()
@@ -81,17 +96,23 @@ local function UpdateInfo()
 	local valid = C_Navigation.HasValidScreenPosition()
 		and navState ~= Enum.NavigationState.Invalid and navState ~= Enum.NavigationState.Disabled
 	local distance = C_Navigation.GetDistance()
+	local compassDistance = Compass()
+	if compassDistance then
+		valid, distance = true, compassDistance
+	end
 	state = ns.Way_State({
 		valid = valid,
 		distance = distance,
 		inQuestArea = ns.WayTarget_InQuestArea(target),
 		offscreen = C_Navigation.WasClampedToScreen(),
 		hasDetails = #target.lines > 0,
+		compass = compassDistance ~= nil,
 	}, db)
 	if state == "offscreen" and not db.arrow then
 		state = "hidden"
 	end
-	alphaGoal = (navState == Enum.NavigationState.Occluded and state ~= "offscreen") and OCCLUDED_ALPHA or 1
+	local occluded = navState == Enum.NavigationState.Occluded and (state == "far" or state == "card")
+	alphaGoal = occluded and OCCLUDED_ALPHA or 1
 
 	local seconds = ns.Way_UpdateArrival(arrival, distance, GetTime())
 	distanceText = ns.Way_FormatDistance(distance, db.metric)
@@ -108,6 +129,15 @@ local function OnUpdate(_, dt)
 	if state == "none" or state == "hidden" then
 		ns.WayMarker_Hide()
 		alpha = 0 -- fade in again when it comes back
+		return
+	end
+	if state == "compass" then
+		local _, angle = Compass() -- every frame: the arrow turns with you
+		if angle then
+			alpha = math.min(alpha + dt / FADE_IN, alphaGoal)
+			ns.WayMarker_SetAlpha(alpha * db.alpha)
+			ns.WayMarker_ShowCompass(angle, footer)
+		end
 		return
 	end
 	local sx, sy = ns.WayMarker_NavPoint(navFrame)

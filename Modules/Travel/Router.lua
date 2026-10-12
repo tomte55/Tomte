@@ -34,19 +34,24 @@ local function World(mapID, x, y)
 	end
 end
 
+-- outdoors: you can't be inside an interior such as the Wizard's Sanctum portal room (Route.lua).
 local function PlayerPoint()
+	local point
 	local mapID = C_Map.GetBestMapForUnit("player")
 	local pos = mapID and C_Map.GetPlayerMapPosition(mapID, "player")
 	if pos then
-		local point = World(mapID, pos.x, pos.y)
-		if point then
-			return point
+		point = World(mapID, pos.x, pos.y)
+	end
+	if not point then
+		local x, y, _, map = UnitPosition("player")
+		if x and map then
+			point = { map = map, x = x, y = y }
 		end
 	end
-	local x, y, _, map = UnitPosition("player")
-	if x and map then
-		return { map = map, x = x, y = y }
+	if point then
+		point.outdoors = not IsIndoors()
 	end
+	return point
 end
 
 -- A node's spot as a map pin on the most detailed map that takes one (a city, not the continent).
@@ -196,7 +201,8 @@ local function PlaceStep()
 end
 
 -- Where you are on the route: a new map means a portal was taken (or a hearthstone), so the route is found again
--- from here; on the same map the step moves on when you reach it.
+-- from here; on the same map the step moves on when you reach it. Outdoors with a step inside an interior, you've
+-- left it (the Wizard's Sanctum exit teleporter): found again too, back to its entrance.
 local function Advance()
 	local pos = PlayerPoint()
 	if not pos then
@@ -208,7 +214,8 @@ local function Advance()
 	end
 	local atStep = reached ~= nil and reached == route.path[route.index]
 	reached = nil
-	if pos.map ~= route.map then
+	local left = pos.outdoors and ns.WayRoute_Interior(NET, NET.nodes[route.path[route.index]])
+	if pos.map ~= route.map or left then
 		if not OnNetwork(pos.map) then
 			return -- a dungeon or a delve: the route waits, and is found again on the map you come out on
 		end
@@ -386,13 +393,18 @@ end)
 
 -- API ------------------------------------------------------------------------------------------------------
 
--- The step being tracked, for the marker: { text, nextText, destName }, or nil when the tracked pin isn't a step.
+-- The step being tracked, for the marker: { text, nextText, destName, indoor }, or nil when the tracked pin isn't a
+-- step. indoor: the step's world point { map, x, y } when it's inside an interior (the Wizard's Sanctum portal
+-- room). The game takes a map pin for an outdoor spot, so its navigation sends you out of the interior first: the
+-- marker uses its own compass for these steps instead.
 function ns.WayRouter_Step()
 	if not route or not route.leg or not route.path[route.index] or not SameSpot(C_Map.GetUserWaypoint(), route.leg) then
 		return nil
 	end
 	local text, nextText = ns.WayRoute_Texts(NET, route.path, route.index)
-	return { text = text, nextText = nextText, destName = MapName(route.dest.mapID) }
+	local node = NET.nodes[route.path[route.index]]
+	local indoor = ns.WayRoute_Interior(NET, node) and { map = node[1], x = node[2], y = node[3] } or nil
+	return { text = text, nextText = nextText, destName = MapName(route.dest.mapID), indoor = indoor }
 end
 
 -- /tomte way route

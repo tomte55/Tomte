@@ -1,8 +1,8 @@
 local addonName, ns = ...
 
--- Waypoints: the frames. A full-screen holder (on UIParent, or on WorldFrame so it survives Alt+Z) with three
--- views that Waypoint.lua switches between: the far marker (diamond, beam, footer), the close-up card and the
--- edge arrow. Drawn from color textures in the theme's colors; only the target's own icon is an atlas or
+-- Waypoints: the frames. A full-screen holder (on UIParent, or on WorldFrame so it survives Alt+Z) with four
+-- views that Waypoint.lua switches between: the far marker (diamond, beam, footer), the close-up card, the
+-- edge arrow and the compass (the edge arrow over your head, turning with you, with the footer). Drawn from color textures in the theme's colors; only the target's own icon is an atlas or
 -- texture. Positions come in as screen pixels (UIParent-independent), so the views convert by their own scale.
 
 local UI = ns.UI
@@ -20,6 +20,7 @@ local CARD_PAD_TOP, CARD_NAME_H, CARD_LINES_GAP, CARD_PAD_BOTTOM = 8, 18, 4, 10
 local ARROW_R = 34 -- chevron tip distance from the arrow's center
 local ARROW_ARM = 16
 local EDGE_RX, EDGE_RY = 0.4, 0.36 -- edge ellipse radii as a share of the screen size
+local COMPASS_Y = 0.22 -- compass height above the screen center, as a share of the screen height (over your head)
 
 local holder, far, card, arrow
 local db
@@ -143,6 +144,13 @@ local function CreateArrow()
 		arm:SetSize(4, ARROW_ARM)
 		arrow.arms[i] = arm
 	end
+	-- Compass only: the footer under the arrow.
+	arrow.label = Shadowed(UI.Text(arrow, 15, "text"))
+	arrow.label:SetJustifyH("CENTER")
+	arrow.label:SetPoint("TOP", arrow, "BOTTOM", 0, -2)
+	arrow.label:SetWidth(320)
+	arrow.label:SetSpacing(2)
+	arrow.label:Hide()
 	arrow:Hide()
 end
 
@@ -277,6 +285,7 @@ function ns.WayMarker_Show(state, navFrame, sx, sy, footer, distanceText, scale)
 		far:SetShown(state == "far")
 		card:SetShown(state == "card")
 		arrow:SetShown(state == "offscreen")
+		arrow.label:Hide()
 		if state == "offscreen" and view ~= "offscreen" then
 			arrowAngle = nil -- snap to the first direction instead of sweeping in from the last one
 		end
@@ -312,4 +321,26 @@ function ns.WayMarker_Show(state, navFrame, sx, sy, footer, distanceText, scale)
 		PointArrow(arrowAngle)
 		Place(arrow, "CENTER", cx + ex, cy + ey)
 	end
+end
+
+-- Compass view: the edge arrow over your head, pointing at angle (radians, 0 = right, up = ahead; Way_Compass),
+-- with the footer under it. Needs no navigation frame.
+function ns.WayMarker_ShowCompass(angle, footer)
+	if view ~= "compass" then
+		far:Hide()
+		card:Hide()
+		arrow:Show()
+		arrow.label:Show()
+		arrowAngle = nil
+		view = "compass"
+	end
+	if arrow.lastFooter ~= footer then
+		arrow.lastFooter = footer
+		arrow.label:SetText(footer or "")
+	end
+	arrowAngle = arrowAngle and ns.Way_TurnToward(arrowAngle, angle, 0.3) or angle
+	PointArrow(arrowAngle)
+	local w, h = holder:GetSize()
+	local hs = holder:GetEffectiveScale()
+	Place(arrow, "CENTER", w * hs / 2, h * hs * (0.5 + COMPASS_Y))
 end

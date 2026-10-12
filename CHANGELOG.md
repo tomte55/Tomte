@@ -6,6 +6,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 ## Unreleased
 
 - Smart Mount: on the water surface where you can fly, the key now summons a flying mount so you can take off. Underwater it still picks a water mount.
+- Waypoints: routes through the Wizard's Sanctum portal room now point at the right portal. Inside the room, an arrow over your head turns with you and points at the portal, instead of the marker sending you back out of the building. Leaving the room by its teleporter sends the route back to the entrance.
 
 ## v1.11.0 - 2026-10-12
 

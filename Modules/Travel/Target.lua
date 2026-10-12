@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
--- Waypoints: what is super-tracked, as { kind, name, icon, lines, questID, redirect }. icon is { atlas = } or
--- { texture = }, lines are the card's text lines (objectives, turn-in text, descriptions). Rebuilt on events,
+-- Waypoints: what is super-tracked, as { kind, name, icon, lines, questID, redirect, indoor }. icon is { atlas = }
+-- or { texture = }, lines are the card's text lines (objectives, turn-in text, descriptions), indoor the world point
+-- of a route step inside a building (WayRouter_Step). Rebuilt on events,
 -- not per frame. API facts checked against the 12.1.0 docs (GetNextWaypointForMap moved to C_Navigation).
 
 local ST = Enum.SuperTrackingType
@@ -87,7 +88,7 @@ local function RouteStep(step)
 	if atlas and step.text:lower():find("portal") and C_Texture.GetAtlasInfo(atlas) then
 		icon = { atlas = atlas }
 	end
-	local target = { kind = "route", name = step.text, icon = icon, lines = {} }
+	local target = { kind = "route", name = step.text, icon = icon, lines = {}, indoor = step.indoor }
 	if step.nextText then
 		AddLine(target.lines, "Then: " .. step.nextText)
 	end
@@ -179,9 +180,10 @@ function ns.WayTarget_Get()
 	end
 	target.name = target.name or ""
 
-	-- A route step on the way (portal, boat, zone exit) replaces the name in the footer and leads the card.
+	-- A route step on the way (portal, boat, zone exit) replaces the name in the footer and leads the card. Not for
+	-- an indoor step of ours: the game's way there leads out of the building (see WayRouter_Step).
 	local mapID = C_Map.GetBestMapForUnit("player")
-	if mapID then
+	if mapID and not target.indoor then
 		local _, _, description = C_Navigation.GetNextWaypointForMap(mapID)
 		if description and description ~= "" then
 			target.redirect = description

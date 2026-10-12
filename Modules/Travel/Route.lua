@@ -132,7 +132,7 @@ end
 local function Interior(net, node)
 	return node[5] ~= 0 and net.volumes[node[5]] == false
 end
-ns.WayRoute_Interior = Interior -- used by tests
+ns.WayRoute_Interior = Interior -- used by Router.lua and the tests
 
 local function Dist(ax, ay, bx, by)
 	local dx, dy = ax - bx, ay - by
@@ -147,7 +147,8 @@ local function CanWalk(net, from, to)
 end
 
 -- Shortest path from start to dest (points) as a list of node IDs, {} when they're on the same map (no route
--- needed), nil when there's no way. api is for conditions (see Eval).
+-- needed), nil when there's no way. api is for conditions (see Eval). start.outdoors: you can't be in an interior,
+-- even standing on its nodes (the Wizard's Sanctum exit teleporter drops you right by the entrance).
 function ns.WayRoute_Find(net, start, dest, api)
 	if start.map == dest.map then
 		return {}
@@ -191,7 +192,7 @@ function ns.WayRoute_Find(net, start, dest, api)
 		local node = nodes[id]
 		if node[1] == start.map then
 			local d = Dist(start.x, start.y, node[2], node[3])
-			if d <= ns.WAY_ROUTE_AT then
+			if d <= ns.WAY_ROUTE_AT and not (start.outdoors and Interior(net, node)) then
 				dist[id] = 0
 			elseif not Interior(net, node) then
 				dist[id] = d / ROUTE_SPEED
@@ -245,7 +246,8 @@ end
 
 -- The step to point at, from index i on: steps you're standing at are passed when the next one is on the same map
 -- (a portal you stand at stays until you've taken it), and inside an interior it points straight at the next step
--- in the same interior. pos: the player's point. reached: the game says you've reached step i (its radius can be
+-- in the same interior. pos: the player's point (pos.outdoors: a step into an interior is only passed once you're
+-- inside, as for Find). reached: the game says you've reached step i (its radius can be
 -- wider than WAY_ROUTE_AT), so it counts as standing at it.
 function ns.WayRoute_NextIndex(net, path, i, pos, reached)
 	local first = i
@@ -253,7 +255,7 @@ function ns.WayRoute_NextIndex(net, path, i, pos, reached)
 		local node, nextNode = net.nodes[path[i]], net.nodes[path[i + 1]]
 		local here = (reached and i == first)
 			or (node[1] == pos.map and Dist(pos.x, pos.y, node[2], node[3]) <= ns.WAY_ROUTE_AT)
-		if here and nextNode[1] == node[1] then
+		if here and nextNode[1] == node[1] and not (pos.outdoors and Interior(net, nextNode)) then
 			i = i + 1
 		elseif Interior(net, node) and nextNode[5] == node[5] then
 			i = i + 1
