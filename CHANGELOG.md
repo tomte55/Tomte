@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.11.0 - 2026-10-12
+
 - Showcase: hovering a gear slot shows a card with the item's 3D model, item level and upgrade track, your stats from it (with what each secondary is worth to you in percent), Use/Equip effects, enchant, gems and Gear Check's verdict. Hold Alt for the full game tooltip.
 - Showcase: click a gear slot for a menu to swap the item for one in your bags, socket gems and apply enchant scrolls or weapon oils, without leaving the Showcase. The game's "this binds to you" and "replace enchant?" questions are asked right in the menu.
 - Showcase: a small yellow diamond marks gear slots where your bags hold something better for your spec.
