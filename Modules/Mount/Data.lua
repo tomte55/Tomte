@@ -38,12 +38,14 @@ function ns.Mount_KnownType(mountTypeID)
 	return TYPES[mountTypeID] ~= nil
 end
 
--- s = { submerged, flyable, indoors } -> "water" | "flying" | "ground"
+-- s = { submerged, underwater, flyable, indoors } -> "water" | "flying" | "ground". submerged is true on the surface
+-- too (IsSubmerged, measured in 12.1); underwater = below it. On the surface where you can fly, you want to take off.
 function ns.Mount_Context(s)
-	if s.submerged then
+	local canFly = s.flyable and not s.indoors
+	if s.submerged and (s.underwater or not canFly) then
 		return "water"
 	end
-	if s.flyable and not s.indoors then
+	if canFly then
 		return "flying"
 	end
 	return "ground"

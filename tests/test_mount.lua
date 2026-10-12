@@ -23,7 +23,10 @@ test("type info: known and unknown", function()
 end)
 
 test("context", function()
-	eq(ns.Mount_Context({ submerged = true, flyable = true }), "water")
+	eq(ns.Mount_Context({ submerged = true, underwater = true, flyable = true }), "water")
+	eq(ns.Mount_Context({ submerged = true, flyable = true }), "flying") -- on the surface: take off
+	eq(ns.Mount_Context({ submerged = true }), "water") -- on the surface where you can't fly
+	eq(ns.Mount_Context({ submerged = true, flyable = true, indoors = true }), "water")
 	eq(ns.Mount_Context({ flyable = true }), "flying")
 	eq(ns.Mount_Context({ flyable = true, indoors = true }), "ground")
 	eq(ns.Mount_Context({}), "ground")

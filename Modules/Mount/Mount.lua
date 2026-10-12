@@ -151,11 +151,25 @@ local function Tiers(stats)
 	return tiers
 end
 
+-- Below the water surface: the breath timer is running down. IsSubmerged and IsSwimming are true on the surface too
+-- (measured in 12.1). A water-breathing buff hides the timer, so then it counts as the surface.
+local MIRROR_TIMERS = MIRRORTIMER_NUMTIMERS or 3 -- fatigue, breath, feign death; the global is gone in 12.1
+local function Underwater()
+	for i = 1, MIRROR_TIMERS do
+		local timer, _, _, scale = GetMirrorTimerInfo(i)
+		if timer == "BREATH" and scale < 0 then
+			return true
+		end
+	end
+	return false
+end
+
 -- Picks a mount for where you are, taking `prefer` (the one the macro shows) when it suits. Returns the mount (or
 -- nil) and the details for /tomte mount why.
 local function Choose(prefer)
 	local context = ns.Mount_Context({
 		submerged = IsSubmerged(),
+		underwater = Underwater(),
 		flyable = IsFlyableArea() or IsAdvancedFlyableArea(),
 		indoors = IsIndoors(),
 	})
@@ -371,7 +385,7 @@ local function PickKey()
 		list, zoneMap = ns.Mount_ZoneList(ns.Mount_Chain(), db.zones)
 	end
 	return table.concat({
-		tostring(IsSubmerged()), tostring(IsFlyableArea() or IsAdvancedFlyableArea()), tostring(IsIndoors()),
+		tostring(IsSubmerged()), tostring(Underwater()), tostring(IsFlyableArea() or IsAdvancedFlyableArea()), tostring(IsIndoors()),
 		tostring(C_UnitAuras.GetPlayerAuraBySpellID(SKYRIDING_AURA) ~= nil), tostring(zoneMap),
 		list and table.concat(list, ",") or "", tostring(db.preferGround),
 	}, ":")
@@ -477,6 +491,9 @@ function events:PLAYER_MOUNT_DISPLAY_CHANGED()
 	QueueMacroUpdate()
 end
 events.MOUNT_JOURNAL_USABILITY_CHANGED = QueueMacroUpdate
+-- The breath timer starts when you dive and stops when you're back up: water mount or flying mount.
+events.MIRROR_TIMER_START = QueueMacroUpdate
+events.MIRROR_TIMER_STOP = QueueMacroUpdate
 
 function events:NEW_MOUNT_ADDED()
 	mountIDs = nil
@@ -624,6 +641,8 @@ module = ns.RegisterModule({
 			events:RegisterEvent("MOUNT_JOURNAL_USABILITY_CHANGED")
 			events:RegisterEvent("NEW_MOUNT_ADDED")
 			events:RegisterEvent("MOUNT_JOURNAL_SEARCH_UPDATED")
+			events:RegisterEvent("MIRROR_TIMER_START")
+			events:RegisterEvent("MIRROR_TIMER_STOP")
 			QueueMacroUpdate()
 		else
 			events:UnregisterAllEvents()

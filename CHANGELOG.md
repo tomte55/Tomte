@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Smart Mount: on the water surface where you can fly, the key now summons a flying mount so you can take off. Underwater it still picks a water mount.
+
 ## v1.11.0 - 2026-10-12
 
 - Showcase: hovering a gear slot shows a card with the item's 3D model, item level and upgrade track, your stats from it (with what each secondary is worth to you in percent), Use/Equip effects, enchant, gems and Gear Check's verdict. Hold Alt for the full game tooltip.
