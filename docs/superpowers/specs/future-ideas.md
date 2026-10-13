@@ -19,6 +19,9 @@ source (Waypoints, Teleports). Ties the collecting modules together into a "work
 
 ## Friend sharing (2026-10-10)
 
+Designed (flight times as the first data set): see `2026-10-13-tomte-friend-sharing-design.md`. The other data
+sets below are still ideas.
+
 Friends run Tomte too, so installs could share data with each other. The user wants it later and wants to talk it
 through more first; these are the notes from the first discussion.
 
