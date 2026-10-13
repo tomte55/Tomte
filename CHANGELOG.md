@@ -5,6 +5,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Gathering: node spots on the minimap are now hollow rings, so the game's own node blip shows inside the ring instead of under our icon. An empty ring means nothing has spawned there.
 - Gathering: following a route no longer throws a Lua error each time the map pin changes.
 
 ## v1.12.0 - 2026-10-13

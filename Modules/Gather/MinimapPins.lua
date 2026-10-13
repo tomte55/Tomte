@@ -1,14 +1,16 @@
 local addonName, ns = ...
 
--- Gathering node spots on the minimap: a small icon on each spot of the player's map within the minimap's view,
+-- Gathering node spots on the minimap: a hollow ring on each spot of the player's map within the minimap's view,
 -- turning with a rotating minimap, round or square. While following a route (Follow.lua) its legs are drawn too and
 -- the followed spot sits on the edge when it's out of view. Geometry in MinimapData.lua (pure). Plain frames on the
 -- minimap, no mouse (clicks and pings stay the minimap's). Registered in Gather.lua.
 
-local PIN = 12 -- pixels
-local FOLLOWED_PIN = 16
-local RING = 1.5 -- pixels of ring around the icon
-local PIN_ALPHA = 0.8 -- under 1 so Blizzard's own tracking blips show through
+-- Hollow, and wider than Blizzard's node blip (about 14 pixels): the blip is drawn by the minimap itself, under any
+-- frame on it, so a spawned node shows inside our ring instead of under it.
+local RING = ns.Theme.MEDIA .. "Gather\\Ring"
+local PIN = 20 -- pixels
+local FOLLOWED_PIN = 22
+local PIN_ALPHA = 0.8
 local RECENT_ALPHA = 0.35 -- a spot gathered in the last few minutes
 local LINE = 2 -- route line thickness in pixels
 local LINE_ALPHA = 0.6
@@ -37,26 +39,13 @@ local function NewPin(size)
 	pin:SetSize(size, size)
 	pin.ring = pin:CreateTexture(nil, "ARTWORK")
 	pin.ring:SetAllPoints()
-	UI.CircleMask(pin.ring, pin)
-	pin.icon = pin:CreateTexture(nil, "OVERLAY")
-	pin.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-	pin.icon:SetPoint("TOPLEFT", RING, -RING)
-	pin.icon:SetPoint("BOTTOMRIGHT", -RING, RING)
-	UI.CircleMask(pin.icon, pin)
+	pin.ring:SetTexture(RING)
 	return pin
-end
-
-local function Icon(spot)
-	local t = spot.objectID and db.nodeTypes[spot.objectID]
-	return t and t.item and C_Item.GetItemIconByID(t.item) or ns.GATHER_KIND_ICONS[spot.kind]
 end
 
 local function Dress(pin, spot, followed)
 	pin.spot, pin.theme = spot, ns.Theme.name -- dressed again after a theme switch
-	local r, g, b = UI.Color(followed and "accent" or "frameDark")
-	pin.ring:SetColorTexture(r, g, b, 0.9)
-	pin.icon:SetTexture(Icon(spot))
-	pin.icon:SetDesaturated(spot.recent and not followed)
+	pin.ring:SetVertexColor(UI.Color(followed and "accent" or "frame"))
 end
 
 local function HideFrom(list, from, to)
@@ -140,9 +129,8 @@ local function Update()
 					pin = NewPin(PIN)
 					pins[used] = pin
 				end
-				if pin.spot ~= spot or pin.recent ~= spot.recent or pin.theme ~= ns.Theme.name then
+				if pin.spot ~= spot or pin.theme ~= ns.Theme.name then
 					Dress(pin, spot, false)
-					pin.recent = spot.recent
 				end
 				pin:SetAlpha(spot.recent and RECENT_ALPHA or PIN_ALPHA)
 				pin:SetPoint("CENTER", holder, "CENTER", x, y)
