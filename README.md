@@ -1,6 +1,16 @@
-# Tomte
+<p align="center"><img src="Media/Logo.svg" width="96" alt="Tomte logo"></p>
 
-A World of Warcraft addon for retail **12.1.0** (`## Interface: 120100`), made for a few friends. English only.
+<h1 align="center">Tomte</h1>
+
+<p align="center">
+One addon for everything around the fighting: your gear, your week, your alts, gold, travel and collecting,<br>
+with a cinematic touch. Made for a few friends, for retail WoW <b>12.1.0</b>. English only.
+</p>
+
+![Showcase: your character in the game world with your gear around it](docs/screenshots/hero.png)
+
+Tomte is a set of modules you switch on and off. Everything has a home in one window (`/tomte`), and the rest
+lives where you already look: tooltips, the world map, the mailbox, the bags.
 
 ## Install
 
@@ -8,30 +18,180 @@ A World of Warcraft addon for retail **12.1.0** (`## Interface: 120100`), made f
 2. Unzip it into `World of Warcraft\_retail_\Interface\AddOns` so you get `AddOns\Tomte\Tomte.toc`.
 3. Start the game (or `/reload`) and type `/tomte`.
 
-On first login Tomte asks what you want: Collector, Crafter, Minimal or Everything (or choose yourself).
+On first login Tomte asks what you want: Minimal, Collector, Crafter or Everything (or choose yourself).
 `/tomte setup` brings it back any time.
+
+<p align="center"><img src="docs/screenshots/setup.png" width="560" alt="The setup choice on first login"></p>
 
 To update, delete the old `Tomte` folder and unzip the new one. Your settings are kept (they live in `WTF`).
 What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
 Works better with (all optional): Baganator + Syndicator, Auctionator or TradeSkillMaster, Mount Journal Enhanced.
 
-## What it does
+## A tour
 
-One addon with toggleable modules. Type `/tomte` to open the Tomte window (also from the minimap
-button, the addon compartment or a key binding), or `/tomte help` for all commands. `/tomte version` (also in the window's title bar) says which version you
-have: mention it when you report a bug. The panel is resizable and remembers its
-size and position.
+### Home
+
+`/tomte` opens the Tomte window on Home: your character, what's still open this week, all your characters with their
+gold and professions, **Next up** (the best things to do right now, click one to start it), and **Around you**: what
+to collect, world quests, teleports and delves where you stand.
+
+![The Tomte window on Home](docs/screenshots/window-home.png)
+
+### Your gear
+
+**Showcase** (`/tomte showcase`) glides the camera in on your character and puts your gear around it: item level,
+missing enchants and gems, and your stats. Hover a slot for a card with the item's 3D model and how good it is for
+each of your specs; click to swap, socket or enchant.
+
+![Showcase with the card for a ring](docs/screenshots/showcase-card.png)
+
+**Gear Check** puts an upgrade verdict on item tooltips that knows what a simple score doesn't: armor type, main
+stat, tier sets, lost effects, unique limits. It says "sim it" when only a sim can tell, and which of your other
+characters an item would be an upgrade for.
+
+<table>
+<tr>
+<td><img src="docs/screenshots/gearcheck-tooltip.png" alt="Gear Check: an upgrade"></td>
+<td><img src="docs/screenshots/gearcheck-downgrade.png" alt="Gear Check: a downgrade"></td>
+</tr>
+<tr>
+<td align="center">An upgrade, and for which other specs</td>
+<td align="center">A downgrade: keep yours</td>
+</tr>
+</table>
+
+### Your week and your alts
+
+The **Weekly board** shows what you haven't done this week: Great Vault, weekly quests, profession knowledge,
+factions, raids, and every alt in one grid.
+
+![Weekly board, This week tab](docs/screenshots/weekly-board.png)
+
+**Alts** keeps every character at a glance and crafts across them: who can make something, which materials are
+where, and the crafts in order.
+
+![Alts, Characters view](docs/screenshots/alts.png)
+
+![Alts, Crafting tab: who crafts what, and where the materials are](docs/screenshots/crafting.png)
+
+Put a craft on the **crafting list** and Tomte works out the rest: what to buy (with an Auctionator shopping list),
+what each character has to craft first, and what to send where. At a mailbox, **For your alts** attaches what your
+other characters need, and material tooltips say who uses them.
+
+<table>
+<tr>
+<td width="62%"><img src="docs/screenshots/crafting-list.png" alt="The crafting list with shopping and steps"></td>
+<td width="38%"><img src="docs/screenshots/material-tooltip.png" alt="A material tooltip with who uses it"></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td width="62%"><img src="docs/screenshots/profession-gear.png" alt="Profession gear per character"></td>
+<td width="38%"><img src="docs/screenshots/mailbox-alts.png" alt="For your alts at the mailbox"></td>
+</tr>
+<tr>
+<td align="center">Profession gear: what each character could craft better</td>
+<td align="center">At the mailbox</td>
+</tr>
+</table>
+
+### Getting around
+
+**Waypoints** puts a marker in the world on whatever you track, with distance and arrival time. Walk up to it and it
+turns into a card with the objectives. A map pin on another continent is routed through the portals, zeppelins and
+boats on the way.
+
+<table>
+<tr>
+<td><img src="docs/screenshots/waypoints.png" alt="A waypoint from a distance"></td>
+<td><img src="docs/screenshots/waypoints-card.png" alt="The same waypoint up close"></td>
+</tr>
+</table>
+
+The world map gets a side panel: **World quests** sorted by what they're worth to you, **Collect here** with the
+mounts, pets and achievements still missing on that map, and **Teleports** with every hearthstone, portal and
+dungeon teleport you have.
+
+![World quests tab on the world map](docs/screenshots/map-worldquests.png)
+
+<table>
+<tr>
+<td><img src="docs/screenshots/map-collect.png" alt="Collect here tab"></td>
+<td><img src="docs/screenshots/map-teleports.png" alt="Teleports tab"></td>
+</tr>
+</table>
+
+Also: **Smart Mount** (one key that picks the right mount for where you are) and the **Flight Timer** (a countdown
+on flight paths, or a cinematic flight mode).
+
+### Gold and gathering
+
+**Gold world quests** lists every world quest that pays gold, by zone, with a route through them. **Gathering**
+remembers where you mined and picked herbs, shows the spots on the map and the minimap, and can walk you through a
+zone's route one spot at a time.
+
+<table>
+<tr>
+<td width="34%"><img src="docs/screenshots/gold-wq.png" alt="Gold world quests window"></td>
+<td width="66%"><img src="docs/screenshots/gathering-map.png" alt="Gathering node spots and a route on the world map"></td>
+</tr>
+</table>
+
+**Sessions** keeps every play session: time, gold per hour, loot worth, and a recap card for each.
+
+![Sessions page with the gold per hour chart](docs/screenshots/sessions.png)
+
+### The cinematic side
+
+When you go AFK, log out, take a flight or get something new, Tomte gives it a moment. Cinematics never lock your
+controls: any key or click ends them.
+
+<table>
+<tr>
+<td><img src="docs/screenshots/afk.png" alt="AFK screen"></td>
+<td><img src="docs/screenshots/recap.png" alt="Session recap card"></td>
+</tr>
+<tr>
+<td align="center">The AFK screen</td>
+<td align="center">Session recap</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/moment.png" alt="A new mount reveal"></td>
+<td><img src="docs/screenshots/flight.png" alt="Cinematic flight mode"></td>
+</tr>
+<tr>
+<td align="center">A new mount</td>
+<td align="center">Cinematic flight</td>
+</tr>
+</table>
+
+### And more
+
+Pet battle help (the right pet to swap to, tamer teams, Xu-Fu strategies), Delves, holidays and events, Almost Done
+achievements, a bigger dressing room, whisper toasts and an inbox, a trade chat filter, one-key fishing, repairs and
+junk selling, and class helpers for hunters and rogues. The full list is below.
+
+## Using Tomte
+
+Open the Tomte window with `/tomte`, the minimap button, the addon compartment or a key binding. `/tomte help` lists
+all commands. The window is resizable and remembers its size and position. Every module has its settings in the
+window; switch off what you don't want.
 
 **Reporting a bug:** `/tomte bug` opens a report to copy: versions, which modules are on, related addons and Tomte's
 last errors. Nothing is sent anywhere; paste it to me or in a GitHub issue. `/tomte bug full` adds error details and
 your settings string (read it before posting). Install BugSack to catch errors across sessions; without it Tomte
-keeps its own last 5. `/tomte bug clear` empties that list.
+keeps its own last 5. `/tomte bug clear` empties that list. `/tomte version` (also in the window's title bar) says
+which version you have.
 
 **Sharing settings:** Tomte window settings > Setup and sharing, or `/tomte profile export` / `import` / `undo`.
 Export gives a string of your settings (not your data: no characters, history, flight times or lists). Import shows
 what would change, per module, before anything is written; it then reloads. Undo goes back to your settings from
 before the last import.
+
+<details>
+<summary><b>Home in detail</b></summary>
 
 Home shows your character with its item level, gold, durability and location (hover each for more: missing
 enchants, this session's gold by source and the account total, the worst items, coordinates; click to open the
@@ -42,6 +202,11 @@ the left shows a small count beside Alts (crafting list steps for this character
 waiting, full Concentration) when there's something to do. "Counts on the rail" and which "Around you" blocks show
 are Tomte window settings.
 
+</details>
+
+<details>
+<summary><b>All modules</b></summary>
+
 | Module | Category | What it does |
 | --- | --- | --- |
 | Pet Battles | General | Help to win pet battles. In a battle, a helper shows the enemy team, which attack types hit the active enemy hard, its attack types, your best pet against it ("Swap to X?") and, in wild battles, rare pets you don't own yet. Talking to a pet tamer shows a card with the team Tomte will use, whether your pets are ready (dead, hurt, too low, missing), Load team, Heal (Revive Battle Pets or a bandage) and Xu-Fu's Pet Guides and Wowhead links. Paste strategies from Xu-Fu (a strategy's "Rematch string"): Load team picks your best copy of each pet and sets the abilities, the steps show during the fight, and a Next move button (key in Key Bindings > Tomte) plays the strategy's script, one press per action. A leveling slot swaps in the next pet from a queue once one reaches 25. A Pet Battles page lists every tamer fight on Xu-Fu's Pet Guides (524), your teams, the leveling queue and a type chart. |
@@ -51,7 +216,7 @@ are Tomte window settings.
 | Gold & value | General | What things are worth, from Auctionator or TSM (vendor prices without either): loot value on the recap card and the Sessions page, each character's bags and bank in Alts, and material cost, sale price and profit in the Crafting tab. |
 | Weekly board | General | What you haven't done this week: Great Vault, crests, weekly quests, profession knowledge and Concentration (toast when full), lockouts. Tabs: This week, Factions (renown emblems in progress rings with sub-factions, paragon glow, next rewards on hover, click for the reward track), Activities (Delves keys and shards, Worldsoul weekly, learned weekly quests by zone, Hide completed, a Resources list), Raids (each boss's kills this week per difficulty, collapsible raids), Characters (an alt grid) and Professions; alts roll over at the weekly reset without logging in. |
 | Alts | General | Every character at a glance and crafting across them (who makes it, materials and where, crafts in order). Send to alt: at a mailbox a "For your alts" panel attaches and sends what your other characters craft with (12 stacks a mail), and at the bank "Deposit for alts" puts it in the Warband bank. Manual rules and gold top-ups are settings. Crafting list: add a craft with its amount from the Crafting tab, and a tracker on screen says what the character you're on has to do ("Grab 10 Iron Ingot from your bank", "Mail 20 Mycobloom to Mira", "Craft 3 Flask: you have everything"); the mailbox sends each craft's exact materials, Baganator marks the items to move, and crafts count down as you make them. With Auctionator, a "Shopping list" link on the materials headings makes an Auctionator shopping list of what's missing. Recipe items (patterns, plans...) say on their tooltip who knows the recipe or who could learn it. "Gear for" in the Crafting tab keeps only what one character can use (their armor type, weapons their class equips, their main stat, tools for their professions), "you" follows whoever is logged in, and each row marks how the craft's item level compares with what they wear (green +n at every quality, yellow +n only at the higher qualities). Profession gear: a Profession gear tab shows each character's tool and accessories per profession with the best one somebody can craft when it's an upgrade (click to open it in the Crafting tab), "Gear for" marks tools and accessories too, the mailbox's "Gear for <name>" groups include profession gear from your bags that's an upgrade for another character, and a Next up suggestion says when a better tool or accessory can be crafted with the materials on hand. Profession gear is compared by item level; its stats are shown, not weighed. The detailed Characters view shows each max-level character's Great Vault and Concentration (from Weekly); an unlit profession icon says who has a free profession slot; totals include the Warband bank's gold. Each character's worn gear and spec are stored for Gear Check's upgrades for alts: at the mailbox a "Gear for Mira" group attaches the Bind on Equip upgrades for that character, and "Deposit for alts" puts warbound ones in the Warband bank. |
-| Material uses | General | Crafting materials say on their tooltip what they're for, so you know what to bank and what to sell: "Used by Tomten: Alchemy (3)" for your characters' recipes (from Alts, once a profession window has been opened), "Also: Leatherworking" for other professions that use it, or "Not used in crafting". Hold Shift for the recipes and who knows them. |
+| Material uses | General | Crafting materials say on their tooltip what they're for, so you know what to bank and what to sell: "Used by Mira: Alchemy (3)" for your characters' recipes (from Alts, once a profession window has been opened), "Also: Leatherworking" for other professions that use it, or "Not used in crafting". Hold Shift for the recipes and who knows them. |
 | Gathering | General | Tracks gathering runs (mining, herbalism, skinning, fishing): nodes and nodes per hour, items with their quality rank, value and gold per hour (from Gold & value), rare finds, skill and knowledge gained, and zones. A run starts with your first gather and ends after 10 minutes without one; mining and herbalism together is a mixed run ("Mining & Herbalism run"). Remembers where you mined and picked herbs and shows those spots on the world map and the minimap (for your professions, all, or off; a round button on the map switches them), shared with friends through Friend sharing. Draws a route through each zone's spots and can follow it: a map pin on the next spot that moves on as you reach each one (a key binding starts it and skips a spot), skipping spots you gathered a few minutes ago. A small tracker (Edit Mode moves it), a toast when a run ends, a Gathering page (runs, items, zones), and the recap card and Sessions page show what you gathered. |
 | Fishing | General | One key (Key Bindings > Tomte > Fishing) casts, and while the bobber is out the same key reels in and loots. Auto loot while fishing, and a press while the loot window is open does nothing. Tomte turns on the game's interact setting while you fish and puts it back after. Optional (settings): louder splash (music and ambience down, effects up), a fishing raft when you're swimming, the Oversized Bobber toy, dismount with the key, and an on-screen button. Replaces Angleur's One Key. |
 | World quests | World | A tab in the world map's side panel with the world quests on the map you're looking at, grouped by reward and sorted by what they're worth: missing mounts, pets and toys and real gear upgrades (from Gear Check) on top, then gear, gold, currencies and reputation, with time left. Click one to track it. Route tracks the listed quests one by one, nearest first from where you stand (fold a section to leave it out). A toast when you arrive in a zone with one worth doing. |
@@ -85,9 +250,10 @@ are Tomte window settings.
 | Vendor Helper | Upkeep | At a vendor: repairs (guild funds first when the withdraw limit covers it) and sells grey items, then one summary toast. Hold Shift while opening the vendor to skip it. |
 | Durability | Upkeep | A toast when your worst item drops below a threshold (once per drop) or an item breaks, and a warning when you enter a dungeon, raid or delve with low gear. |
 
-Cinematics never lock your controls: any key or click ends them.
+</details>
 
-### Commands
+<details>
+<summary><b>Commands and key bindings</b></summary>
 
 Each module's commands are `/tomte <module> <command>`, for example:
 
@@ -119,7 +285,14 @@ Each module's commands are `/tomte <module> <command>`, for example:
 
 Key bindings for toggling the Tomte window, Smart Mount, the Gold world quests window, whisper reply, the whisper inbox, Next pet battle move, Heal battle pets, Apply missing poison, Fishing and Copy chat are under **Tomte** in the game's Key Bindings menu.
 
-## Layout
+</details>
+
+## For developers
+
+<details>
+<summary><b>Layout, tests and releasing</b></summary>
+
+### Layout
 
 ```
 Tomte.toc, Bindings.xml
@@ -143,7 +316,7 @@ docs/        design specs and implementation plans
 
 `tests/`, `tools/`, `docs/`, `CLAUDE.md`, `.github/` and `Media/Logo.svg` are left out of the release zip (`.gitattributes`).
 
-## Tests
+### Tests
 
 Run from the folder above the repo (the `AddOns` folder) with a standalone Lua interpreter (the release workflow uses
 Lua 5.1, the game's version):
@@ -161,7 +334,7 @@ After adding or renaming a Lua file in `Tomte.toc`, run `lua Tomte/tools/bugfile
 regenerate `Core/BugFiles.lua`, the file list `/tomte bug` uses to recognize Tomte's errors; `test_bugreport` fails
 until it's done.
 
-## Releasing
+### Releasing
 
 1. Move the lines under **Unreleased** in `CHANGELOG.md` into a new `## vX.Y.Z - <date>` section.
 2. Set `## Version: X.Y.Z` in `Tomte.toc`.
@@ -171,6 +344,8 @@ until it's done.
 The GitHub Action checks that the tag matches the TOC and the changelog, runs the tests, zips the `Tomte` folder and
 publishes the release with that changelog section as its notes. Versions: patch for fixes, minor for new features
 or modules, major for changes that reset or break settings.
+
+</details>
 
 ## Credits
 
