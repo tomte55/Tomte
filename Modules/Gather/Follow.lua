@@ -102,7 +102,7 @@ local function IsOurs()
 		return false
 	end
 	local spot = Current()
-	local x, y = point.position:GetXY()
+	local x, y = point.position.x, point.position.y
 	return math.abs(x - spot.x) < SAME_SPOT and math.abs(y - spot.y) < SAME_SPOT
 end
 
@@ -112,7 +112,7 @@ local function Remember()
 	local point = C_Map.GetUserWaypoint()
 	if point then
 		prev.map = point.uiMapID
-		prev.x, prev.y = point.position:GetXY()
+		prev.x, prev.y = point.position.x, point.position.y
 	end
 	if prev.type == ST.Quest then
 		prev.quest = C_SuperTrack.GetSuperTrackedQuestID()
@@ -304,7 +304,7 @@ function ns.GatherFollow_Resume()
 	local x, y = ns.GatherNodes_Unpack(saved.pos)
 	local ours = point and point.uiMapID == saved.mapID
 	if ours then
-		local px, py = point.position:GetXY()
+		local px, py = point.position.x, point.position.y
 		ours = math.abs(px - x) < SAME_SPOT and math.abs(py - y) < SAME_SPOT
 	end
 	if not ours then

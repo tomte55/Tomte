@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Gathering: following a route no longer throws a Lua error each time the map pin changes.
+
 ## v1.12.0 - 2026-10-13
 
 - New module, Friend sharing: Tomte shares flight times and gathering node spots with your Battle.net friends who run Tomte, in the background. Their flight times fill in your flight timer and coverage map, and their node spots fill your maps. Your own data always wins. A Friend sharing page lists who shares with you, with a Block switch per friend, and you're told once when a friend runs a newer Tomte. On by default; switch it off in its settings.
