@@ -5,6 +5,10 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.12.0 - 2026-10-13
+
+- New module, Friend sharing: Tomte shares flight times and gathering node spots with your Battle.net friends who run Tomte, in the background. Their flight times fill in your flight timer and coverage map, and their node spots fill your maps. Your own data always wins. A Friend sharing page lists who shares with you, with a Block switch per friend, and you're told once when a friend runs a newer Tomte. On by default; switch it off in its settings.
+- New module, Chat Copy: a copy icon on each chat window (shown while you hover it) opens its text as plain text to copy with Ctrl+C, links shortened to their names. "Clean lines" drops timestamps, channel tags and name brackets. Off by default.
 - Gathering: remembers where you mined and picked herbs and shows those spots on the world map, with the ore or herb as the icon and its name on hover. Pick in the settings whether you see spots for your own professions, all of them, or none.
 - Gathering: a round button on the world map, under the other map buttons. Left-click for which nodes to show and the Gathering settings, right-click to hide or show the spots.
 - Gathering: mining and herbalism on the same run is now a "Mining & Herbalism run" instead of being named after whichever had more nodes.
