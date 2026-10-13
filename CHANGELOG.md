@@ -5,6 +5,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- New module, Material uses: crafting materials say on their tooltip what they're for, so you know what to bank and what to sell. "Used by Tomten: Blacksmithing (4)" for your characters' recipes, "Also: Alchemy, Leatherworking" for other professions that use it, or "Not used in crafting". Hold Shift for the recipes and who knows them.
 - Smart Mount: on the water surface where you can fly, the key now summons a flying mount so you can take off. Underwater it still picks a water mount.
 - Waypoints: routes through the Wizard's Sanctum portal room now point at the right portal. Inside the room, an arrow over your head turns with you and points at the portal, instead of the marker sending you back out of the building. Leaving the room by its teleporter sends the route back to the entrance.
 

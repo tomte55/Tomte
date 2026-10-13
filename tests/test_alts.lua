@@ -628,4 +628,54 @@ test("quality: one item level is a sure upgrade or none", function()
 	eq((ns.Alts_Upgrade(580, 580, { ilvl = 590 })), "no")
 end)
 
+test("reagent index: every quality rank points at the recipe", function()
+	local index = ns.Alts_ReagentIndex(RECIPES)
+	for _, item in ipairs({ 4001, 4002, 4003 }) do
+		eq(#index[item], 1, "item " .. item)
+		eq(index[item][1], 2, "item " .. item)
+	end
+	eq(index[6001][1], 3)
+	eq(index[2001][1], 1, "a crafted material used by another recipe")
+	eq(index[1001], nil, "an output nothing uses")
+end)
+
+test("used by: characters who know a recipe using the item", function()
+	local index = ns.Alts_ReagentIndex(RECIPES)
+	local list = ns.Alts_UsedByChars(CHARS, RECIPES, index[4002])
+	eq(#list, 1)
+	eq(list[1].name, "Tomten")
+	eq(list[1].base, BS)
+	eq(list[1].profName, "Blacksmithing")
+	eq(#list[1].recipes, 1)
+	eq(list[1].recipes[1].name, "Charged Alloy")
+	eq(list[1].recipes[1].id, 2)
+	list = ns.Alts_UsedByChars(CHARS, RECIPES, index[6001])
+	eq(#list, 1, "Bob has Alchemy but doesn't know Flux")
+	eq(list[1].name, "Alchy")
+	eq(#ns.Alts_UsedByChars(CHARS, RECIPES, { 99 }), 0, "a recipe nobody stored")
+end)
+
+test("used by: sorted by recipe count, then name", function()
+	local recipes = {
+		[1] = { name = "B", base = BS, reagents = { { items = { 9 }, qty = 1 } } },
+		[2] = { name = "A", base = BS, reagents = { { items = { 9 }, qty = 1 } } },
+		[3] = { name = "C", base = ALCH, reagents = { { items = { 9 }, qty = 2 } } },
+	}
+	local chars = {
+		x = { name = "Zed", profs = { [1] = { name = "Blacksmithing", base = BS, known = { [1] = true, [2] = true } } } },
+		y = { name = "Amy", profs = { [2] = { name = "Alchemy", base = ALCH, known = { [3] = true } } } },
+		z = { name = "Bo", profs = { [1] = { name = "Blacksmithing", base = BS, known = { [2] = true } },
+			[2] = { name = "Alchemy", base = ALCH, known = { [3] = true } } } },
+	}
+	local list = ns.Alts_UsedByChars(chars, recipes, ns.Alts_ReagentIndex(recipes)[9])
+	eq(#list, 4, "one entry per character and profession")
+	eq(list[1].name, "Zed")
+	eq(list[1].recipes[1].name, "A", "recipes by name")
+	eq(list[1].recipes[2].name, "B")
+	eq(list[2].name, "Amy")
+	eq(list[3].name, "Bo")
+	eq(list[3].profName, "Alchemy")
+	eq(list[4].profName, "Blacksmithing")
+end)
+
 H.done()

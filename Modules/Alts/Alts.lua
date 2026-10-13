@@ -19,6 +19,7 @@ local module, db
 local page
 local producers -- [itemID] = recipeIDs, for tooltips; rebuilt when recipes change
 local recipesByName -- [lower-case name] = recipeIDs, for recipe items; rebuilt when recipes change
+local reagentIndex -- [itemID] = recipeIDs that use it, for Material uses; rebuilt when recipes change
 local drawnKey, drawnAt -- the tab ShowTab last drew and GetTime() then (one value per frame)
 
 local function ShowTab(key)
@@ -146,6 +147,7 @@ end
 function ns.Alts_RecipesChanged()
 	producers = nil
 	recipesByName = nil
+	reagentIndex = nil
 	ns.AltsCraft_RecipesChanged()
 	ns.AltsProf_RecipesChanged()
 	ns.AltsList_RecipesChanged()
@@ -250,6 +252,16 @@ local function OnItem(tooltip, data)
 	if learnableLine then
 		tooltip:AddLine(learnableLine, 1, 1, 1, true)
 	end
+end
+
+-- Which characters craft with an item, for Material uses' tooltip line (Alts_UsedByChars' list; {} while Alts is off).
+function ns.Alts_UsedBy(itemID)
+	if not (module.active and itemID) then
+		return {}
+	end
+	reagentIndex = reagentIndex or ns.Alts_ReagentIndex(db.recipes)
+	local ids = reagentIndex[itemID]
+	return ids and ns.Alts_UsedByChars(db.chars, db.recipes, ids) or {}
 end
 
 -- Commands -------------------------------------------------------------------------------------------------

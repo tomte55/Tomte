@@ -43,6 +43,64 @@ function ns.Alts_Producers(recipes)
 	return byItem
 end
 
+-- [itemID] = { recipeID, ... }: the recipes that use each item as a material (every quality rank of a slot).
+function ns.Alts_ReagentIndex(recipes)
+	local byItem = {}
+	for id, r in pairs(recipes) do
+		for _, slot in ipairs(r.reagents or {}) do
+			for _, item in ipairs(slot.items or {}) do
+				local list = byItem[item]
+				if not list then
+					list = {}
+					byItem[item] = list
+				end
+				if list[#list] ~= id then -- the same item twice in one recipe counts once
+					list[#list + 1] = id
+				end
+			end
+		end
+	end
+	for _, list in pairs(byItem) do
+		table.sort(list)
+	end
+	return byItem
+end
+
+-- Who knows the recipes (ids, from Alts_ReagentIndex): { { name, class, base, profName, recipes = { { id, name } } } },
+-- one entry per character and profession, most recipes first, then by name and profession; recipes by name.
+function ns.Alts_UsedByChars(chars, recipes, ids)
+	local list = {}
+	for _, c in pairs(chars) do
+		for _, prof in pairs(c.profs or {}) do
+			local entry
+			for _, id in ipairs(ids or {}) do
+				local r = recipes[id]
+				if r and r.base == prof.base and prof.known and prof.known[id] then
+					if not entry then
+						entry = { name = c.name, class = c.class, base = prof.base, profName = prof.name, recipes = {} }
+						list[#list + 1] = entry
+					end
+					entry.recipes[#entry.recipes + 1] = { id = id, name = r.name }
+				end
+			end
+		end
+	end
+	for _, entry in ipairs(list) do
+		table.sort(entry.recipes, function(a, b)
+			return (a.name or "") < (b.name or "")
+		end)
+	end
+	table.sort(list, function(a, b)
+		if #a.recipes ~= #b.recipes then
+			return #a.recipes > #b.recipes
+		elseif a.name ~= b.name then
+			return (a.name or "") < (b.name or "")
+		end
+		return (a.profName or "") < (b.profName or "")
+	end)
+	return list
+end
+
 -- Characters (sorted by name) who know the recipe, and those who could learn it (they have its profession).
 function ns.Alts_Crafters(chars, recipe, recipeID)
 	local known, learnable = {}, {}

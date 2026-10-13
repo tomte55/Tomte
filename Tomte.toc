@@ -192,6 +192,9 @@ Modules/Alts/Send.lua
 Modules/Alts/List.lua
 Modules/Alts/ListTab.lua
 Modules/Alts/Alts.lua
+Modules/Materials/Generated.lua
+Modules/Materials/Data.lua
+Modules/Materials/Materials.lua
 Modules/Recap/Data.lua
 Modules/Recap/History.lua
 Modules/Recap/SessionsPage.lua
