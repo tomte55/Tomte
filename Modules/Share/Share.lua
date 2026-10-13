@@ -16,6 +16,7 @@ local ONLINE_DELAY = 2 -- seconds: a friend's game info fills in just after BN_F
 local CHANGED_DELAY = 10 -- seconds: several changes in a row send one hello
 local REPLY_WINDOW = 60 -- seconds: a hello is answered with ours unless we sent them one this recently (no ping-pong)
 local LOG_SIZE = 20 -- lines kept per friend for /tomte share why
+local RELEASES = "https://github.com/tomte55/Tomte/releases/latest"
 local ICON = "Interface\\Icons\\Achievement_GuildPerk_EverybodysFriend"
 local EVENTS = { "BN_CHAT_MSG_ADDON", "BN_FRIEND_ACCOUNT_ONLINE", "BN_FRIEND_ACCOUNT_OFFLINE", "BN_FRIEND_INFO_CHANGED",
 	"PLAYER_REGEN_ENABLED" }
@@ -130,10 +131,17 @@ local function Blocked(tag)
 	return row and row.blocked
 end
 
+-- A set is shared (offered, sent and accepted) when it's switched on here and its own module allows it (Gathering
+-- off: no node spots).
+local function Shared(key)
+	local set = sets[key]
+	return set ~= nil and db.sets[key] == true and (not set.active or set.active() == true)
+end
+
 local function SharedSets()
 	local list = {}
 	for _, key in ipairs(setOrder) do
-		if db.sets[key] then
+		if Shared(key) then
 			list[#list + 1] = { key, sets[key].revision() }
 		end
 	end
@@ -162,14 +170,43 @@ end
 
 -- Receiving --------------------------------------------------------------------------------------------------------
 
+function ns.Share_ShowDownload()
+	ns.Dialog_Show({
+		title = "Get the newest Tomte",
+		hint = "Ctrl+C to copy the link and open it in your browser. Download the zip, put its Tomte folder over the one in Interface\\AddOns and restart the game.",
+		text = RELEASES,
+		readOnly = true,
+	})
+end
+
+-- A friend runs a newer Tomte: told once per version (a toast and a chat line); the page shows it until you update.
+local function NoticeVersion(friend, version)
+	if not (ns.Share_NewerVersion(version, ns.VERSION) and ns.Share_NewerVersion(version, db.toldVersion)) then
+		return
+	end
+	db.toldVersion = version
+	local text = ("%s runs Tomte %s, you have %s."):format(ShortName(friend.tag), version, ns.VERSION)
+	ns.Print(text .. " Get it: " .. RELEASES)
+	ns.Toast_Show({ owner = OWNER, label = "Tomte update", accent = { UI.Color("accent") }, icon = ICON,
+		title = "A newer Tomte is out", text = text .. " Click for the download link.", hold = 12,
+		onClick = ns.Share_ShowDownload })
+end
+
 local function OnHello(id, friend, row, msg)
 	row.version = msg.version
 	Log(friend.tag, "hello, Tomte " .. msg.version)
+	NoticeVersion(friend, msg.version)
 	for key, rev in pairs(msg.sets) do
 		local set = sets[key]
-		if set and db.sets[key] and rev ~= set.revision() then
-			Queue(id, friend.tag, ns.Share_BuildRequest(key))
-			Log(friend.tag, "asked for " .. key .. " (they have something we don't)")
+		local got = row.sets[key]
+		if Shared(key) and rev ~= set.revision() then
+			if got and got.rev == rev then
+				-- Imported before: what still differs merged into our own spots, or is what we reset or forgot.
+				Log(friend.tag, key .. ": already have everything from this revision")
+			else
+				Queue(id, friend.tag, ns.Share_BuildRequest(key))
+				Log(friend.tag, "asked for " .. key .. " (they have something we don't)")
+			end
 		end
 	end
 	if GetTime() - (helloAt[id] or -REPLY_WINDOW) >= REPLY_WINDOW then
@@ -179,7 +216,7 @@ end
 
 local function OnRequest(id, friend, msg)
 	local set = sets[msg.set]
-	if not (set and db.sets[msg.set]) then
+	if not Shared(msg.set) then
 		Log(friend.tag, "asked for " .. msg.set .. ", not shared")
 		return
 	end
@@ -197,7 +234,7 @@ end
 
 local function OnData(id, friend, row, msg)
 	local set = sets[msg.set]
-	if not (set and db.sets[msg.set]) then
+	if not Shared(msg.set) then
 		return
 	end
 	local payload = ns.Share_Receive(inbox, id, msg, GetTime())
@@ -211,7 +248,7 @@ local function OnData(id, friend, row, msg)
 	end
 	local got = row.sets[msg.set] or {}
 	row.sets[msg.set] = got
-	got.at, got.added = time(), (got.added or 0) + added
+	got.at, got.added, got.rev = time(), (got.added or 0) + added, msg.rev
 	Log(friend.tag, ("%s received, %d new"):format(msg.set, added))
 	if added > 0 then
 		if db.toast then
@@ -321,7 +358,8 @@ end
 
 -- The owning module's data changed: tell everyone (debounced). Does nothing while Friend sharing is off.
 function ns.Share_Changed(key)
-	if not (module and module.active and sets[key] and db.sets[key]) then
+	-- Not Shared(key): a set just switched off still sends a hello, so friends learn it's no longer offered.
+	if not (module and module.active and sets[key]) then
 		return
 	end
 	if changedTimer then
@@ -351,6 +389,23 @@ function ns.Share_Friends()
 		return a.name:lower() < b.name:lower()
 	end)
 	return list
+end
+
+-- The newest Tomte a friend runs when it's newer than ours: version, the friend's short name. Nil otherwise.
+function ns.Share_NewestFriendVersion()
+	if not (module and module.active) then
+		return nil
+	end
+	local best, who = ns.VERSION, nil
+	for tag, row in pairs(db.friends) do
+		if not row.blocked and ns.Share_NewerVersion(row.version, best) then
+			best, who = row.version, ShortName(tag)
+		end
+	end
+	if who then
+		return best, who
+	end
+	return nil
 end
 
 function ns.Share_SetBlocked(tag, on)
@@ -425,12 +480,15 @@ module = ns.RegisterModule({
 	key = "share",
 	name = "Friend sharing",
 	category = "Social",
-	description = "Shares data with your Battle.net friends who run Tomte, in the background: flight times you've recorded (and those friends sent you) fill in each other's flight timers and coverage maps.",
-	enabledByDefault = false,
+	description = "Shares data with your Battle.net friends who run Tomte, in the background: flight times you've recorded (and those friends sent you) fill in each other's flight timers and coverage maps, and gathering node spots fill in each other's world maps. Also tells you when a friend runs a newer Tomte.",
+	enabledByDefault = true,
 	defaults = {
-		sets = { flight = true }, -- [data set key] = shared (sent and accepted)
+		sets = { flight = true, nodes = true }, -- [data set key] = shared (sent and accepted)
 		toast = false,
-		friends = {}, -- [BattleTag] = { blocked, character, version, seen, sets = { [key] = { at, added } } }
+		toldVersion = "", -- the newest Tomte version a friend's hello told us about (each version is told once)
+		-- [BattleTag] = { blocked, character, version, seen, sets = { [key] = { at, added, rev } } }; rev is the
+		-- friend's revision we last imported (not asked for again).
+		friends = {},
 	},
 	noShare = { "friends" }, -- BattleTags: not in settings strings (Core/Profile.lua)
 	init = function(moduleDB)
@@ -462,6 +520,11 @@ module = ns.RegisterModule({
 				ns.Share_Changed("flight")
 			end,
 			tooltip = "Send the flight times you know to your Battle.net friends and add theirs to yours. Your own times always win: flying a route records over a friend's time." },
+		{ type = "checkbox", key = "sets.nodes", label = "Gathering nodes",
+			onChange = function()
+				ns.Share_Changed("nodes")
+			end,
+			tooltip = "Send the mining and herbalism spots Gathering remembers to your friends and add theirs to your world map. A friend's spot right next to one of yours is the same node and isn't added twice." },
 		{ type = "header", label = "Friends" },
 		{ type = "checkbox", key = "toast", label = "Toast when friends send something new" },
 		{ type = "button", label = "Sync with friends", text = "Sync", onClick = Sync,

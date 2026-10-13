@@ -1,11 +1,13 @@
 local addonName, ns = ...
 
 -- Friend sharing page in the Tomte window: every Battle.net friend seen running Tomte with Friend sharing on, what
--- they gave you, a Block switch and Forget. Rows come from ns.Share_Friends (Share.lua).
+-- they gave you, a Block switch and Forget, and a strip when one of them runs a newer Tomte. Rows come from
+-- ns.Share_Friends, the strip from ns.Share_NewestFriendVersion (Share.lua).
 
 local UI = ns.UI
 local ROW_H = 40
 local PAD = 8
+local STRIP_H = 34 -- the "newer Tomte" strip
 
 local page
 local rows, used = {}, 0
@@ -52,11 +54,25 @@ local function Detail(f)
 	return table.concat(parts, "  ·  ")
 end
 
+-- "A newer Tomte is out" strip at the top while a friend runs a newer version; the list moves down under it.
+local function NewerStrip()
+	local version, who = ns.Share_NewestFriendVersion()
+	page.newer:SetShown(version ~= nil)
+	page.scroll:ClearAllPoints()
+	page.scroll:SetPoint("TOPLEFT", 8, version and -(STRIP_H + PAD) or 0)
+	page.scroll:SetPoint("BOTTOMRIGHT", -8, 0)
+	if version then
+		page.newer.text:SetText(("A newer Tomte is out: %s %s"):format(UI.Wrap(version, "accent"),
+			UI.Wrap("(" .. who .. " has it, you have " .. ns.VERSION .. ")", "textMuted")))
+	end
+end
+
 local function Layout()
 	for i = 1, used do
 		rows[i]:Hide()
 	end
 	used = 0
+	NewerStrip()
 	local list = ns.Share_Friends()
 	page.none:SetShown(#list == 0)
 	local y = 0
@@ -93,6 +109,21 @@ ns.SharePage = {
 		page.none:SetPoint("TOPLEFT", 16, -4)
 		page.none:SetPoint("RIGHT", -16, 0)
 		page.none:SetText("No friends seen yet. Friends show up here once they're online in WoW with Tomte and Friend sharing turned on. Both of you need a Tomte version with Friend sharing.")
+		local newer = CreateFrame("Frame", nil, page)
+		newer:SetHeight(STRIP_H)
+		newer:SetPoint("TOPLEFT", 8, 0)
+		newer:SetPoint("TOPRIGHT", -8, 0)
+		UI.Panel(newer, { size = "small" })
+		newer.get = UI.Button(newer, 90, "Get link")
+		newer.get:SetPoint("RIGHT", -6, 0)
+		newer.get:SetScript("OnClick", ns.Share_ShowDownload)
+		newer.text = UI.Text(newer, 12, "text")
+		newer.text:SetPoint("LEFT", 10, 0)
+		newer.text:SetPoint("RIGHT", newer.get, "LEFT", -10, 0)
+		newer.text:SetJustifyH("LEFT")
+		newer.text:SetWordWrap(false)
+		newer:Hide()
+		page.newer = newer
 	end,
 	Refresh = Layout,
 }

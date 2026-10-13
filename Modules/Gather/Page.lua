@@ -200,7 +200,7 @@ local function RunsView(y)
 		local row = TableRow(y, RUN_COLS, {
 			r == live and UI.Wrap("now", "accent") or date("%a %d %b %H:%M", r.start),
 			ClassName(r.name, r.class),
-			ns.GATHER_KIND_NAMES[n.mainKind] or "-",
+			ns.GATHER_KIND_NAMES[n.mainKind] or "-", -- "Mixed": the column is too narrow for the kinds' names
 			ns.Gather_DurationText(n.duration),
 			tostring(n.nodes),
 			tostring(n.nodesPerHour),
@@ -285,7 +285,7 @@ local function DetailView(y)
 	local r = detail
 	local live = r == ns.Gather_Current()
 	local n = ns.Gather_Numbers(r, GetServerTime(), live)
-	page.total:SetText(("%s, %s, %s"):format(ns.Gather_RunTitle(n.mainKind), ClassName(r.name, r.class),
+	page.total:SetText(("%s, %s, %s"):format(ns.Gather_RunTitle(n.mainKind, n.kinds), ClassName(r.name, r.class),
 		live and "going on now" or date("%a %d %b %H:%M", r.start)))
 	local back = TextRow(y, "< Back to the runs", "accent")
 	back.onClick = function()

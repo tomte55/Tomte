@@ -123,8 +123,8 @@ function ns.Gather_End(reason)
 		if db.toastEnd and reason ~= "switch" and ns.Toast_Show then
 			local n = ns.Gather_Numbers(run)
 			ns.Toast_Show({
-				owner = "gather", label = "Run done", accent = "accent", title = ns.Gather_RunTitle(n.mainKind),
-				text = EndText(n), icon = ns.GATHER_KIND_ICONS[n.mainKind or "mining"], hold = 8,
+				owner = "gather", label = "Run done", accent = "accent", title = ns.Gather_RunTitle(n.mainKind, n.kinds),
+				text = EndText(n), icon = ns.Gather_RunIcon(n), hold = 8,
 				onClick = ns.Gather_Open,
 			})
 		end
@@ -196,8 +196,25 @@ local function ToastFind(f)
 	end
 end
 
+local function MapSize(mapID)
+	return C_Map.GetMapWorldSize(mapID)
+end
+
+-- A mining or herbalism node's spot, with or without a run going.
+local function RecordNode(g)
+	if not (db.recordNodes and g.mapID and g.x) then
+		return
+	end
+	local info = { name = g.nodeName, item = g.item }
+	if ns.GatherNodes_Add(db, g.mapID, g.x, g.y, g.kind, g.objectID, MapSize, info) then
+		ns.Share_Changed("nodes")
+		ns.GatherPins_Refresh()
+	end
+end
+
 local handlers = {
 	gather = function(g)
+		RecordNode(g)
 		local run = db.run
 		if not run then
 			if not db.auto then
@@ -268,14 +285,14 @@ local function LastRunLine()
 	local run = db.run
 	if run then
 		local n = ns.Gather_Numbers(run, GetServerTime(), true)
-		return ("%s on: %d nodes, %s"):format(ns.Gather_RunTitle(n.mainKind), n.nodes, Duration(n.duration))
+		return ("%s on: %d nodes, %s"):format(ns.Gather_RunTitle(n.mainKind, n.kinds), n.nodes, Duration(n.duration))
 	end
 	local last = db.runs[1]
 	if not last then
 		return "No runs yet"
 	end
 	local n = ns.Gather_Numbers(last)
-	local kind = ns.GATHER_KIND_NAMES[n.mainKind] or "Gathering"
+	local kind = #n.kinds > 0 and ns.Gather_KindsText(n.kinds) or "Gathering"
 	if n.valuePerHour then
 		return ("Last run: %s, %s, %s/h"):format(kind, Duration(n.duration), Money(n.valuePerHour))
 	end
@@ -313,6 +330,40 @@ local function Why()
 	end
 end
 
+local function CountText(counts)
+	local parts = {}
+	for _, kind in ipairs(ns.GATHER_KINDS) do
+		if counts[kind] then
+			parts[#parts + 1] = ("%s %s"):format(ns.Thousands(counts[kind]), ns.GATHER_KIND_NAMES[kind]:lower())
+		end
+	end
+	return #parts > 0 and table.concat(parts, ", ") or "none"
+end
+
+local function NodeCount()
+	local _, all = ns.GatherNodes_Counts(db)
+	local n = 0
+	for _, count in pairs(all) do
+		n = n + count
+	end
+	return n
+end
+
+local function Nodes()
+	local mapID = C_Map.GetBestMapForUnit("player")
+	local here, all = ns.GatherNodes_Counts(db, mapID)
+	local info = mapID and C_Map.GetMapInfo(mapID)
+	ns.Print(("node spots in %s: %s."):format(info and info.name or "this zone", CountText(here)))
+	ns.Print(("node spots everywhere: %s."):format(CountText(all)))
+	if not db.recordNodes then
+		ns.Print("Remember node spots is off in the Gathering settings.")
+	end
+end
+
+local function PinsChanged()
+	ns.GatherPins_Refresh()
+end
+
 module = ns.RegisterModule({
 	key = "gather",
 	name = "Gathering",
@@ -330,9 +381,15 @@ module = ns.RegisterModule({
 		keepCount = 50,
 		runs = {}, -- history, newest first (a collection: "Reset settings" keeps it)
 		spells = {}, -- learned spellID -> kind (a collection)
+		recordNodes = true,
+		mapPins = "mine", -- "mine" (your gathering professions), "all" or "off"
+		mapPinsOn = "mine", -- what the map button's right-click turns the pins back on to
+		mapButton = true, -- the round button on the world map (MapPins.lua)
+		nodes = {}, -- [uiMapID] = { [x * 10000 + y] = objectID or "m"/"h" } (Nodes.lua; a collection)
+		nodeTypes = {}, -- [objectID] = { kind, name, item } (a collection)
 		pageScope = "all", pageRange = "all", pageKind = "all", pageView = "runs",
 	},
-	-- Page filters: not in settings strings (Core/Profile.lua).
+	-- Page filters: not in settings strings (Core/Profile.lua). Collections (runs, nodes) never are.
 	noShare = { "pageScope", "pageRange", "pageKind", "pageView" },
 	init = function(saved)
 		db = saved
@@ -342,6 +399,31 @@ module = ns.RegisterModule({
 		if ns.GatherPage_Init then
 			ns.GatherPage_Init(db)
 		end
+		ns.GatherPins_Init(db, module)
+		-- Friend sharing (Modules/Share) loads after this file, so it's looked up here, at init.
+		ns.Share_Register({
+			key = "nodes",
+			label = "Gathering nodes",
+			count = function(n, adjective)
+				return ns.Thousands(n) .. (adjective and (" " .. adjective) or "") .. (n == 1 and " node spot" or " node spots")
+			end,
+			export = function()
+				return ns.GatherNodes_Export(db)
+			end,
+			revision = function()
+				return ns.GatherNodes_Revision(db)
+			end,
+			import = function(payload)
+				local added, why = ns.GatherNodes_Import(db, payload, MapSize)
+				if added and added > 0 then
+					ns.GatherPins_Refresh()
+				end
+				return added, why
+			end,
+			active = function()
+				return module.active and db.recordNodes
+			end,
+		})
 	end,
 	toggle = function(active)
 		if active then
@@ -354,7 +436,10 @@ module = ns.RegisterModule({
 			ns.GatherDetect_Stop()
 			events:UnwatchAll("gather")
 			StopTicker()
+			ns.GatherPins_Clear()
 		end
+		ns.GatherPins_Refresh()
+		ns.Share_Changed("nodes")
 		Refresh()
 	end,
 	home = {
@@ -375,6 +460,7 @@ module = ns.RegisterModule({
 			ns.Gather_End("manual")
 		end },
 		{ "why", "what the last loot window counted as, and why", Why },
+		{ "nodes", "how many node spots are remembered here and everywhere", Nodes },
 	},
 	options = {
 		{ type = "header", label = "Runs" },
@@ -402,6 +488,26 @@ module = ns.RegisterModule({
 			tooltip = "Time, nodes, value and gold per hour of the run." },
 		{ type = "checkbox", key = "toastFind", label = "Toast for rare finds",
 			tooltip = "A rare or better item, or a weekly knowledge drop, while gathering." },
+
+		{ type = "header", label = "Nodes" },
+		{ type = "checkbox", key = "recordNodes", label = "Remember node spots", onChange = function()
+			ns.Share_Changed("nodes")
+		end, tooltip = "Where you mined and picked herbs, for the world map. With Friend sharing on, friends who run Tomte get your spots and you get theirs." },
+		{ type = "dropdown", key = "mapPins", label = "Show nodes on the world map", onChange = PinsChanged,
+			choices = function()
+				return { { value = "mine", text = "For your professions" }, { value = "all", text = "All" },
+					{ value = "off", text = "Off" } }
+			end },
+		{ type = "checkbox", key = "mapButton", label = "Button on the world map", onChange = PinsChanged,
+			tooltip = "A round button in the world map's top-right corner. Left-click: which nodes to show and more. Right-click: show or hide them." },
+		{ type = "button", label = function()
+			return ("Node spots: %s"):format(ns.Thousands(db and NodeCount() or 0))
+		end, text = "Forget", confirm = "Forget every node spot Tomte remembers (yours and what friends sent)?",
+			onClick = function()
+				wipe(db.nodes)
+				ns.Share_Changed("nodes")
+				ns.GatherPins_Refresh()
+			end },
 
 		{ type = "header", label = "Data" },
 		{ type = "button", label = function()

@@ -288,7 +288,7 @@ function ns.GatherTracker_Refresh()
 	end
 	current, currentSample = run, sample
 	local n = ns.Gather_Numbers(run, GetServerTime(), not sample)
-	frame.icon:SetTexture(ns.GATHER_KIND_ICONS[n.mainKind or "mining"])
+	frame.icon:SetTexture(ns.Gather_RunIcon(n))
 	frame.endButton:SetShown(not sample)
 
 	for _, fs in ipairs({ frame.nodes, frame.value, frame.finds, frame.progress }) do
@@ -304,7 +304,7 @@ function ns.GatherTracker_Refresh()
 		frame:Show()
 		return
 	end
-	frame.title:SetText(ns.Gather_RunTitle(n.mainKind))
+	frame.title:SetText(ns.Gather_RunTitle(n.mainKind, n.kinds))
 	local y = 28
 	frame.nodes:ClearAllPoints()
 	frame.nodes:SetPoint("TOPLEFT", PAD, -y)

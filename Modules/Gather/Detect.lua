@@ -225,6 +225,30 @@ local function MapID()
 	return Readable(mapID) and mapID or nil
 end
 
+-- Where the player stands on mapID (0..1), or nil: no position in instances (warcraft.wiki.gg
+-- API_C_Map.GetPlayerMapPosition). The loot window opens next to the node, so this is the node's spot.
+local function Position(mapID)
+	local pos = mapID and C_Map.GetPlayerMapPosition(mapID, "player")
+	if not pos then
+		return nil
+	end
+	local x, y = pos:GetXY()
+	if not (Readable(x) and Readable(y)) or (x == 0 and y == 0) then
+		return nil
+	end
+	return x, y
+end
+
+-- The node's main item: the first slot whose item belongs to the gather's kind (ore for mining), for the map pin.
+local function MainItem(slots, kind)
+	for _, s in ipairs(slots) do
+		if ns.Gather_ItemKind(s.classID, s.subClassID) == kind then
+			return s.itemID
+		end
+	end
+	return nil
+end
+
 local function HasKind(kind)
 	for _, p in ipairs(ns.GatherDetect_Profs()) do
 		if p.kind == kind then
@@ -301,8 +325,9 @@ local function Commit()
 		return
 	end
 	local mapID = MapID()
+	local x, y = Position(mapID)
 	Call("gather", { at = GetServerTime(), kind = win.kind, sources = win.sources, mapID = mapID,
-		objectID = win.objectID, nodeName = win.nodeName })
+		objectID = win.objectID, nodeName = win.nodeName, x = x, y = y, item = MainItem(win.slots, win.kind) })
 	for _, s in ipairs(win.slots) do
 		pending[s.slot] = {
 			itemID = s.itemID, link = s.link, count = s.count, quality = s.quality, kind = win.kind, mapID = mapID,

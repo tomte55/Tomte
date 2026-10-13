@@ -6,13 +6,41 @@ local addonName, ns = ...
 
 ns.GATHER_KINDS = { "mining", "herbalism", "skinning", "fishing" }
 ns.GATHER_SKILL_LINES = { mining = 186, herbalism = 182, skinning = 393, fishing = 356 }
-ns.GATHER_KIND_NAMES = { mining = "Mining", herbalism = "Herbalism", skinning = "Skinning", fishing = "Fishing" }
+-- "mixed" is a run's main kind when two or more kinds each have a real share of its nodes (Gather_RunKinds).
+ns.GATHER_KIND_NAMES = { mining = "Mining", herbalism = "Herbalism", skinning = "Skinning", fishing = "Fishing",
+	mixed = "Mixed" }
 ns.GATHER_KIND_ICONS = { mining = "Interface\\Icons\\Trade_Mining", herbalism = "Interface\\Icons\\Trade_Herbalism",
 	skinning = "Interface\\Icons\\INV_Misc_Pelt_Wolf_01", fishing = "Interface\\Icons\\Trade_Fishing" }
 
--- "Mining run", "Gathering run" when nothing was gathered yet.
-function ns.Gather_RunTitle(kind)
-	return (ns.GATHER_KIND_NAMES[kind] or "Gathering") .. " run"
+-- A kind counts toward a mixed run with at least this many nodes and this share of the run's nodes: a herbalist
+-- who taps one ore vein on the way is still on a Herbalism run.
+local MIXED_MIN_NODES = 2
+local MIXED_MIN_SHARE = 0.2
+
+-- kinds (a run's Gather_RunKinds) -> "Mining & Herbalism", "Mining, Herbalism & Skinning".
+function ns.Gather_KindsText(kinds)
+	local names = {}
+	for i, kind in ipairs(kinds) do
+		names[i] = ns.GATHER_KIND_NAMES[kind] or kind
+	end
+	if #names <= 1 then
+		return names[1] or "Gathering"
+	end
+	return table.concat(names, ", ", 1, #names - 1) .. " & " .. names[#names]
+end
+
+-- "Mining run", "Mining & Herbalism run" for a mixed one (kinds from Gather_Numbers), "Gathering run" when nothing
+-- was gathered yet.
+function ns.Gather_RunTitle(kind, kinds)
+	if kind == "mixed" and kinds then
+		return ns.Gather_KindsText(kinds) .. " run"
+	end
+	return (kind and kind ~= "mixed" and ns.GATHER_KIND_NAMES[kind] or "Gathering") .. " run"
+end
+
+-- The icon for a run's numbers: its biggest kind's.
+function ns.Gather_RunIcon(n)
+	return ns.GATHER_KIND_ICONS[n.kinds and n.kinds[1] or n.mainKind] or ns.GATHER_KIND_ICONS.mining
 end
 
 -- Gathering spell IDs as listed in GatherMate2's collector (https://github.com/Nevcairiel/GatherMate2) and on
@@ -374,26 +402,49 @@ local function ItemsValue(items, priceNow)
 	return (ns.Value_LootTotals(items, priceNow))
 end
 
-function ns.Gather_MainKind(run)
-	local best, most = nil, 0
-	for _, kind in ipairs(ns.GATHER_KINDS) do
+-- The kinds that make up a run, most nodes first (ties in GATHER_KINDS order): the biggest always, others with a
+-- real share (MIXED_MIN_NODES and MIXED_MIN_SHARE). Empty for a run without nodes.
+function ns.Gather_RunKinds(run)
+	local list, total = {}, 0
+	for i, kind in ipairs(ns.GATHER_KINDS) do
 		local k = run.kinds and run.kinds[kind]
-		if k and k.nodes > most then
-			best, most = kind, k.nodes
+		if k and k.nodes > 0 then
+			list[#list + 1] = { kind = kind, nodes = k.nodes, order = i }
+			total = total + k.nodes
 		end
 	end
-	return best
+	table.sort(list, function(a, b)
+		if a.nodes ~= b.nodes then
+			return a.nodes > b.nodes
+		end
+		return a.order < b.order
+	end)
+	local kinds = {}
+	for i, e in ipairs(list) do
+		if i == 1 or (e.nodes >= MIXED_MIN_NODES and e.nodes >= total * MIXED_MIN_SHARE) then
+			kinds[#kinds + 1] = e.kind
+		end
+	end
+	return kinds
+end
+
+-- The run's kind, "mixed" when Gather_RunKinds has more than one, nil without nodes.
+function ns.Gather_MainKind(run)
+	local kinds = ns.Gather_RunKinds(run)
+	return #kinds > 1 and "mixed" or kinds[1]
 end
 
 -- priceNow(key, entry) -> copper or nil (Value_LootTotals), or nil to use the value when gathered.
 function ns.Gather_Numbers(run, now, live, priceNow)
 	local duration = ns.Gather_Duration(run, now, live)
 	local value = ItemsValue(run.items, priceNow)
+	local kinds = ns.Gather_RunKinds(run)
 	return {
+		kinds = kinds,
 		duration = duration, nodes = run.nodes or 0, gathers = run.gathers or 0,
 		nodesPerHour = PerHour(run.nodes or 0, duration),
 		value = value, valuePerHour = value and PerHour(value, duration) or nil,
-		mainKind = ns.Gather_MainKind(run),
+		mainKind = #kinds > 1 and "mixed" or kinds[1],
 	}
 end
 

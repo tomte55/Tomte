@@ -55,6 +55,7 @@ everything here rides the same hello/request/chunk flow. Not designed yet, discu
 1. Update notice: the hello already carries the friend's Tomte version; when a friend runs a newer one, say once
    "Kalle runs Tomte vX, you have vY" with the releases link. No new data set.
 2. Gathering nodes (data set): pool recorded node positions like flight legs, fill gaps, merge duplicates.
+   (1 and 2 built 2026-10-13: `2026-10-13-tomte-sharing-update-nodes-design.md`.)
 3. Crafting (data set): profession + known recipe IDs per character → "Kalle can craft this" on recipe/item
    tooltips, the Crafting tab and Next up.
 4. Collections "who needs this" (data set): friends' missing mounts/pets/toys → a tradable pet or unbound mount

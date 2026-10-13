@@ -106,6 +106,33 @@ function ns.Share_Receive(inbox, from, msg, now)
 	return table.concat(t.parts, "", 1, t.count)
 end
 
+local function VersionParts(text)
+	if type(text) ~= "string" or not text:match("^%d+[%d%.]*$") or text:match("%.%.") or text:match("%.$") then
+		return nil
+	end
+	local parts = {}
+	for n in text:gmatch("%d+") do
+		parts[#parts + 1] = tonumber(n)
+	end
+	return parts
+end
+
+-- True when Tomte version a is newer than b ("1.12.0" > "1.11.3", missing parts are 0). Anything but dotted
+-- numbers (a dev checkout's "?", "1.12.0-beta") is never newer, so nobody is told to update by an odd string.
+function ns.Share_NewerVersion(a, b)
+	local pa, pb = VersionParts(a), VersionParts(b)
+	if not (pa and pb) then
+		return false
+	end
+	for i = 1, math.max(#pa, #pb) do
+		local x, y = pa[i] or 0, pb[i] or 0
+		if x ~= y then
+			return x > y
+		end
+	end
+	return false
+end
+
 function ns.Share_Prune(inbox, now)
 	for id, t in pairs(inbox) do
 		if now - t.at > STALE then
