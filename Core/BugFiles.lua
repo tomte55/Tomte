@@ -47,6 +47,8 @@ ns.BUG_FILES = {
 	"Panel/HomeAround.lua",
 	"Panel/Home.lua",
 	"Panel/Rail.lua",
+	"Panel/Sidebar.lua",
+	"Panel/ModulePage.lua",
 	"Panel/Panel.lua",
 	"Panel/Window.lua",
 	"Panel/Share.lua",
