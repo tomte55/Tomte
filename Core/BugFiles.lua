@@ -58,6 +58,7 @@ ns.BUG_FILES = {
 	"Modules/Minimap/Data.lua",
 	"Modules/Minimap/Minimap.lua",
 	"Modules/Flight/Data.lua",
+	"Modules/Flight/ShareData.lua",
 	"Modules/Flight/Bar.lua",
 	"Modules/Flight/Coverage.lua",
 	"Modules/Flight/Atlas.lua",
@@ -244,4 +245,8 @@ ns.BUG_FILES = {
 	"Modules/Gather/Tracker.lua",
 	"Modules/Gather/Page.lua",
 	"Modules/Gather/Gather.lua",
+	"Modules/Share/Protocol.lua",
+	"Modules/Share/Roster.lua",
+	"Modules/Share/Page.lua",
+	"Modules/Share/Share.lua",
 }

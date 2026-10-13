@@ -170,6 +170,20 @@ can't be undone and is harmless. `ns.Share_Changed` and `ns.Share_Register` do n
 4. Block the friend, `/tomte share sync`: `why` shows nothing sent or accepted.
 5. Turn the module off: `/etrace` shows no `BN_CHAT_MSG_ADDON` handling by Tomte and nothing is sent.
 
+## As built (2026-10-13)
+
+- Field separator is `^`, not `|` (WoW's escape character): `1^H^1.12.0^flight=123`.
+- Chunks are 2000 bytes, one message per second: ChatThrottleLib holds Battle.net game data to 255 bytes "for
+  reasons of traffic fairness", so the 4078-byte limit isn't used in full. Lockdown waits 10 s, throttle 2 s.
+- Reassembly is keyed by sender, set and revision: revisions are hashes, so no "newer" exists; unfinished ones go
+  stale after 60 s.
+- A hello is answered with ours unless we sent that friend one in the last 60 s (instead of "once per session"),
+  so a friend who relogs still learns our revision.
+- A friend coming online gets a hello only if we haven't greeted their game account this session.
+- The user's own data: 151 entries, 2.5 KB, 2 messages. A mocked four-install chain (A-B-C-D, 3000 legs at D)
+  converged in one round with no traffic afterwards.
+- Reset in Flight Timer clears your times, but friends send theirs back on the next exchange (relay by design).
+
 ## Out of scope (this round)
 
 Crafting, group check, "Send to friend", guild/party/character-friend channels, per-friend undo, marking which

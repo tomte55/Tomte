@@ -96,6 +96,7 @@ local function ResetTimes()
 	wipe(db.hops)
 	wipe(db.paces)
 	db.calibration.offset, db.calibration.samples = 0, 0
+	ns.Share_Changed("flight")
 	ns.Print("all recorded flight times cleared.")
 end
 
@@ -207,6 +208,7 @@ local function EndFlight(endTime)
 			ns.CalibrateEstimate(db, flight.rawEstimate, duration)
 		end
 		ns.RecordFlight(db, flight.path, duration, flight.passes)
+		ns.Share_Changed("flight")
 		ns.RecordPace(db, flight, duration)
 		ns.RecordStats(db, duration, (flight.originName or "?") .. " to " .. flight.destName, flight.originName, flight.mapID)
 	end
@@ -512,6 +514,23 @@ module = ns.RegisterModule({
 	keep = { "calibration", "stats" }, -- collected data: a settings reset keeps it
 	init = function(db)
 		ns.flightDB = db
+		-- Friend sharing (Modules/Share) loads after this file, so it's looked up here, at init.
+		ns.Share_Register({
+			key = "flight",
+			label = "Flight times",
+			count = function(n, adjective)
+				return ns.Thousands(n) .. (adjective and (" " .. adjective) or "") .. (n == 1 and " flight time" or " flight times")
+			end,
+			export = function()
+				return ns.FlightShare_Export(db)
+			end,
+			revision = function()
+				return ns.FlightShare_Revision(db)
+			end,
+			import = function(payload)
+				return ns.FlightShare_Import(db, payload)
+			end,
+		})
 	end,
 	toggle = function(active)
 		if active then

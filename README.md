@@ -71,6 +71,7 @@ are Tomte window settings.
 | Whispers | Social | A toast per whisper (click to reply), unread badge, an inbox, and a summary card for whispers received in combat or during a cinematic. |
 | Mentions | Social | A toast when someone says your name or a keyword in guild, group, say or channel chat. |
 | Friends Online | Social | Who's online at login, and toasts when friends (or watched people and guildmates) come online. |
+| Friend sharing | Social | Pools flight times with your Battle.net friends who run Tomte, in the background: their times fill in your flight timer and coverage map, and what you know (yours and what friends sent) goes on to your other friends. Your own times always win. A Friend sharing page lists who shares with you, with a Block switch. Off by default. |
 | Group Alerts | Social | Invites, queue pops, ready checks and summons: a repeating sound on the Master channel until answered, plus a taskbar flash for summons. |
 | Trade Filter | Chat | Trade and Services (or the channels you pick) show only messages with your keywords: your professions by name and abbreviation (Blacksmithing: BS, smith) plus your own words, minus messages with an ignore word (WTS, boost...). Matched words are highlighted; optional toast per match. Off by default. |
 | Chat Tabs | Chat | Busy channels in their own chat tab; the main window keeps them (filtered) or drops them. Turning it off restores your chat. Off by default. |
@@ -108,6 +109,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte gather` (the Gathering page), `/tomte gather start` / `end`, `/tomte gather why` (how the last loot window was counted)
 - `/tomte fishing` (options), `/tomte fishing status` (key, reel state and settings waiting to be put back)
 - `/tomte wgq` (the Gold world quests window), `/tomte wgq list` / `report` (in chat), `/tomte wgq route` / `stop`, `/tomte wgq reset` (window position)
+- `/tomte share list` (friends sharing with you), `/tomte share sync` (ask everyone for what's new now), `/tomte share why <name>` (what was exchanged with that friend)
 - `/tomte delves` (the Delves page), `/tomte delves list` (today's delves, bountiful marked, and your keys), `/tomte delves vault` (the Great Vault World plan and tier ladder)
 - `/tomte events` (the Events page), `/tomte events list`, `/tomte events calendar` (today's raw calendar rows), `/tomte events ids` (Darkmoon Faire quest IDs with the game's names), `/tomte events test` (sample toast)
 
@@ -125,7 +127,7 @@ Themes/      one file per theme (colors, fonts and art by role, registered with 
 Media/       logo, theme art and fonts (with their OFL licenses)
 Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Rogue, Combat, Social, Chat, Gear,
              Achievements, Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value,
-             Minimap, Pets, Fishing, Gather, Delves, Holidays)
+             Minimap, Pets, Fishing, Gather, Delves, Holidays, Share)
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 tools/       dev scripts (waynet.py builds Modules/Travel/Network*.lua from Blizzard's waypoint tables, events.py
              builds Modules/Holidays/Generated.lua from the client's toy and holiday tables, theme_art.py and themes/
