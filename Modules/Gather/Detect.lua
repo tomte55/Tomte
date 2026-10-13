@@ -238,6 +238,7 @@ local function Position(mapID)
 	end
 	return x, y
 end
+ns.Gather_PlayerPos = Position -- also for routes and the minimap (Follow.lua, MinimapPins.lua)
 
 -- The node's main item: the first slot whose item belongs to the gather's kind (ore for mining), for the map pin.
 local function MainItem(slots, kind)

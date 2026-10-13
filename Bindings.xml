@@ -17,6 +17,12 @@
 	<Binding name="TOMTE_CHAT_COPY" category="Tomte">
 		Tomte_Binding("CHAT_COPY")
 	</Binding>
+	<Binding name="TOMTE_GATHER_FOLLOW" category="Tomte">
+		Tomte_Binding("GATHER_FOLLOW")
+	</Binding>
+	<Binding name="TOMTE_GATHER_SKIP" category="Tomte">
+		Tomte_Binding("GATHER_SKIP")
+	</Binding>
 	<Binding name="CLICK TomteSmartMount:LeftButton" category="Tomte"/>
 	<Binding name="CLICK TomteSmartMount:RightButton" category="Tomte"/>
 	<Binding name="CLICK TomtePoison1:LeftButton" category="Tomte"/>

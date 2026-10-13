@@ -251,10 +251,14 @@ Modules/Delves/Page.lua
 Modules/Delves/Delves.lua
 Modules/Gather/Data.lua
 Modules/Gather/Nodes.lua
+Modules/Gather/Route.lua
+Modules/Gather/MinimapData.lua
 Modules/Gather/Detect.lua
 Modules/Gather/Tracker.lua
 Modules/Gather/Page.lua
 Modules/Gather/MapPins.lua
+Modules/Gather/MinimapPins.lua
+Modules/Gather/Follow.lua
 Modules/Gather/Gather.lua
 Modules/Share/Protocol.lua
 Modules/Share/Roster.lua

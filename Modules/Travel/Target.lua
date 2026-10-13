@@ -101,6 +101,11 @@ local function UserWaypoint()
 	if step and step.text then
 		return RouteStep(step)
 	end
+	-- Gathering's follow mode (Modules/Gather/Follow.lua): the pin is the next node spot of its route.
+	local spot = ns.GatherFollow_Target and ns.GatherFollow_Target()
+	if spot then
+		return { kind = "pin", name = spot.name, icon = spot.icon, lines = { spot.line } }
+	end
 	return { kind = "pin", name = ItemName() or "Map pin", icon = ICON_PIN, lines = {} }
 end
 

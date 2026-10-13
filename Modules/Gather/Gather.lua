@@ -3,6 +3,8 @@ local addonName, ns = ...
 -- Gathering sessions module: tracks gathering runs (mining, herbalism, skinning, fishing): nodes, items with their
 -- ranks, value and gold per hour, rare finds, skill and knowledge, zones. A small tracker while a run is on, an
 -- end-of-run toast and a Gathering page. Detection is Detect.lua, pure logic Data.lua. It only reads and counts.
+-- Node spots (Nodes.lua) show on the world map (MapPins.lua) and minimap (MinimapPins.lua), with a route to follow
+-- (Route.lua, Follow.lua).
 
 local IDLE_DEFAULT = 600 -- seconds without a gather that end a run (the "End a run after" slider's default)
 local MIN_NODES_DEFAULT = 5 -- automatic runs with fewer nodes aren't kept
@@ -10,6 +12,7 @@ local IDLE_CHECK = 15
 
 local module, db
 local ticker
+local gathered = {} -- [mapID] = { [pos] = server time }: spots gathered this session (Follow.lua skips them a while)
 
 local events = ns.Gather_Events
 
@@ -158,6 +161,8 @@ end
 
 events:On("gather", "PLAYER_ENTERING_WORLD", function()
 	Resume()
+	-- A second later: the user waypoint and professions (the route's kinds) are known by then.
+	C_Timer.After(1, ns.GatherFollow_Resume)
 end)
 
 ---------------------------------------------------------------------------------------------------------------
@@ -200,15 +205,35 @@ local function MapSize(mapID)
 	return C_Map.GetMapWorldSize(mapID)
 end
 
+-- Seconds since the spot at pos on mapID was gathered this session, or nil.
+function ns.Gather_SpotAge(mapID, pos)
+	local at = gathered[mapID] and gathered[mapID][pos]
+	return at and GetServerTime() - at or nil
+end
+
+-- The node spots changed (mapID, or anywhere when nil): routes, the maps and friends hear of it.
+local function NodesChanged(mapID)
+	ns.GatherRoute_Changed(mapID)
+	ns.Share_Changed("nodes")
+	ns.GatherPins_Refresh()
+	ns.GatherMini_Refresh()
+end
+
 -- A mining or herbalism node's spot, with or without a run going.
 local function RecordNode(g)
 	if not (db.recordNodes and g.mapID and g.x) then
 		return
 	end
 	local info = { name = g.nodeName, item = g.item }
-	if ns.GatherNodes_Add(db, g.mapID, g.x, g.y, g.kind, g.objectID, MapSize, info) then
-		ns.Share_Changed("nodes")
-		ns.GatherPins_Refresh()
+	local added, pos = ns.GatherNodes_Add(db, g.mapID, g.x, g.y, g.kind, g.objectID, MapSize, info)
+	if pos then
+		gathered[g.mapID] = gathered[g.mapID] or {}
+		gathered[g.mapID][pos] = GetServerTime()
+	end
+	if added then
+		NodesChanged(g.mapID)
+	else
+		ns.GatherPins_Refresh() -- the spot is dimmed now
 	end
 end
 
@@ -361,8 +386,24 @@ local function Nodes()
 end
 
 local function PinsChanged()
+	ns.GatherRoute_Changed()
 	ns.GatherPins_Refresh()
+	ns.GatherMini_Refresh()
 end
+
+-- Key bindings (Bindings.xml, Key Bindings > Tomte), through Core's Tomte_Binding.
+ns.bindings.GATHER_FOLLOW = function()
+	if module.active then
+		ns.GatherFollow_Toggle()
+	end
+end
+ns.bindings.GATHER_SKIP = function()
+	if module.active then
+		ns.GatherFollow_Skip()
+	end
+end
+BINDING_NAME_TOMTE_GATHER_FOLLOW = "Gathering route: follow or stop"
+BINDING_NAME_TOMTE_GATHER_SKIP = "Gathering route: skip a spot"
 
 module = ns.RegisterModule({
 	key = "gather",
@@ -385,12 +426,16 @@ module = ns.RegisterModule({
 		mapPins = "mine", -- "mine" (your gathering professions), "all" or "off"
 		mapPinsOn = "mine", -- what the map button's right-click turns the pins back on to
 		mapButton = true, -- the round button on the world map (MapPins.lua)
+		follow = false, -- following a route, kept for /reload: { mapID, pos, dir, prev = what was tracked } (Follow.lua)
+		mapRoute = true, -- the route's lines on the world map
+		minimapPins = true, -- node spots on the minimap (MinimapPins.lua)
+		routeTight = true, -- routes leave far-off spots out (Route.lua)
 		nodes = {}, -- [uiMapID] = { [x * 10000 + y] = objectID or "m"/"h" } (Nodes.lua; a collection)
 		nodeTypes = {}, -- [objectID] = { kind, name, item } (a collection)
 		pageScope = "all", pageRange = "all", pageKind = "all", pageView = "runs",
 	},
-	-- Page filters: not in settings strings (Core/Profile.lua). Collections (runs, nodes) never are.
-	noShare = { "pageScope", "pageRange", "pageKind", "pageView" },
+	-- Page filters and the route being followed: not in settings strings (Core/Profile.lua). Collections (runs, nodes) never are.
+	noShare = { "pageScope", "pageRange", "pageKind", "pageView", "follow" },
 	init = function(saved)
 		db = saved
 		if ns.GatherTracker_Init then
@@ -400,6 +445,8 @@ module = ns.RegisterModule({
 			ns.GatherPage_Init(db)
 		end
 		ns.GatherPins_Init(db, module)
+		ns.GatherMini_Init(db, module)
+		ns.GatherFollow_Init(db, module)
 		-- Friend sharing (Modules/Share) loads after this file, so it's looked up here, at init.
 		ns.Share_Register({
 			key = "nodes",
@@ -416,7 +463,9 @@ module = ns.RegisterModule({
 			import = function(payload)
 				local added, why = ns.GatherNodes_Import(db, payload, MapSize)
 				if added and added > 0 then
+					ns.GatherRoute_Changed()
 					ns.GatherPins_Refresh()
+					ns.GatherMini_Refresh()
 				end
 				return added, why
 			end,
@@ -432,12 +481,16 @@ module = ns.RegisterModule({
 			if ns.inWorld then
 				Resume()
 			end
+			ns.GatherMini_Start()
 		else
+			ns.GatherFollow_Stop("off")
 			ns.GatherDetect_Stop()
 			events:UnwatchAll("gather")
 			StopTicker()
 			ns.GatherPins_Clear()
+			ns.GatherMini_Stop()
 		end
+		ns.GatherRoute_Changed()
 		ns.GatherPins_Refresh()
 		ns.Share_Changed("nodes")
 		Refresh()
@@ -461,6 +514,9 @@ module = ns.RegisterModule({
 		end },
 		{ "why", "what the last loot window counted as, and why", Why },
 		{ "nodes", "how many node spots are remembered here and everywhere", Nodes },
+		{ "follow", "follow the gathering route in your zone, or stop", ns.GatherFollow_Toggle },
+		{ "skip", "skip the route's next spot (somebody got there first)", ns.GatherFollow_Skip },
+		{ "route", "the gathering route in your zone", ns.GatherFollow_Info },
 	},
 	options = {
 		{ type = "header", label = "Runs" },
@@ -500,13 +556,24 @@ module = ns.RegisterModule({
 			end },
 		{ type = "checkbox", key = "mapButton", label = "Button on the world map", onChange = PinsChanged,
 			tooltip = "A round button in the world map's top-right corner. Left-click: which nodes to show and more. Right-click: show or hide them." },
+		{ type = "checkbox", key = "minimapPins", label = "Show nodes on the minimap", onChange = PinsChanged,
+			tooltip = "Small icons on the minimap for the node spots around you (the same nodes as on the world map). Spots you gathered in the last few minutes are dimmed." },
+
+		{ type = "header", label = "Route" },
+		{ type = "checkbox", key = "mapRoute", label = "Show the route on the world map", onChange = PinsChanged,
+			tooltip = "A loop through the zone's node spots, drawn as lines between the icons." },
+		{ type = "checkbox", key = "routeTight", label = "Leave out far-off spots", onChange = PinsChanged,
+			tooltip = "A lone spot far from the others costs more flying than it brings: the route skips it." },
+		{ type = "button", label = "Route in your zone", text = "Follow", onClick = function()
+			ns.GatherFollow_Toggle()
+		end, tooltip = "Puts a map pin on the next node spot of the route; it moves on as you reach each spot. Click again to stop. Also /tomte gather follow, or a key binding (Key Bindings > Tomte), which also has one to skip a spot." },
 		{ type = "button", label = function()
 			return ("Node spots: %s"):format(ns.Thousands(db and NodeCount() or 0))
 		end, text = "Forget", confirm = "Forget every node spot Tomte remembers (yours and what friends sent)?",
 			onClick = function()
+				ns.GatherFollow_Stop("user")
 				wipe(db.nodes)
-				ns.Share_Changed("nodes")
-				ns.GatherPins_Refresh()
+				NodesChanged()
 			end },
 
 		{ type = "header", label = "Data" },

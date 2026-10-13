@@ -77,7 +77,7 @@ local function Grid(spots, mapID, sizeOf)
 	return grid
 end
 
--- True when spots already has a node of this kind within the merge radius of pos.
+-- The spot of this kind within the merge radius of pos, or nil.
 local function Near(db, spots, grid, pos, kind)
 	local x, y = math.floor(pos / STEPS), pos % STEPS
 	local cx, cy = math.floor(x / grid.rx), math.floor(y / grid.ry)
@@ -86,15 +86,16 @@ local function Near(db, spots, grid, pos, kind)
 			for _, other in ipairs(grid.cells[Cell(i, j)] or {}) do
 				local dx, dy = (math.floor(other / STEPS) - x) / grid.rx, (other % STEPS - y) / grid.ry
 				if dx * dx + dy * dy <= 1 and ns.GatherNodes_Kind(db, spots[other]) == kind then
-					return true
+					return other
 				end
 			end
 		end
 	end
-	return false
+	return nil
 end
 
--- Adds a spot unless it merges with one there. Returns true when it was added.
+-- Adds a spot unless it merges with one there. Returns true when it was added, and the spot's pos (the one it merged
+-- into, or the new one).
 local function Put(db, mapID, pos, value, kind, sizeOf)
 	local spots = db.nodes[mapID]
 	if not spots then
@@ -102,8 +103,9 @@ local function Put(db, mapID, pos, value, kind, sizeOf)
 		db.nodes[mapID] = spots
 	end
 	local grid = Grid(spots, mapID, sizeOf)
-	if Near(db, spots, grid, pos, kind) then
-		return false
+	local near = Near(db, spots, grid, pos, kind)
+	if near then
+		return false, near
 	end
 	-- Another kind's node on the very same step (an herb growing on an ore vein): one step over, a tenth of a yard.
 	local base, step = pos, 0
@@ -113,15 +115,16 @@ local function Put(db, mapID, pos, value, kind, sizeOf)
 	end
 	spots[pos] = value
 	GridAdd(grid, pos)
-	return true
+	return true, pos
 end
 
 -- A gather of yours: kind "mining"/"herbalism" (others are ignored), objectID from the loot source (or nil),
--- info = { name, item } of the node type (yours replace what a friend sent). Returns true when it's a new spot.
+-- info = { name, item } of the node type (yours replace what a friend sent). Returns true when it's a new spot, and
+-- the spot's pos (merged into or new).
 function ns.GatherNodes_Add(db, mapID, x, y, kind, objectID, sizeOf, info)
 	local letter = LETTERS[kind]
 	if not letter then
-		return false
+		return false, nil
 	end
 	if objectID then
 		local t = db.nodeTypes[objectID]
@@ -304,15 +307,20 @@ function ns.GatherNodes_Counts(db, mapID)
 	return here, all
 end
 
--- The spots on a map: { { x, y, kind, objectID } }; kinds = { [kind] = true } to keep, nil for all.
+-- The spots on a map, by pos: { { x, y, kind, objectID, pos } }; kinds = { [kind] = true } to keep, nil for all.
 function ns.GatherNodes_List(db, mapID, kinds)
 	local list = {}
 	for pos, value in pairs(db.nodes[mapID] or {}) do
 		local kind = ns.GatherNodes_Kind(db, value)
 		if kind and (not kinds or kinds[kind]) then
 			local x, y = ns.GatherNodes_Unpack(pos)
-			list[#list + 1] = { x = x, y = y, kind = kind, objectID = type(value) == "number" and value or nil }
+			list[#list + 1] = { x = x, y = y, kind = kind, objectID = type(value) == "number" and value or nil,
+				pos = pos }
 		end
 	end
+	-- In pos order, so the same spots always give the same route (Route.lua).
+	table.sort(list, function(a, b)
+		return a.pos < b.pos
+	end)
 	return list
 end

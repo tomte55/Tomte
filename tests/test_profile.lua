@@ -87,8 +87,8 @@ test("Gathering and Session recap keep their page filters out of settings string
 		return text
 	end
 	local gather = Source("Tomte/Modules/Gather/Gather.lua")
-	eq(gather:find('noShare = { "pageScope", "pageRange", "pageKind", "pageView" }', 1, true) ~= nil, true,
-		"Gather noShare")
+	eq(gather:find('noShare = { "pageScope", "pageRange", "pageKind", "pageView", "follow" }', 1, true) ~= nil, true,
+		"Gather noShare (and the route being followed)")
 	local recap = Source("Tomte/Modules/Recap/Recap.lua")
 	eq(recap:find('noShare = { "pageScope", "pageRange" }', 1, true) ~= nil, true, "Recap noShare")
 end)

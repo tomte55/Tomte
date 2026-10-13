@@ -3,10 +3,16 @@ local addonName, ns = ...
 -- Gathering node spots on the world map: a round icon on every mining and herbalism spot Gathering remembers
 -- (Nodes.lua), with a tooltip, and a round button in the map's top-right column with a menu (which nodes to show,
 -- remember spots, settings). Plain frames on the map canvas, not a map data provider or Blizzard's pin pools
--- (taint, see the World quests marker). Registered in Gather.lua.
+-- (taint, see the World quests marker). Also the map's gathering route (Follow.lua) as lines under the pins, the spot
+-- being followed drawn bigger, and spots gathered a moment ago dimmed. Registered in Gather.lua.
 
 local PIN_SIZE = 16 -- screen pixels at any zoom
 local RING = 2 -- pixels of ring around the icon
+local LINE = 2 -- route line thickness in screen pixels
+local LINE_ALPHA = 0.75
+local FOLLOWED = 1.5 -- the followed spot's size against a normal pin
+local RECENT_ALPHA = 0.45 -- a spot gathered in the last few minutes
+local UNDIM_CHECK = 30 -- seconds between redraws while dimmed spots show (Refresh does nothing once the map is shut)
 -- The map's own frame level for dig sites: above the map art, fog and quest areas, under quests and points of interest.
 local LEVEL_TYPE = "PIN_FRAME_LEVEL_DIG_SITE"
 -- Map buttons stack down the map's top-right corner, 32 px apart (Blizzard's filter and pin buttons first). Other
@@ -19,6 +25,8 @@ local UI = ns.UI
 
 local db, module
 local pool, used = {}, 0
+local lines, linesUsed, lineFrame = {}, 0, nil
+local undim -- timer that redraws while dimmed spots are on the map, so they light up again
 local hooked = false
 local button
 
@@ -31,6 +39,13 @@ local function ShowTooltip(pin)
 	local item = t and t.item and C_Item.GetItemNameByID(t.item)
 	if item then
 		UI.TipLine(item)
+	end
+	local age = ns.Gather_SpotAge(WorldMapFrame:GetMapID(), spot.pos)
+	if age then
+		UI.TipLine(age < 60 and "Gathered just now" or ("Gathered %s ago"):format(ns.Ago(age)), "textMuted")
+	end
+	if pin.followed then
+		UI.TipLine("Next on your gathering route", "accent")
 	end
 	GameTooltip:Show()
 end
@@ -57,12 +72,14 @@ local function HideAll()
 	used = 0
 end
 
--- The kinds to show, or nil for all; false when pins are off.
-local function Kinds()
-	if not (module and module.active) or db.mapPins == "off" then
+-- The kinds to show, or nil for all; false when pins are off. mode: "mine", "all" or "off", default the setting.
+-- Also for the minimap (MinimapPins.lua) and routes (Follow.lua).
+function ns.GatherPins_Kinds(mode)
+	mode = mode or db.mapPins
+	if not (module and module.active) or mode == "off" then
 		return false
 	end
-	if db.mapPins == "all" then
+	if mode == "all" then
 		return nil
 	end
 	local kinds = {}
@@ -82,16 +99,60 @@ local function Layout()
 	local canvas = WorldMapFrame:GetCanvas()
 	local scale = WorldMapFrame.ScrollContainer:GetCanvasScale()
 	local w, h = canvas:GetWidth(), canvas:GetHeight()
-	local size = PIN_SIZE / scale
 	local ring = RING / scale
 	for i = 1, used do
 		local pin = pool[i]
+		local size = PIN_SIZE / scale * (pin.followed and FOLLOWED or 1)
 		pin:SetSize(size, size)
 		pin.icon:ClearAllPoints()
 		pin.icon:SetPoint("TOPLEFT", ring, -ring)
 		pin.icon:SetPoint("BOTTOMRIGHT", -ring, ring)
 		pin:ClearAllPoints()
 		pin:SetPoint("CENTER", canvas, "TOPLEFT", pin.spot.x * w, -pin.spot.y * h)
+	end
+	for i = 1, linesUsed do
+		local line = lines[i]
+		line:SetThickness(LINE / scale)
+		line:SetStartPoint("TOPLEFT", canvas, line.a.x * w, -line.a.y * h)
+		line:SetEndPoint("TOPLEFT", canvas, line.b.x * w, -line.b.y * h)
+	end
+end
+
+-- Route lines --------------------------------------------------------------------------------------------------------
+
+local function HideLines()
+	for i = 1, linesUsed do
+		lines[i]:Hide()
+	end
+	linesUsed = 0
+end
+
+-- The map's loop as lines from spot to spot, under the pins.
+local function DrawRoute(canvas, mapID, level)
+	if not db.mapRoute then
+		return
+	end
+	local route, spots = ns.GatherRoute_For(mapID)
+	if not route or #route.order < 3 then
+		return
+	end
+	if not lineFrame then
+		lineFrame = CreateFrame("Frame", nil, canvas)
+		lineFrame:SetAllPoints(canvas)
+	end
+	lineFrame:SetFrameLevel(math.max(level - 1, 1))
+	local r, g, b = UI.Color("accent")
+	local order = route.order
+	for i = 1, #order do
+		linesUsed = linesUsed + 1
+		local line = lines[linesUsed]
+		if not line then
+			line = lineFrame:CreateLine(nil, "ARTWORK")
+			lines[linesUsed] = line
+		end
+		line.a, line.b = spots[order[i]], spots[order[i % #order + 1]]
+		line:SetColorTexture(r, g, b, LINE_ALPHA)
+		line:Show()
 	end
 end
 
@@ -121,6 +182,19 @@ local function OpenMenu(owner)
 			end)
 		end
 		root:CreateDivider()
+		root:CreateCheckbox("Show the route", function()
+			return db.mapRoute
+		end, function()
+			db.mapRoute = not db.mapRoute
+			ns.GatherPins_Refresh()
+		end)
+		if ns.GatherFollow_Active() then
+			root:CreateButton("Stop following the route", function()
+				ns.GatherFollow_Stop("user")
+			end)
+		else
+			root:CreateButton("Follow the route in your zone", ns.GatherFollow_Start)
+		end
 		root:CreateCheckbox("Remember node spots", function()
 			return db.recordNodes
 		end, function()
@@ -140,6 +214,13 @@ local function ButtonTooltip(self)
 	local here = ns.GatherNodes_Counts(db, WorldMapFrame:GetMapID())
 	local n = (here.mining or 0) + (here.herbalism or 0)
 	UI.TipLine(n == 1 and "1 node spot on this map" or (ns.Thousands(n) .. " node spots on this map"), "textMuted")
+	local route = ns.GatherRoute_For(WorldMapFrame:GetMapID())
+	if route then
+		UI.TipLine("Route: " .. ns.GatherRoute_Text(route), "textMuted")
+	end
+	if ns.GatherFollow_Active() then
+		UI.TipLine("Following the route", "accent")
+	end
 	UI.TipLine("Left-click: what to show. Right-click: show or hide them.", "textFaint")
 	GameTooltip:Show()
 end
@@ -221,14 +302,17 @@ function ns.GatherPins_Refresh()
 	end
 	UpdateButton()
 	HideAll()
-	local kinds = Kinds()
+	HideLines()
+	local kinds = ns.GatherPins_Kinds()
 	local mapID = WorldMapFrame:GetMapID()
 	if kinds == false or not mapID then
 		return
 	end
 	local canvas = WorldMapFrame:GetCanvas()
 	local level = WorldMapFrame:GetPinFrameLevelsManager():GetValidFrameLevel(LEVEL_TYPE)
-	local r, g, b = UI.Color("frameDark")
+	local followMap, followPos = ns.GatherFollow_Spot()
+	DrawRoute(canvas, mapID, level)
+	local anyRecent = false
 	for _, spot in ipairs(ns.GatherNodes_List(db, mapID, kinds)) do
 		used = used + 1
 		local pin = pool[used]
@@ -237,16 +321,28 @@ function ns.GatherPins_Refresh()
 			pool[used] = pin
 		end
 		pin.spot = spot
-		pin:SetFrameLevel(level)
+		pin.followed = followMap == mapID and followPos == spot.pos
+		local recent = ns.GatherRoute_IsRecent(mapID, spot.pos)
+		pin:SetFrameLevel(pin.followed and level + 1 or level)
+		local r, g, b = UI.Color(pin.followed and "accent" or "frameDark")
 		pin.ring:SetColorTexture(r, g, b, 0.9)
 		pin.icon:SetTexture(Icon(spot))
+		pin.icon:SetDesaturated(recent)
+		pin:SetAlpha(recent and not pin.followed and RECENT_ALPHA or 1)
 		pin:Show()
+		anyRecent = anyRecent or recent
 	end
 	Layout()
+	if anyRecent and not undim then
+		undim = C_Timer.NewTimer(UNDIM_CHECK, function()
+			undim = nil
+			ns.GatherPins_Refresh()
+		end)
+	end
 end
 
 local function Resize()
-	if used > 0 then
+	if used > 0 or linesUsed > 0 then
 		Layout()
 	end
 end
@@ -267,4 +363,5 @@ end
 -- Off: no pins left on the map (the module or the setting was switched off).
 function ns.GatherPins_Clear()
 	HideAll()
+	HideLines()
 end
