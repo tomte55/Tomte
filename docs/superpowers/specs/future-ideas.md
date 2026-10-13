@@ -49,3 +49,20 @@ date so it shows while the friend is offline. Every message carries a protocol v
 a click. Size guess: 400–600 lines for protocol, chunking and settings, then one adapter per feature.
 
 **Open for the next talk:** which friends/data first, how stale data is shown, whether guild sharing is wanted at all.
+
+**Wanted next (2026-10-13).** Picked by the user after the flight times build; test flights in game first, since
+everything here rides the same hello/request/chunk flow. Not designed yet, discuss each before building.
+1. Update notice: the hello already carries the friend's Tomte version; when a friend runs a newer one, say once
+   "Kalle runs Tomte vX, you have vY" with the releases link. No new data set.
+2. Gathering nodes (data set): pool recorded node positions like flight legs, fill gaps, merge duplicates.
+3. Crafting (data set): profession + known recipe IDs per character → "Kalle can craft this" on recipe/item
+   tooltips, the Crafting tab and Next up.
+4. Collections "who needs this" (data set): friends' missing mounts/pets/toys → a tradable pet or unbound mount
+   item you loot says "Kalle doesn't have this" in its tooltip.
+5. Send a waypoint (push): "Send to <friend>" on a map pin or waypoint; the friend gets a toast with
+   Accept/Decline and Accept sets it in Waypoints (portal route included).
+6. Send a shopping/crafting list (push): "can you make these?" lands as a list in the friend's Crafting tab, after
+   Accept.
+
+Passed on: friend zone/level on the page rows, weekly status sharing, live friend positions on the world map (no
+coordinates in instances, constant traffic), guild/party channels, group check on ready check (secret values).
