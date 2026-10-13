@@ -182,4 +182,31 @@ test("ShortenLine: leaves other lines alone", function()
 	eq(ns.Chat_ShortenLine(noprefix, ctx("short", true)), noprefix, "no N. prefix")
 end)
 
+test("PlainLine: links, colors, textures and Battle.net names", function()
+	eq(ns.Chat_PlainLine("|cffa335ee|Hitem:12345::::|h[Thunderfury]|h|r drops"), "[Thunderfury] drops")
+	eq(ns.Chat_PlainLine("|Hplayer:Jaina-Realm:12|h[|cffff7c0aJaina|r]|h: hi"), "[Jaina]: hi", "colored name in a link")
+	eq(ns.Chat_PlainLine("|HBNplayer:|Kq12|k:34:56|h[|Kq12|k]|h whispers: yo"), "[" .. ns.CHAT_BNET_NAME .. "] whispers: yo")
+	eq(ns.Chat_PlainLine("{rt1} |TInterface\\TargetingFrame\\UI-RaidTargetingIcon_1:0|t go"), "{rt1}  go")
+	eq(ns.Chat_PlainLine("|A:questlog-questtypeicon-daily:12:12|a Daily"), " Daily")
+	eq(ns.Chat_PlainLine("|cnPURE_RED_COLOR:red|r text"), "red text", "named color")
+	eq(ns.Chat_PlainLine("a || b ||cffffffff"), "a | b |cffffffff", "escaped bars stay")
+	eq(ns.Chat_PlainLine("line one|nline two   "), "line one\nline two", "|n and trailing spaces")
+end)
+
+test("CleanLine: no timestamp, channel tag or name brackets", function()
+	local line = "12:00 |Hchannel:channel:2|h[2. Trade - City]|h |Hplayer:Jaina-Realm:9:CHANNEL:2|h[Jaina]|h: WTS ore"
+	eq(ns.Chat_CleanLine(line), "Jaina: WTS ore")
+	eq(ns.Chat_CleanLine("[12:00:01] |Hchannel:GUILD|h[Guild]|h |Hplayer:Jaina|h[Jaina]|h: hi"), "Jaina: hi")
+	eq(ns.Chat_CleanLine("03:15 PM You receive loot: |Hitem:1|h[Bar]|h."), "You receive loot: [Bar].")
+	eq(ns.Chat_CleanLine("|HBNplayer:|Kq1|k:2:3|h[|Kq1|k]|h: yo"), ns.CHAT_BNET_NAME .. ": yo")
+	eq(ns.Chat_CleanLine("[Tomte] 12:00 stays"), "[Tomte] 12:00 stays", "only a leading timestamp")
+end)
+
+test("CopyText: hidden lines, clean drops empty ones", function()
+	local lines = { "|cff00ff00one|r", false, "|T1:0|t", "12:00 two" }
+	eq(ns.Chat_CopyText(lines, false), "one\n" .. ns.CHAT_HIDDEN_LINE .. "\n\n12:00 two")
+	eq(ns.Chat_CopyText(lines, true), "one\n" .. ns.CHAT_HIDDEN_LINE .. "\ntwo")
+	eq(ns.Chat_CopyText({}, true), "")
+end)
+
 H.done()

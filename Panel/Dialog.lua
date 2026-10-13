@@ -7,6 +7,15 @@ local addonName, ns = ...
 local UI = ns.UI
 local popup
 
+-- Scrolls to the newest text a frame after SetText: the edit box knows its height only once it laid the text out.
+local function ScrollToEnd()
+	C_Timer.After(0, function()
+		if popup:IsShown() then
+			popup.scroll:SetScroll(math.huge)
+		end
+	end)
+end
+
 local function Build()
 	-- Parent and scale are set on every show (ns.Dialog_Show).
 	popup = UI.Dialog("TomteDialog", 460, 150, { y = 120 }) -- Escape closes it
@@ -87,9 +96,26 @@ local function Build()
 		end
 	end)
 	popup.error:SetPoint("RIGHT", popup.save, "LEFT", -8, 0)
+
+	-- Optional checkbox bottom left (spec.check) that changes the text, e.g. Chat Copy's "Clean lines".
+	popup.check = UI.Checkbox(popup)
+	popup.check:SetPoint("BOTTOMLEFT", 16, 13)
+	popup.check.label = UI.Text(popup, 12, "text")
+	popup.check.label:SetPoint("LEFT", popup.check, "RIGHT", 8, 0)
+	popup.check.onChange = function(checked)
+		local spec = popup.spec
+		spec.text = spec.check.onChange(checked) or ""
+		popup.edit:SetText(spec.text)
+		popup.edit:SetFocus()
+		popup.edit:HighlightText()
+		if spec.atEnd then
+			ScrollToEnd()
+		end
+	end
 end
 
--- spec = { title, hint, text, readOnly, height, width, saveText = "Save", onSave(text) -> error text | nil }
+-- spec = { title, hint, text, readOnly, height, width, saveText = "Save", onSave(text) -> error text | nil,
+--   atEnd (start scrolled to the end), check = { label, checked, onChange(checked) -> new text } }
 function ns.Dialog_Show(spec)
 	if not popup then
 		Build()
@@ -103,6 +129,12 @@ function ns.Dialog_Show(spec)
 	popup.save:SetShown(not spec.readOnly)
 	popup.save.label:SetText(spec.saveText or "Save")
 	UI.FitButton(popup.save, 80, 24)
+	popup.check:SetShown(spec.check ~= nil)
+	popup.check.label:SetShown(spec.check ~= nil)
+	if spec.check then
+		popup.check:SetChecked(spec.check.checked)
+		popup.check.label:SetText(spec.check.label)
+	end
 	popup.edit:SetText(spec.text or "")
 	popup.scroll:SetScroll(0)
 	popup:Show()
@@ -111,5 +143,8 @@ function ns.Dialog_Show(spec)
 		popup.edit:HighlightText()
 	else
 		popup.edit:SetCursorPosition(0)
+	end
+	if spec.atEnd then
+		ScrollToEnd()
 	end
 end

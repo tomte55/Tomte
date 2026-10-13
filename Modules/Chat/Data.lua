@@ -1,6 +1,7 @@
 local addonName, ns = ...
 
--- Chat: pure logic shared by Trade Filter, Chat Tabs and Channel Tags (unit-tested with plain Lua, no WoW API).
+-- Chat: pure logic shared by Trade Filter, Chat Tabs, Channel Tags and Chat Copy (unit-tested with plain Lua, no WoW
+-- API).
 -- Word matching follows Mentions (ns.Social_FindMention): whole words, not case sensitive, link text included.
 
 -- Channels the modules offer, by zone channel ID (ChatChannels DB2), so client language doesn't matter.
@@ -238,4 +239,53 @@ function ns.Chat_ShortenLine(line, ctx)
 		end
 	end
 	return line
+end
+
+-- Copying chat (Chat Copy).
+
+-- Stands in for a Battle.net name (|K...|k): only the game can show those, addons can't read the name.
+ns.CHAT_BNET_NAME = "<friend>"
+ns.CHAT_HIDDEN_LINE = "<hidden line>"
+
+-- A stored chat line as plain text: links become their text, Battle.net names CHAT_BNET_NAME, colors, textures and
+-- atlases go. "||" (an escaped bar) is held aside first so it can't be read as the start of a code.
+function ns.Chat_PlainLine(line)
+	line = line:gsub("||", "\1")
+	line = line:gsub("|H.-|h(.-)|h", "%1")
+	line = line:gsub("|K.-|k", ns.CHAT_BNET_NAME)
+	line = line:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[^:|]*:", ""):gsub("|r", "")
+	line = line:gsub("|T.-|t", ""):gsub("|A.-|a", "")
+	line = line:gsub("|n", "\n")
+	line = line:gsub("\1", "|")
+	return (line:gsub("%s+$", ""))
+end
+
+-- A timestamp at the start of a line, in any of Blizzard's formats: "12:00 ", "03:15 PM ", "[12:00:01] ".
+local TIMESTAMP = "^%[?%d%d?[:%.]%d%d[:%.%d]*%s?[AaPp]?%.?[Mm]?%.?%]?%s+"
+
+-- The shorter line "Clean lines" gives: no timestamp, no channel or group tag, player names without brackets.
+function ns.Chat_CleanLine(line)
+	line = line:gsub("|Hchannel:.-|h.-|h%s*", "")
+	line = line:gsub("|H(%a*[Pp]layer.-)|h%[(.-)%]|h", "|H%1|h%2|h")
+	return (ns.Chat_PlainLine(line):gsub(TIMESTAMP, ""))
+end
+
+-- The copy text for a chat window. lines: its stored lines, oldest first; false for a line the game hides from
+-- addons (chat lockdown). Clean drops empty lines.
+function ns.Chat_CopyText(lines, clean)
+	local out = {}
+	for _, line in ipairs(lines) do
+		local text
+		if line == false then
+			text = ns.CHAT_HIDDEN_LINE
+		elseif clean then
+			text = ns.Chat_CleanLine(line)
+		else
+			text = ns.Chat_PlainLine(line)
+		end
+		if not (clean and text == "") then
+			out[#out + 1] = text
+		end
+	end
+	return table.concat(out, "\n")
 end

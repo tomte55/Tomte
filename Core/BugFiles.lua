@@ -115,6 +115,7 @@ ns.BUG_FILES = {
 	"Modules/Chat/Tabs.lua",
 	"Modules/Chat/Filter.lua",
 	"Modules/Chat/Tags.lua",
+	"Modules/Chat/Copy.lua",
 	"Modules/Gear/Rules.lua",
 	"Modules/Gear/Advice.lua",
 	"Modules/Gear/Scales.lua",
