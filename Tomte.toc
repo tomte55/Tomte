@@ -2,7 +2,7 @@
 ## Title: Tomte
 ## Notes: Personal quality-of-life modules.
 ## Author: tomte55
-## Version: 1.12.0
+## Version: 1.13.0
 ## IconTexture: Interface\AddOns\Tomte\Media\Logo
 ## SavedVariables: TomteDB
 ## OptionalDeps: Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI, Syndicator, Auctionator, TradeSkillMaster, DialogueUI
@@ -47,7 +47,9 @@ Cinematic/Banner.lua
 Panel/Layout.lua
 Panel/Widgets.lua
 Panel/Controls.lua
+Panel/Menu.lua
 Panel/Dialog.lua
+Panel/Confirm.lua
 Panel/Options.lua
 Panel/HomeKit.lua
 Panel/HomeHero.lua
@@ -115,6 +117,8 @@ Modules/Combat/UnitBar.lua
 Modules/Combat/PetHealth.lua
 Modules/Social/Data.lua
 Modules/Social/Toast.lua
+Modules/Social/InboxWho.lua
+Modules/Social/InboxMessages.lua
 Modules/Social/Inbox.lua
 Modules/Social/Whispers.lua
 Modules/Social/Mentions.lua

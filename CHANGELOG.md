@@ -5,6 +5,14 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.13.0 - 2026-10-13
+
+- Whispers: the inbox is resizable and remembers its size and place. Messages are chat bubbles (theirs left, yours right) with a NEW line where the unread ones start, and item links show their tooltip on hover. Conversations have class avatars with an online dot, unread counts, and can be pinned to the top. The header says who they are (level, class and zone, the Battle.net app, offline, or not a friend) with an Invite button. Right-click a conversation to pin, invite, add as a friend, copy it or delete it.
+- Toasts: the stack follows where you put it. In the upper half of the screen it grows down, in the lower half up; in the middle of the screen toasts drop in from the top or rise from the bottom. The newest toast sits nearest its spot, and the move handle shows arrows for the direction.
+- Toasts: the name stands out from the text under it, and rare toasts read "Drops Teardrop Moth (pet)".
+- Menus: dropdown lists and right-click menus (map pins, Alts roster, crafting ranks, Almost Done filters, the mount journal star) are drawn in Tomte's theme, with submenus where needed.
+- Questions like "Reset ... to defaults?", "Forget this character?" or "Clear the Recent list?" use a themed dialog: Esc cancels, Enter accepts (except the guard's waypoint question, where Enter stays with your chat box).
+- Settings: switches slide, with the accent filling in behind the knob. Cards are no wider than about half a page, so a switch stays near its label on a wide window. Hints in text boxes end in "..." inside the box.
 - Settings: a new layout. Modules sit in nine groups on an icon rail that slides out to show the group names when you hover it, with the group's modules listed beside it (search still finds every module). Each module's page opens with its icon, a one-line summary, an on/off switch and the addons it uses, and its settings sit in cards, in two columns on a wide window. Checkboxes are switches, short choices are buttons side by side, and settings that only matter when another is on are indented and dimmed while it's off.
 - Gathering: node spots on the minimap are now hollow rings, so the game's own node blip shows inside the ring instead of under our icon. An empty ring means nothing has spawned there.
 - Gathering: following a route no longer throws a Lua error each time the map pin changes.
