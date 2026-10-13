@@ -127,6 +127,24 @@ function ns.Whispers_MarkAllRead()
 	Changed()
 end
 
+-- Pinned conversations sit at the top of the inbox and are never trimmed or pruned.
+function ns.Whispers_SetPinned(key, on)
+	local convo = Store().convos[key]
+	if convo then
+		convo.pinned = on or nil
+		Changed()
+	end
+end
+
+function ns.Whispers_Delete(key)
+	if key == RESTRICTED then
+		return
+	end
+	Store().convos[key] = nil
+	bnTokens[key] = nil
+	Changed()
+end
+
 -- This session's account info for a Battle.net friend by BattleTag, nil when not on the friend list. Its accountName
 -- is the |K name replies need (saved conversations from earlier sessions), its bnetAccountID what
 -- C_BattleNet.SendWhisper takes.
@@ -139,6 +157,7 @@ local function FindBNetFriend(battleTag)
 	end
 	return nil
 end
+ns.Whispers_BNetFriend = FindBNetFriend -- the inbox header reads who they are from it (InboxWho.lua)
 
 -- Opens the chat box to answer this conversation.
 function ns.Whispers_Reply(key)
@@ -505,7 +524,8 @@ module = ns.RegisterModule({
 		sound = "off",
 		keepHistory = true,
 		historyDays = 14,
-		store = { convos = {} },
+		store = { convos = {} }, -- convos[key] = { key, name, class, bn, last, unread, pinned, messages } (Data.lua)
+		inbox = {}, -- the inbox window: point = { point, relPoint, x, y }, w, h
 	},
 	init = function(db)
 		ns.whispersDB = db

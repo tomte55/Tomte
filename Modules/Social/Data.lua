@@ -22,6 +22,22 @@ function ns.Social_HoldTime(text, min, perChar, max)
 	return math.min(math.max(min + n * perChar, min), max)
 end
 
+-- Which way the toast stack flows from where it was placed (x, y = the stack's spot, in a screen w x h): it grows
+-- down in the upper half and up in the lower half, so it never runs off the screen. Cards come in from the side edge
+-- in the outer thirds, else from the top (growing down) or bottom (growing up). Returns grow, from.
+function ns.Toast_Flow(x, y, w, h)
+	local grow = y >= h / 2 and "down" or "up"
+	local from
+	if x < w / 3 then
+		from = "left"
+	elseif x > w * 2 / 3 then
+		from = "right"
+	else
+		from = grow == "down" and "top" or "bottom"
+	end
+	return grow, from
+end
+
 -- store = { convos = { [key] = convo } }, convo = { key, name, class, bn, last, unread, messages }.
 -- info = { name, class, bn } (kept up to date: a later whisper may know the class); entry = { at, text, out }.
 -- An outgoing message (entry.out) marks the conversation read: you answered it.
@@ -66,16 +82,19 @@ end
 
 -- Keeps the newest max conversations; unread ones past max stay, up to a hard cap of 2 * max (spam
 -- whispers nobody reads mustn't pile up): past that the oldest go, read or not.
+-- Pinned conversations (convo.pinned, from the inbox) are never trimmed or pruned.
 function ns.Social_TrimConvos(store, max)
 	local list = ns.Social_SortedConvos(store)
 	for i = #list, max + 1, -1 do
-		if list[i].unread == 0 then
+		if list[i].unread == 0 and not list[i].pinned then
 			store.convos[list[i].key] = nil
 		end
 	end
 	list = ns.Social_SortedConvos(store)
 	for i = #list, max * 2 + 1, -1 do
-		store.convos[list[i].key] = nil
+		if not list[i].pinned then
+			store.convos[list[i].key] = nil
+		end
 	end
 end
 
@@ -85,10 +104,74 @@ function ns.Social_PruneConvos(store, now, maxAge, unreadAge)
 	unreadAge = unreadAge or maxAge * 2
 	for key, convo in pairs(store.convos) do
 		local age = now - (convo.last or 0)
-		if age > (convo.unread == 0 and maxAge or unreadAge) then
+		if not convo.pinned and age > (convo.unread == 0 and maxAge or unreadAge) then
 			store.convos[key] = nil
 		end
 	end
+end
+
+-- Inbox ---------------------------------------------------------------------------------------------------------
+
+-- The inbox list: pinned conversations first, each part in the order given. Returns the list and how many are
+-- pinned.
+function ns.Inbox_Order(list)
+	local out, pinnedCount = {}, 0
+	for _, convo in ipairs(list) do
+		if convo.pinned then
+			pinnedCount = pinnedCount + 1
+			out[#out + 1] = convo
+		end
+	end
+	for _, convo in ipairs(list) do
+		if not convo.pinned then
+			out[#out + 1] = convo
+		end
+	end
+	return out, pinnedCount
+end
+
+-- The header's line about who they are. who = nil (not a friend, guildmate or Battle.net friend), or { online,
+-- level, className, area, game } where game is set when they're on Battle.net but not in WoW ("app" = the
+-- Battle.net app, else another game's name or true).
+function ns.Inbox_StatusText(who)
+	if not who then
+		return "Not on your friends list"
+	end
+	if not who.online then
+		return "Offline"
+	end
+	if who.game == "app" then
+		return "On the Battle.net app"
+	elseif who.game then
+		return type(who.game) == "string" and ("Online in " .. who.game) or "Online in another game"
+	end
+	local parts = { "Online" }
+	if who.level and who.className then
+		parts[#parts + 1] = ("Level %d %s"):format(who.level, who.className)
+	end
+	if who.area and who.area ~= "" then
+		parts[#parts + 1] = who.area
+	end
+	return table.concat(parts, " · ")
+end
+
+-- Where the NEW divider goes: the index of the first unread message, or nil when nothing was unread.
+function ns.Inbox_NewIndex(count, unread)
+	if unread <= 0 or count <= 0 then
+		return nil
+	end
+	return math.max(count - unread + 1, 1)
+end
+
+-- The conversation as plain text for copying: "<stamp> You: text" / "<stamp> Name: text" per line, links and
+-- color codes stripped. stamp(at) formats a message's time.
+function ns.Inbox_CopyText(convo, stamp)
+	local lines = {}
+	for _, m in ipairs(convo.messages) do
+		lines[#lines + 1] = ("%s %s: %s"):format(stamp(m.at), m.out and "You" or (convo.name or convo.key),
+			ns.Social_PlainText(m.text))
+	end
+	return table.concat(lines, "\n")
 end
 
 function ns.Social_MarkRead(store, key)

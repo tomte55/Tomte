@@ -134,7 +134,9 @@ just restates the code. Fix comments that point at moved or renamed code in the 
   character follows its own expansion.
 - **Services**: `ns.Check_Report` / `ns.Check_OnEnterWorld` (readiness checks), `ns.EditMode_Register` (any movable
   on-screen widget), `ns.Journal_Scan` (budgeted mount/pet journal reads), `ns.Session_Note` (session recap),
-  `ns.Toast_Show` / `ns.Banner_Show` (both feed Recent automatically), `ns.Dialog_Show`, `ns.MapTabs_Add`,
+  `ns.Toast_Show` / `ns.Banner_Show` (both feed Recent automatically), `ns.Dialog_Show` (copy/paste text),
+  `ns.Confirm_Show` (yes/no questions, never Blizzard's StaticPopup), `UI.ContextMenu` (right-click menus, never
+  `MenuUtil`), `ns.MapTabs_Add`,
   `ns.ModelPreview_*`, `ns.Entry_Link` / `ns.Entry_Open` / `ns.Entry_Model`.
 - **UI** (`Panel/Widgets.lua`, `ns.UI`): `UI.Text`, `UI.Panel`, `UI.Surface`, `UI.Border`, `UI.Button`,
   `UI.Checkbox`, `UI.Slider`, `UI.Dropdown`, `UI.Scroll`, `UI.Dialog`, `UI.Hairline`, `UI.TipLine`, `UI.Debounce`,

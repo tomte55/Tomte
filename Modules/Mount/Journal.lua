@@ -66,7 +66,7 @@ local function OpenMenu(owner)
 	if not mountID then
 		return
 	end
-	MenuUtil.CreateContextMenu(owner, function(_, root)
+	ns.UI.ContextMenu(owner, function(_, root)
 		root:CreateTitle("Smart Mount: " .. name)
 		local levels = Levels()
 		if #levels == 0 then

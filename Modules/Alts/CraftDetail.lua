@@ -49,7 +49,7 @@ end
 local function RankMenu(row)
 	local slot = row.slot
 	local key = table.concat(slot, ",")
-	MenuUtil.CreateContextMenu(row, function(_, root)
+	UI.ContextMenu(row, function(_, root)
 		root:CreateTitle("Use which rank?")
 		local function IsSelected(itemID)
 			return (S.db.ranks and S.db.ranks[key] or 0) == itemID

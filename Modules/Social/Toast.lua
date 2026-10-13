@@ -1,10 +1,12 @@
 local addonName, ns = ...
 
--- Toast stack shared by the social modules: small cards that slide in at one spot on the screen and stack
--- downwards. A card has a spaced label in its accent color, a title (a name), a few lines of text and an
--- accent bar on the left. Left-click runs the card's onClick, right-click dismisses it; hovering pauses its
--- timer. A card with a mergeKey that is still up takes the next one with the same key (text replaced,
--- count shown). Pinned cards (the unread whisper recap) sit on top of the stack and never time out.
+-- Toast stack shared by the social modules: small cards that slide in at one spot on the screen and stack away from
+-- it, the newest nearest. Where the spot is decides the flow (ns.Toast_Flow in Data.lua): down in the upper half of
+-- the screen, up in the lower half; cards come in from the nearest side edge, or from the top or bottom edge when
+-- the spot is in the middle third. A card has a spaced label in its accent color, a title (a name), a few lines of
+-- text and an accent bar on the left. Left-click runs the card's onClick, right-click dismisses it; hovering pauses
+-- its timer. A card with a mergeKey that is still up takes the next one with the same key (text replaced, count
+-- shown). Pinned cards (the unread whisper recap) sit nearest the spot and never time out.
 -- While a cinematic hides the UI (and in combat, for cards with holdInCombat) cards are held back; when
 -- they're let go, an owner with a digest builder gets one card for all of its held cards. When a Blizzard UI
 -- panel (merchant, mail, character...) covers the stack, the stack slides beside it until the panel closes.
@@ -29,7 +31,7 @@ local BOUNCE = 10 -- pixels, towards the middle of the screen
 local MOVE_SPEED = 12 -- reflow easing
 local HOLD_MIN, HOLD_PER_CHAR, HOLD_MAX = 7, 0.06, 18
 local HELD_CHECK = 0.5
-local SECRET_TITLE_H, SECRET_TEXT_H = 16, 45 -- one title line, three text lines (the most a card shows)
+local SECRET_TITLE_H, SECRET_TEXT_H = 18, 45 -- one title line, three text lines (the most a card shows)
 local DEFAULT_POINT = { "TOPLEFT", "LEFT", 40, 140 } -- on UIParent: left side, above the chat
 local DODGE_CHECK = 0.2 -- seconds between looks at the open UI panels
 local DODGE_GAP = 12 -- pixels between a panel and the stack beside it
@@ -37,7 +39,8 @@ local PANEL_KEYS = { "left", "center", "right", "doublewide" } -- fullscreen pan
 local UI = ns.UI
 
 local anchor, mover
-local shown = {} -- cards on screen, top to bottom (pinned first)
+local shown = {} -- cards on screen, nearest the spot first: pinned, then newest to oldest
+local editBox -- Edit Mode's box over the stack, turned with the flow
 local queue = {} -- specs waiting for room
 local held = {} -- specs held back while busy
 local pinned = {} -- [key] = card
@@ -54,18 +57,31 @@ local function EaseOut(p)
 	return 1 - q * q * q
 end
 
--- x offset that puts a card just off the screen edge nearest to the toasts.
-local function OffscreenOffset()
-	local left, right = anchor:GetLeft(), anchor:GetRight()
-	if not (left and right) then
-		return -WIDTH
+-- How the stack flows from where it sits now: grow "down" | "up", from "left" | "right" | "top" | "bottom".
+local function Flow()
+	local x, y = anchor:GetCenter()
+	if not x then
+		return "down", "left"
+	end
+	return ns.Toast_Flow(x + dodgeX, y, UIParent:GetWidth(), UIParent:GetHeight())
+end
+
+-- x, y offset that puts card just off the screen edge it comes in from.
+local function OffscreenOffset(card, from)
+	local left, right, top, bottom = anchor:GetLeft(), anchor:GetRight(), anchor:GetTop(), anchor:GetBottom()
+	if not (left and top) then
+		return -WIDTH, 0
 	end
 	left, right = left + dodgeX, right + dodgeX
-	local toRight = UIParent:GetWidth() - right
-	if left <= toRight then
-		return -(left + WIDTH)
+	local h = card:GetHeight()
+	if from == "left" then
+		return -(left + WIDTH), 0
+	elseif from == "right" then
+		return UIParent:GetWidth() - right + WIDTH, 0
+	elseif from == "top" then
+		return 0, UIParent:GetHeight() - top + h
 	end
-	return toRight + WIDTH
+	return 0, -(bottom + h)
 end
 
 -- Being placed: the handle is up, or Blizzard's Edit Mode is open. Cards wait and the stack stays put.
@@ -192,7 +208,7 @@ local function NewCard()
 	card.count = ns.SceneText(card, 10, "textMuted", "number")
 	card.count:SetJustifyH("RIGHT")
 	card.count:SetPoint("TOPRIGHT", -PAD, -PAD)
-	card.title = ns.SceneText(card, 14, "text")
+	card.title = ns.SceneText(card, 15, "heading", "title") -- the name stands out from the text under it
 	card.title:SetJustifyH("LEFT")
 	card.title:SetWordWrap(false)
 	card.text = ns.SceneText(card, 13, "text")
@@ -237,9 +253,11 @@ local function Fill(card, spec)
 	card.title:SetPoint("RIGHT", -PAD, 0)
 	card.title:SetText(spec.title or "")
 	card.text:ClearAllPoints()
-	card.text:SetPoint("TOPLEFT", card.title, "BOTTOMLEFT", 0, -3)
+	card.text:SetPoint("TOPLEFT", card.title, "BOTTOMLEFT", 0, -4)
 	card.text:SetWidth(WIDTH - left - PAD)
-	UI.SetFont(card.text, spec.chat and "chat" or "body", 13)
+	-- A chat line is the message itself and stays bright; any other text is detail under the name.
+	UI.SetFont(card.text, spec.chat and "chat" or "body", spec.chat and 13 or 12)
+	UI.SetTextRole(card.text, spec.chat and "text" or "textMuted")
 	card.text:SetText(spec.text or "")
 
 	-- Secret text (chat lockdown) can be shown but not measured or compared: assume the longest card.
@@ -269,7 +287,7 @@ local function Acquire()
 	return card
 end
 
--- New card at the bottom of the stack (pinned cards go to the top).
+-- New card nearest the spot, under any pinned cards (a pinned card goes nearest of all).
 local function Place(spec, pinKey)
 	local card = Acquire()
 	Fill(card, spec)
@@ -278,15 +296,20 @@ local function Place(spec, pinKey)
 	anchor:Show()
 	card.enter, card.pulse = 0, nil
 	dodgeCheck = DODGE_CHECK -- a new card changes the stack height: look at the panels right away
-	card.from = OffscreenOffset()
-	card.y, card.drawnX, card.drawnY = nil, nil, nil
+	local _, from = Flow()
+	card.fromX, card.fromY = OffscreenOffset(card, from)
+	card.y, card.drawnX, card.drawnY, card.drawnPoint = nil, nil, nil, nil
 	card:SetAlpha(0)
 	card:Show()
 	if pinKey then
 		pinned[pinKey] = card
 		table.insert(shown, 1, card)
 	else
-		shown[#shown + 1] = card
+		local at = 1
+		while shown[at] and shown[at].pinKey do
+			at = at + 1
+		end
+		table.insert(shown, at, card)
 	end
 end
 
@@ -393,7 +416,7 @@ local function DodgeOffset()
 	if #shown == 0 or Moving() then
 		return 0
 	end
-	local left, top = anchor:GetLeft(), anchor:GetTop()
+	local left, top, bottom = anchor:GetLeft(), anchor:GetTop(), anchor:GetBottom()
 	if not (left and top) then
 		return 0
 	end
@@ -405,7 +428,11 @@ local function DodgeOffset()
 	for _, card in ipairs(shown) do
 		height = height + card:GetHeight() + GAP
 	end
-	local bottom = top - height
+	if Flow() == "down" then
+		bottom = top - height
+	else
+		top = bottom + height
+	end
 	local screen = UIParent:GetWidth()
 	local towardRight = left + WIDTH / 2 < screen / 2
 	local x = left
@@ -426,6 +453,32 @@ local function DodgeOffset()
 	return x - left
 end
 
+-- The drag handle and Edit Mode's box sit on the side the stack grows towards; the handle's arrows show which way.
+local handlesGrow
+local function PlaceHandles(grow)
+	if grow == handlesGrow then
+		return
+	end
+	handlesGrow = grow
+	local down = grow == "down"
+	if mover then
+		mover:ClearAllPoints()
+		if down then
+			mover:SetPoint("BOTTOMLEFT", anchor, "TOPLEFT", 0, 4)
+		else
+			mover:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -4)
+		end
+		local arrow = down and "v" or "^"
+		mover.text:SetText(arrow .. "   Drag to move toasts - right-click to lock   " .. arrow)
+	end
+	if editBox then
+		local point = down and "TOPLEFT" or "BOTTOMLEFT"
+		editBox:ClearAllPoints()
+		editBox:SetPoint(point, anchor, point)
+		editBox:SetSize(WIDTH, 70)
+	end
+end
+
 local function Layout(dt)
 	dodgeCheck = dodgeCheck + dt
 	if dodgeCheck >= DODGE_CHECK then
@@ -439,31 +492,39 @@ local function Layout(dt)
 		end
 	end
 	local dx = math.floor(dodgeX + 0.5)
+	local grow = Flow()
+	local point = grow == "down" and "TOPLEFT" or "BOTTOMLEFT"
 	local y = 0
 	for _, card in ipairs(shown) do
-		local target = -y
+		local target = grow == "down" and -y or y
 		if not card.y then
 			card.y = target
 		else
 			card.y = card.y + (target - card.y) * math.min(dt * MOVE_SPEED, 1)
 		end
-		local slide = 0
+		local sx, sy = 0, 0
 		if card.enter < SLIDE_IN then
-			slide = math.floor(card.from * (1 - EaseOut(card.enter / SLIDE_IN)) + 0.5)
+			local left = 1 - EaseOut(card.enter / SLIDE_IN)
+			sx, sy = math.floor(card.fromX * left + 0.5), math.floor(card.fromY * left + 0.5)
 		elseif card.pulse then
-			-- One hop away from the screen edge, then a smaller one back: a damped bounce.
+			-- One hop away from the edge it came in from, then a smaller one back: a damped bounce.
 			local p = card.pulse / PULSE
-			local away = card.from < 0 and 1 or -1
-			slide = math.floor(away * BOUNCE * math.sin(p * math.pi * 2) * (1 - p) + 0.5)
+			local hop = BOUNCE * math.sin(p * math.pi * 2) * (1 - p)
+			if card.fromX ~= 0 then
+				sx = math.floor((card.fromX < 0 and hop or -hop) + 0.5)
+			else
+				sy = math.floor((card.fromY > 0 and -hop or hop) + 0.5)
+			end
 		end
-		local x, cy = slide + dx, math.floor(card.y + 0.5)
-		if card.drawnX ~= x or card.drawnY ~= cy then
-			card.drawnX, card.drawnY = x, cy
+		local x, cy = sx + dx, math.floor(card.y + 0.5) + sy
+		if card.drawnX ~= x or card.drawnY ~= cy or card.drawnPoint ~= point then
+			card.drawnX, card.drawnY, card.drawnPoint = x, cy, point
 			card:ClearAllPoints()
-			card:SetPoint("TOPLEFT", anchor, "TOPLEFT", x, cy)
+			card:SetPoint(point, anchor, point, x, cy)
 		end
 		y = y + card:GetHeight() + GAP
 	end
+	PlaceHandles(grow)
 end
 
 function OnUpdate(dt)
@@ -511,17 +572,16 @@ function OnUpdate(dt)
 end
 
 local function BuildMover()
-	mover = CreateFrame("Frame", nil, anchor)
-	mover:SetPoint("BOTTOMLEFT", anchor, "TOPLEFT", 0, 4)
+	mover = CreateFrame("Frame", nil, anchor) -- placed by PlaceHandles
 	mover:SetSize(WIDTH, 22)
 	mover:EnableMouse(true)
 	mover:RegisterForDrag("LeftButton")
 	local bg = mover:CreateTexture(nil, "BACKGROUND")
 	bg:SetAllPoints()
 	bg:SetColorTexture(UI.RGBA("accent", 0.25))
-	local text = ns.SceneText(mover, 11, "accent")
-	text:SetPoint("CENTER")
-	text:SetText("Drag to move toasts - right-click to lock")
+	mover.text = ns.SceneText(mover, 11, "accent")
+	mover.text:SetPoint("CENTER")
+	handlesGrow = nil -- PlaceHandles fills the handle in on the next frame
 	mover:SetScript("OnDragStart", function()
 		anchor:StartMoving()
 	end)
@@ -659,9 +719,10 @@ ns.EditMode_Register({
 		end
 	end,
 	saved = SavePoint,
-	place = function(box, frame)
-		box:SetPoint("TOPLEFT", frame, "TOPLEFT")
-		box:SetSize(WIDTH, 70)
+	place = function(box)
+		editBox = box
+		handlesGrow = nil -- PlaceHandles puts it on the side the stack grows towards
+		PlaceHandles(Flow())
 	end,
 })
 

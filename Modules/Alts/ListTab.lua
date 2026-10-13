@@ -331,7 +331,7 @@ local function RankMenu(row)
 		end
 	end
 	local current = #row.agg.items == 1 and row.agg.items[1] or 0
-	MenuUtil.CreateContextMenu(row, function(_, root)
+	UI.ContextMenu(row, function(_, root)
 		root:CreateTitle("Use which rank? (every craft on the list)")
 		local function IsSelected(itemID)
 			return current == itemID

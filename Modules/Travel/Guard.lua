@@ -55,12 +55,9 @@ events:On(OWNER, "DYNAMIC_GOSSIP_POI_UPDATED", function()
 	if db.guard == "always" then
 		Place(mapID, info)
 	elseif db.guard == "ask" then
-		local dialog = StaticPopup_Show("TOMTE_CONFIRM", ("Set a waypoint to %s?"):format(info.name))
-		if dialog then
-			dialog.data = function()
-				Place(mapID, info)
-			end
-		end
+		ns.Confirm_Show(("Set a waypoint to %s?"):format(info.name), function()
+			Place(mapID, info)
+		end, { noEnter = true }) -- asked unprompted at the guard: Enter is still for the chat box
 	end
 end)
 

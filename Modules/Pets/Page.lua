@@ -526,24 +526,12 @@ function ns.PetsPage_Import(text)
 	return #teams, skipped
 end
 
-StaticPopupDialogs["TOMTE_PETS_DELETE_TEAM"] = {
-	text = "Delete the strategy \"%s\"?",
-	button1 = YES,
-	button2 = NO,
-	OnAccept = function(_, id)
+function ns.PetsPage_ConfirmDelete(team)
+	local id = team.id
+	ns.Confirm_Show(("Delete the strategy \"%s\"?"):format(team.name), function()
 		ns.PetsStore_Delete(id)
 		ns.PetsPage_Refresh()
-	end,
-	timeout = 0,
-	whileDead = true,
-	hideOnEscape = true,
-}
-
-function ns.PetsPage_ConfirmDelete(team)
-	local dialog = StaticPopup_Show("TOMTE_PETS_DELETE_TEAM", team.name)
-	if dialog then
-		dialog.data = team.id
-	end
+	end)
 end
 
 -- Leveling view ----------------------------------------------------------------------------------------------

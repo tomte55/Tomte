@@ -301,10 +301,7 @@ local function BuildPanel()
 	panel.remove:SetHeight(22)
 	panel.remove:SetPoint("LEFT", panel.import, "RIGHT", 6, 0)
 	panel.remove:SetScript("OnClick", function()
-		local dialog = StaticPopup_Show("TOMTE_CONFIRM", "Remove the imported stat weights for your current spec?")
-		if dialog then
-			dialog.data = ns.Gear_ClearWeights
-		end
+		ns.Confirm_Show("Remove the imported stat weights for your current spec?", ns.Gear_ClearWeights)
 	end)
 
 	panel:SetScript("OnShow", Layout)

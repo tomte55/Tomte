@@ -138,18 +138,14 @@ local function RowMenu(owner, c)
 		return
 	end
 	local name = ("%s-%s"):format(c.name or "?", c.realm or "?")
-	MenuUtil.CreateContextMenu(owner, function(_, root)
+	UI.ContextMenu(owner, function(_, root)
 		root:CreateTitle(name)
 		root:CreateButton("Forget " .. (c.name or "?"), function()
-			local dialog = StaticPopup_Show("TOMTE_CONFIRM", ("Forget %s? Tomte drops everything it saved for this "
-				.. "character (Alts, Weekly board, session history, stat weights, ...). Logging in on it adds it again.")
-				:format(name))
-			if dialog then
-				local guid = c.guid
-				dialog.data = function()
-					ns.Alts_ForgetCharacter(guid)
-				end
-			end
+			local guid = c.guid
+			ns.Confirm_Show(("Forget %s?\n\nTomte drops everything it saved for this character (Alts, Weekly board, "
+				.. "session history, stat weights, ...). Logging in on it adds it again."):format(name), function()
+				ns.Alts_ForgetCharacter(guid)
+			end)
 		end)
 	end)
 end

@@ -172,7 +172,7 @@ local function SetPins(mode)
 end
 
 local function OpenMenu(owner)
-	MenuUtil.CreateContextMenu(owner, function(_, root)
+	UI.ContextMenu(owner, function(_, root)
 		root:CreateTitle("Gathering nodes")
 		for _, choice in ipairs({ { "mine", "For your professions" }, { "all", "All" }, { "off", "Off" } }) do
 			root:CreateRadio(choice[2], function()

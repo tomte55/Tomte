@@ -224,4 +224,72 @@ test("NewlyOnline skips keys that weren't known before", function()
 	eq(list[1], "b")
 end)
 
+test("inbox: pinned conversations first, each part in order", function()
+	local a, b, c, d = { key = "a" }, { key = "b", pinned = true }, { key = "c" }, { key = "d", pinned = true }
+	local list, pinnedCount = ns.Inbox_Order({ a, b, c, d })
+	eq(pinnedCount, 2)
+	eq(list[1].key .. list[2].key .. list[3].key .. list[4].key, "bdac")
+	local _, none = ns.Inbox_Order({ a, c })
+	eq(none, 0)
+end)
+
+test("inbox: pinned conversations are never trimmed or pruned", function()
+	local store = { convos = {
+		old = { key = "old", last = 0, unread = 0, pinned = true, messages = {} },
+		gone = { key = "gone", last = 0, unread = 0, messages = {} },
+	} }
+	ns.Social_PruneConvos(store, 100 * 86400, 86400)
+	eq(store.convos.old ~= nil, true, "pinned kept")
+	eq(store.convos.gone, nil, "unpinned pruned")
+	for i = 1, 5 do
+		store.convos["n" .. i] = { key = "n" .. i, last = 1000 + i, unread = 0, messages = {} }
+	end
+	ns.Social_TrimConvos(store, 2)
+	eq(store.convos.old ~= nil, true, "pinned survives the trim")
+	eq(store.convos.n5 ~= nil and store.convos.n4 ~= nil, true, "newest kept")
+	eq(store.convos.n1, nil)
+end)
+
+test("inbox: status line", function()
+	eq(ns.Inbox_StatusText(nil), "Not on your friends list")
+	eq(ns.Inbox_StatusText({ online = false }), "Offline")
+	eq(ns.Inbox_StatusText({ online = true, level = 80, className = "Paladin", area = "Dornogal" }),
+		"Online · Level 80 Paladin · Dornogal")
+	eq(ns.Inbox_StatusText({ online = true, area = "" }), "Online")
+	eq(ns.Inbox_StatusText({ online = true, game = "app" }), "On the Battle.net app")
+	eq(ns.Inbox_StatusText({ online = true, game = "Overwatch" }), "Online in Overwatch")
+	eq(ns.Inbox_StatusText({ online = true, game = true }), "Online in another game")
+end)
+
+test("inbox: NEW divider at the first unread message", function()
+	eq(ns.Inbox_NewIndex(10, 2), 9)
+	eq(ns.Inbox_NewIndex(3, 5), 1, "more unread than kept")
+	eq(ns.Inbox_NewIndex(10, 0), nil)
+	eq(ns.Inbox_NewIndex(0, 1), nil)
+end)
+
+test("inbox: copy text strips links and colors", function()
+	local convo = { key = "Kalle-Realm", name = "Kalle", messages = {
+		{ at = 1, text = "Want |cff00ff00|Hitem:1|h[Sword]|h|r?", out = true },
+		{ at = 2, text = "Sure" },
+	} }
+	eq(ns.Inbox_CopyText(convo, function(at)
+		return "t" .. at
+	end), "t1 You: Want [Sword]?\nt2 Kalle: Sure")
+end)
+
+test("toast flow follows where the stack sits", function()
+	local W, H2 = 1920, 1080
+	local function flow(x, y)
+		local grow, from = ns.Toast_Flow(x, y, W, H2)
+		return grow .. "/" .. from
+	end
+	eq(flow(200, 700), "down/left", "left, above the middle (the default spot)")
+	eq(flow(1700, 900), "down/right")
+	eq(flow(960, 1000), "down/top", "top middle drops in from the top")
+	eq(flow(960, 150), "up/bottom", "bottom middle rises from the bottom")
+	eq(flow(200, 150), "up/left", "bottom left grows up, still slides in from the side")
+	eq(flow(960, 540), "down/top", "the exact middle counts as the upper half")
+end)
+
 H.done()

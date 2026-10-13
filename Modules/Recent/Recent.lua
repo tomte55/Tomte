@@ -197,14 +197,11 @@ local RecentPage = {
 		frame.clear = UI.Button(frame, 70, "Clear")
 		frame.clear:SetPoint("TOPRIGHT", -8, 4)
 		frame.clear:SetScript("OnClick", function()
-			local dialog = StaticPopup_Show("TOMTE_CONFIRM", "Clear the Recent list?")
-			if dialog then
-				dialog.data = function()
-					wipe(db.entries)
-					frame.Refresh()
-					UpdateDot()
-				end
-			end
+			ns.Confirm_Show("Clear the Recent list?", function()
+				wipe(db.entries)
+				frame.Refresh()
+				UpdateDot()
+			end)
 		end)
 		frame.info = UI.Text(frame, 12, "textMuted")
 		frame.info:SetPoint("TOPLEFT", 8, 0)

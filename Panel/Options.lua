@@ -14,6 +14,7 @@ local CARD_INSET = 6 -- row edges inside a card
 local INDENT = 16 -- rows with a parent
 local GAP = 14 -- between cards and columns
 local MIN_COLUMN = 360 -- narrowest card in two columns: a long label beside a 150 px control
+local MAX_CARD = 540 -- widest card: past this a switch ends up far from its label
 local CONTROL_W = 150
 local SEGMENTS_MAX_W, SEGMENTS_MAX = 170, 3
 local FOOTER_H = 34
@@ -25,18 +26,6 @@ local pools, used = {}, {}
 local cardPool, cards = {}, {}
 local links = {}
 local builtFor -- module whose options are built
-
-StaticPopupDialogs.TOMTE_CONFIRM = {
-	text = "%s",
-	button1 = YES,
-	button2 = NO,
-	OnAccept = function(_, onAccept)
-		onAccept()
-	end,
-	timeout = 0,
-	whileDead = true,
-	hideOnEscape = true,
-}
 
 -- "frame.locked" -> db.frame, "locked"
 local function Resolve(db, key)
@@ -82,9 +71,15 @@ local function SetOption(module, spec, value)
 	if spec.onChange then
 		spec.onChange(value)
 	end
-	-- Rows that hang on this option dim or light up.
+	-- Rows that hang on this option dim or light up, once the switch has finished sliding (a rebuild would cut its
+	-- animation short).
 	if builtFor == module and scrollFrame and IsParent(module, spec.key) then
-		ns.PanelOptions_Build(scrollFrame, module)
+		local scroll = scrollFrame
+		C_Timer.After(UI.SWITCH_SECONDS, function()
+			if builtFor == module and scroll:IsVisible() then
+				ns.PanelOptions_Build(scroll, module)
+			end
+		end)
 	end
 end
 
@@ -257,11 +252,7 @@ function Factory.button()
 	row.button:SetScript("OnClick", function()
 		local spec = row.spec
 		if spec.confirm then
-			-- data on the returned dialog reaches OnAccept (warcraft.wiki.gg: Creating simple pop-up dialog boxes).
-			local dialog = StaticPopup_Show("TOMTE_CONFIRM", spec.confirm)
-			if dialog then
-				dialog.data = spec.onClick
-			end
+			ns.Confirm_Show(spec.confirm, spec.onClick)
 		else
 			spec.onClick()
 		end
@@ -291,6 +282,8 @@ function Factory.input()
 	UI.Surface(box, 0.35)
 	box.placeholder = UI.Text(box, 12, "textFaint")
 	box.placeholder:SetPoint("LEFT", 6, 0)
+	box.placeholder:SetPoint("RIGHT", -6, 0) -- a long hint ends in "..." inside the box
+	box.placeholder:SetWordWrap(false)
 	box:SetScript("OnTextChanged", function(self)
 		self.placeholder:SetShown(self:GetText() == "")
 	end)
@@ -379,10 +372,7 @@ local function Link(i)
 		HideTooltip()
 	end)
 	b:SetScript("OnClick", function(self)
-		local dialog = StaticPopup_Show("TOMTE_CONFIRM", self.spec.confirm)
-		if dialog then
-			dialog.data = self.spec.onClick
-		end
+		ns.Confirm_Show(self.spec.confirm, self.spec.onClick)
 	end)
 	links[i] = b
 	return b
@@ -421,14 +411,50 @@ end
 
 local shownLinks = 0
 
+-- The cards a module's options make: a header starts one, rows before the first header get an untitled one, and a
+-- section whose rows are all hidden (shown()) makes none. { title, specs }
+local function Sections(module)
+	local sections, section = {}, nil
+	for _, spec in ipairs(module.options or {}) do
+		if not spec.shown or spec.shown() then -- shown: optional function, false hides the row for now
+			if spec.type == "header" then
+				section = { title = spec.label, specs = {} }
+				sections[#sections + 1] = section
+			else
+				if not section then
+					section = { specs = {} }
+					sections[#sections + 1] = section
+				end
+				section.specs[#section.specs + 1] = spec
+			end
+		end
+	end
+	local cardsOnly = {}
+	for _, sec in ipairs(sections) do
+		if #sec.specs > 0 then
+			cardsOnly[#cardsOnly + 1] = sec
+		end
+	end
+	return cardsOnly
+end
+
+-- How wide module's cards end up in width (the header lines its switch up with their right edge).
+function ns.PanelOptions_Width(module, width)
+	local count = #Sections(module)
+	if count == 0 then
+		return width
+	end
+	local _, _, cardsW = ns.PanelLayout_Cards(width, GAP, MIN_COLUMN, MAX_CARD, count)
+	return cardsW
+end
+
 -- Places the built cards for the content width and sizes the scroll content.
 local function Layout(width)
 	if #cards == 0 and shownLinks == 0 then
 		scrollFrame:SetContentHeight(1) -- every row hidden for now: no leftover height from the last module
 		return
 	end
-	local columns = ns.PanelLayout_Columns(width, GAP, MIN_COLUMN, #cards)
-	local cardW = columns == 2 and math.floor((width - GAP) / 2) or width
+	local columns, cardW, cardsW = ns.PanelLayout_Cards(width, GAP, MIN_COLUMN, MAX_CARD, #cards)
 	local heights = {}
 	for i, card in ipairs(cards) do
 		heights[i] = card.height
@@ -440,11 +466,12 @@ local function Layout(width)
 		card:SetPoint("TOPLEFT", parent, "TOPLEFT", (place.column - 1) * (cardW + GAP), -place.y)
 		card:SetWidth(cardW)
 	end
+	-- The links end at the cards' right edge.
 	local x = 0
 	for i = shownLinks, 1, -1 do
 		local b = links[i]
 		b:ClearAllPoints()
-		b:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -x - 4, -(total + 12))
+		b:SetPoint("TOPRIGHT", parent, "TOPLEFT", (#cards > 0 and cardsW or width) - x - 4, -(total + 12))
 		x = x + b:GetWidth() + 20
 	end
 	scrollFrame:SetContentHeight(total + (shownLinks > 0 and FOOTER_H or 8))
@@ -503,44 +530,25 @@ function Build(scroll, module)
 	ns.PanelOptions_Release()
 	builtFor = module
 
-	-- Sections: a header starts one; rows before the first header get an untitled one.
-	local sections, section = {}, nil
-	for _, spec in ipairs(module.options or {}) do
-		if not spec.shown or spec.shown() then -- shown: optional function, false hides the row for now
-			if spec.type == "header" then
-				section = { title = spec.label, specs = {} }
-				sections[#sections + 1] = section
-			else
-				if not section then
-					section = { specs = {} }
-					sections[#sections + 1] = section
-				end
-				section.specs[#section.specs + 1] = spec
-			end
+	for _, sec in ipairs(Sections(module)) do
+		local card = AcquireCard()
+		card.title:SetText(sec.title and sec.title:upper() or "")
+		card.title:SetShown(sec.title ~= nil)
+		local y = sec.title and CARD_TITLE_H or CARD_PAD
+		for i, spec in ipairs(sec.specs) do
+			local row = Acquire(spec.type)
+			row:SetParent(card)
+			row.module, row.spec = module, spec
+			local indent = spec.parent and INDENT or 0
+			row:SetPoint("TOPLEFT", card, "TOPLEFT", CARD_INSET + indent, -y)
+			row:SetPoint("RIGHT", card, "RIGHT", -CARD_INSET, 0)
+			row.rule:SetShown(i > 1 and not spec.parent)
+			row:SetAlpha(spec.parent and not GetOption(module, spec.parent) and DIMMED or 1)
+			Setup[spec.type](row, module, spec)
+			y = y + row:GetHeight()
 		end
-	end
-
-	for _, sec in ipairs(sections) do
-		if #sec.specs > 0 then
-			local card = AcquireCard()
-			card.title:SetText(sec.title and sec.title:upper() or "")
-			card.title:SetShown(sec.title ~= nil)
-			local y = sec.title and CARD_TITLE_H or CARD_PAD
-			for i, spec in ipairs(sec.specs) do
-				local row = Acquire(spec.type)
-				row:SetParent(card)
-				row.module, row.spec = module, spec
-				local indent = spec.parent and INDENT or 0
-				row:SetPoint("TOPLEFT", card, "TOPLEFT", CARD_INSET + indent, -y)
-				row:SetPoint("RIGHT", card, "RIGHT", -CARD_INSET, 0)
-				row.rule:SetShown(i > 1 and not spec.parent)
-				row:SetAlpha(spec.parent and not GetOption(module, spec.parent) and DIMMED or 1)
-				Setup[spec.type](row, module, spec)
-				y = y + row:GetHeight()
-			end
-			card.height = y + CARD_PAD
-			card:SetHeight(card.height)
-		end
+		card.height = y + CARD_PAD
+		card:SetHeight(card.height)
 	end
 
 	for i, spec in ipairs(ResetSpecs(module)) do

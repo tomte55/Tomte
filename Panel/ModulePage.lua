@@ -9,6 +9,8 @@ local PAD = 24 -- page text inset; content frames sit 8 px further out
 ns.PANEL_PAD = PAD
 local ICON = 40
 local CHIP_H = 18
+local SCROLL_BAR = 10 -- room right of the options scroll for its thumb
+local ROW_INSET = 14 -- a card row's control sits this far in from the card edge (Options.lua)
 local CHIP_PAD = 8 -- text inset on each side of a chip
 
 local page
@@ -208,11 +210,17 @@ function ns.PanelModulePage_Refresh(headerOnly)
 	page.icon:SetDesaturated(not open)
 	page.title:SetText(module.name)
 
-	-- Switch, then the "Open" buttons under it; the text column ends left of the wider of the two.
+	-- Switch, then the "Open" buttons under it, lined up with the right edge of the option cards (capped in width,
+	-- Options.lua) rather than the window's; the text column ends left of the wider of the two.
+	local optionsW = page:GetWidth() - 2 * (PAD - 8) - SCROLL_BAR
+	local showOptions = open and module.options ~= nil and #module.options > 0
+	local right = (PAD - 8) + (showOptions and ns.PanelOptions_Width(module, optionsW) or optionsW) - ROW_INSET
 	page.toggle:SetShown(not module.alwaysOn)
+	page.toggle:ClearAllPoints()
+	page.toggle:SetPoint("TOPRIGHT", page, "TOPLEFT", right, -18)
 	page.actions:ClearAllPoints()
 	if module.alwaysOn then
-		page.actions:SetPoint("TOPRIGHT", -PAD, -18)
+		page.actions:SetPoint("TOPRIGHT", page, "TOPLEFT", right, -18)
 	else
 		page.actions:SetPoint("TOPRIGHT", page.toggle, "BOTTOMRIGHT", 0, -8)
 	end
@@ -238,7 +246,7 @@ function ns.PanelModulePage_Refresh(headerOnly)
 		page.openButtons[i]:Hide()
 	end
 	local actionsW = math.max(module.alwaysOn and 0 or page.toggle:GetWidth(), x)
-	local textW = math.max(page:GetWidth() - PAD - ICON - 14 - actionsW - 24 - PAD, 120)
+	local textW = math.max(right - actionsW - 24 - (PAD + ICON + 14), 120)
 	page.title:SetWidth(textW)
 	page.summary:SetWidth(textW)
 	page.desc:SetWidth(textW)
@@ -290,13 +298,12 @@ function ns.PanelModulePage_Refresh(headerOnly)
 		headerAnchor = page.blocked
 	end
 
-	local showOptions = open and module.options ~= nil and #module.options > 0
 	page.options:SetShown(showOptions)
 	if showOptions then
 		page.options:ClearAllPoints()
 		page.options:SetPoint("TOP", headerAnchor, "BOTTOM", 0, -16)
 		page.options:SetPoint("LEFT", page, "LEFT", PAD - 8, 0)
-		page.options:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -(PAD - 8) - 10, 14)
+		page.options:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -(PAD - 8) - SCROLL_BAR, 14)
 		if not headerOnly then
 			ns.PanelOptions_Build(page.options, module)
 		end

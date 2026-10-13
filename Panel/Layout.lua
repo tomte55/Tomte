@@ -38,6 +38,15 @@ function ns.PanelLayout_Columns(width, gap, minColumn, cards)
 	return (width - gap) / 2 >= minColumn and 2 or 1
 end
 
+-- Columns, card width (at most maxCard, so a control stays near its label on a wide window) and the width the cards
+-- take together.
+function ns.PanelLayout_Cards(width, gap, minColumn, maxCard, cards)
+	local columns = ns.PanelLayout_Columns(width, gap, minColumn, cards)
+	local cardW = columns == 2 and math.floor((width - gap) / 2) or width
+	cardW = math.min(cardW, maxCard)
+	return columns, cardW, columns * cardW + (columns - 1) * gap
+end
+
 -- Cards in order, each into the shorter column (ties go left), gap between cards. Returns places[i] = { column, y }
 -- and the height of the taller column.
 function ns.PanelLayout_Deal(heights, columns, gap)

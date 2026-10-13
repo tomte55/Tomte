@@ -112,7 +112,7 @@ end
 local Refresh, ShowMeta
 
 local function RowMenu(owner, record)
-	MenuUtil.CreateContextMenu(owner, function(_, root)
+	UI.ContextMenu(owner, function(_, root)
 		root:CreateTitle(record.name)
 		if ns.Ach_IsPinned(record.id) then
 			root:CreateButton("Unpin", function()
@@ -163,7 +163,7 @@ end
 
 local function FilterMenu(owner)
 	local db = DB()
-	MenuUtil.CreateContextMenu(owner, function(_, root)
+	UI.ContextMenu(owner, function(_, root)
 		local tops, expansions = ns.Ach_FilterChoices()
 		local categories = root:CreateButton("Categories")
 		for _, top in ipairs(tops) do

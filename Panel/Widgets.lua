@@ -656,7 +656,7 @@ function UI.Slider(parent, width)
 	return s
 end
 
--- Button showing the current choice; the list opens with Blizzard's menu system.
+-- Button showing the current choice; a click opens the themed choice list (UI.OpenChoiceList, Controls.lua).
 function UI.Dropdown(parent, width)
 	local b = UI.Button(parent, width, "")
 	b.label:ClearAllPoints()
@@ -671,6 +671,7 @@ function UI.Dropdown(parent, width)
 	local arrow = UI.Text(b, 11, "accent")
 	arrow:SetPoint("RIGHT", -7, 0)
 	arrow:SetText("v")
+	b.arrow = arrow -- "^" while its list is open
 	function b:Refresh()
 		local value = self.getValue()
 		for _, choice in ipairs(self.choices()) do
@@ -689,11 +690,16 @@ function UI.Dropdown(parent, width)
 		b:Refresh()
 	end
 	b:SetScript("OnClick", function(self)
-		MenuUtil.CreateContextMenu(self, function(_, root)
-			for _, choice in ipairs(self.choices()) do
-				root:CreateRadio(choice.text, IsSelected, SetSelected, choice.value)
-			end
-		end)
+		if UI.ChoiceListOwner() == self then
+			UI.CloseChoiceList()
+		else
+			UI.OpenChoiceList(self, self.choices(), IsSelected, SetSelected)
+		end
+	end)
+	b:HookScript("OnHide", function(self)
+		if UI.ChoiceListOwner() == self then
+			UI.CloseChoiceList()
+		end
 	end)
 	return b
 end

@@ -79,7 +79,7 @@ end
 local function DropList(drops)
 	local parts = {}
 	for i, e in ipairs(drops) do
-		parts[i] = ("%s (a %s)"):format(e.name, KIND_WORDS[e.kind] or "drop")
+		parts[i] = ("%s (%s)"):format(e.name, KIND_WORDS[e.kind] or "drop")
 	end
 	if #parts <= 1 then
 		return parts[1] or ""
@@ -92,7 +92,7 @@ local function ShowRareToast(rareName, drops, sample)
 	local first = drops[1]
 	ns.Toast_Show({
 		owner = OWNER, label = "Up now", accent = ACCENT, title = rareName,
-		text = ("Drops %s you're missing.%s"):format(DropList(drops), sample and "" or "\nClick for a waypoint."),
+		text = ("Drops %s.%s"):format(DropList(drops), sample and "" or "\nClick for a waypoint."),
 		icon = first.icon, mergeKey = "collect:rare:" .. rareName, holdInCombat = true, hold = 15,
 		test = sample or nil,
 		onClick = not sample and function()
