@@ -303,7 +303,9 @@ end)
 module = ns.RegisterModule({
 	key = "delves",
 	name = "Delves",
-	category = "World",
+	category = "week",
+	icon = 134237, -- inv_misc_key_03
+	summary = "Bountiful delves, coffer keys and the tier your vault needs.",
 	description = "Today's bountiful delves with a click to track them, your coffer keys and shards, the delve tier "
 		.. "that raises your Great Vault's World slots, and your companion's level, role and curios. A note beside "
 		.. "the tier picker at a delve entrance.",

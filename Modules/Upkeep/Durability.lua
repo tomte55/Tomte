@@ -163,7 +163,9 @@ end
 module = ns.RegisterModule({
 	key = "dura",
 	name = "Durability",
-	category = "Upkeep",
+	category = "gear",
+	icon = 136241, -- trade_blacksmithing
+	summary = "A heads-up when your gear needs repairs, before it breaks.",
 	description = "A toast when your gear drops below a durability threshold or an item breaks, and a warning when you enter a dungeon, raid or delve with low gear.",
 	enabledByDefault = true,
 	defaults = {
@@ -205,6 +207,6 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "instance", label = "Check when entering an instance",
 			tooltip = "Dungeons, raids and delves." },
 		{ type = "slider", key = "instanceThreshold", label = "Warn below", min = 20, max = 80, step = 5,
-			format = Percent },
+			format = Percent, parent = "instance" },
 	},
 })

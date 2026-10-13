@@ -166,14 +166,16 @@ end
 -- again by the priorities' Reset button.
 local function BuildOptions()
 	local options = {
+		{ type = "header", label = "Suggestions" },
 		{ type = "checkbox", key = "home", label = "Show on Home" },
-		{ type = "dropdown", key = "placement", label = "Placement", choices = function()
+		{ type = "dropdown", key = "placement", label = "Placement", parent = "home", choices = function()
 			return { { value = "characters", text = "Under Your characters" }, { value = "column", text = "Right column" },
 				{ value = "strip", text = "Strip under This week" } }
 		end, tooltip = "Under the character list (it goes to the right column when there are too many characters to fit), "
 			.. "on top of the right column (above Around you), or across Home under This week." },
-		{ type = "slider", key = "rows", label = "Rows", min = 3, max = 8, step = 1 },
+		{ type = "slider", key = "rows", label = "Rows", min = 3, max = 8, step = 1, parent = "home" },
 		{ type = "slider", key = "perSource", label = "Most from one source", min = 1, max = 8, step = 1,
+			parent = "home",
 			tooltip = "So one source (say, achievements) can't fill the whole list." },
 		{ type = "dropdown", key = "dismiss", label = "\"Not now\" lasts", choices = function()
 			return { { value = "login", text = "Until next login" }, { value = "change", text = "Until it changes" } }
@@ -186,8 +188,8 @@ local function BuildOptions()
 	for _, entry in ipairs(Sources()) do
 		options[#options + 1] = { type = "checkbox", key = "sources." .. entry.key, label = entry.name,
 			tooltip = entry.description }
-		options[#options + 1] = { type = "slider", key = "priority." .. entry.key, label = "    Priority", min = 0,
-			max = 100, step = 5,
+		options[#options + 1] = { type = "slider", key = "priority." .. entry.key, label = "Priority", min = 0,
+			max = 100, step = 5, parent = "sources." .. entry.key,
 			tooltip = "Higher comes first. Default " .. (entry.score or 50) .. "." }
 	end
 	options[#options + 1] = { type = "button", label = "Priorities", text = "Reset", onClick = function()
@@ -203,7 +205,9 @@ end
 module = ns.RegisterModule({
 	key = "next",
 	name = "Next up",
-	category = "General",
+	category = "tomte",
+	icon = 236672, -- achievement_quests_completed_daily_01
+	summary = "The best things to do right now, listed on Home.",
 	description = "A short list on Home of the best things to do right now: Great Vault rewards waiting, a rare up that "
 		.. "drops something you're missing, low durability, full Concentration, world quests worth doing, a vault slot "
 		.. "one activity away, achievements one step from done and open knowledge sources. Click one to start it, "

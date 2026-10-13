@@ -359,7 +359,9 @@ end
 module = ns.RegisterModule({
 	key = "pet",
 	name = "Pet Health",
-	category = "Combat",
+	category = "class",
+	icon = 132179, -- ability_hunter_mendpet
+	summary = "A pet health bar that warns you when your pet needs healing.",
 	description = "A pet health bar under your character that turns red and glows when your pet needs healing, with Mend Pet and Exhilaration cooldowns, and reminders when your pet dies or you pull without one.",
 	enabledByDefault = true,
 	defaults = {

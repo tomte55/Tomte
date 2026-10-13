@@ -103,7 +103,9 @@ end)
 module = ns.RegisterModule({
 	key = "fishing",
 	name = "Fishing",
-	category = "General",
+	category = "professions",
+	icon = 136245, -- trade_fishing
+	summary = "Fish with one key: press to cast, press again to reel in and loot.",
 	description = "One key for fishing (Key Bindings > Tomte > Fishing): press it to cast, press it again when the bobber splashes to reel in and loot. Auto loot while fishing, no recast while looting, and optional louder splash, raft, Oversized Bobber and an on-screen button.",
 	enabledByDefault = true,
 	defaults = {
@@ -146,23 +148,24 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Louder splash" },
 		{ type = "checkbox", key = "loud.on", label = "Louder splash",
 			tooltip = "While the bobber is out: music and ambience off, sound effects at the volume below, so the splash is easy to hear. Put back after." },
-		{ type = "slider", key = "loud.sfx", label = "Effects volume", min = 0.2, max = 1, step = 0.1, format = Percent },
-		{ type = "checkbox", key = "loud.background", label = "Also when WoW is in the background",
+		{ type = "slider", key = "loud.sfx", label = "Effects volume", min = 0.2, max = 1, step = 0.1, format = Percent,
+			parent = "loud.on" },
+		{ type = "checkbox", key = "loud.background", label = "Also when WoW is in the background", parent = "loud.on",
 			tooltip = "Keeps the game's sound on while you're in another window, during a cast only." },
 
 		{ type = "header", label = "Toys" },
 		raftSpec,
 		{ type = "dropdown", key = "raft.pick", label = "Raft", choices = function()
 			return ns.Fishing_RaftChoices()
-		end, onChange = Refresh },
+		end, onChange = Refresh, parent = "raft.on" },
 		bobberSpec,
 
 		{ type = "header", label = "Fishing button" },
 		{ type = "checkbox", key = "button.shown", label = "Show the fishing button", onChange = Refresh,
 			tooltip = "An icon with what the next press does. A click casts like the key, but reeling in needs the key (or a click on the bobber). Blizzard's Edit Mode moves it." },
 		{ type = "slider", key = "button.scale", label = "Size", min = 0.6, max = 1.6, step = 0.1, format = Scale,
-			onChange = Relayout },
-		{ type = "button", label = "Position", text = "Reset", onClick = function()
+			onChange = Relayout, parent = "button.shown" },
+		{ type = "button", label = "Position", text = "Reset", parent = "button.shown", onClick = function()
 			ns.FishingKey_ResetPosition()
 		end, tooltip = "Move the button back to below the middle of the screen." },
 	},

@@ -193,13 +193,14 @@ function ns.ModulePages(module)
 end
 
 -- Lines for the settings header from module.uses / module.conflicts ({ addon, why }). isLoaded(addon) -> bool.
--- ok: a used addon is loaded, or a conflicting one isn't.
+-- ok: a used addon is loaded, or a conflicting one isn't. addon: its name; conflict: from module.conflicts.
 function ns.ModuleDependencies(module, isLoaded)
 	local lines = {}
 	for _, dep in ipairs(module.uses or {}) do
 		local loaded = isLoaded(dep.addon)
 		lines[#lines + 1] = {
 			ok = loaded,
+			addon = dep.addon,
 			text = ("Uses %s: %s"):format(dep.addon, loaded and dep.why or ("not loaded, " .. (dep.without or dep.why))),
 		}
 	end
@@ -207,6 +208,8 @@ function ns.ModuleDependencies(module, isLoaded)
 		local loaded = isLoaded(dep.addon)
 		lines[#lines + 1] = {
 			ok = not loaded,
+			addon = dep.addon,
+			conflict = true,
 			text = ("Conflicts with %s: %s"):format(dep.addon, dep.why),
 		}
 	end
@@ -289,26 +292,6 @@ end
 function ns.SetModuleEnabled(key, enabled)
 	ns.db.enabled[key] = enabled and true or false
 	ns.RefreshModule(ns.modulesByKey[key])
-end
-
-function ns.ModuleCategories()
-	local list, seen = {}, {}
-	for _, module in ipairs(ns.modules) do
-		if not seen[module.category] then
-			seen[module.category] = true
-			list[#list + 1] = module.category
-		end
-	end
-	return list
-end
-
--- text must already be lower case; "" matches everything.
-function ns.ModuleMatches(module, text)
-	if text == "" then
-		return true
-	end
-	return module.name:lower():find(text, 1, true) ~= nil
-		or (module.description or ""):lower():find(text, 1, true) ~= nil
 end
 
 -- A live cinematic state some active module still owns (see the engine's music and pitch cleanup).

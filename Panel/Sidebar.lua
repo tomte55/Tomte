@@ -1,15 +1,23 @@
 local addonName, ns = ...
 
--- Settings sidebar: search and every module grouped under collapsible categories, each with an on/off checkbox.
--- Built and refreshed by Panel.lua (ns.PanelSidebar_Create, ns.PanelSidebar_Refresh).
+-- Settings sidebar: a rail of group icons (ns.PANEL_GROUPS, Layout.lua) that slides out over the list to show the
+-- names while the mouse is on it, and beside it the list column: search, the selected group's name and modules, each
+-- with an on/off checkbox. Searching lists matches from every group. Built and refreshed by Panel.lua
+-- (ns.PanelSidebar_Create, ns.PanelSidebar_Refresh).
 
 local UI = ns.UI
-local SIDEBAR_W = 220
-local ROW_H, HEADER_H = 24, 26
+local RAIL_W, RAIL_OPEN_W = 44, 200
+local LIST_W = 176
+local SIDEBAR_W = RAIL_W + LIST_W
+local RAIL_ROW_H = 34
+local RAIL_ICON = 24
+local SLIDE_SECONDS = 0.12
+local ROW_H = 24
 
-local sidebar -- the frames: list, search, noMatches
+local sidebar -- the frames: rail, list column
 local searchText = ""
-local moduleRows, listHeaders = {}, {}
+local moduleRows, railButtons = {}, {}
+local lastInGroup = {} -- [group key] = module key last shown in it (this session)
 
 local function Selected()
 	return ns.Panel_Selected()
@@ -23,12 +31,194 @@ local function HideTooltip()
 	GameTooltip:Hide()
 end
 
-local RefreshList -- forward declaration
+local function GroupModules(key)
+	local list = {}
+	for _, module in ipairs(ns.modules) do
+		if module.category == key then
+			list[#list + 1] = module
+		end
+	end
+	return list
+end
+
+local function SetGroupIcon(texture, group)
+	texture:SetTexture(group and group.icon or ns.ICON)
+end
 
 local function Select(module)
 	ns.db.panel.selected = module.key
 	Refresh()
 end
+
+-- Rail ---------------------------------------------------------------------------------------------------------
+
+-- Slide-out: progress runs 0..1 toward the target; the OnUpdate only runs while sliding or open (to notice the
+-- mouse leaving, which the rail's own OnLeave can't tell apart from moving onto one of its buttons).
+local function SetRailProgress(rail, p)
+	rail.progress = p
+	local eased = ns.Smoothstep(p)
+	rail:SetWidth(RAIL_W + (RAIL_OPEN_W - RAIL_W) * eased)
+	rail.bg:SetAlpha(eased)
+	rail.shadow:SetAlpha(eased)
+	for _, b in ipairs(railButtons) do
+		b.name:SetAlpha(eased)
+		b.count:SetAlpha(eased)
+	end
+end
+
+local function RailUpdate(rail, elapsed)
+	local target = rail:IsMouseOver() and 1 or 0
+	local p = rail.progress
+	if p ~= target then
+		local step = elapsed / SLIDE_SECONDS
+		p = target > p and math.min(p + step, 1) or math.max(p - step, 0)
+		SetRailProgress(rail, p)
+	elseif target == 0 then
+		rail:SetScript("OnUpdate", nil)
+	end
+end
+
+local function OpenRail()
+	local rail = sidebar.rail
+	if not rail:GetScript("OnUpdate") then
+		rail:SetScript("OnUpdate", RailUpdate)
+	end
+end
+
+local function CloseRailNow()
+	local rail = sidebar.rail
+	rail:SetScript("OnUpdate", nil)
+	SetRailProgress(rail, 0)
+end
+
+local function SelectGroup(key)
+	local modules = GroupModules(key)
+	local module = ns.modulesByKey[lastInGroup[key]] or modules[1]
+	if not module then
+		return
+	end
+	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+	if sidebar.search:GetText() ~= "" then
+		sidebar.search:SetText("") -- a group click leaves search, or the list would keep showing the matches
+		sidebar.search:ClearFocus()
+	end
+	searchText = ""
+	Select(module)
+end
+
+local function CreateRailButton(rail, group)
+	local b = CreateFrame("Button", nil, rail)
+	b:SetHeight(RAIL_ROW_H)
+	b.group = group
+	b.bg = b:CreateTexture(nil, "BACKGROUND")
+	b.bg:SetAllPoints()
+	b.bg:SetColorTexture(UI.Color("hover"))
+	b.bar = b:CreateTexture(nil, "ARTWORK")
+	b.bar:SetColorTexture(UI.Color("accent"))
+	b.bar:SetPoint("TOPLEFT")
+	b.bar:SetPoint("BOTTOMLEFT")
+	b.bar:SetWidth(2)
+	b.icon = b:CreateTexture(nil, "ARTWORK")
+	b.icon:SetSize(RAIL_ICON, RAIL_ICON)
+	b.icon:SetPoint("LEFT", (RAIL_W - RAIL_ICON) / 2, 0)
+	b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	SetGroupIcon(b.icon, group)
+	b.ring = CreateFrame("Frame", nil, b)
+	b.ring:SetAllPoints(b.icon)
+	UI.Border(b.ring, "frame", 0.6)
+	b.name = UI.Text(b, 13, "text")
+	b.name:SetPoint("LEFT", b.icon, "RIGHT", 12, 0)
+	b.name:SetWordWrap(false)
+	b.name:SetText(group.name)
+	b.count = UI.Text(b, 11, "textFaint", "number")
+	b.count:SetPoint("RIGHT", -12, 0)
+	b.name:SetPoint("RIGHT", b.count, "LEFT", -6, 0)
+	b:SetScript("OnEnter", function(self)
+		self.bg:Show()
+		OpenRail()
+	end)
+	b:SetScript("OnLeave", function(self)
+		self.bg:SetShown(self.selected)
+	end)
+	b:SetScript("OnClick", function(self)
+		SelectGroup(self.group.key)
+	end)
+	return b
+end
+
+local function CreateRail(parent)
+	local rail = CreateFrame("Frame", nil, parent)
+	rail:SetPoint("TOPLEFT")
+	rail:SetPoint("BOTTOMLEFT")
+	rail:SetWidth(RAIL_W)
+	rail:SetFrameLevel(parent:GetFrameLevel() + 20) -- over the list column when it slides out
+	rail:SetClipsChildren(true)
+	rail:EnableMouse(true)
+	rail:SetScript("OnEnter", OpenRail)
+	rail.bg = rail:CreateTexture(nil, "BACKGROUND")
+	rail.bg:SetAllPoints()
+	local r, g, b = UI.Color("bg")
+	rail.bg:SetColorTexture(r, g, b, 1) -- opaque, whatever the theme's alpha: the list underneath mustn't show
+	rail.edge = rail:CreateTexture(nil, "BORDER")
+	rail.edge:SetColorTexture(UI.Color("rule"))
+	rail.edge:SetAlpha(0.6)
+	rail.edge:SetPoint("TOPRIGHT", 0, -12)
+	rail.edge:SetPoint("BOTTOMRIGHT", 0, 12)
+	rail.edge:SetWidth(1)
+	-- The shadow sits outside the rail (which clips its children), on a sibling frame at the same level.
+	local shadowHost = CreateFrame("Frame", nil, parent)
+	shadowHost:SetPoint("TOPLEFT", rail, "TOPRIGHT")
+	shadowHost:SetPoint("BOTTOMLEFT", rail, "BOTTOMRIGHT")
+	shadowHost:SetWidth(16)
+	shadowHost:SetFrameLevel(rail:GetFrameLevel())
+	rail.shadow = shadowHost:CreateTexture(nil, "OVERLAY")
+	rail.shadow:SetAllPoints()
+	rail.shadow:SetColorTexture(0, 0, 0, 1)
+	rail.shadow:SetGradient("HORIZONTAL", CreateColor(0, 0, 0, 0.55), CreateColor(0, 0, 0, 0))
+
+	local y = 10
+	for i, group in ipairs(ns.PANEL_GROUPS) do
+		local b = CreateRailButton(rail, group)
+		b:SetPoint("TOPLEFT", 0, -y)
+		b:SetPoint("RIGHT", rail, "RIGHT")
+		railButtons[i] = b
+		y = y + RAIL_ROW_H
+		if i == 1 then -- Tomte is pinned: a short rule under it
+			local rule = rail:CreateTexture(nil, "ARTWORK")
+			rule:SetColorTexture(UI.Color("rule"))
+			rule:SetAlpha(0.6)
+			rule:SetHeight(1)
+			rule:SetPoint("TOPLEFT", 10, -(y + 4))
+			rule:SetPoint("TOPRIGHT", -10, -(y + 4))
+			y = y + 9
+		end
+	end
+	rail:SetScript("OnHide", CloseRailNow)
+	SetRailProgress(rail, 0)
+	return rail
+end
+
+local function RefreshRail(current)
+	for _, b in ipairs(railButtons) do
+		local modules = GroupModules(b.group.key)
+		local usable = false
+		for _, module in ipairs(modules) do
+			if not ns.ModuleBlockedReason(module) then
+				usable = true
+				break
+			end
+		end
+		b.selected = current ~= nil and current.category == b.group.key
+		b.bar:SetShown(b.selected)
+		b.bg:SetShown(b.selected or b:IsMouseOver())
+		b.icon:SetDesaturated(not usable)
+		b.icon:SetAlpha(usable and 1 or 0.5)
+		UI.SetTextRole(b.name, usable and (b.selected and "heading" or "text") or "textFaint")
+		b.count:SetText(#modules)
+	end
+end
+
+-- Module list ----------------------------------------------------------------------------------------------------
 
 local function CreateModuleRow(parent)
 	local row = CreateFrame("Button", nil, parent)
@@ -43,9 +233,12 @@ local function CreateModuleRow(parent)
 	row.bar:SetWidth(2)
 	row.check = UI.Checkbox(row)
 	row.check:SetPoint("LEFT", 12, 0)
+	row.groupIcon = row:CreateTexture(nil, "ARTWORK")
+	row.groupIcon:SetSize(14, 14)
+	row.groupIcon:SetPoint("RIGHT", -8, 0)
+	row.groupIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 	row.name = UI.Text(row, 13, "text")
 	row.name:SetPoint("LEFT", row.check, "RIGHT", 10, 0)
-	row.name:SetPoint("RIGHT", -8, 0)
 	row.name:SetWordWrap(false)
 
 	local function Enter()
@@ -53,8 +246,9 @@ local function CreateModuleRow(parent)
 		row.bg:Show()
 		GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
 		GameTooltip:SetText(module.name, UI.Color("heading"))
-		if module.description then
-			GameTooltip:AddLine(module.description, 1, 1, 1, true)
+		local about = module.summary or module.description
+		if about then
+			GameTooltip:AddLine(about, 1, 1, 1, true)
 		end
 		local reason = ns.ModuleBlockedReason(module)
 		if reason then
@@ -81,96 +275,65 @@ local function CreateModuleRow(parent)
 	return row
 end
 
-local function SetRow(row, module, selected)
+-- searching: the row shows its group's icon on the right.
+local function SetRow(row, module, selected, searching)
 	row.module = module
 	local reason = ns.ModuleBlockedReason(module)
 	row.check:SetChecked(ns.ModuleEnabled(module))
 	row.check:SetEnabled(reason == nil and not module.alwaysOn)
 	UI.SetTextRole(row.name, reason and "textFaint" or (selected and "heading" or "text"))
 	row.name:SetText(module.name)
+	row.groupIcon:SetShown(searching)
+	if searching then
+		SetGroupIcon(row.groupIcon, ns.PanelLayout_Group(module.category))
+	end
+	row.name:SetPoint("RIGHT", searching and row.groupIcon or row, searching and "LEFT" or "RIGHT", -8, 0)
 	row.bar:SetShown(selected)
 	row.bg:SetShown(selected or row:IsMouseOver())
 end
 
--- Category header: click to collapse or expand it (saved). While searching, every match shows.
-local function CreateCategoryHeader(parent)
-	local b = CreateFrame("Button", nil, parent)
-	b:SetHeight(HEADER_H)
-	b.toggle = UI.Text(b, 12, "textMuted")
-	b.toggle:SetPoint("BOTTOMLEFT", 10, 6)
-	b.toggle:SetWidth(10)
-	b.text = UI.Text(b, 11, "textMuted", "label")
-	b.text:SetPoint("BOTTOMLEFT", b.toggle, "BOTTOMRIGHT", 4, 0)
-	b.count = UI.Text(b, 11, "textFaint", "number")
-	b.count:SetPoint("BOTTOMRIGHT", -10, 6)
-	b:SetScript("OnEnter", function(self)
-		UI.SetTextRole(self.text, "text")
-	end)
-	b:SetScript("OnLeave", function(self)
-		UI.SetTextRole(self.text, self.color)
-	end)
-	b:SetScript("OnClick", function(self)
-		local collapsed = ns.db.panel.collapsed
-		collapsed[self.category] = not collapsed[self.category] or nil
-		PlaySound(collapsed[self.category] and SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF or SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
-		RefreshList()
-	end)
-	return b
-end
-
-function RefreshList()
+local function RefreshList()
 	local list = sidebar.list
 	local content = list.content
 	local current = Selected()
-	local searching = searchText ~= ""
-	local rowCount, headerCount, y = 0, 0, 0
-	for _, cat in ipairs(ns.ModuleCategories()) do
-		local matches = {}
-		for _, module in ipairs(ns.modules) do
-			if module.category == cat and ns.ModuleMatches(module, searchText) then
-				matches[#matches + 1] = module
-			end
-		end
-		if #matches > 0 then
-			local collapsed = not searching and ns.db.panel.collapsed[cat] == true
-			headerCount = headerCount + 1
-			local header = listHeaders[headerCount] or CreateCategoryHeader(content)
-			listHeaders[headerCount] = header
-			header.category = cat
-			header:SetEnabled(not searching)
-			header.toggle:SetText(searching and "" or (collapsed and "+" or "-"))
-			header.text:SetText(cat:upper())
-			header.count:SetText(#matches)
-			-- A collapsed category holding the selected module stays in the accent, so you can see where it is.
-			header.color = (collapsed and current and current.category == cat) and "accent" or "textMuted"
-			UI.SetTextRole(header.text, header.color)
-			header:ClearAllPoints()
-			header:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
-			header:SetPoint("RIGHT", content, "RIGHT")
-			header:Show()
-			y = y + HEADER_H
-			if not collapsed then
-				for _, module in ipairs(matches) do
-					rowCount = rowCount + 1
-					local row = moduleRows[rowCount] or CreateModuleRow(content)
-					moduleRows[rowCount] = row
-					row:ClearAllPoints()
-					row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
-					row:SetPoint("RIGHT", content, "RIGHT")
-					SetRow(row, module, module == current)
-					row:Show()
-					y = y + ROW_H
-				end
-			end
-		end
+	if current then
+		lastInGroup[current.category] = current.key
 	end
-	for i = rowCount + 1, #moduleRows do
+	RefreshRail(current)
+
+	local searching = searchText ~= ""
+	local modules = {}
+	if searching then
+		for _, module in ipairs(ns.modules) do
+			local group = ns.PanelLayout_Group(module.category)
+			if ns.PanelLayout_Matches(module, group and group.name, searchText) then
+				modules[#modules + 1] = module
+			end
+		end
+		sidebar.heading:SetText("Search")
+		sidebar.about:SetText(#modules == 1 and "1 module" or (#modules .. " modules"))
+	else
+		local group = current and ns.PanelLayout_Group(current.category)
+		modules = group and GroupModules(group.key) or {}
+		sidebar.heading:SetText(group and group.name or "")
+		sidebar.about:SetText(group and group.description or "")
+	end
+
+	local y = 0
+	for i, module in ipairs(modules) do
+		local row = moduleRows[i] or CreateModuleRow(content)
+		moduleRows[i] = row
+		row:ClearAllPoints()
+		row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+		row:SetPoint("RIGHT", content, "RIGHT")
+		SetRow(row, module, module == current, searching)
+		row:Show()
+		y = y + ROW_H
+	end
+	for i = #modules + 1, #moduleRows do
 		moduleRows[i]:Hide()
 	end
-	for i = headerCount + 1, #listHeaders do
-		listHeaders[i]:Hide()
-	end
-	sidebar.noMatches:SetShown(headerCount == 0)
+	sidebar.noMatches:SetShown(searching and #modules == 0)
 	list:SetContentHeight(y + 8)
 end
 
@@ -214,9 +377,25 @@ function ns.PanelSidebar_Create(parent)
 	local frame = CreateFrame("Frame", nil, parent)
 	frame:SetWidth(SIDEBAR_W)
 	sidebar = frame
-	frame.search = CreateSearch(frame)
-	local list = UI.Scroll(frame)
-	list:SetPoint("TOPLEFT", frame.search, "BOTTOMLEFT", -8, -10)
+	frame.rail = CreateRail(frame)
+
+	local column = CreateFrame("Frame", nil, frame)
+	column:SetPoint("TOPLEFT", RAIL_W, 0)
+	column:SetPoint("BOTTOMRIGHT")
+	frame.search = CreateSearch(column)
+	frame.heading = UI.Text(column, 15, "heading", "title")
+	frame.heading:SetPoint("TOPLEFT", frame.search, "BOTTOMLEFT", 0, -14)
+	frame.heading:SetPoint("RIGHT", -12, 0)
+	frame.heading:SetWordWrap(false)
+	frame.about = UI.Text(column, 11, "textMuted")
+	frame.about:SetPoint("TOPLEFT", frame.heading, "BOTTOMLEFT", 0, -4)
+	frame.about:SetPoint("RIGHT", -12, 0)
+	frame.about:SetWordWrap(true)
+	frame.about:SetHeight(28) -- two lines, so the list starts at the same place in every group
+	frame.about:SetMaxLines(2)
+	frame.about:SetJustifyV("TOP")
+	local list = UI.Scroll(column)
+	list:SetPoint("TOPLEFT", frame.about, "BOTTOMLEFT", -12, -6)
 	list:SetPoint("BOTTOMRIGHT", -10, 10)
 	frame.list = list
 	frame.noMatches = UI.Text(list.content, 12, "textMuted")

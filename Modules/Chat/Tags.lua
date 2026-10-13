@@ -86,6 +86,7 @@ local function OnChange()
 end
 
 local options = {
+	{ type = "header", label = "Tags" },
 	{ type = "dropdown", key = "style", label = "Channel tags", onChange = OnChange, choices = function()
 		return ns.CHAT_TAG_STYLES
 	end, tooltip = "How numbered channels (General, Trade, Services, LookingForGroup, your own channels) show. Short names: Gen, T, S, LFG, LD; other channels keep their name." },
@@ -98,7 +99,9 @@ local options = {
 module = ns.RegisterModule({
 	key = "chattags",
 	name = "Channel Tags",
-	category = "Chat",
+	category = "social",
+	icon = 237132, -- inv_inscription_papyrus
+	summary = "Short channel tags like [T] and [G] in front of chat lines.",
 	description = "Shorter tags in front of chat lines: [2. Trade - City] becomes [2. Trade], [T] or what you pick; [Guild] becomes [G].",
 	enabledByDefault = false,
 	keep = { "labels" },

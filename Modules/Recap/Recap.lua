@@ -381,7 +381,9 @@ module = ns.RegisterModule({
 		end },
 	},
 	name = "Session recap",
-	category = "Ambience",
+	category = "ambience",
+	icon = 133785, -- inv_misc_coin_02
+	summary = "What you got done each session: gold, loot and progress.",
 	description = "What you got done this session: time, gold and where it came from, notable loot, achievements, rares, tames and progress. A card while you log out, on /tomte recap and on the AFK screen; a toast at login for your last session.",
 	enabledByDefault = true,
 	defaults = {
@@ -435,15 +437,16 @@ module = ns.RegisterModule({
 		-- "2 minutes" is History.lua's MIN_SECONDS.
 		{ type = "checkbox", key = "keepHistory", label = "Keep history",
 			tooltip = "Keep finished sessions (2 minutes or longer) for the Sessions page. A session is kept when the next one starts." },
-		{ type = "dropdown", key = "keepBy", label = "Keep by", choices = function()
+		{ type = "dropdown", key = "keepBy", label = "Keep by", parent = "keepHistory", choices = function()
 			return { { value = "count", text = "Number of sessions" }, { value = "days", text = "Days" } }
 		end },
-		{ type = "slider", key = "keepCount", label = "Sessions per character", min = 10, max = 100, step = 5 },
-		{ type = "slider", key = "keepDays", label = "Days kept", min = 7, max = 90, step = 7 },
-		{ type = "dropdown", key = "mainNumber", label = "Chart shows", choices = function()
+		{ type = "slider", key = "keepCount", label = "Sessions per character", min = 10, max = 100, step = 5,
+			parent = "keepHistory" },
+		{ type = "slider", key = "keepDays", label = "Days kept", min = 7, max = 90, step = 7, parent = "keepHistory" },
+		{ type = "dropdown", key = "mainNumber", label = "Chart shows", parent = "keepHistory", choices = function()
 			return { { value = "perHour", text = "Gold per hour" }, { value = "net", text = "Net gold per session" } }
 		end },
-		{ type = "checkbox", key = "nights", label = "Group into play nights",
+		{ type = "checkbox", key = "nights", label = "Group into play nights", parent = "keepHistory",
 			tooltip = "Sessions less than an hour apart (any character) are grouped under one line with their totals." },
 		{ type = "button", label = "History", text = "Clear", confirm = "Clear the session history on every character?",
 			onClick = function()

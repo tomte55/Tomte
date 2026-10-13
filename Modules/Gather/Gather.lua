@@ -408,7 +408,9 @@ BINDING_NAME_TOMTE_GATHER_SKIP = "Gathering route: skip a spot"
 module = ns.RegisterModule({
 	key = "gather",
 	name = "Gathering",
-	category = "General",
+	category = "professions",
+	icon = 136248, -- trade_mining
+	summary = "Nodes, loot and gold per hour for your gathering runs, plus node maps.",
 	description = "Tracks your gathering runs (mining, herbalism, skinning and fishing): nodes per hour, items with their ranks, gold per hour, rare finds, skill and knowledge gained, and zones. A small tracker while you gather, a toast when a run ends and a Gathering page.",
 	enabledByDefault = true,
 	defaults = {
@@ -537,7 +539,7 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Tracker and toasts" },
 		{ type = "checkbox", key = "tracker.shown", label = "Show the tracker", onChange = Refresh,
 			tooltip = "A small window while a run is on: time, nodes, value, top items, finds, skill. Hidden in instances and pet battles. Move it in Blizzard's Edit Mode (\"Gathering run\")." },
-		{ type = "button", label = "Tracker position", text = "Reset", onClick = function()
+		{ type = "button", label = "Tracker position", text = "Reset", parent = "tracker.shown", onClick = function()
 			ns.GatherTracker_ResetPosition()
 		end },
 		{ type = "checkbox", key = "toastEnd", label = "Toast when a run ends",

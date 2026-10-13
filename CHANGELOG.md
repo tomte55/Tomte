@@ -5,6 +5,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Settings: a new layout. Modules sit in nine groups on an icon rail that slides out to show the group names when you hover it, with the group's modules listed beside it (search still finds every module). Each module's page opens with its icon, a one-line summary, an on/off switch and the addons it uses, and its settings sit in cards, in two columns on a wide window. Checkboxes are switches, short choices are buttons side by side, and settings that only matter when another is on are indented and dimmed while it's off.
 - Gathering: node spots on the minimap are now hollow rings, so the game's own node blip shows inside the ring instead of under our icon. An empty ring means nothing has spawned there.
 - Gathering: following a route no longer throws a Lua error each time the map pin changes.
 

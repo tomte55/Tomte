@@ -91,7 +91,9 @@ end
 module = ns.RegisterModule({
 	key = "materials",
 	name = "Material uses",
-	category = "General",
+	category = "professions",
+	icon = 132906, -- inv_fabric_silk_02
+	summary = "Material tooltips say who crafts with them, so you know what to keep.",
 	description = "Crafting materials say on their tooltip what they're for, so you know what to bank and what to "
 		.. "sell: which of your characters craft with them, which other professions use them, or that nothing does. "
 		.. "Hold Shift for the recipes. Your characters' recipes come from Alts, read when a profession window opens.",
@@ -113,10 +115,11 @@ module = ns.RegisterModule({
 		end
 	end,
 	options = {
+		{ type = "header", label = "Tooltips" },
 		{ type = "checkbox", key = "tooltip", label = "Material uses on item tooltips",
 			tooltip = "\"Used by\" names your characters who know a recipe with the material (needs Alts, and each "
 				.. "profession window opened once). \"Also\" lists the other professions that use it." },
-		{ type = "checkbox", key = "notUsed", label = "Say when nothing uses a material",
+		{ type = "checkbox", key = "notUsed", label = "Say when nothing uses a material", parent = "tooltip",
 			tooltip = "Trade goods and reagents that no recipe uses get \"Not used in crafting\": safe to sell." },
 	},
 	commands = {

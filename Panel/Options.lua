@@ -1,13 +1,29 @@
 local addonName, ns = ...
 
--- Options rows for the panel's module page, built from a module's options schema. One factory per schema type;
--- rows are pooled per type and rebuilt per module.
+-- Options for the panel's module page, built from a module's options schema as cards: each `header` row starts a
+-- card (rows before the first header share an untitled one), dealt into one or two columns by width (Layout.lua).
+-- One factory per row type; rows and cards are pooled and rebuilt per module. The reset buttons sit under the cards
+-- as quiet links. Schema extras read here: tooltip (a faint "?" after the label), parent = "<key>" (indented and
+-- dimmed while that option is off), shown() (hides the row).
 
 local UI = ns.UI
 local OPT_H = 28
+local CARD_TITLE_H = 30
+local CARD_PAD = 8 -- above the first row of an untitled card and under the last row
+local CARD_INSET = 6 -- row edges inside a card
+local INDENT = 16 -- rows with a parent
+local GAP = 14 -- between cards and columns
+local MIN_COLUMN = 360 -- narrowest card in two columns: a long label beside a 150 px control
+local CONTROL_W = 150
+local SEGMENTS_MAX_W, SEGMENTS_MAX = 170, 3
+local FOOTER_H = 34
+local DIMMED = 0.45
 
 local parent -- the options scroll's content frame
+local scrollFrame
 local pools, used = {}, {}
+local cardPool, cards = {}, {}
+local links = {}
 local builtFor -- module whose options are built
 
 StaticPopupDialogs.TOMTE_CONFIRM = {
@@ -51,11 +67,24 @@ local function DefaultOption(module, key)
 	return value
 end
 
+local function IsParent(module, key)
+	for _, spec in ipairs(module.options or {}) do
+		if spec.parent == key then
+			return true
+		end
+	end
+	return false
+end
+
 local function SetOption(module, spec, value)
 	local tbl, field = Resolve(module.db, spec.key)
 	tbl[field] = value
 	if spec.onChange then
 		spec.onChange(value)
+	end
+	-- Rows that hang on this option dim or light up.
+	if builtFor == module and scrollFrame and IsParent(module, spec.key) then
+		ns.PanelOptions_Build(scrollFrame, module)
 	end
 end
 
@@ -63,15 +92,31 @@ local function HideTooltip()
 	GameTooltip:Hide()
 end
 
+local function LabelText(spec)
+	return type(spec.label) == "function" and spec.label() or spec.label
+end
+
+-- The row's tooltip text, or its full label when the control cut it off.
 local function RowTooltip(row)
 	local spec = row.spec
-	if not (spec and spec.tooltip) then
+	if not spec or not (spec.tooltip or row.label:IsTruncated()) then
 		return
 	end
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-	GameTooltip:SetText(type(spec.label) == "function" and spec.label() or spec.label, 1, 1, 1)
-	GameTooltip:AddLine(spec.tooltip, nil, nil, nil, true)
+	GameTooltip:SetText(LabelText(spec), 1, 1, 1, 1, true)
+	if spec.tooltip then
+		GameTooltip:AddLine(spec.tooltip, nil, nil, nil, true)
+	end
 	GameTooltip:Show()
+end
+
+-- The label, with a faint "?" when the row has a tooltip.
+local function SetLabel(row, spec)
+	local text = LabelText(spec) or ""
+	if spec.tooltip then
+		text = text .. "  " .. UI.Wrap("?", "textFaint")
+	end
+	row.label:SetText(text)
 end
 
 local Factory, Setup = {}, {}
@@ -86,6 +131,12 @@ local function NewRow(kind)
 	row.label = UI.Text(row, 13, "text")
 	row.label:SetPoint("LEFT", 8, 0)
 	row.label:SetWordWrap(false)
+	row.rule = row:CreateTexture(nil, "BORDER")
+	row.rule:SetColorTexture(UI.Color("rule"))
+	row.rule:SetAlpha(0.35)
+	row.rule:SetHeight(1)
+	row.rule:SetPoint("TOPLEFT", 8, 0)
+	row.rule:SetPoint("TOPRIGHT", -8, 0)
 	return row
 end
 
@@ -101,48 +152,28 @@ local function ForwardHover(row, control)
 	control:HookScript("OnLeave", HideTooltip)
 end
 
-function Factory.header()
-	local row = CreateFrame("Frame", nil, parent)
-	row.kind = "header"
-	row:SetHeight(34)
-	row.label = UI.Text(row, 13, "heading", "title")
-	row.label:SetPoint("BOTTOMLEFT", 4, 9)
-	local line = row:CreateTexture(nil, "ARTWORK")
-	line:SetColorTexture(UI.Color("frame"))
-	line:SetAlpha(0.4)
-	line:SetHeight(1)
-	line:SetPoint("BOTTOMLEFT", 4, 4)
-	line:SetPoint("BOTTOMRIGHT", -4, 4)
-	return row
-end
-
-function Setup.header(row, module, spec)
-	row.label:SetText(spec.label)
-end
-
 function Factory.checkbox()
 	local row = NewRow("checkbox")
-	row.check = UI.Checkbox(row)
-	row.check:SetPoint("LEFT", 8, 0)
-	row.label:ClearAllPoints()
-	row.label:SetPoint("LEFT", row.check, "RIGHT", 10, 0)
-	row.check.onChange = function(checked)
+	row.switch = UI.Switch(row)
+	row.switch:SetPoint("RIGHT", -8, 0)
+	LabelUpTo(row, row.switch)
+	row.switch.onChange = function(checked)
 		SetOption(row.module, row.spec, checked)
 	end
 	row:SetScript("OnMouseUp", function(self, button)
 		-- The label toggles too: a left click released over the row (mouse-up also fires after a drag that
 		-- started here and ended elsewhere).
 		if button == "LeftButton" and self:IsMouseOver() then
-			self.check:Click()
+			self.switch:Click()
 		end
 	end)
-	ForwardHover(row, row.check)
+	ForwardHover(row, row.switch)
 	return row
 end
 
 function Setup.checkbox(row, module, spec)
-	row.label:SetText(spec.label)
-	row.check:SetChecked(GetOption(module, spec.key))
+	SetLabel(row, spec)
+	row.switch:SetChecked(GetOption(module, spec.key))
 end
 
 function Factory.slider()
@@ -150,8 +181,8 @@ function Factory.slider()
 	row.value = UI.Text(row, 12, "text", "number")
 	row.value:SetJustifyH("RIGHT")
 	row.value:SetWidth(40)
-	row.value:SetPoint("RIGHT", -6, 0)
-	row.slider = UI.Slider(row, 150)
+	row.value:SetPoint("RIGHT", -8, 0)
+	row.slider = UI.Slider(row, CONTROL_W - 50)
 	row.slider:SetPoint("RIGHT", row.value, "LEFT", -10, 0)
 	row.slider.valueText = row.value
 	LabelUpTo(row, row.slider)
@@ -163,7 +194,7 @@ function Factory.slider()
 end
 
 function Setup.slider(row, module, spec)
-	row.label:SetText(spec.label)
+	SetLabel(row, spec)
 	local s = row.slider
 	s.format = spec.format or tostring
 	s:SetMinMaxValues(spec.min, spec.max)
@@ -172,37 +203,56 @@ function Setup.slider(row, module, spec)
 	row.value:SetText(s.format(s:GetValue()))
 end
 
+-- A dropdown, or segmented buttons when its few choices fit (decided per build: choices can change).
 function Factory.dropdown()
 	local row = NewRow("dropdown")
-	local d = UI.Dropdown(row, 170)
-	d:SetPoint("RIGHT", -6, 0)
 	-- A saved value that's no longer a choice (renamed or removed) shows as the default. Display only: choices can
 	-- depend on what's loaded right now (characters, addons), so the saved value isn't overwritten.
-	d.getValue = function()
+	local function getValue()
 		local spec = row.spec
 		return ns.ChoiceOrDefault(GetOption(row.module, spec.key), spec.choices(), DefaultOption(row.module, spec.key))
 	end
-	d.setValue = function(value)
+	local function setValue(value)
 		SetOption(row.module, row.spec, value)
 	end
-	d.choices = function()
+	local function choices()
 		return row.spec.choices()
 	end
+	local d = UI.Dropdown(row, CONTROL_W)
+	d:SetPoint("RIGHT", -8, 0)
+	d.getValue, d.setValue, d.choices = getValue, setValue, choices
 	row.dropdown = d
-	LabelUpTo(row, d)
 	ForwardHover(row, d)
+	local seg = UI.Segmented(row)
+	seg:SetPoint("RIGHT", -8, 0)
+	seg.getValue, seg.setValue, seg.choices = getValue, setValue, choices
+	seg.onEnter = function()
+		RowTooltip(row)
+	end
+	seg.onLeave = HideTooltip
+	row.segments = seg
 	return row
 end
 
 function Setup.dropdown(row, module, spec)
-	row.label:SetText(spec.label)
-	row.dropdown:Refresh()
+	SetLabel(row, spec)
+	local seg = row.segments
+	local useSegments = ns.PanelLayout_UseSegments(seg:Widths(spec.choices()), SEGMENTS_MAX_W, SEGMENTS_MAX)
+	seg:SetShown(useSegments)
+	row.dropdown:SetShown(not useSegments)
+	if useSegments then
+		seg:Refresh()
+		LabelUpTo(row, seg)
+	else
+		row.dropdown:Refresh()
+		LabelUpTo(row, row.dropdown)
+	end
 end
 
 function Factory.button()
 	local row = NewRow("button")
 	row.button = UI.Button(row, 80, "")
-	row.button:SetPoint("RIGHT", -6, 0)
+	row.button:SetPoint("RIGHT", -8, 0)
 	LabelUpTo(row, row.button)
 	row.button:SetScript("OnClick", function()
 		local spec = row.spec
@@ -221,7 +271,7 @@ function Factory.button()
 end
 
 function Setup.button(row, module, spec)
-	row.label:SetText(type(spec.label) == "function" and spec.label() or spec.label)
+	SetLabel(row, spec)
 	row.button.label:SetText(spec.text)
 	UI.FitButton(row.button, 80, 24) -- room for "Reload now"
 end
@@ -230,8 +280,8 @@ end
 function Factory.input()
 	local row = NewRow("input")
 	local box = CreateFrame("EditBox", nil, row)
-	box:SetSize(170, 20)
-	box:SetPoint("RIGHT", -6, 0)
+	box:SetSize(CONTROL_W, 20)
+	box:SetPoint("RIGHT", -8, 0)
 	box:SetAutoFocus(false)
 	box.isOptionInput = true
 	UI.SetFont(box, "body", 12)
@@ -266,7 +316,7 @@ function Factory.input()
 end
 
 function Setup.input(row, module, spec)
-	row.label:SetText(spec.label)
+	SetLabel(row, spec)
 	row.box:SetText(GetOption(module, spec.key) or "")
 	row.box.placeholder:SetText(spec.placeholder or "")
 	row.box:SetCursorPosition(0)
@@ -284,17 +334,61 @@ local function Acquire(kind)
 	return row
 end
 
-function ns.PanelOptions_Release()
-	for _, row in ipairs(used) do
-		row:Hide()
-		row:ClearAllPoints()
-		local pool = pools[row.kind]
-		pool[#pool + 1] = row
+-- Cards -------------------------------------------------------------------------------------------------------
+
+local function AcquireCard()
+	local card = table.remove(cardPool)
+	if not card then
+		card = CreateFrame("Frame", nil, parent)
+		UI.Surface(card, 0.35)
+		card.title = UI.Text(card, 11, "accent", "label")
+		card.title:SetPoint("TOPLEFT", 14, -11)
+		card.title:SetPoint("RIGHT", -14, 0)
+		card.title:SetWordWrap(false)
 	end
-	wipe(used)
+	card:Show()
+	cards[#cards + 1] = card
+	return card
 end
 
--- Reset rows added below every module's own options. Both reload the UI: modules keep state in closures.
+-- Reset links under the cards ---------------------------------------------------------------------------------
+
+local function Link(i)
+	local b = links[i]
+	if b then
+		return b
+	end
+	b = CreateFrame("Button", nil, parent)
+	b:SetHeight(18)
+	b.text = UI.Text(b, 12, "textMuted")
+	b.text:SetPoint("RIGHT")
+	b.line = b:CreateTexture(nil, "ARTWORK")
+	b.line:SetColorTexture(UI.Color("textFaint"))
+	b.line:SetHeight(1)
+	b.line:SetPoint("TOPLEFT", b.text, "BOTTOMLEFT", 0, -1)
+	b.line:SetPoint("TOPRIGHT", b.text, "BOTTOMRIGHT", 0, -1)
+	b:SetScript("OnEnter", function(self)
+		UI.SetTextRole(self.text, "accent")
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		GameTooltip:SetText(self.spec.label, 1, 1, 1)
+		GameTooltip:AddLine(self.spec.tooltip, nil, nil, nil, true)
+		GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", function(self)
+		UI.SetTextRole(self.text, "textMuted")
+		HideTooltip()
+	end)
+	b:SetScript("OnClick", function(self)
+		local dialog = StaticPopup_Show("TOMTE_CONFIRM", self.spec.confirm)
+		if dialog then
+			dialog.data = self.spec.onClick
+		end
+	end)
+	links[i] = b
+	return b
+end
+
+-- Reset links under every module's own options. Both reload the UI: modules keep state in closures.
 local function ResetSpecs(module)
 	local specs = {}
 	if not module.defaults then
@@ -302,8 +396,7 @@ local function ResetSpecs(module)
 	end
 	local kept = "\n\nKept: what Tomte collected (history, alt data, flight times, tame log, caches) and lists you "
 		.. "built (favorites, pins, hidden entries). Your UI reloads."
-	specs[1] = { type = "header", label = "Reset" }
-	specs[2] = { type = "button", label = "Reset " .. module.name .. " to defaults", text = "Reset",
+	specs[1] = { label = "Reset " .. module.name .. " to defaults",
 		confirm = "Reset " .. module.name .. "'s settings to their defaults?" .. kept,
 		onClick = function()
 			ns.ResetModuleSettings(module)
@@ -311,7 +404,7 @@ local function ResetSpecs(module)
 		end,
 		tooltip = "Puts this module's settings back to how they start. Collected data and your lists stay." }
 	if module.key == "window" then -- the Tomte window's page is the general one
-		specs[3] = { type = "button", label = "Reset all Tomte settings", text = "Reset all",
+		specs[2] = { label = "Reset all Tomte settings",
 			confirm = "Reset every Tomte setting to its default, including which modules are on and where the window "
 				.. "sits?" .. kept,
 			onClick = function()
@@ -324,30 +417,142 @@ local function ResetSpecs(module)
 	return specs
 end
 
+-- Layout ------------------------------------------------------------------------------------------------------
+
+local shownLinks = 0
+
+-- Places the built cards for the content width and sizes the scroll content.
+local function Layout(width)
+	if #cards == 0 and shownLinks == 0 then
+		scrollFrame:SetContentHeight(1) -- every row hidden for now: no leftover height from the last module
+		return
+	end
+	local columns = ns.PanelLayout_Columns(width, GAP, MIN_COLUMN, #cards)
+	local cardW = columns == 2 and math.floor((width - GAP) / 2) or width
+	local heights = {}
+	for i, card in ipairs(cards) do
+		heights[i] = card.height
+	end
+	local places, total = ns.PanelLayout_Deal(heights, columns, GAP)
+	for i, card in ipairs(cards) do
+		local place = places[i]
+		card:ClearAllPoints()
+		card:SetPoint("TOPLEFT", parent, "TOPLEFT", (place.column - 1) * (cardW + GAP), -place.y)
+		card:SetWidth(cardW)
+	end
+	local x = 0
+	for i = shownLinks, 1, -1 do
+		local b = links[i]
+		b:ClearAllPoints()
+		b:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -x - 4, -(total + 12))
+		x = x + b:GetWidth() + 20
+	end
+	scrollFrame:SetContentHeight(total + (shownLinks > 0 and FOOTER_H or 8))
+end
+
+function ns.PanelOptions_Release()
+	-- Taken out of `used` first: hiding a focused input saves it, and that save can rebuild the options from inside
+	-- this loop (a parent option, an onChange that refreshes the panel).
+	local released = used
+	used = {}
+	for _, row in ipairs(released) do
+		row:Hide()
+		row:ClearAllPoints()
+		row:SetParent(parent)
+		row:SetAlpha(1)
+		local pool = pools[row.kind]
+		pool[#pool + 1] = row
+	end
+	local releasedCards = cards
+	cards = {}
+	for _, card in ipairs(releasedCards) do
+		card:Hide()
+		card:ClearAllPoints()
+		cardPool[#cardPool + 1] = card
+	end
+	for _, b in ipairs(links) do
+		b:Hide()
+	end
+	shownLinks = 0
+end
+
+local Build -- forward declaration
+local building = false
+
 -- Builds module's options into scroll.content (a UI.Scroll). Rebuilding the same module keeps the scroll offset.
 function ns.PanelOptions_Build(scroll, module)
+	if building then
+		-- Asked again from inside a build (an input saving as it's hidden): once this one is done.
+		C_Timer.After(0, function()
+			if not building and builtFor == module and scroll:IsVisible() then
+				ns.PanelOptions_Build(scroll, module)
+			end
+		end)
+		return
+	end
+	building = true
+	-- An error in a module's choices() or label() still reaches BugSack, and the guard comes off either way.
+	xpcall(Build, ns.errorHandler, scroll, module)
+	building = false
+end
+
+function Build(scroll, module)
 	parent = scroll.content
+	scrollFrame = scroll
 	local keepScroll = builtFor == module and scroll:GetVerticalScroll() or 0
 	ns.PanelOptions_Release()
 	builtFor = module
-	local y = 0
-	local specs = {}
+
+	-- Sections: a header starts one; rows before the first header get an untitled one.
+	local sections, section = {}, nil
 	for _, spec in ipairs(module.options or {}) do
 		if not spec.shown or spec.shown() then -- shown: optional function, false hides the row for now
-			specs[#specs + 1] = spec
+			if spec.type == "header" then
+				section = { title = spec.label, specs = {} }
+				sections[#sections + 1] = section
+			else
+				if not section then
+					section = { specs = {} }
+					sections[#sections + 1] = section
+				end
+				section.specs[#section.specs + 1] = spec
+			end
 		end
 	end
-	for _, spec in ipairs(ResetSpecs(module)) do
-		specs[#specs + 1] = spec
+
+	for _, sec in ipairs(sections) do
+		if #sec.specs > 0 then
+			local card = AcquireCard()
+			card.title:SetText(sec.title and sec.title:upper() or "")
+			card.title:SetShown(sec.title ~= nil)
+			local y = sec.title and CARD_TITLE_H or CARD_PAD
+			for i, spec in ipairs(sec.specs) do
+				local row = Acquire(spec.type)
+				row:SetParent(card)
+				row.module, row.spec = module, spec
+				local indent = spec.parent and INDENT or 0
+				row:SetPoint("TOPLEFT", card, "TOPLEFT", CARD_INSET + indent, -y)
+				row:SetPoint("RIGHT", card, "RIGHT", -CARD_INSET, 0)
+				row.rule:SetShown(i > 1 and not spec.parent)
+				row:SetAlpha(spec.parent and not GetOption(module, spec.parent) and DIMMED or 1)
+				Setup[spec.type](row, module, spec)
+				y = y + row:GetHeight()
+			end
+			card.height = y + CARD_PAD
+			card:SetHeight(card.height)
+		end
 	end
-	for _, spec in ipairs(specs) do
-		local row = Acquire(spec.type)
-		row.module, row.spec = module, spec
-		row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -y)
-		row:SetPoint("RIGHT", parent, "RIGHT")
-		Setup[spec.type](row, module, spec)
-		y = y + row:GetHeight()
+
+	for i, spec in ipairs(ResetSpecs(module)) do
+		local b = Link(i)
+		b.spec = spec
+		b.text:SetText(spec.label)
+		b:SetWidth(b.text:GetStringWidth())
+		b:Show()
+		shownLinks = i
 	end
-	scroll:SetContentHeight(y)
+
+	scroll.onWidthChanged = Layout
+	Layout(scroll:GetWidth())
 	scroll:SetScroll(keepScroll)
 end

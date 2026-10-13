@@ -539,7 +539,9 @@ end
 module = ns.RegisterModule({
 	key = "events",
 	name = "Holidays & events",
-	category = "Collections",
+	category = "collections",
+	icon = 237429, -- inv_misc_toy_10
+	summary = "What's on now and what you still miss from each holiday.",
 	description = "The world events on now and starting soon, what you're still missing from each holiday (mounts, battle pets, toys, achievements), the holiday's daily boss and the Darkmoon Faire profession quests. On Home, on an Events page, in Next up and as a toast when a holiday starts.",
 	enabledByDefault = true,
 	defaults = {
@@ -620,7 +622,8 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Home" },
 		{ type = "checkbox", key = "home", label = "Show on Home", onChange = Redraw,
 			tooltip = "A block in Home's right column: the events on now with what's left, then the ones starting soon." },
-		{ type = "slider", key = "homeRows", label = "Rows on Home", min = 2, max = 8, step = 1, onChange = Redraw },
+		{ type = "slider", key = "homeRows", label = "Rows on Home", min = 2, max = 8, step = 1, onChange = Redraw,
+			parent = "home" },
 		{ type = "header", label = "Events" },
 		{ type = "slider", key = "soonDays", label = "Starting within (days)", min = 1, max = 14, step = 1,
 			onChange = SettingChanged },

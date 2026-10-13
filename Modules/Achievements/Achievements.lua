@@ -383,7 +383,9 @@ module = ns.RegisterModule({
 	key = "ach",
 	conflicts = { { addon = "AlmostCompletedAchievements", why = "Almost Done stays off while it's enabled" } },
 	name = "Almost Done",
-	category = "Achievements",
+	category = "collections",
+	icon = 236544, -- achievement_general
+	summary = "Achievements you've nearly finished, with rewards and a tracker.",
 	description = "Near-complete achievements in a list next to the Achievements window, with rewards (owned ones greyed out), a meta browser, a Top 5 tracker and toasts when something is almost done.",
 	enabledByDefault = true,
 	defaults = {
@@ -497,14 +499,14 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "tracker.shown", label = "Show the Top 5 tracker", onChange = function()
 			ns.AchTracker_Apply()
 		end, tooltip = "Pinned achievements first, then the closest ones." },
-		{ type = "checkbox", key = "tracker.locked", label = "Locked", onChange = function()
+		{ type = "checkbox", key = "tracker.locked", label = "Locked", parent = "tracker.shown", onChange = function()
 			ns.AchTracker_Apply()
 		end, tooltip = "Unlock to drag the tracker. Blizzard's Edit Mode moves it too." },
 		{ type = "checkbox", key = "tracker.hideInCombat", label = "Hide in combat", onChange = function()
 			ns.AchTracker_Apply()
-		end },
+		end, parent = "tracker.shown" },
 		{ type = "slider", key = "tracker.scale", label = "Scale", min = 0.8, max = 1.4, step = 0.05,
-			format = function(v)
+			parent = "tracker.shown", format = function(v)
 				return ("%.2f"):format(v)
 			end, onChange = function()
 				ns.AchTracker_Apply()

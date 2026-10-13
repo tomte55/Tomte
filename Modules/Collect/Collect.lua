@@ -280,7 +280,9 @@ end
 module = ns.RegisterModule({
 	key = "collect",
 	name = "Collect here",
-	category = "Collections",
+	category = "collections",
+	icon = 134442, -- inv_misc_spyglass_03
+	summary = "What's still missing on any map, and rares that drop it.",
 	description = "A tab in the world map's side panel with the mounts, battle pets and achievements still missing on the map you're looking at (from the journals' source text), toasts when you arrive in a zone with mounts or pets left, and when a rare that drops one is up.",
 	enabledByDefault = true,
 	home = {

@@ -233,7 +233,9 @@ end
 module = ns.RegisterModule({
 	key = "showcase",
 	name = "Showcase",
-	category = "Gear",
+	category = "gear",
+	icon = 132624, -- inv_chest_chain
+	summary = "Show off your character, gear and stats in a slow camera view.",
 	description = "A character view in the game world: the camera glides in on your character, the UI fades out, "
 		.. "and your gear (item level, upgrade track, enchants and gems) and stats sit around it. The camera turns "
 		.. "slowly until you drag it; scroll to zoom. Open it with /tomte showcase, a key binding or its minimap "
@@ -298,7 +300,7 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "turn", label = "Slow turn",
 			tooltip = "The camera slowly circles your character until you drag it or walk." },
 		{ type = "slider", key = "turnSpeed", label = "Turn speed", min = 0.25, max = 3, step = 0.25,
-			format = Percent },
+			format = Percent, parent = "turn" },
 		{ type = "slider", key = "distance", label = "Camera distance", min = 0.7, max = 1.6, step = 0.05,
 			format = Percent, tooltip = "How far the camera stays from your character. 100% frames the whole body." },
 		{ type = "checkbox", key = "dynamicPitch", label = "Head above center",

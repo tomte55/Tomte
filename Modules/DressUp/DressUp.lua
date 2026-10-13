@@ -168,7 +168,9 @@ end
 module = ns.RegisterModule({
 	key = "dressup",
 	name = "Dressing room",
-	category = "Gear",
+	category = "gear",
+	icon = 135030, -- inv_shirt_white_01
+	summary = "A bigger dressing room with a slot bar and outfit tools.",
 	description = "The dressing room (Ctrl-click an item) opens bigger, with a slot bar under the model (click a "
 		.. "piece to hide it, Shift-click to link it) and buttons to undress, show your target's outfit and list the "
 		.. "outfit with where each piece comes from.",
@@ -208,7 +210,7 @@ module = ns.RegisterModule({
 				.. "link it." },
 		{ type = "checkbox", key = "tools", label = "Toolbar", onChange = UpdateExtras,
 			tooltip = "Undress, Target's outfit and Item list buttons on the right of the model." },
-		{ type = "checkbox", key = "ownBody", label = "Target's outfit on your character",
+		{ type = "checkbox", key = "ownBody", label = "Target's outfit on your character", parent = "tools",
 			tooltip = "Target's outfit dresses your own character instead of the target's." },
 	},
 })

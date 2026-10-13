@@ -458,12 +458,12 @@ local options = {
 	{ type = "header", label = "Whispers" },
 	{ type = "checkbox", key = "toasts", label = "Toasts",
 		tooltip = "A toast for every whisper. Left-click replies, right-click dismisses. More whispers from the same person while the toast is up go into it." },
+	{ type = "checkbox", key = "holdInCombat", label = "Hold toasts during combat", parent = "toasts",
+		tooltip = "Whispers that arrive in combat show after it, as one card when there are several. Toasts always wait while a cinematic (AFK screen, flight, moment) hides the UI." },
 	{ type = "checkbox", key = "badge", label = "Unread recap after AFK", onChange = function()
 		UpdateRecap()
 	end,
 		tooltip = "Back from AFK with unread whispers: one card with who wrote, in place of their toasts. It stays on top until you answer, open the inbox or right-click it." },
-	{ type = "checkbox", key = "holdInCombat", label = "Hold toasts during combat",
-		tooltip = "Whispers that arrive in combat show after it, as one card when there are several. Toasts always wait while a cinematic (AFK screen, flight, moment) hides the UI." },
 	{ type = "dropdown", key = "sound", label = "Extra sound", onChange = ns.Social_PlaySound, choices = function()
 		return ns.SOCIAL_SOUND_CHOICES
 	end, tooltip = "Played on the Master channel, so you hear it with sound effects off. Blizzard's own whisper sound plays as well (on the effects channel). In the background only with 'Sound in Background' on." },
@@ -474,7 +474,7 @@ local options = {
 	{ type = "checkbox", key = "keepHistory", label = "Keep history between sessions",
 		tooltip = "Off: the inbox starts empty at every login. Whispers in instances are never saved (the game hides them from addons)." },
 	{ type = "slider", key = "historyDays", label = "Keep conversations for", min = 1, max = 30, step = 1,
-		format = function(value)
+		parent = "keepHistory", format = function(value)
 			return value .. "d"
 		end, tooltip = "Read conversations older than this are forgotten at login, unread ones after twice as long." },
 	{ type = "button", label = "History", text = "Clear", onClick = ClearHistory,
@@ -493,7 +493,9 @@ module = ns.RegisterModule({
 		end, count = UnreadTotal },
 	},
 	name = "Whispers",
-	category = "Social",
+	category = "social",
+	icon = 136209, -- spell_shadow_soothingkiss
+	summary = "A toast for every whisper, an AFK recap and an inbox of your chats.",
 	description = "Whispers you can't miss: a toast for each one (click to reply), an unread recap when you're back from AFK, an inbox with your conversations, and one summary card for whispers that came in combat or during a cinematic.",
 	enabledByDefault = true,
 	defaults = {

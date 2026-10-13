@@ -210,7 +210,9 @@ module = ns.RegisterModule({
 			candidates = NextSim },
 	},
 	name = "Gear Check",
-	category = "Gear",
+	category = "gear",
+	icon = 133071, -- inv_helmet_03
+	summary = "Item tooltips say whether gear is an upgrade for you, and why not.",
 	description = "Says on each item's tooltip whether it's an upgrade, and why not when it isn't: wrong armor or "
 		.. "main stat, breaks your tier set, loses an embellishment or effect, unique limits. Trinkets and items "
 		.. "with effects are marked to sim instead of guessed. Also: upgrades for your other specs, the best gem "
@@ -326,13 +328,13 @@ module = ns.RegisterModule({
 				.. "it as a moment. Choose banner or cinematic under Moments > Gear upgrade. Items taken out of a bank "
 				.. "don't count." },
 		{ type = "slider", key = "revealMinPct", label = "Smallest upgrade", min = 0, max = 10, step = 0.5,
-			format = function(value)
+			parent = "reveal", format = function(value)
 				return ("%g%%"):format(value)
 			end,
 			tooltip = "Upgrades below this are left alone (gear for an empty slot always counts)." },
-		{ type = "checkbox", key = "revealToast", label = "Equip toast",
+		{ type = "checkbox", key = "revealToast", label = "Equip toast", parent = "reveal",
 			tooltip = "A toast with the upgrade: click it to equip the item, right-click to dismiss. Not in combat." },
-		{ type = "checkbox", key = "equipSound", label = "Sound when equipped",
+		{ type = "checkbox", key = "equipSound", label = "Sound when equipped", parent = "revealToast",
 			tooltip = "Play the item upgrade sound with the \"Equipped\" toast once the upgrade from the toast is worn." },
 		{ type = "header", label = "Stat weights" },
 		{ type = "button", label = SourceLabel, text = "Show", onClick = Command(PrintWeights),

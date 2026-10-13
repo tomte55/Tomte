@@ -188,7 +188,9 @@ end
 module = ns.RegisterModule({
 	key = "vendor",
 	name = "Vendor Helper",
-	category = "Upkeep",
+	category = "gear",
+	icon = 133639, -- inv_misc_bag_10
+	summary = "Repairs and sells grey items for you whenever you open a vendor.",
 	description = "Repairs (guild funds first) and sells grey items when you open a vendor, then sums it up in a toast. Hold Shift while opening the vendor to skip it.",
 	enabledByDefault = true,
 	defaults = {
@@ -215,7 +217,7 @@ module = ns.RegisterModule({
 	options = {
 		{ type = "header", label = "At a vendor" },
 		{ type = "checkbox", key = "repair", label = "Repair everything" },
-		{ type = "checkbox", key = "guild", label = "Use guild funds first",
+		{ type = "checkbox", key = "guild", label = "Use guild funds first", parent = "repair",
 			tooltip = "When the guild lets you repair and both your withdraw limit and the guild bank cover the whole bill. Otherwise your own gold pays." },
 		{ type = "checkbox", key = "junk", label = "Sell grey items",
 			tooltip = "Bags set to \"Ignore junk selling\" are left alone." },

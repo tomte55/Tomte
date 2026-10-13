@@ -263,7 +263,9 @@ options[#options + 1] = { type = "button", label = "Undo Tomte's chat changes", 
 module = ns.RegisterModule({
 	key = "chattabs",
 	name = "Chat Tabs",
-	category = "Chat",
+	category = "social",
+	icon = 2056011, -- ui_chat
+	summary = "Trade and other busy channels get a chat tab of their own.",
 	description = "Moves Trade and other busy channels into their own chat tab. Turning it off puts your chat back.",
 	enabledByDefault = false,
 	keep = { "tabName" },

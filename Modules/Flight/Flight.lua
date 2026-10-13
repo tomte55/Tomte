@@ -507,7 +507,9 @@ ns.EditMode_Register({
 module = ns.RegisterModule({
 	key = "flight",
 	name = "Flight Timer",
-	category = "Travel",
+	category = "travel",
+	icon = 132268, -- ability_mount_wyvern_01
+	summary = "A countdown on every flight path, and cinematic flights if you like.",
 	description = "Times flight paths account-wide and shows a countdown while flying, with an optional cinematic flight mode.",
 	enabledByDefault = true,
 	defaults = ns.Flight_Defaults,
@@ -584,25 +586,26 @@ module = ns.RegisterModule({
 			end },
 		{ type = "checkbox", key = "alert", label = "Arrival alert",
 			tooltip = ("Two dings and a flashing taskbar icon %d seconds before landing."):format(ns.FLIGHT_ALERT_LEAD) },
-		{ type = "button", label = "Arrival alert sound", text = "Test", onClick = PlayAlert,
+		{ type = "button", label = "Arrival alert sound", text = "Test", onClick = PlayAlert, parent = "alert",
 			tooltip = "Play the arrival alert." },
 
 		{ type = "header", label = "Cinematic flights" },
 		{ type = "checkbox", key = "cinematic", label = "Cinematic mode",
 			tooltip = "Hide the UI, letterbox the screen and show a title card while flying." },
-		{ type = "checkbox", key = "orbit", label = "Camera orbit",
+		{ type = "checkbox", key = "orbit", label = "Camera orbit", parent = "cinematic",
 			tooltip = "Zoomed-out camera slowly circles your character." },
-		{ type = "checkbox", key = "showcase", label = "Character showcase",
+		{ type = "checkbox", key = "showcase", label = "Character showcase", parent = "cinematic",
 			tooltip = "Your character model and gear on the left side of the screen." },
 		{ type = "slider", key = "cinematicMin", label = "Minimum flight length", min = 10, max = 60, step = 5,
-			format = Seconds,
+			format = Seconds, parent = "cinematic",
 			tooltip = "Known flights shorter than this stay normal. Unknown flights always go cinematic." },
 		{ type = "slider", key = "resumeDelay", label = "Resume after idle", min = 10, max = 60, step = 5,
-			format = Seconds,
+			format = Seconds, parent = "cinematic",
 			tooltip = "Click or Esc pauses the cinematic. It comes back after this long without clicks, key presses or open windows." },
-		{ type = "checkbox", key = "music", label = "Flight music",
+		{ type = "checkbox", key = "music", label = "Flight music", parent = "cinematic",
 			tooltip = "Play an expansion main theme during cinematic flights (zone music is paused meanwhile)." },
-		{ type = "dropdown", key = "musicTrack", label = "Music track", tooltip = "Which main theme plays.",
+		{ type = "dropdown", key = "musicTrack", label = "Music track", parent = "music",
+			tooltip = "Which main theme plays.",
 			choices = function()
 				local list = {}
 				for i, track in ipairs(ns.MUSIC_TRACKS) do
@@ -610,7 +613,7 @@ module = ns.RegisterModule({
 				end
 				return list
 			end },
-		{ type = "button", label = "Preview track", text = "Play", onClick = PreviewMusic,
+		{ type = "button", label = "Preview track", text = "Play", onClick = PreviewMusic, parent = "music",
 			tooltip = ("Play the selected track for %d seconds (click again to stop)."):format(PREVIEW_SECONDS) },
 
 		{ type = "header", label = "Data" },

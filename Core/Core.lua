@@ -16,7 +16,7 @@ local CORE_DEFAULTS = {
 	enabled = {}, -- [moduleKey] = bool, only for modules the user has toggled
 	-- also layout = saved size and position, selected = module key, last = { view, page, at } when the window
 	-- closed (Panel/Panel.lua reopens there for a while)
-	panel = { collapsed = {} },
+	panel = {}, -- selected = module key on the settings page, layout = saved size and place, last = where it closed
 	cinematic = {}, -- engine-owned (musicVolumeBackup, pitchLimitBackup)
 	toast = {}, -- social toasts: point = saved position
 	setup = {}, -- first-run picker (Core/Setup.lua, Panel/Setup.lua): state = "pending" | "done", preset = last applied

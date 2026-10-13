@@ -177,7 +177,9 @@ options[#options + 1] = { type = "button", label = "Test", text = "Play", onClic
 module = ns.RegisterModule({
 	key = "alerts",
 	name = "Group Alerts",
-	category = "Social",
+	category = "social",
+	icon = 133706, -- inv_misc_bell_01
+	summary = "Invites, queue pops and summons keep ringing until you answer.",
 	description = "Invites, queue pops, ready checks and summons you can't miss: a sound on the Master channel that repeats until you've answered, and a taskbar flash for summons.",
 	enabledByDefault = true,
 	defaults = {

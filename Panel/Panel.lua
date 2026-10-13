@@ -9,7 +9,7 @@ local addonName, ns = ...
 -- Options > AddOns only has a button that opens it. Built on first use.
 
 local UI = ns.UI
-local DEFAULT_W, DEFAULT_H = 960, 640
+local DEFAULT_W, DEFAULT_H = 1040, 680 -- room for two columns of option cards (ModulePage.lua)
 local MIN_W, MIN_H = 820, 560
 local TITLE_H = 36
 local PAD = ns.PANEL_PAD

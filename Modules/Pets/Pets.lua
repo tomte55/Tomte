@@ -44,7 +44,9 @@ end
 module = ns.RegisterModule({
 	key = "pets",
 	name = "Pet Battles",
-	category = "General",
+	category = "collections",
+	icon = 643856, -- inv_pet_battlepettraining
+	summary = "Win pet battles with tips, saved strategies and one key per turn.",
 	description = "Help to win pet battles: a battle helper with what hits the enemy hard and your best pet, a card for pet tamers (team, readiness, Load team, Xu-Fu guide links, Heal), Xu-Fu strategies you paste in, played one key press per turn, and a leveling slot.",
 	enabledByDefault = true,
 	-- Saved keys without a default: cache (round counters, Battle.lua), advisor.point (the helper's dragged position,
@@ -99,18 +101,18 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "advisor.shown", label = "Show the battle helper", onChange = Refresh,
 			tooltip = "In pet battles: the enemy team, the attack types that hit the active enemy hard, your best pet against it and, for a saved strategy, its steps and the Next move button." },
 		{ type = "checkbox", key = "advisor.steps", label = "Strategy steps", onChange = Refresh,
-			tooltip = "Show a saved strategy's turn-by-turn notes under the helper, with the round number." },
-		{ type = "checkbox", key = "advisor.locked", label = "Lock position",
+			parent = "advisor.shown", tooltip = "Show a saved strategy's turn-by-turn notes under the helper, with the round number." },
+		{ type = "checkbox", key = "advisor.locked", label = "Lock position", parent = "advisor.shown",
 			tooltip = "Off: drag the helper to move it. Blizzard's Edit Mode moves it too." },
 		{ type = "slider", key = "advisor.scale", label = "Size", min = 0.6, max = 1.6, step = 0.1,
-			format = function(v)
+			parent = "advisor.shown", format = function(v)
 				return ("%.1f"):format(v)
 			end, onChange = function()
 				ns.PetsBattle_Relayout()
 			end },
 		{ type = "button", label = "Position", text = "Reset", onClick = function()
 			ns.PetsBattle_ResetPosition()
-		end, tooltip = "Move the helper back above the pet battle bar." },
+		end, tooltip = "Move the helper back above the pet battle bar.", parent = "advisor.shown" },
 
 		{ type = "header", label = "Strategy script" },
 		{ type = "checkbox", key = "runner.on", label = "Next move button", onChange = Refresh,
@@ -119,7 +121,7 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Tamers" },
 		{ type = "checkbox", key = "card.shown", label = "Tamer card", onChange = Refresh,
 			tooltip = "Talking to a pet tamer Tomte knows shows a card: your team for that fight, whether your pets are ready, Load team, Heal and the guide links." },
-		{ type = "checkbox", key = "card.autoLoad", label = "Load the team when talking to the tamer",
+		{ type = "checkbox", key = "card.autoLoad", label = "Load the team when talking to the tamer", parent = "card.shown",
 			tooltip = "Changes your pet team without asking when the saved strategy's pets differ. Doesn't happen while Rematch is loaded: it loads teams itself." },
 
 		{ type = "header", label = "Healing" },
@@ -131,7 +133,7 @@ module = ns.RegisterModule({
 			tooltip = "After each battle, the pet in this slot is swapped for the next pet in your queue (the page's Leveling view) once it reaches 25. The helper reminds you to swap it out after its first turn; it still gets the XP." },
 		{ type = "dropdown", key = "leveling.slot", label = "Slot", choices = function()
 			return SLOT_CHOICES
-		end, onChange = Refresh },
+		end, onChange = Refresh, parent = "leveling.on" },
 		{ type = "button", label = "Queue", text = "Open", onClick = function()
 			Open("leveling")
 		end },

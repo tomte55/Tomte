@@ -365,7 +365,9 @@ ns.Toast_Options(options)
 module = ns.RegisterModule({
 	key = "friends",
 	name = "Friends Online",
-	category = "Social",
+	category = "social",
+	icon = 413589, -- achievement_guildperk_mrpopularity
+	summary = "See who's online at login and when your friends come online.",
 	description = "Who's online when you log in, and a toast when friends (or just the people you watch, guildmates too) come online. Click a toast to whisper them.",
 	enabledByDefault = true,
 	keep = { "watch" }, -- typed by the user: a settings reset keeps it

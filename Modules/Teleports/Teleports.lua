@@ -134,7 +134,9 @@ end
 module = ns.RegisterModule({
 	key = "tp",
 	name = "Teleports",
-	category = "Travel",
+	category = "travel",
+	icon = 237508, -- spell_arcane_portaldalaran
+	summary = "Your hearthstones and teleports in one list on the world map.",
 	description = "A Teleports tab in the world map's side panel: your hearthstone (and a random hearthstone toy), house, dungeon teleports (this season first), class teleports and teleport items, with cooldowns. Teleports that go to the map you're looking at float to the top. Click to use, right-click to favorite.",
 	enabledByDefault = true,
 	home = {

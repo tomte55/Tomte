@@ -317,6 +317,7 @@ end
 
 local function BuildOptions()
 	local options = {
+		{ type = "header", label = "List" },
 		{ type = "dropdown", key = "show", label = "Show as", choices = function()
 			return { { value = "page", text = "Page + quick action" }, { value = "block", text = "Block on Home" } }
 		end, tooltip = "A Recent page in the rail with a quick action that counts what's new, or the newest few on Home "
@@ -372,7 +373,9 @@ end
 module = ns.RegisterModule({
 	key = "recent",
 	name = "Recent",
-	category = "General",
+	category = "tomte",
+	icon = 134327, -- inv_misc_note_01
+	summary = "Read and click any toast or banner you missed.",
 	description = "Every toast and banner Tomte shows also goes into a Recent list, so one you missed (tabbed out, in "
 		.. "a fight, in a cinematic) can be read later and clicked like the toast.",
 	enabledByDefault = true,

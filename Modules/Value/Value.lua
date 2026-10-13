@@ -319,7 +319,9 @@ end
 module = ns.RegisterModule({
 	key = "value",
 	name = "Gold & value",
-	category = "General",
+	category = "professions",
+	icon = 133784, -- inv_misc_coin_01
+	summary = "What your loot, bags and crafts are worth at the auction house.",
 	description = "What things are worth, from Auctionator or TSM: the value of a session's loot on the recap card and "
 		.. "the Sessions page, each character's bags and bank in Alts, and what a craft costs and sells for in the "
 		.. "Crafting tab.",
@@ -354,6 +356,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	options = {
+		{ type = "header", label = "Prices" },
 		{ type = "dropdown", key = "source", label = "Prices from", choices = function()
 			return {
 				{ value = "auto", text = "Auto (TSM, else Auctionator)" },
@@ -383,7 +386,7 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Sessions" },
 		{ type = "checkbox", key = "sessions", label = "Count loot value in sessions",
 			tooltip = "Every looted item is priced for the recap card and the Sessions page. Needs Session recap on." },
-		{ type = "dropdown", key = "priceAt", label = "Price loot", choices = function()
+		{ type = "dropdown", key = "priceAt", label = "Price loot", parent = "sessions", choices = function()
 			return { { value = "loot", text = "When looted" }, { value = "now", text = "At today's price" } }
 		end },
 		{ type = "header", label = "Alts and crafting" },

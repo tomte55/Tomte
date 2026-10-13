@@ -203,7 +203,9 @@ end
 module = ns.RegisterModule({
 	key = "minimap",
 	name = "Minimap Buttons",
-	category = "General",
+	category = "tomte",
+	icon = 237387, -- inv_misc_map08
+	summary = "Pick which buttons sit on the minimap's edge.",
 	description = "Buttons on the minimap's edge: Tomte's opens this window, and some modules offer their own. "
 		.. "Tick the ones you want below. Drag a button to move it around the minimap.",
 	enabledByDefault = true,

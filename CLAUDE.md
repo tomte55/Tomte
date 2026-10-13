@@ -138,7 +138,8 @@ just restates the code. Fix comments that point at moved or renamed code in the 
   `ns.ModelPreview_*`, `ns.Entry_Link` / `ns.Entry_Open` / `ns.Entry_Model`.
 - **UI** (`Panel/Widgets.lua`, `ns.UI`): `UI.Text`, `UI.Panel`, `UI.Surface`, `UI.Border`, `UI.Button`,
   `UI.Checkbox`, `UI.Slider`, `UI.Dropdown`, `UI.Scroll`, `UI.Dialog`, `UI.Hairline`, `UI.TipLine`, `UI.Debounce`,
-  `UI.ClassColored`. Cinematic text and layout: `Cinematic/SceneKit.lua`.
+  `UI.ClassColored`; `UI.Switch` and `UI.Segmented` in `Panel/Controls.lua`. Cinematic text and layout:
+  `Cinematic/SceneKit.lua`.
 
 ### Events
 
@@ -166,10 +167,15 @@ just restates the code. Fix comments that point at moved or renamed code in the 
 
 ### Settings and commands
 
-- Settings are a module's `options` schema, rendered by `Panel/Options.lua`. Row types: `header`, `checkbox`,
-  `slider` (`min`, `max`, `step`, `format`), `dropdown`, `button` (`text`, `onClick`, optional `confirm`), `input`.
-  `key` is a dotted path into the module's db (`"check.onEnter"`), `onChange` applies it live, `shown()` hides a row,
-  `tooltip` explains anything not obvious. No settings UI built by hand.
+- Settings are a module's `options` schema, rendered by `Panel/Options.lua` as cards (each `header` starts one,
+  dealt into two columns on a wide window). Row types: `header`, `checkbox` (drawn as a switch),
+  `slider` (`min`, `max`, `step`, `format`), `dropdown` (segmented buttons when ≤ 3 short choices),
+  `button` (`text`, `onClick`, optional `confirm`), `input`. `key` is a dotted path into the module's db
+  (`"check.onEnter"`), `onChange` applies it live, `shown()` hides a row, `parent = "<checkbox key>"` indents and
+  dims a row while that checkbox is off, `tooltip` explains anything not obvious. No settings UI built by hand.
+- Each module names its settings group in `category`: `tomte`, `week`, `gear`, `professions`, `collections`,
+  `travel`, `social`, `ambience` or `class` (`ns.PANEL_GROUPS` in `Panel/Layout.lua`), and has an `icon` (a file ID
+  checked to exist) and a one-sentence `summary` for the top of its settings page.
 - Labels and tooltips are player wording: short, sentence case, no internals.
 - Defaults are safe for a friend who didn't choose them; noisy or invasive modules are `enabledByDefault = false`.
 - Commands: `commands = { { "name", "help text", fn(arg, rawArg) } }`, reached as `/tomte <key> <name>` and listed by
@@ -220,7 +226,8 @@ just restates the code. Fix comments that point at moved or renamed code in the 
 1. Discuss scope with the user; for anything bigger than a small module, write a dated spec in
    `docs/superpowers/specs/`.
 2. Folder `Modules/<Name>/` with a pure `Data.lua`, UI/reader files, and a main `<Name>.lua` that registers the
-   module (`key`, `name`, `category`, `description`, `enabledByDefault`, `defaults`, `init`, `toggle`, `options`,
+   module (`key`, `name`, `category`, `icon`, `summary`, `description`, `enabledByDefault`, `defaults`, `init`,
+   `toggle`, `options`,
    and as needed `commands`, `home`, `blocked`, `uses`, `minimapButton`, `keep`).
 3. TOC lines in load order (see Layout), `OptionalDeps` if it uses a new addon, `lua Tomte/tools/bugfiles.lua`.
 4. `tests/test_<name>.lua` for the pure file; all tests green.

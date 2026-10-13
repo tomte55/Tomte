@@ -323,7 +323,9 @@ end
 module = ns.RegisterModule({
 	key = "alts",
 	name = "Alts",
-	category = "General",
+	category = "week",
+	icon = 236448, -- achievement_character_human_male
+	summary = "All your characters at a glance, and who crafts what.",
 	description = "Every character at a glance (level, spec, item level, gold, where they are, professions and unspent "
 		.. "knowledge) and crafting across them: search a recipe to see who makes it, whether the account has the "
 		.. "materials and where they are, and who crafts what in which order. A character's recipes are read when it "
@@ -460,24 +462,24 @@ module = ns.RegisterModule({
 		end, tooltip = "The tracked crafts with what this character has to do for them: grab, mail, take from the Warband bank, buy, craft." },
 		{ type = "dropdown", key = "tracker.mode", label = "Show the tracker", onChange = function()
 			ns.AltsList_Refresh()
-		end, choices = function()
+		end, parent = "tracker.shown", choices = function()
 			return { { value = "any", text = "While something is tracked" }, { value = "crafter", text = "Only on a crafter" } }
 		end },
 		{ type = "checkbox", key = "tracker.hideInCombat", label = "Hide the tracker in combat", onChange = function()
 			ns.AltsList_Refresh()
-		end },
+		end, parent = "tracker.shown" },
 		{ type = "checkbox", key = "tracker.locked", label = "Lock the tracker", onChange = function()
 			ns.AltsList_Refresh()
-		end, tooltip = "Unlocked, it shows (also when empty) and can be dragged. Blizzard's Edit Mode moves it too." },
+		end, parent = "tracker.shown", tooltip = "Unlocked, it shows (also when empty) and can be dragged. Blizzard's Edit Mode moves it too." },
 		{ type = "slider", key = "tracker.scale", label = "Tracker scale", min = 0.6, max = 1.6, step = 0.05,
-			format = function(v)
+			parent = "tracker.shown", format = function(v)
 				return ("%d%%"):format(v * 100 + 0.5)
 			end, onChange = function()
 				ns.AltsList_Refresh()
 			end },
 		{ type = "button", label = "Tracker position", text = "Reset", onClick = function()
 			ns.AltsList_ResetPosition()
-		end },
+		end, parent = "tracker.shown" },
 		{ type = "dropdown", key = "listDone", label = "Crafts come off the list", choices = function()
 			return { { value = "auto", text = "When crafted" }, { value = "hand", text = "By hand" } }
 		end, tooltip = "Each craft of a tracked recipe counts it down. When crafted: it leaves the list at 0." },

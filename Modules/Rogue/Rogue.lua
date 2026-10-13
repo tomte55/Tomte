@@ -401,7 +401,9 @@ end
 module = ns.RegisterModule({
 	key = "rogue",
 	name = "Rogue Poisons",
-	category = "Class",
+	category = "class",
+	icon = 132273, -- ability_poisons
+	summary = "One click to reapply a missing poison, and a poison check.",
 	description = "Buttons that appear when a poison is missing from your weapons or about to run out: click one to apply that poison. A poison check when you enter a dungeon, raid or delve and on ready checks.",
 	enabledByDefault = true,
 	defaults = {
@@ -439,6 +441,12 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Poison buttons" },
 		{ type = "checkbox", key = "bar", label = "Show poison buttons", onChange = Refresh,
 			tooltip = "Out of combat, a button appears for each poison that's missing or about to run out. Click it to apply the poison. Key Bindings > Tomte > Apply missing poison does the same with a key." },
+		{ type = "checkbox", key = "hideResting", label = "Hide in cities and inns", onChange = Refresh,
+			parent = "bar" },
+		{ type = "slider", key = "scale", label = "Size", min = 0.6, max = 1.6, step = 0.1, format = Scale,
+			onChange = Relayout, parent = "bar" },
+		{ type = "button", label = "Position", text = "Reset", onClick = ResetPosition, parent = "bar",
+			tooltip = "Move the buttons back to just below the middle of the screen. Blizzard's Edit Mode moves them too." },
 		{ type = "checkbox", key = "lethal", label = "Lethal poison", onChange = Refresh,
 			tooltip = "Deadly, Instant, Wound or Amplifying Poison. The button offers the one you applied last." },
 		{ type = "checkbox", key = "nonLethal", label = "Non-lethal poison", onChange = Refresh,
@@ -446,11 +454,6 @@ module = ns.RegisterModule({
 		{ type = "slider", key = "lowMinutes", label = "Warn when less than", min = 0, max = 30, step = 1,
 			format = Minutes, onChange = Refresh,
 			tooltip = "Poisons last an hour. Below this the button appears to refresh it." },
-		{ type = "checkbox", key = "hideResting", label = "Hide in cities and inns", onChange = Refresh },
-		{ type = "slider", key = "scale", label = "Size", min = 0.6, max = 1.6, step = 0.1, format = Scale,
-			onChange = Relayout },
-		{ type = "button", label = "Position", text = "Reset", onClick = ResetPosition,
-			tooltip = "Move the buttons back to just below the middle of the screen. Blizzard's Edit Mode moves them too." },
 
 		{ type = "header", label = "Poison check" },
 		{ type = "checkbox", key = "check.onEnter", label = "When entering an instance",

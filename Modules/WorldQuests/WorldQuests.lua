@@ -192,7 +192,9 @@ end
 module = ns.RegisterModule({
 	key = "wq",
 	name = "World quests",
-	category = "World",
+	category = "week",
+	icon = 134269, -- inv_misc_map_01
+	summary = "World quests on the map, sorted by what they're worth to you.",
 	description = "A tab in the world map's side panel with the world quests on the map you're looking at, grouped "
 		.. "by reward and sorted by what they're worth: missing mounts, pets and toys and real gear upgrades (from "
 		.. "Gear Check) on top, then gear, gold, currencies and reputation, with time left. Click to track one. A "
@@ -327,7 +329,7 @@ module = ns.RegisterModule({
 			tooltip = "Gear whose look this character can collect and the account doesn't have yet." },
 		{ type = "checkbox", key = "worth.gold", label = "Big gold rewards", onChange = Changed },
 		{ type = "slider", key = "worth.goldAmount", label = "Big gold is at least", min = 100, max = 5000, step = 100,
-			onChange = Changed, format = function(v)
+			parent = "worth.gold", onChange = Changed, format = function(v)
 				return ("%dg"):format(v)
 			end },
 		{ type = "header", label = "Toast" },

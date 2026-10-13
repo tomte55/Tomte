@@ -44,7 +44,9 @@ Cinematic/Engine.lua
 Cinematic/SceneKit.lua
 Cinematic/Showcase.lua
 Cinematic/Banner.lua
+Panel/Layout.lua
 Panel/Widgets.lua
+Panel/Controls.lua
 Panel/Dialog.lua
 Panel/Options.lua
 Panel/HomeKit.lua

@@ -280,14 +280,17 @@ options[#options + 1] = { type = "checkbox", key = "highlight", label = "Highlig
 	tooltip = "Matched words in the theme's accent color." }
 options[#options + 1] = { type = "checkbox", key = "toast", label = "Toast on match",
 	tooltip = "A toast for a match, at most one per player every 5 minutes. Click it to whisper them." }
-options[#options + 1] = { type = "checkbox", key = "holdInCombat", label = "Hold toasts during combat" }
+options[#options + 1] = { type = "checkbox", key = "holdInCombat", label = "Hold toasts during combat",
+	parent = "toast" }
 options[#options + 1] = { type = "button", label = "Sample toast", text = "Show", onClick = Preview }
 ns.Toast_Options(options)
 
 module = ns.RegisterModule({
 	key = "tradefilter",
 	name = "Trade Filter",
-	category = "Chat",
+	category = "social",
+	icon = 134441, -- inv_misc_spyglass_02
+	summary = "Trade chat shows only messages about your professions and keywords.",
 	description = "Trade chat shows only what you can help with: messages that name your professions or your own keywords, minus sellers and boosters.",
 	enabledByDefault = false,
 	keep = { "keywords", "ignore" }, -- typed by the user: a settings reset keeps them

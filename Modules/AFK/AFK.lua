@@ -288,7 +288,9 @@ end
 module = ns.RegisterModule({
 	key = "afk",
 	name = "AFK Screen",
-	category = "Ambience",
+	category = "ambience",
+	icon = 136090, -- spell_nature_sleep
+	summary = "A slow cinematic of your character and session while you're away.",
 	description = "A cinematic screen while you're AFK: slowly orbiting camera, your character, time away, clock, session stats and whispers you missed.",
 	enabledByDefault = true,
 	defaults = {

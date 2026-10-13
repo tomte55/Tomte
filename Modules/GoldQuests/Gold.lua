@@ -311,7 +311,9 @@ BINDING_NAME_TOMTE_GOLD = "Gold world quests window"
 module = ns.RegisterModule({
 	key = "wgq",
 	name = "Gold world quests",
-	category = "World",
+	category = "week",
+	icon = 901746, -- inv_misc_coinbag_special
+	summary = "Every gold world quest and weekly cache, with a route.",
 	description = "A window with every world quest that gives gold in your expansion's zones, by zone with totals, "
 		.. "plus the special assignments (done, up, or how many world quests until it unlocks) and the weekly caches "
 		.. "you haven't done. Route tracks the gold quests one by one, nearest first. Characters shows each "

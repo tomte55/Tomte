@@ -74,4 +74,10 @@ ns.MIGRATIONS = {
 			end
 		end
 	end,
+	-- 9: the settings sidebar's collapsible categories became groups on a rail (no saved state of their own).
+	function(db)
+		if type(db.panel) == "table" then
+			db.panel.collapsed = nil
+		end
+	end,
 }

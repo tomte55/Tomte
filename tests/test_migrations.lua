@@ -55,6 +55,15 @@ test("Flight: paces without a flight count get one", function()
 	eq(db.flight.paces[12].flights, 9)
 	eq(db.flight.paces[12].seconds, 1000)
 end)
+test("Settings: the sidebar's collapsed categories are dropped, the rest of the panel kept", function()
+	local db = { schema = 8, panel = { collapsed = { General = true }, selected = "alts" } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.panel.collapsed, nil)
+	eq(db.panel.selected, "alts")
+	local bare = { schema = 8 }
+	ns.RunMigrations(bare, ns.MIGRATIONS)
+	eq(bare.panel, nil, "no panel table is fine")
+end)
 test("migrations don't run twice", function()
 	local db = { schema = #ns.MIGRATIONS, way = { cardDistance = 325 } }
 	ns.RunMigrations(db, ns.MIGRATIONS)

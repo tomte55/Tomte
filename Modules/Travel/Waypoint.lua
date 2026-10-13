@@ -338,7 +338,9 @@ module = ns.RegisterModule({
 	key = "way",
 	conflicts = { { addon = "WaypointUI", why = "Waypoints stays off while it's enabled" } },
 	name = "Waypoints",
-	category = "Travel",
+	category = "travel",
+	icon = 237381, -- inv_misc_map02
+	summary = "A marker in the world that shows the way to what you track.",
 	description = "An in-world marker for whatever you track: icon, beam, distance and arrival time, a close-up card "
 		.. "with the objective, and an arrow at the screen edge when it's off-screen. Map pins are tracked as soon as "
 		.. "you place them. Replaces WaypointUI.",
@@ -426,7 +428,7 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "beam", label = "Beam", onChange = ApplyLook,
 			tooltip = "A light rising from the marker, easy to spot from far away." },
 		{ type = "slider", key = "beamAlpha", label = "Beam opacity", min = 0.1, max = 1, step = 0.05, format = Percent,
-			onChange = ApplyLook },
+			onChange = ApplyLook, parent = "beam" },
 		{ type = "dropdown", key = "footer", label = "Text under the marker",
 			choices = function()
 				local list = {}
@@ -440,7 +442,7 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "card", label = "Close-up card", onChange = ApplyLook,
 			tooltip = "Near the target, show a card with its name, objectives and distance instead of the marker." },
 		{ type = "slider", key = "cardDistance", label = "Card within", min = 50, max = 500, step = 5,
-			format = DistanceFormat },
+			format = DistanceFormat, parent = "card" },
 		{ type = "slider", key = "hideDistance", label = "Hide within", min = 5, max = 100, step = 5,
 			format = DistanceFormat, tooltip = "Hide the marker when you're this close. It also hides inside the "
 				.. "tracked quest's area." },
@@ -449,7 +451,7 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "arrow", label = "Edge arrow",
 			tooltip = "When the target is off-screen, an arrow near the screen edge points toward it." },
 		{ type = "slider", key = "arrowScale", label = "Arrow size", min = 0.6, max = 1.6, step = 0.05, format = Times,
-			onChange = ApplyLook },
+			onChange = ApplyLook, parent = "arrow" },
 
 		{ type = "header", label = "General" },
 		{ type = "checkbox", key = "metric", label = "Use meters", onChange = Refresh },
