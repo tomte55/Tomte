@@ -36,6 +36,16 @@ local function CurrentSeason()
 	return (id and id > 0) and id or nil
 end
 
+-- Below the account's level cap (not the content expansion's: a Midnight owner's 80 still levels), where a higher
+-- item level wins whatever the stats (Gear_Evaluate's ctx.leveling).
+local function Leveling(level)
+	level = level or UnitLevel("player")
+	if not level or ns.IsSecret(level) then
+		return false
+	end
+	return level < GetMaxLevelForPlayerExpansion()
+end
+
 -- The evaluator context for a spec ({ id, name, primary }, index only for this character's own specs). guid, class
 -- and level default to this character; another character's guid, class token and level judge for them (their
 -- imported weights, their armor type, their content expansion's built-in set). ctx.scales is that set;
@@ -50,6 +60,7 @@ local function ContextFor(spec, guid, class, level)
 	if ctx then
 		ctx.scales = set
 		ctx.complete = ctx.best ~= nil or #set.gems == 0
+		ctx.leveling = DB().levelingIlvl and Leveling(level)
 	end
 	return ctx
 end

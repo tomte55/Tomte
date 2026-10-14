@@ -215,7 +215,7 @@ module = ns.RegisterModule({
 	summary = "Item tooltips say whether gear is an upgrade for you, and why not.",
 	description = "Says on each item's tooltip whether it's an upgrade, and why not when it isn't: wrong armor or "
 		.. "main stat, breaks your tier set, loses an embellishment or effect, unique limits. Trinkets and items "
-		.. "with effects are marked to sim instead of guessed. Also: upgrades for your other specs, the best gem "
+		.. "with effects are marked to sim instead of guessed; while leveling, higher item level wins. Also: upgrades for your other specs, the best gem "
 		.. "for empty sockets, missing enchants, and item levels on the character sheet and Inspect slots. Can mark upgrades in Baganator and reveal new upgrades as a moment "
 		.. "with a click-to-equip toast. Warbound and Bind on Equip gear also says which of your other characters "
 		.. "it's an upgrade for.",
@@ -223,6 +223,7 @@ module = ns.RegisterModule({
 	defaults = {
 		showReasons = true,
 		showDowngrades = true,
+		levelingIlvl = true,
 		compareTooltips = false,
 		baganator = true,
 		maybeBaganator = true,
@@ -272,6 +273,13 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "showReasons", label = "Show reasons",
 			tooltip = "Up to three short lines under the verdict, e.g. \"Breaks your 4-set\"." },
 		{ type = "checkbox", key = "showDowngrades", label = "Show downgrades" },
+		{ type = "checkbox", key = "levelingIlvl", label = "While leveling, higher item level wins",
+			onChange = function()
+				ns.GearAlts_Invalidate()
+				InvalidateVerdicts()
+			end,
+			tooltip = "Below max level, gear with a higher item level is an upgrade whatever its stats, trinkets and "
+				.. "items with effects too. Wrong armor, main stat or unique limits still say no." },
 		{ type = "checkbox", key = "compareTooltips", label = "Also on comparison tooltips",
 			tooltip = "The tooltips of your equipped items that appear next to the hovered one." },
 		{ type = "checkbox", key = "offspec", label = "Upgrades for your other specs",

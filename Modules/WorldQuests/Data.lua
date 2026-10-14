@@ -224,7 +224,9 @@ function ns.WQ_Classify(q, opts)
 		local value = 0
 		if reason == "upgrade" then
 			local item = Find(q.items, IsCleanUpgrade)
-			value = (item.verdict.pct or EMPTY_SLOT_PCT) * 1000
+			local v = item.verdict
+			-- A leveling item level upgrade sorts by its item levels (its stats may even say lower).
+			value = (v.kind == "levelUp" and v.ilvlDiff or v.pct or EMPTY_SLOT_PCT) * 1000
 		elseif reason == "gold" then
 			value = q.money or 0
 		end
@@ -305,6 +307,8 @@ local function VerdictText(v)
 	end
 	if VERDICT_FIXED[v.kind] then
 		return VERDICT_FIXED[v.kind]
+	elseif v.kind == "levelUp" then
+		return ("Upgrade (+%d item level)"):format(v.ilvlDiff)
 	end
 	local word = VERDICT_WORDS[v.kind]
 	if not word then

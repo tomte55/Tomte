@@ -5,6 +5,9 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Gear Check: while leveling, gear with a higher item level is an upgrade whatever its stats, trinkets and items with effects included (new setting, on by default).
+- Gear Check: at max level, an item with stats over a worn one with only an effect says "Likely upgrade: yours has no stats" instead of "Can't judge: new slot".
+
 ## v1.13.1 - 2026-10-14
 
 - Updated for patch 12.1.5: Tomte no longer shows as out of date in the AddOns list.

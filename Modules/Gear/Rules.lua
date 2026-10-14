@@ -13,6 +13,9 @@ local SET_LIFT_PCT = -5 -- completing a set bonus turns a downgrade down to this
 -- differences up to STAT_MIX_PCT are called a sidegrade and sent to a sim.
 local STAT_MIX_ILVL = 4
 local STAT_MIX_PCT = 3
+-- Reveal value of a leveling item level upgrade: above any stat percentage (passes the smallest-upgrade slider),
+-- below an empty slot (math.huge).
+local LEVEL_UP_VALUE = 1e6
 
 local PAWN_KEYS = {
 	Strength = "STR", Agility = "AGI", Intellect = "INT", Stamina = "STA", CritRating = "CRIT",
@@ -560,10 +563,13 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 		return verdict
 	end
 
-	local old, oldIlvl = 0, nil
+	local old, oldIlvl, topIlvl = 0, nil, nil
 	for slot in pairs(replaced) do
 		old = old + Score(equipped[slot])
 		oldIlvl = equipped[slot] and equipped[slot].ilvl or oldIlvl
+		if oldIlvl and (not topIlvl or oldIlvl > topIlvl) then
+			topIlvl = oldIlvl
+		end
 	end
 	local new = Score(cand)
 	local empty = target.mode == "empty"
@@ -571,6 +577,9 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 	local statless = not empty and old <= 0
 	local pct = not (empty or statless) and (new - old) / old * 100 or nil
 	verdict.pct = pct
+	verdict.statless = statless
+	-- While leveling, a higher item level beats any stat mix or effect (against the best of what it replaces).
+	local levelUp = ctx.leveling and not empty and cand.ilvl and topIlvl and cand.ilvl > topIlvl
 
 	-- Set bonuses.
 	local completes
@@ -638,8 +647,13 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 		info[#info + 1] = ("%s %d/%d, upgrades to %d"):format(up.track or "Upgradable", up.cur, up.max, up.maxIlvl or 0)
 	end
 
-	if cand.equipLoc == "INVTYPE_TRINKET" or cand.effect or #lostEffects > 0 then
+	if levelUp then
+		verdict.kind = "levelUp"
+		verdict.ilvlDiff = cand.ilvl - topIlvl
+	elseif cand.equipLoc == "INVTYPE_TRINKET" or cand.effect or #lostEffects > 0 then
 		verdict.kind = "simIt"
+		-- Yours has only an effect, this one has stats too and isn't lower: most likely better, a sim confirms.
+		verdict.likely = statless and new > 0 and cand.ilvl and oldIlvl and cand.ilvl >= oldIlvl or nil
 		local sim = (cand.equipLoc == "INVTYPE_TRINKET" or cand.effect) and "Its effect decides: check with /tomte gear sim"
 			or "Sim both to know: /tomte gear sim"
 		table.insert(warnings, 1, sim)
@@ -697,9 +711,18 @@ function ns.Gear_Headline(v)
 		return "Downgrade " .. Pct(v.pct) .. ": keep yours", "red"
 	elseif kind == "notForYou" then
 		return "Not for you: " .. v.why, "grey"
+	elseif kind == "levelUp" then
+		if v.warnings and v.warnings > 0 then
+			return ("Upgrade (+%d item level), but check this:"):format(v.ilvlDiff), "yellow"
+		end
+		return ("Upgrade (+%d item level): equip it"):format(v.ilvlDiff), "green"
 	elseif kind == "simIt" then
-		if v.pct then
+		if v.likely then
+			return "Likely upgrade: yours has no stats", "yellow"
+		elseif v.pct then
 			return "Can't judge (stats alone " .. Pct(v.pct) .. ")", "orange"
+		elseif v.statless then
+			return "Can't judge: yours has no stats", "orange"
 		end
 		return "Can't judge: new slot, has an effect", "orange"
 	elseif kind == "pair" then
@@ -721,12 +744,16 @@ end
 
 -- Only a clean upgrade marks a bag item.
 function ns.Gear_IsCleanUpgrade(v)
-	return v ~= nil and (v.kind == "upgrade" or v.kind == "empty" or v.kind == "noStats")
+	return v ~= nil and (v.kind == "upgrade" or v.kind == "empty" or v.kind == "noStats"
+		or (v.kind == "levelUp" and v.warnings == 0))
 end
 
 -- Stats say upgrade but something else needs checking: an effect or trinket to sim, same level with different
 -- stats, or an upgrade with a warning (breaks a set, loses an embellishment). Never true for a clean upgrade.
 function ns.Gear_IsMaybeUpgrade(v)
+	if v and (v.likely or (v.kind == "levelUp" and v.warnings > 0)) then
+		return true
+	end
 	if not (v and v.pct and v.pct > UPGRADE_PCT) then
 		return false
 	end
@@ -754,6 +781,9 @@ end
 function ns.Gear_PickReveals(items, minPct)
 	local best = {}
 	local function Value(v)
+		if v.kind == "levelUp" then
+			return LEVEL_UP_VALUE + v.ilvlDiff -- counts whatever its stats say; more item levels first
+		end
 		return v.pct or math.huge
 	end
 	for _, item in ipairs(items) do
@@ -785,6 +815,8 @@ function ns.Gear_RevealLabel(v)
 		return "Upgrade for an empty slot"
 	elseif v.kind == "noStats" then
 		return "Upgrade over gear with no stats"
+	elseif v.kind == "levelUp" then
+		return ("Upgrade, item level +%d"):format(v.ilvlDiff)
 	end
 	return "Upgrade " .. Pct(v.pct)
 end

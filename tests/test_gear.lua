@@ -430,6 +430,107 @@ test("Trinket and effect items: can't judge", function()
 	eq(v.kind, "simIt")
 end)
 
+test("Trinket over a worn proc-only trinket: not called a new slot", function()
+	local e = gearset()
+	e[14] = item("INVTYPE_TRINKET", nil, nil, { ilvl = 310, effect = "Equip: a fluctuating stat" })
+	local v = ns.Gear_Evaluate(item("INVTYPE_TRINKET", nil, 50, { effect = "Equip: extra damage" }), e, CTX)
+	eq(v.kind, "simIt")
+	eq(v.slot, 14)
+	eq((ns.Gear_Headline(v)), "Can't judge: yours has no stats")
+	e[14] = nil
+	v = ns.Gear_Evaluate(item("INVTYPE_TRINKET", nil, 50, { effect = "Equip: extra damage" }), e, CTX)
+	eq((ns.Gear_Headline(v)), "Can't judge: new slot, has an effect")
+end)
+
+test("Trinket with stats over a proc-only one at the same or higher level: likely upgrade", function()
+	local e = gearset()
+	e[14] = item("INVTYPE_TRINKET", nil, nil, { ilvl = 290, effect = "Equip: a fluctuating stat" })
+	local v = ns.Gear_Evaluate(item("INVTYPE_TRINKET", nil, 50, { effect = "Equip: extra damage" }), e, CTX)
+	eq(v.kind, "simIt")
+	eq(v.likely, true)
+	eq(ns.Gear_Headline(v), "Likely upgrade: yours has no stats")
+	eq(select(2, ns.Gear_Headline(v)), "yellow")
+	has(v.reasons, "/tomte gear sim")
+	eq(ns.Gear_IsCleanUpgrade(v), false)
+	eq(ns.Gear_IsMaybeUpgrade(v), true)
+	-- lower item level, or no stats on it either: no guess
+	v = ns.Gear_Evaluate(item("INVTYPE_TRINKET", nil, 50, { ilvl = 280, effect = "Equip: x" }), e, CTX)
+	eq(v.likely, nil)
+	v = ns.Gear_Evaluate(item("INVTYPE_TRINKET", nil, nil, { effect = "Equip: x" }), e, CTX)
+	eq(v.likely, nil)
+end)
+
+------------------------------------------------------------------------------------------------------ leveling
+
+local LEVELING = { primary = "AGI", weights = CTX.weights, armorSubclass = 3, specOK = true, leveling = true }
+
+test("Leveling: higher item level wins over stats", function()
+	local e = gearset()
+	local v = ns.Gear_Evaluate(item("INVTYPE_HEAD", 60, 60, { ilvl = 304 }), e, LEVELING)
+	eq(v.kind, "levelUp")
+	eq(v.ilvlDiff, 4)
+	eq(ns.Gear_Headline(v), "Upgrade (+4 item level): equip it")
+	eq(select(2, ns.Gear_Headline(v)), "green")
+	eq(ns.Gear_IsCleanUpgrade(v), true)
+	eq(ns.Gear_IsMaybeUpgrade(v), false)
+	eq(ns.Gear_RevealLabel(v), "Upgrade, item level +4")
+	-- the same item at max level is a downgrade
+	eq(ns.Gear_Evaluate(item("INVTYPE_HEAD", 60, 60, { ilvl = 304 }), e, CTX).kind, "downgrade")
+end)
+
+test("Leveling: trinkets and effects too, no sim lines", function()
+	local e = gearset()
+	e[14] = item("INVTYPE_TRINKET", nil, nil, { ilvl = 290, effect = "Equip: a fluctuating stat" })
+	local v = ns.Gear_Evaluate(item("INVTYPE_TRINKET", nil, 50, { ilvl = 296, effect = "Equip: x" }), e, LEVELING)
+	eq(v.kind, "levelUp")
+	eq(v.slot, 14)
+	eq(v.ilvlDiff, 6)
+	for _, r in ipairs(v.reasons) do
+		assert(not r:find("sim") and not r:find("can't value"), "no sim line: " .. r)
+	end
+	v = ns.Gear_Evaluate(item("INVTYPE_HEAD", 10, 10, { ilvl = 301, effect = "Use: things" }), e, LEVELING)
+	eq(v.kind, "levelUp")
+end)
+
+test("Leveling: same or lower item level uses the stats", function()
+	local e = gearset()
+	eq(ns.Gear_Evaluate(item("INVTYPE_HEAD", 150, 150), e, LEVELING).kind, "upgrade")
+	eq(ns.Gear_Evaluate(item("INVTYPE_HEAD", 150, 150, { ilvl = 290 }), e, LEVELING).kind, "upgrade")
+	eq(ns.Gear_Evaluate(item("INVTYPE_TRINKET", 100, nil), e, LEVELING).kind, "simIt")
+	-- an empty slot stays an empty slot
+	e[1] = nil
+	eq(ns.Gear_Evaluate(item("INVTYPE_HEAD", 10, 10, { ilvl = 400 }), e, LEVELING).kind, "empty")
+end)
+
+test("Leveling: real problems still say no or warn", function()
+	local e = gearset()
+	eq(ns.Gear_Evaluate(item("INVTYPE_HEAD", nil, 200, { ilvl = 400, subclassID = 4 }), e, LEVELING).kind,
+		"notForYou")
+	e[1].unique = { category = "Embellished", max = 2 }
+	local v = ns.Gear_Evaluate(item("INVTYPE_HEAD", 100, 100, { ilvl = 310 }), e, LEVELING)
+	eq(v.kind, "levelUp")
+	has(v.reasons, "Loses an embellishment")
+	eq(ns.Gear_Headline(v), "Upgrade (+10 item level), but check this:")
+	eq(ns.Gear_IsCleanUpgrade(v), false)
+	eq(ns.Gear_IsMaybeUpgrade(v), true)
+end)
+
+test("Leveling: a two-hander is compared with the higher of the two it replaces", function()
+	local e = gearset()
+	e[17].ilvl = 310
+	local v = ns.Gear_Evaluate(item("INVTYPE_2HWEAPON", 100, 100, { classID = 2, ilvl = 305 }), e, LEVELING)
+	assert(v.kind ~= "levelUp", "not over the 310 off-hand")
+end)
+
+test("Leveling: reveals and alt lines", function()
+	local up = { kind = "levelUp", ilvlDiff = 3, pct = -2, warnings = 0, slot = 1 }
+	local stat = { kind = "upgrade", pct = 12, warnings = 0, slot = 1 }
+	local list = ns.Gear_PickReveals({ { verdict = stat }, { verdict = up } }, 2)
+	eq(#list, 1)
+	eq(list[1].verdict, up)
+	eq(ns.Gear_AltGain(up), "item level +3")
+end)
+
 test("Losing an effect: can't judge, sim both", function()
 	local e = gearset()
 	e[1].effect = "Equip: your attacks sometimes explode"

@@ -465,6 +465,8 @@ function ns.Gear_AltGain(v)
 		return "empty slot"
 	elseif v.kind == "noStats" then
 		return "theirs has no stats"
+	elseif v.kind == "levelUp" then
+		return ("item level +%d"):format(v.ilvlDiff)
 	end
 	return ("%+.1f%%"):format(v.pct or 0)
 end
@@ -473,6 +475,9 @@ end
 -- all), then by name.
 function ns.Gear_SortAltUpgrades(results)
 	local function Value(r)
+		if r.verdict.kind == "levelUp" then
+			return 1e6 + r.verdict.ilvlDiff -- a leveling character's item level upgrade: above any percentage
+		end
 		return r.verdict.pct or math.huge
 	end
 	table.sort(results, function(a, b)
