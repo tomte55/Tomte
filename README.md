@@ -4,7 +4,7 @@
 
 <p align="center">
 One addon for everything around the fighting: your gear, your week, your alts, gold, travel and collecting,<br>
-with a cinematic touch. Made for a few friends, for retail WoW <b>12.1.0</b>. English only.
+with a cinematic touch. Made for a few friends, for retail WoW <b>12.1.5</b>. English only.
 </p>
 
 ![Showcase: your character in the game world with your gear around it](docs/screenshots/hero.png)

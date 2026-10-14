@@ -5,7 +5,7 @@ A World of Warcraft addon used by the user and a few friends. Shared through Git
 
 ## Environment
 
-- Client: retail **12.1.0** (Midnight), build 69933. TOC `## Interface: 120100`.
+- Client: retail **12.1.5** (Midnight), build 70391. TOC `## Interface: 120105`.
 - This repo **is** the live addon folder `Interface\AddOns\Tomte`; the repo root is the addon root.
 - The git dir lives at `D:\git\Tomte.git` (`.git` here is a one-line `gitdir:` file). It was moved out of the WoW
   folder because Battle.net's updater tries to clear read-only flags on every file there and fails on git's
