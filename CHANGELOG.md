@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Updated for patch 12.1.5: Tomte no longer shows as out of date in the AddOns list.
+
 ## v1.13.0 - 2026-10-13
 
 - Whispers: the inbox is resizable and remembers its size and place. Messages are chat bubbles (theirs left, yours right) with a NEW line where the unread ones start, and item links show their tooltip on hover. Conversations have class avatars with an online dot, unread counts, and can be pinned to the top. The header says who they are (level, class and zone, the Battle.net app, offline, or not a friend) with an Invite button. Right-click a conversation to pin, invite, add as a friend, copy it or delete it.
