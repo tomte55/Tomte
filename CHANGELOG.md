@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.13.1 - 2026-10-14
+
 - Updated for patch 12.1.5: Tomte no longer shows as out of date in the AddOns list.
 
 ## v1.13.0 - 2026-10-13
