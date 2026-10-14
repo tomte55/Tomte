@@ -7,6 +7,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 - Gear Check: while leveling, gear with a higher item level is an upgrade whatever its stats, trinkets and items with effects included (new setting, on by default).
 - Gear Check: at max level, an item with stats over a worn one with only an effect says "Likely upgrade: yours has no stats" instead of "Can't judge: new slot".
+- Settings: the knob in on/off switches is a little smaller and sits evenly centered in every switch.
 
 ## v1.13.1 - 2026-10-14
 

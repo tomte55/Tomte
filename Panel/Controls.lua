@@ -5,8 +5,8 @@ local addonName, ns = ...
 
 local UI = ns.UI
 local SWITCH_W, SWITCH_H = 34, 16
-local KNOB_W, KNOB_H = 12, 10
-local KNOB_INSET = 2
+local KNOB_W = 9
+local KNOB_INSET = 3 -- on all four sides, so the knob is 10 tall
 local SLIDE_SECONDS = 0.15
 UI.SWITCH_SECONDS = SLIDE_SECONDS -- Options.lua waits this long before re-laying rows after a switch
 local SEGMENT_PAD = 10 -- text inset on each side of a segment
@@ -17,21 +17,36 @@ local SEGMENT_H = 20
 -- animates; SetChecked from code (a page being built) shows the state at once.
 function UI.Switch(parent)
 	local b = CreateFrame("Button", nil, parent)
-	b:SetSize(SWITCH_W, SWITCH_H)
+	-- Everything is measured in whole screen pixels and drawn unsnapped, like UI.Border's edges: in UI units below a
+	-- UI scale of 1, pixel-grid snapping rounded each knob edge on its own, so knobs came out a pixel off-center or a
+	-- pixel bigger depending on where each switch sat on screen.
+	local scale = b:GetEffectiveScale()
+	local pixel = PixelUtil.GetPixelToUIUnitFactor() / scale
+	local width = PixelUtil.GetNearestPixelSize(SWITCH_W, scale)
+	local inset = PixelUtil.GetNearestPixelSize(KNOB_INSET, scale, 3) -- at least the border plus a 2-pixel gap
+	local knobW = PixelUtil.GetNearestPixelSize(KNOB_W, scale)
+	local travel = width - knobW - 2 * inset
+	b:SetSize(width, PixelUtil.GetNearestPixelSize(SWITCH_H, scale))
 	b:SetHitRectInsets(-4, -4, -4, -4)
-	b.track = b:CreateTexture(nil, "BACKGROUND")
+	local function Unsnapped(t)
+		t:SetTexelSnappingBias(0)
+		t:SetSnapToPixelGrid(false)
+		return t
+	end
+	b.track = Unsnapped(b:CreateTexture(nil, "BACKGROUND"))
 	b.track:SetAllPoints()
 	b.track:SetColorTexture(0, 0, 0, 0.3)
 	-- Under the border (UI.Border draws on BORDER) and 1 px inside it, so the outline shows all round when on.
-	b.fill = b:CreateTexture(nil, "BACKGROUND", nil, 1)
-	b.fill:SetPoint("TOPLEFT", 1, -1)
-	b.fill:SetPoint("BOTTOMLEFT", 1, 1)
+	b.fill = Unsnapped(b:CreateTexture(nil, "BACKGROUND", nil, 1))
+	b.fill:SetPoint("TOPLEFT", pixel, -pixel)
+	b.fill:SetPoint("BOTTOMLEFT", pixel, pixel)
 	b.fill:SetColorTexture(1, 1, 1, 1)
 	b.fill:SetGradient("HORIZONTAL", UI.ColorObject("accentDeep"), UI.ColorObject("accent"))
 	b.fill:SetAlpha(0.85)
 	UI.Border(b, "frame", 0.6)
-	b.knob = b:CreateTexture(nil, "ARTWORK")
-	b.knob:SetSize(KNOB_W, KNOB_H)
+	-- Same inset on all four sides; its height follows the track.
+	b.knob = Unsnapped(b:CreateTexture(nil, "ARTWORK"))
+	b.knob:SetWidth(knobW)
 	local offR, offG, offB = UI.Color("textMuted")
 	local onR, onG, onB = UI.Color("text")
 
@@ -39,9 +54,11 @@ function UI.Switch(parent)
 	local function Show(self, p)
 		self.progress = p
 		local eased = ns.Smoothstep(p)
-		self.fill:SetWidth(math.max((SWITCH_W - 2) * eased, 0.001))
+		self.fill:SetWidth(math.max((width - 2 * pixel) * eased, 0.001))
 		self.fill:SetShown(eased > 0)
-		self.knob:SetPoint("LEFT", KNOB_INSET + (SWITCH_W - KNOB_W - 2 * KNOB_INSET) * eased, 0)
+		local x = inset + travel * eased
+		self.knob:SetPoint("TOPLEFT", x, -inset)
+		self.knob:SetPoint("BOTTOMLEFT", x, inset)
 		self.knob:SetColorTexture(offR + (onR - offR) * eased, offG + (onG - offG) * eased, offB + (onB - offB) * eased)
 	end
 
