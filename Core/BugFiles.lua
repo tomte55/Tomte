@@ -55,6 +55,8 @@ ns.BUG_FILES = {
 	"Panel/ModulePage.lua",
 	"Panel/Panel.lua",
 	"Panel/Window.lua",
+	"Panel/AddonsData.lua",
+	"Panel/Addons.lua",
 	"Panel/Share.lua",
 	"Panel/Bug.lua",
 	"Panel/Setup.lua",

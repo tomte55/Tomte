@@ -320,6 +320,7 @@ module = ns.RegisterModule({
 		.. "character's world quest gold this week and in all, and its caches. A line in chat at login with what's "
 		.. "up. Open it with /tomte wgq, a key binding or Home.",
 	enabledByDefault = true,
+	replaces = { { addon = "GoldWQ", why = "the gold world quest window with totals, assignments and caches" } },
 	minimapButton = {
 		name = "Gold world quests",
 		icon = "Interface\\Icons\\INV_Misc_Coin_01",

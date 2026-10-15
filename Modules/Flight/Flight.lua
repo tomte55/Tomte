@@ -514,6 +514,7 @@ module = ns.RegisterModule({
 	enabledByDefault = true,
 	defaults = ns.Flight_Defaults,
 	keep = { "calibration", "stats" }, -- collected data: a settings reset keeps it
+	replaces = { { addon = "InFlight", why = "a countdown while you fly a flight path" } },
 	init = function(db)
 		ns.flightDB = db
 		-- Friend sharing (Modules/Share) loads after this file, so it's looked up here, at init.

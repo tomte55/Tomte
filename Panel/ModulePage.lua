@@ -77,14 +77,15 @@ local function Chip(i)
 end
 
 -- Addons the module uses as chips (green when loaded, faint when not; the tooltip says what for), and a red chip
--- for a conflicting addon that is loaded. Chips that would run past maxW (into the "Open" buttons) are left out.
+-- for a conflicting addon that is loaded (amber for a loaded addon the module does the job of). Chips that would run past maxW (into the "Open" buttons) are left out.
 local function LayoutChips(module, anchor, maxW)
 	local shown = 0
 	local used = anchor == page.more and page.more:GetWidth() or 0
 	for _, line in ipairs(ns.ModuleDependencies(module, IsLoaded)) do
-		if not (line.conflict and line.ok) then
+		if not ((line.conflict or line.overlap) and line.ok) then
 			local chip = Chip(shown + 1)
-			chip.text:SetText(line.conflict and ("Conflicts with " .. line.addon) or line.addon)
+			chip.text:SetText(line.conflict and ("Conflicts with " .. line.addon)
+				or line.overlap and ("Also running " .. line.addon) or line.addon)
 			local w = math.ceil(chip.text:GetStringWidth()) + 2 * CHIP_PAD + 9
 			local gap = shown == 0 and (anchor == page.more and 12 or 0) or 6
 			if used + gap + w > maxW then
@@ -93,7 +94,7 @@ local function LayoutChips(module, anchor, maxW)
 			shown = shown + 1
 			used = used + gap + w
 			chip.line = line
-			local role = line.conflict and "danger" or (line.ok and "success" or "textFaint")
+			local role = line.conflict and "danger" or line.overlap and "warning" or (line.ok and "success" or "textFaint")
 			UI.SetTextRole(chip.text, role)
 			chip.dot:SetColorTexture(UI.Color(role))
 			UI.SetBorderColor(chip, role, 0.5)

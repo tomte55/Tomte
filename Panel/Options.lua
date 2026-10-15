@@ -4,7 +4,8 @@ local addonName, ns = ...
 -- card (rows before the first header share an untitled one), dealt into one or two columns by width (Layout.lua).
 -- One factory per row type; rows and cards are pooled and rebuilt per module. The reset buttons sit under the cards
 -- as quiet links. Schema extras read here: tooltip (a faint "?" after the label), parent = "<key>" (indented and
--- dimmed while that option is off), shown() (hides the row).
+-- dimmed while that option is off), shown() (hides the row). Besides the settings rows there is a read-only `status`
+-- row (status() -> text, color role on the right).
 
 local UI = ns.UI
 local OPT_H = 28
@@ -313,6 +314,23 @@ function Setup.input(row, module, spec)
 	row.box:SetText(GetOption(module, spec.key) or "")
 	row.box.placeholder:SetText(spec.placeholder or "")
 	row.box:SetCursorPosition(0)
+end
+
+-- Read-only: the label and, on the right, spec.status() -> text, color role (asked on every build).
+function Factory.status()
+	local row = NewRow("status")
+	row.value = UI.Text(row, 12, "textMuted")
+	row.value:SetJustifyH("RIGHT")
+	row.value:SetPoint("RIGHT", -8, 0)
+	LabelUpTo(row, row.value)
+	return row
+end
+
+function Setup.status(row, module, spec)
+	SetLabel(row, spec)
+	local text, role = spec.status()
+	row.value:SetText(text or "")
+	UI.SetTextRole(row.value, role or "textMuted")
 end
 
 local function Acquire(kind)

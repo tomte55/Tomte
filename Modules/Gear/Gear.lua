@@ -200,6 +200,7 @@ module = ns.RegisterModule({
 		{ addon = "Baganator", why = "upgrade arrows on your bag items", without = "no upgrade arrows in bags" },
 		{ addon = "Simulationcraft", why = "the /simc export for Raidbots Top Gear", without = "no /simc export" },
 	},
+	replaces = { { addon = "Pawn", why = "upgrade verdicts on item tooltips" } },
 	home = {
 		{ kind = "quick", key = "reveal", order = 3, name = "Reveal upgrades", open = function()
 			ns.GearReveal_ShowBags()

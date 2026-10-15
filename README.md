@@ -191,6 +191,9 @@ Export gives a string of your settings (not your data: no characters, history, f
 what would change, per module, before anything is written; it then reloads. Undo goes back to your settings from
 before the last import.
 
+**Other addons:** a page in the Tomte settings (Tomte group) lists every addon Tomte clashes with, works with or can
+replace, and whether you have it. Hover a row to see which module cares and why.
+
 <details>
 <summary><b>Home in detail</b></summary>
 

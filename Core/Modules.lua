@@ -192,8 +192,9 @@ function ns.ModulePages(module)
 	return list
 end
 
--- Lines for the settings header from module.uses / module.conflicts ({ addon, why }). isLoaded(addon) -> bool.
--- ok: a used addon is loaded, or a conflicting one isn't. addon: its name; conflict: from module.conflicts.
+-- Lines for the settings header from module.uses / module.conflicts / module.replaces ({ addon, why }).
+-- isLoaded(addon) -> bool. ok: a used addon is loaded, or a conflicting or replaced one isn't. addon: its name;
+-- conflict: from module.conflicts; overlap: from module.replaces (an addon doing the module's job).
 function ns.ModuleDependencies(module, isLoaded)
 	local lines = {}
 	for _, dep in ipairs(module.uses or {}) do
@@ -211,6 +212,15 @@ function ns.ModuleDependencies(module, isLoaded)
 			addon = dep.addon,
 			conflict = true,
 			text = ("Conflicts with %s: %s"):format(dep.addon, dep.why),
+		}
+	end
+	for _, dep in ipairs(module.replaces or {}) do
+		local loaded = isLoaded(dep.addon)
+		lines[#lines + 1] = {
+			ok = not loaded,
+			addon = dep.addon,
+			overlap = true,
+			text = ("Does what %s does: %s. You can turn %s off."):format(dep.addon, dep.why, dep.addon),
 		}
 	end
 	return lines

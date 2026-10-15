@@ -49,6 +49,7 @@ module = ns.RegisterModule({
 	summary = "Win pet battles with tips, saved strategies and one key per turn.",
 	description = "Help to win pet battles: a battle helper with what hits the enemy hard and your best pet, a card for pet tamers (team, readiness, Load team, Xu-Fu guide links, Heal), Xu-Fu strategies you paste in, played one key press per turn, and a leveling slot.",
 	enabledByDefault = true,
+	replaces = { { addon = "tdBattlePetScript", why = "pet battle scripts played one key press per turn" } },
 	-- Saved keys without a default: cache (round counters, Battle.lua), advisor.point (the helper's dragged position,
 	-- Battle.lua) and nextID (the next team id, Store.lua).
 	defaults = {

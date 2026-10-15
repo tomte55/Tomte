@@ -10,7 +10,7 @@ local addonName, ns = ...
 -- Tomte never installs an error handler of its own (it would sit in the path of Blizzard's secure code's errors).
 
 local MAX_SCAN = 200
--- Listed in every report besides each module's uses/conflicts: the error catchers, TomTom and the TOC's OptionalDeps.
+-- Listed in every report besides each module's uses/conflicts/replaces: the error catchers, TomTom and the TOC's OptionalDeps.
 local WATCHED = { "BugSack", "!BugGrabber", "TomTom", "Baganator", "Syndicator", "Auctionator", "TradeSkillMaster",
 	"MountJournalEnhanced", "AlmostCompletedAchievements", "WaypointUI", "DialogueUI" }
 
@@ -160,6 +160,9 @@ local function Info(full)
 				add(dep.addon)
 			end
 			for _, dep in ipairs(module.conflicts or {}) do
+				add(dep.addon)
+			end
+			for _, dep in ipairs(module.replaces or {}) do
 				add(dep.addon)
 			end
 		end

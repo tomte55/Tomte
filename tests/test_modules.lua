@@ -332,6 +332,17 @@ test("ModuleDependencies says whether used addons are loaded and conflicting one
 	eq(#ns.ModuleDependencies(newModule("b"), function() return true end), 0, "none")
 end)
 
+test("ModuleDependencies flags a loaded addon the module does the job of", function()
+	reset()
+	local m = newModule("a", { replaces = { { addon = "Pawn", why = "upgrade verdicts" } } })
+	local lines = ns.ModuleDependencies(m, function() return false end)
+	eq(lines[1].overlap, true, "overlap line")
+	eq(lines[1].ok, true, "not loaded: fine")
+	lines = ns.ModuleDependencies(m, function(name) return name == "Pawn" end)
+	eq(lines[1].ok, false, "loaded")
+	eq(lines[1].text, "Does what Pawn does: upgrade verdicts. You can turn Pawn off.", "text")
+end)
+
 test("HomeEntries sorts by order, then registration", function()
 	reset()
 	newModule("a", { enabledByDefault = true, home = { { kind = "page", key = "late" }, { kind = "page", key = "first", order = 1 } } })
