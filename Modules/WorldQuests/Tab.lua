@@ -498,9 +498,11 @@ function Refresh()
 	panel.empty:SetShown(#sections == 0)
 	panel.scroll:SetContentHeight(y)
 	local hovered
+	-- IsMouseOver ignores the scroll clipping: rows scrolled out of view lie over the map.
+	local inView = panel.scroll:IsMouseOver()
 	for i = 1, used do
 		local row = rows[i]
-		if row:IsMouseOver() and (row.quest or row.section) then
+		if inView and row:IsMouseOver() and (row.quest or row.section) then
 			row.hover:Show()
 			if row.quest then
 				ShowTooltip(row)

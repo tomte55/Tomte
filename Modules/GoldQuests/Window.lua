@@ -476,6 +476,10 @@ function Draw()
 	if ours then
 		GameTooltip:Hide()
 	end
+	-- IsMouseOver ignores the scroll clipping: rows scrolled out of view lie over whatever is below the window.
+	if not frame.scroll:IsMouseOver() then
+		return
+	end
 	for i = 1, used do
 		if rows[i].data and rows[i]:IsMouseOver() then
 			OnRowEnter(rows[i])
