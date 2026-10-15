@@ -22,7 +22,7 @@ local SAMPLE_WHISPERS = {
 
 local module
 local away -- AFK state while flagged AFK or previewing (same table as ns.afkDB.current)
-local manualAt -- GetTime() of the last /afk typed while not AFK
+local manualAt -- GetTime() of the last /afk typed
 
 local events = CreateFrame("Frame")
 events:SetScript("OnEvent", function(self, event, ...)
@@ -188,9 +188,11 @@ local function ResumeOrCleanup()
 end
 
 -- /afk goes through SendChatMessage(msg, "AFK"); any other AFK flag is the game's idle timer, which means the
--- player left minutes before it appeared. Typed while AFK, /afk clears the flag instead, so that one doesn't count.
+-- player left minutes before it appeared. The flag can't tell setting from clearing here: the hook runs after the
+-- call, and the game has already flipped UnitIsAFK locally (measured 12.1.5). A clearing /afk does no harm: only a
+-- flag set within AFK_AwaySince's few seconds counts, and the idle timer needs minutes.
 hooksecurefunc(C_ChatInfo, "SendChatMessage", function(_, chatType)
-	if module and module.active and chatType == "AFK" and IsAFK() == false then
+	if module and module.active and chatType == "AFK" then
 		manualAt = GetTime()
 	end
 end)
