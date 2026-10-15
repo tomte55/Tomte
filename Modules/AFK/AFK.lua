@@ -22,6 +22,7 @@ local SAMPLE_WHISPERS = {
 
 local module
 local away -- AFK state while flagged AFK or previewing (same table as ns.afkDB.current)
+local manualAt -- GetTime() of the last /afk typed while not AFK
 
 local events = CreateFrame("Frame")
 events:SetScript("OnEvent", function(self, event, ...)
@@ -101,11 +102,11 @@ local function Sync()
 	end
 	if afk then
 		if not away then
-			BeginAway({ since = GetTime(), whispers = {} })
+			BeginAway({ since = ns.AFK_AwaySince(GetTime(), manualAt), whispers = {} })
 		elseif away.preview then
 			-- Went AFK for real during the preview: keep going as AFK, without the sample time and whispers.
 			away.preview = nil
-			away.since = GetTime()
+			away.since = ns.AFK_AwaySince(GetTime(), manualAt)
 			away.whispers = {}
 			ns.AFKScene_RefreshWhispers()
 		end
@@ -185,6 +186,14 @@ local function ResumeOrCleanup()
 	end
 	Sync()
 end
+
+-- /afk goes through SendChatMessage(msg, "AFK"); any other AFK flag is the game's idle timer, which means the
+-- player left minutes before it appeared. Typed while AFK, /afk clears the flag instead, so that one doesn't count.
+hooksecurefunc(C_ChatInfo, "SendChatMessage", function(_, chatType)
+	if module and module.active and chatType == "AFK" and IsAFK() == false then
+		manualAt = GetTime()
+	end
+end)
 
 local function AddWhisper(entry)
 	if not away or away.preview then

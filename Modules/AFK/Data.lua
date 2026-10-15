@@ -3,6 +3,17 @@ local addonName, ns = ...
 -- AFK module, pure logic: no WoW API calls (unit-tested with plain Lua).
 
 local EPSILON = 1e-6 -- level + fraction sums aren't exact in floating point
+local AUTO_AFK_DELAY = 300 -- seconds without input before the game flags you AFK by itself
+local MANUAL_WINDOW = 5 -- seconds: a flag this soon after typing /afk came from the command, not the idle timer
+
+-- When the player really went away, given when the AFK flag appeared and when they last typed /afk (or nil).
+-- A typed /afk means they left just then; otherwise the game's idle timer set the flag after AUTO_AFK_DELAY.
+function ns.AFK_AwaySince(flaggedAt, manualAt)
+	if manualAt and flaggedAt - manualAt >= 0 and flaggedAt - manualAt <= MANUAL_WINDOW then
+		return flaggedAt
+	end
+	return flaggedAt - AUTO_AFK_DELAY
+end
 
 function ns.AFK_ClockText(hour, minute, military)
 	if military then

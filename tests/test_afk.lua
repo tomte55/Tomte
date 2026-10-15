@@ -14,6 +14,17 @@ test("ClockText uses 24h or 12h", function()
 	eq(ns.AFK_ClockText(12, 30, false), "12:30 PM")
 end)
 
+test("AwaySince counts the idle time before the game's automatic AFK flag", function()
+	eq(ns.AFK_AwaySince(1000, nil), 700)
+	eq(ns.AFK_AwaySince(1000, 400), 700) -- an old /afk doesn't count
+	eq(ns.AFK_AwaySince(1000, 1010), 700) -- nor one typed after the flag appeared
+end)
+
+test("AwaySince starts at the flag right after a typed /afk", function()
+	eq(ns.AFK_AwaySince(1000, 1000), 1000)
+	eq(ns.AFK_AwaySince(1000, 996), 1000)
+end)
+
 test("XPGain is nil without progress", function()
 	eq(ns.AFK_XPGain(70, 0.5, 70, 0.5), nil)
 	eq(ns.AFK_XPGain(70, 0.5, 70, 0.4), nil)

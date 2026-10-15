@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- AFK Screen: "Away for" counts from when you actually left: it includes the 5 idle minutes before the game marks you AFK, and starts at zero when you type /afk.
+
 ## v1.14.0 - 2026-10-14
 
 - Gear Check: while leveling, gear with a higher item level is an upgrade whatever its stats, trinkets and items with effects included (new setting, on by default).
