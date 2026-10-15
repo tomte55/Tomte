@@ -18,6 +18,39 @@ local function Clock(at)
 	return ns.AFK_ClockText(t.hour, t.min, C_CVar.GetCVarBool("timeMgrUseMilitaryTime"))
 end
 
+-- Links in their item quality's color (accent for every other kind of link). The quality comes from the item string
+-- ("item:123:..."; the bare "|H...|h[Sword]|h" isn't a link the API reads), so bonus IDs that raise it count. An
+-- item that isn't cached yet is accent until it loads: onPending(itemID) is called for it.
+local function PaintLinks(text, onPending)
+	return ns.Social_ColorLinks(text, function(kind, link)
+		if kind == "item" then
+			local itemString = link:match("^|H(item:[^|]*)|h")
+			local quality = itemString and C_Item.GetItemQualityByID(itemString)
+			if quality then
+				local r, g, b = C_Item.GetItemQualityColor(quality)
+				return UI.Wrap(link, { r, g, b })
+			end
+			local itemID = tonumber(itemString and itemString:match("^item:(%d+)"))
+			if itemID then
+				onPending(itemID)
+			end
+		end
+		return UI.Wrap(link, "accent")
+	end)
+end
+
+-- Sets a bubble's text, and sets it again once each uncached item in it has loaded (if it still shows that text).
+local function SetBubbleText(b, text)
+	b.raw = text
+	b.text:SetText(PaintLinks(text, function(itemID)
+		Item:CreateFromItemID(itemID):ContinueOnItemLoad(function()
+			if b.raw == text then
+				b.text:SetText(PaintLinks(text, function() end))
+			end
+		end)
+	end))
+end
+
 -- Bubbles ---------------------------------------------------------------------------------------------------------
 
 local function CreateBubble(parent)
@@ -243,7 +276,7 @@ function ns.InboxMessages_Create(parent)
 			nb = nb + 1
 			local b = self.bubbles[nb] or CreateBubble(content)
 			self.bubbles[nb] = b
-			b.text:SetText(m.text)
+			SetBubbleText(b, m.text)
 			b.time:SetText(Clock(m.at))
 			-- Faint tints, the same in every theme: a light wash for theirs, the accent for yours.
 			if m.out then

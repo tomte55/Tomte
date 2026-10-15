@@ -153,6 +153,19 @@ test("PlainText strips colors, links and textures", function()
 	eq(ns.Social_PlainText("|TInterface\\Icons\\x:0|t hi"), " hi")
 end)
 
+test("ColorLinks paints uncolored links only", function()
+	local function paint(kind, link)
+		return "<" .. kind .. ">" .. link .. "</>"
+	end
+	eq(ns.Social_ColorLinks("got |Hitem:123::|h[Sword]|h!", paint), "got <item>|Hitem:123::|h[Sword]|h</>!")
+	eq(ns.Social_ColorLinks("|Hachievement:6:x|h[A]|h and |Hspell:5|h[B]|h", paint),
+		"<achievement>|Hachievement:6:x|h[A]|h</> and <spell>|Hspell:5|h[B]|h</>")
+	eq(ns.Social_ColorLinks("|cffa335ee|Hitem:1|h[Sword]|h|r", paint), "|cffa335ee|Hitem:1|h[Sword]|h|r")
+	eq(ns.Social_ColorLinks("|cnIQ4:|Hitem:1|h[Sword]|h|r", paint), "|cnIQ4:|Hitem:1|h[Sword]|h|r")
+	eq(ns.Social_ColorLinks("|Hitem:1|h[Sword]|h", function() end), "|Hitem:1|h[Sword]|h", "nil keeps the link")
+	eq(ns.Social_ColorLinks("no links", paint), "no links")
+end)
+
 test("FindMention matches whole words only, any case", function()
 	local words = { "tomte", "tank" }
 	eq(ns.Social_FindMention("hey Tomte, you there?", words), "tomte")

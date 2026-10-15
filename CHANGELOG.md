@@ -6,6 +6,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 ## Unreleased
 
 - Fishing: the Fishing key knows more of the game's special fishing casts (quest, toy and event fishing), read from the game's own spell data.
+- Whispers: linked items in the whisper window show in their quality color (green, blue, purple ...), other links in the theme's accent, so links stand out from the text.
 
 ## v1.15.1 - 2026-10-15
 

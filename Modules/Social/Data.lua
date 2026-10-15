@@ -241,6 +241,19 @@ function ns.Social_PlainText(text)
 	return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("|T.-|t", ""):gsub("|A.-|a", ""))
 end
 
+-- Whispered links arrive without a color code ("|Hitem:...|h[Sword]|h"; the chat frame colors them itself). Each
+-- uncolored link is replaced by paint(kind, link) ("item", "|Hitem:...|h[Sword]|h"), or kept when that returns nil.
+-- Links that already carry a color ("|cffa335ee|H...", "|cnIQ4:|H...") are left alone.
+function ns.Social_ColorLinks(text, paint)
+	return (text:gsub("()(|H(%a+):?[^|]*|h.-|h)", function(at, link, kind)
+		local before = text:sub(1, at - 1)
+		if before:find("|c%x%x%x%x%x%x%x%x$") or before:find("|cn[^|:]*:$") then
+			return nil
+		end
+		return paint(kind, link)
+	end))
+end
+
 -- A letter or digit (ASCII), or any byte of a multi-byte UTF-8 character: part of a word.
 local function WordByte(b)
 	return b ~= nil and (b >= 128 or (b >= 48 and b <= 57) or (b >= 65 and b <= 90) or (b >= 97 and b <= 122))
