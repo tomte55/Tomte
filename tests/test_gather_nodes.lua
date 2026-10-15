@@ -264,4 +264,70 @@ test("list for a map filters by kind", function()
 	eq(#ns.GatherNodes_List(db, 999), 0)
 end)
 
+test("list leaves hidden node types out, never spots of an unknown type", function()
+	local db = DB()
+	Add(db, 0.1, 0.1, "mining", ORE, BISMUTH)
+	Add(db, 0.3, 0.3, "herbalism", HERB, { name = "Mycobloom" })
+	Add(db, 0.5, 0.5, "mining", nil)
+	local list = ns.GatherNodes_List(db, MAP, nil, { [ORE] = true })
+	eq(#list, 2)
+	eq(list[1].objectID, HERB)
+	eq(list[2].objectID, nil, "the unknown-type spot stays")
+end)
+
+test("types on a map with counts, by kind then name", function()
+	local db = DB()
+	Add(db, 0.1, 0.1, "mining", ORE, BISMUTH)
+	Add(db, 0.6, 0.6, "mining", ORE, BISMUTH)
+	Add(db, 0.2, 0.2, "mining", ORE + 1, { name = "Aqirite" })
+	Add(db, 0.3, 0.3, "herbalism", HERB, { name = "Mycobloom" })
+	Add(db, 0.5, 0.5, "mining", nil)
+	Add(db, 0.4, 0.4, "mining", ORE, BISMUTH, 15)
+	local types = ns.GatherNodes_Types(db, MAP)
+	eq(#types, 3, "unknown-type spots aren't listed")
+	eq(types[1].name, "Mycobloom", "herbalism before mining")
+	eq(types[2].name, "Aqirite")
+	eq(types[3].objectID, ORE)
+	eq(types[3].count, 2, "only this map's spots")
+	eq(types[3].item, BISMUTH.item)
+	eq(#ns.GatherNodes_Types(db, MAP, { herbalism = true }), 1, "filtered by kind")
+	eq(#ns.GatherNodes_Types(db, 999), 0)
+end)
+
+test("groups merge a node's variants by the item they drop", function()
+	local MYCO = 210796
+	local types = {
+		{ objectID = 1, kind = "herbalism", name = "Mycobloom", item = MYCO, count = 30 },
+		{ objectID = 2, kind = "herbalism", name = "Lush Mycobloom", item = MYCO, count = 6 },
+		{ objectID = 3, kind = "herbalism", name = "Crystallized Mycobloom", item = MYCO + 1, count = 8 }, -- rank 2
+		{ objectID = 4, kind = "herbalism", name = "Blessing Blossom", item = 210805, count = 24 },
+		{ objectID = 5, kind = "mining", name = "Mystery Vein", count = 2 }, -- no item known
+		{ objectID = 6, kind = "herbalism", name = "Odd Herb", item = 999, count = 1 }, -- item not loaded yet
+	}
+	local names = { [MYCO] = "Mycobloom", [MYCO + 1] = "Mycobloom", [210805] = "Blessing Blossom" }
+	local groups = ns.GatherNodes_Groups(types, function(t)
+		return t.item and names[t.item]
+	end)
+	eq(#groups, 4)
+	eq(groups[1].name, "Blessing Blossom")
+	eq(groups[2].name, "Mycobloom")
+	eq(groups[2].count, 44, "every variant and rank")
+	eq(table.concat(groups[2].ids, ","), "1,2,3")
+	eq(groups[3].name, "Odd Herb", "falls back to the type's name")
+	eq(groups[4].kind, "mining", "herbalism before mining")
+end)
+
+test("forget one map keeps the others and the node types", function()
+	local db = DB()
+	Add(db, 0.1, 0.1, "mining", ORE, BISMUTH)
+	Add(db, 0.3, 0.3, "herbalism", HERB)
+	Add(db, 0.4, 0.4, "mining", ORE, BISMUTH, 15)
+	eq(ns.GatherNodes_Forget(db, MAP), 2)
+	eq(db.nodes[MAP], nil)
+	eq(Count(db), 1)
+	eq(db.nodeTypes[ORE].name, "Bismuth")
+	eq(ns.GatherNodes_Forget(db, MAP), 0, "nothing left")
+	eq(select(2, Add(db, 0.1, 0.1, "mining", ORE, BISMUTH)) ~= nil, true, "the map records again")
+end)
+
 H.done()

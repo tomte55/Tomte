@@ -207,7 +207,7 @@ function ns.GatherMini_Refresh()
 	local kinds = ns.GatherPins_Kinds()
 	local best = C_Map.GetBestMapForUnit("player")
 	mapID = best and ns.Readable(best) and best or nil
-	spots = (kinds ~= false and mapID) and ns.GatherNodes_List(db, mapID, kinds) or {}
+	spots = (kinds ~= false and mapID) and ns.GatherNodes_List(db, mapID, kinds, db.hiddenTypes) or {}
 	if mapID then
 		mapW, mapH = C_Map.GetMapWorldSize(mapID)
 	end

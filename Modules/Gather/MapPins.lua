@@ -1,8 +1,8 @@
 local addonName, ns = ...
 
 -- Gathering node spots on the world map: a round icon on every mining and herbalism spot Gathering remembers
--- (Nodes.lua), with a tooltip, and a round button in the map's top-right column with a menu (which nodes to show,
--- remember spots, settings). Plain frames on the map canvas, not a map data provider or Blizzard's pin pools
+-- (Nodes.lua), with a tooltip, and a round button in the map's top-right column with a menu (which nodes and node
+-- types to show, remember spots, forget this map's spots, settings). Plain frames on the map canvas, not a map data provider or Blizzard's pin pools
 -- (taint, see the World quests marker). Also the map's gathering route (Follow.lua) as lines under the pins, the spot
 -- being followed drawn bigger, and spots gathered a moment ago dimmed. Registered in Gather.lua.
 
@@ -30,16 +30,31 @@ local undim -- timer that redraws while dimmed spots are on the map, so they lig
 local hooked = false
 local button
 
+-- The name of the ore or herb a node type drops (the same for its quality ranks), or nil while the item isn't loaded
+-- (asked for, so it's there next time).
+local function ItemName(t)
+	if not (t and t.item) then
+		return nil
+	end
+	local name = C_Item.GetItemNameByID(t.item)
+	if not name then
+		C_Item.RequestLoadItemDataByID(t.item)
+	end
+	return name
+end
+
+-- What a spot is called: the ore or herb, not the node type, since variants (Lush, Rich, Crystallized ...) spawn at
+-- random on the same spots. Also for the route's card (Follow.lua).
+function ns.GatherPins_NodeName(t, kind)
+	return ItemName(t) or (t and t.name) or (ns.GATHER_KIND_NAMES[kind] .. " node")
+end
+
 local function ShowTooltip(pin)
 	local spot = pin.spot
 	local t = spot.objectID and db.nodeTypes[spot.objectID]
 	GameTooltip:SetOwner(pin, "ANCHOR_RIGHT")
-	GameTooltip:SetText(t and t.name or ns.GATHER_KIND_NAMES[spot.kind], UI.Color("heading"))
+	GameTooltip:SetText(ns.GatherPins_NodeName(t, spot.kind), UI.Color("heading"))
 	UI.TipLine(ns.GATHER_KIND_NAMES[spot.kind] .. " node", "textMuted")
-	local item = t and t.item and C_Item.GetItemNameByID(t.item)
-	if item then
-		UI.TipLine(item)
-	end
 	local age = ns.Gather_SpotAge(WorldMapFrame:GetMapID(), spot.pos)
 	if age then
 		UI.TipLine(age < 60 and "Gathered just now" or ("Gathered %s ago"):format(ns.Ago(age)), "textMuted")
@@ -171,7 +186,71 @@ local function SetPins(mode)
 	ns.GatherPins_Refresh()
 end
 
+-- A group's spots show while any of its node types isn't hidden (a variant first seen after hiding the rest).
+local function GroupShown(group)
+	for _, id in ipairs(group.ids) do
+		if not db.hiddenTypes[id] then
+			return true
+		end
+	end
+	return false
+end
+
+-- "Ores and herbs on this map" submenu: a checkbox per ore or herb with spots on this map (the shown kinds only; a
+-- node's random variants count as it), and Show all. Ticking hides or shows every node type in the group.
+local function TypesMenu(root, mapID)
+	local kinds = ns.GatherPins_Kinds()
+	local types = kinds ~= false and mapID and ns.GatherNodes_Types(db, mapID, kinds) or {}
+	if #types == 0 then
+		return
+	end
+	local groups = ns.GatherNodes_Groups(types, ItemName)
+	local sub = root:CreateButton("Ores and herbs on this map")
+	local anyHidden = false
+	for _, group in ipairs(groups) do
+		anyHidden = anyHidden or not GroupShown(group)
+		sub:CreateCheckbox(("%s (%d)"):format(group.name, group.count), function()
+			return GroupShown(group)
+		end, function()
+			local hide = GroupShown(group) or nil
+			for _, id in ipairs(group.ids) do
+				db.hiddenTypes[id] = hide
+			end
+			ns.Gather_PinsChanged()
+		end)
+	end
+	if anyHidden then
+		sub:CreateDivider()
+		sub:CreateButton("Show all", function()
+			for _, t in ipairs(types) do
+				db.hiddenTypes[t.objectID] = nil
+			end
+			ns.Gather_PinsChanged()
+		end)
+	end
+end
+
+local function ForgetMap(mapID)
+	local here = ns.GatherNodes_Counts(db, mapID)
+	local n = (here.mining or 0) + (here.herbalism or 0)
+	if n == 0 then
+		return
+	end
+	local info = C_Map.GetMapInfo(mapID)
+	local name = info and info.name or "this map"
+	ns.Confirm_Show(("Forget the %s node spots in %s?\n\nOther maps keep theirs. With Friend sharing on, spots a friend "
+		.. "has here come back when they next share."):format(ns.Thousands(n), name), function()
+		local followMap = ns.GatherFollow_Spot()
+		if followMap == mapID then
+			ns.GatherFollow_Stop("user")
+		end
+		ns.GatherNodes_Forget(db, mapID)
+		ns.Gather_NodesChanged(mapID)
+	end)
+end
+
 local function OpenMenu(owner)
+	local mapID = WorldMapFrame:GetMapID()
 	UI.ContextMenu(owner, function(_, root)
 		root:CreateTitle("Gathering nodes")
 		for _, choice in ipairs({ { "mine", "For your professions" }, { "all", "All" }, { "off", "Off" } }) do
@@ -181,6 +260,7 @@ local function OpenMenu(owner)
 				SetPins(choice[1])
 			end)
 		end
+		TypesMenu(root, mapID)
 		root:CreateDivider()
 		root:CreateCheckbox("Show the route", function()
 			return db.mapRoute
@@ -201,6 +281,12 @@ local function OpenMenu(owner)
 			db.recordNodes = not db.recordNodes
 			ns.Share_Changed("nodes")
 		end)
+		local here = mapID and ns.GatherNodes_Counts(db, mapID)
+		if here and ((here.mining or 0) + (here.herbalism or 0)) > 0 then
+			root:CreateButton("Forget node spots on this map", function()
+				ForgetMap(mapID)
+			end)
+		end
 		root:CreateButton("Gathering page", ns.Gather_Open)
 		root:CreateButton("Settings", function()
 			ns.Panel_OpenModule("gather")
@@ -313,7 +399,7 @@ function ns.GatherPins_Refresh()
 	local followMap, followPos = ns.GatherFollow_Spot()
 	DrawRoute(canvas, mapID, level)
 	local anyRecent = false
-	for _, spot in ipairs(ns.GatherNodes_List(db, mapID, kinds)) do
+	for _, spot in ipairs(ns.GatherNodes_List(db, mapID, kinds, db.hiddenTypes)) do
 		used = used + 1
 		local pin = pool[used]
 		if not pin then

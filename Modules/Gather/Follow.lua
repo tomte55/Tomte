@@ -60,7 +60,7 @@ function ns.GatherRoute_For(mapID)
 	local key = KindsKey(kinds) .. (db.routeTight and ":tight" or "")
 	local c = cache[mapID]
 	if not (c and c.key == key) then
-		local spots = ns.GatherNodes_List(db, mapID, kinds)
+		local spots = ns.GatherNodes_List(db, mapID, kinds, db.hiddenTypes) -- a filter change clears the cache
 		local w, h = C_Map.GetMapWorldSize(mapID)
 		local route, why = ns.GatherRoute_Build(spots, w, h, { tight = db.routeTight })
 		c = { key = key, route = route, spots = spots, why = why }
@@ -393,7 +393,7 @@ function ns.GatherFollow_Target()
 	local n = #follow.route.order
 	local index = ((follow.k - follow.startK) * follow.dir) % n + 1
 	return {
-		name = t and t.name or (ns.GATHER_KIND_NAMES[spot.kind] .. " node"),
+		name = ns.GatherPins_NodeName(t, spot.kind),
 		icon = { texture = icon },
 		line = ("Gathering route, spot %d of %d, lap %d"):format(index, n, math.floor(follow.steps / n) + 1),
 	}

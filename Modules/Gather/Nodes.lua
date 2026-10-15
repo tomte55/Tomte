@@ -307,12 +307,13 @@ function ns.GatherNodes_Counts(db, mapID)
 	return here, all
 end
 
--- The spots on a map, by pos: { { x, y, kind, objectID, pos } }; kinds = { [kind] = true } to keep, nil for all.
-function ns.GatherNodes_List(db, mapID, kinds)
+-- The spots on a map, by pos: { { x, y, kind, objectID, pos } }; kinds = { [kind] = true } to keep, nil for all;
+-- hidden = { [objectID] = true } node types left out (spots of an unknown type are never hidden).
+function ns.GatherNodes_List(db, mapID, kinds, hidden)
 	local list = {}
 	for pos, value in pairs(db.nodes[mapID] or {}) do
 		local kind = ns.GatherNodes_Kind(db, value)
-		if kind and (not kinds or kinds[kind]) then
+		if kind and (not kinds or kinds[kind]) and not (hidden and hidden[value]) then
 			local x, y = ns.GatherNodes_Unpack(pos)
 			list[#list + 1] = { x = x, y = y, kind = kind, objectID = type(value) == "number" and value or nil,
 				pos = pos }
@@ -323,4 +324,69 @@ function ns.GatherNodes_List(db, mapID, kinds)
 		return a.pos < b.pos
 	end)
 	return list
+end
+
+-- The node types with spots on a map, for the type filter: { { objectID, kind, name, item, count } }, by kind, then
+-- name. kinds as in GatherNodes_List. Spots of an unknown type aren't listed (they can't be hidden).
+function ns.GatherNodes_Types(db, mapID, kinds)
+	local byID, list = {}, {}
+	for _, value in pairs(db.nodes[mapID] or {}) do
+		local t = type(value) == "number" and db.nodeTypes[value]
+		if t and (not kinds or kinds[t.kind]) then
+			local entry = byID[value]
+			if not entry then
+				entry = { objectID = value, kind = t.kind, name = t.name, item = t.item, count = 0 }
+				byID[value] = entry
+				list[#list + 1] = entry
+			end
+			entry.count = entry.count + 1
+		end
+	end
+	table.sort(list, function(a, b)
+		if a.kind ~= b.kind then
+			return a.kind < b.kind
+		end
+		if (a.name or "") ~= (b.name or "") then
+			return (a.name or "") < (b.name or "")
+		end
+		return a.objectID < b.objectID
+	end)
+	return list
+end
+
+-- GatherNodes_Types merged by what they drop, for the filter: a node's variants (Lush, Rich, Crystallized ...) are
+-- their own node types with the same ore or herb. nameOf(type) -> the item's name (the same for every quality rank),
+-- or nil when it isn't known (the type's own name then). { { name, kind, ids = { objectID... }, count } }, by kind,
+-- then name.
+function ns.GatherNodes_Groups(types, nameOf)
+	local byKey, list = {}, {}
+	for _, t in ipairs(types) do
+		local name = nameOf(t) or t.name or ""
+		local key = t.kind .. ":" .. name
+		local group = byKey[key]
+		if not group then
+			group = { name = name, kind = t.kind, ids = {}, count = 0 }
+			byKey[key] = group
+			list[#list + 1] = group
+		end
+		group.ids[#group.ids + 1] = t.objectID
+		group.count = group.count + t.count
+	end
+	table.sort(list, function(a, b)
+		if a.kind ~= b.kind then
+			return a.kind < b.kind
+		end
+		return a.name < b.name
+	end)
+	return list
+end
+
+-- Forgets every spot on one map. Returns how many there were.
+function ns.GatherNodes_Forget(db, mapID)
+	local n = 0
+	for _ in pairs(db.nodes[mapID] or {}) do
+		n = n + 1
+	end
+	db.nodes[mapID] = nil
+	return n
 end

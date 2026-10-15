@@ -218,6 +218,7 @@ local function NodesChanged(mapID)
 	ns.GatherPins_Refresh()
 	ns.GatherMini_Refresh()
 end
+ns.Gather_NodesChanged = NodesChanged -- also for the map button's "Forget node spots on this map" (MapPins.lua)
 
 -- A mining or herbalism node's spot, with or without a run going.
 local function RecordNode(g)
@@ -390,6 +391,15 @@ local function PinsChanged()
 	ns.GatherPins_Refresh()
 	ns.GatherMini_Refresh()
 end
+ns.Gather_PinsChanged = PinsChanged -- also for the map button's node type filter (MapPins.lua)
+
+local function HiddenCount()
+	local n = 0
+	for _ in pairs(db.hiddenTypes) do
+		n = n + 1
+	end
+	return n
+end
 
 -- Key bindings (Bindings.xml, Key Bindings > Tomte), through Core's Tomte_Binding.
 ns.bindings.GATHER_FOLLOW = function()
@@ -434,6 +444,7 @@ module = ns.RegisterModule({
 		routeTight = true, -- routes leave far-off spots out (Route.lua)
 		nodes = {}, -- [uiMapID] = { [x * 10000 + y] = objectID or "m"/"h" } (Nodes.lua; a collection)
 		nodeTypes = {}, -- [objectID] = { kind, name, item } (a collection)
+		hiddenTypes = {}, -- [objectID] = true: node types hidden on the maps and left out of routes (a collection)
 		pageScope = "all", pageRange = "all", pageKind = "all", pageView = "runs",
 	},
 	-- Page filters and the route being followed: not in settings strings (Core/Profile.lua). Collections (runs, nodes) never are.
@@ -558,6 +569,13 @@ module = ns.RegisterModule({
 			end },
 		{ type = "checkbox", key = "mapButton", label = "Button on the world map", onChange = PinsChanged,
 			tooltip = "A round button in the world map's top-right corner. Left-click: which nodes to show and more. Right-click: show or hide them." },
+		{ type = "button", label = "Some ores or herbs are hidden", text = "Show all", shown = function()
+			return db and HiddenCount() > 0
+		end, onClick = function()
+			wipe(db.hiddenTypes)
+			PinsChanged()
+			ns.Panel_Refresh()
+		end, tooltip = "Hide one ore or herb from the world map button's menu: Ores and herbs on this map. Hidden ones are left off the maps and out of routes." },
 		{ type = "checkbox", key = "minimapPins", label = "Show nodes on the minimap", onChange = PinsChanged,
 			tooltip = "Small icons on the minimap for the node spots around you (the same nodes as on the world map). Spots you gathered in the last few minutes are dimmed." },
 
