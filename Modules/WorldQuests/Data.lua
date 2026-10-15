@@ -309,6 +309,8 @@ local function VerdictText(v)
 		return VERDICT_FIXED[v.kind]
 	elseif v.kind == "levelUp" then
 		return ("Upgrade (+%d item level)"):format(v.ilvlDiff)
+	elseif v.levelDown then
+		return ("Downgrade (%d item level)"):format(v.ilvlDiff)
 	end
 	local word = VERDICT_WORDS[v.kind]
 	if not word then

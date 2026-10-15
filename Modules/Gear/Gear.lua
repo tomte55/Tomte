@@ -279,8 +279,9 @@ module = ns.RegisterModule({
 				ns.GearAlts_Invalidate()
 				InvalidateVerdicts()
 			end,
-			tooltip = "Below max level, gear with a higher item level is an upgrade whatever its stats, trinkets and "
-				.. "items with effects too. Wrong armor, main stat or unique limits still say no." },
+			tooltip = "Below max level, gear with a higher item level is an upgrade and gear with a lower one a "
+				.. "downgrade, whatever its stats, trinkets and items with effects too. Wrong armor, main stat or "
+				.. "unique limits still say no." },
 		{ type = "checkbox", key = "compareTooltips", label = "Also on comparison tooltips",
 			tooltip = "The tooltips of your equipped items that appear next to the hovered one." },
 		{ type = "checkbox", key = "offspec", label = "Upgrades for your other specs",

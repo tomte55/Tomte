@@ -563,12 +563,15 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 		return verdict
 	end
 
-	local old, oldIlvl, topIlvl = 0, nil, nil
+	local old, oldIlvl, topIlvl, lowIlvl = 0, nil, nil, nil
 	for slot in pairs(replaced) do
 		old = old + Score(equipped[slot])
 		oldIlvl = equipped[slot] and equipped[slot].ilvl or oldIlvl
 		if oldIlvl and (not topIlvl or oldIlvl > topIlvl) then
 			topIlvl = oldIlvl
+		end
+		if oldIlvl and (not lowIlvl or oldIlvl < lowIlvl) then
+			lowIlvl = oldIlvl
 		end
 	end
 	local new = Score(cand)
@@ -578,8 +581,10 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 	local pct = not (empty or statless) and (new - old) / old * 100 or nil
 	verdict.pct = pct
 	verdict.statless = statless
-	-- While leveling, a higher item level beats any stat mix or effect (against the best of what it replaces).
+	-- While leveling, a higher item level beats any stat mix or effect (against the best of what it replaces), and a
+	-- lower one loses whatever its stats (against the lowest of what it replaces).
 	local levelUp = ctx.leveling and not empty and cand.ilvl and topIlvl and cand.ilvl > topIlvl
+	local levelDown = ctx.leveling and not empty and cand.ilvl and lowIlvl and cand.ilvl < lowIlvl
 
 	-- Set bonuses.
 	local completes
@@ -650,6 +655,11 @@ function ns.Gear_Evaluate(cand, equipped, ctx)
 	if levelUp then
 		verdict.kind = "levelUp"
 		verdict.ilvlDiff = cand.ilvl - topIlvl
+	elseif levelDown then
+		verdict.kind = "downgrade"
+		verdict.levelDown = true
+		verdict.ilvlDiff = cand.ilvl - lowIlvl
+		verdict.pct = nil -- its stats don't count, so nothing may read it as a stat upgrade
 	elseif cand.equipLoc == "INVTYPE_TRINKET" or cand.effect or #lostEffects > 0 then
 		verdict.kind = "simIt"
 		-- Yours has only an effect, this one has stats too and isn't lower: most likely better, a sim confirms.
@@ -708,6 +718,9 @@ function ns.Gear_Headline(v)
 	elseif kind == "sidegrade" then
 		return "Sidegrade (" .. Pct(v.pct) .. "): either is fine", "grey"
 	elseif kind == "downgrade" then
+		if v.levelDown then
+			return ("Downgrade (%d item level): keep yours"):format(v.ilvlDiff), "red"
+		end
 		return "Downgrade " .. Pct(v.pct) .. ": keep yours", "red"
 	elseif kind == "notForYou" then
 		return "Not for you: " .. v.why, "grey"

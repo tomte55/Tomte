@@ -492,14 +492,42 @@ test("Leveling: trinkets and effects too, no sim lines", function()
 	eq(v.kind, "levelUp")
 end)
 
-test("Leveling: same or lower item level uses the stats", function()
+test("Leveling: same item level uses the stats", function()
 	local e = gearset()
 	eq(ns.Gear_Evaluate(item("INVTYPE_HEAD", 150, 150), e, LEVELING).kind, "upgrade")
-	eq(ns.Gear_Evaluate(item("INVTYPE_HEAD", 150, 150, { ilvl = 290 }), e, LEVELING).kind, "upgrade")
 	eq(ns.Gear_Evaluate(item("INVTYPE_TRINKET", 100, nil), e, LEVELING).kind, "simIt")
 	-- an empty slot stays an empty slot
 	e[1] = nil
 	eq(ns.Gear_Evaluate(item("INVTYPE_HEAD", 10, 10, { ilvl = 400 }), e, LEVELING).kind, "empty")
+end)
+
+test("Leveling: lower item level loses whatever its stats", function()
+	local e = gearset()
+	local v = ns.Gear_Evaluate(item("INVTYPE_HEAD", 150, 150, { ilvl = 294 }), e, LEVELING)
+	eq(v.kind, "downgrade")
+	eq(v.levelDown, true)
+	eq(v.ilvlDiff, -6)
+	eq(v.pct, nil)
+	eq(ns.Gear_Headline(v), "Downgrade (-6 item level): keep yours")
+	eq(select(2, ns.Gear_Headline(v)), "red")
+	eq(ns.Gear_IsCleanUpgrade(v), false)
+	eq(ns.Gear_IsMaybeUpgrade(v), false)
+	-- trinkets and effects too, no sim
+	e[14] = item("INVTYPE_TRINKET", nil, nil, { ilvl = 290, effect = "Equip: a fluctuating stat" })
+	eq(ns.Gear_Evaluate(item("INVTYPE_TRINKET", 100, nil, { ilvl = 280, effect = "Equip: x" }), e, LEVELING).kind,
+		"downgrade")
+	-- the same item at max level goes by its stats
+	eq(ns.Gear_Evaluate(item("INVTYPE_HEAD", 150, 150, { ilvl = 294 }), e, CTX).kind, "upgrade")
+end)
+
+test("Leveling: a two-hander is only lower when below both it replaces", function()
+	local e = gearset()
+	e[17].ilvl = 310
+	local v = ns.Gear_Evaluate(item("INVTYPE_2HWEAPON", 100, 100, { classID = 2, ilvl = 305 }), e, LEVELING)
+	assert(not v.levelDown, "not below the 300 main hand")
+	v = ns.Gear_Evaluate(item("INVTYPE_2HWEAPON", 100, 100, { classID = 2, ilvl = 290 }), e, LEVELING)
+	eq(v.levelDown, true)
+	eq(v.ilvlDiff, -10)
 end)
 
 test("Leveling: real problems still say no or warn", function()
