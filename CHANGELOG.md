@@ -8,6 +8,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - AFK Screen: "Away for" counts from when you actually left: it includes the 5 idle minutes before the game marks you AFK, and starts at zero when you type /afk.
 - Settings: new "Other addons" page under Tomte: every addon Tomte clashes with, works with or can replace (Pawn, InFlight, GoldWQ, WeeklyKnowledge, Pet Battle Scripts), and whether you have it. A module's page shows an amber chip while an addon doing its job is also running.
 - Gathering: the world map button's menu can hide single ores and herbs (their Lush, Rich, Crystallized ... variants count as them) on the maps and in routes, and forget the node spots on one map. Pins and the route card name the ore or herb instead of the variant.
+- Settings: the group icons on the left show their names underneath instead of sliding out over the module list, so clicking through groups shows each list right away.
 
 ## v1.14.0 - 2026-10-14
 

@@ -1,17 +1,15 @@
 local addonName, ns = ...
 
--- Settings sidebar: a rail of group icons (ns.PANEL_GROUPS, Layout.lua) that slides out over the list to show the
--- names while the mouse is on it, and beside it the list column: search, the selected group's name and modules, each
--- with an on/off checkbox. Searching lists matches from every group. Built and refreshed by Panel.lua
--- (ns.PanelSidebar_Create, ns.PanelSidebar_Refresh).
+-- Settings sidebar: a rail of group icons (ns.PANEL_GROUPS, Layout.lua), each with its short name under it, and
+-- beside it the list column: search, the selected group's name and modules, each with an on/off checkbox. Searching
+-- lists matches from every group. Built and refreshed by Panel.lua (ns.PanelSidebar_Create, ns.PanelSidebar_Refresh).
 
 local UI = ns.UI
-local RAIL_W, RAIL_OPEN_W = 44, 200
+local RAIL_W = 64
 local LIST_W = 176
 local SIDEBAR_W = RAIL_W + LIST_W
-local RAIL_ROW_H = 34
+local RAIL_ROW_H = 46 -- icon, label and a little air above and below
 local RAIL_ICON = 24
-local SLIDE_SECONDS = 0.12
 local ROW_H = 24
 
 local sidebar -- the frames: rail, list column
@@ -52,45 +50,6 @@ end
 
 -- Rail ---------------------------------------------------------------------------------------------------------
 
--- Slide-out: progress runs 0..1 toward the target; the OnUpdate only runs while sliding or open (to notice the
--- mouse leaving, which the rail's own OnLeave can't tell apart from moving onto one of its buttons).
-local function SetRailProgress(rail, p)
-	rail.progress = p
-	local eased = ns.Smoothstep(p)
-	rail:SetWidth(RAIL_W + (RAIL_OPEN_W - RAIL_W) * eased)
-	rail.bg:SetAlpha(eased)
-	rail.shadow:SetAlpha(eased)
-	for _, b in ipairs(railButtons) do
-		b.name:SetAlpha(eased)
-		b.count:SetAlpha(eased)
-	end
-end
-
-local function RailUpdate(rail, elapsed)
-	local target = rail:IsMouseOver() and 1 or 0
-	local p = rail.progress
-	if p ~= target then
-		local step = elapsed / SLIDE_SECONDS
-		p = target > p and math.min(p + step, 1) or math.max(p - step, 0)
-		SetRailProgress(rail, p)
-	elseif target == 0 then
-		rail:SetScript("OnUpdate", nil)
-	end
-end
-
-local function OpenRail()
-	local rail = sidebar.rail
-	if not rail:GetScript("OnUpdate") then
-		rail:SetScript("OnUpdate", RailUpdate)
-	end
-end
-
-local function CloseRailNow()
-	local rail = sidebar.rail
-	rail:SetScript("OnUpdate", nil)
-	SetRailProgress(rail, 0)
-end
-
 local function SelectGroup(key)
 	local modules = GroupModules(key)
 	local module = ns.modulesByKey[lastInGroup[key]] or modules[1]
@@ -120,25 +79,30 @@ local function CreateRailButton(rail, group)
 	b.bar:SetWidth(2)
 	b.icon = b:CreateTexture(nil, "ARTWORK")
 	b.icon:SetSize(RAIL_ICON, RAIL_ICON)
-	b.icon:SetPoint("LEFT", (RAIL_W - RAIL_ICON) / 2, 0)
+	b.icon:SetPoint("TOP", 0, -5)
 	b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 	SetGroupIcon(b.icon, group)
 	b.ring = CreateFrame("Frame", nil, b)
 	b.ring:SetAllPoints(b.icon)
 	UI.Border(b.ring, "frame", 0.6)
-	b.name = UI.Text(b, 13, "text")
-	b.name:SetPoint("LEFT", b.icon, "RIGHT", 12, 0)
+	b.name = UI.Text(b, 10, "text", "label")
+	b.name:SetPoint("TOP", b.icon, "BOTTOM", 0, -3)
+	b.name:SetPoint("LEFT", 2, 0)
+	b.name:SetPoint("RIGHT", -2, 0)
+	b.name:SetJustifyH("CENTER")
 	b.name:SetWordWrap(false)
-	b.name:SetText(group.name)
-	b.count = UI.Text(b, 11, "textFaint", "number")
-	b.count:SetPoint("RIGHT", -12, 0)
-	b.name:SetPoint("RIGHT", b.count, "LEFT", -6, 0)
+	b.name:SetText(group.short or group.name)
 	b:SetScript("OnEnter", function(self)
 		self.bg:Show()
-		OpenRail()
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText(group.name, UI.Color("heading"))
+		local n = #GroupModules(group.key)
+		GameTooltip:AddLine(n == 1 and "1 module" or (n .. " modules"), UI.RGB("textMuted"))
+		GameTooltip:Show()
 	end)
 	b:SetScript("OnLeave", function(self)
 		self.bg:SetShown(self.selected)
+		HideTooltip()
 	end)
 	b:SetScript("OnClick", function(self)
 		SelectGroup(self.group.key)
@@ -151,30 +115,12 @@ local function CreateRail(parent)
 	rail:SetPoint("TOPLEFT")
 	rail:SetPoint("BOTTOMLEFT")
 	rail:SetWidth(RAIL_W)
-	rail:SetFrameLevel(parent:GetFrameLevel() + 20) -- over the list column when it slides out
-	rail:SetClipsChildren(true)
-	rail:EnableMouse(true)
-	rail:SetScript("OnEnter", OpenRail)
-	rail.bg = rail:CreateTexture(nil, "BACKGROUND")
-	rail.bg:SetAllPoints()
-	local r, g, b = UI.Color("bg")
-	rail.bg:SetColorTexture(r, g, b, 1) -- opaque, whatever the theme's alpha: the list underneath mustn't show
 	rail.edge = rail:CreateTexture(nil, "BORDER")
 	rail.edge:SetColorTexture(UI.Color("rule"))
 	rail.edge:SetAlpha(0.6)
 	rail.edge:SetPoint("TOPRIGHT", 0, -12)
 	rail.edge:SetPoint("BOTTOMRIGHT", 0, 12)
 	rail.edge:SetWidth(1)
-	-- The shadow sits outside the rail (which clips its children), on a sibling frame at the same level.
-	local shadowHost = CreateFrame("Frame", nil, parent)
-	shadowHost:SetPoint("TOPLEFT", rail, "TOPRIGHT")
-	shadowHost:SetPoint("BOTTOMLEFT", rail, "BOTTOMRIGHT")
-	shadowHost:SetWidth(16)
-	shadowHost:SetFrameLevel(rail:GetFrameLevel())
-	rail.shadow = shadowHost:CreateTexture(nil, "OVERLAY")
-	rail.shadow:SetAllPoints()
-	rail.shadow:SetColorTexture(0, 0, 0, 1)
-	rail.shadow:SetGradient("HORIZONTAL", CreateColor(0, 0, 0, 0.55), CreateColor(0, 0, 0, 0))
 
 	local y = 10
 	for i, group in ipairs(ns.PANEL_GROUPS) do
@@ -193,8 +139,6 @@ local function CreateRail(parent)
 			y = y + 9
 		end
 	end
-	rail:SetScript("OnHide", CloseRailNow)
-	SetRailProgress(rail, 0)
 	return rail
 end
 
@@ -214,7 +158,6 @@ local function RefreshRail(current)
 		b.icon:SetDesaturated(not usable)
 		b.icon:SetAlpha(usable and 1 or 0.5)
 		UI.SetTextRole(b.name, usable and (b.selected and "heading" or "text") or "textFaint")
-		b.count:SetText(#modules)
 	end
 end
 
