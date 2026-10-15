@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.15.1 - 2026-10-15
+
 - Tomte is on CurseForge: install and update it with the CurseForge app.
 
 ## v1.15.0 - 2026-10-15
