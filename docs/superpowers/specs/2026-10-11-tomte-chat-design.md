@@ -9,7 +9,7 @@ Trade chat stops burying the rest of the chat window without leaving the channel
 something you can do get through (user). Around that, the user wanted the module "fully featured" with a setting for
 each part: an ignore list for sellers, a separate tab for the busy channels and shorter channel tags (user).
 
-Success: in a capital, Tomten's main chat window shows "LF BS for crafting order" in Trade but none of the boosting
+Success: in a capital, Aldric's main chat window shows "LF BS for crafting order" in Trade but none of the boosting
 and WTS ads; the Trade tab shows everything; channel tags read `[2. T]` (or whatever style was picked).
 
 ## Research summary (wow-ui-source live, build 12.1.0)

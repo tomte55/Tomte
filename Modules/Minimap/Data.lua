@@ -4,7 +4,8 @@ local addonName, ns = ...
 -- the minimap is round or square depending on GetMinimapShape(); round quadrants put the button on the ellipse,
 -- square ones on the diagonal, clamped to the edge.
 -- The quadrant table and the placement maths are adapted from LibDBIcon-1.0 (by Rabbit and funkehdude,
--- https://www.wowace.com/projects/libdbicon-1-0), used under its Ace3-style BSD license.
+-- https://www.wowace.com/projects/libdbicon-1-0), used under its Ace3-style BSD license (full text and notice in
+-- LICENSE-LibDBIcon.txt next to this file).
 
 local QUADRANTS = { -- [shape] = round? for quadrants 1 (bottom right), 2 (bottom left), 3 (top right), 4 (top left)
 	ROUND = { true, true, true, true },

@@ -39,7 +39,7 @@ Gold, crafting, pets
 - [x] `gold-wq.png`: Gold world quests window with zone totals
 - [x] `crafting.png`: Crafting tab with cost and profit, or the crafting list tracker
 - [x] `mailbox-alts.png`: "For your alts" panel at a mailbox
-- [x] `material-tooltip.png`: material tooltip "Used by Tomten: Blacksmithing..."
+- [x] `material-tooltip.png`: material tooltip "Used by Aldric: Blacksmithing..."
 - [ ] `pet-battle.png`: pet battle helper during a fight ("Swap to X?")
 - [ ] `pet-tamer.png`: tamer card (team, ready status, Load team)
 

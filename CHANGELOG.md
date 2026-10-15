@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Tomte is on CurseForge: install and update it with the CurseForge app.
+
 ## v1.15.0 - 2026-10-15
 
 - AFK Screen: "Away for" counts from when you actually left: it includes the 5 idle minutes before the game marks you AFK, and starts at zero when you type /afk.
@@ -45,7 +47,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Gathering: node spots on the minimap too, small and see-through so the game's own tracking blips still show. While you follow a route, the route is drawn there as well.
 - Gathering: spots you gathered in the last few minutes are dimmed on both maps, and the world map tooltip says when you gathered there.
 
-- New module, Material uses: crafting materials say on their tooltip what they're for, so you know what to bank and what to sell. "Used by Tomten: Blacksmithing (4)" for your characters' recipes, "Also: Alchemy, Leatherworking" for other professions that use it, or "Not used in crafting". Hold Shift for the recipes and who knows them.
+- New module, Material uses: crafting materials say on their tooltip what they're for, so you know what to bank and what to sell. "Used by Aldric: Blacksmithing (4)" for your characters' recipes, "Also: Alchemy, Leatherworking" for other professions that use it, or "Not used in crafting". Hold Shift for the recipes and who knows them.
 - Smart Mount: on the water surface where you can fly, the key now summons a flying mount so you can take off. Underwater it still picks a water mount.
 - Waypoints: routes through the Wizard's Sanctum portal room now point at the right portal. Inside the room, an arrow over your head turns with you and points at the portal, instead of the marker sending you back out of the building. Leaving the room by its teleporter sends the route back to the entrance.
 

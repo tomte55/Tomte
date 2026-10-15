@@ -20,7 +20,7 @@ local RECIPES = {
 	[4] = { name = "Unknown Thing", base = ALCH, item = 7001, reagents = {} },
 }
 local CHARS = {
-	a = { guid = "a", name = "Tomten", profs = { [2872] = { name = "Blacksmithing", base = BS, known = { [1] = true, [2] = true } } } },
+	a = { guid = "a", name = "Aldric", profs = { [2872] = { name = "Blacksmithing", base = BS, known = { [1] = true, [2] = true } } } },
 	b = { guid = "b", name = "Alchy", profs = { [2871] = { name = "Alchemy", base = ALCH, known = { [3] = true } } } },
 	c = { guid = "c", name = "Bob", profs = { [2871] = { name = "Alchemy", base = ALCH, known = {} } } },
 }
@@ -68,7 +68,7 @@ end)
 test("plan: everything in stock is one step", function()
 	local plan = ns.Alts_Plan(1, 1, Ctx({ [2001] = 2, [3001] = 9 }))
 	eq(#plan.steps, 1, "steps")
-	eq(plan.steps[1].crafters[1].name, "Tomten", "crafter")
+	eq(plan.steps[1].crafters[1].name, "Aldric", "crafter")
 	eq(plan.missing, 0, "missing")
 	eq(Material(plan, 2001).need, 2, "need")
 	eq(Material(plan, 2001).crafted, nil, "not crafted")
@@ -185,7 +185,7 @@ test("plan: leftovers of a craft serve later slots, steps in dependency order", 
 end)
 
 test("search filters: character, profession, known only", function()
-	eq(#ns.Alts_Search(RECIPES, CHARS, { text = "", char = "a" }), 2, "Tomten's")
+	eq(#ns.Alts_Search(RECIPES, CHARS, { text = "", char = "a" }), 2, "Aldric's")
 	eq(#ns.Alts_Search(RECIPES, CHARS, { text = "", char = "c" }), 2, "Bob can learn the alchemy ones")
 	eq(#ns.Alts_Search(RECIPES, CHARS, { text = "", char = "c", learnable = false }), 0, "Bob knows none")
 	eq(#ns.Alts_Search(RECIPES, CHARS, { text = "", base = ALCH }), 2, "alchemy")
@@ -325,7 +325,7 @@ end)
 
 test("free profession slots and gap text", function()
 	local chars = {
-		a = { name = "Tomten", level = 80, profs = { [164] = { name = "Blacksmithing" }, [186] = { name = "Mining" } } },
+		a = { name = "Aldric", level = 80, profs = { [164] = { name = "Blacksmithing" }, [186] = { name = "Mining" } } },
 		b = { name = "Mira", level = 34, profs = { [171] = { name = "Alchemy" } } },
 		c = { name = "Tomtis", level = 80, profs = { [185] = { name = "Cooking", secondary = true } } },
 		d = { name = "Zed", level = 80 },
@@ -483,11 +483,11 @@ end)
 
 test("ForgetMatches skips the character being played and finds its stale twin", function()
 	local alts = {
-		new = { name = "Tomten", realm = "Silvermoon" }, -- transferred: new GUID, same name
-		old = { name = "Tomten", realm = "ArgentDawn" },
+		new = { name = "Aldric", realm = "Silvermoon" }, -- transferred: new GUID, same name
+		old = { name = "Aldric", realm = "ArgentDawn" },
 		x = { name = "Other", realm = "ArgentDawn" },
 	}
-	local r = ns.Alts_ForgetMatches({ alts }, "tomten", "new")
+	local r = ns.Alts_ForgetMatches({ alts }, "aldric", "new")
 	eq(#r.matches, 1, "matches")
 	eq(r.matches[1].guid, "old", "the stale one")
 	eq(r.playing, true, "playing")
@@ -495,7 +495,7 @@ test("ForgetMatches skips the character being played and finds its stale twin", 
 	r = ns.Alts_ForgetMatches({ alts }, "Other", "new")
 	eq(r.matches[1].guid, "x")
 	eq(r.playing, false)
-	r = ns.Alts_ForgetMatches({ { new = alts.new } }, "TOMTEN", "new")
+	r = ns.Alts_ForgetMatches({ { new = alts.new } }, "ALDRIC", "new")
 	eq(#r.matches, 0, "only the current one")
 	eq(r.playing, true)
 	eq(#ns.Alts_ForgetMatches({ alts }, "nobody", "new").matches, 0)
@@ -643,7 +643,7 @@ test("used by: characters who know a recipe using the item", function()
 	local index = ns.Alts_ReagentIndex(RECIPES)
 	local list = ns.Alts_UsedByChars(CHARS, RECIPES, index[4002])
 	eq(#list, 1)
-	eq(list[1].name, "Tomten")
+	eq(list[1].name, "Aldric")
 	eq(list[1].base, BS)
 	eq(list[1].profName, "Blacksmithing")
 	eq(#list[1].recipes, 1)

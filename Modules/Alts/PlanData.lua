@@ -478,7 +478,7 @@ function ns.Alts_RecipesByName(recipes)
 end
 
 -- The tooltip line for a recipe item teaching one of these recipes (same name, so maybe several):
--- "known", "Tomten" | "learnable", "Tomten, Mira, Bob, +2", profession base | nil (nobody has the profession).
+-- "known", "Aldric" | "learnable", "Aldric, Mira, Bob, +2", profession base | nil (nobody has the profession).
 function ns.Alts_RecipeItemStatus(chars, recipes, ids)
 	local known, learnable, seen, base = {}, {}, {}, nil
 	for _, id in ipairs(ids or {}) do

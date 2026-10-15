@@ -1,12 +1,13 @@
 ## Interface: 120105
 ## Title: Tomte
-## Notes: Personal quality-of-life modules.
+## Notes: Your gear, your week, your alts, gold, travel and collecting in one window, with a cinematic touch.
 ## Author: tomte55
 ## Version: 1.15.0
 ## IconTexture: Interface\AddOns\Tomte\Media\Logo
 ## SavedVariables: TomteDB
 ## OptionalDeps: Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI, Syndicator, Auctionator, TradeSkillMaster, DialogueUI
 ## AddonCompartmentFunc: Tomte_OnAddonCompartmentClick
+## X-Curse-Project-ID: 1746323
 
 Core/Theme.lua
 Themes/Blizzard.lua

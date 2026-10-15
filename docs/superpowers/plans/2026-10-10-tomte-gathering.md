@@ -196,7 +196,7 @@ end)
 
 ```lua
 local function Run()
-	return ns.Gather_NewRun("Player-1", 1000, { name = "Tomten", class = "PALADIN" })
+	return ns.Gather_NewRun("Player-1", 1000, { name = "Aldric", class = "PALADIN" })
 end
 
 test("nodes vs gathers", function()

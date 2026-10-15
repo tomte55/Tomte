@@ -4,7 +4,7 @@
 
 <p align="center">
 One addon for everything around the fighting: your gear, your week, your alts, gold, travel and collecting,<br>
-with a cinematic touch. Made for a few friends, for retail WoW <b>12.1.5</b>. English only.
+with a cinematic touch. For retail WoW <b>12.1.5</b>. English only.
 </p>
 
 ![Showcase: your character in the game world with your gear around it](docs/screenshots/hero.png)
@@ -13,6 +13,11 @@ Tomte is a set of modules you switch on and off. Everything has a home in one wi
 lives where you already look: tooltips, the world map, the mailbox, the bags.
 
 ## Install
+
+The easy way: install **Tomte** with the CurseForge app ([Tomte on CurseForge](https://www.curseforge.com/wow/addons/tomte)),
+which also keeps it up to date.
+
+By hand:
 
 1. Download `Tomte-vX.Y.Z.zip` from the latest [release](../../releases/latest).
 2. Unzip it into `World of Warcraft\_retail_\Interface\AddOns` so you get `AddOns\Tomte\Tomte.toc`.
@@ -181,7 +186,7 @@ all commands. The window is resizable and remembers its size and position. Every
 window; switch off what you don't want.
 
 **Reporting a bug:** `/tomte bug` opens a report to copy: versions, which modules are on, related addons and Tomte's
-last errors. Nothing is sent anywhere; paste it to me or in a GitHub issue. `/tomte bug full` adds error details and
+last errors. Nothing is sent anywhere; paste it in a [GitHub issue](../../issues) or a CurseForge comment. `/tomte bug full` adds error details and
 your settings string (read it before posting). Install BugSack to catch errors across sessions; without it Tomte
 keeps its own last 5. `/tomte bug clear` empties that list. `/tomte version` (also in the window's title bar) says
 which version you have.
@@ -346,7 +351,8 @@ until it's done.
    `git push origin main vX.Y.Z`.
 
 The GitHub Action checks that the tag matches the TOC and the changelog, runs the tests, zips the `Tomte` folder and
-publishes the release with that changelog section as its notes. Versions: patch for fixes, minor for new features
+publishes the release with that changelog section as its notes. When the repo has a `CF_API_TOKEN` secret and
+`Tomte.toc` has `## X-Curse-Project-ID`, it also uploads the same zip and notes to CurseForge. Versions: patch for fixes, minor for new features
 or modules, major for changes that reset or break settings.
 
 </details>
@@ -356,7 +362,7 @@ or modules, major for changes that reset or break settings.
 - The Showcase and the Dressing room are modelled on [Narcissus](https://www.curseforge.com/wow/addons/narcissus)'s character view and dressing room (its
   behavior only; no code or art from it).
 - Minimap button placement is adapted from [LibDBIcon-1.0](https://www.wowace.com/projects/libdbicon-1-0) (Ace3-style
-  BSD license).
+  BSD license; its notice and license text ship in `Modules/Minimap/LICENSE-LibDBIcon.txt`).
 - The Weekly board's Factions, Activities and Raids tabs are modelled on [Plumber](https://github.com/Peterodox/Plumber)'s
   Expansion Summary (GPLv3); the progress-ring setup, the Resources list and several ID tables come from Plumber,
   including the Midnight raid, delve, resource, crest and sub-faction IDs.

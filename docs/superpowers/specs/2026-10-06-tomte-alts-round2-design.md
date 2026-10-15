@@ -28,8 +28,8 @@ Same rule as Home polish: nothing new is always on screen; tooltips and clicks f
 The tooltip of a **recipe item** (a pattern, plan, formula, technique… sold by vendors, dropped or on the AH)
 gets one line, same style as "Crafted by":
 
-- "Alts: Known by Tomten" (grey) when a character knows the recipe it teaches.
-- "Alts: Learnable by Tomten, Mira (Blacksmithing)" (green) when nobody knows it and someone has the profession.
+- "Alts: Known by Aldric" (grey) when a character knows the recipe it teaches.
+- "Alts: Learnable by Aldric, Mira (Blacksmithing)" (green) when nobody knows it and someone has the profession.
   Up to 3 names, then "+n".
 - No line when nobody has the profession, or for recipe items whose recipe isn't stored yet and can't be
   resolved (see To verify).

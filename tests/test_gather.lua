@@ -141,12 +141,12 @@ end)
 -- Run model
 
 local function Run(manual)
-	return ns.Gather_NewRun("Player-1", 1000, { name = "Tomten", class = "PALADIN", manual = manual })
+	return ns.Gather_NewRun("Player-1", 1000, { name = "Aldric", class = "PALADIN", manual = manual })
 end
 
 test("NewRun shape", function()
 	local r = Run()
-	eq(r.guid, "Player-1"); eq(r.start, 1000); eq(r.lastAt, 1000); eq(r.name, "Tomten")
+	eq(r.guid, "Player-1"); eq(r.start, 1000); eq(r.lastAt, 1000); eq(r.name, "Aldric")
 	eq(r.nodes, 0); eq(r.gathers, 0); eq(r.manual, nil)
 	eq(type(r.items), "table"); eq(type(r.zones), "table")
 end)

@@ -610,7 +610,7 @@ local function CreateTodoToggle(parent)
 	return b
 end
 
--- Lines that move the same item the same way (Mail 10, Mail 15 and Mail 6 Bismuth to Tomten) are one trip: their
+-- Lines that move the same item the same way (Mail 10, Mail 15 and Mail 6 Bismuth to Aldric) are one trip: their
 -- counts are added up ("Mail 31 ..."), and a missing material's price is worked out again for the total.
 local MERGE = { mail = true, deposit = true, take = true, grab = true, collect = true, fetch = true, missing = true }
 
@@ -618,7 +618,7 @@ local function Merged(todos)
 	local mine, others, byKey = {}, {}, {}
 	for _, t in ipairs(todos) do
 		for _, line in ipairs(t.lines) do
-			-- "Tomten crafts 1 ..." lines: the card already says who crafts it and whether it's ready.
+			-- "Aldric crafts 1 ..." lines: the card already says who crafts it and whether it's ready.
 			if line.kind ~= "wait" then
 				local key = MERGE[line.kind] and line.itemID
 					and table.concat({ line.kind, line.itemID, tostring(line.from), tostring(line.where), tostring(line.to) }, ":")

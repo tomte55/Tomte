@@ -1220,7 +1220,7 @@ test("AltsToJudge: not me, spec and gear stored, seen in 60 days, max level mode
 		return c
 	end
 	local chars = {
-		Me = char("Me", "Tomten", 80, 0),
+		Me = char("Me", "Aldric", 80, 0),
 		Mira = char("Mira", "Mira", 80, 10),
 		Bea = char("Bea", "Bea", 42, 59),
 		Old = char("Old", "Old", 80, 61),

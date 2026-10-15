@@ -1,7 +1,8 @@
 # Tomte
 
-A World of Warcraft addon used by the user and a few friends. Shared through GitHub releases from a **public** repo
-(tomte55/Tomte). English only, no CurseForge packaging.
+A World of Warcraft addon, made by the user, first for a few friends, now public. Shared through GitHub releases from
+a **public** repo (tomte55/Tomte) and on CurseForge (the release workflow uploads the same zip). English only. The
+CurseForge page text and logo are kept in `docs/curseforge/`.
 
 ## Environment
 
@@ -266,7 +267,8 @@ just restates the code. Fix comments that point at moved or renamed code in the 
   you can fly`). Pure moves and refactors say so (`Split X into A and B (pure moves)`) and never carry a behavior
   change.
 - Commits use the GitHub noreply email set in this repo's git config; never the user's personal email. The repo is
-  public, so nothing private goes into commits, docs or code comments.
+  public, so nothing private goes into commits, docs or code comments. That includes the user's character, realm and guild
+  names: examples and tests use made-up names (Aldric, Kesha, Mira).
 - Versions follow semver: patch for fixes, minor for new features or modules, major for changes that reset or
   break settings.
 
@@ -278,11 +280,14 @@ just restates the code. Fix comments that point at moved or renamed code in the 
 3. Run the unit tests (see Tests), commit (`Tomte vX.Y.Z`), then `git tag -a vX.Y.Z -m "Tomte vX.Y.Z"`
    and `git push origin main vX.Y.Z`.
 4. Watch the run (`gh run list --workflow release.yml`) and check the release has `Tomte-vX.Y.Z.zip`
-   (`gh release view vX.Y.Z`). Give the user the release link.
+   (`gh release view vX.Y.Z`) and the "Upload to CurseForge" step passed. Give the user the release link.
 
 `.github/workflows/release.yml` runs on `v*` tags. It runs the unit tests with Lua 5.1, fails if the tag doesn't
 match the TOC version or `CHANGELOG.md` has no `## vX.Y.Z` section, builds the zip with
-`git archive --prefix=Tomte/` and publishes the release with that changelog section as its notes.
+`git archive --prefix=Tomte/` and publishes the release with that changelog section as its notes, then uploads the
+zip to CurseForge (needs the `CF_API_TOKEN` repo secret and `## X-Curse-Project-ID` in the TOC; skipped without
+them). The CurseForge game version is derived from `## Interface:`, so after a TOC interface bump that version must
+exist on CurseForge.
 `.gitattributes` (`export-ignore`) keeps `tests/`, `tools/`, `docs/`, `CLAUDE.md`, `.github/` and `Media/Logo.svg` out of
 the zip: add any new dev-only file there. If a run fails, fix it, delete the tag locally and on GitHub
 (`git tag -d vX.Y.Z`, `git push origin :refs/tags/vX.Y.Z`) and tag again.

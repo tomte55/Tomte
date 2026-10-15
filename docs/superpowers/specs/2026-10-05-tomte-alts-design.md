@@ -80,7 +80,7 @@ Tabs **Crafting** | **Characters** with a Full chain / One step button on the Cr
   recipe name, profession and who knows it, a status line (everything's there / missing N / a recipe on the way
   isn't known), a − x1 + craft count, then **Materials (have / need)** rows (red missing with where the rest is,
   yellow "craft the rest", green with the top 3 places; hover = item tooltip + every place) and **Craft in order**
-  ("1. Tomten crafts 2x Charged Alloy"). Without Syndicator a note says only this character + Warband are counted.
+  ("1. Aldric crafts 2x Charged Alloy"). Without Syndicator a note says only this character + Warband are counted.
 - **Characters**: current character first, sort by level / name / item level / gold / last played. Compact view: one
   line with sortable column headers (name in class color, level, spec, item level, short professions with unspent
   knowledge in a gold [n], gold, last played); details in the row tooltip. Detailed view: two lines (name, level, spec,
@@ -88,7 +88,7 @@ Tabs **Crafting** | **Characters** with a Full chain / One step button on the Cr
 
 ## Tooltip
 
-"Alts: Crafted by Tomten (Blacksmithing)" (up to 3 names + n) or, when nobody knows it, "Learnable by X
+"Alts: Crafted by Aldric (Blacksmithing)" (up to 3 names + n) or, when nobody knows it, "Learnable by X
 (Profession)" in grey.
 
 ## Testing
@@ -100,7 +100,7 @@ Tabs **Crafting** | **Characters** with a Full chain / One step button on the Cr
 ## Fixes after the first in-game test (2026-10-05)
 
 - Recipes are read for the expansion the profession window shows (`GetChildProfessionInfo().professionID`), not the
-  player's expansion: Tomten (72) had Dragon Isles Blacksmithing open and every recipe was filtered out. Switching
+  player's expansion: Aldric (72) had Dragon Isles Blacksmithing open and every recipe was filtered out. Switching
   the window's expansion reads that one too; the profession remembers the last line it was read on (also used for
   unspent knowledge). `/tomte alts scan` reads the open window now and says why when it can't.
 - Gold is no longer read at logout: `GetMoney()` already returns 0 during `PLAYER_LOGOUT`, which wiped the saved gold.

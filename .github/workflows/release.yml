@@ -40,3 +40,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" "Tomte-${GITHUB_REF_NAME}.zip" --repo "$GITHUB_REPOSITORY" --title "Tomte $GITHUB_REF_NAME" --notes-file notes.md
+
+      # Uploads the same zip and notes to CurseForge. Skipped until the repo has a CF_API_TOKEN secret (CurseForge >
+      # account > API tokens) and Tomte.toc has "## X-Curse-Project-ID: <id>". The game version comes from the TOC's
+      # "## Interface:" (120105 -> 12.1.5) and must exist on CurseForge, or the upload stops with a message.
+      - name: Upload to CurseForge
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          project="$(sed -n 's/^## X-Curse-Project-ID: *//p' Tomte/Tomte.toc | tr -d '\r')"
+          if [ -z "$CF_API_TOKEN" ] || [ -z "$project" ]; then echo "No CF_API_TOKEN or X-Curse-Project-ID: skipped"; exit 0; fi
+          iface="$(sed -n 's/^## Interface: *//p' Tomte/Tomte.toc | tr -d '\r' | cut -d, -f1)"
+          gv="$((iface / 10000)).$((iface / 100 % 100)).$((iface % 100))"
+          id="$(curl -sf -H "X-Api-Token: $CF_API_TOKEN" https://wow.curseforge.com/api/game/versions \
+            | jq --arg v "$gv" 'map(select(.name == $v)) | .[0].id // empty')"
+          if [ -z "$id" ]; then echo "CurseForge has no game version $gv yet"; exit 1; fi
+          jq -n --rawfile notes notes.md --arg name "Tomte $GITHUB_REF_NAME" --argjson gv "$id" \
+            '{changelog: $notes, changelogType: "markdown", displayName: $name, gameVersions: [$gv], releaseType: "release"}' > cf.json
+          curl -sf -H "X-Api-Token: $CF_API_TOKEN" -F "metadata=<cf.json" -F "file=@Tomte-${GITHUB_REF_NAME}.zip" \
+            "https://wow.curseforge.com/api/projects/$project/upload-file"

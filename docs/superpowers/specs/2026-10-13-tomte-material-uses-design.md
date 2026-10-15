@@ -24,13 +24,13 @@ details only while Shift is held.
 ```
 Mycobloom
 ...
-Used by Tomten: Alchemy (3)          accent: your characters' known recipes
+Used by Aldric: Alchemy (3)          accent: your characters' known recipes
 Also: Leatherworking                 textFaint: other professions that use it
 ```
 
 - **Line 1, "Used by"**: characters who know a recipe that uses the item (any quality rank of it), from the recipes
-  Alts has read. One character: `Used by Tomten: Alchemy (3)` (profession, number of known recipes). Several:
-  `Used by Tomten, Mira +1` (sorted by recipe count, then name; two names at most, `+n` for the rest). No line when
+  Alts has read. One character: `Used by Aldric: Alchemy (3)` (profession, number of known recipes). Several:
+  `Used by Aldric, Mira +1` (sorted by recipe count, then name; two names at most, `+n` for the rest). No line when
   no character knows such a recipe, or Alts is off.
 - **Line 2, "Also"**: the professions in the generated table that use the item, minus the professions already on
   line 1, in alphabetical order. Shown even when you have that profession but haven't learned (or haven't scanned)
@@ -38,7 +38,7 @@ Also: Leatherworking                 textFaint: other professions that use it
 - **Nothing uses it**: when neither source knows a use and the item is a trade good or reagent
   (`Enum.ItemClass.Tradegoods` / `Enum.ItemClass.Reagent`), one faint line: `Not used in crafting`.
 - **Shift held** (the tooltip refreshes on modifier change, like Blizzard's compare tooltips): line 1 becomes one line
-  per known recipe, up to 5, `Sturdy Ingot - Tomten` (`+n more` after that), and line 2 shows counts:
+  per known recipe, up to 5, `Sturdy Ingot - Aldric` (`+n more` after that), and line 2 shows counts:
   `Also: Leatherworking (1)`. Line 2 and the "not used" line are unchanged in meaning.
 - Lines go below Alts' "Crafted by" lines. No lines on items the table and Alts don't know, unless they're trade goods
   or reagents. Nothing is shown when the tooltip's item ID is a secret value (`ns.IsSecret`).

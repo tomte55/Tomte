@@ -71,7 +71,7 @@ lines; `Materials.lua` hooks the item tooltip and refreshes it on Shift.
 - `ns.Alts_UsedBy(itemID) -> same list` (`{}` when Alts is off or nothing uses it).
 
 - [ ] Step 1: tests in `tests/test_alts.lua` using the file's RECIPES/CHARS: index maps 4001, 4002, 4003 -> {2};
-  6001 -> {3}; `Alts_UsedByChars(CHARS, RECIPES, index[4002])` -> one entry, Tomten, Blacksmithing,
+  6001 -> {3}; `Alts_UsedByChars(CHARS, RECIPES, index[4002])` -> one entry, Aldric, Blacksmithing,
   recipes {Charged Alloy}; index[6001] -> Alchy only (Bob knows nothing); unknown recipe ids -> `{}`.
 - [ ] Step 2: run `lua Tomte/tests/test_alts.lua`: fails (nil function).
 - [ ] Step 3: implement in PlanData.lua.
@@ -99,10 +99,10 @@ lines; `Materials.lua` hooks the item tooltip and refreshes it on Shift.
 - Roles: `"accent"` for line 1 label+text, `"textFaint"` for "Also" and "Not used in crafting". Shift lines:
   `"textMuted"`.
 - Wording:
-  - short, one character: `Used by Tomten: Alchemy (3)`; same character in two professions:
-    `Used by Tomten: Alchemy (3), Leatherworking (1)`.
-  - short, several characters: `Used by Tomten, Mira +1` (characters ordered by their total recipes, then name).
-  - shift: one line per recipe `Sturdy Ingot - Tomten`, max 5, then `+n more`.
+  - short, one character: `Used by Aldric: Alchemy (3)`; same character in two professions:
+    `Used by Aldric: Alchemy (3), Leatherworking (1)`.
+  - short, several characters: `Used by Aldric, Mira +1` (characters ordered by their total recipes, then name).
+  - shift: one line per recipe `Sturdy Ingot - Aldric`, max 5, then `+n more`.
   - `Also: Inscription, Leatherworking` (shift: `Also: Inscription (4), Leatherworking (1)`), alphabetical by
     name, minus professions on line 1, unknown names skipped.
   - `Not used in crafting` when no usedBy, no uses, isMaterial and notUsed.

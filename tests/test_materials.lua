@@ -29,29 +29,29 @@ local function Lines(input)
 end
 
 test("one character, one profession", function()
-	local lines = Lines({ usedBy = { Entry("Tomten", ALCH, "A", "B", "C") }, uses = { [ALCH] = 22 } })
+	local lines = Lines({ usedBy = { Entry("Aldric", ALCH, "A", "B", "C") }, uses = { [ALCH] = 22 } })
 	eq(#lines, 1, "Alchemy is on line 1, so no Also line")
-	eq(lines[1].text, "Used by Tomten: Alchemy (3)")
+	eq(lines[1].text, "Used by Aldric: Alchemy (3)")
 	eq(lines[1].role, "accent")
 end)
 
 test("one character, two professions", function()
-	local lines = Lines({ usedBy = { Entry("Tomten", ALCH, "A", "B"), Entry("Tomten", LW, "C") } })
-	eq(lines[1].text, "Used by Tomten: Alchemy (2), Leatherworking (1)")
+	local lines = Lines({ usedBy = { Entry("Aldric", ALCH, "A", "B"), Entry("Aldric", LW, "C") } })
+	eq(lines[1].text, "Used by Aldric: Alchemy (2), Leatherworking (1)")
 end)
 
 test("several characters: two names and +n, most recipes first", function()
 	local lines = Lines({ usedBy = {
 		Entry("Mira", ALCH, "A", "B", "C"),
-		Entry("Tomten", BS, "D", "E"),
+		Entry("Aldric", BS, "D", "E"),
 		Entry("Bob", LW, "F"),
-		Entry("Tomten", LW, "G", "H"),
+		Entry("Aldric", LW, "G", "H"),
 	} })
-	eq(lines[1].text, "Used by Tomten, Mira +1", "Tomten has 4 recipes over two professions")
+	eq(lines[1].text, "Used by Aldric, Mira +1", "Aldric has 4 recipes over two professions")
 end)
 
 test("Also: other professions, alphabetical, minus line 1's", function()
-	local lines = Lines({ usedBy = { Entry("Tomten", ALCH, "A") }, uses = { [ALCH] = 22, [LW] = 1, [INSC] = 4 } })
+	local lines = Lines({ usedBy = { Entry("Aldric", ALCH, "A") }, uses = { [ALCH] = 22, [LW] = 1, [INSC] = 4 } })
 	eq(#lines, 2)
 	eq(lines[2].text, "Also: Inscription, Leatherworking")
 	eq(lines[2].role, "textFaint")
@@ -84,26 +84,26 @@ test("not used in crafting: materials only, setting on", function()
 end)
 
 test("used only through Alts: no 'not used' line", function()
-	local lines = Lines({ usedBy = { Entry("Tomten", BS, "A") }, isMaterial = true })
+	local lines = Lines({ usedBy = { Entry("Aldric", BS, "A") }, isMaterial = true })
 	eq(#lines, 1)
-	eq(lines[1].text, "Used by Tomten: Blacksmithing (1)")
+	eq(lines[1].text, "Used by Aldric: Blacksmithing (1)")
 end)
 
 test("Shift: one line per recipe with who knows it", function()
-	local lines = Lines({ usedBy = { Entry("Tomten", BS, "Sturdy Ingot"), Entry("Mira", BS, "Sturdy Ingot") },
+	local lines = Lines({ usedBy = { Entry("Aldric", BS, "Sturdy Ingot"), Entry("Mira", BS, "Sturdy Ingot") },
 		shift = true })
 	eq(#lines, 2)
 	eq(lines[1].text, "Used by")
 	eq(lines[1].role, "accent")
-	eq(lines[2].text, "  Sturdy Ingot - Tomten, Mira", "a recipe two characters know is one line")
+	eq(lines[2].text, "  Sturdy Ingot - Aldric, Mira", "a recipe two characters know is one line")
 	eq(lines[2].role, "textMuted")
 end)
 
 test("Shift: at most 5 recipes, then +n more", function()
-	local lines = Lines({ usedBy = { Entry("Tomten", ALCH, "A", "B", "C", "D", "E", "F", "G") }, shift = true })
+	local lines = Lines({ usedBy = { Entry("Aldric", ALCH, "A", "B", "C", "D", "E", "F", "G") }, shift = true })
 	eq(#lines, 7, "header, 5 recipes, +n more")
-	eq(lines[2].text, "  A - Tomten")
-	eq(lines[6].text, "  E - Tomten")
+	eq(lines[2].text, "  A - Aldric")
+	eq(lines[6].text, "  E - Aldric")
 	eq(lines[7].text, "  +2 more")
 end)
 

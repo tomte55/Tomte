@@ -129,7 +129,7 @@ local function CreateStepRow(parent)
 	return row
 end
 
--- "Tommorah 5, Warband bank 1": names in class color (the Warband bank in the accent), counts in the text color.
+-- "Kesha 5, Warband bank 1": names in class color (the Warband bank in the accent), counts in the text color.
 local function WhereText(list, limit)
 	local parts = {}
 	for i, w in ipairs(list) do
