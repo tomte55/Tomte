@@ -19,7 +19,8 @@ local ROOTS = {
 	{ id = 10018, expansion = "Warlords of Draenor" }, -- Draenor Pathfinder
 }
 
--- Children that aren't criteria of the meta (Light Up the Night tracks some through other achievements).
+-- Children that aren't criteria of the meta (Light Up the Night tracks some through other achievements). Which
+-- achievements belong to it is a game fact; this list is the one in AlmostCompletedAchievements' data.
 local EXTRA_CHILDREN = {
 	[62386] = { 62261, 61453, 62260, 62256, 62873, 62874, 62563, 61906, 61380, 61568, 61839 },
 }

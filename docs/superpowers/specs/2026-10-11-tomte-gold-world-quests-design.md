@@ -4,7 +4,8 @@ A friend uses GoldWQ (one window: gold world quests across the expansion's zones
 weekly caches, a TomTom route, weekly gold per character and an alt view). The user asked for the same window and
 functionality in Tomte, Tomte-flavoured. Decisions below were made by Claude (delegated); the user tests in game.
 
-GoldWQ has no license, so none of its code is used. Its game IDs are facts: the cache item IDs come from it. Special
+GoldWQ is public domain (its CurseForge license; corrected 2026-10-15: this spec first said it had none). Its window,
+special assignment and route logic were the reference. Its game IDs are facts: the cache item IDs come from it. Special
 assignment quest/unlock pairs and weekly cache quests come from WeeklyRewards (MIT), the 11.0 Khaz Algar special
 assignment quest IDs from Plumber (GPLv3, IDs only).
 

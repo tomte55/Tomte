@@ -333,7 +333,8 @@ local function Debug(text)
 end
 
 -- The worn slot's own appearance (sourceID, visualID): for items C_TransmogCollection.GetItemInfo knows nothing
--- about (not transmoggable). 12.x transmog locations: Narcissus builds them the same way.
+-- about (not transmoggable). 12.x transmog locations are built as Blizzard's transmog UI does
+-- (TransmogLocationMixin).
 local function SlotAppearance(slot)
 	if not (C_Transmog.GetSlotVisualInfo and C_TransmogOutfitInfo and TransmogLocationMixin) then
 		return nil

@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Dressing room: Blizzard's dressing room (DressUpFrame), bigger and with Narcissus-style extras. It opens at a share
+-- Dressing room: Blizzard's dressing room (DressUpFrame), bigger and with extras. It opens at a share
 -- of the screen's height (only its scale changes, applied on every show and size change: Blizzard sets its size when
 -- it maximizes or minimizes), with a slot bar along the bottom of the model (Slots.lua) and a toolbar on its right
 -- (Tools.lua: undress, target's outfit, item list). Everything is hooked (HookScript, hooksecurefunc) and talks only

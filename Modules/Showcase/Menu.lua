@@ -485,7 +485,7 @@ local function CreatePanel(parent)
 	panel.list:SetWidth(W - 2 * PAD)
 
 	panel.empty = UI.Text(panel, 14, "textMuted")
-	panel.empty:SetText("No compatible items")
+	panel.empty:SetText("Nothing in your bags fits here")
 	panel.more = UI.Text(panel, 12, "textFaint")
 	panel.socketLabel = UI.Text(panel, 12, "textMuted")
 	panel.note = UI.Text(panel, 13, "textMuted")
@@ -633,8 +633,8 @@ local function ShowList()
 	if #items == 0 then
 		panel.empty:ClearAllPoints()
 		panel.empty:SetPoint("TOP", panel, "TOP", 0, y - 24)
-		panel.empty:SetText(view == "gems" and (owner.desc and (owner.desc.sockets or 0) == 0) and "No socket"
-			or "No compatible items")
+		panel.empty:SetText(view == "gems" and (owner.desc and (owner.desc.sockets or 0) == 0) and "No sockets"
+			or "Nothing in your bags fits here")
 		panel.empty:Show()
 		return -y + 64
 	end

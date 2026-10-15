@@ -317,7 +317,8 @@ Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, 
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 tools/       dev scripts (waynet.py builds Modules/Travel/Network*.lua from Blizzard's waypoint tables, events.py
              builds Modules/Holidays/Generated.lua from the client's toy and holiday tables, materials.py builds
-             Modules/Materials/Generated.lua from the client's recipe tables, theme_art.py and themes/
+             Modules/Materials/Generated.lua from the client's recipe tables, fishing.py lists the fishing channel
+             spells for Modules/Fishing/Data.lua, theme_art.py and themes/
              build the themes' art and fonts, bugfiles.lua regenerates Core/BugFiles.lua; artlib.py and wago.py are the
              helpers the art and data scripts share)
 docs/        design specs and implementation plans
@@ -359,8 +360,8 @@ or modules, major for changes that reset or break settings.
 
 ## Credits
 
-- The Showcase and the Dressing room are modelled on [Narcissus](https://www.curseforge.com/wow/addons/narcissus)'s character view and dressing room (its
-  behavior only; no code or art from it).
+- The Showcase and the Dressing room are inspired by [Narcissus](https://www.curseforge.com/wow/addons/narcissus)'s character view and dressing room (the
+  idea only; no code or art from it).
 - Minimap button placement is adapted from [LibDBIcon-1.0](https://www.wowace.com/projects/libdbicon-1-0) (Ace3-style
   BSD license; its notice and license text ship in `Modules/Minimap/LICENSE-LibDBIcon.txt`).
 - The Weekly board's Factions, Activities and Raids tabs are modelled on [Plumber](https://github.com/Peterodox/Plumber)'s
@@ -369,7 +370,8 @@ or modules, major for changes that reset or break settings.
 - Almost Done follows [Almost Completed Achievements](https://www.curseforge.com/wow/addons/almost-completed-achievements);
   Waypoints follows [WaypointUI](https://github.com/Adaptvx/Waypoint-UI); Gear Check reads the
   [Pawn](https://www.curseforge.com/wow/addons/pawn) scale string format that Raidbots exports. No code from them.
-  Almost Done's meta achievement IDs come from Almost Completed Achievements' meta list (IDs only).
+  Almost Done's meta achievement IDs, and Light Up the Night's achievements that aren't its criteria, come from
+  Almost Completed Achievements' meta data (IDs only).
 - Profession weekly IDs and places from WeeklyKnowledge.
 - Built-in stat weights: Midnight from SimulationCraft sims published by mythicsim.com for damage and tank specs and
   the Icy Veins and Method guides for healers; The War Within (Season 3) from the Icy Veins stat priority guides.
@@ -388,13 +390,16 @@ or modules, major for changes that reset or break settings.
   the format [Rematch](https://www.curseforge.com/wow/addons/rematch) and Xu-Fu share. The script interpreter is Tomte's
   own implementation of the [Pet Battle Scripts](https://github.com/axc450/pbs) language (MIT; formerly
   tdBattlePetScript), written from its documented behavior. No code from either addon.
-- Fishing: the fishing channel spell IDs come from
-  [Angleur](https://www.curseforge.com/wow/addons/angleur) by LegolandoBloom (IDs only; no code taken).
+- Fishing: the one-key idea follows [Angleur](https://www.curseforge.com/wow/addons/angleur) by LegolandoBloom (no
+  code taken); the fishing channel spell IDs come from the client's spell tables on [wago.tools](https://wago.tools)
+  (`tools/fishing.py`).
 - Gathering: gathering spell IDs as listed in [GatherMate2](https://github.com/Nevcairiel/GatherMate2)'s collector and
   on Wowhead (IDs only).
 - Delves: delve POI, currency, item and companion faction IDs from [Plumber](https://github.com/Peterodox/Plumber)
   (IDs only); Midnight map IDs also from RareScanner.
-- Gold world quests follows GoldWQ (its window and features; no code, its cache item IDs only). Special assignment and weekly cache quest IDs from [WeeklyRewards](https://github.com/cybertk/WeeklyRewards) by cybertk (MIT); the 11.0 Khaz Algar special assignment quest IDs from [Plumber](https://github.com/Peterodox/Plumber) (IDs only); map IDs from [wago.tools](https://wago.tools).
+- Gold world quests is modelled on [GoldWQ](https://www.curseforge.com/wow/addons/goldwq) by DartrilasM (public
+  domain): its window, features and its special assignment and route logic were the reference, and its cache item IDs
+  come from it. Special assignment and weekly cache quest IDs from [WeeklyRewards](https://github.com/cybertk/WeeklyRewards) by cybertk (MIT); the 11.0 Khaz Algar special assignment quest IDs from [Plumber](https://github.com/Peterodox/Plumber) (IDs only); map IDs from [wago.tools](https://wago.tools).
 - Holidays & events: holiday, Dungeon Finder, achievement category and toy source data from the client's tables on
   [wago.tools](https://wago.tools); Darkmoon Faire quest IDs from warcraft.wiki.gg.
 - Fonts: [Cinzel](https://github.com/NDISCOVER/Cinzel) by Natanael Gama and

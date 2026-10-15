@@ -116,7 +116,7 @@ local function AssignmentTooltip(row, a)
 	Line(STATE_TEXT[a.state], STATE_ROLES[a.state])
 	if a.state == "locked" then
 		if a.have and a.need then
-			Line(("World quests done toward the unlock: %d/%d"):format(a.have, a.need))
+			Line(("%d of %d world quests done to unlock it"):format(a.have, a.need))
 		else
 			Line("Unlocks after more world quests in its zone.", "textMuted")
 		end

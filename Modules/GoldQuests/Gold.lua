@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Gold world quests module: GoldWQ's window in Tomte (spec docs/superpowers/specs/2026-10-11-tomte-gold-world-quests-
+-- Gold world quests module: a gold world quest window modelled on GoldWQ (public domain; spec docs/superpowers/specs/2026-10-11-tomte-gold-world-quests-
 -- design.md). The gold world quests of the player's expansion with totals, special assignments, weekly caches, a
 -- route that tracks them one by one, and world quest gold per character. Pure logic in Data.lua, game reading in
 -- Scan.lua, the window in Window.lua.

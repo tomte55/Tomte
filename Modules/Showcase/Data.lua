@@ -18,7 +18,7 @@ ns.CHARSHOW_SLOT_NAMES = {
 -- Camera -----------------------------------------------------------------------------------------------------------
 
 local DEFAULT_HEIGHT = 2 -- yards, until the model was measured
--- A knee-up shot like Narcissus's (first try, 1.6 + 1.3 x height, showed the whole body far too small).
+-- A knee-up shot (first try, 1.6 + 1.3 x height, showed the whole body far too small).
 local ZOOM_BASE = 0.4
 local ZOOM_PER_YARD = 1.1
 local MOUNTED_FACTOR, MOUNTED_EXTRA = 1.6, 2
@@ -265,7 +265,7 @@ end
 
 function ns.CharShow_GemStatus(sockets, empty)
 	if sockets == 0 then
-		return "No socket", "danger"
+		return "No sockets", "danger"
 	elseif empty > 0 then
 		return ("%d empty %s"):format(empty, empty == 1 and "socket" or "sockets"), "warning"
 	end

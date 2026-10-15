@@ -1,17 +1,20 @@
 local addonName, ns = ...
 
 -- Fishing: pure rules (no WoW API; unit-tested in tests/test_fishing.lua).
--- Fishing channel spell IDs are game facts taken from Angleur's tables (LegolandoBloom, All Rights Reserved: IDs
--- only, no code). Toy and aura IDs checked on wowhead.
+-- Fishing channel spell IDs come from the client's spell tables (tools/fishing.py has the rule); the idea of matching
+-- the variants by ID came from Angleur. Toy and aura IDs checked on wowhead.
 
 ns.FISHING_SPELL = 131474 -- the Fishing spell you cast (spellbook); its channel is 131476
 ns.FISHING_RAFT_RENEW = 60 -- renew a raft with less than this many seconds left
 ns.FISHING_LOOT_TIMEOUT = 3 -- loot protection never blocks longer than this
 ns.FISHING_CHANNELS = {}
-for _, id in ipairs({
-	7620, 131476, 51294, 18248, 131474, 33095, 7732, 7731, 110410, 88868, 131490, 139505, 1252746, 158743,
-	219847, 227511, 262860, 249045, 301092, 295727, 361269, 377895, 405274, 398703, 377831, 437890, 438491,
-	463743, 1224771, 1294463, 1303761, 1239040, 1239227, 1241356, 1286703, 1303612, 1282907, 1239033,
+for _, id in ipairs({ -- python -I tools/fishing.py 12.1.5.70391 (spells named exactly "Fishing" also match by name)
+	46935, 63275, 111541, 116562, 124755, 131476, 131490, 197463, 215172, 218375, 249045, 255498, 260037, 261761,
+	261762, 262860, 266042, 272011, 274371, 275095, 281526, 295727, 296495, 301092, 347868, 361269, 373299, 373301,
+	374191, 375314, 377831, 377895, 381448, 382908, 382962, 384458, 384481, 385529, 385933, 386039, 386040, 386041,
+	386042, 386392, 386676, 389234, 391563, 391669, 391853, 395305, 397439, 398703, 405274, 409658, 433070, 433073,
+	433075, 433758, 437890, 463743, 1224771, 1234750, 1239033, 1239040, 1239227, 1241356, 1252746, 1253417, 1282907,
+	1294463, 1303612, 1303761,
 }) do
 	ns.FISHING_CHANNELS[id] = true
 end
