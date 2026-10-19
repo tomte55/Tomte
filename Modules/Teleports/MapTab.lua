@@ -34,7 +34,7 @@ local function ShowTooltip(owner, e)
 	else
 		GameTooltip:SetText(e.name)
 		if e.desc then
-			GameTooltip:AddLine(e.desc, 1, 1, 1, true)
+			UI.TipLine(e.desc, "text", true)
 		end
 	end
 	if e.dest then
@@ -415,6 +415,9 @@ function Refresh()
 		end
 		y = y + 6
 	end
+	if #sections == 0 then
+		panel.empty:SetText(ns.Tp_EmptyText(entries, { showUnearned = db.showUnearned }))
+	end
 	panel.empty:SetShown(#sections == 0)
 	panel.scroll:SetContentHeight(y)
 	panel.note:SetText(InCombatLockdown() and UI.Wrap("In combat: teleports are off until combat ends.", "danger")
@@ -470,7 +473,6 @@ local function Build()
 	panel.empty = UI.Text(panel, 12, "textMuted")
 	panel.empty:SetPoint("TOPLEFT", panel.scroll, "TOPLEFT", 6, -4)
 	panel.empty:SetPoint("RIGHT", -10, 0)
-	panel.empty:SetText("No teleports on this character.")
 	panel:SetScript("OnUpdate", OnUpdate)
 	panel:SetScript("OnHide", function()
 		Detach()

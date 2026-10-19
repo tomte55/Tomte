@@ -209,6 +209,15 @@ function ns.Tp_Sections(entries, opts)
 	return out
 end
 
+-- The Teleports tab's text when it shows no section: the character has teleports but every section holding them is
+-- hidden in settings, or it has none. entries, opts: as Tp_Sections.
+function ns.Tp_EmptyText(entries, opts)
+	if #ns.Tp_Sections(entries, { showUnearned = opts.showUnearned }) > 0 then
+		return "Your teleports are all in sections hidden in settings."
+	end
+	return "No teleports on this character."
+end
+
 -- "1:23:45", "12:34" or "45s" for a cooldown in seconds.
 function ns.Tp_FormatCooldown(seconds)
 	return ns.Clock(math.ceil(seconds))

@@ -101,4 +101,13 @@ test("cooldown format", function()
 	eq(ns.Tp_FormatCooldown(59.2), "1:00")
 end)
 
+test("empty text: nothing known", function()
+	eq(ns.Tp_EmptyText({ entry({ key = "a", section = "class" }) }, {}), "No teleports on this character.")
+end)
+
+test("empty text: teleports there, their sections hidden", function()
+	local list = { entry({ key = "a", section = "class", known = true }) }
+	eq(ns.Tp_EmptyText(list, { hidden = { class = true } }), "Your teleports are all in sections hidden in settings.")
+end)
+
 H.done()

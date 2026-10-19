@@ -162,7 +162,17 @@ module = ns.RegisterModule({
 						break
 					end
 					if e.known and ns.Tp_Cooldown(e) == 0 then
-						rows[#rows + 1] = { icon = e.icon, text = e.name, right = "ready" }
+						rows[#rows + 1] = { icon = e.icon, text = e.name, right = "ready",
+							-- Casting needs a secure button, which Home doesn't have: the click opens the tab.
+							onEnter = function(row)
+								GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+								GameTooltip:SetText(e.name, ns.UI.Color("heading"))
+								local r, g, b = ns.UI.RGB("accent")
+								GameTooltip:AddLine("Click to open the Teleports tab on the world map, then click it there "
+									.. "to use it.", r, g, b, true)
+								GameTooltip:Show()
+							end,
+						}
 					end
 				end
 				return rows
