@@ -1,16 +1,17 @@
 local addonName, ns = ...
 
 -- Delves: readers for keys and shards, the Great Vault's World track and the delve companion. Each part is read
--- out of combat, debounced (DelvesRead_Dirty), inside pcall (a failure keeps the old value), and cached for the page,
--- the entrance note, Home and Next up. The companion calls are Blizzard_DelvesCompanionConfiguration's own; nothing
--- here changes a curio, a role or a tier. A companion level that rises fires the "companion" moment.
+-- out of combat, debounced (DelvesRead_Dirty), inside xpcall (a failure keeps the old value and goes to BugSack once
+-- per part per session), and cached for the page, the entrance note, Home and Next up. The companion calls are
+-- Blizzard_DelvesCompanionConfiguration's own; nothing here changes a curio, a role or a tier. A companion level that
+-- rises fires the "companion" moment.
 
 local db
 local state = {} -- { keys, keyLine, canCombine, vault, companion }
 local dirty = {}
 local timer
 local primed = {} -- [faction] = true once read this session (the first read only stores the level)
-local reported = {} -- [part] = true once its read error was printed
+local reported = {} -- [part] = true once its read error went to BugSack
 
 local events = ns.Delves_Events
 
@@ -201,11 +202,14 @@ local function ReadDirty()
 	for _, part in ipairs(ORDER) do
 		if dirty[part] then
 			dirty[part] = nil
-			local ok, err = pcall(READERS[part], def, expansion)
-			if not ok and not reported[part] then
-				reported[part] = true
-				ns.Print(("delves: couldn't read %s (%s)"):format(part, tostring(err)))
-			end
+			xpcall(function()
+				READERS[part](def, expansion)
+			end, function(err)
+				if not reported[part] then
+					reported[part] = true
+					ns.errorHandler(err)
+				end
+			end)
 		end
 	end
 	if ns.Delves_Changed then

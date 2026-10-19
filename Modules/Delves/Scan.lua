@@ -15,6 +15,7 @@ ns.Delves_Events = ns.NewEvents()
 
 local MAX_DEPTH = 10
 local MAX_PROBED = 8 -- more bountiful finds than this from the ID probe alone means it isn't telling active ones
+local FAILED_RETRY = 60 -- seconds before a scan that errored is tried again (not on every redraw of the page)
 
 local cache, cacheKey, cacheUntil
 
@@ -117,12 +118,21 @@ function ns.DelvesScan_List()
 	local stale = not cache or cacheKey ~= expansion or GetTime() >= (cacheUntil or 0)
 	-- In combat the old list stays: no scans mid-fight, the same precaution as Read.lua's readers.
 	if stale and not InCombatLockdown() then
-		local ok, list = pcall(Read, def)
+		-- Errors go to BugSack (ns.errorHandler); xpcall in Lua 5.1 takes no arguments, hence the closure.
+		local ok, list = xpcall(function()
+			return Read(def)
+		end, ns.errorHandler)
 		if ok then
 			cache, cacheKey = list, expansion
 			local reset = C_DateAndTime.GetSecondsUntilDailyReset and C_DateAndTime.GetSecondsUntilDailyReset() or 3600
 			-- Nothing found may mean the zones' data isn't loaded yet: look again in a minute.
 			cacheUntil = GetTime() + (#list > 0 and math.max(reset or 3600, 60) + 5 or 60)
+		else
+			-- Keep this expansion's last list (none for another expansion's) until the retry.
+			if cacheKey ~= expansion then
+				cache = {}
+			end
+			cacheKey, cacheUntil = expansion, GetTime() + FAILED_RETRY
 		end
 	end
 	local copy = {}
