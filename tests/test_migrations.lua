@@ -115,4 +115,19 @@ test("migrations don't run twice", function()
 	eq(db.way.cardDistance, 325)
 end)
 
+test("Minimap Buttons: the old single angle moves to Tomte's button, shown", function()
+	local db = { schema = 11, minimap = { angle = 200 } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.minimap.buttons.minimap.angle, 200)
+	eq(db.minimap.buttons.minimap.shown, true)
+	eq(db.minimap.angle, nil)
+end)
+test("Minimap Buttons: a button already placed keeps its spot", function()
+	local db = { schema = 11, minimap = { angle = 200, buttons = { minimap = { shown = false, angle = 90 } } } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.minimap.buttons.minimap.angle, 90)
+	eq(db.minimap.buttons.minimap.shown, false)
+	eq(db.minimap.angle, nil)
+end)
+
 H.done()

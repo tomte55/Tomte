@@ -111,4 +111,19 @@ ns.MIGRATIONS = {
 			db.alerts.channel = "Master"
 		end
 	end,
+	-- 12: Minimap Buttons: the one button before 1.10 kept its spot in minimap.angle; it's Tomte's own button now
+	-- (minimap.buttons.minimap), shown as it always was. Was done in Minimap.lua's init on every load.
+	function(db)
+		local saved = db.minimap
+		if type(saved) ~= "table" or saved.angle == nil then
+			return
+		end
+		if type(saved.buttons) ~= "table" then
+			saved.buttons = {}
+		end
+		if saved.buttons.minimap == nil then
+			saved.buttons.minimap = { shown = true, angle = saved.angle }
+		end
+		saved.angle = nil
+	end,
 }

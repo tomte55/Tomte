@@ -185,16 +185,17 @@ local function ResetPositions()
 end
 
 local function TomteTooltip(tooltip)
-	tooltip:AddLine("Click to open Tomte", 1, 1, 1)
+	local r, g, b = UI.RGB("text")
+	tooltip:AddLine("Click to open Tomte", UI.RGB("accent"))
 	if ns.Weekly_Active and ns.Weekly_Active() then
-		tooltip:AddLine("Right-click for this week's open items", 1, 1, 1)
+		tooltip:AddLine("Right-click for this week's open items", UI.RGB("accent"))
 	end
 	local nextUp = ns.NextUp_TooltipLines and ns.NextUp_TooltipLines()
 	if nextUp and #nextUp > 0 then
 		tooltip:AddLine(" ")
 		tooltip:AddLine("Next up", UI.RGB("heading"))
 		for _, line in ipairs(nextUp) do
-			tooltip:AddLine(line, 1, 1, 1, true)
+			tooltip:AddLine(line, r, g, b, true)
 		end
 		tooltip:AddLine(" ")
 	end
@@ -228,8 +229,6 @@ module = ns.RegisterModule({
 		buttons = {}, -- [module key] = { shown = bool, angle = degrees or nil until first shown }
 	},
 	init = function(saved)
-		-- One button before 1.10: its spot was saved.angle.
-		local first = saved.buttons.minimap == nil
 		local options = { { type = "header", label = "Buttons" } }
 		for _, owner in ipairs(Owners()) do
 			local entry = saved.buttons[owner.key]
@@ -241,10 +240,6 @@ module = ns.RegisterModule({
 				label = owner.minimapButton.name, onChange = Refresh,
 				tooltip = owner ~= module and ("Shows while the %s module is on."):format(owner.name) or nil }
 		end
-		if first and saved.angle then
-			saved.buttons.minimap.angle = saved.angle
-		end
-		saved.angle = nil
 		options[#options + 1] = { type = "button", label = "Positions", text = "Reset", onClick = ResetPositions,
 			tooltip = "Line the buttons up from the bottom left of the minimap." }
 		module.options = options
