@@ -1,5 +1,6 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_moments.lua
 local ns = {}
+assert(loadfile("Tomte/Core/Format.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Moments/Data.lua"))("Tomte", ns)
 
 local H = dofile("Tomte/tests/harness.lua")
@@ -58,49 +59,15 @@ test("Decide waits, then falls back to a banner", function()
 	eq(ns.Moments_Decide(false, 10, 10), "banner")
 end)
 
-test("FormatToPattern handles %s, %d and magic characters", function()
-	eq(ns.Moments_FormatToPattern("Discovered: %s"), "^Discovered: (.+)$")
-	local p = ns.Moments_FormatToPattern("Discovered %s: %d experience gained")
-	eq(("Discovered Silvermoon: 450 experience gained"):match(p), "Silvermoon")
-	local dotted = ns.Moments_FormatToPattern("Found (%s).")
-	eq(("Found (X)."):match(dotted), "X")
-	eq(("Found (X)!"):match(dotted), nil)
-end)
-
 test("DiscoveredArea tries every pattern", function()
 	local patterns = {
-		ns.Moments_FormatToPattern("Discovered: %s"),
-		ns.Moments_FormatToPattern("Discovered %s: %d experience gained"),
+		ns.FormatToPattern("Discovered: %s"),
+		ns.FormatToPattern("Discovered %s: %d experience gained"),
 	}
 	eq(ns.Moments_DiscoveredArea("Discovered: Goldshire", patterns), "Goldshire")
 	eq(ns.Moments_DiscoveredArea("Discovered Goldshire: 30 experience gained", patterns), "Goldshire")
 	eq(ns.Moments_DiscoveredArea("You are too far away", patterns), nil)
 	eq(ns.Moments_DiscoveredArea(nil, patterns), nil)
-end)
-
-test("FormatToPattern: positional specifiers (German) give captures in argument order", function()
-	local pattern, spec = ns.Moments_FormatToPattern("%1$s entdeckt: %2$d Erfahrung erhalten.")
-	eq(pattern, "^(.+) entdeckt: (%d+) Erfahrung erhalten%.$")
-	local captures = ns.Moments_Match("Goldhain entdeckt: 30 Erfahrung erhalten.", pattern, spec)
-	eq(captures[1], "Goldhain")
-	eq(captures[2], "30")
-	local swapped, swappedSpec = ns.Moments_FormatToPattern("%2$d XP: %1$s")
-	captures = ns.Moments_Match("45 XP: Elwynn", swapped, swappedSpec)
-	eq(captures[1], "Elwynn", "reordered area")
-	eq(captures[2], "45", "reordered xp")
-	eq(select(2, ns.Moments_FormatToPattern("Discovered: %s")), nil, "plain format needs no spec")
-	eq(ns.Moments_FormatToPattern("100%% done: %s"), "^100%% done: (.+)$", "literal percent")
-end)
-
-test("FormatToPattern: grammar tokens match either word and are cut from the capture", function()
-	local pattern, spec = ns.Moments_FormatToPattern("%s|1을;를; 발견했습니다.")
-	eq(ns.Moments_Match("엘윈 숲을 발견했습니다.", pattern, spec)[1], "엘윈 숲")
-	eq(ns.Moments_Match("골드샤이어를 발견했습니다.", pattern, spec)[1], "골드샤이어")
-	local plural, pspec = ns.Moments_FormatToPattern("%d |4point:points; for %s")
-	local captures = ns.Moments_Match("3 points for Goldshire", plural, pspec)
-	eq(captures[1], "3")
-	eq(captures[2], "Goldshire")
-	eq(ns.Moments_FormatToPattern("Got |3-6(%s)"), "^Got (.+)$", "declension")
 end)
 
 test("DiscoveryPatterns: the XP variant first, so French discoveries keep a clean area name", function()

@@ -265,7 +265,7 @@ function ns.Recap_LootPatterns(formats)
 		local fmt = formats[i]
 		if type(fmt) == "string" then
 			local list = (fmt:find("%%d") or fmt:find("%%%d+%$d")) and counted or single
-			list[#list + 1] = ns.Moments_FormatToPattern(fmt)
+			list[#list + 1] = ns.FormatToPattern(fmt)
 		end
 	end
 	for _, pattern in ipairs(single) do

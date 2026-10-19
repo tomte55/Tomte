@@ -1,6 +1,7 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_recap.lua
 local ns = {}
 assert(loadfile("Tomte/Core/SessionData.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Core/Format.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Moments/Data.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Recap/Data.lua"))("Tomte", ns)
 

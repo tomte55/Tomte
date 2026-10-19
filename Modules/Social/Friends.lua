@@ -295,7 +295,7 @@ function events:CHAT_MSG_SYSTEM(text)
 		return
 	end
 	if not onlinePattern then
-		onlinePattern = ns.Moments_FormatToPattern(ERR_FRIEND_ONLINE_SS)
+		onlinePattern = ns.FormatToPattern(ERR_FRIEND_ONLINE_SS)
 	end
 	local full = text:match(onlinePattern)
 	if not full then
