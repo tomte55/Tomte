@@ -597,7 +597,7 @@ local AROUND = {
 				end,
 				onEnter = function(row)
 					GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-					GameTooltip:SetText(name or ("#" .. mountID), 1, 1, 1)
+					GameTooltip:SetText(name or ("#" .. mountID), ns.UI.Color("heading"))
 					GameTooltip:AddLine("Click: summon it", ns.UI.RGB("heading"))
 					GameTooltip:Show()
 				end,

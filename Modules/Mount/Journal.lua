@@ -84,8 +84,10 @@ end
 
 local function OnEnter(self)
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-	GameTooltip:SetText("Smart Mount zone favorite")
-	GameTooltip:AddLine("Click to add this mount to the favorites for the zone or continent you're in. Smart Mount picks from those first there.", 1, 1, 1, true)
+	GameTooltip:SetText("Smart Mount zone favorite", ns.UI.Color("heading"))
+	local tr, tg, tb = ns.UI.RGB("text")
+	GameTooltip:AddLine("Click to add this mount to the favorites for the zone or continent you're in. Smart Mount "
+		.. "picks from those first there.", tr, tg, tb, true)
 	local mountID = SelectedMount()
 	for _, level in ipairs(Levels()) do
 		local on = mountID and ns.Mount_InZone(ns.mountDB.zones, level.mapID, mountID)
