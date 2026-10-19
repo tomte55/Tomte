@@ -198,6 +198,7 @@ ns.BUG_FILES = {
 	"Modules/Alts/ProfTab.lua",
 	"Modules/Alts/HomeSection.lua",
 	"Modules/Alts/Send.lua",
+	"Modules/Alts/Deposit.lua",
 	"Modules/Alts/List.lua",
 	"Modules/Alts/ListTab.lua",
 	"Modules/Alts/Alts.lua",
