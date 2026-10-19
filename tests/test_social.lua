@@ -326,4 +326,73 @@ test("IsWatched: accented capitals match", function()
 	eq(ns.Social_IsWatched(ns.Social_ParseWords("ÖRN"), "Örn#1234"), true)
 end)
 
+local ME, ALT = "Player-1-AAAA", "Player-1-BBBB"
+
+test("ConvoKey: character whispers per character, Battle.net per account", function()
+	eq(ns.Social_ConvoKey("Kesha-Draenor", ME), "Kesha-Draenor@" .. ME)
+	eq(ns.Social_ConvoKey("bn:Kesha#1234", ME), "bn:Kesha#1234")
+	eq(ns.Social_ConvoKey("Kesha-Draenor", nil), "Kesha-Draenor")
+end)
+
+test("AddMessage tags the conversation; two characters keep two conversations", function()
+	local store = newStore()
+	local a = ns.Social_AddMessage(store, ns.Social_ConvoKey("Kesha-Draenor", ME),
+		{ name = "Kesha", with = "Kesha-Draenor", char = ME, charName = "Aldric" }, { at = 1, text = "hi" })
+	local b = ns.Social_AddMessage(store, ns.Social_ConvoKey("Kesha-Draenor", ALT),
+		{ name = "Kesha", with = "Kesha-Draenor", char = ALT, charName = "Mira" }, { at = 2, text = "hey" })
+	eq(a ~= b, true, "two conversations")
+	eq(a.char, ME)
+	eq(a.charName, "Aldric")
+	eq(ns.Social_With(a), "Kesha-Draenor")
+	eq(ns.Social_With(b), "Kesha-Draenor")
+	eq(ns.Social_With({ key = "Old-Draenor" }), "Old-Draenor", "untagged: the key")
+end)
+
+test("IsMine: tagged ones are their character's, untagged ones everyone's", function()
+	eq(ns.Social_IsMine({ char = ME }, ME), true)
+	eq(ns.Social_IsMine({ char = ALT }, ME), false)
+	eq(ns.Social_IsMine({}, ME), true)
+end)
+
+test("Unread and MarkAllRead count only this character's and untagged conversations", function()
+	local store = newStore()
+	ns.Social_AddMessage(store, "Old-Draenor", {}, { at = 1, text = "x" })
+	ns.Social_AddMessage(store, "Kesha-Draenor@" .. ME, { with = "Kesha-Draenor", char = ME }, { at = 2, text = "x" })
+	ns.Social_AddMessage(store, "Kesha-Draenor@" .. ALT, { with = "Kesha-Draenor", char = ALT }, { at = 3, text = "x" })
+	ns.Social_AddMessage(store, "bn:Mira#1", { bn = true, with = "bn:Mira#1" }, { at = 4, text = "x" })
+	local total, convos = ns.Social_Unread(store, ME)
+	eq(total, 3, "mine, untagged and Battle.net")
+	eq(#convos, 3)
+	eq((ns.Social_Unread(store)), 4, "no GUID: all")
+	ns.Social_MarkAllRead(store, ME)
+	eq((ns.Social_Unread(store, ME)), 0)
+	eq(store.convos["Kesha-Draenor@" .. ALT].unread, 1, "the alt's stays unread")
+end)
+
+test("AddMessage: an untagged conversation is claimed by the first character that whispers with them", function()
+	local store = newStore()
+	ns.Social_AddMessage(store, "Kesha-Draenor", { name = "Kesha" }, { at = 1, text = "old" })
+	store.convos["Kesha-Draenor"].pinned = true
+	local key = ns.Social_ConvoKey("Kesha-Draenor", ME)
+	local convo, claimed = ns.Social_AddMessage(store, key,
+		{ with = "Kesha-Draenor", char = ME, charName = "Aldric" }, { at = 2, text = "new" })
+	eq(claimed, "Kesha-Draenor")
+	eq(store.convos["Kesha-Draenor"], nil, "old key gone")
+	eq(store.convos[key], convo)
+	eq(convo.key, key)
+	eq(#convo.messages, 2, "messages kept")
+	eq(convo.pinned, true, "pin kept")
+	eq(convo.name, "Kesha", "name kept")
+	local _, again = ns.Social_AddMessage(store, ns.Social_ConvoKey("Kesha-Draenor", ALT),
+		{ with = "Kesha-Draenor", char = ALT }, { at = 3, text = "alt" })
+	eq(again, nil, "a tagged one isn't claimed")
+end)
+
+test("CopyText names a tagged conversation by who it's with", function()
+	local convo = { key = "Kesha-Draenor@" .. ME, with = "Kesha-Draenor", messages = { { at = 1, text = "hi" } } }
+	eq(ns.Inbox_CopyText(convo, function()
+		return "t"
+	end), "t Kesha-Draenor: hi")
+end)
+
 H.done()

@@ -33,7 +33,7 @@ local ticker
 
 -- Name in its class color (Battle.net friends in Blizzard's BN blue).
 function ns.Inbox_ColoredName(convo)
-	local name = convo.name or convo.key
+	local name = convo.name or ns.Social_With(convo)
 	if convo.restricted then
 		return UI.Wrap(name, "heading")
 	elseif convo.bn then
@@ -94,18 +94,19 @@ local function OpenMenu(owner, key)
 		return
 	end
 	local who = ns.InboxWho_Get(convo)
-	local name = convo.name or convo.key
+	local name = convo.name or ns.Social_With(convo)
+	local mine = ns.Whispers_IsMine(convo)
 	UI.ContextMenu(owner, function(_, root)
 		root:CreateTitle(name)
 		root:CreateButton(convo.pinned and "Unpin" or "Pin to the top", function()
 			ns.Whispers_SetPinned(key, not convo.pinned)
 		end)
-		if ns.InboxWho_CanInvite(who) then
+		if mine and ns.InboxWho_CanInvite(who) then
 			root:CreateButton("Invite to group", function()
 				ns.InboxWho_Invite(who)
 			end)
 		end
-		if ns.InboxWho_CanAddFriend(convo, who) then
+		if mine and ns.InboxWho_CanAddFriend(convo, who) then
 			root:CreateButton("Add friend", function()
 				ns.InboxWho_AddFriend(convo)
 			end)
@@ -128,10 +129,12 @@ end
 
 local function ShowConversation()
 	local convo = current and ns.Whispers_Get(current)
+	local mine = ns.Whispers_IsMine(convo)
 	local header = frame.header
 	-- Secret "In instance" whispers can only be answered through Blizzard's chat box.
 	header.reply:SetShown(convo ~= nil and convo.restricted == true)
-	frame.input:SetShown(convo ~= nil and not convo.restricted)
+	frame.input:SetShown(convo ~= nil and not convo.restricted and mine)
+	frame.elsewhere:SetShown(convo ~= nil and not mine)
 	header:SetShown(convo ~= nil)
 	frame.empty:SetShown(convo == nil and #ns.Whispers_Convos() == 0)
 	if not convo then
@@ -140,15 +143,22 @@ local function ShowConversation()
 		return
 	end
 	if not convo.restricted then
-		frame.input.placeholder:SetText("Whisper " .. (convo.name or convo.key))
+		frame.input.placeholder:SetText("Whisper " .. (convo.name or ns.Social_With(convo)))
+	end
+	if not mine then
+		frame.elsewhere:SetText(("Log in on %s to answer."):format(convo.charName or "that character"))
 	end
 	local who = ns.InboxWho_Get(convo)
 	SetAvatar(header.avatar, convo, who)
 	SetDot(header.dot, who)
 	header.name:SetText(ns.Inbox_ColoredName(convo))
-	header.status:SetText(convo.restricted and "Names and messages are hidden from addons in instances"
-		or ns.Inbox_StatusText(who))
-	header.invite:SetShown(ns.InboxWho_CanInvite(who))
+	local status = convo.restricted and "Names and messages are hidden from addons in instances"
+		or ns.Inbox_StatusText(who)
+	if not mine then
+		status = ("On %s · %s"):format(convo.charName or "another character", status)
+	end
+	header.status:SetText(status)
+	header.invite:SetShown(mine and ns.InboxWho_CanInvite(who))
 	header.more:SetShown(not convo.restricted)
 
 	-- Same conversation, no new message (someone else wrote, or it was only marked read): keep the scroll.
@@ -161,7 +171,8 @@ local function ShowConversation()
 	frame.pane:Show(convo, newIndex)
 end
 
--- Opens key on the right: the NEW divider goes where its unread messages began, then it's marked read.
+-- Opens key on the right: the NEW divider goes where its unread messages began, then it's marked read (another
+-- character's conversation stays unread for that character).
 local function Open(key)
 	if key ~= current then
 		frame.input:SetText("")
@@ -169,7 +180,7 @@ local function Open(key)
 		newIndex = convo and ns.Inbox_NewIndex(#convo.messages, convo.unread) or nil
 	end
 	current = key
-	if key then
+	if key and ns.Whispers_IsMine(ns.Whispers_Get(key)) then
 		ns.Whispers_MarkRead(key) -- refreshes the inbox
 	else
 		ns.Inbox_Refresh()
@@ -239,8 +250,13 @@ local function SetRow(row, convo, now)
 	local who = ns.InboxWho_Get(convo)
 	SetAvatar(row.avatar, convo, who)
 	SetDot(row.dot, who)
-	row.name:SetText(ns.Inbox_ColoredName(convo))
-	local unread = convo.unread or 0
+	local mine = ns.Whispers_IsMine(convo)
+	local name = ns.Inbox_ColoredName(convo)
+	if not mine then
+		name = name .. " " .. UI.Wrap("on " .. (convo.charName or "another character"), "textFaint")
+	end
+	row.name:SetText(name)
+	local unread = mine and convo.unread or 0
 	row.badge:SetShown(unread > 0)
 	row.ago:SetShown(unread == 0)
 	if unread > 0 then
@@ -486,6 +502,9 @@ local function Build()
 	frame.empty:SetPoint("CENTER")
 	frame.empty:SetText("No whispers yet.")
 	frame.input = CreateInput(right)
+	frame.elsewhere = UI.Text(right, 12, "textFaint") -- in place of the chat line for another character's conversation
+	frame.elsewhere:SetPoint("BOTTOMLEFT", 10, 6)
+	frame.elsewhere:Hide()
 	frame.pane = ns.InboxMessages_Create(right)
 	frame.pane.frame:SetPoint("TOPLEFT", frame.header, "BOTTOMLEFT", 0, -6)
 	frame.pane.frame:SetPoint("BOTTOMRIGHT", frame.input, "TOPRIGHT", 0, 8)
@@ -524,7 +543,7 @@ function ns.Inbox_Toggle(key)
 	if not key then
 		local list = ns.Inbox_Order(ns.Whispers_Convos())
 		for _, convo in ipairs(list) do
-			if convo.unread > 0 then
+			if convo.unread > 0 and ns.Whispers_IsMine(convo) then
 				key = convo.key
 				break
 			end
@@ -539,6 +558,13 @@ end
 
 function ns.Inbox_IsShowing(key)
 	return frame ~= nil and frame:IsShown() and current == key
+end
+
+-- An untagged conversation was claimed by this character and moved to a new key (Whispers.lua): keep it open.
+function ns.Inbox_Rekey(old, new)
+	if current == old then
+		current, drawn = new, nil
+	end
 end
 
 function ns.Inbox_Hide()

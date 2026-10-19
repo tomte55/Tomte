@@ -88,11 +88,12 @@ function ns.InboxWho_Get(convo)
 	if not convo or convo.restricted then
 		return nil
 	end
+	local with = ns.Social_With(convo)
 	if convo.bn then
-		return BNetFriend(convo.key)
+		return BNetFriend(with)
 	end
-	local who = CharacterFriend(convo.key)
-	local member = Guild()[convo.key]
+	local who = CharacterFriend(with)
+	local member = Guild()[with]
 	-- The friend list is live; the roster can be up to ROSTER_SECONDS old, so it only speaks for guildmates who
 	-- aren't friends.
 	if member and who then
@@ -102,7 +103,7 @@ function ns.InboxWho_Get(convo)
 		who = { online = member.online, classFile = member.classFile, guild = true }
 		if member.online then
 			who.level, who.className, who.area = member.level, member.className, member.area
-			who.inviteName = convo.key
+			who.inviteName = with
 		end
 	end
 	return who
@@ -129,5 +130,5 @@ function ns.InboxWho_Invite(who)
 end
 
 function ns.InboxWho_AddFriend(convo)
-	C_FriendList.AddFriend(convo.key)
+	C_FriendList.AddFriend(ns.Social_With(convo))
 end

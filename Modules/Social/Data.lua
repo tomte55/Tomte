@@ -38,15 +38,32 @@ function ns.Toast_Flow(x, y, w, h)
 	return grow, from
 end
 
--- store = { convos = { [key] = convo } }, convo = { key, name, class, bn, last, unread, messages }.
--- info = { name, class, bn } (kept up to date: a later whisper may know the class); entry = { at, text, out }.
--- An outgoing message (entry.out) marks the conversation read: you answered it.
+-- store = { convos = { [key] = convo } }, convo = { key, with, char, charName, name, class, bn, last, unread, pinned,
+-- messages }. Whispers with a character are per character of yours: key = ns.Social_ConvoKey(with, your GUID), with =
+-- their "Name-Realm", char = your GUID, charName = your character's name. Battle.net whispers reach your account:
+-- key = with = "bn:BattleTag", no char. Conversations saved before tagging have neither with nor char.
+-- info = { name, class, bn, with, char, charName } (kept up to date: a later whisper may know the class);
+-- entry = { at, text, out }. An outgoing message (entry.out) marks the conversation read: you answered it.
+-- An untagged conversation is claimed by the first tagged message with the same person: it moves to the new key and
+-- keeps its messages and pin. Returns the conversation and the key it was claimed from (nil when none).
 function ns.Social_AddMessage(store, key, info, entry)
-	local convo = store.convos[key]
+	local convo, claimed = store.convos[key], nil
+	if not convo and info.with and info.with ~= key then
+		local old = store.convos[info.with]
+		if old and old.char == nil then
+			store.convos[info.with] = nil
+			old.key = key
+			store.convos[key] = old
+			convo, claimed = old, info.with
+		end
+	end
 	if not convo then
 		convo = { key = key, unread = 0, messages = {} }
 		store.convos[key] = convo
 	end
+	convo.with = info.with or convo.with
+	convo.char = info.char or convo.char
+	convo.charName = info.charName or convo.charName
 	convo.name = info.name or convo.name
 	convo.class = info.class or convo.class
 	convo.bn = info.bn or convo.bn
@@ -62,7 +79,25 @@ function ns.Social_AddMessage(store, key, info, entry)
 		convo.unread = convo.unread + 1
 	end
 	ns.Social_TrimConvos(store, MAX_CONVERSATIONS)
-	return convo
+	return convo, claimed
+end
+
+-- A conversation's key: per character of yours (guid) for a character, one per account for Battle.net ("bn:...").
+function ns.Social_ConvoKey(with, guid)
+	if not guid or with:sub(1, 3) == "bn:" then
+		return with
+	end
+	return with .. "@" .. guid
+end
+
+-- Who to whisper: "Name-Realm" or "bn:BattleTag" (an untagged conversation's key is that already).
+function ns.Social_With(convo)
+	return convo.with or convo.key
+end
+
+-- Whether the character with this GUID can answer it: its own, untagged (old or Battle.net) ones.
+function ns.Social_IsMine(convo, guid)
+	return convo.char == nil or convo.char == guid
 end
 
 -- Conversations, newest first.
@@ -168,7 +203,7 @@ end
 function ns.Inbox_CopyText(convo, stamp)
 	local lines = {}
 	for _, m in ipairs(convo.messages) do
-		lines[#lines + 1] = ("%s %s: %s"):format(stamp(m.at), m.out and "You" or (convo.name or convo.key),
+		lines[#lines + 1] = ("%s %s: %s"):format(stamp(m.at), m.out and "You" or (convo.name or ns.Social_With(convo)),
 			ns.Social_PlainText(m.text))
 	end
 	return table.concat(lines, "\n")
@@ -181,17 +216,21 @@ function ns.Social_MarkRead(store, key)
 	end
 end
 
-function ns.Social_MarkAllRead(store)
+-- guid (optional): only conversations that are that character's (ns.Social_IsMine).
+function ns.Social_MarkAllRead(store, guid)
 	for _, convo in pairs(store.convos) do
-		convo.unread = 0
+		if not guid or ns.Social_IsMine(convo, guid) then
+			convo.unread = 0
+		end
 	end
 end
 
--- Total unread messages and the unread conversations, newest first.
-function ns.Social_Unread(store)
+-- Total unread messages and the unread conversations, newest first. guid (optional): only that character's
+-- conversations (ns.Social_IsMine).
+function ns.Social_Unread(store, guid)
 	local total, convos = 0, {}
 	for _, convo in ipairs(ns.Social_SortedConvos(store)) do
-		if convo.unread > 0 then
+		if convo.unread > 0 and (not guid or ns.Social_IsMine(convo, guid)) then
 			total = total + convo.unread
 			convos[#convos + 1] = convo
 		end

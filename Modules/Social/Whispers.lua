@@ -4,6 +4,8 @@ local addonName, ns = ...
 -- dismisses), back from AFK an unread recap stays on top of the toasts until you've answered or looked, and
 -- an inbox window keeps the conversations. Toasts wait while a cinematic hides the UI (and, by default, during
 -- combat) and come back as one "while you were busy" card. Optional extra sound on the Master channel.
+-- Conversations with characters are per character of yours; the unread counts and the recap only count the one you're
+-- on.
 -- Blizzard already flashes the taskbar icon for whispers.
 -- In chat lockdown (instances, encounters, M+, PvP) the text and sender are secret: such whispers are shown
 -- as they are (SetText takes secrets) but can't be compared or saved, so they live in a session-only
@@ -50,6 +52,16 @@ local function FullName(name)
 	return name
 end
 
+-- Who you are now: character conversations are tagged with it.
+local function Me()
+	return UnitGUID("player"), UnitName("player")
+end
+
+-- Whether convo can be answered from this character (its own, untagged, Battle.net or the instance one).
+function ns.Whispers_IsMine(convo)
+	return convo ~= nil and ns.Social_IsMine(convo, (Me()))
+end
+
 -- Conversations for the inbox: the saved ones plus this session's secret ones.
 function ns.Whispers_Convos()
 	local list = ns.Social_SortedConvos(Store())
@@ -67,7 +79,7 @@ function ns.Whispers_Get(key)
 end
 
 local function UnreadTotal()
-	local total, convos = ns.Social_Unread(Store())
+	local total, convos = ns.Social_Unread(Store(), (Me()))
 	return total + restricted.unread, convos
 end
 
@@ -122,7 +134,7 @@ function ns.Whispers_MarkRead(key)
 end
 
 function ns.Whispers_MarkAllRead()
-	ns.Social_MarkAllRead(Store())
+	ns.Social_MarkAllRead(Store(), (Me()))
 	restricted.unread = 0
 	Changed()
 end
@@ -173,10 +185,15 @@ function ns.Whispers_Reply(key)
 	if not convo then
 		return
 	end
+	if not ns.Whispers_IsMine(convo) then
+		ns.Print(("that conversation is on %s: log in there to answer."):format(convo.charName or "another character"))
+		return
+	end
+	local target = ns.Social_With(convo)
 	if convo.bn then
 		local token = bnTokens[key]
 		if not token then
-			local friend = FindBNetFriend(key:sub(4))
+			local friend = FindBNetFriend(target:sub(4))
 			token = friend and friend.accountName
 		end
 		if token then
@@ -186,7 +203,7 @@ function ns.Whispers_Reply(key)
 		end
 		return
 	end
-	ChatFrameUtil.SendTell(key)
+	ChatFrameUtil.SendTell(target)
 end
 
 local function CanSend(key)
@@ -206,9 +223,14 @@ function ns.Whispers_Send(key, text)
 		return false
 	end
 	local convo = Store().convos[key]
+	if convo and not ns.Whispers_IsMine(convo) then
+		ns.Print(("that conversation is on %s: log in there to answer."):format(convo.charName or "another character"))
+		return false
+	end
+	local target = convo and ns.Social_With(convo) or key
 	local ok, err
 	if convo and convo.bn then
-		local friend = FindBNetFriend(key:sub(4))
+		local friend = FindBNetFriend(target:sub(4))
 		local id = friend and friend.bnetAccountID
 		if not id then
 			ns.Print(convo.name .. " isn't online on Battle.net.")
@@ -222,7 +244,7 @@ function ns.Whispers_Send(key, text)
 			ok, err = false, "Battle.net refused the whisper"
 		end
 	else
-		ok, err = pcall(C_ChatInfo.SendChatMessage, text, "WHISPER", nil, key)
+		ok, err = pcall(C_ChatInfo.SendChatMessage, text, "WHISPER", nil, target)
 	end
 	if not ok then
 		ns.Print("couldn't send: " .. tostring(err))
@@ -314,8 +336,9 @@ local function Digest(held)
 end
 
 local function Incoming(info)
-	local viewing = ns.Inbox_IsShowing(info.key)
+	local viewing
 	if info.secret then
+		viewing = ns.Inbox_IsShowing(info.key)
 		local messages = restricted.messages
 		messages[#messages + 1] = { at = time(), text = info.text, sender = info.name }
 		if #messages > MAX_RESTRICTED then
@@ -326,8 +349,12 @@ local function Incoming(info)
 			restricted.unread = restricted.unread + 1
 		end
 	else
-		ns.Social_AddMessage(Store(), info.key, { name = info.digestName, class = info.class, bn = info.bn },
-			{ at = time(), text = info.text })
+		local convo, claimed = ns.Social_AddMessage(Store(), info.key, { name = info.digestName, class = info.class,
+			bn = info.bn, with = info.with, char = info.char, charName = info.charName }, { at = time(), text = info.text })
+		if claimed then
+			ns.Inbox_Rekey(claimed, convo.key)
+		end
+		viewing = ns.Inbox_IsShowing(info.key)
 		if viewing then
 			ns.Social_MarkRead(Store(), info.key)
 		end
@@ -352,8 +379,10 @@ function events:CHAT_MSG_WHISPER(text, sender, _, _, _, flags, _, _, _, _, _, gu
 		class = englishClass
 	end
 	local short = Ambiguate(sender, "short")
-	Incoming({ key = FullName(sender), name = short, digestName = short, class = class, text = text,
-		gm = Readable(flags) and (flags == "GM" or flags == "DEV") })
+	local with = FullName(sender)
+	local me, myName = Me()
+	Incoming({ key = ns.Social_ConvoKey(with, me), with = with, char = me, charName = myName, name = short,
+		digestName = short, class = class, text = text, gm = Readable(flags) and (flags == "GM" or flags == "DEV") })
 end
 
 -- sender is the |K account name: shows the real name, but can't be read or saved. The BattleTag is the key.
@@ -369,13 +398,16 @@ function events:CHAT_MSG_BN_WHISPER(text, sender, _, _, _, _, _, _, _, _, _, _, 
 	local key = "bn:" .. info.battleTag
 	bnTokens[key] = sender
 	local game = info.gameAccountInfo
-	Incoming({ key = key, name = sender, digestName = ns.Social_ShortTag(info.battleTag), bn = true, text = text,
+	Incoming({ key = key, with = key, name = sender, digestName = ns.Social_ShortTag(info.battleTag), bn = true, text = text,
 		class = game and game.isOnline and game.classFilename or nil })
 end
 
 -- Your own whispers: kept in the conversation, which counts as answered.
 local function Outgoing(key, text, info)
-	ns.Social_AddMessage(Store(), key, info, { at = time(), text = text, out = true })
+	local convo, claimed = ns.Social_AddMessage(Store(), key, info, { at = time(), text = text, out = true })
+	if claimed then
+		ns.Inbox_Rekey(claimed, convo.key)
+	end
 	Changed()
 end
 
@@ -385,7 +417,10 @@ function events:CHAT_MSG_WHISPER_INFORM(text, target)
 		Changed()
 		return
 	end
-	Outgoing(FullName(target), text, { name = Ambiguate(target, "short") })
+	local with = FullName(target)
+	local me, myName = Me()
+	Outgoing(ns.Social_ConvoKey(with, me), text, { name = Ambiguate(target, "short"), with = with, char = me,
+		charName = myName })
 end
 
 function events:CHAT_MSG_BN_WHISPER_INFORM(text, target, _, _, _, _, _, _, _, _, _, _, bnSenderID)
@@ -398,7 +433,7 @@ function events:CHAT_MSG_BN_WHISPER_INFORM(text, target, _, _, _, _, _, _, _, _,
 	if info and info.battleTag then
 		local key = "bn:" .. info.battleTag
 		bnTokens[key] = target
-		Outgoing(key, text, { name = ns.Social_ShortTag(info.battleTag), bn = true })
+		Outgoing(key, text, { name = ns.Social_ShortTag(info.battleTag), bn = true, with = key })
 	end
 end
 
@@ -492,7 +527,7 @@ local options = {
 			return value .. "d"
 		end, tooltip = "Read conversations older than this are forgotten at login, unread ones after twice as long." },
 	{ type = "button", label = "History", text = "Clear", onClick = ClearHistory,
-		confirm = "Forget all whisper conversations?" },
+		confirm = "Forget all whisper conversations, on every character?" },
 	{ type = "header", label = "Preview" },
 	{ type = "button", label = "Sample whispers", text = "Show", onClick = Preview,
 		tooltip = "Three sample whisper toasts (two from the same person merge)." },
@@ -519,7 +554,9 @@ module = ns.RegisterModule({
 		sound = "off",
 		keepHistory = true,
 		historyDays = 14,
-		store = { convos = {} }, -- convos[key] = { key, name, class, bn, last, unread, pinned, messages } (Data.lua)
+		-- convos[key] = { key, with, char, charName, name, class, bn, last, unread, pinned, messages } (Data.lua);
+		-- char = which of your characters (GUID), none for Battle.net and conversations from before 1.16
+		store = { convos = {} },
 		inbox = {}, -- the inbox window: point = { point, relPoint, x, y }, w, h
 	},
 	init = function(db)
