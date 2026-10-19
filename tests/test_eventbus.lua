@@ -10,7 +10,12 @@ _G.CreateFrame = function()
 	frames[#frames + 1] = f
 	return f
 end
-local ns = {}
+local reported = {}
+local ns = {
+	errorHandler = function(err)
+		reported[#reported + 1] = tostring(err)
+	end,
+}
 assert(loadfile("Tomte/Core/Events.lua"))("Tomte", ns)
 
 local H = dofile("Tomte/tests/harness.lua")
@@ -82,6 +87,36 @@ test("TryWatch survives an unknown event", function()
 	bus.frame.RegisterEvent = function() error("unknown event") end
 	eq(bus:TryWatch("a", "NOPE"), false)
 	eq(bus:Watching("a", "NOPE"), false)
+end)
+test("a handler that errors doesn't stop the next one", function()
+	local bus, calls = ns.NewEvents(), {}
+	for i = #reported, 1, -1 do
+		reported[i] = nil
+	end
+	bus:On("a", "E", function()
+		error("boom")
+	end)
+	bus:On("b", "E", function(self, x)
+		calls[#calls + 1] = "b" .. x
+	end)
+	bus:Watch("a", "E")
+	bus:Watch("b", "E")
+	Fire(bus, "E", 1)
+	eq(table.concat(calls, " "), "b1", "b still ran")
+	eq(#reported, 1, "the error went to ns.errorHandler")
+	assert(reported[1]:find("boom"), reported[1])
+end)
+test("handlers get their arguments through xpcall", function()
+	local bus, got = ns.NewEvents(), {}
+	bus:On("a", "E", function(self, x, y, z)
+		got.self, got.x, got.y, got.z = self, x, y, z
+	end)
+	bus:Watch("a", "E")
+	Fire(bus, "E", "one", nil, 3)
+	eq(got.self, bus, "the bus first")
+	eq(got.x, "one")
+	eq(got.y, nil, "a nil in the middle survives")
+	eq(got.z, 3)
 end)
 
 H.done()

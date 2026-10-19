@@ -4,6 +4,7 @@ local addonName, ns = ...
 -- load) and says when it wants an event (Watch / Unwatch, from its Start/Stop). The frame registers an event while
 -- any owner watches it and calls only the watching owners' handlers, in attach order (TOC order across files).
 -- The first watcher's unit filter applies to every owner of that event: don't mix filtered and plain watches of one event.
+-- A handler that errors is reported (ns.errorHandler) and the next ones still run.
 -- Unit-tested with a CreateFrame stub (tests/test_eventbus.lua).
 
 function ns.NewEvents()
@@ -20,7 +21,9 @@ function ns.NewEvents()
 		for i = 1, #list do
 			local h = list[i]
 			if watching[h.owner] then
-				h.fn(bus, ...)
+				-- One handler's error goes to BugSack and the others still run. ns.errorHandler is looked up per
+				-- call: Core.lua sets it after this file loads.
+				xpcall(h.fn, ns.errorHandler, bus, ...)
 			end
 		end
 	end)

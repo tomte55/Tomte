@@ -5,6 +5,18 @@
 --   H.done()
 local H = { failures = 0 }
 
+-- WoW's xpcall passes extra arguments on to the function (xpcall(fn, handler, ...)); Lua 5.1's (CI) drops them.
+-- The addon's code relies on WoW's behaviour, so the tests get it too.
+if _VERSION == "Lua 5.1" then
+	local xpcall51 = xpcall
+	xpcall = function(fn, handler, ...)
+		local n, args = select("#", ...), { ... }
+		return xpcall51(function()
+			return fn(unpack(args, 1, n))
+		end, handler)
+	end
+end
+
 function H.test(name, fn)
 	local ok, err = pcall(fn)
 	if ok then

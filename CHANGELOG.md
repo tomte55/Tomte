@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Tomte: when one feature runs into an error, the others reacting to the same game event keep working (the error still shows in BugSack).
+
 ## v1.15.2 - 2026-10-15
 
 - Fishing: the Fishing key knows more of the game's special fishing casts (quest, toy and event fishing), read from the game's own spell data.
