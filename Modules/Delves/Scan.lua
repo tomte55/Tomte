@@ -155,7 +155,29 @@ function ns.DelvesScan_ZoneName(map)
 	return info and info.name or nil
 end
 
--- The game's own entrance tooltip under the name: the story variant comes from the POI's widget set.
+-- The text lines of the POI's widget set (the story variant, "Complete 3 world quests ... to unlock"), read as plain
+-- text. GameTooltip_AddWidgetSet from addon code taints GameTooltip's widget container: Blizzard's own map tooltips
+-- then error on secret widget sizes. The read can be refused in tainted code (AllowedWhenUntainted) and its text can
+-- be secret; either way the line is left out.
+local function WidgetLines(setID)
+	local lines = {}
+	local ok, widgets = pcall(C_UIWidgetManager.GetAllWidgetsBySetID, setID)
+	if not ok or type(widgets) ~= "table" then
+		return lines
+	end
+	for _, widget in ipairs(widgets) do
+		if widget.widgetType == Enum.UIWidgetVisualizationType.TextWithState then
+			local got, info = pcall(C_UIWidgetManager.GetTextWithStateWidgetVisualizationInfo, widget.widgetID)
+			local text = got and info and info.shownState == Enum.WidgetShownState.Shown and info.text
+			if text and not ns.IsSecret(text) and text ~= "" then
+				lines[#lines + 1] = text
+			end
+		end
+	end
+	return lines
+end
+
+-- The entrance tooltip: name, bountiful, zone and the POI's widget text (the story variant).
 function ns.Delves_Tooltip(owner, e)
 	GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
 	GameTooltip:SetText(e.name or "?", ns.UI.RGB("heading"))
@@ -166,8 +188,11 @@ function ns.Delves_Tooltip(owner, e)
 	if zone then
 		GameTooltip:AddLine(zone, ns.UI.RGB("textMuted"))
 	end
-	if e.widgetSet and GameTooltip_AddWidgetSet then
-		GameTooltip_AddWidgetSet(GameTooltip, e.widgetSet)
+	if e.widgetSet then
+		local r, g, b = ns.UI.RGB("text")
+		for _, line in ipairs(WidgetLines(e.widgetSet)) do
+			GameTooltip:AddLine(line, r, g, b, true)
+		end
 	end
 	GameTooltip:AddLine("Click to track it", ns.UI.RGB("textMuted"))
 	GameTooltip:Show()
