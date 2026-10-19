@@ -2,7 +2,8 @@ local addonName, ns = ...
 
 -- Settings layout: pure logic (no WoW API calls; unit-tested in tests/test_panel_layout.lua). The groups the
 -- settings rail shows (a module's `category` is a group key), how option cards are dealt into columns, when a
--- dropdown becomes segmented buttons, and what search matches. Drawn by Sidebar.lua, ModulePage.lua and Options.lua.
+-- dropdown becomes segmented buttons, what search matches (names, descriptions, option labels and tooltips) and which
+-- shown() rows show. Drawn by Sidebar.lua, ModulePage.lua and Options.lua.
 
 -- icon: a file ID (checked against the community listfile); nil = Tomte's own icon (ns.ICON).
 -- short: the label under the icon on the rail, which is only about 60 pixels wide.
@@ -89,15 +90,35 @@ function ns.PanelLayout_UseSegments(widths, max, maxChoices)
 	return sum <= max
 end
 
--- text must already be lower case; "" matches everything. Looks at the name, summary, description and group name.
+-- text must already be lower case; "" matches everything. Looks at the name, summary, description and group name,
+-- and at the text labels, button texts and tooltips of the module's options (label functions aren't called: they
+-- can read the game).
 function ns.PanelLayout_Matches(module, groupName, text)
 	if text == "" then
 		return true
 	end
-	for _, s in ipairs({ module.name or "", module.summary or "", module.description or "", groupName or "" }) do
-		if s:lower():find(text, 1, true) then
+	local function Has(s)
+		return type(s) == "string" and s:lower():find(text, 1, true) ~= nil
+	end
+	if Has(module.name) or Has(module.summary) or Has(module.description) or Has(groupName) then
+		return true
+	end
+	for _, spec in ipairs(type(module.options) == "table" and module.options or {}) do
+		if Has(spec.label) or Has(spec.text) or Has(spec.tooltip) then
 			return true
 		end
 	end
 	return false
+end
+
+-- Which option rows with a shown() show now, as "1"/"0" in schema order (rows without shown() don't count). The
+-- options page rebuilds when this changes.
+function ns.PanelLayout_Visibility(options)
+	local marks = {}
+	for _, spec in ipairs(options or {}) do
+		if spec.shown then
+			marks[#marks + 1] = spec.shown() and "1" or "0"
+		end
+	end
+	return table.concat(marks)
 end

@@ -12,6 +12,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Map tabs: Tomte no longer opens the world map itself, which could get Blizzard's map blocked in combat afterwards. With the map open, /tomte wq, tp and collect open, Home and the zone toasts switch to their tab; with it closed they say how to get there. Home's location is no longer a map button.
 - Esc closes one Tomte window at a time: a dialog over the Tomte window closes on its own. Alt+Z and the AFK screen no longer close the Tomte window.
 - Around you shows now lists every block, Delves included; Delves' own switch moved there.
+- Settings search also finds words inside each module's settings.
 
 ## v1.15.2 - 2026-10-15
 

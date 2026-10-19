@@ -117,5 +117,37 @@ test("every module has a known group, an icon and a summary", function()
 	end
 	assert(files >= 30, "found only " .. files .. " module files")
 end)
+test("search also finds a module by its options' labels, button texts and tooltips", function()
+	local m = { name = "Gathering", options = {
+		{ type = "header", label = "Route" },
+		{ type = "checkbox", key = "recordNodes", label = "Remember node spots", tooltip = "Saves where herbs grew." },
+		{ type = "button", label = function()
+			return "dynamic"
+		end, text = "Clear spots" },
+	} }
+	eq(ns.PanelLayout_Matches(m, "Professions", "node spots"), true, "label")
+	eq(ns.PanelLayout_Matches(m, "Professions", "herbs"), true, "tooltip")
+	eq(ns.PanelLayout_Matches(m, "Professions", "clear spots"), true, "button text")
+	eq(ns.PanelLayout_Matches(m, "Professions", "route"), true, "header")
+	eq(ns.PanelLayout_Matches(m, "Professions", "dynamic"), false, "label functions aren't called")
+	eq(ns.PanelLayout_Matches({ name = "X", options = "not a table" }, nil, "y"), false)
+end)
+test("Visibility marks each shown() row, in order", function()
+	local open = true
+	local options = {
+		{ type = "checkbox", key = "a", label = "A" },
+		{ type = "button", label = "B", shown = function()
+			return open
+		end },
+		{ type = "slider", key = "c", label = "C", shown = function()
+			return nil
+		end },
+	}
+	eq(ns.PanelLayout_Visibility(options), "10")
+	open = false
+	eq(ns.PanelLayout_Visibility(options), "00")
+	eq(ns.PanelLayout_Visibility(nil), "")
+	eq(ns.PanelLayout_Visibility({ { label = "plain" } }), "", "rows without shown() don't count")
+end)
 
 H.done()
