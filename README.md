@@ -183,7 +183,8 @@ junk selling, and class helpers for hunters and rogues. The full list is below.
 
 Open the Tomte window with `/tomte`, the minimap button, the addon compartment or a key binding. `/tomte help` lists
 all commands. The window is resizable and remembers its size and position. Every module has its settings in the
-window; switch off what you don't want.
+window; switch off what you don't want. A command, key binding or button of a module that's off tells you so. In
+combat Tomte says what it can't do ("can't open the journal in combat") rather than waiting.
 
 **Reporting a bug:** `/tomte bug` opens a report to copy: versions, which modules are on, related addons and Tomte's
 last errors. Nothing is sent anywhere; paste it in a [GitHub issue](../../issues) or a CurseForge comment. `/tomte bug full` adds error details and
@@ -206,7 +207,7 @@ Home shows your character with its item level, gold, durability and location (ho
 enchants, this session's gold by source and the account total, the worst items, coordinates; click to open the
 character pane with Gear Check, the Sessions page or the durability list), the Weekly board, your
 characters, Next up, Recent and "Around you" (Collect here, World quests, Teleports, flight masters you haven't
-timed a route from with a click for a waypoint, and your mount zone favorites with a click to summon). The rail on
+timed a route from with a click for a waypoint, Delves in your zone, and your mount zone favorites with a click to summon). The rail on
 the left shows a small count beside Alts (crafting list steps for this character) and Weekly board (vault rewards
 waiting, full Concentration) when there's something to do. "Counts on the rail" and which "Around you" blocks show
 are Tomte window settings.
