@@ -9,6 +9,8 @@ local BUTTONS = 4 -- two lethal and two non-lethal with Dragon-Tempered Blades
 local SIZE, GAP = 40, 6
 local TICK = 5 -- seconds between checks out of combat (counts down "low" poisons, catches them running low)
 local ENTER_DELAY = 4 -- seconds after zoning in before the poison check
+-- Seconds to gather a burst of aura changes (a city full of buffs, applying a poison) into one rebuild.
+local AURA_DELAY = 0.2
 local UI = ns.UI
 local ICON = "Interface\\Icons\\Ability_Rogue_DualWeild"
 -- Global names: the CLICK binding in Bindings.xml needs the first button's.
@@ -327,9 +329,18 @@ end
 for _, event in ipairs({
 	"PLAYER_REGEN_ENABLED", "PLAYER_ALIVE", "PLAYER_UNGHOST", "SPELLS_CHANGED", "TRAIT_CONFIG_UPDATED",
 	"PLAYER_SPECIALIZATION_CHANGED", "PLAYER_UPDATE_RESTING", "PLAYER_CONTROL_GAINED", "PET_BATTLE_CLOSE",
-	"UNIT_AURA", "UNIT_ENTERED_VEHICLE", "UNIT_EXITED_VEHICLE",
+	"UNIT_ENTERED_VEHICLE", "UNIT_EXITED_VEHICLE",
 }) do
 	events[event] = Refresh
+end
+
+-- Aura changes come in bursts: one rebuild per burst. In combat nothing can change anyway (Refresh would return),
+-- so no timer then; a deferred Refresh that lands in combat or after Stop is handled by Refresh's own guards.
+local refreshSoon = UI.Debounce(AURA_DELAY, Refresh)
+function events:UNIT_AURA()
+	if not InCombatLockdown() then
+		refreshSoon()
+	end
 end
 
 local EVENTS = {
