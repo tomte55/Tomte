@@ -16,6 +16,7 @@ local LINE = 2 -- route line thickness in pixels
 local LINE_ALPHA = 0.6
 local PICK = 1 -- seconds between choosing the spots and legs near the player
 local PICK_RANGE = 2 -- view radii around the player that are chosen (room for moving and zooming out until the next pick)
+local REDRAW = 1 / 30 -- seconds between redraws; a rotating minimap still redraws every frame while you turn
 
 local UI = ns.UI
 
@@ -31,6 +32,8 @@ local near = {} -- spots within PICK_RANGE, with .recent set at the pick
 local legs = {} -- route legs near the player: { a, b } spots of the followed route
 local pickAt = 0
 local round, rotate = true, false
+local sinceDraw = 0
+local drawn = {} -- what the last draw used (px, py, radius, half, facing, followPos): no redraw while all the same
 
 local events = ns.Gather_Events
 
@@ -95,7 +98,7 @@ local function Pick(px, py, radius)
 	end
 end
 
--- Every frame -----------------------------------------------------------------------------------------------------
+-- Drawing -------------------------------------------------------------------------------------------------------------
 
 local function Update()
 	local radius = C_Minimap.GetViewRadius()
@@ -106,15 +109,23 @@ local function Update()
 		if followPin then
 			followPin:Hide()
 		end
+		drawn.px = nil -- the pins come back on the next good frame
 		return
 	end
-	if GetTime() >= pickAt then
+	local picked = GetTime() >= pickAt
+	if picked then
 		Pick(px, py, radius)
 	end
 	local half = Minimap:GetWidth() / 2
-	local scale = half / radius -- pixels per yard
 	local facing = rotate and Facing() or nil
 	local followMap, followPos = ns.GatherFollow_Spot()
+	if not picked and drawn.px == px and drawn.py == py and drawn.radius == radius and drawn.half == half
+		and drawn.facing == facing and drawn.followPos == followPos then
+		return -- nothing moved: the pins are where they were
+	end
+	drawn.px, drawn.py, drawn.radius, drawn.half, drawn.facing, drawn.followPos = px, py, radius, half, facing,
+		followPos
+	local scale = half / radius -- pixels per yard
 
 	local used = 0
 	local edge = half - PIN / 2
@@ -192,13 +203,22 @@ end
 
 -- Start, stop, refresh --------------------------------------------------------------------------------------------
 
+local function OnUpdate(_, elapsed)
+	sinceDraw = sinceDraw + elapsed
+	if sinceDraw < REDRAW and not (rotate and Facing() ~= drawn.facing) then
+		return
+	end
+	sinceDraw = 0
+	Update()
+end
+
 local function HideAll()
 	if holder then
 		holder:Hide()
 	end
 end
 
--- Reads the player's map and its spots again, and runs the per-frame update only while there's something to draw.
+-- Reads the player's map and its spots again, and runs the throttled update only while there's something to draw.
 function ns.GatherMini_Refresh()
 	if not (module and module.active and db.minimapPins and Minimap) then
 		HideAll()
@@ -212,6 +232,8 @@ function ns.GatherMini_Refresh()
 		mapW, mapH = C_Map.GetMapWorldSize(mapID)
 	end
 	pickAt = 0
+	wipe(drawn)
+	sinceDraw = REDRAW
 	for _, pin in ipairs(pins) do
 		pin.spot = nil
 	end
@@ -223,7 +245,7 @@ function ns.GatherMini_Refresh()
 	if not holder then
 		holder = CreateFrame("Frame", nil, Minimap)
 		holder:SetAllPoints(Minimap)
-		holder:SetScript("OnUpdate", Update)
+		holder:SetScript("OnUpdate", OnUpdate)
 	end
 	holder:SetFrameLevel(Minimap:GetFrameLevel() + 3)
 	holder:Show()
