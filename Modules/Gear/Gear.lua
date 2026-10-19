@@ -9,7 +9,7 @@ local addonName, ns = ...
 -- gems, enchants, off-spec) in Advice.lua, built-in weights and gem IDs per expansion in Data/<Expansion>/Gear.lua
 -- (picked by the character's content expansion, Scales.lua), item reading in Items.lua, the character sheet button
 -- and panel in Sheet.lua, upgrades for other characters in Alts.lua, the new-upgrade reveal and equip toast in
--- Reveal.lua.
+-- Reveal.lua, the quest reward pick in Rewards.lua (rules) and RewardCard.lua (the card).
 -- Weights: imported Pawn string per character and spec > built-in for the spec > primary 1 / secondaries 0.5.
 
 local Context = ns.Gear_OwnContext
@@ -139,6 +139,7 @@ ns.GearItems_OnReady = function()
 	if module.active then
 		InvalidateVerdicts()
 		ns.GearSheet_Refresh()
+		ns.GearRewardCard_Refresh()
 		if ns.AltsSend_OnGearReady then
 			ns.AltsSend_OnGearReady() -- the mailbox's "Gear for" groups
 		end
@@ -181,12 +182,14 @@ local function Start()
 	ns.GearSheet_Init()
 	ns.GearSlotLevels_Init()
 	ns.GearReveal_Start(db)
+	ns.GearRewardCard_Start(db)
 	C_Timer.After(ns.inWorld and 0 or 8, WeightsHint) -- at login, after the chat flood
 end
 
 local function Stop()
 	events:UnwatchAll("gear")
 	ns.GearReveal_Stop()
+	ns.GearRewardCard_Stop()
 	ns.GearWeights_HideDialog()
 	InvalidateVerdicts()
 	ns.GearSheet_Refresh()
@@ -198,6 +201,8 @@ module = ns.RegisterModule({
 	uses = {
 		{ addon = "Baganator", why = "upgrade arrows on your bag items", without = "no upgrade arrows in bags" },
 		{ addon = "Simulationcraft", why = "the /simc export for Raidbots Top Gear", without = "no /simc export" },
+		{ addon = "DialogueUI", why = "the quest reward pick sits above its window",
+			without = "the reward pick stays where Edit Mode puts it" },
 	},
 	replaces = { { addon = "Pawn", why = "upgrade verdicts on item tooltips" } },
 	home = {
@@ -218,7 +223,8 @@ module = ns.RegisterModule({
 		.. "with effects are marked to sim instead of guessed; while leveling, higher item level wins. Also: upgrades for your other specs, the best gem "
 		.. "for empty sockets, missing enchants, and item levels on the character sheet and Inspect slots. Can mark upgrades in Baganator and reveal new upgrades as a moment "
 		.. "with a click-to-equip toast. Warbound and Bind on Equip gear also says which of your other characters "
-		.. "it's an upgrade for.",
+		.. "it's an upgrade for. When a quest lets you choose a reward, a card names the best one for you and the one "
+		.. "that sells for the most.",
 	enabledByDefault = true,
 	toasts = "Gear upgrades",
 	defaults = {
@@ -246,6 +252,8 @@ module = ns.RegisterModule({
 		altUpgrades = "all", -- all | max | off: other characters judged on tooltips, Baganator and the mailbox
 		altBaganator = true,
 		altMail = true,
+		rewardPick = true,
+		rewardCard = { point = "TOP", relPoint = "TOP", x = 0, y = -120 }, -- the reward card's spot (Edit Mode)
 	},
 	noShare = { "sheetOpen" }, -- not in settings strings (Core/Profile.lua)
 	init = function(moduleDB)
@@ -332,6 +340,12 @@ module = ns.RegisterModule({
 			tooltip = "In Send to alt's \"For your alts\" panel: a \"Gear for Mira\" group with the Bind on Equip "
 				.. "upgrades for them. Warbound ones go through the Warband bank instead: \"Deposit for alts\" at the "
 				.. "bank puts them there. Needs Alts' \"For your alts\" at the mailbox." },
+		{ type = "header", label = "Quest rewards" },
+		{ type = "checkbox", key = "rewardPick", label = "Reward pick", onChange = function()
+			ns.GearRewardCard_Refresh()
+		end, tooltip = "When a quest lets you choose a reward, a card names the best one for you (as the tooltips judge "
+			.. "it) and the one that sells for the most. With DialogueUI it sits above its window, else move it in "
+			.. "Edit Mode." },
 		{ type = "header", label = "Upgrade reveal" },
 		{ type = "checkbox", key = "reveal", label = "Reveal new upgrades",
 			tooltip = "When gear that's new to your bags (loot, quest rewards, the vault, mail) is a clean upgrade, show "
