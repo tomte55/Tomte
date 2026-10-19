@@ -878,3 +878,12 @@ function ns.Weekly_HomeTodo(v, learned)
 	end
 	return open
 end
+
+-- Which read a burst of refresh requests needs: "light" (currencies and profession knowledge) only while every
+-- request asked for light, else "full". Anything but "light" is full.
+function ns.Weekly_MergeRefresh(pending, kind)
+	if kind == "light" and (pending == nil or pending == "light") then
+		return "light"
+	end
+	return "full"
+end

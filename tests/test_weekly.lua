@@ -474,4 +474,13 @@ test("home todo: open first, then done; knowledge, quests and capped crests", fu
 	eq(ns.Weekly_HomeTodo({ profs = {}, quests = {}, currencies = {} }, {})[1], nil, "empty")
 end)
 
+test("MergeRefresh: light only while every request in the burst was light", function()
+	eq(ns.Weekly_MergeRefresh(nil, "light"), "light")
+	eq(ns.Weekly_MergeRefresh("light", "light"), "light")
+	eq(ns.Weekly_MergeRefresh("light", "full"), "full")
+	eq(ns.Weekly_MergeRefresh("full", "light"), "full")
+	eq(ns.Weekly_MergeRefresh(nil, nil), "full", "no kind is a full read")
+	eq(ns.Weekly_MergeRefresh(nil, {}), "full", "an event frame or timer passed by mistake")
+end)
+
 H.done()

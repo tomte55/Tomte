@@ -3,15 +3,16 @@ local addonName, ns = ...
 -- Weekly board: reads the game into the current character's snapshot (TomteDB.weekly.chars[guid]) and learns weekly
 -- quests from the quest log. Only characters at their content expansion's max level get a snapshot (ns.ContentAtMax:
 -- a Midnight owner's level 80 alt gets a War Within one), and it stores that expansion. Nothing is read in combat;
--- refreshes are debounced to one per DEBOUNCE seconds. Each part is read on its own, so one failing API leaves the
+-- refreshes are debounced to one per DEBOUNCE seconds, and currency and loot events read only crests, renown and
+-- professions. Each part is read on its own, so one failing API leaves the
 -- others working. Weekly.lua starts and stops it; ns.Weekly_Changed runs after every refresh.
 
-local DEBOUNCE = 3 -- currency and loot events come in bursts while farming; one full read per burst
+local DEBOUNCE = 3 -- currency and loot events come in bursts while farming; one read per burst
 local RESET_SLACK = 30 -- seconds after the weekly reset before reading again
 local WEEK = 7 * 86400
 
 local db, guid
-local pending, resetTimer
+local pending, resetTimer -- pending: nil | "light" | "full", the read the waiting burst needs
 local turnedIn = {} -- [questID] = true, this session (the completed flag can lag behind the turn-in)
 
 local events = CreateFrame("Frame")
@@ -187,12 +188,15 @@ local function ScheduleResetRefresh(snap, now)
 	end
 	local wait = snap.nextReset and snap.nextReset - now + RESET_SLACK
 	if wait and wait > 0 and wait < WEEK then
-		resetTimer = C_Timer.NewTimer(wait, ns.WeeklyCollect_Request)
+		resetTimer = C_Timer.NewTimer(wait, function()
+			ns.WeeklyCollect_Request() -- not the timer as kind
+		end)
 	end
 end
 
 local function Refresh()
-	pending = false
+	local kind = pending
+	pending = nil
 	if not db then
 		return
 	end
@@ -206,7 +210,18 @@ local function Refresh()
 	end
 	guid = UnitGUID("player")
 	local now = GetServerTime()
-	local snap = db.chars[guid] or {}
+	local snap = db.chars[guid]
+	if kind == "light" and snap and snap.expansion then
+		-- Crests, renown progress, Concentration and knowledge from a looted treasure; the vault, quest log and lockouts
+		-- have their own events.
+		snap.seen = now
+		Read(ReadCurrencies, snap, now)
+		Read(ReadRenown, snap, now)
+		Read(ReadProfs, snap, now)
+		ns.Weekly_Changed()
+		return
+	end
+	snap = snap or {}
 	db.chars[guid] = snap
 	snap.guid = guid
 	snap.name = UnitName("player")
@@ -232,21 +247,32 @@ local function Refresh()
 	ns.Weekly_Changed()
 end
 
-function ns.WeeklyCollect_Request()
-	if not db or pending then
+-- kind: "light" (currencies and profession knowledge) or nil for a full read.
+function ns.WeeklyCollect_Request(kind)
+	if not db then
 		return
 	end
-	pending = true
-	C_Timer.After(DEBOUNCE, Refresh)
+	local waiting = pending ~= nil
+	pending = ns.Weekly_MergeRefresh(pending, kind)
+	if not waiting then
+		C_Timer.After(DEBOUNCE, Refresh)
+	end
 end
 
 local REFRESH_EVENTS = {
-	"WEEKLY_REWARDS_UPDATE", "CURRENCY_DISPLAY_UPDATE", "MAJOR_FACTION_RENOWN_LEVEL_CHANGED", "MAJOR_FACTION_UNLOCKED",
-	"UPDATE_INSTANCE_INFO", "QUEST_ACCEPTED", "QUEST_REMOVED", "TRADE_SKILL_SHOW", "SKILL_LINES_CHANGED", "LOOT_CLOSED",
-	"PLAYER_LEVEL_UP",
+	"WEEKLY_REWARDS_UPDATE", "MAJOR_FACTION_RENOWN_LEVEL_CHANGED", "MAJOR_FACTION_UNLOCKED", "UPDATE_INSTANCE_INFO",
+	"QUEST_ACCEPTED", "QUEST_REMOVED", "TRADE_SKILL_SHOW", "SKILL_LINES_CHANGED", "PLAYER_LEVEL_UP",
 }
+local LIGHT_EVENTS = { "CURRENCY_DISPLAY_UPDATE", "LOOT_CLOSED" } -- every few seconds while farming
 for _, event in ipairs(REFRESH_EVENTS) do
-	events[event] = ns.WeeklyCollect_Request
+	events[event] = function()
+		ns.WeeklyCollect_Request()
+	end
+end
+for _, event in ipairs(LIGHT_EVENTS) do
+	events[event] = function()
+		ns.WeeklyCollect_Request("light")
+	end
 end
 
 function events:PLAYER_ENTERING_WORLD()
@@ -280,6 +306,9 @@ end
 function ns.WeeklyCollect_Start(moduleDB)
 	db = moduleDB
 	for _, event in ipairs(REFRESH_EVENTS) do
+		events:RegisterEvent(event)
+	end
+	for _, event in ipairs(LIGHT_EVENTS) do
 		events:RegisterEvent(event)
 	end
 	events:RegisterEvent("PLAYER_ENTERING_WORLD")
