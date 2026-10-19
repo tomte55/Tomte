@@ -17,6 +17,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - 3D previews and the tracker minus button: small fixes (fewer checks while hovering, no stuck scroll drag).
 - World quests and Gold world quests: right-click no longer moves the world map (it could get the map blocked in combat afterwards). On the World quests tab right-click stops tracking; in the Gold window it does nothing on a quest.
 - Pet Battles: the Heal button only shows after a battle when you can heal (Revive Battle Pets learned or a bandage in your bags; the tamer card's button says why not), and its key does nothing while Pet Battles is off.
+- AFK Screen: closes for summons, duels, trades, invites and the game's other popups, so you can answer them.
 
 ## v1.15.2 - 2026-10-15
 

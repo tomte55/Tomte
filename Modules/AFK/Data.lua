@@ -58,5 +58,36 @@ function ns.AFK_VisibleWhispers(list, n)
 	return shown, (first - 1) + (list.dropped or 0)
 end
 
+-- Popups the AFK screen gives way to: it closes for the rest of this AFK so the popup can be seen. true = always,
+-- { arg, value } = only when the payload's arg-th value is value. Names and payloads from warcraft.wiki.gg,
+-- 2026-10-19. UPDATE_BATTLEFIELD_STATUS is handled in AFK.lua: it needs GetBattlefieldStatus.
+ns.AFK_INTERRUPTS = {
+	LFG_PROPOSAL_SHOW = true, -- a Dungeon or Raid Finder group is ready
+	READY_CHECK = true,
+	PARTY_INVITE_REQUEST = true,
+	CONFIRM_SUMMON = true,
+	LFG_ROLE_CHECK_SHOW = true,
+	LFG_READY_CHECK_SHOW = true,
+	LFG_LIST_APPLICATION_STATUS_UPDATED = { arg = 2, value = "invited" }, -- searchResultID, newStatus, ...
+	PET_BATTLE_QUEUE_PROPOSE_MATCH = true, -- a PvP pet battle was found
+	DUEL_REQUESTED = true,
+	TRADE_REQUEST = true,
+	TRADE_SHOW = true, -- a trade usually opens straight away, without a request
+	RESURRECT_REQUEST = true,
+	GUILD_INVITE_REQUEST = true,
+	GROUP_INVITE_CONFIRMATION = true, -- someone in your group wants to invite a player
+}
+
+function ns.AFK_Interrupts(event, ...)
+	local rule = ns.AFK_INTERRUPTS[event]
+	if rule == true then
+		return true
+	end
+	if type(rule) == "table" then
+		return select("#", ...) >= rule.arg and (select(rule.arg, ...)) == rule.value
+	end
+	return false
+end
+
 -- Money text with coin icons lives in Core/Format.lua; this name stays for the callers.
 ns.AFK_MoneyText = ns.Coins

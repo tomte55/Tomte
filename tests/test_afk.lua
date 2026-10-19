@@ -96,4 +96,34 @@ test("MoneyText keeps silver next to gold when detailed", function()
 	eq(ns.AFK_MoneyText(5612, true, icons), "56s 12c")
 end)
 
+test("interrupts: every entry is an event name with a rule", function()
+	for event, rule in pairs(ns.AFK_INTERRUPTS) do
+		eq(event:match("^[A-Z_]+$") ~= nil, true, "name " .. event)
+		eq(rule == true or (type(rule) == "table" and type(rule.arg) == "number" and rule.value ~= nil), true,
+			"rule " .. event)
+	end
+end)
+
+test("interrupts: popups close the screen", function()
+	for _, event in ipairs({ "LFG_PROPOSAL_SHOW", "READY_CHECK", "PARTY_INVITE_REQUEST", "CONFIRM_SUMMON",
+		"LFG_ROLE_CHECK_SHOW", "LFG_READY_CHECK_SHOW", "PET_BATTLE_QUEUE_PROPOSE_MATCH", "DUEL_REQUESTED",
+		"TRADE_REQUEST", "TRADE_SHOW", "RESURRECT_REQUEST", "GUILD_INVITE_REQUEST", "GROUP_INVITE_CONFIRMATION" }) do
+		eq(ns.AFK_Interrupts(event), true, event)
+	end
+end)
+
+test("interrupts: a premade group application only when invited", function()
+	local event = "LFG_LIST_APPLICATION_STATUS_UPDATED" -- searchResultID, newStatus, oldStatus, groupName
+	eq(ns.AFK_Interrupts(event, 12, "invited", "applied", "Mira's keys"), true)
+	eq(ns.AFK_Interrupts(event, 12, "applied", "none", "Mira's keys"), false)
+	eq(ns.AFK_Interrupts(event, 12, "declined", "applied", "Mira's keys"), false)
+	eq(ns.AFK_Interrupts(event, 12, "inviteaccepted", "invited", "Mira's keys"), false)
+	eq(ns.AFK_Interrupts(event), false, "no payload")
+end)
+
+test("interrupts: anything else doesn't", function()
+	eq(ns.AFK_Interrupts("CHAT_MSG_WHISPER", "hi", "Aldric"), false)
+	eq(ns.AFK_Interrupts("UPDATE_BATTLEFIELD_STATUS", 1), false, "AFK.lua checks the status itself")
+end)
+
 H.done()

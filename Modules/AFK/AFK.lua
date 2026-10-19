@@ -2,16 +2,16 @@ local addonName, ns = ...
 
 -- AFK Screen module: while the game flags you AFK, the cinematic engine shows the AFK scene (orbiting
 -- camera, letterbox, character showcase, time away, clock, session stats, whispers received). Click or Esc
--- closes it and clears the AFK flag; a queue pop, ready check or invite closes it so the popup is visible.
+-- closes it and clears the AFK flag; a popup (queue pop, ready check, invite, summon, duel, trade ...; Data.lua lists
+-- them) closes it so it's visible.
 -- The scene's layout is in Scene.lua, pure logic in Data.lua. Nothing ticks while you're not AFK.
 
 local TICK = 1 -- seconds between checks while AFK and the screen isn't up
 local RESUME_DELAY = 20 -- combat paused the screen: back after this long idle
 local MAX_WHISPERS = 20
 local EVENTS = { "PLAYER_ENTERING_WORLD", "PLAYER_FLAGS_CHANGED" }
-local AWAY_EVENTS = { -- only while AFK
-	"CHAT_MSG_WHISPER", "CHAT_MSG_BN_WHISPER",
-	"LFG_PROPOSAL_SHOW", "UPDATE_BATTLEFIELD_STATUS", "READY_CHECK", "PARTY_INVITE_REQUEST",
+local AWAY_EVENTS = { -- only while AFK; the popups of ns.AFK_INTERRUPTS (Data.lua) are added below Interrupt
+	"CHAT_MSG_WHISPER", "CHAT_MSG_BN_WHISPER", "UPDATE_BATTLEFIELD_STATUS",
 }
 local SAMPLE_AWAY = 754 -- seconds: the preview reads "Away for 12:34"
 local SAMPLE_WHISPERS = {
@@ -242,9 +242,17 @@ local function Interrupt()
 	end
 end
 
-events.LFG_PROPOSAL_SHOW = Interrupt
-events.READY_CHECK = Interrupt
-events.PARTY_INVITE_REQUEST = Interrupt
+-- One handler per popup event; an event this client doesn't know is skipped (RegisterEvent would error).
+for event in pairs(ns.AFK_INTERRUPTS) do
+	if C_EventUtils.IsEventValid(event) then
+		AWAY_EVENTS[#AWAY_EVENTS + 1] = event
+		events[event] = function(_, ...)
+			if (select("#", ...) == 0 or ns.Readable(...)) and ns.AFK_Interrupts(event, ...) then
+				Interrupt()
+			end
+		end
+	end
+end
 
 function events:UPDATE_BATTLEFIELD_STATUS(index)
 	if index and GetBattlefieldStatus(index) == "confirm" then
