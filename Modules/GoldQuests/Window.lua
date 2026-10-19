@@ -455,7 +455,7 @@ function Draw()
 		frame.charsButton.label:SetText("Characters")
 		height = DrawGold(model)
 	end
-	frame.routeButton.label:SetText(ns.WQRoute_Active() and "Stop route" or "Route")
+	frame.routeButton.label:SetText(ns.WQRoute_ButtonText())
 	UI.FitButton(frame.routeButton, 56, 16)
 	UI.FitButton(frame.charsButton, 56, 16)
 	frame.scroll:SetContentHeight(height)
@@ -584,24 +584,25 @@ local function Build()
 	frame.routeButton = UI.Button(frame, 60, "Route")
 	frame.routeButton:SetPoint("RIGHT", frame.charsButton, "LEFT", -4, 0)
 	frame.routeButton:SetScript("OnClick", function()
-		if ns.WQRoute_Active() then
-			ns.WQRoute_Stop()
-		else
-			ns.Gold_StartRoute()
-		end
+		ns.WQRoute_Click(ns.Gold_StartRoute)
 		Draw()
 	end)
 	frame.routeButton:HookScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
-		if ns.WQRoute_Active() then
-			GameTooltip:SetText("Stop the route", 1, 1, 1)
-			if ns.WQRoute_Owner() ~= "wgq" then
-				Line("Started in the World quests map tab.", "textMuted")
-			end
+		if ns.WQRoute_Paused() then
+			GameTooltip:SetText("Resume route", UI.Color("heading"))
+			Line("You tracked something else, so the route stepped aside. Click to track its next stop again.",
+				"text", true)
+			Line("Shift-click: stop the route", "accent")
+		elseif ns.WQRoute_Active() then
+			GameTooltip:SetText("Stop the route", UI.Color("heading"))
 		else
-			GameTooltip:SetText("Route", 1, 1, 1)
+			GameTooltip:SetText("Route", UI.Color("heading"))
 			Line("Tracks the gold world quests one by one, nearest first from where you stand. Hand one in and the "
 				.. "next is tracked.", "text", true)
+		end
+		if ns.WQRoute_Active() and ns.WQRoute_Owner() ~= "wgq" then
+			Line("Started in the World quests map tab.", "textMuted")
 		end
 		GameTooltip:Show()
 	end)

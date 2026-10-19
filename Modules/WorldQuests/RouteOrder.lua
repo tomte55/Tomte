@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
--- World quest routes: the order to visit stops in (pure, no WoW API; tests/test_gold.lua). Route.lua reads the spots
--- and runs the route.
+-- World quest routes: the order to visit stops in, and what a running route does next (pure, no WoW API; order in
+-- tests/test_gold.lua, running in tests/test_wq_route.lua). Route.lua reads the spots and the game and runs the route.
 
 local sqrt = math.sqrt
 
@@ -106,4 +106,42 @@ function ns.WQ_RouteOrder(stops, start)
 		end
 	end
 	return ids
+end
+
+-- Running a route: what to do after something changed. r = { ids, current, paused }: the stops left in order, the
+-- stop tracked last (nil before the first) and whether the player stepped aside. up = { [questID] = true } for the
+-- quests still up; an empty up (the provider read nothing: an instance, a cache that was just cleared) can't tell
+-- what is gone, so the stops stay. tracked: the quest the game super-tracks now, 0 for nothing, -1 for something that isn't a quest
+-- (a map pin, a delve), nil when it can't tell (a track waiting for the end of combat, your corpse).
+-- Returns the stops still up, in order, and one action: "done" (none left), "track" (track ids[1]), "pause" (the
+-- player tracks something else), "resume" (paused, and the player tracked the current stop again) or nil.
+function ns.WQRoute_Step(r, up, tracked)
+	if #r.ids > 0 and next(up) == nil then
+		return r.ids, nil
+	end
+	local ids, hasCurrent = {}, false
+	for _, id in ipairs(r.ids) do
+		if up[id] then
+			ids[#ids + 1] = id
+			if id == r.current then
+				hasCurrent = true
+			end
+		end
+	end
+	if #ids == 0 then
+		return ids, "done"
+	end
+	if r.paused then
+		if hasCurrent and tracked == r.current then
+			return ids, "resume"
+		end
+		return ids, nil
+	end
+	if not hasCurrent then
+		return ids, "track"
+	end
+	if tracked ~= nil and tracked ~= r.current then
+		return ids, "pause"
+	end
+	return ids, nil
 end

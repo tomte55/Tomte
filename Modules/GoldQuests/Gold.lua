@@ -132,12 +132,13 @@ end)
 
 -- Route (Modules/WorldQuests/Route.lua) ---------------------------------------------------------------------------
 
--- The gold quests up in an expansion's zones, read without touching the window's model.
+-- The gold quests up in an expansion's zones, read without touching the window's model. A quest whose reward isn't
+-- loaded (again) is still up: the route keeps it.
 local function GoldUp(expansion)
 	local list = {}
 	local quests = ns.WQ_ForZones(ns.Content_Get(expansion, "goldZones") or {})
 	for _, q in ipairs(quests) do
-		if q.loaded and q.money > 0 then
+		if not q.loaded or q.money > 0 then
 			list[#list + 1] = q
 		end
 	end

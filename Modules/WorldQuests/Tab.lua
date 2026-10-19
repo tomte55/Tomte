@@ -538,7 +538,7 @@ local function StartRoute()
 end
 
 local function UpdateRouteButton()
-	panel.route.label:SetText(ns.WQRoute_Active() and "Stop route" or "Route")
+	panel.route.label:SetText(ns.WQRoute_ButtonText())
 	UI.FitButton(panel.route, 56, 16)
 end
 
@@ -573,23 +573,24 @@ local function Build()
 	panel.route = UI.Button(panel, 60, "Route")
 	panel.route:SetPoint("TOPRIGHT", -10, -8)
 	panel.route:SetScript("OnClick", function()
-		if ns.WQRoute_Active() then
-			ns.WQRoute_Stop()
-		else
-			StartRoute()
-		end
+		ns.WQRoute_Click(StartRoute)
 	end)
 	panel.route:HookScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
-		if ns.WQRoute_Active() then
-			GameTooltip:SetText("Stop the route", 1, 1, 1)
-			if ns.WQRoute_Owner() ~= "wq" then
-				Line("Started in the Gold world quests window.", "textMuted")
-			end
+		if ns.WQRoute_Paused() then
+			GameTooltip:SetText("Resume route", UI.Color("heading"))
+			Line("You tracked something else, so the route stepped aside. Click to track its next stop again.",
+				"text", true)
+			Line("Shift-click: stop the route", "accent")
+		elseif ns.WQRoute_Active() then
+			GameTooltip:SetText("Stop the route", UI.Color("heading"))
 		else
-			GameTooltip:SetText("Route", 1, 1, 1)
+			GameTooltip:SetText("Route", UI.Color("heading"))
 			Line("Tracks the quests listed here one by one, nearest first from where you stand. Hand one in and the "
 				.. "next is tracked. Fold a section to leave its quests out.", "text", true)
+		end
+		if ns.WQRoute_Active() and ns.WQRoute_Owner() ~= "wq" then
+			Line("Started in the Gold world quests window.", "textMuted")
 		end
 		GameTooltip:Show()
 	end)
