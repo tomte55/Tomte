@@ -130,9 +130,9 @@ module = ns.RegisterModule({
 		ns.FishingKey_Toggle(active)
 	end,
 	commands = {
-		{ "", "open the Fishing options", Open, hidden = true },
-		{ "options", "open the Fishing options", Open },
-		{ "status", "key, soft interact, helpers and pending restores", Status },
+		{ "", "open the Fishing options", Open, hidden = true, whileOff = true },
+		{ "options", "open the Fishing options", Open, whileOff = true },
+		{ "status", "key, soft interact, helpers and pending restores", Status, whileOff = true },
 	},
 	options = {
 		{ type = "header", label = "Key" },

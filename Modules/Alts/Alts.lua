@@ -498,7 +498,7 @@ module = ns.RegisterModule({
 		{ "open", "open the Alts page", function()
 			ns.Panel_OpenPage("alts")
 		end },
-		{ "forget", "forget a character everywhere: /tomte alts forget <name>[-<realm>]", Forget },
+		{ "forget", "forget a character everywhere: /tomte alts forget <name>[-<realm>]", Forget, whileOff = true },
 		{ "why", "why Materials on hand keeps or drops a recipe: /tomte alts why <recipe>", function(text)
 			ns.AltsCraft_Why(text)
 		end },

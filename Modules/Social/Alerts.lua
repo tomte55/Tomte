@@ -142,8 +142,7 @@ local function SoundInBackground()
 end
 
 local function Test()
-	if not module.active then
-		ns.Print("Group Alerts is off.")
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	ns.Social_PlaySound(ns.alertsDB.sound)

@@ -427,8 +427,7 @@ function ns.Share_Forget(tag)
 end
 
 local function Sync()
-	if not module.active then
-		ns.Print("Friend sharing is off.")
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	local n = HelloAll()

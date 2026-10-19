@@ -420,6 +420,6 @@ module = ns.RegisterModule({
 			wipe(db.entries)
 			UpdateDot()
 			ns.Print("Recent cleared.")
-		end },
+		end, whileOff = true },
 	},
 })

@@ -406,14 +406,6 @@ local function Deactivate()
 	StopPreview()
 end
 
-local function RequireActive()
-	if module.active then
-		return true
-	end
-	ns.Print("Flight Timer is off.")
-	return false
-end
-
 local function Seconds(value)
 	return value .. "s"
 end
@@ -560,16 +552,16 @@ module = ns.RegisterModule({
 	panelClosed = StopPreview,
 	commands = {
 		{ "stats", "show flight stats", PrintStats },
-		{ "resetstats", "clear flight stats", ResetStats },
-		{ "reset", "forget all recorded flight times", ResetTimes },
+		{ "resetstats", "clear flight stats", ResetStats, whileOff = true },
+		{ "reset", "forget all recorded flight times", ResetTimes, whileOff = true },
 		{ "lock", "lock the timer bar", function()
-			if RequireActive() then
+			if ns.Module_RequireOn(module) then
 				ns.Bar_SetLocked(true)
 				ns.Print("bar locked.")
 			end
 		end },
 		{ "unlock", "move the timer bar", function()
-			if RequireActive() then
+			if ns.Module_RequireOn(module) then
 				ns.Bar_SetLocked(false)
 				ns.Print("drag the bar, then /tomte flight lock.")
 			end

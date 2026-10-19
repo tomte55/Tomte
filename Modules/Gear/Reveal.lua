@@ -320,8 +320,7 @@ end)
 
 -- /tomte gear upgrades: reveal the clean upgrades already in the bags.
 function ns.GearReveal_ShowBags()
-	if not ns.gearModule.active then
-		ns.Print("Gear Check is off.")
+	if not ns.Module_RequireOn(ns.gearModule) then
 		return
 	end
 	local list = {}

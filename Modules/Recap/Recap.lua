@@ -158,11 +158,7 @@ end)
 
 -- Commands and buttons while the module is off: says so and returns true.
 local function IsOff()
-	if not module.active then
-		ns.Print("Session recap is off.")
-		return true
-	end
-	return false
+	return not ns.Module_RequireOn(module)
 end
 
 local function PlayOrSay(state)

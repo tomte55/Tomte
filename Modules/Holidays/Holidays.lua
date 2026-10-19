@@ -418,16 +418,8 @@ end
 
 -- Commands --------------------------------------------------------------------------------------------------------
 
-local function RequireActive()
-	if not module.active then
-		ns.Print("Holidays & events is off.")
-		return false
-	end
-	return true
-end
-
 local function List()
-	if not RequireActive() then
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	local s = ns.Events_Current(true)
@@ -507,7 +499,7 @@ local function Ids()
 end
 
 local function Test()
-	if not RequireActive() then
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	ShowStartToast({ key = "sample", name = "Hallow's End", texture = 235461, endsIn = 6 * 1440 },

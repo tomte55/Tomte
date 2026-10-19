@@ -596,8 +596,7 @@ local SAMPLES = {
 
 -- "mount legendary": a type and, for creatures, a tier.
 local function Preview(text)
-	if not module.active then
-		ns.Print("Moments is off.")
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	local kind, tier = (text or ""):match("^(%S*)%s*(%S*)")

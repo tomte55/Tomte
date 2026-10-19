@@ -227,28 +227,20 @@ local EVENTS = { "PLAYER_ENTERING_WORLD", "QUEST_LOG_UPDATE", "GET_ITEM_INFO_REC
 
 -- Commands --------------------------------------------------------------------------------------------------------
 
-local function RequireActive()
-	if not module.active then
-		ns.Print("Gold world quests is off.")
-		return false
-	end
-	return true
-end
-
 local function Toggle()
-	if RequireActive() then
+	if ns.Module_RequireOn(module) then
 		ns.GoldWindow_Toggle()
 	end
 end
 
 local function Open()
-	if RequireActive() then
+	if ns.Module_RequireOn(module) then
 		ns.GoldWindow_Show()
 	end
 end
 
 local function List()
-	if not RequireActive() then
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	local model = ns.Gold_Scan()
@@ -266,7 +258,7 @@ local function List()
 end
 
 local function Report()
-	if not RequireActive() then
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	UpdateChar()
@@ -288,7 +280,7 @@ local function Report()
 end
 
 local function Route()
-	if RequireActive() then
+	if ns.Module_RequireOn(module) then
 		ns.Gold_StartRoute()
 	end
 end
@@ -301,11 +293,10 @@ local function ResetPlace()
 	ns.GoldWindow_ResetPlace()
 end
 
-ns.bindings.GOLD = function()
-	if module and module.active then
-		ns.GoldWindow_Toggle()
-	end
-end
+-- Key bindings (Bindings.xml, Key Bindings > Tomte), through ns.Binding_Add.
+ns.Binding_Add("GOLD", "wgq", function()
+	ns.GoldWindow_Toggle()
+end)
 BINDING_NAME_TOMTE_GOLD = "Gold world quests window"
 
 module = ns.RegisterModule({
@@ -383,7 +374,7 @@ module = ns.RegisterModule({
 		{ "route", "track the gold world quests one by one, nearest first", Route },
 		{ "stop", "stop the route (also one started in the World quests map tab)", Stop },
 		{ "report", "world quest gold and caches per character, in chat", Report },
-		{ "reset", "put the window back in the middle at its first size", ResetPlace },
+		{ "reset", "put the window back in the middle at its first size", ResetPlace, whileOff = true },
 	},
 	options = {
 		{ type = "header", label = "Window" },

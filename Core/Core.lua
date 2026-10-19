@@ -45,6 +45,22 @@ function ns.Print_Combat(action)
 	ns.Print(("can't %s in combat."):format(action))
 end
 
+-- True when the module (table or key) is running; otherwise says it's off (or why it can't run) and returns false.
+-- For buttons, key bindings and anything else a player can reach while the module is off.
+function ns.Module_RequireOn(module)
+	if type(module) == "string" then
+		module = ns.modulesByKey[module]
+	end
+	if not module then
+		return false
+	end
+	if module.active then
+		return true
+	end
+	ns.Print(ns.Module_OffText(module, ns.ModuleBlockedReason(module)))
+	return false
+end
+
 -- Smoothstep easing: 0..1 -> 0..1, slow at both ends. Doesn't clamp p; callers that can overshoot clamp first.
 function ns.Smoothstep(p)
 	return p * p * (3 - 2 * p)
@@ -181,30 +197,39 @@ local function PrintHelp()
 end
 
 -- "preview mount" runs the "preview" command with "mount". Text that matches no command goes to the module's
--- fallbackCommand (if it has one and its pattern matches), with the whole text.
+-- fallbackCommand (if it has one and its pattern matches), with the whole text. While the module is off a command
+-- only says so, unless it's marked whileOff.
 -- Handlers get the text lowercased, then as typed (item links and names keep their case):
 --   cmd[3](arg, rawArg)  fallback[3](text, rawText)
 local function RunModuleCommand(module, text, rawText)
 	rawText = rawText or text
 	local name, arg = text:match("^(%S*)%s*(.-)$")
 	local rawArg = rawText:match("^%S*%s*(.-)$")
+	local found
 	for _, cmd in ipairs(module.commands) do
 		if cmd[1] == name then
-			cmd[3](arg, rawArg)
-			return
+			found = cmd
+			break
 		end
 	end
 	local fallback = module.fallbackCommand
-	if fallback and text:match(fallback.pattern) then
-		fallback[3](text, rawText)
+	if not found and fallback and text:match(fallback.pattern) then
+		found, arg, rawArg = fallback, text, rawText
+	end
+	if not found then
+		ns.Print(module.name .. " commands:")
+		PrintModuleCommands(module)
 		return
 	end
-	ns.Print(module.name .. " commands:")
-	PrintModuleCommands(module)
+	if not ns.Module_CommandAllowed(module, found) then
+		ns.Print(ns.Module_OffText(module, ns.ModuleBlockedReason(module)))
+		return
+	end
+	found[3](arg, rawArg)
 end
 
--- Keybinds (Bindings.xml, Key Bindings > Tomte): the binding scripts need a global. Modules add their own
--- handlers to ns.bindings (they check that they're on); TOGGLE is the window's.
+-- Keybinds (Bindings.xml, Key Bindings > Tomte): the binding scripts need a global. Modules add theirs with
+-- ns.Binding_Add; TOGGLE is the window's.
 ns.bindings = {
 	TOGGLE = function()
 		ns.Panel_Toggle()
@@ -217,6 +242,15 @@ function Tomte_Binding(name)
 	end
 end
 BINDING_NAME_TOMTE_TOGGLE = "Toggle Tomte"
+
+-- A key binding of moduleKey's: fn runs while that module is on; while it's off the key says so.
+function ns.Binding_Add(name, moduleKey, fn)
+	ns.bindings[name] = function()
+		if ns.Module_RequireOn(moduleKey) then
+			fn()
+		end
+	end
+end
 
 SLASH_TOMTE1 = "/tomte"
 SlashCmdList.TOMTE = function(msg)

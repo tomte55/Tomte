@@ -212,8 +212,7 @@ local function OnWordsChange()
 end
 
 local function PrintKeywords()
-	if not module.active then
-		ns.Print("Trade Filter is off.")
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	RebuildWords()
@@ -228,8 +227,7 @@ local function PrintKeywords()
 end
 
 local function PrintStats()
-	if not module.active then
-		ns.Print("Trade Filter is off.")
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	ns.Print(("Trade Filter this session: %d hidden, %d shown%s."):format(stats.hidden, stats.shown,
@@ -237,8 +235,7 @@ local function PrintStats()
 end
 
 local function Preview()
-	if not module.active then
-		ns.Print("Trade Filter is off.")
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	ShowToast("Trade", "Thrall", nil, "LF blacksmith for a crafting order, paying well", nil, true)

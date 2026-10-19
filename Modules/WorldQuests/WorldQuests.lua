@@ -137,16 +137,8 @@ end
 
 -- Commands ------------------------------------------------------------------------------------------------------
 
-local function RequireActive()
-	if not module.active then
-		ns.Print("World quests is off.")
-		return false
-	end
-	return true
-end
-
 local function Here()
-	if not RequireActive() then
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	local quests, name, kind, _, pending = ns.WQ_ForMap(C_Map.GetBestMapForUnit("player"))
@@ -169,7 +161,7 @@ local function Here()
 end
 
 local function Test()
-	if not RequireActive() then
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	ShowToast("Hallowfall", { { title = "Sample Quest", what = "Mount: Sample Drake" },

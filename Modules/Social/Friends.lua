@@ -309,8 +309,7 @@ function events:CHAT_MSG_SYSTEM(text)
 end
 
 local function Preview()
-	if not module.active then
-		ns.Print("Friends Online is off.")
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	Summary(true)

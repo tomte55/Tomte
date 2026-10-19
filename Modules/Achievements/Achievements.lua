@@ -320,23 +320,15 @@ end
 
 -- Commands and options ----------------------------------------------------------------------------------------
 
-local function RequireActive()
-	if not module.active then
-		ns.Print("Almost Done is off.")
-		return false
-	end
-	return true
-end
-
 local function Rescan()
-	if RequireActive() then
+	if ns.Module_RequireOn(module) then
 		ns.Ach_StartScan()
 		ns.Print("scanning achievements...")
 	end
 end
 
 local function Test()
-	if not RequireActive() then
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	local list = ns.Ach_List("")
@@ -460,19 +452,19 @@ module = ns.RegisterModule({
 	commands = {
 		{ "scan", "scan all achievements again", Rescan },
 		{ "tracker", "show or hide the Top 5 tracker", function()
-			if RequireActive() then
+			if ns.Module_RequireOn(module) then
 				db.tracker.shown = not db.tracker.shown
 				ns.AchTracker_Apply()
 			end
 		end },
 		{ "lock", "lock the tracker", function()
-			if RequireActive() then
+			if ns.Module_RequireOn(module) then
 				db.tracker.locked = true
 				ns.AchTracker_Apply()
 			end
 		end },
 		{ "unlock", "move the tracker", function()
-			if RequireActive() then
+			if ns.Module_RequireOn(module) then
 				db.tracker.locked = false
 				db.tracker.shown = true
 				ns.AchTracker_Apply()

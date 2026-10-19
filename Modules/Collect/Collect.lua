@@ -238,16 +238,8 @@ events.VIGNETTE_MINIMAP_UPDATED = VignettesChanged
 
 -- Commands ------------------------------------------------------------------------------------------------------
 
-local function RequireActive()
-	if not module.active then
-		ns.Print("Collect here is off.")
-		return false
-	end
-	return true
-end
-
 local function Here()
-	if not RequireActive() then
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	local state = ns.Collect_State()
@@ -265,7 +257,7 @@ local function Here()
 end
 
 local function Test()
-	if not RequireActive() then
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	ShowZoneToast("Hallowfall", { mounts = 2, pets = 3, achievements = 18 }, true)

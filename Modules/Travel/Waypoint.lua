@@ -218,16 +218,8 @@ events:On(OWNER, "DISPLAY_SIZE_CHANGED", ScaleChanged)
 
 -- Commands -------------------------------------------------------------------------------------------------
 
-local function RequireActive()
-	if not module.active then
-		ns.Print("Waypoints is off. Turn it on in /tomte.")
-		return false
-	end
-	return true
-end
-
 local function TestPin()
-	if not RequireActive() then
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	local mapID = C_Map.GetBestMapForUnit("player")
@@ -251,7 +243,7 @@ end
 -- "45.2 67.8", "45.2, 67.8" or TomTom's "#2248 45.2 67.8" (a map ID first). Anything after the coordinates
 -- (TomTom's description) is ignored: a map pin can't carry a name.
 local function PinAt(text)
-	if not RequireActive() then
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	local mapID, rest = text:match("^#(%d+)%s+(.*)$")
@@ -400,7 +392,7 @@ module = ns.RegisterModule({
 		{ "test", "place a map pin ahead of you and track it", TestPin },
 		{ "clear", "stop tracking (and remove the map pin)", Clear },
 		{ "route", "show the portal route to a map pin on another continent", function()
-			if RequireActive() then
+			if ns.Module_RequireOn(module) then
 				ns.WayRouter_Print()
 			end
 		end },

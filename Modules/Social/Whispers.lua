@@ -419,8 +419,7 @@ function events:PLAYER_FLAGS_CHANGED(unit)
 end
 
 local function Preview()
-	if not module.active then
-		ns.Print("Whispers is off.")
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	for i, sample in ipairs(SAMPLES) do
@@ -459,17 +458,13 @@ local function ClearHistory()
 	ns.Print("whisper history cleared.")
 end
 
--- Keybinds (Bindings.xml, Key Bindings > Tomte), through Core's Tomte_Binding.
-ns.bindings.WHISPER_REPLY = function()
-	if module and module.active then
-		ReplyNewest()
-	end
-end
-ns.bindings.WHISPER_INBOX = function()
-	if module and module.active then
-		ns.Inbox_Toggle()
-	end
-end
+-- Key bindings (Bindings.xml, Key Bindings > Tomte), through ns.Binding_Add.
+ns.Binding_Add("WHISPER_REPLY", "whispers", function()
+	ReplyNewest()
+end)
+ns.Binding_Add("WHISPER_INBOX", "whispers", function()
+	ns.Inbox_Toggle()
+end)
 BINDING_NAME_TOMTE_WHISPER_REPLY = "Reply to newest unread whisper"
 BINDING_NAME_TOMTE_WHISPER_INBOX = "Open whisper inbox"
 

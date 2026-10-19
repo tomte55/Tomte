@@ -373,5 +373,18 @@ test("PanelResume reopens where you were for a while, then Home", function()
 	eq((ns.PanelResume({ view = "page", page = "alts", at = 1000 }, 1100, 0, ok)), "home", "turned off")
 	eq((ns.PanelResume(nil, 1100, 300, ok)), "home", "first time")
 end)
+test("OffText says the module is off, or why it can't run", function()
+	eq(ns.Module_OffText({ key = "gather", name = "Gathering" }), "Gathering is off. Turn it on in /tomte.")
+	eq(ns.Module_OffText({ key = "hunter", name = "Hunter Pets" }, "Only for hunters."),
+		"Hunter Pets: Only for hunters.")
+	eq(ns.Module_OffText({ key = "x" }), "x is off. Turn it on in /tomte.", "no name: the key")
+end)
+test("CommandAllowed: an active module, or a command marked whileOff", function()
+	local on, off = { active = true }, { active = false }
+	eq(ns.Module_CommandAllowed(on, { "list" }), true)
+	eq(ns.Module_CommandAllowed(off, { "list" }), false)
+	eq(ns.Module_CommandAllowed(off, { "status", whileOff = true }), true)
+	eq(ns.Module_CommandAllowed(off, nil), false)
+end)
 
 H.done()

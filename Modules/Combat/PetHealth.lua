@@ -348,8 +348,7 @@ end
 
 local function Command(fn)
 	return function()
-		if not module.active then
-			ns.Print("Pet Health is off.")
+		if not ns.Module_RequireOn(module) then
 			return
 		end
 		fn()

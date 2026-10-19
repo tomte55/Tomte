@@ -445,8 +445,7 @@ local function MacroCommand()
 		ns.Print_Combat("make the mount macro")
 		return
 	end
-	if not module.active then
-		ns.Print("turn Smart Mount on first.")
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	if GetMacroIndexByName(MACRO_NAME) == 0 then

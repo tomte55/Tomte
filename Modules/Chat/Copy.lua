@@ -78,8 +78,7 @@ local function CurrentWindow()
 end
 
 local function CopyCurrent()
-	if not module.active then
-		ns.Print("Chat Copy is off. Turn it on in /tomte (Chat).")
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	local frame = CurrentWindow()
@@ -192,12 +191,10 @@ local function HideIcons()
 	end
 end
 
--- Key binding (Bindings.xml, Key Bindings > Tomte), through Core's Tomte_Binding.
-ns.bindings.CHAT_COPY = function()
-	if module and module.active then
-		CopyCurrent()
-	end
-end
+-- Key bindings (Bindings.xml, Key Bindings > Tomte), through ns.Binding_Add.
+ns.Binding_Add("CHAT_COPY", "chatcopy", function()
+	CopyCurrent()
+end)
 BINDING_NAME_TOMTE_CHAT_COPY = "Copy chat"
 
 module = ns.RegisterModule({

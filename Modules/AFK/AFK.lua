@@ -253,8 +253,7 @@ function events:UPDATE_BATTLEFIELD_STATUS(index)
 end
 
 local function Preview()
-	if not module.active then
-		ns.Print("AFK Screen is off.")
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	if away then

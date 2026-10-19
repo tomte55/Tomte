@@ -249,6 +249,22 @@ function ns.ModuleWanted(module)
 	return ns.ModuleEnabled(module) and ns.ModuleBlockedReason(module) == nil
 end
 
+-- The line for a command, key binding or button of a module that isn't running: "Gathering is off. Turn it on in
+-- /tomte.", or its blocked reason ("Hunter Pets: Only for hunters.") when it can't run here at all.
+function ns.Module_OffText(module, blockedReason)
+	local name = module.name or module.key
+	if blockedReason then
+		return name .. ": " .. blockedReason
+	end
+	return name .. " is off. Turn it on in /tomte."
+end
+
+-- A /tomte command runs while its module is active; cmd.whileOff = true lets it run while off (a status line that
+-- reports the off state itself).
+function ns.Module_CommandAllowed(module, cmd)
+	return module.active == true or (cmd ~= nil and cmd.whileOff == true)
+end
+
 local function Call(fn, arg)
 	-- Look the handler up on every call: tests and Core.lua replace it.
 	xpcall(function()

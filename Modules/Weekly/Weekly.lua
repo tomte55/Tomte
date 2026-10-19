@@ -493,7 +493,7 @@ module = ns.RegisterModule({
 			ns.Panel_OpenPage("weekly")
 		end },
 		{ "quests", "list the learned weekly quests", ListQuests },
-		{ "forget", "forget a character everywhere: /tomte weekly forget <name>[-<realm>]", Forget },
+		{ "forget", "forget a character everywhere: /tomte weekly forget <name>[-<realm>]", Forget, whileOff = true },
 		{ "ids", "check the crest and knowledge quest IDs in game", PrintIDs },
 	},
 })

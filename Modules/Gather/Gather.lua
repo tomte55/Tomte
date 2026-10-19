@@ -401,17 +401,13 @@ local function HiddenCount()
 	return n
 end
 
--- Key bindings (Bindings.xml, Key Bindings > Tomte), through Core's Tomte_Binding.
-ns.bindings.GATHER_FOLLOW = function()
-	if module.active then
-		ns.GatherFollow_Toggle()
-	end
-end
-ns.bindings.GATHER_SKIP = function()
-	if module.active then
-		ns.GatherFollow_Skip()
-	end
-end
+-- Key bindings (Bindings.xml, Key Bindings > Tomte), through ns.Binding_Add.
+ns.Binding_Add("GATHER_FOLLOW", "gather", function()
+	ns.GatherFollow_Toggle()
+end)
+ns.Binding_Add("GATHER_SKIP", "gather", function()
+	ns.GatherFollow_Skip()
+end)
 BINDING_NAME_TOMTE_GATHER_FOLLOW = "Gathering route: follow or stop"
 BINDING_NAME_TOMTE_GATHER_SKIP = "Gathering route: skip a spot"
 

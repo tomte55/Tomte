@@ -95,8 +95,7 @@ function ns.CharShow_Open()
 	if state then
 		return
 	end
-	if not module.active then
-		ns.Print("Showcase is off.")
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	if Blocked() then
@@ -166,11 +165,10 @@ function ns.CharShow_Toggle()
 	end
 end
 
-ns.bindings.SHOWCASE = function()
-	if module and module.active then
-		ns.CharShow_Toggle()
-	end
-end
+-- Key bindings (Bindings.xml, Key Bindings > Tomte), through ns.Binding_Add.
+ns.Binding_Add("SHOWCASE", "showcase", function()
+	ns.CharShow_Toggle()
+end)
 BINDING_NAME_TOMTE_SHOWCASE = "Showcase (character view)"
 
 -- A showcase open at a /reload or crash: its camera changes are still there. Undo them.

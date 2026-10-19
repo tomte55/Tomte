@@ -253,6 +253,6 @@ module = ns.RegisterModule({
 			wipe(dismissed)
 			ns.Print("Next up shows everything again.")
 			ns.Panel_Refresh()
-		end },
+		end, whileOff = true },
 	},
 })

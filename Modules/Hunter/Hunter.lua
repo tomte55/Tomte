@@ -48,8 +48,7 @@ local function IsHunter()
 end
 
 local function Check()
-	if not module.active then
-		ns.Print("Hunter Pets is off.")
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	ns.Checks_Run(true)

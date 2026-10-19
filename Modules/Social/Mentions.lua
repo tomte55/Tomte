@@ -117,8 +117,7 @@ local function Digest(held)
 end
 
 local function Preview()
-	if not module.active then
-		ns.Print("Mentions is off.")
+	if not ns.Module_RequireOn(module) then
 		return
 	end
 	local me = UnitName("player") or "you"
