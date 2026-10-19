@@ -406,6 +406,7 @@ module = ns.RegisterModule({
 	summary = "One click to reapply a missing poison, and a poison check.",
 	description = "Buttons that appear when a poison is missing from your weapons or about to run out: click one to apply that poison. A poison check when you enter a dungeon, raid or delve and on ready checks.",
 	enabledByDefault = true,
+	toasts = "Rogue poison check (banners)",
 	defaults = {
 		bar = true,
 		lethal = true,

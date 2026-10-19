@@ -369,6 +369,7 @@ module = ns.RegisterModule({
 	summary = "See who's online at login and when your friends come online.",
 	description = "Who's online when you log in, and a toast when friends (or just the people you watch, guildmates too) come online. Click a toast to whisper them.",
 	enabledByDefault = true,
+	toasts = "Friends online",
 	keep = { "watch" }, -- typed by the user: a settings reset keeps it
 	defaults = {
 		summary = true,

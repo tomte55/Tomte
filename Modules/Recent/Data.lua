@@ -103,3 +103,16 @@ ns.Recent_Ago = ns.Ago
 function ns.Recent_Group(at, now, dayOf)
 	return dayOf(at) == dayOf(now) and "Today" or "Earlier"
 end
+
+-- The Include checkboxes: every module that shows toasts or banners declares module.toasts (true: its name is the
+-- label; a string: that label). In registration order: { { key, label } }.
+function ns.Recent_Owners(modules)
+	local list = {}
+	for _, module in ipairs(modules) do
+		if module.toasts then
+			list[#list + 1] = { key = module.key,
+				label = type(module.toasts) == "string" and module.toasts or module.name }
+		end
+	end
+	return list
+end

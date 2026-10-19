@@ -78,6 +78,7 @@ module = ns.RegisterModule({
 	summary = "Pet tooltips, a stable overview and a pet check before you pull.",
 	description = "Call Pet tooltips, a Stable tab with your pets and a tame log of beasts you've seen, and a pet check when you enter a dungeon, raid or delve and on ready checks.",
 	enabledByDefault = true,
+	toasts = "Hunter pet check (banners)",
 	defaults = {
 		callPetTooltip = true,
 		tameTooltip = true,

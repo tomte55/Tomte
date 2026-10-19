@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Recent: every toast and banner Tomte shows also goes into a feed (Toast.lua and Banner.lua call ns.Recent_Note),
 -- so one you missed while tabbed out, fighting or in a cinematic can be read later. A page in the Home rail with a
 -- quick action that counts what's new, or a block on Home. Entries are saved (account-wide, each with its
--- character); their click actions only last for this session. Logic in Data.lua.
+-- character); their click actions only last for this session. Logic in Data.lua. Its Include list has a checkbox per
+-- module that declares `toasts` (ns.Recent_Owners); anything else is always included.
 
 local UI = ns.UI
 local ROW_H = 42
@@ -13,15 +14,6 @@ local HEAD_H = 40
 local MERGE_WINDOW = 10 -- a toast merges with an entry with its mergeKey among this many newest (ns.Recent_Add)
 local TRIM_SETTLE = 2 -- seconds after the "Entries kept" slider stops before the list is trimmed
 
--- Owners with a checkbox under "Include" (anything else is always included).
-local OWNERS = {
-	{ "whispers", "Whispers" }, { "mentions", "Mentions" }, { "friends", "Friends online" },
-	{ "gear", "Gear upgrades" }, { "ach", "Almost Done" }, { "collect", "Collect here" }, { "wq", "World quests" },
-	{ "events", "Holidays & events" }, { "gather", "Gathering" }, { "tradefilter", "Trade Filter" },
-	{ "weekly", "Concentration" }, { "dura", "Durability" }, { "vendor", "Vendor" }, { "recap", "Session recap" },
-	{ "moments", "Moments (banners)" }, { "hunter", "Hunter pet check (banners)" }, { "pet", "Pet health (banners)" },
-	{ "rogue", "Rogue poison check (banners)" },
-}
 local SKIP = { toast = true } -- the "Toast position" sample
 
 local module, db
@@ -280,8 +272,11 @@ local function RefreshBlock(frame)
 	local list = Visible()
 	local unseen = ns.Recent_Unseen(list, db.seenAt)
 	frame.heading:Set("Recent", unseen > 0 and (unseen .. " new") or nil, "Clear", function()
-		wipe(db.entries)
-		ns.Panel_Refresh()
+		ns.Confirm_Show("Clear the Recent list?", function()
+			wipe(db.entries)
+			UpdateDot()
+			ns.Panel_Refresh()
+		end)
 	end)
 	local now = GetServerTime()
 	local n = math.min(#list, BLOCK_ROWS)
@@ -344,17 +339,13 @@ local function BuildOptions()
 		{ type = "checkbox", key = "include.banners", label = "Banners",
 			tooltip = "Title-card banners (Moments, pet checks, repair warnings), not just toasts." },
 	}
-	for _, o in ipairs(OWNERS) do
-		options[#options + 1] = { type = "checkbox", key = "include." .. o[1], label = o[2] }
+	for _, owner in ipairs(ns.Recent_Owners(ns.modules)) do
+		options[#options + 1] = { type = "checkbox", key = "include." .. owner.key, label = owner.label }
 	end
 	return options
 end
 
 local function Defaults()
-	local include = { banners = true }
-	for _, o in ipairs(OWNERS) do
-		include[o[1]] = true
-	end
 	return {
 		entries = {},
 		seenAt = 0,
@@ -363,7 +354,7 @@ local function Defaults()
 		keep = true,
 		max = 50,
 		dot = false,
-		include = include,
+		include = { banners = true }, -- [module key] = shown; the modules' keys are added in init (ns.Recent_Owners)
 	}
 end
 
@@ -403,6 +394,12 @@ module = ns.RegisterModule({
 	},
 	init = function(saved)
 		db = saved
+		-- Every module is registered by now (ns.InitModules runs after all files): add their Include defaults, so a
+		-- reset and a profile export know them too.
+		for _, owner in ipairs(ns.Recent_Owners(ns.modules)) do
+			module.defaults.include[owner.key] = true
+		end
+		ns.MergeDefaults(module.defaults, db)
 		if not db.keep then
 			wipe(db.entries)
 		end

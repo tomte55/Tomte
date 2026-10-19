@@ -25,6 +25,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Mentions: clicking a mention from a community channel opens that channel's chat line, or says why it can't.
 - Trade Filter: "Pause the filter" now lasts until you log out instead of forever.
 - Chat Tabs: keeps track of the tab it opened after a character rename or realm transfer.
+- Recent: Friend sharing toasts get their own Include checkbox, and Clear on the Home block asks first.
 - Pet Battles: the Heal button only shows after a battle when you can heal (Revive Battle Pets learned or a bandage in your bags; the tamer card's button says why not), and its key does nothing while Pet Battles is off.
 - AFK Screen: closes for summons, duels, trades, invites and the game's other popups, so you can answer them.
 - Dressing room: Target's outfit no longer changes what an open Inspect window shows; with it open on someone else, it asks you to close it first.

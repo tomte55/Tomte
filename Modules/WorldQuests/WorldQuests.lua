@@ -192,6 +192,7 @@ module = ns.RegisterModule({
 		.. "Gear Check) on top, then gear, gold, currencies and reputation, with time left. Click to track one. A "
 		.. "toast when you arrive in a zone with one worth doing.",
 	enabledByDefault = true,
+	toasts = true,
 	home = {
 		{ kind = "map", key = "worldquests", order = 3, name = "World quests", icon = "Interface\\Icons\\INV_Misc_Map_01",
 			open = function()

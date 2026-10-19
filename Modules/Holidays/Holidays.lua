@@ -536,6 +536,7 @@ module = ns.RegisterModule({
 	summary = "What's on now and what you still miss from each holiday.",
 	description = "The world events on now and starting soon, what you're still missing from each holiday (mounts, battle pets, toys, achievements), the holiday's daily boss and the Darkmoon Faire profession quests. On Home, on an Events page, in Next up and as a toast when a holiday starts.",
 	enabledByDefault = true,
+	toasts = true,
 	defaults = {
 		home = true,
 		homeRows = 4,

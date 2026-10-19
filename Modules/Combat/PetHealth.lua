@@ -363,6 +363,7 @@ module = ns.RegisterModule({
 	summary = "A pet health bar that warns you when your pet needs healing.",
 	description = "A pet health bar under your character that turns red and glows when your pet needs healing, with Mend Pet and Exhilaration cooldowns, and reminders when your pet dies or you pull without one.",
 	enabledByDefault = true,
+	toasts = "Pet health (banners)",
 	defaults = {
 		frame = { point = "CENTER", relPoint = "CENTER", x = 0, y = -170, locked = true }, -- position: see ResetPosition
 		scale = 1,

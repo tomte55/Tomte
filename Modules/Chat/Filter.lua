@@ -301,6 +301,7 @@ module = ns.RegisterModule({
 	summary = "Trade chat shows only messages about your professions and keywords.",
 	description = "Trade chat shows only what you can help with: messages that name your professions or your own keywords, minus sellers and boosters.",
 	enabledByDefault = false,
+	toasts = true,
 	keep = { "keywords", "ignore" }, -- typed by the user: a settings reset keeps them
 	defaults = {
 		profKeywords = true,

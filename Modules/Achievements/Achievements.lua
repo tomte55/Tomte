@@ -380,6 +380,7 @@ module = ns.RegisterModule({
 	summary = "Achievements you've nearly finished, with rewards and a tracker.",
 	description = "Near-complete achievements in a list next to the Achievements window, with rewards (owned ones greyed out), a meta browser, a Top 5 tracker and toasts when something is almost done.",
 	enabledByDefault = true,
+	toasts = true,
 	defaults = {
 		threshold = 80, sort = "percent", reward = "any", scope = "account", showIgnored = false,
 		categories = {}, -- [top category name] = false when hidden

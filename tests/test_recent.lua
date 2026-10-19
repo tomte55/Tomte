@@ -120,4 +120,53 @@ test("trim drops the oldest past max", function()
 	eq(#list, 4)
 end)
 
+test("Owners: modules that declare toasts, in registration order, with their label", function()
+	local list = ns.Recent_Owners({
+		{ key = "gear", name = "Gear Check", toasts = "Gear upgrades" },
+		{ key = "mount", name = "Smart Mount" },
+		{ key = "wq", name = "World quests", toasts = true },
+	})
+	eq(#list, 2)
+	eq(list[1].key, "gear")
+	eq(list[1].label, "Gear upgrades")
+	eq(list[2].key, "wq")
+	eq(list[2].label, "World quests")
+end)
+
+-- Owners named in files that show toasts or banners, and the modules that declare toasts, read from the source: a
+-- new toast owner without a Recent checkbox fails here.
+test("every module that shows toasts or banners declares toasts", function()
+	local owners, declared = {}, {}
+	for line in io.lines("Tomte/Tomte.toc") do
+		local file = line:match("^([%w_/\\]+%.lua)%s*$")
+		if file then
+			local path = "Tomte/" .. file:gsub("\\", "/")
+			local f = assert(io.open(path))
+			local text = f:read("*a")
+			f:close()
+			if text:find("Toast_Show", 1, true) or text:find("Banner_Show", 1, true) or text:find("Toast_Pin(", 1, true)
+				or text:find("Check_Report(", 1, true) then
+				for owner in text:gmatch("owner = \"([%w_]+)\"") do
+					owners[owner] = path
+				end
+				for owner in text:gmatch("local OWNER = \"([%w_]+)\"") do
+					owners[owner] = path
+				end
+				for owner in text:gmatch("spec%.owner, [^=]-= \"([%w_]+)\"") do
+					owners[owner] = path
+				end
+			end
+			local key = text:match("RegisterModule%(%{%s*key%s*=%s*\"([%w_]+)\"")
+			if key and text:find("\n\ttoasts = ", 1, true) then
+				declared[key] = true
+			end
+		end
+	end
+	eq(owners.share ~= nil and owners.pet ~= nil, true, "the scan finds owners")
+	owners.toast, owners.editmode = nil, nil -- Toast.lua's position sample (Recent skips it)
+	for owner, path in pairs(owners) do
+		eq(declared[owner], true, owner .. " (" .. path .. ")")
+	end
+end)
+
 H.done()

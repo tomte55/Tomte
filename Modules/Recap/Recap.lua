@@ -382,6 +382,7 @@ module = ns.RegisterModule({
 	summary = "What you got done each session: gold, loot and progress.",
 	description = "What you got done this session: time, gold and where it came from, notable loot, achievements, rares, tames and progress. A card while you log out, on /tomte recap and on the AFK screen; a toast at login for your last session.",
 	enabledByDefault = true,
+	toasts = true,
 	defaults = {
 		logoutCard = true,
 		loginToast = true,

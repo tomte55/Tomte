@@ -193,6 +193,7 @@ module = ns.RegisterModule({
 	summary = "Repairs and sells grey items for you whenever you open a vendor.",
 	description = "Repairs (guild funds first) and sells grey items when you open a vendor, then sums it up in a toast. Hold Shift while opening the vendor to skip it.",
 	enabledByDefault = true,
+	toasts = "Vendor",
 	defaults = {
 		repair = true,
 		guild = false,

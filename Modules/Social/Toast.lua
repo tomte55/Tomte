@@ -11,6 +11,7 @@ local addonName, ns = ...
 -- they're let go, an owner with a digest builder gets one card for all of its held cards. When a Blizzard UI
 -- panel (merchant, mail, character...) covers the stack, the stack slides beside it until the panel closes.
 --
+-- A module that shows toasts or banners declares toasts = true or a label (Recent's Include list).
 -- ns.Toast_Show(spec): spec = { owner, label, accent, title, text, chat, secret, icon, iconAtlas, mergeKey, hold,
 --   holdInCombat, onClick(button), onDismiss(), digestName, count }. secret = title/text may be secret values.
 --   accent = a theme color role, or an { r, g, b } that carries game meaning (ns.Toast_ChatColor, quality);

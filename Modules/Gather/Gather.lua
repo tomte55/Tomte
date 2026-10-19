@@ -419,6 +419,7 @@ module = ns.RegisterModule({
 	summary = "Nodes, loot and gold per hour for your gathering runs, plus node maps.",
 	description = "Tracks your gathering runs (mining, herbalism, skinning and fishing): nodes per hour, items with their ranks, gold per hour, rare finds, skill and knowledge gained, and zones. A small tracker while you gather, a toast when a run ends and a Gathering page.",
 	enabledByDefault = true,
+	toasts = true,
 	defaults = {
 		auto = true,
 		idle = IDLE_DEFAULT,

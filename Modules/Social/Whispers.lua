@@ -547,6 +547,7 @@ module = ns.RegisterModule({
 	summary = "A toast for every whisper, an AFK recap and an inbox of your chats.",
 	description = "Whispers you can't miss: a toast for each one (click to reply), an unread recap when you're back from AFK, an inbox with your conversations, and one summary card for whispers that came in combat or during a cinematic.",
 	enabledByDefault = true,
+	toasts = true,
 	defaults = {
 		toasts = true,
 		badge = true,

@@ -697,6 +697,7 @@ module = ns.RegisterModule({
 	summary = "Title cards for level ups, new mounts, achievements and more.",
 	description = "Short title cards for moments worth a pause: level ups, achievements, new mounts, pets and toys, new zones, renown, campaign chapters, house levels, tamed pets and gear upgrades. A banner or a small cinematic.",
 	enabledByDefault = true,
+	toasts = "Moments (banners)",
 	defaults = {
 		styles = ns.Moments_DefaultStyles(),
 		duration = 7,

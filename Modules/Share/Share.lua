@@ -483,6 +483,7 @@ module = ns.RegisterModule({
 	summary = "Swap flight times and gathering spots with friends who run Tomte.",
 	description = "Shares data with your Battle.net friends who run Tomte, in the background: flight times you've recorded (and those friends sent you) fill in each other's flight timers and coverage maps, and gathering node spots fill in each other's world maps. Also tells you when a friend runs a newer Tomte.",
 	enabledByDefault = false,
+	toasts = true,
 	defaults = {
 		sets = { flight = true, nodes = true }, -- [data set key] = shared (sent and accepted)
 		toast = false,

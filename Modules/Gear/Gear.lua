@@ -220,6 +220,7 @@ module = ns.RegisterModule({
 		.. "with a click-to-equip toast. Warbound and Bind on Equip gear also says which of your other characters "
 		.. "it's an upgrade for.",
 	enabledByDefault = true,
+	toasts = "Gear upgrades",
 	defaults = {
 		showReasons = true,
 		showDowngrades = true,
