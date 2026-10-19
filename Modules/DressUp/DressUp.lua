@@ -180,7 +180,9 @@ module = ns.RegisterModule({
 		slots = true,
 		tools = true,
 		ownBody = false,
+		debug = false, -- chat lines when the dressing room's size is set (hidden /tomte dressup debug)
 	},
+	noShare = { "debug" }, -- a debug switch: not in settings strings (Core/Profile.lua)
 	init = function(saved)
 		db = saved
 		ns.DressUpTools.Init(saved)

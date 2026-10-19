@@ -259,7 +259,10 @@ module = ns.RegisterModule({
 		distance = 1,
 		cvarBackup = {}, -- [cvar] = the player's value while we've changed it (Camera.lua)
 		heights = {}, -- [character GUID] = model height in yards
+		debugCamera = false, -- chat lines for each camera step on close (hidden /tomte showcase debug)
+		-- current: the open Showcase's cinematic state, saved for /reload. No default: nil while closed.
 	},
+	noShare = { "debugCamera" }, -- a debug switch: not in settings strings (Core/Profile.lua)
 	init = function(saved)
 		db = saved
 		ns.charShowDB = saved

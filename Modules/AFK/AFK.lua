@@ -316,6 +316,7 @@ module = ns.RegisterModule({
 		showcase = true,
 		whispers = true,
 		clearAFK = true,
+		-- current: the AFK screen's state, saved for /reload. No default: nil while not AFK.
 	},
 	init = function(db)
 		ns.afkDB = db
