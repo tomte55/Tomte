@@ -353,6 +353,13 @@ module = ns.RegisterModule({
 		end
 		if active then
 			ReadWorthSoon()
+		else
+			-- Off at an open bank: BANKFRAME_CLOSED won't arrive, and a bank read after it closed would save 0.
+			bankOpen = false
+			if worthTimer then
+				worthTimer:Cancel()
+				worthTimer = nil
+			end
 		end
 	end,
 	options = {
@@ -388,7 +395,8 @@ module = ns.RegisterModule({
 			tooltip = "Every looted item is priced for the recap card and the Sessions page. Needs Session recap on." },
 		{ type = "dropdown", key = "priceAt", label = "Price loot", parent = "sessions", choices = function()
 			return { { value = "loot", text = "When looted" }, { value = "now", text = "At today's price" } }
-		end },
+		end, tooltip = "When looted: each item keeps the price it had the day you looted it. At today's price: past "
+			.. "sessions are priced again with today's prices (an item with no price today keeps its old one)." },
 		{ type = "header", label = "Alts and crafting" },
 		{ type = "checkbox", key = "alts", label = "Carried value in Alts",
 			tooltip = "What each character's bags and bank are worth (the bank is read when you open it), and the Warband bank." },
