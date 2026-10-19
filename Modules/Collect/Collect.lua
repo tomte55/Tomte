@@ -19,7 +19,6 @@ local ICON = "Interface\\Icons\\Ability_Mount_RidingHorse" -- the same horse as 
 
 local module, db
 local started = false
-local toastedZones = {} -- [mapID] = true, this session
 local toastedRares = {} -- [vignetteGUID] = true, this session
 local vignetteTimer, criteriaTimer
 local lastUpNow = "" -- the up-now set the tab last showed
@@ -112,10 +111,11 @@ local function ZoneToast()
 		return -- tried again when the catalogs are ready
 	end
 	local entries, name, kind, mapID = ns.Collect_ForMap(PlayerMap())
-	if not entries or kind ~= "zone" or toastedZones[mapID] then
+	local today = date("%Y-%m-%d")
+	if not entries or kind ~= "zone" or not ns.Collect_ZoneToastDue(db.zoneToasts, mapID, today) then
 		return
 	end
-	toastedZones[mapID] = true
+	ns.Collect_MarkZoneToast(db.zoneToasts, mapID, today)
 	local counts = ShownCounts(entries)
 	if counts.mounts + counts.pets > 0 then
 		ShowZoneToast(name, counts)
@@ -389,7 +389,9 @@ module = ns.RegisterModule({
 		collapsed = { mounts = false, pets = false, achievements = false },
 		toasts = { zone = true, rare = true },
 		preview = true,
+		zoneToasts = {}, -- [uiMapID] = "YYYY-MM-DD" (local date) the zone toast last showed
 	},
+	noShare = { "zoneToasts" }, -- toast history: not in settings strings (Core/Profile.lua)
 	init = function(saved)
 		db = saved
 		ns.CollectTab_Init(db)

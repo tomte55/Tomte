@@ -206,4 +206,21 @@ test("localized labels map to the same keys", function()
 	has(zh.Collect_ParseSource("|cFFFFD200区域：|r塔纳利斯").zones, "塔纳利斯", "full-width colon")
 end)
 
+test("zone toast: once per zone per day", function()
+	local seen = {}
+	eq(ns.Collect_ZoneToastDue(seen, 2248, "2026-10-19"), true)
+	ns.Collect_MarkZoneToast(seen, 2248, "2026-10-19")
+	eq(ns.Collect_ZoneToastDue(seen, 2248, "2026-10-19"), false, "same day")
+	eq(ns.Collect_ZoneToastDue(seen, 2214, "2026-10-19"), true, "another zone")
+	eq(ns.Collect_ZoneToastDue(seen, 2248, "2026-10-20"), true, "next day")
+end)
+
+test("zone toast: marking drops other days", function()
+	local seen = { [2248] = "2026-10-18", [2214] = "2026-10-19" }
+	ns.Collect_MarkZoneToast(seen, 2215, "2026-10-19")
+	eq(seen[2248], nil, "yesterday's")
+	eq(seen[2214], "2026-10-19")
+	eq(seen[2215], "2026-10-19")
+end)
+
 H.done()

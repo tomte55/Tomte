@@ -345,3 +345,18 @@ function ns.Collect_ZoneToastText(counts)
 	end
 	return table.concat(parts, ", ") .. " left"
 end
+
+-- Zone toast: once per zone per day. seen = db.zoneToasts ([uiMapID] = "YYYY-MM-DD"), today = the local date.
+function ns.Collect_ZoneToastDue(seen, mapID, today)
+	return seen[mapID] ~= today
+end
+
+-- Marks the zone's toast as shown today and drops other days' entries (the table holds one day at most).
+function ns.Collect_MarkZoneToast(seen, mapID, today)
+	for id, day in pairs(seen) do
+		if day ~= today then
+			seen[id] = nil
+		end
+	end
+	seen[mapID] = today
+end
