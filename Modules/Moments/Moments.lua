@@ -400,9 +400,8 @@ function events:UI_INFO_MESSAGE(messageType, message)
 	if not discoveryPatterns then
 		discoveryPatterns = ns.Moments_DiscoveryPatterns(ERR_ZONE_EXPLORED_XP, ERR_ZONE_EXPLORED)
 	end
-	-- A client format we don't parse right must not raise an error on every info message.
-	local ok, area = pcall(ns.Moments_DiscoveredArea, message, discoveryPatterns)
-	if not ok or not area then
+	local area = ns.Moments_DiscoveredArea(message, discoveryPatterns)
+	if not area then
 		return
 	end
 	local styles = ns.momentsDB.styles

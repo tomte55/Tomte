@@ -215,4 +215,40 @@ test("ZoneStatus: strips brackets, nil when empty", function()
 	eq(ns.Moments_ZoneStatus(nil), nil)
 end)
 
+-- The game's discovery formats per client language (wago.tools GlobalStrings, ERR_ZONE_EXPLORED_XP and
+-- ERR_ZONE_EXPLORED, 2026-10-19): xp format, plain format, an xp message, a plain message, the area.
+local LOCALES = {
+	{ "deDE", "%1$s entdeckt: %2$d Erfahrung erhalten.", "Entdeckt: %s",
+		"Goldhain entdeckt: 30 Erfahrung erhalten.", "Entdeckt: Goldhain", "Goldhain" },
+	{ "frFR", "Découverte : %s, %d points d’expérience gagnés", "Découverte : %s",
+		"Découverte : Comté-de-l'Or, 30 points d’expérience gagnés", "Découverte : Comté-de-l'Or", "Comté-de-l'Or" },
+	{ "esES", "Has descubierto %s: %d p. de experiencia obtenidos.", "Has descubierto: %s",
+		"Has descubierto Villadorada: 30 p. de experiencia obtenidos.", "Has descubierto: Villadorada", "Villadorada" },
+	{ "ruRU", "Открыта новая территория: %s. Получено %d |4очко:очка:очков; опыта.", "Открыта новая территория: %s",
+		"Открыта новая территория: Златоземье. Получено 30 очков опыта.", "Открыта новая территория: Златоземье",
+		"Златоземье" },
+	{ "koKR", "%s 발견: 경험치 %d 획득", "%s|1을;를; 발견했습니다!",
+		"골드샤이어 발견: 경험치 30 획득", "골드샤이어를 발견했습니다!", "골드샤이어" },
+	{ "zhCN", "发现%s：获得%d点经验值", "发现：%s", "发现闪金镇：获得30点经验值", "发现：闪金镇", "闪金镇" },
+}
+
+test("DiscoveredArea: the game's formats in six client languages", function()
+	for _, l in ipairs(LOCALES) do
+		local patterns = ns.Moments_DiscoveryPatterns(l[2], l[3])
+		eq(ns.Moments_DiscoveredArea(l[4], patterns), l[6], l[1] .. " with xp")
+		eq(ns.Moments_DiscoveredArea(l[5], patterns), l[6], l[1] .. " plain")
+	end
+end)
+
+test("DiscoveredArea: odd formats and messages return, never error", function()
+	local formats = { "", "%d", "%s%%", "|4a:b;%s", "%2$s %1$d", "|1x;y;", "%s|4", "100%% %s" }
+	local messages = { "", "%", "50% done", "Discovered: (x)", "a:b" }
+	for _, fmt in ipairs(formats) do
+		local patterns = ns.Moments_DiscoveryPatterns(fmt, fmt)
+		for _, message in ipairs(messages) do
+			ns.Moments_DiscoveredArea(message, patterns) -- an error here fails the test
+		end
+	end
+end)
+
 H.done()

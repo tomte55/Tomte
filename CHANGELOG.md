@@ -21,6 +21,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Dressing room: Target's outfit no longer changes what an open Inspect window shows; with it open on someone else, it asks you to close it first.
 - Collect here: the zone toast shows once a day per zone, also after a /reload.
 - Almost Done: the tracker does less work while no row is flashing.
+- Moments: discovery cards read the game's message in any client language.
 
 ## v1.15.2 - 2026-10-15
 
