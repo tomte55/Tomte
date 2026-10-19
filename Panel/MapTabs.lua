@@ -9,7 +9,7 @@ local addonName, ns = ...
 -- hidden directly, and a hook on SetDisplayMode hands control back when one of Blizzard's tabs is used.
 --
 -- ns.MapTabs_Add({ key, icon, tooltip, title, onShow(panel), onHide(panel), onMapChanged(panel) }) -> tab, panel
--- ns.MapTabs_SetShown(key, shown), ns.MapTabs_Select(key), ns.MapTabs_IsActive(key)
+-- ns.MapTabs_SetShown(key, shown), ns.MapTabs_Select(key), ns.MapTabs_IsActive(key), ns.MapTabs_Open(key)
 -- ns.MapTabs_ResolveMap(mapID): which map a tab lists for the viewed map (shared by Collect here and World quests).
 
 local UI = ns.UI
@@ -79,6 +79,23 @@ end
 
 function ns.MapTabs_IsActive(key)
 	return activeKey == key
+end
+
+-- Shows tab key when the world map and its side panel are open (/tomte ... open, Home, zone toasts); otherwise says
+-- how to get there. Never opens the map or sets its zone: a map shown or moved by addon code keeps that taint in its
+-- saved map ID, and pressing M in combat on the same zone later gets Blizzard's own pin code blocked (measured 12.1).
+-- Returns true when the tab shows.
+function ns.MapTabs_Open(key)
+	local t = byKey[key]
+	if not (t and t.shown) then
+		return false
+	end
+	if not (WorldMapFrame:IsShown() and QuestMapFrame:IsShown()) then
+		ns.Print(("open the map (M) with its side panel, then the %s tab."):format(t.spec.tooltip or key))
+		return false
+	end
+	ns.MapTabs_Select(key)
+	return true
 end
 
 function ns.MapTabs_SetShown(key, shown)

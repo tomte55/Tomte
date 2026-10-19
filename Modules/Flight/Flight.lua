@@ -446,15 +446,11 @@ end
 
 local AROUND = {
 	kind = "around", key = "flightaround", order = 4, name = "Flight masters", maxRows = 2, icon = COVERAGE_ICON,
-	openText = "Opens the world map on this zone",
+	openText = "The world map (M) shows this zone's flight masters",
+	-- Tomte never opens the map itself (Panel/MapTabs.lua, ns.MapTabs_Open, says why).
 	open = function()
-		-- Not in combat, the same rule as Home's world map click (Panel/HomeHero.lua) and the modules' map tabs.
-		if InCombatLockdown() then
-			ns.Print_Combat("open the map")
-			return
-		end
-		local zone = ns.Atlas_PlayerZone()
-		OpenWorldMap(zone and zone.mapID or C_Map.GetBestMapForUnit("player"))
+		ns.Print("open the map (M) to see this zone's flight masters.")
+		return false
 	end,
 	title = function()
 		return ("Flight masters: %d not timed here"):format(#(UntimedHere()))

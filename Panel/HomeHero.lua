@@ -147,16 +147,7 @@ local FACTS = {
 				TipPair(tip, info and info.name or "Map", ("%.1f, %.1f"):format(pos.x * 100, pos.y * 100))
 			end
 		end,
-		clickText = "Click: world map",
-		-- Not in combat, like the modules' map tabs.
-		click = function()
-			if InCombatLockdown() then
-				ns.Print_Combat("open the map")
-				return
-			end
-			ns.Panel_Hide()
-			OpenWorldMap(C_Map.GetBestMapForUnit("player"))
-		end,
+		-- No click: Tomte never opens the world map itself (Panel/MapTabs.lua, ns.MapTabs_Open, says why).
 	},
 }
 

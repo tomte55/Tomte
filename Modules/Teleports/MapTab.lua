@@ -509,18 +509,7 @@ function ns.TpTab_CombatStart()
 	ns.TpTab_Refresh()
 end
 
--- /tomte tp open: the map with this tab showing.
+-- /tomte tp open and Home: this tab on the open map. True when it shows.
 function ns.TpTab_Open()
-	if InCombatLockdown() then
-		ns.Print("not in combat.")
-		return
-	end
-	if not WorldMapFrame:IsShown() then
-		ToggleWorldMap()
-	end
-	if QuestMapFrame:IsShown() then
-		ns.MapTabs_Select(KEY)
-	else
-		ns.Print("open the map's quest log panel, then click the portal tab.")
-	end
+	return ns.Module_RequireOn("tp") and ns.MapTabs_Open(KEY)
 end

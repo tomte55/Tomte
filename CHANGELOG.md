@@ -9,6 +9,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Tomte: a collection scan (Collect here, Holidays) that runs into an error reports it once instead of every frame.
 - Everything Tomte won't do in combat now says so the same way ("can't open the journal in combat"), and nothing claims it will happen after combat when it won't.
 - A command, key binding or button of a module that's off now says so ("Gathering is off. Turn it on in /tomte.") instead of doing nothing. Forget, reset and clear commands still work while their module is off.
+- Map tabs: Tomte no longer opens the world map itself, which could get Blizzard's map blocked in combat afterwards. With the map open, /tomte wq, tp and collect open, Home and the zone toasts switch to their tab; with it closed they say how to get there. Home's location is no longer a map button.
 
 ## v1.15.2 - 2026-10-15
 

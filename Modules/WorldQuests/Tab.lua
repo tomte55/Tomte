@@ -646,18 +646,7 @@ function ns.WQTab_Refresh()
 	end
 end
 
--- /tomte wq open and the zone toast: the map on this tab.
+-- /tomte wq open, Home and the zone toast: this tab on the open map. True when it shows.
 function ns.WQTab_Open()
-	if InCombatLockdown() then
-		ns.Print("not in combat.")
-		return
-	end
-	if not WorldMapFrame:IsShown() then
-		ToggleWorldMap()
-	end
-	if QuestMapFrame:IsShown() then
-		ns.MapTabs_Select(KEY)
-	else
-		ns.Print("open the map's quest log panel, then click the map tab.")
-	end
+	return ns.Module_RequireOn("wq") and ns.MapTabs_Open(KEY)
 end

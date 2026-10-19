@@ -346,18 +346,7 @@ function ns.CollectTab_Refresh()
 	end
 end
 
--- /tomte collect open and the zone toast: the map on this tab.
+-- /tomte collect open, Home and the zone toast: this tab on the open map. True when it shows.
 function ns.CollectTab_Open()
-	if InCombatLockdown() then
-		ns.Print("not in combat.")
-		return
-	end
-	if not WorldMapFrame:IsShown() then
-		ToggleWorldMap()
-	end
-	if QuestMapFrame:IsShown() then
-		ns.MapTabs_Select(KEY)
-	else
-		ns.Print("open the map's quest log panel, then click the horse tab.")
-	end
+	return ns.Module_RequireOn("collect") and ns.MapTabs_Open(KEY)
 end

@@ -195,7 +195,7 @@ module = ns.RegisterModule({
 	home = {
 		{ kind = "map", key = "worldquests", order = 3, name = "World quests", icon = "Interface\\Icons\\INV_Misc_Map_01",
 			open = function()
-				ns.WQTab_Open()
+				return ns.WQTab_Open()
 			end,
 			summary = function()
 				-- The same quests the tab and the "around" block list: this zone's, after the Show filters.
@@ -235,7 +235,7 @@ module = ns.RegisterModule({
 		{ kind = "around", key = "wqaround", order = 2, name = "World quests",
 			icon = "Interface\\Icons\\INV_Misc_Map_01",
 			open = function()
-				ns.WQTab_Open()
+				return ns.WQTab_Open()
 			end,
 			title = function()
 				local quests = HomeQuests()
@@ -304,7 +304,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "open", "open the map on the World quests tab", ns.WQTab_Open },
+		{ "open", "show the World quests tab on the open map", ns.WQTab_Open },
 		{ "here", "your zone's world quests by section, in chat", Here },
 		{ "test", "show a sample toast", Test },
 	},

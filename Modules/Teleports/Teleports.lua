@@ -142,7 +142,7 @@ module = ns.RegisterModule({
 	home = {
 		{ kind = "map", key = "teleports", order = 2, name = "Teleports", icon = PORTAL_ICON,
 			open = function()
-				ns.TpTab_Open()
+				return ns.TpTab_Open()
 			end,
 			summary = function()
 				return ReadyCount() .. " ready"
@@ -150,7 +150,7 @@ module = ns.RegisterModule({
 		{ kind = "around", key = "teleportsaround", order = 3, name = "Teleports", maxRows = 3,
 			icon = PORTAL_ICON,
 			open = function()
-				ns.TpTab_Open()
+				return ns.TpTab_Open()
 			end,
 			title = function()
 				return ("Teleports: %d ready"):format(ReadyCount())
@@ -186,7 +186,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "open", "open the map on the Teleports tab", ns.TpTab_Open },
+		{ "open", "show the Teleports tab on the open map", ns.TpTab_Open },
 		{ "scan", "list what was found (to check the data)", Scan },
 	},
 	options = {

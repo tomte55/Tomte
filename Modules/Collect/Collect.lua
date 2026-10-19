@@ -309,7 +309,7 @@ module = ns.RegisterModule({
 			end },
 		{ kind = "map", key = "collect", order = 1, name = "Collect here", icon = ICON,
 			open = function()
-				ns.CollectTab_Open()
+				return ns.CollectTab_Open()
 			end,
 			summary = function()
 				local state = ns.Collect_State()
@@ -322,7 +322,7 @@ module = ns.RegisterModule({
 		{ kind = "around", key = "collectaround", order = 1, name = "Collect here", keepEmpty = true,
 			icon = ICON,
 			open = function()
-				ns.CollectTab_Open()
+				return ns.CollectTab_Open()
 			end,
 			title = function()
 				local state = ns.Collect_State()
@@ -413,7 +413,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "open", "open the map on the Collect here tab", ns.CollectTab_Open },
+		{ "open", "show the Collect here tab on the open map", ns.CollectTab_Open },
 		{ "here", "what's left in your zone, and the names it matches", Here },
 		{ "test", "show sample toasts", Test },
 	},

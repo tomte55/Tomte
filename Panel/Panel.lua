@@ -353,12 +353,12 @@ function ns.Panel_OpenPage(key)
 	Show()
 end
 
--- World map tab entries: the module opens the map on its tab; the window steps aside.
+-- World map tab entries: with the map open the module shows its tab and the window steps aside; with the map closed
+-- the module says how to get there (ns.MapTabs_Open) and the window stays.
 function ns.Panel_OpenMap(entry)
-	if panel then
+	if entry.open() and panel then
 		panel:Hide()
 	end
-	entry.open()
 end
 
 function ns.Panel_Hide()
