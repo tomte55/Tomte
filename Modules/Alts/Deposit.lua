@@ -13,6 +13,9 @@ local db
 local bankButton
 local depositing = false
 local bankOpen = false
+local WARBAND_TABS = { 12, 13, 14, 15, 16 } -- Enum.BagIndex.AccountBankTab_1..5
+local CHECK_AFTER = 1 -- seconds after a deposit before looking at what moved
+local CHECK_TRIES = 3 -- looks while moved stacks are still locked (on their way)
 
 local events = ns.Alts_Events
 
@@ -40,25 +43,72 @@ local function DepositGroups()
 	return list
 end
 
+-- Why the Warband bank takes nothing: "closed" (can't be used now), "tabs" (no tab bought), with full also
+-- "full" (no free slot; up front a full bank may still take stacks that merge into partial ones), else nil.
+local function WarbandProblem(full)
+	if not C_Bank.CanUseBank(Enum.BankType.Account) then
+		return "closed"
+	end
+	if (C_Bank.FetchNumPurchasedBankTabs(Enum.BankType.Account) or 0) == 0 then
+		return "tabs"
+	end
+	if full then
+		local free = 0
+		for _, bag in ipairs(WARBAND_TABS) do
+			free = free + (C_Container.GetContainerNumFreeSlots(bag) or 0)
+		end
+		if free == 0 then
+			return "full"
+		end
+	end
+	return nil
+end
+
+local function SlotNow(bag, slot)
+	local info = C_Container.GetContainerItemInfo(bag, slot)
+	if not info then
+		return nil, 0, false
+	end
+	return info.itemID, info.stackCount, info.isLocked
+end
+
+local function Report(tried, tries)
+	local moved, left, moving = ns.Alts_DepositOutcome(tried, SlotNow)
+	if moving > 0 and tries < CHECK_TRIES then
+		C_Timer.After(CHECK_AFTER, function()
+			Report(tried, tries + 1)
+		end)
+		return
+	end
+	-- Still locked after the last look: the game took it and is moving it.
+	ns.Print(ns.Alts_DepositText(#tried, moved + moving, left > 0 and WarbandProblem(true) or nil))
+	if bankButton and bankOpen then
+		bankButton:Update()
+	end
+end
+
 local function Deposit()
 	if Busy() or depositing then
 		return
 	end
-	local list = DepositGroups()
-	local n = 0
-	depositing = true
-	for _, g in ipairs(list) do
+	local tried = {}
+	for _, g in ipairs(DepositGroups()) do
 		for _, s in ipairs(g.stacks) do
-			C_Container.UseContainerItem(s.bag, s.slot, nil, Enum.BankType.Account, false)
-			n = n + 1
+			tried[#tried + 1] = { bag = s.bag, slot = s.slot, itemID = s.itemID, count = s.count }
 		end
 	end
+	local problem = #tried > 0 and WarbandProblem(false)
+	if #tried == 0 or problem then
+		ns.Print(ns.Alts_DepositText(#tried, 0, problem or nil))
+		return
+	end
+	depositing = true
+	for _, s in ipairs(tried) do
+		C_Container.UseContainerItem(s.bag, s.slot, nil, Enum.BankType.Account, false)
+	end
 	depositing = false
-	ns.Print(n == 0 and "nothing to put in the Warband bank for your alts." or ("put %d stack%s in the Warband bank for your alts."):format(n, n == 1 and "" or "s"))
-	C_Timer.After(0.5, function()
-		if bankButton and bankOpen then
-			bankButton:Update()
-		end
+	C_Timer.After(CHECK_AFTER, function()
+		Report(tried, 1)
 	end)
 end
 

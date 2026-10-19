@@ -32,6 +32,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Session recap: the settings show only the slider for the chosen "Keep by".
 - Gold & value: turning the module off at the bank no longer saves that character's bank as worth nothing; "Price loot" has a tooltip.
 - Material uses: Mythic Keystones and items newer than Tomte's list no longer say "Not used in crafting"; the list is updated for patch 12.1.5.
+- Alts: "Deposit for alts" says how many stacks really went into the Warband bank, and why the rest stayed (bank full, no tab bought).
 - Pet Battles: the Heal button only shows after a battle when you can heal (Revive Battle Pets learned or a bandage in your bags; the tamer card's button says why not), and its key does nothing while Pet Battles is off.
 - AFK Screen: closes for summons, duels, trades, invites and the game's other popups, so you can answer them.
 - Dressing room: Target's outfit no longer changes what an open Inspect window shows; with it open on someone else, it asks you to close it first.

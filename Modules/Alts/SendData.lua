@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 -- Send to alt: pure logic (unit-tested with plain Lua). Which of this character's stacks another character uses,
--- and who gets them. Send.lua reads the bags and drives the mailbox and the Warband bank.
+-- and who gets them. Send.lua and Deposit.lua read the bags and drive the mailbox and the Warband bank.
 
 -- [itemID] = { [guid] = number of known recipes that use it }, from every character's known recipes.
 function ns.Alts_ReagentUsers(chars, recipes)
@@ -228,4 +228,49 @@ function ns.Alts_GearGroups(stacks, route, chars, realms)
 		return (chars[a.guid].name or "") < (chars[b.guid].name or "")
 	end)
 	return groups
+end
+
+-- After "Deposit for alts": how many of the tried stacks left the bags. tried = { { bag, slot, itemID, count } },
+-- now(bag, slot) -> itemID, count, locked (what's in that slot now). An empty slot, another item or a smaller stack
+-- moved; a locked slot is on its way (the server hasn't answered); the same item and count stayed.
+-- -> moved, left, moving
+function ns.Alts_DepositOutcome(tried, now)
+	local moved, left, moving = 0, 0, 0
+	for _, s in ipairs(tried) do
+		local itemID, count, locked = now(s.bag, s.slot)
+		if locked then
+			moving = moving + 1
+		elseif itemID ~= s.itemID or (count or 0) < s.count then
+			moved = moved + 1
+		else
+			left = left + 1
+		end
+	end
+	return moved, left, moving
+end
+
+local DEPOSIT_WHY = {
+	closed = "the Warband bank can't be used right now",
+	tabs = "you haven't bought a Warband bank tab",
+	full = "the Warband bank is full",
+}
+
+local function Stacks(n)
+	return ("%d stack%s"):format(n, n == 1 and "" or "s")
+end
+
+-- The chat line for "Deposit for alts": tried and moved count stacks; reason says why the rest stayed
+-- ("closed" | "tabs" | "full" | nil when the game didn't say).
+function ns.Alts_DepositText(tried, moved, reason)
+	if tried == 0 then
+		return "nothing to put in the Warband bank for your alts."
+	end
+	if moved >= tried then
+		return ("put %s in the Warband bank for your alts."):format(Stacks(tried))
+	end
+	local why = DEPOSIT_WHY[reason] or "the game didn't move them"
+	if moved == 0 then
+		return ("couldn't put anything in the Warband bank: %s."):format(why)
+	end
+	return ("put %d of %s in the Warband bank for your alts; the rest stayed: %s."):format(moved, Stacks(tried), why)
 end

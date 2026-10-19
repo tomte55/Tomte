@@ -156,4 +156,43 @@ test("recipient: characters mail can't reach are skipped", function()
 	eq(groups[1].guid, "Alch")
 end)
 
+test("DepositOutcome: emptied or changed slots moved, locked ones on their way, the rest stayed", function()
+	local tried = {
+		{ bag = 0, slot = 1, itemID = HERB, count = 20 },
+		{ bag = 0, slot = 2, itemID = ORE, count = 10 },
+		{ bag = 1, slot = 1, itemID = CLOTH, count = 5 },
+		{ bag = 1, slot = 2, itemID = MINE, count = 8 },
+		{ bag = 1, slot = 3, itemID = HERB, count = 4 },
+	}
+	local now = {
+		["0:2"] = { ORE, 10, true }, -- locked: the server hasn't answered yet
+		["1:1"] = { CLOTH, 5, false }, -- stayed
+		["1:2"] = { HERB, 3, false }, -- another item is there now
+		["1:3"] = { HERB, 2, false }, -- part of the stack went
+	}
+	local moved, left, moving = ns.Alts_DepositOutcome(tried, function(bag, slot)
+		local v = now[bag .. ":" .. slot]
+		if not v then
+			return nil, 0, false
+		end
+		return v[1], v[2], v[3]
+	end)
+	eq(moved, 3, "moved")
+	eq(left, 1, "left")
+	eq(moving, 1, "on its way")
+end)
+
+test("DepositText: all, some, none and why", function()
+	eq(ns.Alts_DepositText(0, 0), "nothing to put in the Warband bank for your alts.")
+	eq(ns.Alts_DepositText(1, 1), "put 1 stack in the Warband bank for your alts.")
+	eq(ns.Alts_DepositText(5, 5), "put 5 stacks in the Warband bank for your alts.")
+	eq(ns.Alts_DepositText(5, 3, "full"),
+		"put 3 of 5 stacks in the Warband bank for your alts; the rest stayed: the Warband bank is full.")
+	eq(ns.Alts_DepositText(5, 0, "tabs"),
+		"couldn't put anything in the Warband bank: you haven't bought a Warband bank tab.")
+	eq(ns.Alts_DepositText(5, 0, "closed"),
+		"couldn't put anything in the Warband bank: the Warband bank can't be used right now.")
+	eq(ns.Alts_DepositText(2, 0), "couldn't put anything in the Warband bank: the game didn't move them.")
+end)
+
 H.done()
