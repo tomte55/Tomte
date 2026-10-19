@@ -64,7 +64,7 @@ local function Situation()
 	local s = {
 		specID = specID,
 		hasPet = UnitExists("pet"),
-		content = ns.Hunter_ContentKind(instanceType, difficultyID),
+		content = ns.Check_ContentKind(instanceType, difficultyID),
 	}
 	local players, tank = Group()
 	s.inGroup, s.groupHasTank = players > 0, tank

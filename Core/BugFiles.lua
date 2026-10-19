@@ -25,6 +25,7 @@ ns.BUG_FILES = {
 	"Core/Session.lua",
 	"Core/Content.lua",
 	"Core/Journal.lua",
+	"Core/CheckData.lua",
 	"Core/Check.lua",
 	"Data/WarWithin/Weekly.lua",
 	"Data/WarWithin/Gear.lua",

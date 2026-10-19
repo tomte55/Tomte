@@ -102,7 +102,7 @@ events.PLAYER_EQUIPMENT_CHANGED = Check
 function events:PLAYER_ENTERING_WORLD()
 	Check()
 	local _, instanceType, difficultyID = GetInstanceInfo()
-	if ns.Hunter_ContentKind(instanceType, difficultyID) then
+	if ns.Check_ContentKind(instanceType, difficultyID) then
 		C_Timer.After(ENTER_DELAY, InstanceCheck)
 	end
 end

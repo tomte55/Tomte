@@ -54,7 +54,7 @@ end
 -- After zoning into a dungeon, raid or delve: fn() runs delay seconds later, once pets and auras are back.
 function ns.Check_OnEnterWorld(delay, fn)
 	local _, instanceType, difficultyID = GetInstanceInfo()
-	if ns.Hunter_ContentKind(instanceType, difficultyID) then
+	if ns.Check_ContentKind(instanceType, difficultyID) then
 		C_Timer.After(delay, fn)
 	end
 end

@@ -4,7 +4,6 @@ local addonName, ns = ...
 -- and the readiness rules.
 
 local SPEC_BM, SPEC_MM, SPEC_SV = 253, 254, 255
-local DELVE_DIFFICULTY = 208
 
 -- Call Pet 1-5, in slot order (Stable.lua and Tooltips.lua).
 ns.CALL_PET_SPELLS = { 883, 83242, 83243, 83244, 83245 }
@@ -251,18 +250,6 @@ function ns.Hunter_StableSummary(snapshot, seen)
 	end
 	table.sort(seenOnly, ByName)
 	return { owned = owned, seenOnly = seenOnly, pets = ns.Hunter_PetCount(snapshot) }
-end
-
--- instanceType/difficultyID from GetInstanceInfo() -> "dungeon" | "raid" | "delve" | nil
-function ns.Hunter_ContentKind(instanceType, difficultyID)
-	if instanceType == "party" then
-		return "dungeon"
-	elseif instanceType == "raid" then
-		return "raid"
-	elseif instanceType == "scenario" and difficultyID == DELVE_DIFFICULTY then
-		return "delve"
-	end
-	return nil
 end
 
 ns.HUNTER_CONTENT_LABEL = { dungeon = "dungeon", raid = "raid", delve = "delve" }
