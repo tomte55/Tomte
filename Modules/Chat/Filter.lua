@@ -156,8 +156,17 @@ local function WarnIfEmpty()
 end
 
 -- Professions can still be missing at the first loading screen: look again a little later before warning.
+-- Also watched once from file load, module on or off: "Pause the filter" lasts one play session (a forgotten pause
+-- would leave Trade unfiltered for good). A /reload keeps it.
 local worldEntered = false
-function events:PLAYER_ENTERING_WORLD()
+function events:PLAYER_ENTERING_WORLD(isInitialLogin)
+	if isInitialLogin and module.db and module.db.paused then
+		module.db.paused = false
+	end
+	if not module.active then
+		self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+		return
+	end
 	playerGUID = UnitGUID("player")
 	RebuildWords()
 	if not worldEntered then
@@ -170,6 +179,8 @@ function events:PLAYER_ENTERING_WORLD()
 		end)
 	end
 end
+
+events:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 function events:SKILL_LINES_CHANGED()
 	RebuildWords()
@@ -248,7 +259,7 @@ local WHERE_CHOICES = {
 
 local options = {
 	{ type = "checkbox", key = "paused", label = "Pause the filter",
-		tooltip = "Show everything for now, for when you're shopping. Nothing is hidden or toasted while paused." },
+		tooltip = "Show everything until you log out, for when you're shopping. Nothing is hidden or toasted while paused." },
 	{ type = "header", label = "Keywords" },
 	{ type = "checkbox", key = "profKeywords", label = "Your professions", onChange = OnWordsChange,
 		tooltip = "This character's two professions, by name and by their usual abbreviations (Blacksmithing: BS, smith, blacksmith). Follows the character you play." },
@@ -301,7 +312,7 @@ module = ns.RegisterModule({
 		highlight = true,
 		toast = false,
 		holdInCombat = true,
-		paused = false,
+		paused = false, -- until logout: cleared on the next login (PLAYER_ENTERING_WORLD)
 	},
 	toggle = function(active)
 		if active then
