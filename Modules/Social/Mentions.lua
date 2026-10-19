@@ -40,7 +40,7 @@ local function RebuildWords()
 	if db.ownName then
 		local name = UnitName("player")
 		if name then
-			table.insert(words, 1, name:lower())
+			table.insert(words, 1, ns.Social_Lower(name))
 		end
 	end
 end

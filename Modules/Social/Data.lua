@@ -223,11 +223,12 @@ function ns.Social_ShortTag(battleTag)
 	return battleTag:match("^([^#]+)") or battleTag
 end
 
--- A comma-separated list from an input box -> lower-case words, trimmed, without duplicates or blanks.
+-- A comma-separated list from an input box -> lower-case words (ns.Social_Lower), trimmed, without duplicates or
+-- blanks.
 function ns.Social_ParseWords(text)
 	local list, seen = {}, {}
 	for part in (text or ""):gmatch("[^,]+") do
-		local word = part:match("^%s*(.-)%s*$"):lower()
+		local word = ns.Social_Lower(part:match("^%s*(.-)%s*$"))
 		if word ~= "" and not seen[word] then
 			seen[word] = true
 			list[#list + 1] = word
@@ -254,6 +255,42 @@ function ns.Social_ColorLinks(text, paint)
 	end))
 end
 
+-- Lower case for names and keywords: string.lower only knows ASCII. Also Latin-1 (À-Þ), Latin Extended-A (Ā-ž) and
+-- Cyrillic (Ѐ-Я; ruRU clients). Every mapped letter keeps its byte length, so a position found in the lower-case text
+-- is valid in the original (Chat_Highlight relies on that). İ is left alone: its lower case is i plus a combining dot.
+local function LowerCodepoint(cp)
+	if cp >= 0xC0 and cp <= 0xDE and cp ~= 0xD7 then
+		return cp + 0x20
+	elseif cp >= 0x100 and cp <= 0x17F then
+		if cp == 0x178 then
+			return 0xFF -- Ÿ -> ÿ
+		elseif (cp >= 0x139 and cp <= 0x148) or (cp >= 0x179 and cp <= 0x17E) then
+			return cp % 2 == 1 and cp + 1 or cp -- odd capitals
+		elseif cp ~= 0x130 and (cp <= 0x137 or (cp >= 0x14A and cp <= 0x177)) then
+			return cp % 2 == 0 and cp + 1 or cp -- even capitals
+		end
+	elseif cp >= 0x410 and cp <= 0x42F then
+		return cp + 0x20
+	elseif cp >= 0x400 and cp <= 0x40F then
+		return cp + 0x50
+	end
+	return cp
+end
+
+-- A two-byte UTF-8 letter in lower case, or nil to keep it.
+local function LowerPair(lead, cont)
+	local cp = (lead:byte() - 0xC0) * 64 + (cont:byte() - 0x80)
+	local lower = LowerCodepoint(cp)
+	if lower == cp then
+		return nil
+	end
+	return string.char(0xC0 + math.floor(lower / 64), 0x80 + lower % 64)
+end
+
+function ns.Social_Lower(text)
+	return (text:lower():gsub("([\192-\223])([\128-\191])", LowerPair))
+end
+
 -- A letter or digit (ASCII), or any byte of a multi-byte UTF-8 character: part of a word.
 local function WordByte(b)
 	return b ~= nil and (b >= 128 or (b >= 48 and b <= 57) or (b >= 65 and b <= 90) or (b >= 97 and b <= 122))
@@ -265,7 +302,7 @@ function ns.Social_FindMention(text, words)
 	if type(text) ~= "string" or #words == 0 then
 		return nil
 	end
-	local lower = ns.Social_PlainText(text):lower()
+	local lower = ns.Social_Lower(ns.Social_PlainText(text))
 	for _, word in ipairs(words) do
 		local start = 1
 		while true do
@@ -305,7 +342,7 @@ function ns.Social_IsWatched(watch, ...)
 	for i = 1, select("#", ...) do
 		local name = select(i, ...)
 		if type(name) == "string" and name ~= "" then
-			local lower = name:lower()
+			local lower = ns.Social_Lower(name)
 			local short = lower:match("^([^#]+)#") or lower:match("^([^%-]+)%-")
 			for _, w in ipairs(watch) do
 				if w == lower or w == short then

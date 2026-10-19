@@ -209,4 +209,11 @@ test("CopyText: hidden lines, clean drops empty ones", function()
 	eq(ns.Chat_CopyText({}, true), "")
 end)
 
+test("Keywords and highlight: accented capitals, original text kept", function()
+	eq(ns.Chat_BuildKeywords({}, false, "Ásgeir")[1], "ásgeir")
+	eq(ns.Chat_Highlight("LF ÖRN smith", { "örn" }, wrap), "LF <ÖRN> smith")
+	eq(ns.Chat_Highlight("Ásgeir och ásgeir", { "ásgeir" }, wrap), "<Ásgeir> och <ásgeir>")
+	eq(ns.Chat_Decide("Selling ÖRN boots", { "örn" }, {}), true)
+end)
+
 H.done()

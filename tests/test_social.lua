@@ -305,4 +305,25 @@ test("toast flow follows where the stack sits", function()
 	eq(flow(960, 540), "down/top", "the exact middle counts as the upper half")
 end)
 
+test("Lower: accented and Cyrillic capitals, byte length kept", function()
+	eq(ns.Social_Lower("ÁSGEIR"), "ásgeir")
+	eq(ns.Social_Lower("Ærø Ŝtål ŁÓDŹ"), "ærø ŝtål łódź")
+	eq(ns.Social_Lower("ТОМТЕ Ёж"), "томте ёж")
+	eq(ns.Social_Lower("Ÿ Ŀ"), "ÿ ŀ")
+	eq(ns.Social_Lower("×ß İ"), "×ß İ", "no case, or a lower case of another length")
+	local s = "Ásgeir ÖRN Ŀ İ Ж"
+	eq(#ns.Social_Lower(s), #s, "same length")
+end)
+
+test("FindMention: accented capitals match either way", function()
+	eq(ns.Social_FindMention("Hej Ásgeir!", ns.Social_ParseWords("ásgeir")), "ásgeir")
+	eq(ns.Social_FindMention("hej ásgeir", ns.Social_ParseWords("Ásgeir")), "ásgeir")
+	eq(ns.Social_FindMention("ÁSGEIRS", ns.Social_ParseWords("ásgeir")), nil, "still whole words")
+end)
+
+test("IsWatched: accented capitals match", function()
+	eq(ns.Social_IsWatched(ns.Social_ParseWords("ásgeir"), "Ásgeir-Draenor"), true)
+	eq(ns.Social_IsWatched(ns.Social_ParseWords("ÖRN"), "Örn#1234"), true)
+end)
+
 H.done()

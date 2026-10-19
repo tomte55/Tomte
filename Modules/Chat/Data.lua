@@ -39,7 +39,7 @@ local PROF_ABBREVIATIONS = {
 function ns.Chat_BuildKeywords(profs, useProfs, extraText)
 	local list, seen = {}, {}
 	local function Add(word)
-		word = word and word:match("^%s*(.-)%s*$"):lower()
+		word = word and ns.Social_Lower(word:match("^%s*(.-)%s*$"))
 		if word and word ~= "" and not seen[word] then
 			seen[word] = true
 			list[#list + 1] = word
@@ -102,7 +102,7 @@ local function EscapeLength(text, i)
 end
 
 local function HighlightPlain(plain, words, wrap)
-	local lower = plain:lower()
+	local lower = ns.Social_Lower(plain)
 	local out, i, last = {}, 1, 1
 	while i <= #plain do
 		local best
