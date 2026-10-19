@@ -644,7 +644,7 @@ function ns.AltsSend_Refresh()
 			end
 		end
 	end
-	dock.postage:SetText(attached and GetSendMailPrice and ("postage " .. C_CurrencyInfo.GetCoinTextureString(GetSendMailPrice())) or "")
+	dock.postage:SetText(attached and GetSendMailPrice and ("postage " .. ns.Price(GetSendMailPrice())) or "")
 	dock.note:ClearAllPoints()
 	dock.note:SetPoint("TOPLEFT", 12, -y)
 	dock.note:SetPoint("RIGHT", -12, 0)

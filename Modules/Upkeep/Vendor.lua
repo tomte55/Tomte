@@ -24,9 +24,7 @@ local function Restricted()
 	return false
 end
 
-local function Money(copper)
-	return GetMoneyString(copper, true)
-end
+local Money = ns.Price -- "12g", "45s" or "80c"
 
 local function Summary(visit)
 	local parts = {}
