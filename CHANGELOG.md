@@ -15,6 +15,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Settings search also finds words inside each module's settings.
 - Settings that depend on another choice show or hide right away.
 - 3D previews and the tracker minus button: small fixes (fewer checks while hovering, no stuck scroll drag).
+- World quests and Gold world quests: right-click no longer moves the world map (it could get the map blocked in combat afterwards). On the World quests tab right-click stops tracking; in the Gold window it does nothing on a quest.
 
 ## v1.15.2 - 2026-10-15
 

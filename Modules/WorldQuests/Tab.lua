@@ -3,8 +3,8 @@ local addonName, ns = ...
 -- World quests tab in the world map's side panel (under Collect here): the viewed map's world quests in folding
 -- sections by reward. Rows are ordinary frames (nothing here is a protected action). Hover marks the quest on the
 -- map with our own pulsing highlight (Blizzard's MapCanvas.PingQuestID would make the map's pin pools tainted),
--- click super-tracks it (what Blizzard's pin click does), shift-click links it, right-click opens its zone on a
--- continent or stops tracking it on a zone. Route (Route.lua) tracks the listed quests one by one, nearest first.
+-- click super-tracks it (what Blizzard's pin click does), shift-click links it, right-click stops tracking it (never
+-- moves the map: see ns.MapTabs_Open). Route (Route.lua) tracks the listed quests one by one, nearest first.
 -- Tab switching is Panel/MapTabs.lua.
 
 local UI = ns.UI
@@ -257,7 +257,7 @@ local function ShowTooltip(row)
 	end
 	Line(" ")
 	Line(IsTracked(q) and "Click: stop tracking" or "Click: track it", "textMuted")
-	Line(panel.kind == "continent" and "Right-click: open its zone" or "Right-click: untrack", "textMuted")
+	Line("Right-click: untrack", "textMuted")
 	Line("Shift-click: link in chat", "textMuted")
 	GameTooltip:Show()
 	if panel.preview then
@@ -284,11 +284,7 @@ local function OnRowClick(self, button)
 			Track(q)
 		end
 	elseif button == "RightButton" then
-		if panel.kind == "continent" and q.zoneID then
-			WorldMapFrame:SetMapID(q.zoneID)
-		else
-			Untrack(q)
-		end
+		Untrack(q)
 	end
 end
 

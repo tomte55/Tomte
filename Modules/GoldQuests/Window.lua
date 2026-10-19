@@ -46,20 +46,6 @@ local function ToggleTrack(questID)
 	end
 end
 
-local function OpenMap(mapID)
-	if not mapID then
-		return
-	end
-	if InCombatLockdown() then
-		ns.Print_Combat("open the map")
-		return
-	end
-	if not WorldMapFrame:IsShown() then
-		ToggleWorldMap()
-	end
-	WorldMapFrame:SetMapID(mapID)
-end
-
 -- A locked special assignment: a map pin on its spot (the placeholder quest's or the POI's).
 local function PinAssignment(a)
 	local x, y = a.x, a.y
@@ -104,7 +90,6 @@ local function QuestTooltip(row, q)
 	end
 	Line(" ")
 	Line(IsTracked(q.id) and "Click: stop tracking" or "Click: track it", "textMuted")
-	Line("Right-click: open its zone on the map", "textMuted")
 	Line("Shift-click: link in chat", "textMuted")
 	GameTooltip:Show()
 end
@@ -188,8 +173,9 @@ local function OnRowClick(self, button)
 		expanded[d.guid] = not expanded[d.guid]
 		Draw()
 	elseif d.kind == "quest" then
+		-- Right-click does nothing here: moving the world map from addon code taints it (see ns.MapTabs_Open).
 		if button == "RightButton" then
-			OpenMap(d.q.zoneID)
+			return
 		elseif IsShiftKeyDown() then
 			UI.InsertLink(GetQuestLink(d.q.id))
 		else
