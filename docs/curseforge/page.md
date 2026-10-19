@@ -93,7 +93,8 @@ mode. Cinematics never lock your controls: any key or click ends them.
 
 - **Hunter Pets:** Call Pet tooltips, a stable tab with a tame log, and a pet check before dungeons and raids.
 - **Rogue Poisons:** one click (or key) applies a missing poison.
-- **Pet Health:** your pet's health under your character, with reminders for a dead or missing pet.
+- **Pet Health:** your pet's health under your character (Hunters, Warlocks and Unholy Death Knights), with
+  reminders for a dead or missing pet.
 
 ### And more
 

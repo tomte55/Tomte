@@ -1,9 +1,9 @@
 local addonName, ns = ...
 
 -- Pet Health: a pet bar under the character (UnitBar.lua) with a color and warning glow that follow pet
--- health, a "heal below this line" tick and Mend Pet / Exhilaration cooldowns; plus banner reminders when the pet
--- dies, when you pull without one, and when combat ends with it dead. Pure rules in Data.lua. Classes come in
--- through the profiles there (hunters for now).
+-- health, a "heal below this line" tick and the class's pet cooldowns; plus banner reminders when the pet dies,
+-- when you pull without one, and when combat ends with it dead. Pure rules and the class profiles (hunters,
+-- warlocks, Unholy death knights) in Data.lua.
 
 local PREVIEW_PERIOD = 6 -- seconds for the unlocked preview to sweep 100% -> 5% -> 100%
 -- Seconds after combat before the "pet is dead" reminder; a new pull within it skips the reminder.
@@ -18,6 +18,10 @@ local petName -- last readable name, for reminders after the pet is gone
 local lastReminder = {}
 local previewTime = 0
 local spellsDirty = true -- the spell row is rebuilt on the next Update (spellbook or spec changed)
+-- Grimoire of Sacrifice on (profiles with `sacrifice`). Read out of combat only: aura reads can come back secret in
+-- combat, and the value from before the pull holds through the fight.
+local sacrificed = false
+local lastSummon -- the profile's summon spell cast last this session: the demon a reminder names
 
 local IsSecret = ns.IsSecret
 
@@ -48,14 +52,27 @@ local function Locked()
 	return db.frame.locked and not ns.EditMode_Active()
 end
 
+local function Known(spellID)
+	return C_SpellBook.IsSpellKnown(spellID) and true or false
+end
+
+local function ReadSacrifice()
+	if not profile.sacrifice or inCombat then
+		return
+	end
+	sacrificed = C_UnitAuras.GetPlayerAuraBySpellID(profile.sacrifice) ~= nil
+end
+
 local function Situation()
 	local hasPet = UnitExists("pet")
+	local spec = SpecID()
 	return {
 		unlocked = not Locked(),
+		offSpec = not ns.PetBar_ForSpec(profile, spec),
 		hasPet = hasPet,
 		dead = hasPet and PetDead(),
 		hurt = hasPet and PetHurt() or nil,
-		wantsPet = ns.PetBar_WantsPet(profile, SpecID(), db.marksman),
+		wantsPet = ns.PetBar_WantsPet(profile, spec, db.marksman, sacrificed),
 		inCombat = inCombat,
 		vehicle = UnitHasVehicleUI("player"),
 		petBattle = C_PetBattles.IsInBattle(),
@@ -87,16 +104,14 @@ local function Remind(trigger, s)
 		return
 	end
 	local name = petName or "Your pet"
+	local spellID = ns.PetBar_SummonSpell(key == "dead" and profile.revive or profile.call, lastSummon, Known)
 	local spec
 	if key == "dead" then
-		spec = {
-			title = trigger == "died" and (name .. " died") or (name .. " is dead"),
-			subtitle = SpellName(profile.revive),
-			icon = C_Spell.GetSpellTexture(profile.revive),
-		}
+		spec = { title = trigger == "died" and (name .. " died") or (name .. " is dead") }
 	else
-		spec = { title = "No pet", subtitle = SpellName(profile.call), icon = C_Spell.GetSpellTexture(profile.call) }
+		spec = { title = "No pet" }
 	end
+	spec.subtitle, spec.icon = SpellName(spellID), C_Spell.GetSpellTexture(spellID)
 	spec.owner, spec.label, spec.accent, spec.hold = "pet", "Pet", "danger", 3
 	ns.Banner_Show(spec)
 	if db.sound then
@@ -113,7 +128,7 @@ end
 local function KnownSpells()
 	local known = {}
 	for _, spell in ipairs(profile.spells) do
-		if C_SpellBook.IsSpellKnown(spell.id) then
+		if Known(spell.id) then
 			known[#known + 1] = spell
 		end
 	end
@@ -238,13 +253,28 @@ events.PLAYER_MOUNT_DISPLAY_CHANGED = Update
 
 function events:PLAYER_ENTERING_WORLD()
 	inCombat = InCombatLockdown()
+	ReadSacrifice()
 	spellsDirty = true
 	Update()
 end
 
-function events:UNIT_AURA()
+function events:UNIT_AURA(unit)
+	if not IsSecret(unit) and unit == "player" then -- registered only for a profile with a sacrifice aura
+		local was = sacrificed
+		ReadSacrifice()
+		if sacrificed ~= was then
+			Update()
+		end
+		return
+	end
 	if bar and bar:IsShown() and UnitExists("pet") and (Locked() or inCombat) then
 		bar:RefreshBuff("pet")
+	end
+end
+
+function events:UNIT_SPELLCAST_SUCCEEDED(_, _, spellID)
+	if not IsSecret(spellID) and ns.PetBar_IsSummon(profile, spellID) then
+		lastSummon = spellID
 	end
 end
 
@@ -262,6 +292,7 @@ end
 
 function events:PLAYER_REGEN_ENABLED()
 	inCombat = false
+	ReadSacrifice()
 	Update()
 	C_Timer.After(COMBAT_END_DELAY, function()
 		if module.active and not inCombat then
@@ -277,7 +308,13 @@ local function Start()
 	for _, event in ipairs(UNIT_EVENTS) do
 		events:RegisterUnitEvent(event, "pet")
 	end
-	events:RegisterUnitEvent("UNIT_AURA", "pet")
+	-- The player's auras only matter for Grimoire of Sacrifice: other classes skip that busy stream.
+	if profile.sacrifice then
+		events:RegisterUnitEvent("UNIT_AURA", "pet", "player")
+	else
+		events:RegisterUnitEvent("UNIT_AURA", "pet")
+	end
+	events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 	events:RegisterUnitEvent("UNIT_PET", "player") -- not every raid member's pet
 	previewDriver:SetShown(not Locked())
 	if ns.inWorld then
@@ -360,8 +397,8 @@ module = ns.RegisterModule({
 	name = "Pet Health",
 	category = "class",
 	icon = 132179, -- ability_hunter_mendpet
-	summary = "A pet health bar that warns you when your pet needs healing.",
-	description = "A pet health bar under your character that turns red and glows when your pet needs healing, with Mend Pet and Exhilaration cooldowns, and reminders when your pet dies or you pull without one.",
+	summary = "A pet health bar for Hunters, Warlocks and Unholy Death Knights that warns you when your pet needs healing.",
+	description = "A pet health bar under your character that turns red and glows when your pet needs healing, and reminders when your pet dies or you pull without one. Under the bar: Mend Pet and Exhilaration for Hunters, Fel Domination for Warlocks (no reminders with Grimoire of Sacrifice), Dark Transformation for Unholy Death Knights.",
 	enabledByDefault = true,
 	toasts = "Pet health (banners)",
 	defaults = {
@@ -381,7 +418,7 @@ module = ns.RegisterModule({
 	end,
 	blocked = function()
 		if not profile then
-			return "No pet profile for your class yet."
+			return "Only for Hunters, Warlocks and Unholy Death Knights."
 		end
 	end,
 	toggle = function(active)
@@ -412,7 +449,7 @@ module = ns.RegisterModule({
 			tooltip = "A dead pet, or no pet in combat, always shows." },
 		{ type = "slider", key = "threshold", label = "Warning below", min = 20, max = 70, step = 5,
 			format = Percent, onChange = Relayout,
-			tooltip = "Below this the bar turns red and glows. The tick on the bar marks it: a good time for Mend Pet." },
+			tooltip = "Below this the bar turns red and glows. The tick on the bar marks it." },
 		{ type = "slider", key = "scale", label = "Size", min = 0.6, max = 1.6, step = 0.1, format = Scale,
 			onChange = Relayout },
 		{ type = "checkbox", key = "showPercent", label = "Show percent", onChange = Relayout },
@@ -425,6 +462,8 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "remind.after", label = "After combat if it's dead" },
 		{ type = "checkbox", key = "sound", label = "Warning sound" },
 		{ type = "checkbox", key = "marksman", label = "Marksmanship uses a pet", onChange = Update,
-			tooltip = "Remind a Marksmanship hunter about the pet too." },
+			shown = function()
+				return profile ~= nil and ns.PetBar_HasOption(profile)
+			end, tooltip = "Remind a Marksmanship hunter about the pet too." },
 	},
 })
