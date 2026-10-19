@@ -69,7 +69,7 @@ local FACTS = {
 		clickText = "Click: character pane with Gear Check",
 		click = function()
 			if InCombatLockdown() then
-				ns.Print("not in combat.")
+				ns.Print_Combat("open the character pane")
 				return
 			end
 			ns.Panel_Hide()
@@ -151,7 +151,7 @@ local FACTS = {
 		-- Not in combat, like the modules' map tabs.
 		click = function()
 			if InCombatLockdown() then
-				ns.Print("not in combat.")
+				ns.Print_Combat("open the map")
 				return
 			end
 			ns.Panel_Hide()

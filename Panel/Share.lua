@@ -67,7 +67,7 @@ end
 
 local function Apply()
 	if InCombatLockdown() then
-		ns.Print("Import after combat.")
+		ns.Print_Combat("import settings")
 		return
 	end
 	if not preview.undo then
@@ -213,7 +213,7 @@ end
 
 function ns.ShareUI_Import()
 	if InCombatLockdown() then
-		ns.Print("Import after combat.")
+		ns.Print_Combat("import settings")
 		return
 	end
 	ns.Dialog_Show({
@@ -235,7 +235,7 @@ end
 
 function ns.ShareUI_Undo()
 	if InCombatLockdown() then
-		ns.Print("Undo after combat.")
+		ns.Print_Combat("undo an import")
 		return
 	end
 	if not ns.ShareUI_HasBackup() then

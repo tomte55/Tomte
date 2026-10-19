@@ -31,7 +31,7 @@ end
 
 local function UseThis()
 	if InCombatLockdown() then
-		ns.Print("Pick after combat.")
+		ns.Print_Combat("apply a preset")
 		return
 	end
 	local preset = ns.Setup_Preset(selected)
@@ -177,7 +177,7 @@ end
 -- /tomte setup and the Run setup button.
 function ns.SetupUI_Show()
 	if InCombatLockdown() then
-		ns.Print("Run setup after combat.")
+		ns.Print_Combat("run setup")
 		return
 	end
 	fromCommand = true

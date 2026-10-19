@@ -442,7 +442,7 @@ end
 
 local function MacroCommand()
 	if InCombatLockdown() then
-		ns.Print("macros can't be made in combat.")
+		ns.Print_Combat("make the mount macro")
 		return
 	end
 	if not module.active then
@@ -569,7 +569,7 @@ end
 
 local function Summon(mountID)
 	if InCombatLockdown() then
-		ns.Print("not in combat.")
+		ns.Print_Combat("summon a mount")
 		return
 	end
 	C_MountJournal.SummonByID(mountID)

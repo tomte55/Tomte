@@ -15,9 +15,15 @@ function ns.Check_Report(spec)
 		end
 		return
 	end
-	if InCombatLockdown() or UnitIsDeadOrGhost("player") then
+	if InCombatLockdown() then
 		if spec.verbose then
-			ns.Print(spec.name .. ": not in combat or while dead.")
+			ns.Print_Combat("run the " .. spec.name)
+		end
+		return
+	end
+	if UnitIsDeadOrGhost("player") then
+		if spec.verbose then
+			ns.Print(("can't run the %s while you're dead."):format(spec.name))
 		end
 		return
 	end

@@ -458,7 +458,7 @@ local AROUND = {
 	open = function()
 		-- Not in combat, the same rule as Home's world map click (Panel/HomeHero.lua) and the modules' map tabs.
 		if InCombatLockdown() then
-			ns.Print("not in combat.")
+			ns.Print_Combat("open the map")
 			return
 		end
 		local zone = ns.Atlas_PlayerZone()

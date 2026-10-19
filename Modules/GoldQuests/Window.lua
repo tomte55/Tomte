@@ -51,7 +51,7 @@ local function OpenMap(mapID)
 		return
 	end
 	if InCombatLockdown() then
-		ns.Print("not in combat.")
+		ns.Print_Combat("open the map")
 		return
 	end
 	if not WorldMapFrame:IsShown() then

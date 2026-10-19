@@ -182,7 +182,7 @@ end
 
 local function Busy()
 	if InCombatLockdown() then
-		ns.Print("not in combat.")
+		ns.Print_Combat("move items for your alts")
 		return true
 	end
 	return false

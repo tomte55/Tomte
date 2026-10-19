@@ -239,7 +239,7 @@ end
 -- Opens the Dungeon Finder, with the boss selected only when the opt-in selectInFinder setting is on. Never queues.
 function ns.Events_OpenFinder(dungeonID)
 	if InCombatLockdown() then
-		ns.Print("after combat: open the Dungeon Finder.")
+		ns.Print_Combat("open the Dungeon Finder")
 		return
 	end
 	if PVEFrame_ShowFrame and LFDParentFrame then

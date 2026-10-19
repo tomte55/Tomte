@@ -113,7 +113,7 @@ end
 local function Equip(item)
 	local guid = item.guid
 	if InCombatLockdown() then
-		ns.Print("Gear Check: you can't change gear in combat.")
+		ns.Print_Combat("change gear")
 		return
 	end
 	local found

@@ -328,7 +328,7 @@ end
 -- UI panel from addon code can be blocked.
 function ns.GearSheet_Open()
 	if InCombatLockdown() then
-		ns.Print("not in combat.")
+		ns.Print_Combat("open the character pane")
 		return
 	end
 	DB().sheetOpen = true

@@ -16,11 +16,11 @@ function ns.Entry_Link(e)
 	end
 end
 
--- Opens the entry's journal page or achievement. Both wait for the end of combat: opening the load-on-demand
+-- Opens the entry's journal page or achievement. Neither opens in combat: opening the load-on-demand
 -- Achievements UI there may be blocked, and the journals are protected frames.
 function ns.Entry_Open(e)
 	if InCombatLockdown() then
-		ns.Print("the journal opens after combat.")
+		ns.Print_Combat("open the journal")
 		return
 	end
 	if e.kind == "ach" then

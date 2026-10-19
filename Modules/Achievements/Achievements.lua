@@ -200,7 +200,7 @@ end
 -- opener (Blizzard_AchievementUI_Bootstrap, loads the window).
 function ns.Ach_Open(id)
 	if InCombatLockdown() and not C_AddOns.IsAddOnLoaded("Blizzard_AchievementUI") then
-		ns.Print("the Achievements window opens after combat.")
+		ns.Print_Combat("open the Achievements window")
 		return
 	end
 	ShowAchievementFrameForAchievement(id)

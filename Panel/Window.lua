@@ -40,7 +40,7 @@ local module = ns.RegisterModule({
 			end,
 			onClick = function()
 				if InCombatLockdown() then
-					ns.Print("Reload after combat to switch themes.")
+					ns.Print_Combat("reload to switch themes")
 					return
 				end
 				C_UI.Reload() -- needs a hardware event: this click is one

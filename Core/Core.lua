@@ -39,6 +39,12 @@ function ns.Print(msg)
 	print(Prefix() .. msg)
 end
 
+-- The one line for something Tomte won't do in combat: "Tomte: can't open the map in combat." action: what the
+-- player asked for, lower case, no period. Nothing is queued for after combat.
+function ns.Print_Combat(action)
+	ns.Print(("can't %s in combat."):format(action))
+end
+
 -- Smoothstep easing: 0..1 -> 0..1, slow at both ends. Doesn't clamp p; callers that can overshoot clamp first.
 function ns.Smoothstep(p)
 	return p * p * (3 - 2 * p)
