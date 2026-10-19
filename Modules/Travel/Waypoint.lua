@@ -326,6 +326,14 @@ local function Times(v)
 	return ("%.2f"):format(v)
 end
 
+-- "Use meters", for other modules' distances (Flight's Around rows).
+function ns.Way_Metric()
+	if not db then
+		return true -- the setting's default
+	end
+	return db.metric
+end
+
 module = ns.RegisterModule({
 	key = "way",
 	conflicts = { { addon = "WaypointUI", why = "Waypoints stays off while it's enabled" } },

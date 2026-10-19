@@ -110,7 +110,7 @@ local function PrintStats()
 	local st = ns.flightDB.stats
 	ns.Print("flight stats")
 	print(("  Flights: %d   In the air: %s   Gold spent: %s"):format(
-		st.flights, ns.FormatTime(st.seconds), C_CurrencyInfo.GetCoinTextureString(st.copper)))
+		st.flights, ns.FormatTime(st.seconds), ns.Price(st.copper)))
 	if st.longest > 0 then
 		print(("  Longest: %s (%s)"):format(st.longestRoute, ns.FormatTime(st.longest)))
 	end
@@ -439,9 +439,9 @@ local function Waypoint(node, mapID)
 	ns.Print(("%s: %s."):format(now and "waypoint" or "waypoint after combat", node.name))
 end
 
+-- Travel loads after Flight: both are looked up at call time.
 local function DistanceText(yards)
-	local way = ns.modulesByKey.way
-	return ns.Way_FormatDistance(yards, way and way.db and way.db.metric)
+	return ns.Way_FormatDistance(yards, ns.Way_Metric())
 end
 
 local AROUND = {
@@ -469,7 +469,7 @@ local AROUND = {
 				end,
 				onEnter = function(row)
 					GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-					GameTooltip:SetText(node.name, 1, 1, 1)
+					GameTooltip:SetText(node.name, ns.UI.Color("heading"))
 					GameTooltip:AddLine(hidden and "Not discovered yet." or "No timed flight from or to here yet.",
 						ns.UI.RGB("textMuted"))
 					GameTooltip:AddLine("Click: waypoint", ns.UI.RGB("accent"))

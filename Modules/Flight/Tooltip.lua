@@ -15,7 +15,7 @@ local function AddTimeLine(slot)
 	if not t then
 		return
 	end
-	GameTooltip:AddLine((isEstimate and "~" or "") .. ns.FormatTime(t), 1, 1, 1)
+	GameTooltip:AddLine((isEstimate and "~" or "") .. ns.FormatTime(t), ns.UI.RGB("text"))
 	GameTooltip:Show()
 end
 
