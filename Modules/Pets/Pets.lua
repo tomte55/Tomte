@@ -134,7 +134,8 @@ module = ns.RegisterModule({
 			tooltip = "After each battle, the pet in this slot is swapped for the next pet in your queue (the page's Leveling view) once it reaches 25. The helper reminds you to swap it out after its first turn; it still gets the XP." },
 		{ type = "dropdown", key = "leveling.slot", label = "Slot", choices = function()
 			return SLOT_CHOICES
-		end, onChange = Refresh, parent = "leveling.on" },
+		end, onChange = Refresh, parent = "leveling.on",
+			tooltip = "Which of your three team slots holds the leveling pet." },
 		{ type = "button", label = "Queue", text = "Open", onClick = function()
 			Open("leveling")
 		end },

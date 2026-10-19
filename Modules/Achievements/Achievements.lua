@@ -496,7 +496,8 @@ module = ns.RegisterModule({
 		end, tooltip = "Unlock to drag the tracker. Blizzard's Edit Mode moves it too." },
 		{ type = "checkbox", key = "tracker.hideInCombat", label = "Hide in combat", onChange = function()
 			ns.AchTracker_Apply()
-		end, parent = "tracker.shown" },
+		end, parent = "tracker.shown",
+			tooltip = "Hides the tracker while you're in combat; it comes back when the fight ends." },
 		{ type = "slider", key = "tracker.scale", label = "Scale", min = 0.8, max = 1.4, step = 0.05,
 			parent = "tracker.shown", format = function(v)
 				return ("%.2f"):format(v)

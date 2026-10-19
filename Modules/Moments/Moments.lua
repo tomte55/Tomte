@@ -683,7 +683,8 @@ options[#options + 1] = { type = "slider", key = "duration", label = "Cinematic 
 options[#options + 1] = { type = "checkbox", key = "revealSound", label = "Reveal sounds",
 	tooltip = "Play a sound when a new mount, battle pet or tamed pet is revealed. Rarer ones sound grander." }
 options[#options + 1] = { type = "header", label = "Preview" }
-options[#options + 1] = { type = "dropdown", key = "previewKind", label = "Moment", choices = TypeChoices }
+options[#options + 1] = { type = "dropdown", key = "previewKind", label = "Moment", choices = TypeChoices,
+	tooltip = "Which moment the Preview button below shows." }
 options[#options + 1] = { type = "button", label = "Preview moment", text = "Show", onClick = function()
 	Preview()
 end, tooltip = "Show the chosen moment with sample data, in its style." }
