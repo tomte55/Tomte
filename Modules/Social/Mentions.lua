@@ -2,8 +2,8 @@ local addonName, ns = ...
 
 -- Mentions module: a toast (and, if you want, a taskbar flash and a sound) when someone says your
 -- character's name or one of your keywords in guild, group, say/yell or channel chat. Whole words only.
--- Left-click opens the chat box in that channel. In chat lockdown (instances, encounters, M+, PvP) chat
--- text is secret and can't be searched, so nothing is matched there.
+-- Left-click opens the chat box in that channel (a community only when its stream is in a chat window). In chat
+-- lockdown (instances, encounters, M+, PvP) chat text is secret and can't be searched, so nothing is matched there.
 
 local OWNER = "mentions"
 local CHAT_TYPE = "GUILD" -- cards in the guild chat color
@@ -57,7 +57,7 @@ local function RegisterEvents()
 	end
 end
 
-local function ShowMention(label, sender, class, text, slash, preview)
+local function ShowMention(label, sender, class, text, slash, preview, community)
 	local title = ns.UI.ClassColored(sender, class)
 	ns.Toast_Show({
 		owner = OWNER,
@@ -70,8 +70,15 @@ local function ShowMention(label, sender, class, text, slash, preview)
 		digestName = sender,
 		holdInCombat = ns.mentionsDB.holdInCombat,
 		onClick = function()
-			if slash and not preview then
+			if preview then
+				return
+			end
+			if slash then
 				ChatFrameUtil.OpenChat(slash)
+			elseif community then
+				-- Blizzard's Communities window isn't opened from addon code (taint): say where to answer instead.
+				ns.Print("Mentions: that community channel isn't in any chat window, so there's no chat line to open. "
+					.. "Answer in the Communities window.")
 			end
 		end,
 	})
@@ -93,16 +100,20 @@ function events:OnChat(event, text, sender, _, _, _, _, _, channelIndex, channel
 	end
 	local channel = CHANNELS[event]
 	local label, slash = channel[1], channel[3]
+	-- A channel (or a community stream added to a chat window) has a number to type in.
+	local numbered = Readable(channelIndex) and type(channelIndex) == "number" and channelIndex > 0
 	if event == "CHAT_MSG_CHANNEL" then
 		label = (channelBaseName and channelBaseName ~= "") and channelBaseName or label
-		slash = channelIndex and ("/" .. channelIndex .. " ") or nil
+		slash = numbered and ("/" .. channelIndex .. " ") or nil
+	elseif event == "CHAT_MSG_COMMUNITIES_CHANNEL" then
+		slash = numbered and ("/" .. channelIndex .. " ") or nil
 	end
 	local class
 	if guid and guid ~= "" then
 		local _, englishClass = GetPlayerInfoByGUID(guid)
 		class = englishClass
 	end
-	ShowMention(label, Ambiguate(sender, "short"), class, text, slash)
+	ShowMention(label, Ambiguate(sender, "short"), class, text, slash, nil, event == "CHAT_MSG_COMMUNITIES_CHANNEL")
 end
 
 local function Digest(held)
