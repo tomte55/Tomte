@@ -5,7 +5,7 @@ local addonName, ns = ...
 -- links, Heal), imported Xu-Fu strategies, a leveling slot and a page in the Tomte window. The battle and its events
 -- are in Battle.lua, the pet journal and the Heal button in Journal.lua, saved teams in Store.lua, the card in
 -- Card.lua, the links window in Guides.lua and the page in Page.lua. Pure rules are in Data.lua, Strings.lua and
--- Script.lua; the tamer table in Tamers.lua.
+-- Script.lua; the tamer table in Data/<Expansion>/Pets.lua, merged in Tamers.lua.
 
 local module
 

@@ -42,6 +42,9 @@ Data/Midnight/Delves.lua
 Data/WarWithin/Gold.lua
 Data/Midnight/Gold.lua
 Data/Older/Gold.lua
+Data/WarWithin/Pets.lua
+Data/Midnight/Pets.lua
+Data/Older/Pets.lua
 Cinematic/Engine.lua
 Cinematic/SceneKit.lua
 Cinematic/Showcase.lua

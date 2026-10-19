@@ -2,6 +2,10 @@
 local ns = {}
 assert(loadfile("Tomte/Modules/Pets/Data.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Pets/Strings.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Core/Content.lua"))("Tomte", ns)
+for _, file in ipairs({ "Data/WarWithin/Pets.lua", "Data/Midnight/Pets.lua", "Data/Older/Pets.lua" }) do
+	assert(loadfile("Tomte/" .. file))("Tomte", ns)
+end
 assert(loadfile("Tomte/Modules/Pets/Tamers.lua"))("Tomte", ns)
 
 local H = dofile("Tomte/tests/harness.lua")
@@ -418,6 +422,80 @@ end)
 test("tamer table: Collector Dyna has her world quest and Family Battler pages", function()
 	local index = ns.Pets_IndexEncounters(ns.PETS_ENCOUNTERS)
 	eq(list(index[223446]), "1589,1601")
+end)
+
+test("tamer merge: newest expansion first, file order inside one, expansion set", function()
+	local reg = {
+		[4] = { petSections = { { id = 3, name = "Old" } },
+			petEncounters = { [1] = { section = 3, name = "Aldric", npcs = { 9 } } } },
+		[10] = { petSections = { { id = 104, name = "New" }, { id = 105, name = "Newer list" } },
+			petEncounters = { [1589] = { section = 104, name = "Kesha", npcs = { 8 } } } },
+	}
+	local sections, encounters, dupes = ns.Pets_MergeTamers({ 4, 10 }, function(e, key)
+		return reg[e] and reg[e][key]
+	end)
+	eq(sections[1].id, 104)
+	eq(sections[2].id, 105)
+	eq(sections[3].id, 3)
+	eq(sections[1].expansion, 10)
+	eq(sections[3].expansion, 4)
+	eq(encounters[1].name, "Aldric")
+	eq(encounters[1589].name, "Kesha")
+	eq(#dupes, 0)
+end)
+
+test("tamer merge: an encounter id registered twice is reported, the newer kept", function()
+	local reg = {
+		[4] = { petEncounters = { [7] = { section = 3, name = "Mira", npcs = { 1 } } } },
+		[10] = { petEncounters = { [7] = { section = 104, name = "Kesha", npcs = { 2 } } } },
+	}
+	local _, encounters, dupes = ns.Pets_MergeTamers({ 4, 10 }, function(e, key)
+		return reg[e] and reg[e][key]
+	end)
+	eq(list(dupes), "7")
+	eq(encounters[7].name, "Kesha")
+end)
+
+test("tamer data: no encounter id in two expansions", function()
+	local _, _, dupes = ns.Pets_MergeTamers(ns.Content_Expansions(), ns.Content_Get)
+	eq(list(dupes), "")
+end)
+
+test("tamer data: Midnight holds the five Family Battler sections", function()
+	local ids = {}
+	for i, s in ipairs(ns.Content_Get(11, "petSections")) do
+		ids[i] = s.id
+	end
+	eq(list(ids), "114,115,116,117,118")
+end)
+
+-- Taken from the single-file table before the move (2026-10-19): the move must not lose or reorder anything.
+test("tamer data: same sections and fights as before the move", function()
+	local ids = {}
+	for i, s in ipairs(ns.PETS_SECTIONS) do
+		ids[i] = s.id
+	end
+	eq(list(ids), "114,115,116,117,118,104,105,111,107,94,97,98,99,100,101,70,73,72,74,51,54,61,62,52,66,60,53,"
+		.. "16,17,35,28,42,36,33,31,2,5,9,12,3,6,10,8,7")
+	local perExpansion = {}
+	for _, s in ipairs(ns.PETS_SECTIONS) do
+		perExpansion[s.expansion] = (perExpansion[s.expansion] or 0) + 1
+	end
+	eq(list({ perExpansion[4], perExpansion[5], perExpansion[6], perExpansion[7], perExpansion[8], perExpansion[9],
+		perExpansion[10], perExpansion[11] }), "5,4,8,8,4,5,5,5")
+	local count, idSum, npcSum, npcCount, nameBytes, sectionSum = 0, 0, 0, 0, 0, 0
+	for id, e in pairs(ns.PETS_ENCOUNTERS) do
+		count, idSum, sectionSum, nameBytes = count + 1, idSum + id, sectionSum + e.section, nameBytes + #e.name
+		for _, npc in ipairs(e.npcs) do
+			npcSum, npcCount = npcSum + npc, npcCount + 1
+		end
+	end
+	eq(count, 524, "encounters")
+	eq(idSum, 416150, "encounter id sum")
+	eq(sectionSum, 26116, "section sum")
+	eq(npcCount, 541, "npc count")
+	eq(npcSum, 67118418, "npc id sum")
+	eq(nameBytes, 10860, "name bytes")
 end)
 
 H.done()

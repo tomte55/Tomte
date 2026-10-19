@@ -385,7 +385,7 @@ or modules, major for changes that reset or break settings.
   and [SpartanUI](https://github.com/spartanui-wow/SpartanUI); the G-99 Breakneck's spell IDs from
   [LiteMount](https://github.com/xod-wow/LiteMount)'s notes. Flyout and achievement category IDs from the game data
   on [wago.tools](https://wago.tools).
-- Pet Battles: the tamer list takes from [Xu-Fu's Pet Guides](https://www.wow-petguide.com) its encounter page ids,
+- Pet Battles: the tamer list (`Data/<Expansion>/Pets.lua`) takes from [Xu-Fu's Pet Guides](https://www.wow-petguide.com) its encounter page ids,
   the game's NPC ids for each fight, its section names and the English encounter names. No strategies: Tomte links to
   the site, and strategies are pasted in by you. Team strings follow
   the format [Rematch](https://www.curseforge.com/wow/addons/rematch) and Xu-Fu share. The script interpreter is Tomte's
