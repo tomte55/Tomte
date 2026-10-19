@@ -35,6 +35,12 @@ local function StopInspect()
 	events:Unwatch(OWNER, "INSPECT_READY")
 end
 
+-- Blizzard's Inspect window's unit while it's open (Blizzard_InspectUI loads on demand), else nil. That window owns
+-- the inspect then: we may read it but never clear it.
+local function InspectWindowUnit()
+	return InspectFrame and InspectFrame:IsShown() and InspectFrame.unit or nil
+end
+
 local function TargetOutfit()
 	local unit = "target"
 	if not (UnitExists(unit) and UnitIsPlayer(unit)) then
@@ -43,6 +49,11 @@ local function TargetOutfit()
 	end
 	if not CanInspect(unit) then
 		ns.Print("can't inspect your target (too far away?).")
+		return
+	end
+	local inspecting = InspectWindowUnit()
+	if inspecting and not UnitIsUnit(inspecting, unit) then
+		ns.Print("close the Inspect window first.")
 		return
 	end
 	local actor = BAR.Actor()
@@ -71,7 +82,9 @@ events:On(OWNER, "INSPECT_READY", function(_, guid)
 	end
 	StopInspect()
 	local list = C_TransmogCollection.GetInspectItemTransmogInfoList()
-	ClearInspectPlayer()
+	if not InspectWindowUnit() then
+		ClearInspectPlayer() -- ours alone; the Inspect window clears its own when it closes
+	end
 	local actor = BAR.Actor()
 	if not (actor and list) then
 		return
