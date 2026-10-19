@@ -13,6 +13,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Esc closes one Tomte window at a time: a dialog over the Tomte window closes on its own. Alt+Z and the AFK screen no longer close the Tomte window.
 - Around you shows now lists every block, Delves included; Delves' own switch moved there.
 - Settings search also finds words inside each module's settings.
+- Settings that depend on another choice show or hide right away.
 
 ## v1.15.2 - 2026-10-15
 

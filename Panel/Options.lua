@@ -4,8 +4,8 @@ local addonName, ns = ...
 -- card (rows before the first header share an untitled one), dealt into one or two columns by width (Layout.lua).
 -- One factory per row type; rows and cards are pooled and rebuilt per module. The reset buttons sit under the cards
 -- as quiet links. Schema extras read here: tooltip (a faint "?" after the label), parent = "<key>" (indented and
--- dimmed while that option is off), shown() (hides the row). Besides the settings rows there is a read-only `status`
--- row (status() -> text, color role on the right).
+-- dimmed while that option is off), shown() (hides the row; re-checked after every change on the page). Besides the
+-- settings rows there is a read-only `status` row (status() -> text, color role on the right).
 
 local UI = ns.UI
 local OPT_H = 28
@@ -27,6 +27,7 @@ local pools, used = {}, {}
 local cardPool, cards = {}, {}
 local links = {}
 local builtFor -- module whose options are built
+local builtVisibility -- ns.PanelLayout_Visibility of builtFor's options when they were built
 
 -- "frame.locked" -> db.frame, "locked"
 local function Resolve(db, key)
@@ -66,22 +67,30 @@ local function IsParent(module, key)
 	return false
 end
 
+-- Rebuilds module's options when rows hang on what just changed: a parent option (rows dim or light up) or a shown()
+-- that answers differently now. After the switch has finished sliding: a rebuild would cut its animation short.
+local function RebuildIfChanged(module, key)
+	if builtFor ~= module or not scrollFrame then
+		return
+	end
+	if not (key and IsParent(module, key)) and ns.PanelLayout_Visibility(module.options) == builtVisibility then
+		return
+	end
+	local scroll = scrollFrame
+	C_Timer.After(UI.SWITCH_SECONDS, function()
+		if builtFor == module and scroll:IsVisible() then
+			ns.PanelOptions_Build(scroll, module)
+		end
+	end)
+end
+
 local function SetOption(module, spec, value)
 	local tbl, field = Resolve(module.db, spec.key)
 	tbl[field] = value
 	if spec.onChange then
 		spec.onChange(value)
 	end
-	-- Rows that hang on this option dim or light up, once the switch has finished sliding (a rebuild would cut its
-	-- animation short).
-	if builtFor == module and scrollFrame and IsParent(module, spec.key) then
-		local scroll = scrollFrame
-		C_Timer.After(UI.SWITCH_SECONDS, function()
-			if builtFor == module and scroll:IsVisible() then
-				ns.PanelOptions_Build(scroll, module)
-			end
-		end)
-	end
+	RebuildIfChanged(module, spec.key)
 end
 
 local function HideTooltip()
@@ -251,11 +260,15 @@ function Factory.button()
 	row.button:SetPoint("RIGHT", -8, 0)
 	LabelUpTo(row, row.button)
 	row.button:SetScript("OnClick", function()
-		local spec = row.spec
-		if spec.confirm then
-			ns.Confirm_Show(spec.confirm, spec.onClick)
-		else
+		local spec, module = row.spec, row.module
+		local function Run()
 			spec.onClick()
+			RebuildIfChanged(module)
+		end
+		if spec.confirm then
+			ns.Confirm_Show(spec.confirm, Run)
+		else
+			Run()
 		end
 	end)
 	ForwardHover(row, row.button)
@@ -547,6 +560,7 @@ function Build(scroll, module)
 	local keepScroll = builtFor == module and scroll:GetVerticalScroll() or 0
 	ns.PanelOptions_Release()
 	builtFor = module
+	builtVisibility = ns.PanelLayout_Visibility(module.options)
 
 	for _, sec in ipairs(Sections(module)) do
 		local card = AcquireCard()
