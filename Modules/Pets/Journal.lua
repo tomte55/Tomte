@@ -174,6 +174,11 @@ end
 -- Heal button --------------------------------------------------------------------------------------------------
 
 local holder, heal
+local armed = false -- the module is on: Refresh may give the button an action (Disarm takes it away)
+
+local function ReviveKnown()
+	return C_SpellBook.IsSpellKnown(REVIVE)
+end
 
 -- ready, seconds left, cooldown start, cooldown duration.
 local function ReviveReady()
@@ -189,6 +194,11 @@ local function BandageCount()
 	return C_Item.GetItemCount(BANDAGE) or 0
 end
 
+-- Can the button do anything: Revive Battle Pets learned, or a Battle Pet Bandage in the bags?
+function ns.PetsHeal_CanHeal()
+	return ReviveKnown() or BandageCount() > 0
+end
+
 local function HealTooltip(self)
 	GameTooltip:SetOwner(self, "ANCHOR_TOP")
 	if self.useBandage then
@@ -197,7 +207,10 @@ local function HealTooltip(self)
 		GameTooltip:SetSpellByID(REVIVE)
 	end
 	local ready, left = ReviveReady()
-	if not ready then
+	if self.unknown then
+		GameTooltip:AddLine("You haven't learned Revive Battle Pets yet: a Battle Pet Trainer teaches it.",
+			UI.RGB("warning"))
+	elseif not ready then
 		GameTooltip:AddLine(("Revive Battle Pets is ready in %d:%02d."):format(math.floor(left / 60), math.floor(left % 60)), UI.RGB("warning"))
 	end
 	local key = GetBindingKey("CLICK TomtePetHeal:LeftButton")
@@ -235,22 +248,28 @@ local function CreateHeal()
 	heal:SetScript("OnLeave", GameTooltip_Hide)
 end
 
--- Makes the button (hidden) so its key binding works from the start. Out of combat only.
+-- Makes the button (hidden) and arms it, so its key binding works from the start. Out of combat only.
 function ns.PetsHeal_Ensure()
-	if not holder and not InCombatLockdown() then
-		CreateHeal()
-		ns.PetsHeal_Refresh()
+	if InCombatLockdown() then
+		return
 	end
+	armed = true
+	if not holder then
+		CreateHeal()
+	end
+	ns.PetsHeal_Refresh()
 end
 
 -- Sets what the button does (spell or bandage). Out of combat only.
 function ns.PetsHeal_Refresh()
-	if not heal or InCombatLockdown() then
+	if not heal or not armed or InCombatLockdown() then
 		return
 	end
+	local known = ReviveKnown()
 	local ready, _, start, duration = ReviveReady()
 	local bandages = BandageCount()
-	heal.useBandage = not ready and bandages > 0
+	heal.useBandage = (not known or not ready) and bandages > 0
+	heal.unknown = not known and not heal.useBandage -- nothing to heal with: no action, the tooltip says why
 	local name = C_Spell.GetSpellName(REVIVE)
 	if heal.useBandage then
 		heal:SetAttribute("type", "macro")
@@ -261,14 +280,16 @@ function ns.PetsHeal_Refresh()
 	else
 		-- A /cast macro rather than type=spell: on 12.1 type=spell silently failed to cast mounts (Smart Mount), and
 		-- whether it would work for Revive Battle Pets hasn't been tested.
-		heal:SetAttribute("type", name and "macro" or nil)
-		heal:SetAttribute("macrotext", name and ("/cast " .. name) or nil)
+		local action = known and name
+		heal:SetAttribute("type", action and "macro" or nil)
+		heal:SetAttribute("macrotext", action and ("/cast " .. name) or nil)
 		heal.icon:SetTexture(C_Spell.GetSpellTexture(REVIVE))
 		heal.count:SetText("")
 		heal.label:SetText("Heal pets")
 	end
-	heal.icon:SetDesaturated(not ready and not heal.useBandage)
-	if not ready and not heal.useBandage then
+	local waiting = not heal.unknown and not ready and not heal.useBandage
+	heal.icon:SetDesaturated(heal.unknown or waiting)
+	if waiting then
 		heal.cooldown:SetCooldown(start, duration)
 	else
 		heal.cooldown:Clear()
@@ -310,6 +331,9 @@ function ns.PetsHeal_AfterBattleShown()
 end
 
 function ns.PetsHeal_ShowAfterBattle(anchor)
+	if not ns.PetsHeal_CanHeal() then
+		return -- nothing to offer; the tamer card still shows it, greyed, with the reason
+	end
 	local x, y
 	if anchor and anchor:GetLeft() then
 		local scale = anchor:GetEffectiveScale() / UIParent:GetEffectiveScale()
@@ -335,6 +359,25 @@ function ns.PetsHeal_OnCombat()
 	if holder then
 		holder:Hide()
 	end
+end
+
+-- Module off: the button and its key binding do nothing until Ensure. A secure button's attributes can't change in
+-- combat: returns false then, and the caller disarms once combat ends.
+function ns.PetsHeal_Disarm()
+	if healTimer then
+		healTimer:Cancel()
+		healTimer = nil
+	end
+	if InCombatLockdown() then
+		return false
+	end
+	armed = false
+	if heal then
+		heal:SetAttribute("type", nil)
+		heal:SetAttribute("macrotext", nil)
+		holder:Hide()
+	end
+	return true
 end
 
 -- Any pet on your team below full health (or dead)?

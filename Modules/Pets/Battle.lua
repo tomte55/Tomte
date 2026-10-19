@@ -690,6 +690,11 @@ function events:PLAYER_REGEN_DISABLED()
 end
 
 function events:PLAYER_REGEN_ENABLED()
+	if not module.active then
+		ns.PetsHeal_Disarm()
+		events:UnregisterEvent("PLAYER_REGEN_ENABLED")
+		return
+	end
 	ns.PetsHeal_Ensure()
 	if afterInCombat then
 		afterInCombat = false
@@ -753,7 +758,9 @@ function ns.PetsBattle_Toggle(active)
 	else
 		events:UnregisterAllEvents()
 		ctx = nil
-		ns.PetsHeal_Hide()
+		if not ns.PetsHeal_Disarm() then
+			events:RegisterEvent("PLAYER_REGEN_ENABLED") -- turned off in combat: disarm the Heal key once it ends
+		end
 	end
 	ns.PetsBattle_Refresh()
 end
