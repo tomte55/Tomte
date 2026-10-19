@@ -38,7 +38,7 @@ collecting, with a cinematic touch.
 
 It's a set of modules you switch on and off. Everything has a home in one window (`/tomte`), and the rest lives where
 you already look: tooltips, the world map, the mailbox, the bags. On first login Tomte asks what you want (Minimal,
-Collector, Crafter or Everything), and `/tomte setup` brings that choice back any time.
+Collector, Crafter, Social or Everything), and `/tomte setup` brings that choice back any time.
 
 ### Your gear
 
@@ -79,11 +79,26 @@ Collector, Crafter or Everything), and `/tomte setup` brings that choice back an
 An AFK screen, a session recap at logout, moments for new mounts, achievements and level ups, and a cinematic flight
 mode. Cinematics never lock your controls: any key or click ends them.
 
+### Chat & social
+
+- **Whispers:** a toast for every whisper, an unread recap when you're back from AFK, and an inbox with your
+  conversations as chat bubbles, for all your characters.
+- **Mentions** (your name or keywords in chat), **Friends Online**, and **Group Alerts** so you never miss an invite,
+  queue pop, ready check or summon.
+- **Trade Filter** (only the trade messages about your professions and keywords), **Chat Tabs**, **Channel Tags**
+  and **Chat Copy**.
+- **Friend sharing** (optional): swap flight times and gathering spots with friends who run Tomte.
+
+### Class helpers
+
+- **Hunter Pets:** Call Pet tooltips, a stable tab with a tame log, and a pet check before dungeons and raids.
+- **Rogue Poisons:** one click (or key) applies a missing poison.
+- **Pet Health:** your pet's health under your character, with reminders for a dead or missing pet.
+
 ### And more
 
 Pet battle help (the right pet to swap to, tamer teams, paste Xu-Fu strategies and play them one key press at a time),
-whisper toasts and an inbox, a trade chat filter, chat tabs and copy, group alerts, hunter and rogue helpers, seven
-themes, and settings sharing between players.
+seven themes, and settings sharing between players.
 
 ### Good to know
 
