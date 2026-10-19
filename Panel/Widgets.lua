@@ -3,6 +3,8 @@ local addonName, ns = ...
 -- Widgets and panel art for the theme (Core/Theme.lua), drawn from color textures, a few small tiles in
 -- Media/Theme and font strings. Everything asks the theme for colors and fonts by role.
 
+local COLLAPSE_POLL = 0.1 -- seconds between hover checks for the collapse button
+
 local Theme = ns.Theme
 local UI = {}
 ns.UI = UI
@@ -550,7 +552,8 @@ end
 
 -- On-screen widgets (Almost Done, Crafting list): a minus/plus in the top-right corner that shows while the mouse is
 -- over the widget and folds it down to its title. isCollapsed() reads the saved state, onToggle() flips it and
--- redraws. The widget's own OnEnter can't tell (its rows take the mouse), so the button polls IsMouseOver.
+-- redraws. The widget's own OnEnter can't tell (its rows take the mouse), so the button polls IsMouseOver, a few
+-- times a second.
 function UI.CollapseButton(frame, isCollapsed, onToggle)
 	local b = CreateFrame("Button", nil, frame)
 	b:SetSize(16, 16)
@@ -590,7 +593,13 @@ function UI.CollapseButton(frame, isCollapsed, onToggle)
 		end
 	end)
 	b:Hide()
-	frame:HookScript("OnUpdate", function()
+	local sinceCheck = 0
+	frame:HookScript("OnUpdate", function(_, elapsed)
+		sinceCheck = sinceCheck + elapsed
+		if sinceCheck < COLLAPSE_POLL then
+			return
+		end
+		sinceCheck = 0
 		local over = frame:IsMouseOver()
 		if over ~= b:IsShown() then
 			b:SetShown(over)
@@ -753,6 +762,12 @@ function UI.ScrollThumb(parent, scroll, setScroll)
 		self.dragging = false
 		self:SetScript("OnUpdate", nil)
 		Look(self:IsMouseOver())
+	end)
+	thumb:SetScript("OnHide", function(self)
+		-- Hidden mid-drag (the page changed, the window closed): OnMouseUp never comes.
+		self.dragging = false
+		self:SetScript("OnUpdate", nil)
+		Look(false)
 	end)
 	function thumb:Place(owner, height, offset)
 		self:SetHeight(height)

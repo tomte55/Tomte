@@ -14,6 +14,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Around you shows now lists every block, Delves included; Delves' own switch moved there.
 - Settings search also finds words inside each module's settings.
 - Settings that depend on another choice show or hide right away.
+- 3D previews and the tracker minus button: small fixes (fewer checks while hovering, no stuck scroll drag).
 
 ## v1.15.2 - 2026-10-15
 
