@@ -52,6 +52,18 @@ local function ShowTooltip(row)
 	GameTooltip:Show()
 end
 
+-- A row's flash fading out. Set as OnUpdate when a flash starts, removed when it's done.
+local function FlashUpdate(self, dt)
+	self.flashLeft = self.flashLeft - dt
+	if self.flashLeft <= 0 then
+		self.flashLeft = nil
+		self.flash:SetAlpha(0)
+		self:SetScript("OnUpdate", nil)
+	else
+		self.flash:SetAlpha(0.25 * self.flashLeft / FLASH)
+	end
+end
+
 local function CreateRow(i)
 	local row = CreateFrame("Button", nil, frame)
 	row:SetHeight(ROW_H)
@@ -104,17 +116,6 @@ local function CreateRow(i)
 			end
 		else
 			ns.Ach_Open(entry.id)
-		end
-	end)
-	row:SetScript("OnUpdate", function(self, dt)
-		if self.flashLeft then
-			self.flashLeft = self.flashLeft - dt
-			if self.flashLeft <= 0 then
-				self.flashLeft = nil
-				self.flash:SetAlpha(0)
-			else
-				self.flash:SetAlpha(0.25 * self.flashLeft / FLASH)
-			end
 		end
 	end)
 	return row
@@ -191,6 +192,7 @@ function ns.AchTracker_Refresh(flashIDs)
 			row.fill:SetWidth(math.max(TRACK_W * math.min(entry.percent, 100) / 100, 1))
 			if flashIDs and flashIDs[entry.id] and old and old.id == entry.id and entry.percent > old.percent then
 				row.flashLeft = FLASH
+				row:SetScript("OnUpdate", FlashUpdate)
 			end
 		end
 	end
