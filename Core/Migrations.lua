@@ -2,8 +2,8 @@ local addonName, ns = ...
 
 -- Settings migrations, in order, each run once per SavedVariables (TomteDB.schema, ns.RunMigrations in Modules.lua)
 -- before defaults are merged. Only add to the end. A migration must cope with missing tables. Pure
--- (tests/test_migrations.lua). Two fix-ups need live game data and stay in their modules: Gear_MigrateHinted (Gear)
--- and Session.lua's name/class re-fill.
+-- (tests/test_migrations.lua). Fix-ups that need live game data stay in their modules: Gear_MigrateHinted (Gear),
+-- Session.lua's name/class re-fill and Chat Tabs' Name-Realm records (ns.Chat_TabsRecord).
 ns.MIGRATIONS = {
 	-- 1: keys of removed features: the old panel's category filter, the old FlightTimer hand-over flag.
 	function(db)

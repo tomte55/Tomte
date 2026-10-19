@@ -289,3 +289,21 @@ function ns.Chat_CopyText(lines, clean)
 	end
 	return table.concat(out, "\n")
 end
+
+-- Chat Tabs -----------------------------------------------------------------------------------------------------------
+
+-- Chat Tabs' record for a character in windows ([player GUID] = record). Before 1.16 records were keyed "Name-Realm"
+-- (oldKey): a character's own old record moves to its GUID on its first lookup (a migration can't know GUIDs); other
+-- characters' move when they log in. Returns the record, or nil when there is none.
+function ns.Chat_TabsRecord(windows, guid, oldKey)
+	local record = windows[guid]
+	local old = oldKey and oldKey ~= guid and windows[oldKey]
+	if type(old) == "table" then
+		windows[oldKey] = nil
+		if type(record) ~= "table" then
+			record = old
+			windows[guid] = old
+		end
+	end
+	return type(record) == "table" and record or nil
+end

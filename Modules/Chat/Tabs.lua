@@ -17,21 +17,22 @@ local worldReady = false
 
 local events = ns.NewEvents() -- owners "login" (once, at file load) and "tabs" (while the module is on)
 
-local function CharacterKey()
+-- Records were keyed like this before 1.16 (ns.Chat_TabsRecord moves this character's to its GUID).
+local function OldCharacterKey()
 	return (UnitName("player") or "?") .. "-" .. (GetNormalizedRealmName() or "?")
 end
 
 -- This character's record: { index, name, created, added = { [zoneID] = name }, removed = { [zoneID] = name } },
 -- or nil (create = make one).
 local function State(create)
-	local key = CharacterKey()
-	local state = module.db.windows[key]
-	if type(state) ~= "table" then
+	local guid = UnitGUID("player")
+	local state = ns.Chat_TabsRecord(module.db.windows, guid, OldCharacterKey())
+	if not state then
 		if not create then
 			return nil
 		end
 		state = {}
-		module.db.windows[key] = state
+		module.db.windows[guid] = state
 	end
 	state.added = state.added or {}
 	state.removed = state.removed or {}
@@ -189,7 +190,8 @@ local function Restore()
 			end
 		end
 	end
-	module.db.windows[CharacterKey()] = nil
+	module.db.windows[UnitGUID("player")] = nil
+	module.db.windows[OldCharacterKey()] = nil
 end
 
 -- The tab's chat frame while the module is on (Trade Filter leaves it unfiltered), or nil. Also before this
@@ -273,7 +275,9 @@ module = ns.RegisterModule({
 		tabName = "Trade",
 		channels = { trade = true, services = true, general = false, lfg = false, defense = false },
 		mainWindow = "keep",
-		windows = {}, -- [name-realm] = what Tomte changed for that character, see State()
+		-- [player GUID] = what Tomte changed for that character, see State(); "Name-Realm" keys from before 1.16 until
+		-- that character logs in
+		windows = {},
 	},
 	toggle = function(active)
 		if active then

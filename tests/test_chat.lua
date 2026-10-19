@@ -216,4 +216,21 @@ test("Keywords and highlight: accented capitals, original text kept", function()
 	eq(ns.Chat_Decide("Selling ÖRN boots", { "örn" }, {}), true)
 end)
 
+test("TabsRecord: the character's old Name-Realm record moves to its GUID", function()
+	local rec = { index = 5, added = {} }
+	local windows = { ["Aldric-Draenor"] = rec, ["Mira-Draenor"] = { index = 6 } }
+	eq(ns.Chat_TabsRecord(windows, "Player-1-A", "Aldric-Draenor"), rec)
+	eq(windows["Player-1-A"], rec, "under the GUID")
+	eq(windows["Aldric-Draenor"], nil, "old key gone")
+	eq(windows["Mira-Draenor"].index, 6, "other characters wait for their login")
+end)
+
+test("TabsRecord: a GUID record wins, a leftover old one goes, nothing saved is nil", function()
+	local mine = { index = 7 }
+	local windows = { ["Player-1-A"] = mine, ["Aldric-Draenor"] = { index = 5 } }
+	eq(ns.Chat_TabsRecord(windows, "Player-1-A", "Aldric-Draenor"), mine)
+	eq(windows["Aldric-Draenor"], nil)
+	eq(ns.Chat_TabsRecord({}, "Player-1-A", "Aldric-Draenor"), nil)
+end)
+
 H.done()
