@@ -71,12 +71,18 @@ local function OnUnit(tooltip, data)
 	if name then
 		ns.Hunter_RecordSeen(ns.hunterDB.seen, family, npcID, name, GetZoneText(), time())
 	end
-	local count, same = ns.Hunter_Ownership(ns.Stable_Snapshot(), family, npcID)
+	local snapshot = ns.Stable_Snapshot()
+	local count, same = ns.Hunter_Ownership(snapshot, family, npcID)
+	local note = ns.Hunter_TameNote(snapshot, count, same)
 	local right
-	if same then
+	if note == "same" then
 		right = UI.Wrap("you have this one (" .. same.name .. ")", "heading")
-	elseif count > 0 then
+	elseif note == "owned" then
 		right = UI.Wrap(count .. " in your stable", "textMuted")
+	elseif note == "unread" then
+		right = UI.Wrap("visit a stable master to check", "textMuted")
+	elseif note == "notActive" then
+		right = UI.Wrap("not in your active pets", "textMuted")
 	else
 		right = UI.Wrap("new family", "success")
 	end

@@ -196,6 +196,22 @@ function ns.Hunter_Ownership(snapshot, family, npcID)
 	return count, same
 end
 
+-- The tame-log tooltip line: "same" (this very creature is yours), "owned" (you have the family), "unread" (no
+-- snapshot: the pets were never read), "notActive" (only the active pets were read so far: the family may be in
+-- the stable), "new" (the stabled list was read and the family isn't in it).
+function ns.Hunter_TameNote(snapshot, count, same)
+	if same then
+		return "same"
+	elseif count > 0 then
+		return "owned"
+	elseif not snapshot then
+		return "unread"
+	elseif not snapshot.stabled or #snapshot.stabled == 0 then
+		return "notActive"
+	end
+	return "new"
+end
+
 -- Remember a creature seen in the world (account-wide). Returns true when it wasn't known yet.
 function ns.Hunter_RecordSeen(seen, family, npcID, creatureName, zone, now)
 	local entry = seen[family]

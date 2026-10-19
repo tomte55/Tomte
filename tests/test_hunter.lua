@@ -122,6 +122,19 @@ test("Ownership counts the family and matches the creature", function()
 	eq(same, nil)
 end)
 
+test("TameNote: new family only once the stabled list was read", function()
+	local wolf = pet(1, "Kesha", "Wolf", { creatureID = 50 })
+	local activeOnly = { active = { [1] = wolf }, stabled = {} }
+	local full = { active = { [1] = wolf }, stabled = { pet(2, "Mira", "Cat") }, stabledRead = true }
+	eq(ns.Hunter_TameNote(nil, 0, nil), "unread")
+	eq(ns.Hunter_TameNote(activeOnly, 0, nil), "notActive")
+	eq(ns.Hunter_TameNote(full, 0, nil), "new")
+	eq(ns.Hunter_TameNote(activeOnly, 1, nil), "owned")
+	eq(ns.Hunter_TameNote(full, 1, wolf), "same")
+	local cached = { active = { [1] = wolf }, stabled = { pet(2, "Mira", "Cat") } } -- stabled kept from an older read
+	eq(ns.Hunter_TameNote(cached, 0, nil), "new")
+end)
+
 test("FindPet finds a pet by number in a newer snapshot", function()
 	local snap = { active = { [1] = pet(1, "A", "Wolf") }, stabled = { pet(2, "B", "Cat") } }
 	eq(ns.Hunter_FindPet(snap, 2).name, "B")
