@@ -258,10 +258,14 @@ module = ns.RegisterModule({
 						rows[#rows + 1] = {
 							icon = ns.WQ_RowIcon(q), text = main, right = ns.WQ_TimeText(q.seconds),
 							color = s.key == "worth" and "success" or nil,
+							onClick = function()
+								ns.WQ_Track(q)
+							end,
 							onEnter = function(row)
 								GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-								GameTooltip:SetText(q.title, 1, 1, 1)
+								GameTooltip:SetText(q.title, ns.UI.Color("heading"))
 								GameTooltip:AddLine(main, ns.UI.RGB("text"))
+								GameTooltip:AddLine("Click: track it", ns.UI.RGB("accent"))
 								GameTooltip:Show()
 							end,
 						}
@@ -323,7 +327,7 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "worth.gold", label = "Big gold rewards", onChange = Changed },
 		{ type = "slider", key = "worth.goldAmount", label = "Big gold is at least", min = 100, max = 5000, step = 100,
 			parent = "worth.gold", onChange = Changed, format = function(v)
-				return ("%dg"):format(v)
+				return ns.Gold(v * 10000) -- the setting is in gold
 			end },
 		{ type = "header", label = "Toast" },
 		{ type = "checkbox", key = "toast", label = "Arriving in a zone with a quest worth doing",
