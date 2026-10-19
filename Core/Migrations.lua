@@ -97,4 +97,18 @@ ns.MIGRATIONS = {
 		end
 		delves.around = nil
 	end,
+	-- 11: quieter defaults (Friend sharing off, Group Alerts once on the effects channel) are for new installs only.
+	-- Core.lua merges its defaults, db.enabled among them, after the migrations: no enabled table here means a fresh
+	-- install. Mentions' flash and sound and Group Alerts' repeats need nothing: every load saved their old defaults.
+	function(db)
+		if type(db.enabled) ~= "table" then
+			return
+		end
+		if db.enabled.share == nil then
+			db.enabled.share = true
+		end
+		if type(db.alerts) == "table" and db.alerts.channel == nil then
+			db.alerts.channel = "Master"
+		end
+	end,
 }

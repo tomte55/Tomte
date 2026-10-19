@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Mentions module: a toast (and a taskbar flash, Blizzard doesn't flash for these) when someone says your
+-- Mentions module: a toast (and, if you want, a taskbar flash and a sound) when someone says your
 -- character's name or one of your keywords in guild, group, say/yell or channel chat. Whole words only.
 -- Left-click opens the chat box in that channel. In chat lockdown (instances, encounters, M+, PvP) chat
 -- text is secret and can't be searched, so nothing is matched there.
@@ -173,8 +173,8 @@ module = ns.RegisterModule({
 		keywords = "",
 		channels = { guild = true, group = true, say = false, channels = false },
 		holdInCombat = true,
-		flash = true,
-		sound = "chime",
+		flash = false,
+		sound = "off",
 	},
 	init = function(db)
 		ns.mentionsDB = db

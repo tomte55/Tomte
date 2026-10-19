@@ -82,6 +82,33 @@ test("Delves: an unticked Delves in Around you moves to the window's Around you 
 	ns.RunMigrations(bare, ns.MIGRATIONS)
 	eq(bare.delves, nil, "no delves table is fine")
 end)
+local NEW_DEFAULTS = 11 -- index of "new defaults are for new installs" in ns.MIGRATIONS
+
+test("New defaults: an existing install keeps Friend sharing on and Group Alerts on Master", function()
+	local db = { schema = NEW_DEFAULTS - 1, enabled = {}, alerts = { sound = "bell", repeats = 3 },
+		mentions = { flash = true, sound = "chime" } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.enabled.share, true, "share pinned on")
+	eq(db.alerts.channel, "Master", "alerts stay on Master")
+	eq(db.alerts.repeats, 3, "saved repeats untouched")
+	eq(db.mentions.flash, true, "saved flash untouched")
+end)
+test("New defaults: the player's own choices stay", function()
+	local db = { schema = NEW_DEFAULTS - 1, enabled = { share = false }, alerts = { channel = "SFX" } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.enabled.share, false, "share off stays off")
+	eq(db.alerts.channel, "SFX", "chosen channel stays")
+end)
+test("New defaults: a fresh install gets them, nothing pinned", function()
+	local db = {}
+	ns.Setup_MarkFresh(db)
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.enabled, nil, "no enabled table before Core merges its defaults")
+	eq(db.alerts, nil, "no alerts table made")
+	local old = { schema = NEW_DEFAULTS - 1, enabled = {} }
+	ns.RunMigrations(old, ns.MIGRATIONS)
+	eq(old.alerts, nil, "an install from before Group Alerts gets the new defaults")
+end)
 test("migrations don't run twice", function()
 	local db = { schema = #ns.MIGRATIONS, way = { cardDistance = 325 } }
 	ns.RunMigrations(db, ns.MIGRATIONS)

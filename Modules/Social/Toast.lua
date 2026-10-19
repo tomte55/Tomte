@@ -733,7 +733,8 @@ local function ResetPosition()
 	end
 end
 
--- Sound choices (ns.SOCIAL_SOUND_CHOICES) on the Master channel: heard with sound effects off.
+-- Sound choices (ns.SOCIAL_SOUND_CHOICES). channel: "Master" (default: heard with sound effects off) or "SFX" (follows
+-- the effects volume).
 local SOUNDS = {
 	whisper = "TELL_MESSAGE",
 	chime = "UI_BNET_TOAST",
@@ -742,10 +743,10 @@ local SOUNDS = {
 	invite = "IG_PLAYER_INVITE",
 }
 
-function ns.Social_PlaySound(choice)
+function ns.Social_PlaySound(choice, channel)
 	local kit = SOUNDS[choice] and SOUNDKIT[SOUNDS[choice]]
 	if kit then
-		PlaySound(kit, "Master")
+		PlaySound(kit, channel or "Master")
 	end
 end
 

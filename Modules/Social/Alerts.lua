@@ -1,11 +1,15 @@
 local addonName, ns = ...
 
 -- Group Alerts module: party invites, dungeon/raid finder and PvP queue pops, ready checks and summons get
--- a sound on the Master channel (heard with effects muted) that repeats until you've answered, and a
--- taskbar flash where Blizzard has none (summons). Blizzard's own popups and sounds stay as they are.
+-- a sound (on the effects channel by default, or Master to be heard with effects muted), optionally repeated until
+-- you've answered, and a taskbar flash where Blizzard has none (summons). Blizzard's own popups and sounds stay.
 
 local TICK = 0.5
 local POPUP_DELAY = 0.2 -- seconds: Blizzard's popup shows on the same event as ours
+local CHANNEL_CHOICES = {
+	{ value = "SFX", text = "Effects" },
+	{ value = "Master", text = "Master" },
+}
 local EVENTS = { "PARTY_INVITE_REQUEST", "LFG_PROPOSAL_SHOW", "UPDATE_BATTLEFIELD_STATUS", "READY_CHECK", "CONFIRM_SUMMON" }
 
 local module
@@ -51,7 +55,7 @@ for _, alert in ipairs(ALERTS) do
 end
 
 local function Ring(alert)
-	ns.Social_PlaySound(ns.alertsDB.sound)
+	ns.Social_PlaySound(ns.alertsDB.sound, ns.alertsDB.channel)
 	if alert.flash then
 		FlashClientIcon()
 	end
@@ -145,7 +149,7 @@ local function Test()
 	if not ns.Module_RequireOn(module) then
 		return
 	end
-	ns.Social_PlaySound(ns.alertsDB.sound)
+	ns.Social_PlaySound(ns.alertsDB.sound, ns.alertsDB.channel)
 	FlashClientIcon()
 end
 
@@ -157,14 +161,24 @@ for _, alert in ipairs(ALERTS) do
 		tooltip = alert.flash and "Also flashes the taskbar icon (Blizzard doesn't for this one)." or nil }
 end
 options[#options + 1] = { type = "header", label = "Sound" }
-options[#options + 1] = { type = "dropdown", key = "sound", label = "Sound", onChange = ns.Social_PlaySound, choices = function()
+options[#options + 1] = { type = "dropdown", key = "sound", label = "Sound", onChange = function(value)
+	ns.Social_PlaySound(value, ns.alertsDB.channel)
+end, choices = function()
 	return ns.SOCIAL_SOUND_CHOICES
-end, tooltip = "Played on the Master channel, on top of Blizzard's own sound." }
+end, tooltip = "Played on top of Blizzard's own sound." }
+options[#options + 1] = { type = "dropdown", key = "channel", label = "Sound channel", onChange = function()
+	ns.Social_PlaySound(ns.alertsDB.sound, ns.alertsDB.channel)
+end, choices = function()
+	return CHANNEL_CHOICES
+end, tooltip = "Effects follows your sound effects volume and is silent with effects muted. Master is heard even with sound effects off." }
 options[#options + 1] = { type = "slider", key = "repeats", label = "Repeat until answered", min = 0, max = 10, step = 1,
 	format = function(value)
 		return value == 0 and "off" or (value .. "x")
 	end, tooltip = "Play the sound again this many times while the popup is still waiting for you." }
 options[#options + 1] = { type = "slider", key = "interval", label = "Repeat every", min = 3, max = 15, step = 1,
+	shown = function()
+		return ns.alertsDB.repeats > 0
+	end,
 	format = function(value)
 		return value .. "s"
 	end }
@@ -178,13 +192,14 @@ module = ns.RegisterModule({
 	name = "Group Alerts",
 	category = "social",
 	icon = 133706, -- inv_misc_bell_01
-	summary = "Invites, queue pops and summons keep ringing until you answer.",
-	description = "Invites, queue pops, ready checks and summons you can't miss: a sound on the Master channel that repeats until you've answered, and a taskbar flash for summons.",
+	summary = "Invites, queue pops and summons you can't miss.",
+	description = "Invites, queue pops, ready checks and summons you can't miss: a sound (once, or repeating until you've answered), and a taskbar flash for summons.",
 	enabledByDefault = true,
 	defaults = {
 		on = { invite = true, lfg = true, pvp = true, readyCheck = true, summon = true },
 		sound = "bell",
-		repeats = 3,
+		channel = "SFX", -- "SFX" or "Master" (PlaySound channel)
+		repeats = 0,
 		interval = 5,
 	},
 	init = function(db)
