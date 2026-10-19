@@ -184,7 +184,7 @@ end
 
 local function SetCreature(p, model, key)
 	if p.modelKey == key then
-		return
+		return true
 	end
 	p.modelKey = key
 	p.actor = nil -- stands still
@@ -194,7 +194,10 @@ local function SetCreature(p, model, key)
 	local actor = p.creatureActor
 	-- Invisible until it's measured and the camera fitted (the 3D model ignores the frame alpha).
 	actor:SetAlpha(0)
-	actor:SetModelByCreatureDisplayID(model.displayID) -- set while shown: one set while hidden can stay blank
+	-- Set while shown: one set while hidden can stay blank. pcall: a display ID this client doesn't know can error.
+	if not pcall(actor.SetModelByCreatureDisplayID, actor, model.displayID) then
+		return false
+	end
 	actor:SetYaw(p.angles.yaw)
 	actor:SetPitch(p.angles.pitch)
 	actor:SetRoll(p.angles.roll)
@@ -204,11 +207,12 @@ local function SetCreature(p, model, key)
 	end
 	actor:SetAnimation(model.selfMount and SELF_MOUNT_IDLE or 0)
 	p.fitting = GetTime()
+	return true
 end
 
 local function SetAppearance(p, link, key)
 	if p.modelKey == key then
-		return
+		return true
 	end
 	p.modelKey = key
 	p.actor, p.fitting = nil, nil
@@ -217,10 +221,15 @@ local function SetAppearance(p, link, key)
 	p.appearanceScene:TransitionToModelSceneID(DRESS_UP_SCENE, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
 	SetupPlayerForModelScene(p.appearanceScene, nil, nil, true, true)
 	local actor = p.appearanceScene:GetPlayerActor()
-	if actor then
-		actor:TryOn(link)
-		p.actor, p.baseYaw, p.turn = actor, actor:GetYaw(), 0
+	if not actor then
+		return false
 	end
+	-- pcall: TryOn can error on a link the client can't dress (an odd item, a link from another client version).
+	if not pcall(actor.TryOn, actor, link) then
+		return false
+	end
+	p.actor, p.baseYaw, p.turn = actor, actor:GetYaw(), 0
+	return true
 end
 
 function ns.ModelPreview_Hide(p)
@@ -259,13 +268,12 @@ function ns.ModelPreview_Show(p, model)
 	p.hiddenAt = nil
 	Place(p)
 	p:Show()
-	local ok = pcall(function()
-		if model.link then
-			SetAppearance(p, model.link, model.key or model.link)
-		else
-			SetCreature(p, model, model.key or model.displayID)
-		end
-	end)
+	local ok
+	if model.link then
+		ok = SetAppearance(p, model.link, model.key or model.link)
+	else
+		ok = SetCreature(p, model, model.key or model.displayID)
+	end
 	if not ok then
 		ClearModel(p)
 	end
