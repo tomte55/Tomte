@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.16.0 - 2026-10-19
+
 - Tomte: when one feature runs into an error, the others reacting to the same game event keep working (the error still shows in BugSack).
 - Tomte: a collection scan (Collect here, Holidays) that runs into an error reports it once instead of every frame.
 - Everything Tomte won't do in combat now says so the same way ("can't open the journal in combat"), and nothing claims it will happen after combat when it won't.
