@@ -11,6 +11,7 @@ local LINE_H = 16
 local ITEM_ROWS = 3
 local DEFAULT_POINT = { "TOPRIGHT", "TOPRIGHT", -260, -230 }
 local TIER_ATLAS = "Professions-ChatIcon-Quality-Tier%d"
+local TRACKER_EVENTS = { "PET_BATTLE_OPENING_START", "PET_BATTLE_CLOSE", "PLAYER_ENTERING_WORLD" }
 
 local db
 local frame
@@ -20,9 +21,16 @@ local events = ns.Gather_Events
 
 function ns.GatherTracker_Init(saved)
 	db = saved
-	for _, event in ipairs({ "PET_BATTLE_OPENING_START", "PET_BATTLE_CLOSE", "PLAYER_ENTERING_WORLD" }) do
+end
+
+function ns.GatherTracker_Start()
+	for _, event in ipairs(TRACKER_EVENTS) do
 		events:Watch("tracker", event)
 	end
+end
+
+function ns.GatherTracker_Stop()
+	events:UnwatchAll("tracker")
 end
 
 ---------------------------------------------------------------------------------------------------------------
@@ -105,7 +113,7 @@ local function Build()
 	end)
 	frame.endButton:HookScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-		GameTooltip:SetText("End this run", 1, 1, 1)
+		GameTooltip:SetText("End this run", UI.Color("heading"))
 		GameTooltip:Show()
 	end)
 	frame.endButton:HookScript("OnLeave", function()
@@ -264,8 +272,8 @@ function ns.GatherTracker_Tick()
 	local n = ns.Gather_Numbers(current, GetServerTime(), live)
 	local clock = ns.Gather_DurationText(n.duration)
 	if db.tracker.collapsed then
-		local perHour = n.valuePerHour and (ns.Gather_Money(n.valuePerHour) .. "/h") or (n.nodesPerHour .. "/h")
-		frame.title:SetText(("%d nodes · %s"):format(n.nodes, perHour))
+		local perHour = n.valuePerHour and (ns.Gather_Money(n.valuePerHour) .. "/h") or (ns.Thousands(n.nodesPerHour) .. "/h")
+		frame.title:SetText(("%s nodes · %s"):format(ns.Thousands(n.nodes), perHour))
 	end
 	frame.time:SetText(clock)
 end
@@ -308,7 +316,8 @@ function ns.GatherTracker_Refresh()
 	local y = 28
 	frame.nodes:ClearAllPoints()
 	frame.nodes:SetPoint("TOPLEFT", PAD, -y)
-	frame.nodes:SetText(("%d %s · %d/h"):format(n.nodes, n.nodes == 1 and "node" or "nodes", n.nodesPerHour))
+	frame.nodes:SetText(("%s %s · %s/h"):format(ns.Thousands(n.nodes), n.nodes == 1 and "node" or "nodes",
+		ns.Thousands(n.nodesPerHour)))
 	frame.nodes:Show()
 	frame.value:ClearAllPoints()
 	frame.value:SetPoint("TOPRIGHT", -PAD, -y)

@@ -185,8 +185,9 @@ local function RunsView(y)
 	local list, live = Filtered()
 	local now = GetServerTime()
 	local t = ns.Gather_Totals(list, now, nil, live)
-	page.total:SetText(("%d %s · %s · %d nodes (%d/h) · %s%s"):format(t.count, t.count == 1 and "run" or "runs",
-		ns.Gather_DurationText(t.duration), t.nodes, t.nodesPerHour, t.value and ns.Gather_Money(t.value) or "no prices",
+	page.total:SetText(("%s %s · %s · %s nodes (%s/h) · %s%s"):format(ns.Thousands(t.count),
+		t.count == 1 and "run" or "runs", ns.Gather_DurationText(t.duration), ns.Thousands(t.nodes),
+		ns.Thousands(t.nodesPerHour), t.value and ns.Gather_Money(t.value) or "no prices",
 		t.valuePerHour and (" (" .. ns.Gather_Money(t.valuePerHour) .. "/h)") or ""))
 	if #list == 0 then
 		TextRow(y, "No runs here yet. Gather a few nodes, or start one with /tomte gather start.", "textMuted")
@@ -220,8 +221,8 @@ end
 local function ItemsView(y)
 	local list = Filtered()
 	local totals = ns.Gather_ItemTotals(list)
-	page.total:SetText(("%d %s over %d %s"):format(#totals, #totals == 1 and "item" or "items", #list,
-		#list == 1 and "run" or "runs"))
+	page.total:SetText(("%s %s over %s %s"):format(ns.Thousands(#totals), #totals == 1 and "item" or "items",
+		ns.Thousands(#list), #list == 1 and "run" or "runs"))
 	if #totals == 0 then
 		TextRow(y, "Nothing gathered here yet.", "textMuted")
 		return y + ROW_H
@@ -237,7 +238,8 @@ local function ItemsView(y)
 			order[#order + 1] = g
 		end
 		g.n, g.v = g.n + it.n, g.v + it.v
-		g.parts[#g.parts + 1] = { rank = it.rank or 0, text = ("%s %d"):format(ns.Gather_RankMarkup(it.itemID, it.rank, 14), it.n) }
+		local text = ("%s %s"):format(ns.Gather_RankMarkup(it.itemID, it.rank, 14), ns.Thousands(it.n))
+		g.parts[#g.parts + 1] = { rank = it.rank or 0, text = text }
 	end
 	y = Header(y, ITEM_COLS)
 	for i = 1, math.min(#order, MAX_ROWS) do
@@ -293,8 +295,8 @@ local function DetailView(y)
 		ns.GatherPage_Refresh()
 	end
 	y = y + ROW_H + 4
-	TextRow(y, ("%s · %d nodes (%d gathers) · %d/h · %s%s"):format(ns.Gather_DurationText(n.duration), n.nodes,
-		n.gathers, n.nodesPerHour, n.value and ns.Gather_Money(n.value) or "no prices",
+	TextRow(y, ("%s · %s nodes (%s gathers) · %s/h · %s%s"):format(ns.Gather_DurationText(n.duration),
+		ns.Thousands(n.nodes), ns.Thousands(n.gathers), ns.Thousands(n.nodesPerHour), n.value and ns.Gather_Money(n.value) or "no prices",
 		n.valuePerHour and (" (" .. ns.Gather_Money(n.valuePerHour) .. "/h)") or ""))
 	y = y + ROW_H + 6
 
@@ -336,7 +338,7 @@ local function DetailView(y)
 	TextRow(y, "Zones", "heading")
 	y = y + ROW_H
 	for mapID, z in pairs(r.zones or {}) do
-		TextRow(y, ("%s: %d %s%s"):format(MapName(mapID), z.nodes, z.nodes == 1 and "node" or "nodes",
+		TextRow(y, ("%s: %s %s%s"):format(MapName(mapID), ns.Thousands(z.nodes), z.nodes == 1 and "node" or "nodes",
 			z.v > 0 and (" · " .. ns.Gather_Money(z.v)) or ""))
 		y = y + ROW_H
 	end
@@ -353,7 +355,7 @@ local function DetailView(y)
 		TextRow(y, "Nodes", "heading")
 		y = y + ROW_H
 		for _, t in ipairs(types) do
-			TextRow(y, ("%s: %d"):format(t.name, t.n))
+			TextRow(y, ("%s: %s"):format(t.name, ns.Thousands(t.n)))
 			y = y + ROW_H
 		end
 	end

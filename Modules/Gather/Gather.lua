@@ -425,7 +425,8 @@ module = ns.RegisterModule({
 		idle = IDLE_DEFAULT,
 		minNodes = MIN_NODES_DEFAULT,
 		fishing = true,
-		tracker = { shown = true, collapsed = false },
+		tracker = { shown = true, collapsed = false }, -- also point = { point, relPoint, x, y } once moved in Edit Mode
+		-- (Tracker.lua; nil: its DEFAULT_POINT). No point default: Core/Profile.lua skips tables with a point key.
 		toastEnd = true,
 		toastFind = true,
 		keepCount = 50,
@@ -491,6 +492,7 @@ module = ns.RegisterModule({
 			if ns.inWorld then
 				Resume()
 			end
+			ns.GatherTracker_Start()
 			ns.GatherMini_Start()
 		else
 			ns.GatherFollow_Stop("off")
@@ -498,6 +500,7 @@ module = ns.RegisterModule({
 			events:UnwatchAll("gather")
 			StopTicker()
 			ns.GatherPins_Clear()
+			ns.GatherTracker_Stop()
 			ns.GatherMini_Stop()
 		end
 		ns.GatherRoute_Changed()
