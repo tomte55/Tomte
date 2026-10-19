@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Session recap tracking: what nobody else detects. Achievements, collections, renown, upgrades and tames come in
 -- through ns.Session_Note (Moments, Gear Check, Hunter Pets).
 -- - Gold: each money change is booked to what's open (loot window, auction house, mailbox, merchant).
--- - Loot: "You receive ..." messages for items at or above the quality option.
+-- - Loot: "You receive ..." messages (not purchases or deliveries, Recap_IsLoot); the quality option picks what's listed.
 -- - Rares: rare units seen (vignettes, target, mouseover) count once when they die as your target, your party kills
 --   them, or you loot them.
 -- Every GUID, text and classification is checked for secret values: in instances they simply don't count.
@@ -13,16 +13,22 @@ local MAX_CANDIDATES = 200
 local ITEM_RETRY = 1 -- seconds before looking at an uncached item again
 local ITEM_TRIES = 5 -- retries before an item that never loads is skipped
 local P = Enum.PlayerInteractionType
-local CONTEXTS = { [P.Merchant] = "vendor", [P.MailInfo] = "mail", [P.Auctioneer] = "auction" }
-local LOOT_FORMATS = { "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE", "LOOT_ITEM_PUSHED_SELF",
-	"LOOT_ITEM_PUSHED_SELF_MULTIPLE", "LOOT_ITEM_BONUS_ROLL_SELF", "LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE" }
+local CONTEXTS = { [P.Merchant] = "vendor", [P.MailInfo] = "mail", [P.Auctioneer] = "auction",
+	[P.TradePartner] = "trade" }
+-- Loot windows and bonus rolls ("You receive loot"), and items pushed into the bags ("You receive item": quest
+-- rewards, but also purchases and deliveries, which Recap_IsLoot leaves out).
+local LOOT_FORMATS = {
+	looted = { "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE", "LOOT_ITEM_BONUS_ROLL_SELF",
+		"LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE" },
+	pushed = { "LOOT_ITEM_PUSHED_SELF", "LOOT_ITEM_PUSHED_SELF_MULTIPLE" },
+}
 local EVENTS = {
 	"LOOT_OPENED", "LOOT_CLOSED", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE",
 	"CHAT_MSG_LOOT", "VIGNETTES_UPDATED", "VIGNETTE_MINIMAP_UPDATED", "PLAYER_TARGET_CHANGED", "UPDATE_MOUSEOVER_UNIT",
 	"PLAYER_TARGET_DIED", "PARTY_KILL",
 }
 
-local context = {} -- { loot, vendor, mail, auction } = true while open
+local context = {} -- { loot, vendor, mail, auction, trade } = true while open
 local candidates, candidateCount = {}, 0 -- [guid] = name: rares seen this session
 local lootPatterns
 
@@ -121,14 +127,17 @@ events:On("track", "CHAT_MSG_LOOT", function(_, text)
 		return -- chat lockdown
 	end
 	if not lootPatterns then
-		local formats = {}
-		for _, key in ipairs(LOOT_FORMATS) do
-			formats[#formats + 1] = _G[key]
+		lootPatterns = {}
+		for kind, keys in pairs(LOOT_FORMATS) do
+			local formats = {}
+			for _, key in ipairs(keys) do
+				formats[#formats + 1] = _G[key]
+			end
+			lootPatterns[kind] = ns.Recap_LootPatterns(formats)
 		end
-		lootPatterns = ns.Recap_LootPatterns(formats)
 	end
-	local link, count = ns.Recap_LootLink(text, lootPatterns)
-	if link then
+	local link, count, kind = ns.Recap_LootMessage(text, lootPatterns)
+	if link and ns.Recap_IsLoot(kind, context) then
 		NoteItem(link, 0, count)
 	end
 end)

@@ -339,6 +339,35 @@ test("LootLink: stack formats come first and a space before the count is fine", 
 	eq(count, 7, "positional count")
 end)
 
+test("LootMessage tells loot windows from items pushed into the bags", function()
+	local patterns = {
+		looted = ns.Recap_LootPatterns({ "You receive loot: %s.", "You receive loot: %sx%d." }),
+		pushed = ns.Recap_LootPatterns({ "You receive item: %s.", "You receive item: %sx%d." }),
+	}
+	local link = "|cnIQ1:|Hitem:2589::::::::80:::::|h[Linen Cloth]|h|r"
+	local got, count, kind = ns.Recap_LootMessage("You receive loot: " .. link .. "x3.", patterns)
+	eq(got, link)
+	eq(count, 3, "looted count")
+	eq(kind, "looted")
+	got, count, kind = ns.Recap_LootMessage("You receive item: " .. link .. "x5.", patterns)
+	eq(got, link)
+	eq(count, 5, "pushed count")
+	eq(kind, "pushed")
+	eq(ns.Recap_LootMessage("Thrall receives loot: " .. link .. ".", patterns), nil, "someone else")
+	eq(ns.Recap_LootMessage(nil, patterns), nil, "nil text")
+end)
+
+test("IsLoot: items pushed while a vendor, mailbox, auction house or trade is open are not loot", function()
+	eq(ns.Recap_IsLoot("looted", {}), true, "loot window")
+	eq(ns.Recap_IsLoot("looted", { vendor = true }), true, "looting with a vendor open still counts")
+	eq(ns.Recap_IsLoot("pushed", {}), true, "quest reward")
+	eq(ns.Recap_IsLoot("pushed", { loot = true }), true, "pushed while a loot window is open")
+	for _, open in ipairs({ "vendor", "mail", "auction", "trade" }) do
+		eq(ns.Recap_IsLoot("pushed", { [open] = true }), false, open)
+	end
+	eq(ns.Recap_IsLoot(nil, {}), false, "no kind")
+end)
+
 test("ItemID from a link", function()
 	eq(ns.Recap_ItemID("|cnIQ4:|Hitem:19019::::|h[x]|h|r"), 19019)
 	eq(ns.Recap_ItemID("nope"), nil)

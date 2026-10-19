@@ -8,6 +8,7 @@ local DEDUPE_WINDOW = 120 -- seconds: a loot note and an upgrade note of the sam
 local MIN_WORTH_TIME = 600 -- seconds; Recap.lua's login toast tooltip says "at least 10 minutes"
 local MIN_WORTH_MONEY = 10000 -- 1 gold
 local QUALITY_EPIC, QUALITY_LEGENDARY = 4, 5
+local LOOT_KINDS = { "looted", "pushed" } -- Recap_LootMessage tries loot windows first
 
 ns.RECAP_SOURCES = { "loot", "vendor", "mail", "auction" } -- in display order for ties; "other" is the rest
 ns.RECAP_SOURCE_NAMES = { loot = "loot", vendor = "vendor", mail = "mail", auction = "auction house", other = "other" }
@@ -296,6 +297,28 @@ function ns.Recap_LootLink(text, patterns)
 		end
 	end
 	return nil
+end
+
+-- The item link, count and kind of a loot message about yourself, or nil. patterns = { looted = Recap_LootPatterns
+-- of the loot window and bonus roll strings, pushed = Recap_LootPatterns of the "You receive item" strings }.
+function ns.Recap_LootMessage(text, patterns)
+	for _, kind in ipairs(LOOT_KINDS) do
+		local link, count = ns.Recap_LootLink(text, patterns[kind] or {})
+		if link then
+			return link, count, kind
+		end
+	end
+	return nil
+end
+
+-- Whether a loot message is the session's loot. Loot windows and bonus rolls always are. Items pushed into the bags
+-- (quest rewards and the like) are, unless a vendor, the mailbox, the auction house or a trade is open: then it's
+-- a purchase or a delivery. Crafted items ("You create") never get here.
+function ns.Recap_IsLoot(kind, ctx)
+	if kind == "looted" then
+		return true
+	end
+	return kind == "pushed" and not (ctx.vendor or ctx.mail or ctx.auction or ctx.trade)
 end
 
 function ns.Recap_ItemID(link)
