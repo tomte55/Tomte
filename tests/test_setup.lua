@@ -65,7 +65,8 @@ test("presets come in the picker's order", function()
 	eq(ns.SETUP_PRESETS[1].key, "minimal", "1")
 	eq(ns.SETUP_PRESETS[2].key, "collector", "2")
 	eq(ns.SETUP_PRESETS[3].key, "crafter", "3")
-	eq(ns.SETUP_PRESETS[4].key, "everything", "4")
+	eq(ns.SETUP_PRESETS[4].key, "social", "4")
+	eq(ns.SETUP_PRESETS[5].key, "everything", "5")
 	eq(ns.Setup_Preset("crafter").name, "Crafter", "lookup")
 	eq(ns.Setup_Preset("nope"), nil, "unknown")
 end)
@@ -81,7 +82,9 @@ test("crafter plan turns its modules and the base on, the rest off, never touche
 	eq(plan.enabled.afk, false, "afk")
 	eq(plan.enabled.recap, false, "recap")
 	eq(plan.enabled.moments, false, "moments")
-	eq(plan.enabled.whispers, false, "whispers")
+	eq(plan.enabled.whispers, nil, "whispers left alone")
+	eq(plan.enabled.tradefilter, true, "trade filter")
+	eq(plan.enabled.chattabs, true, "chat tabs")
 	eq(plan.enabled.events, false, "events")
 	eq(plan.enabled.window, nil, "window is always on")
 end)
@@ -153,8 +156,44 @@ test("OnNames lists module names in registration order", function()
 	for i = 2, #names do
 		eq(names[i - 1] < names[i], true, "order " .. i)
 	end
-	eq(#ns.Setup_OnNames("everything", ns.modules), #ns.modules - 1, "everything: every default-on module")
+	eq(#ns.Setup_OnNames("everything", ns.modules), #ns.modules - 1 - #ns.SETUP_UNTOUCHED,
+		"everything: every default-on module it touches")
 	eq(#ns.Setup_OnNames("nope", ns.modules), 0, "unknown")
+end)
+
+test("presets leave Whispers, Mentions, Friends Online and Group Alerts alone", function()
+	Register()
+	for _, key in ipairs({ "minimal", "collector", "crafter" }) do
+		local plan = ns.Setup_Plan(key, ns.modules)
+		for _, k in ipairs(ns.SETUP_UNTOUCHED) do
+			eq(plan.enabled[k], nil, key .. " " .. k)
+		end
+	end
+end)
+
+test("Social turns the chat and social modules on", function()
+	Register()
+	local plan = ns.Setup_Plan("social", ns.modules)
+	for _, k in ipairs({ "whispers", "mentions", "friends", "alerts", "share", "tradefilter", "chattabs", "chattags",
+		"chatcopy", "recent", "way" }) do
+		eq(plan.enabled[k], true, k)
+	end
+	eq(plan.enabled.gather, false, "gather")
+	eq(plan.enabled.hunter, true, "class modules are base")
+end)
+
+test("a preset keeps the player's choice for the modules it leaves alone", function()
+	Register()
+	ns.SetModuleEnabled("whispers", false)
+	ns.Setup_Apply(ns.db, ns.Setup_Plan("minimal", ns.modules), ns.modules)
+	eq(ns.db.enabled.whispers, false, "minimal keeps it")
+	eq(ns.Setup_Matches("minimal", ns.modules), true, "matches ignores it")
+	ns.Setup_Apply(ns.db, ns.Setup_Plan("everything", ns.modules), ns.modules)
+	eq(ns.db.enabled.whispers, false, "everything keeps it too")
+	eq(ns.db.enabled.recap, nil, "everything clears the rest")
+	eq(ns.Setup_Matches("everything", ns.modules), true, "matches")
+	ns.Setup_Apply(ns.db, ns.Setup_Plan("social", ns.modules), ns.modules)
+	eq(ns.db.enabled.whispers, true, "a preset that names it turns it on")
 end)
 
 test("existing user is marked done, with no note", function()

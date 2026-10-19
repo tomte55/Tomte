@@ -5,10 +5,11 @@ local addonName, ns = ...
 -- it by surprise (settings migration 2 marks them done).
 
 local UI = ns.UI
-local W, H = 660, 540
+local W, H = 660, 600
 local PAD = 16
 local CARD_W = (W - PAD * 2 - 12) / 2
 local CARD_H = 172
+local WIDE_H = 72 -- Everything: one line of text, across the window
 local FIRST_RUN_DELAY = 3 -- seconds after PLAYER_ENTERING_WORLD before the first-run picker tries to show
 local BUSY_RETRY = 5 -- seconds between tries while a cinematic or movie plays
 
@@ -43,8 +44,15 @@ local function UseThis()
 	Done()
 	ns.db.setup.preset = selected
 	frame:Hide()
-	ns.Print(("%s set up: %d modules on. /tomte setup to change it."):format(preset.name,
-		#ns.Setup_OnNames(selected, ns.modules)))
+	-- Counted after applying: the modules a preset leaves alone (SETUP_UNTOUCHED) may be on too; blocked ones (another
+	-- class's) don't run.
+	local on = 0
+	for _, module in ipairs(ns.modules) do
+		if not module.alwaysOn and ns.ModuleWanted(module) then
+			on = on + 1
+		end
+	end
+	ns.Print(("%s set up: %d modules on. /tomte setup to change it."):format(preset.name, on))
 	if ns.Panel_IsShown() then
 		ns.Panel_Refresh()
 	end
@@ -56,6 +64,19 @@ local function ChooseMyself()
 	-- The settings list, on the Tomte window's own page: ns.modules[1] is "window" because Panel/Window.lua is the
 	-- first file in Tomte.toc that registers a module.
 	ns.Panel_OpenModule(ns.modules[1].key)
+end
+
+-- "Whispers, Mentions, Friends Online and Group Alerts": the modules no preset switches unless it names them.
+local function UntouchedNames()
+	local names = {}
+	for _, key in ipairs(ns.SETUP_UNTOUCHED) do
+		local module = ns.modulesByKey[key]
+		names[#names + 1] = module and module.name or key
+	end
+	if #names < 2 then
+		return names[1] or ""
+	end
+	return table.concat(names, ", ", 1, #names - 1) .. " and " .. names[#names]
 end
 
 local function CreateCard(parent, preset)
@@ -115,16 +136,20 @@ local function Build()
 	for i, preset in ipairs(ns.SETUP_PRESETS) do
 		local card = CreateCard(frame, preset)
 		local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
+		if preset.all then
+			col = 0
+			card:SetSize(W - PAD * 2, WIDE_H)
+		end
 		card:SetPoint("TOPLEFT", PAD + col * (CARD_W + 12), -70 - row * (CARD_H + 12))
 		frame.cards[i] = card
 	end
 
 	local foot = UI.Text(frame, 11, "textMuted")
-	foot:SetPoint("BOTTOMLEFT", PAD, 44)
+	foot:SetPoint("BOTTOMLEFT", PAD, 40)
 	foot:SetPoint("RIGHT", -PAD, 0)
 	foot:SetJustifyH("LEFT")
-	foot:SetText("Hunter Pets, Pet Health and Rogue Poisons only wake up on that class. Settings inside modules "
-		.. "don't change.")
+	foot:SetText("Hunter Pets, Pet Health and Rogue Poisons only wake up on that class. Whispers, Mentions, Friends "
+		.. "Online and Group Alerts stay as they are unless a preset names them. Settings inside modules don't change.")
 
 	local skip = UI.Button(frame, 80, "Skip")
 	skip:SetPoint("BOTTOMRIGHT", -PAD, 14)
@@ -159,7 +184,8 @@ local function Show()
 	for _, card in ipairs(frame.cards) do
 		local names = ns.Setup_OnNames(card.key, ns.modules)
 		if ns.Setup_Preset(card.key).all then
-			card.on:SetText(("Turns on: all %d modules (the ones that start on)."):format(#names))
+			card.on:SetText(("Turns on: the %d modules that start on. %s stay as they are."):format(#names,
+				UntouchedNames()))
 		else
 			card.on:SetText("Turns on: " .. table.concat(names, ", "))
 		end

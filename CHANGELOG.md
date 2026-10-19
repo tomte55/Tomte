@@ -20,6 +20,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Mentions, Trade Filter and Friends Online: names and keywords with accented or Cyrillic capitals (Ásgeir, Örn) now match whatever their case.
 - New installs start quieter: Friend sharing off, Mentions without the taskbar flash and chime, Group Alerts ringing once on the sound effects channel. Existing installs keep their settings.
 - Group Alerts: new Sound channel setting (Effects or Master); "Repeat every" only shows while repeating is on.
+- Setup: a new Social preset (whispers, mentions, friends, group alerts and chat). Presets no longer switch Whispers, Mentions, Friends Online and Group Alerts off, and Crafter also turns on Trade Filter and Chat Tabs.
 - Pet Battles: the Heal button only shows after a battle when you can heal (Revive Battle Pets learned or a bandage in your bags; the tamer card's button says why not), and its key does nothing while Pet Battles is off.
 - AFK Screen: closes for summons, duels, trades, invites and the game's other popups, so you can answer them.
 - Dressing room: Target's outfit no longer changes what an open Inspect window shows; with it open on someone else, it asks you to close it first.
