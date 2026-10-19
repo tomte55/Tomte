@@ -26,15 +26,19 @@ local function ProfName(line)
 	return name or nil
 end
 
+-- Trade goods and plain reagents. Mythic Keystones and context tokens are in the Reagent class too, but nothing
+-- crafts with them.
 local function IsMaterial(itemID)
-	local classID = select(6, C_Item.GetItemInfoInstant(itemID))
-	return classID == Enum.ItemClass.Tradegoods or classID == Enum.ItemClass.Reagent
+	local _, _, _, _, _, classID, subclassID = C_Item.GetItemInfoInstant(itemID)
+	return classID == Enum.ItemClass.Tradegoods
+		or (classID == Enum.ItemClass.Reagent and subclassID == Enum.ItemReagentSubclass.Reagent)
 end
 
 local function LinesFor(itemID, shift)
 	return ns.Materials_Lines({
 		usedBy = ns.Alts_UsedBy(itemID), uses = ns.MATERIALS_USES[itemID], isMaterial = IsMaterial(itemID),
-		notUsed = db.notUsed, shift = shift, profName = ProfName,
+		known = ns.Materials_Known(itemID, ns.MATERIALS_LAST_ITEM), notUsed = db.notUsed, shift = shift,
+		profName = ProfName,
 	})
 end
 
@@ -72,7 +76,7 @@ local function Why(arg)
 	end
 	local name = C_Item.GetItemNameByID(itemID) or ("item " .. itemID)
 	local usedBy = ns.Alts_UsedBy(itemID)
-	ns.Print(("%s (%d), %s:"):format(name, itemID, IsMaterial(itemID) and "a material" or "not a trade good or reagent"))
+	ns.Print(("%s (%d), %s:"):format(name, itemID, IsMaterial(itemID) and "a material" or "not a trade good or crafting reagent"))
 	if #usedBy == 0 then
 		ns.Print("  Alts: no known recipe uses it" .. (ns.altsModule and ns.altsModule.active and "." or " (Alts is off)."))
 	end
@@ -82,6 +86,9 @@ local function Why(arg)
 	local uses = ns.MATERIALS_USES[itemID]
 	if not uses then
 		ns.Print("  Table: no profession uses it.")
+	end
+	if not ns.Materials_Known(itemID, ns.MATERIALS_LAST_ITEM) then
+		ns.Print("  Table: the item is newer than the table, so it never says \"Not used in crafting\".")
 	end
 	for line, count in pairs(uses or {}) do
 		ns.Print(("  Table: %s (%d), %d recipes"):format(ProfName(line) or "?", line, count))
@@ -120,7 +127,7 @@ module = ns.RegisterModule({
 			tooltip = "\"Used by\" names your characters who know a recipe with the material (needs Alts, and each "
 				.. "profession window opened once). \"Also\" lists the other professions that use it." },
 		{ type = "checkbox", key = "notUsed", label = "Say when nothing uses a material", parent = "tooltip",
-			tooltip = "Trade goods and reagents that no recipe uses get \"Not used in crafting\": safe to sell." },
+			tooltip = "Trade goods and reagents that no recipe in Tomte's list uses get \"Not used in crafting\". Items newer than the list get no line." },
 	},
 	commands = {
 		{ "why", "what both sources know about an item: /tomte materials why <item link or ID>", function(arg)

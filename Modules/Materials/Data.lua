@@ -100,8 +100,15 @@ local function AlsoLine(uses, usedBy, profName, shift)
 	return "Also: " .. table.concat(parts, ", ")
 end
 
--- input = { usedBy (Alts_UsedBy's list), uses (MATERIALS_USES entry or nil), isMaterial (a trade good or reagent),
--- notUsed (the setting), shift, profName = function(skillLine) -> localized name or nil }
+-- Whether the generated table can know the item: its ID is no newer than the newest trade good or reagent of the
+-- build the table was made from (MATERIALS_LAST_ITEM). Item IDs are handed out in rising order.
+function ns.Materials_Known(itemID, lastKnown)
+	return type(itemID) == "number" and type(lastKnown) == "number" and itemID <= lastKnown
+end
+
+-- input = { usedBy (Alts_UsedBy's list), uses (MATERIALS_USES entry or nil), isMaterial (a trade good or plain
+-- reagent), known (Materials_Known), notUsed (the setting), shift, profName = function(skillLine) -> localized name
+-- or nil }
 -- -> { { text, role } } (theme color roles)
 function ns.Materials_Lines(input)
 	local lines = {}
@@ -118,7 +125,7 @@ function ns.Materials_Lines(input)
 		if also then
 			lines[#lines + 1] = { text = also, role = "textFaint" }
 		end
-	elseif #usedBy == 0 and input.isMaterial and input.notUsed then
+	elseif #usedBy == 0 and input.isMaterial and input.known and input.notUsed then
 		lines[#lines + 1] = { text = "Not used in crafting", role = "textFaint" }
 	end
 	return lines

@@ -25,6 +25,9 @@ local function Lines(input)
 	if input.notUsed == nil then
 		input.notUsed = true
 	end
+	if input.known == nil then
+		input.known = true
+	end
 	return ns.Materials_Lines(input)
 end
 
@@ -105,6 +108,22 @@ test("Shift: at most 5 recipes, then +n more", function()
 	eq(lines[2].text, "  A - Aldric")
 	eq(lines[6].text, "  E - Aldric")
 	eq(lines[7].text, "  +2 more")
+end)
+
+test("Known: only items no newer than the table's build", function()
+	eq(ns.Materials_Known(210796, 275385), true, "older item")
+	eq(ns.Materials_Known(275385, 275385), true, "the newest one")
+	eq(ns.Materials_Known(280001, 275385), false, "newer than the table")
+	eq(ns.Materials_Known(210796, nil), false, "a table without the build mark knows nothing")
+	eq(ns.Materials_Known(nil, 275385), false, "no item")
+end)
+
+test("not used in crafting: never for an item the table can't know", function()
+	eq(#Lines({ isMaterial = true, known = false }), 0, "newer than the table")
+	local lines = Lines({ isMaterial = false, known = true })
+	eq(#lines, 0, "a keystone isn't a material")
+	lines = Lines({ uses = { [LW] = 1 }, isMaterial = true, known = false })
+	eq(lines[1].text, "Also: Leatherworking", "what the table does say still shows")
 end)
 
 H.done()
