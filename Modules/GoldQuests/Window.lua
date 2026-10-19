@@ -13,7 +13,10 @@ local TITLE_H = 48
 local FOLDED_H = 26
 local HEAD_H, ZONE_H, ROW_H, LINE_H = 24, 20, 20, 18
 local LEFT_W = 66 -- gold amount / state column
-local LOADING_TICK, CLOCK_TICK = 2, 30
+-- Seconds between rescans while rewards load (World quests' Scan.lua sends at most one load request per quest every
+-- 5 s, REQUEST_EVERY, and gives up after MAX_REQUESTS; QUEST_LOG_UPDATE shows loaded rewards at once), and between
+-- redraws for the time left.
+local LOADING_TICK, CLOCK_TICK = 5, 30
 local TIME_ROLES = { critical = "danger", low = "warning", normal = "textMuted" }
 local STATE_TEXT = { done = "Done", up = "Up", locked = "Locked" }
 local STATE_ROLES = { done = "success", up = "accent", locked = "warning" }
@@ -560,7 +563,7 @@ local function Build()
 	settings:SetScript("OnEnter", function(self)
 		self.icon:SetVertexColor(UI.RGB("accent"))
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-		GameTooltip:SetText("Settings", 1, 1, 1)
+		GameTooltip:SetText("Settings", UI.Color("heading"))
 		GameTooltip:Show()
 	end)
 	settings:SetScript("OnLeave", function(self)

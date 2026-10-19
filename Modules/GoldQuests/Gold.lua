@@ -320,8 +320,8 @@ module = ns.RegisterModule({
 			ns.GoldWindow_Toggle()
 		end,
 		tooltip = function(tooltip)
-			tooltip:AddLine(currentGroup and ns.Gold_Summary(currentGroup) or "Not scanned yet", 1, 1, 1)
-			tooltip:AddLine("Click to open or close the window", 1, 1, 1)
+			tooltip:AddLine(currentGroup and ns.Gold_Summary(currentGroup) or "Not scanned yet", ns.UI.RGB("text"))
+			tooltip:AddLine("Click to open or close the window", ns.UI.RGB("accent"))
 		end,
 	},
 	home = {
