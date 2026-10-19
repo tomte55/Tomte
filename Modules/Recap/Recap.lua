@@ -438,8 +438,13 @@ module = ns.RegisterModule({
 			return { { value = "count", text = "Number of sessions" }, { value = "days", text = "Days" } }
 		end },
 		{ type = "slider", key = "keepCount", label = "Sessions per character", min = 10, max = 100, step = 5,
-			parent = "keepHistory" },
-		{ type = "slider", key = "keepDays", label = "Days kept", min = 7, max = 90, step = 7, parent = "keepHistory" },
+			parent = "keepHistory", shown = function()
+				return db.keepBy ~= "days"
+			end },
+		{ type = "slider", key = "keepDays", label = "Days kept", min = 7, max = 90, step = 7, parent = "keepHistory",
+			shown = function()
+				return db.keepBy == "days"
+			end },
 		{ type = "dropdown", key = "mainNumber", label = "Chart shows", parent = "keepHistory", choices = function()
 			return { { value = "perHour", text = "Gold per hour" }, { value = "net", text = "Net gold per session" } }
 		end },
