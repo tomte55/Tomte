@@ -22,6 +22,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Collect here: the zone toast shows once a day per zone, also after a /reload.
 - Almost Done: the tracker does less work while no row is flashing.
 - Moments: discovery cards read the game's message in any client language.
+- Showcase: keeps your camera in a saved view with no key bound to it (5, else 4 ...), so it never overwrites a view you use; `/tomte showcase view` says which.
 
 ## v1.15.2 - 2026-10-15
 

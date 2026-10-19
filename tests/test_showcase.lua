@@ -244,4 +244,18 @@ test("Gems and the socket to fill", function()
 	eq(ns.CharShow_PickSocket(0, {}), nil, "no socket")
 end)
 
+test("PickView: the highest view with no key bound, none when all are", function()
+	local bound = {}
+	local function IsBound(view)
+		return bound[view] == true
+	end
+	eq(ns.CharShow_PickView(IsBound), 5)
+	bound[5] = true
+	eq(ns.CharShow_PickView(IsBound), 4)
+	bound[4], bound[3] = true, true
+	eq(ns.CharShow_PickView(IsBound), 2)
+	bound[2] = true
+	eq(ns.CharShow_PickView(IsBound), nil)
+end)
+
 H.done()

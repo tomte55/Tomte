@@ -58,6 +58,17 @@ function ns.CharShow_YawRate(cvarSpeed, speed)
 	return (tonumber(cvarSpeed) or 180) * speed
 end
 
+-- The saved camera view (2-5) the Showcase keeps your camera in while open: the highest one without a Set View or
+-- Save View key (a player who binds a view uses it). nil when all are bound. bound(view) -> true when one is.
+function ns.CharShow_PickView(bound)
+	for view = 5, 2, -1 do
+		if not bound(view) then
+			return view
+		end
+	end
+	return nil
+end
+
 -- Slots ------------------------------------------------------------------------------------------------------------
 
 

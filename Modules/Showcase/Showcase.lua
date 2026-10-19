@@ -9,11 +9,17 @@ local addonName, ns = ...
 local OWNER = "showcase"
 local PITCH = 2 -- degrees: the camera settles level with the character's head
 local HEIGHT_CHANGE = 0.1 -- re-zoom when a fresh measurement differs this much (a fraction)
--- The game's saved camera view the player's camera is kept in while open (close goes back to it exactly). 5, as
--- Narcissus uses: the views players bind are mostly 1-3.
-local SAVED_VIEW = 5
 
 local module, db
+
+-- The game's saved camera view the player's camera is kept in while open (close goes back to it exactly). A view
+-- can't be read back, so the Showcase only takes one with no key bound (Data.lua); with none free the engine
+-- restores zoom and pitch instead, and facing may differ.
+local function FreeView()
+	return ns.CharShow_PickView(function(view)
+		return GetBindingKey("SETVIEW" .. view) ~= nil or GetBindingKey("SAVEVIEW" .. view) ~= nil
+	end)
+end
 local state -- the open showcase's cinematic state (db.current), nil when closed
 local events = ns.CharShow_Events -- Card.lua's; Menu.lua watches its own events on it
 local refreshTimer
@@ -114,7 +120,7 @@ function ns.CharShow_Open()
 		instantHide = true,
 		noLift = true,
 		zoomTime = 1.4,
-		saveView = SAVED_VIEW,
+		saveView = FreeView(),
 		viewDelay = 0.3, -- after dynamic pitch is released (Camera.lua, PAD_CLOSE)
 		bands = db.bands,
 		hint = "Drag to turn, scroll to zoom, Esc to close",
@@ -287,6 +293,11 @@ module = ns.RegisterModule({
 	commands = {
 		{ "", "open or close the Showcase", ns.CharShow_Toggle, hidden = true },
 		{ "open", "show your character, gear and stats", ns.CharShow_Open },
+		{ "view", "which camera view the Showcase borrows", function()
+			local view = FreeView()
+			ns.Print(view and ("the Showcase keeps your camera in view %d (no key is bound to it)."):format(view)
+				or "views 2-5 all have keys: the Showcase zooms back on close without a saved view (facing may differ).")
+		end },
 		{ "debug", "chat lines for each camera step on close", function()
 			db.debugCamera = not db.debugCamera
 			ns.Print("Showcase camera debug " .. (db.debugCamera and "on" or "off") .. ".")

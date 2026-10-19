@@ -285,6 +285,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte pets open`, `/tomte pets import` (paste Xu-Fu strategies), `/tomte pets types` (type chart), `/tomte pets load` (the team for the tamer you're talking to)
 - `/tomte weekly popup` / `board`, `/tomte weekly quests` (learned weekly quests), `/tomte weekly forget <name>`, `/tomte weekly ids` (check crest and knowledge quest IDs)
 - `/tomte chatcopy` (copy the chat window you last used)
+- `/tomte showcase` (open or close), `/tomte showcase view` (which camera view it borrows)
 - `/tomte setup` (the module picker), `/tomte bug` (`full`, `clear`), `/tomte profile export` / `import` / `undo`
 - `/tomte gather` (the Gathering page), `/tomte gather start` / `end`, `/tomte gather why` (how the last loot window was counted), `/tomte gather nodes` (node spots remembered here and everywhere), `/tomte gather follow` (follow the zone's gathering route, or stop), `/tomte gather skip` (skip the route's next spot), `/tomte gather route` (the route in your zone)
 - `/tomte fishing` (options), `/tomte fishing status` (key, reel state and settings waiting to be put back)
