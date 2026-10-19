@@ -160,6 +160,17 @@ function ns.Home_PillText(n)
 	return n > 99 and "99+" or tostring(n)
 end
 
+-- Sorts entries by entry.order (lowest first, default 100), then by index[entry] (registration order).
+local function SortEntries(list, index)
+	table.sort(list, function(a, b)
+		local x, y = a.order or 100, b.order or 100
+		if x ~= y then
+			return x < y
+		end
+		return index[a] < index[b]
+	end)
+end
+
 -- Sorted by entry.order (lowest first, default 100), then registration order.
 function ns.HomeEntries(kind)
 	local list, index = {}, {}
@@ -171,14 +182,28 @@ function ns.HomeEntries(kind)
 			end
 		end
 	end
-	table.sort(list, function(a, b)
-		local x, y = a.order or 100, b.order or 100
-		if x ~= y then
-			return x < y
-		end
-		return index[a] < index[b]
-	end)
+	SortEntries(list, index)
 	return list
+end
+
+-- Every "around" block of every module, on or off, in Home's order: { key, name } for the Tomte window's
+-- "Around you shows" switches (Panel/Window.lua).
+function ns.Home_AroundChoices()
+	local list, index = {}, {}
+	for _, module in ipairs(ns.modules) do
+		for _, entry in ipairs(module.home or {}) do
+			if entry.kind == "around" then
+				list[#list + 1] = entry
+				index[entry] = #list
+			end
+		end
+	end
+	SortEntries(list, index)
+	local choices = {}
+	for i, entry in ipairs(list) do
+		choices[i] = { key = entry.key, name = entry.name }
+	end
+	return choices
 end
 
 -- The module's page entries (for the settings page's "Open ..." buttons), visible or not.

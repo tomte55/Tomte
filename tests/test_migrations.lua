@@ -64,6 +64,24 @@ test("Settings: the sidebar's collapsed categories are dropped, the rest of the 
 	ns.RunMigrations(bare, ns.MIGRATIONS)
 	eq(bare.panel, nil, "no panel table is fine")
 end)
+test("Delves: an unticked Delves in Around you moves to the window's Around you shows", function()
+	local db = { schema = 9, delves = { around = false, entrance = true }, window = { around = { wqaround = false } } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.delves.around, nil)
+	eq(db.delves.entrance, true, "other Delves settings kept")
+	eq(db.window.around.delvesaround, false)
+	eq(db.window.around.wqaround, false, "other blocks kept")
+	local on = { schema = 9, delves = { around = true } }
+	ns.RunMigrations(on, ns.MIGRATIONS)
+	eq(on.delves.around, nil)
+	eq(on.window, nil, "ticked: nothing to move")
+	local noWindow = { schema = 9, delves = { around = false } }
+	ns.RunMigrations(noWindow, ns.MIGRATIONS)
+	eq(noWindow.window.around.delvesaround, false, "window tables made")
+	local bare = { schema = 9 }
+	ns.RunMigrations(bare, ns.MIGRATIONS)
+	eq(bare.delves, nil, "no delves table is fine")
+end)
 test("migrations don't run twice", function()
 	local db = { schema = #ns.MIGRATIONS, way = { cardDistance = 325 } }
 	ns.RunMigrations(db, ns.MIGRATIONS)

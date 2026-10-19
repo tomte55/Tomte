@@ -72,5 +72,24 @@ test("the around filter only touches around entries, and a module that's off sti
 	eq(Keys(ns.HomeEntries("around")), "collectaround,flightaround", "module off")
 	eq(db.enabled.b, false, "saved")
 end)
+test("AroundChoices lists every around block, on or off, in Home's order", function()
+	reset()
+	ns.RegisterModule({ key = "a", name = "a", category = "x", home = {
+		{ kind = "around", key = "flightaround", name = "Flight masters", order = 4 },
+		{ kind = "page", key = "pagea", name = "Page" },
+		{ kind = "around", key = "collectaround", name = "Collect here", order = 1 },
+	} })
+	ns.RegisterModule({ key = "b", name = "b", category = "x", home = {
+		{ kind = "around", key = "delvesaround", name = "Delves", order = 6 },
+		{ kind = "around", key = "extra", name = "No order" },
+	} })
+	local choices = ns.Home_AroundChoices()
+	local keys = {}
+	for i, c in ipairs(choices) do
+		keys[i] = c.key
+	end
+	eq(table.concat(keys, ","), "collectaround,flightaround,delvesaround,extra")
+	eq(choices[1].name, "Collect here")
+end)
 
 H.done()

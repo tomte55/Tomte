@@ -6,16 +6,62 @@ local function Redraw()
 	ns.Panel_Refresh()
 end
 
--- "Around you shows": one checkbox per block, by its home entry key (Core/Modules.lua filters HomeEntries).
-local AROUND = {
-	{ "collectaround", "Collect here" },
-	{ "wqaround", "World quests" },
-	{ "teleportsaround", "Teleports" },
-	{ "flightaround", "Flight masters" },
-	{ "mountaround", "Mount favorites" },
+-- Setup and sharing (Panel/Setup.lua, Panel/Share.lua, Panel/Bug.lua): last on the page, above the Reset rows.
+local SHARE = {
+	{ type = "header", label = "Setup and sharing" },
+	{ type = "button", label = "Pick a preset (Collector, Crafter, Minimal, Everything)", text = "Run setup",
+		onClick = function()
+			ns.SetupUI_Show()
+		end,
+		tooltip = "Turns modules on or off to fit how you play. Settings inside modules stay." },
+	{ type = "button", label = "Your settings as a string for a friend", text = "Export",
+		onClick = function()
+			ns.ShareUI_Export()
+		end,
+		tooltip = "Settings only: no characters, history, flight times or lists." },
+	{ type = "button", label = "Use a friend's settings", text = "Import",
+		onClick = function()
+			ns.ShareUI_Import()
+		end,
+		tooltip = "Paste their string, see what changes, then confirm. Your UI reloads." },
+	{ type = "button", label = "Back to your settings from before the last import", text = "Undo import",
+		shown = function()
+			return ns.ShareUI_HasBackup()
+		end,
+		onClick = function()
+			ns.ShareUI_Undo()
+		end,
+		tooltip = "Shows what changes back, then reloads your UI." },
+	{ type = "button", label = "Something broke? A report to copy and send", text = "Bug report",
+		onClick = function()
+			ns.BugUI_Show()
+		end,
+		tooltip = "Versions, modules, other addons and Tomte's last errors. Sent nowhere by itself." },
 }
 
-local module = ns.RegisterModule({
+local module
+
+-- "Around you shows": one switch per "around" block of every module (on or off), added on ADDON_LOADED (init), when
+-- every module has registered; Setup and sharing after them. A block never touched starts ticked.
+local function AddRows(db)
+	if module.rowsAdded then
+		return
+	end
+	module.rowsAdded = true
+	for _, choice in ipairs(ns.Home_AroundChoices()) do
+		module.defaults.around[choice.key] = true -- what Reset puts back
+		if db.around[choice.key] == nil then
+			db.around[choice.key] = true
+		end
+		module.options[#module.options + 1] = { type = "checkbox", key = "around." .. choice.key, label = choice.name,
+			onChange = Redraw, tooltip = "This block in Home's \"Around you\" column (it still needs its module on)." }
+	end
+	for _, spec in ipairs(SHARE) do
+		module.options[#module.options + 1] = spec
+	end
+end
+
+module = ns.RegisterModule({
 	key = "window",
 	name = "Tomte window",
 	category = "tomte",
@@ -23,12 +69,13 @@ local module = ns.RegisterModule({
 	summary = "Pick a theme and choose what the rail and Home show.",
 	description = "How this window looks, where it opens, and what the rail and Home show.",
 	alwaysOn = true,
+	init = AddRows,
 	defaults = {
 		theme = ns.Theme.DEFAULT, -- read by Core.lua on ADDON_LOADED, before anything draws
 		opacity = 0.96,
 		resume = 5,
 		pills = true, -- counts on the rail
-		around = {}, -- [home entry key] = false hides that "Around you" block (filled from AROUND below)
+		around = {}, -- [home entry key] = false hides that "Around you" block (one true per block, set in AddRows)
 	},
 	options = {
 		{ type = "header", label = "Look" },
@@ -70,45 +117,3 @@ local module = ns.RegisterModule({
 		{ type = "header", label = "Around you shows" },
 	},
 })
-
-for _, block in ipairs(AROUND) do
-	module.defaults.around[block[1]] = true
-	module.options[#module.options + 1] = { type = "checkbox", key = "around." .. block[1], label = block[2],
-		onChange = Redraw, tooltip = "This block in Home's \"Around you\" column (it still needs its module on)." }
-end
-
--- Setup and sharing (Panel/Setup.lua, Panel/Share.lua, Panel/Bug.lua): last on the page, above the Reset rows.
-local SHARE = {
-	{ type = "header", label = "Setup and sharing" },
-	{ type = "button", label = "Pick a preset (Collector, Crafter, Minimal, Everything)", text = "Run setup",
-		onClick = function()
-			ns.SetupUI_Show()
-		end,
-		tooltip = "Turns modules on or off to fit how you play. Settings inside modules stay." },
-	{ type = "button", label = "Your settings as a string for a friend", text = "Export",
-		onClick = function()
-			ns.ShareUI_Export()
-		end,
-		tooltip = "Settings only: no characters, history, flight times or lists." },
-	{ type = "button", label = "Use a friend's settings", text = "Import",
-		onClick = function()
-			ns.ShareUI_Import()
-		end,
-		tooltip = "Paste their string, see what changes, then confirm. Your UI reloads." },
-	{ type = "button", label = "Back to your settings from before the last import", text = "Undo import",
-		shown = function()
-			return ns.ShareUI_HasBackup()
-		end,
-		onClick = function()
-			ns.ShareUI_Undo()
-		end,
-		tooltip = "Shows what changes back, then reloads your UI." },
-	{ type = "button", label = "Something broke? A report to copy and send", text = "Bug report",
-		onClick = function()
-			ns.BugUI_Show()
-		end,
-		tooltip = "Versions, modules, other addons and Tomte's last errors. Sent nowhere by itself." },
-}
-for _, spec in ipairs(SHARE) do
-	module.options[#module.options + 1] = spec
-end

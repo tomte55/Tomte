@@ -158,9 +158,6 @@ local AROUND = { kind = "around", key = "delvesaround", order = 6, name = "Delve
 	end,
 	items = function(limit)
 		local rows = {}
-		if not db.around then
-			return rows
-		end
 		for _, e in ipairs(Here()) do
 			if #rows >= limit then
 				break
@@ -310,7 +307,7 @@ module = ns.RegisterModule({
 		.. "that raises your Great Vault's World slots, and your companion's level, role and curios. A note beside "
 		.. "the tier picker at a delve entrance.",
 	enabledByDefault = true,
-	defaults = { around = true, entrance = true, roleHint = true, nextBountiful = "key", companionLevel = {} },
+	defaults = { entrance = true, roleHint = true, nextBountiful = "key", companionLevel = {} },
 	init = function(saved)
 		db = saved
 		ns.DelvesRead_Init(db)
@@ -319,8 +316,6 @@ module = ns.RegisterModule({
 	toggle = Toggle,
 	home = { PAGE, AROUND, NEXT_BOUNTIFUL, NEXT_TIER, NEXT_ROLE },
 	options = {
-		{ type = "checkbox", key = "around", label = "Delves in Around you", onChange = ns.Delves_Changed,
-			tooltip = "The delves in your zone on Home, bountiful first. Click one to track it." },
 		{ type = "checkbox", key = "entrance", label = "Note at the delve entrance",
 			tooltip = "Beside the tier picker: the tier for your vault and your gear, your keys and your companion." },
 		{ type = "checkbox", key = "roleHint", label = "Companion role hint", onChange = ns.Delves_Changed,

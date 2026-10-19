@@ -80,4 +80,21 @@ ns.MIGRATIONS = {
 			db.panel.collapsed = nil
 		end
 	end,
+	-- 10: Delves' own "Delves in Around you" switch became the Tomte window's "Around you shows" one (delvesaround).
+	function(db)
+		local delves = type(db.delves) == "table" and db.delves
+		if not delves then
+			return
+		end
+		if delves.around == false then
+			if type(db.window) ~= "table" then
+				db.window = {}
+			end
+			if type(db.window.around) ~= "table" then
+				db.window.around = {}
+			end
+			db.window.around.delvesaround = false
+		end
+		delves.around = nil
+	end,
 }
