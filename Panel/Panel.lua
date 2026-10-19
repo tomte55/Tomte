@@ -14,7 +14,7 @@ local MIN_W, MIN_H = 820, 560
 local TITLE_H = 36
 local PAD = ns.PANEL_PAD
 
-local panel, escape
+local panel
 local view, openEntry = "home", nil -- this session; openEntry is the page shown in the page view
 local Refresh -- forward declaration
 
@@ -275,11 +275,9 @@ local function Build()
 	UI.ResizeGrip(panel, SaveLayout)
 
 	panel:SetScript("OnShow", function()
-		escape:Show()
 		Refresh()
 	end)
 	panel:SetScript("OnHide", function()
-		escape:Hide()
 		HideTooltip()
 		ns.db.panel.last = { view = view, page = view == "page" and openEntry and openEntry.key or nil, at = GetServerTime() }
 		for _, frame in pairs(panel.pageView.host.frames) do
@@ -291,6 +289,7 @@ local function Build()
 			end
 		end
 	end)
+	UI.CloseOnEscape(panel) -- after the SetScripts above: they would drop its hooks
 end
 
 -- Background opacity from the "Tomte window" settings (Panel/Window.lua), for themes that offer it (Theme.art.opacity).
@@ -412,15 +411,6 @@ end
 -- Called on ADDON_LOADED. The panel itself is built the first time it is shown.
 function ns.Panel_Init()
 	CreateSettingsStub()
-	-- Esc closes the panel: UISpecialFrames hides this dummy, which hides the panel.
-	escape = CreateFrame("Frame", "TomtePanelEscape", UIParent)
-	escape:Hide()
-	table.insert(UISpecialFrames, "TomtePanelEscape")
-	escape:SetScript("OnHide", function()
-		if panel then
-			panel:Hide()
-		end
-	end)
 end
 
 -- Addon compartment (minimap addons button); named in the TOC, so it has to be global.

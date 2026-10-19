@@ -100,21 +100,7 @@ local function Build()
 		Layout()
 	end)
 
-	-- Esc closes it: UISpecialFrames hides this dummy, which hides the window.
-	local escape = CreateFrame("Frame", "TomteWeeklyEscape", UIParent)
-	escape:Hide()
-	table.insert(UISpecialFrames, "TomteWeeklyEscape")
-	escape:SetScript("OnHide", function()
-		if UIParent:IsShown() then -- not when a cinematic or Alt-Z hides the whole UI
-			frame:Hide()
-		end
-	end)
-	frame:HookScript("OnShow", function()
-		escape:Show()
-	end)
-	frame:HookScript("OnHide", function()
-		escape:Hide()
-	end)
+	UI.CloseOnEscape(frame) -- after the SetScripts above: they would drop its hooks
 	Place()
 end
 

@@ -140,7 +140,7 @@ local function Build()
 
 	-- Skip, Esc or a reload-free close while the first run is still open: defaults stay. Not when only UIParent
 	-- hid (Alt+Z, a cinematic): the frame is still shown then and comes back with it.
-	frame:SetScript("OnHide", function(self)
+	frame:HookScript("OnHide", function(self)
 		if self:IsShown() then
 			return
 		end

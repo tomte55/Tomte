@@ -27,8 +27,9 @@ local function Accept()
 end
 
 local function Build()
-	-- Escape is handled below rather than through UISpecialFrames, which would close the Tomte window too.
-	dialog = UI.Dialog("TomteConfirm", WIDTH, nil, { y = 160, escape = false })
+	-- Out of combat Esc and Enter are handled below; in combat (no keyboard) Esc closes it through UI.CloseOnEscape,
+	-- before the Tomte window under it.
+	dialog = UI.Dialog("TomteConfirm", WIDTH, nil, { y = 160 })
 	-- Fixed widths (not anchored to the dialog's sides), so the wrapped height is known right after SetText.
 	dialog.text = UI.Text(dialog, 14, "heading", "title")
 	dialog.text:SetPoint("TOPLEFT", PAD, -PAD)

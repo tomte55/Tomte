@@ -85,7 +85,8 @@ end
 
 -- A hidden, movable, themed dialog window named `name`, centered (opts.y above the middle, default 0). height may be
 -- nil when the caller sizes it later. opts.parent defaults to UIParent; opts.escape (default true) lets Escape close
--- it. Callers that can show it while UIParent is hidden call UI.PlaceDialog on every show.
+-- it (UI.CloseOnEscape; callers HookScript OnShow/OnHide, SetScript would drop it). Callers that can show it while
+-- UIParent is hidden call UI.PlaceDialog on every show.
 function UI.Dialog(name, width, height, opts)
 	opts = opts or {}
 	local frame = CreateFrame("Frame", name, opts.parent or UIParent)
@@ -106,7 +107,7 @@ function UI.Dialog(name, width, height, opts)
 	frame:Hide()
 	UI.Panel(frame)
 	if opts.escape ~= false then
-		tinsert(UISpecialFrames, name)
+		UI.CloseOnEscape(frame) -- Controls.lua: only this dialog closes, not the Tomte window under it
 	end
 	return frame
 end

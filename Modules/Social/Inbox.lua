@@ -509,21 +509,7 @@ local function Build()
 		end
 	end)
 
-	-- Esc closes it: UISpecialFrames hides this dummy, which hides the window.
-	local escape = CreateFrame("Frame", "TomteInboxEscape", UIParent)
-	escape:Hide()
-	table.insert(UISpecialFrames, "TomteInboxEscape")
-	escape:SetScript("OnHide", function()
-		if UIParent:IsShown() then -- not when a cinematic or Alt-Z hides the whole UI
-			frame:Hide()
-		end
-	end)
-	frame:HookScript("OnShow", function()
-		escape:Show()
-	end)
-	frame:HookScript("OnHide", function()
-		escape:Hide()
-	end)
+	UI.CloseOnEscape(frame) -- after the SetScripts above: they would drop its hooks
 end
 
 -- Opens on the newest unread conversation (else the one open last time, else the newest).
