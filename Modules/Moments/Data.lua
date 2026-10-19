@@ -116,6 +116,23 @@ function ns.Moments_ShouldShowAchievement(alreadyEarned, isGuild)
 	return not alreadyEarned and not isGuild
 end
 
+-- Blizzard's event toasts that say what one of our moments says: the moment type and the setting that hides it.
+local REPLACED_TOASTS = {
+	LevelUp = { kind = "levelup", setting = "replaceLevelUp" },
+	PetBattleCapture = { kind = "pet", setting = "replacePetCapture" },
+}
+
+-- Hide this Blizzard toast? eventType = the toast's Enum.EventToastEventType value, toastTypes = that enum,
+-- db = Moments' saved settings.
+function ns.Moments_ReplacesToast(eventType, toastTypes, db)
+	for name, rule in pairs(REPLACED_TOASTS) do
+		if toastTypes[name] ~= nil and eventType == toastTypes[name] then
+			return db[rule.setting] == true and (db.styles[rule.kind] or "off") ~= "off"
+		end
+	end
+	return false
+end
+
 function ns.Moments_LevelLabel(level, maxLevel)
 	if maxLevel and level >= maxLevel then
 		return "Maximum level"

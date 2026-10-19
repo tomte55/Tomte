@@ -199,6 +199,32 @@ local LOCALES = {
 	{ "zhCN", "发现%s：获得%d点经验值", "发现：%s", "发现闪金镇：获得30点经验值", "发现：闪金镇", "闪金镇" },
 }
 
+local TOAST_TYPES = { LevelUp = 1, PetBattleCapture = 7, Quest = 3 }
+
+local function toastDB(levelup, pet)
+	return { replaceLevelUp = true, replacePetCapture = true, styles = { levelup = levelup, pet = pet } }
+end
+
+test("ReplacesToast: level-up and capture toasts hide while their moment is on", function()
+	local db = toastDB("banner", "cinematic")
+	eq(ns.Moments_ReplacesToast(1, TOAST_TYPES, db), true)
+	eq(ns.Moments_ReplacesToast(7, TOAST_TYPES, db), true)
+	eq(ns.Moments_ReplacesToast(3, TOAST_TYPES, db), false)
+end)
+
+test("ReplacesToast: kept when the moment is off or the setting is off", function()
+	eq(ns.Moments_ReplacesToast(7, TOAST_TYPES, toastDB("banner", "off")), false)
+	eq(ns.Moments_ReplacesToast(1, TOAST_TYPES, toastDB("off", "banner")), false)
+	local db = toastDB("banner", "banner")
+	db.replacePetCapture = false
+	eq(ns.Moments_ReplacesToast(7, TOAST_TYPES, db), false)
+	eq(ns.Moments_ReplacesToast(1, TOAST_TYPES, db), true)
+end)
+
+test("ReplacesToast: a client without the capture toast type", function()
+	eq(ns.Moments_ReplacesToast(7, { LevelUp = 1 }, toastDB("banner", "banner")), false)
+end)
+
 test("DiscoveredArea: the game's formats in six client languages", function()
 	for _, l in ipairs(LOCALES) do
 		local patterns = ns.Moments_DiscoveryPatterns(l[2], l[3])

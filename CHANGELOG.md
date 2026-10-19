@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Moments: a new battle pet moment replaces Blizzard's "You have captured" text after a pet battle instead of showing on top of it. Turn it off under Moments, "Replace Blizzard's capture text".
+
 ## v1.16.0 - 2026-10-19
 
 - Tomte: when one feature runs into an error, the others reacting to the same game event keep working (the error still shows in BugSack).

@@ -296,8 +296,8 @@ function events:PLAYER_LEVEL_UP(level)
 	end
 end
 
--- Blizzard's "You've Reached Level N" toast (Blizzard_FrameXML EventToastManager.lua) says what our level-up
--- moment says, in the same spot. It still runs its course, just unseen: skipping it would mean calling
+-- Blizzard's "You've Reached Level N" and "You have captured" toasts (Blizzard_FrameXML EventToastManager.lua)
+-- say what our level-up and battle pet moments say, in the same spot (Data.lua Moments_ReplacesToast). It still runs its course, just unseen: skipping it would mean calling
 -- Blizzard's toast code (taint) and its timing holds back the toasts after it (new spells), which then show
 -- once our banner is nearly done. Only alpha and mouse change, restored on the next toast or when it hides.
 local hiddenToast
@@ -313,8 +313,8 @@ local function OnDisplayToast(self)
 	RestoreToast()
 	local info = self.currentDisplayingToast and self.currentDisplayingToast.toastInfo
 	local eventType = info and info.eventType
-	if not (module.active and ns.momentsDB.replaceLevelUp and ns.momentsDB.styles.levelup ~= "off")
-		or Secret(eventType) or eventType ~= Enum.EventToastEventType.LevelUp then
+	if not module.active or Secret(eventType)
+		or not ns.Moments_ReplacesToast(eventType, Enum.EventToastEventType, ns.momentsDB) then
 		return
 	end
 	hiddenToast = true
@@ -323,9 +323,9 @@ local function OnDisplayToast(self)
 end
 
 local toastHooked
-local function HookLevelUpToast()
+local function HookToasts()
 	if toastHooked or not (EventToastManagerFrame and EventToastManagerFrame.DisplayToast
-		and Enum.EventToastEventType and Enum.EventToastEventType.LevelUp) then
+		and Enum.EventToastEventType) then
 		return
 	end
 	toastHooked = true
@@ -631,7 +631,7 @@ local function Activate()
 		NoteZoneEntry()
 	end
 	ns.Moments_ZoneText(ns.momentsDB.zoneText)
-	HookLevelUpToast()
+	HookToasts()
 end
 
 local function Deactivate()
@@ -674,6 +674,9 @@ options[#options + 1] = { type = "checkbox", key = "replaceZoneText", label = "N
 options[#options + 1] = { type = "header", label = "Level up" }
 options[#options + 1] = { type = "checkbox", key = "replaceLevelUp", label = "Replace Blizzard's level-up text",
 	tooltip = "When level ups show as a moment, hide Blizzard's \"You've Reached Level\" text so only the moment shows. Its sound still plays, and the new-spell notices after it still show." }
+options[#options + 1] = { type = "header", label = "Battle pets" }
+options[#options + 1] = { type = "checkbox", key = "replacePetCapture", label = "Replace Blizzard's capture text",
+	tooltip = "When new battle pets show as a moment, hide Blizzard's \"You have captured\" text after a pet battle so only the moment shows." }
 options[#options + 1] = { type = "header", label = "Cinematic" }
 options[#options + 1] = { type = "slider", key = "duration", label = "Cinematic length", min = 4, max = 15, step = 1,
 	format = function(value)
@@ -704,6 +707,7 @@ module = ns.RegisterModule({
 		previewKind = "levelup",
 		replaceZoneText = true,
 		replaceLevelUp = true,
+		replacePetCapture = true,
 		zoneText = true,
 		revealSound = true,
 		zones = {}, -- [player GUID] = { [zone mapID] = true } once its "new zone" moment ran
