@@ -5,6 +5,10 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.18.0 - 2026-10-20
+
+- Housing decor: click a decor on the Decor page to see it in a preview pane next to the list, where you can turn, move and zoom the model, with where it comes from and buttons to track it or link it. Each group now shows how much of it you have ("49 / 1,215 collected"), and a new By vendor view lists every decor vendor with what you have from them; open one to see everything they sell, with prices, and right-click a vendor Tomte has seen for a waypoint.
+
 ## v1.17.0 - 2026-10-20
 
 - Gear Check: when a quest lets you choose a reward, a card names the best one for you and the one that sells for the most. With DialogueUI it sits above its window; otherwise move it in Edit Mode. Turn it off under Gear Check, "Reward pick".
