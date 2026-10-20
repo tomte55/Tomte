@@ -107,6 +107,8 @@ ns.BUG_FILES = {
 	"Modules/Moments/Scene.lua",
 	"Modules/Moments/ZoneText.lua",
 	"Modules/Moments/Moments.lua",
+	"Modules/Graphics/Data.lua",
+	"Modules/Graphics/Graphics.lua",
 	"Modules/Hunter/Data.lua",
 	"Modules/Hunter/Stable.lua",
 	"Modules/Hunter/Tooltips.lua",
