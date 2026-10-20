@@ -270,7 +270,8 @@ local function PlayWhisperSound()
 	ns.Social_PlaySound(ns.whispersDB.sound)
 end
 
--- info = { key, name (display, may be secret), digestName, class, bn, gm, text (may be secret), secret }
+-- info = { key, name (display, may be secret), digestName, class, bn, gm, text (may be secret), secret, entry (the
+-- saved message; none for a preview) }
 local function Toast(info)
 	if not ns.whispersDB.toasts then
 		return
@@ -297,6 +298,10 @@ local function Toast(info)
 		mergeKey = not info.secret and info.key or nil,
 		digestName = info.digestName,
 		holdInCombat = ns.whispersDB.holdInCombat,
+		-- Answered (from anywhere) or read in the inbox while the toast was held back: not news anymore.
+		stale = info.entry and function()
+			return not ns.Social_IsUnread(ns.Whispers_Get(info.key), info.entry)
+		end,
 		onClick = function()
 			if info.preview then
 				return
@@ -340,7 +345,8 @@ local function Incoming(info)
 	if info.secret then
 		viewing = ns.Inbox_IsShowing(info.key)
 		local messages = restricted.messages
-		messages[#messages + 1] = { at = time(), text = info.text, sender = info.name }
+		info.entry = { at = time(), text = info.text, sender = info.name }
+		messages[#messages + 1] = info.entry
 		if #messages > MAX_RESTRICTED then
 			table.remove(messages, 1)
 		end
@@ -349,8 +355,9 @@ local function Incoming(info)
 			restricted.unread = restricted.unread + 1
 		end
 	else
+		info.entry = { at = time(), text = info.text }
 		local convo, claimed = ns.Social_AddMessage(Store(), info.key, { name = info.digestName, class = info.class,
-			bn = info.bn, with = info.with, char = info.char, charName = info.charName }, { at = time(), text = info.text })
+			bn = info.bn, with = info.with, char = info.char, charName = info.charName }, info.entry)
 		if claimed then
 			ns.Inbox_Rekey(claimed, convo.key)
 		end

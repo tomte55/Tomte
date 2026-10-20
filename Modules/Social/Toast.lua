@@ -8,12 +8,15 @@ local addonName, ns = ...
 -- its timer. A card with a mergeKey that is still up takes the next one with the same key (text replaced, count
 -- shown). Pinned cards (the unread whisper recap) sit nearest the spot and never time out.
 -- While a cinematic hides the UI (and in combat, for cards with holdInCombat) cards are held back; when
--- they're let go, an owner with a digest builder gets one card for all of its held cards. When a Blizzard UI
+-- they're let go, cards whose stale() says they're no longer news (a whisper you answered meanwhile) are dropped,
+-- an owner with a digest builder gets one card for all of its held cards, and a card that waited long enough says
+-- how long ago it came in (in the corner, by the count). When a Blizzard UI
 -- panel (merchant, mail, character...) covers the stack, the stack slides beside it until the panel closes.
 --
 -- A module that shows toasts or banners declares toasts = true or a label (Recent's Include list).
 -- ns.Toast_Show(spec): spec = { owner, label, accent, title, text, chat, secret, icon, iconAtlas, mergeKey, hold,
---   holdInCombat, onClick(button), onDismiss(), digestName, count }. secret = title/text may be secret values.
+--   holdInCombat, stale(), onClick(button), onDismiss(), digestName, count }. secret = title/text may be secret values.
+--   stale() = true drops the card if it was held back and is no longer worth showing when let go.
 --   accent = a theme color role, or an { r, g, b } that carries game meaning (ns.Toast_ChatColor, quality);
 --   chat = text is something another player wrote (shown in the chat font).
 --   For Recent (ns.Recent_Note): recentTitle = a saveable title when title isn't one (a |K account name),
@@ -236,7 +239,12 @@ local function Fill(card, spec)
 	card.line:SetGradient("HORIZONTAL", CreateColor(r, g, b, 0.5), CreateColor(r, g, b, 0))
 	card.label:SetTextColor(r, g, b)
 	card.label:SetText(ns.Spaced(spec.label or ""))
-	card.count:SetText((spec.count or 1) > 1 and ("x" .. spec.count) or "")
+	local corner = (spec.count or 1) > 1 and ("x" .. spec.count) or nil
+	local ago = spec.heldAt and ns.Toast_HeldText(GetTime() - spec.heldAt)
+	if ago then
+		corner = corner and (ago .. " - " .. corner) or ago
+	end
+	card.count:SetText(corner or "")
 
 	local hasIcon = spec.icon ~= nil or spec.iconAtlas ~= nil
 	card.icon:SetShown(hasIcon)
@@ -362,12 +370,17 @@ local function Display(spec)
 	Place(spec)
 end
 
--- Held cards whose reason is gone: one digest card per owner that has a builder, else each card.
+-- Held cards whose reason is gone: stale ones dropped, then one digest card per owner that has a builder (as old as
+-- its oldest card), else each card.
 local function ReleaseHeld()
 	local ready, byOwner, order = {}, {}, {}
 	for i = #held, 1, -1 do
-		if not Busy(held[i]) then
-			table.insert(ready, 1, table.remove(held, i))
+		local spec = held[i]
+		if not Busy(spec) then
+			table.remove(held, i)
+			if not (spec.stale and spec.stale()) then
+				table.insert(ready, 1, spec)
+			end
 		end
 	end
 	for _, spec in ipairs(ready) do
@@ -385,6 +398,7 @@ local function ReleaseHeld()
 		if #list > 1 and build then
 			local digest = build(list)
 			if digest then
+				digest.heldAt = list[1].heldAt
 				Display(digest)
 			end
 		else
@@ -622,6 +636,7 @@ function ns.Toast_Show(spec)
 	Ensure()
 	anchor:Show()
 	if Busy(spec) then
+		spec.heldAt = GetTime()
 		held[#held + 1] = spec
 		return
 	end

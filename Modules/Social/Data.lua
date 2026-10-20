@@ -38,6 +38,16 @@ function ns.Toast_Flow(x, y, w, h)
 	return grow, from
 end
 
+-- How long ago a held-back card came in, for its corner: "40s ago", "3m ago". Nil for a hold too short to mention.
+function ns.Toast_HeldText(seconds)
+	if not seconds or seconds < 5 then
+		return nil
+	elseif seconds < 60 then
+		return math.floor(seconds) .. "s ago"
+	end
+	return ns.Ago(seconds) .. " ago"
+end
+
 -- store = { convos = { [key] = convo } }, convo = { key, with, char, charName, name, class, bn, last, unread, pinned,
 -- messages }. Whispers with a character are per character of yours: key = ns.Social_ConvoKey(with, your GUID), with =
 -- their "Name-Realm", char = your GUID, charName = your character's name. Battle.net whispers reach your account:
@@ -207,6 +217,21 @@ function ns.Inbox_CopyText(convo, stamp)
 			ns.Social_PlainText(m.text))
 	end
 	return table.concat(lines, "\n")
+end
+
+-- Is entry (a message table) still unread? The unread messages are the last convo.unread ones: an answer or reading
+-- the conversation sets unread to 0. A message trimmed away counts as read.
+function ns.Social_IsUnread(convo, entry)
+	if not convo then
+		return false
+	end
+	local messages = convo.messages
+	for i = #messages, math.max(#messages - convo.unread + 1, 1), -1 do
+		if messages[i] == entry then
+			return true
+		end
+	end
+	return false
 end
 
 function ns.Social_MarkRead(store, key)

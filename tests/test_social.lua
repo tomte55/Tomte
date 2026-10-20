@@ -31,6 +31,30 @@ test("AddMessage counts unread and an answer marks it read", function()
 	eq(#convo.messages, 3)
 end)
 
+test("IsUnread: only messages after the last answer or read", function()
+	local store = newStore()
+	local first = { at = 10, text = "hi" }
+	local convo = ns.Social_AddMessage(store, "Thrall-Draenor", {}, first)
+	eq(ns.Social_IsUnread(convo, first), true)
+	ns.Social_AddMessage(store, "Thrall-Draenor", {}, { at = 20, text = "on my way", out = true })
+	eq(ns.Social_IsUnread(convo, first), false, "answered")
+	local second = { at = 30, text = "where?" }
+	ns.Social_AddMessage(store, "Thrall-Draenor", {}, second)
+	eq(ns.Social_IsUnread(convo, first), false, "an older message stays answered")
+	eq(ns.Social_IsUnread(convo, second), true)
+	ns.Social_MarkRead(store, "Thrall-Draenor")
+	eq(ns.Social_IsUnread(convo, second), false, "read in the inbox")
+	eq(ns.Social_IsUnread(nil, second), false, "conversation gone")
+end)
+
+test("HeldText: nothing for a short hold, then seconds, minutes", function()
+	eq(ns.Toast_HeldText(nil), nil)
+	eq(ns.Toast_HeldText(3), nil)
+	eq(ns.Toast_HeldText(42.7), "42s ago")
+	eq(ns.Toast_HeldText(150), "2m ago")
+	eq(ns.Toast_HeldText(7200), "2h ago")
+end)
+
 test("AddMessage keeps the newest 50 messages", function()
 	local store = newStore()
 	for i = 1, 60 do
