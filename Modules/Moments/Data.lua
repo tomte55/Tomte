@@ -153,6 +153,12 @@ function ns.Moments_IsNewZone(before, after)
 	return before == 0
 end
 
+-- An owned house's level just went up: saved = the highest level seen before for that house (nil the first
+-- time we see it, so a house never celebrates the level it already had when we first read it).
+function ns.Moments_HouseLevelUp(saved, level)
+	return saved ~= nil and level > saved
+end
+
 -- Zone text: the theme color role for C_PvP.GetZonePVPInfo's pvpType (Blizzard tints its zone text the same way).
 local ZONE_PVP_ROLES = {
 	sanctuary = "accent", friendly = "success", contested = "warning",

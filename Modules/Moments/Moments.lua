@@ -16,7 +16,7 @@ local CHAPTER_DELAY = 2 -- seconds: a chapter's hidden reward quest completes af
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "PLAYER_LEVEL_UP", "ACHIEVEMENT_EARNED",
 	"NEW_MOUNT_ADDED", "NEW_PET_ADDED", "NEW_TOY_ADDED", "UI_INFO_MESSAGE",
-	"MAJOR_FACTION_RENOWN_LEVEL_CHANGED", "QUEST_TURNED_IN", "RECEIVED_HOUSE_LEVEL_REWARDS",
+	"MAJOR_FACTION_RENOWN_LEVEL_CHANGED", "QUEST_TURNED_IN", "PLAYER_HOUSE_LIST_UPDATED", "HOUSE_LEVEL_FAVOR_UPDATED",
 }
 
 local module
@@ -24,6 +24,7 @@ local waiting = {} -- cinematic moments not shown yet: { moment, waited }
 local playing -- engine state of the cinematic moment on screen (state.moment, state.left)
 local settleUntil = 0
 local exploredAtEntry = {} -- [zone mapID] = explored map textures when we entered it (this session)
+local ownedHouses = {} -- [house GUID] = true for the player's own houses (this session)
 local discoveryPatterns
 
 local events = CreateFrame("Frame")
@@ -511,9 +512,31 @@ function events:QUEST_TURNED_IN(questID)
 	end)
 end
 
--- Rewards only go to the house's owner: unlike HOUSE_LEVEL_CHANGED, a friend's house doesn't count.
-function events:RECEIVED_HOUSE_LEVEL_REWARDS(level)
-	if Settled() and not Secret(level) and level then
+-- House levels come from HOUSE_LEVEL_FAVOR_UPDATED, kept to the player's own houses and compared with the
+-- highest level saved per house. Not RECEIVED_HOUSE_LEVEL_REWARDS: that answers a reward-list request, and
+-- Blizzard's housing dashboard requests every level when it loads (a burst of fake "level N" moments), nor
+-- HOUSE_LEVEL_CHANGED, which also fires for a friend's house.
+function events:PLAYER_HOUSE_LIST_UPDATED(houseInfos)
+	wipe(ownedHouses)
+	for _, info in ipairs(houseInfos or {}) do
+		local guid = info.houseGUID
+		if guid and not Secret(guid) then
+			ownedHouses[guid] = true
+			C_Housing.GetCurrentHouseLevelFavor(guid) -- answers with HOUSE_LEVEL_FAVOR_UPDATED
+		end
+	end
+end
+
+function events:HOUSE_LEVEL_FAVOR_UPDATED(favor)
+	local guid, level = favor and favor.houseGUID, favor and favor.houseLevel
+	if not guid or Secret(guid) or not ownedHouses[guid] or not level or Secret(level) then
+		return
+	end
+	local saved = ns.momentsDB.houses[guid]
+	if saved == nil or level > saved then
+		ns.momentsDB.houses[guid] = level
+	end
+	if ns.Moments_HouseLevelUp(saved, level) then
 		Show("house", { label = "House level", title = "Level " .. level, subtitle = "Your house has grown" })
 	end
 end
@@ -632,6 +655,9 @@ local function Activate()
 	end
 	ns.Moments_ZoneText(ns.momentsDB.zoneText)
 	HookToasts()
+	if C_Housing and C_Housing.GetPlayerOwnedHouses then
+		C_Housing.GetPlayerOwnedHouses() -- answers with PLAYER_HOUSE_LIST_UPDATED
+	end
 end
 
 local function Deactivate()
@@ -711,6 +737,7 @@ module = ns.RegisterModule({
 		zoneText = true,
 		revealSound = true,
 		zones = {}, -- [player GUID] = { [zone mapID] = true } once its "new zone" moment ran
+		houses = {}, -- [house GUID] = highest house level seen (houses are account-wide)
 	},
 	noShare = { "previewKind" }, -- not in settings strings (Core/Profile.lua)
 	init = function(db)

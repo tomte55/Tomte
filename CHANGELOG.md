@@ -7,6 +7,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 - Gear Check: when a quest lets you choose a reward, a card names the best one for you and the one that sells for the most. With DialogueUI it sits above its window; otherwise move it in Edit Mode. Turn it off under Gear Check, "Reward pick".
 - Moments: a new battle pet moment replaces Blizzard's "You have captured" text after a pet battle instead of showing on top of it. Turn it off under Moments, "Replace Blizzard's capture text".
+- Moments: the house level moment no longer shows up at random (a burst of levels when the housing dashboard loaded, or while visiting a friend's house). It now shows only when one of your own houses actually levels up.
 
 ## v1.16.0 - 2026-10-19
 

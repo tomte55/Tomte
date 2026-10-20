@@ -101,6 +101,13 @@ test("IsNewZone needs overlays and nothing explored before", function()
 	eq(ns.Moments_IsNewZone(nil, 0), false)
 end)
 
+test("HouseLevelUp only when an already seen house goes up", function()
+	eq(ns.Moments_HouseLevelUp(nil, 12), false, "first sight of a house")
+	eq(ns.Moments_HouseLevelUp(4, 4), false, "same level again (dashboard refresh)")
+	eq(ns.Moments_HouseLevelUp(4, 2), false, "lower level")
+	eq(ns.Moments_HouseLevelUp(4, 5), true, "one level up")
+end)
+
 test("MountTier uses the share of players who own it", function()
 	eq(ns.Moments_MountTier(nil), "rare")
 	eq(ns.Moments_MountTier(0.07), "legendary")
