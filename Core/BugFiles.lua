@@ -232,7 +232,7 @@ ns.BUG_FILES = {
 	"Modules/Collect/Collect.lua",
 	"Modules/Decor/Data.lua",
 	"Modules/Decor/Catalog.lua",
-	"Modules/Decor/Preview.lua",
+	"Modules/Decor/Detail.lua",
 	"Modules/Decor/Page.lua",
 	"Modules/Decor/Vendors.lua",
 	"Modules/Decor/Decor.lua",

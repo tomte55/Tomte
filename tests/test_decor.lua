@@ -118,6 +118,104 @@ test("sections follow the source order and count", function()
 	eq(#sections, 4)
 end)
 
+test("hiding what you have still counts it", function()
+	local sections = ns.Decor_Sections(ns.Decor_List(ENTRIES, { owned = true }), {}, true)
+	eq(sections[1].key, "vendor")
+	eq(#sections[1].entries, 4)
+	eq(sections[1].total, 5)
+	eq(sections[1].owned, 1)
+	eq(sections[2].key, "achievement")
+	for _, s in ipairs(sections) do
+		assert(s.key ~= "drop", "a section you have everything of is left out")
+	end
+	eq(ns.Decor_Ratio(124, 1290, function(n)
+		return n == 1290 and "1,290" or tostring(n)
+	end), "124 / 1,290")
+end)
+
+test("every vendor, zone and cost in the source text", function()
+	local d = ns.Decor_Describe(VENDOR .. "|n|cFFFFD200Vendor: |rMira|n|cFFFFD200Zone: |rHallowfall")
+	eq(#d.vendors, 2)
+	eq(d.vendors[1].name, "Lars Bronsmaelt")
+	eq(d.vendors[1].zone, "Dornogal")
+	eq(d.vendors[1].cost, "250" .. GOLD, "the cost keeps its currency icon")
+	eq(d.vendors[2].name, "Mira")
+	eq(d.vendors[2].zone, "Hallowfall")
+	eq(d.vendors[2].cost, nil)
+	eq(d.vendor, "Lars Bronsmaelt")
+	eq(d.cost, "250" .. GOLD)
+	eq(#ns.Decor_Describe("Drop: Big Boss").vendors, 0)
+end)
+
+local function Sold(...)
+	local list = {}
+	for i = 1, select("#", ...), 2 do
+		list[#list + 1] = { name = select(i, ...), zone = select(i + 1, ...) }
+	end
+	return list
+end
+
+local SHOP = {
+	{ id = 1, itemID = 101, name = "Oak Chair", owned = 0, vendors = Sold("Lars", "Dornogal") },
+	{ id = 2, itemID = 102, name = "Banner", owned = 2, vendors = Sold("Lars", "Dornogal", "Mira", "Hallowfall") },
+	{ id = 3, itemID = 103, name = "Anvil", owned = 3, vendors = Sold("Mira", "Hallowfall") },
+	{ id = 4, itemID = 104, name = "Rug", owned = 0, vendors = {} },
+	{ id = 5, name = "Trophy", owned = 0 },
+}
+
+test("decor by vendor", function()
+	local all = ns.Decor_Vendors(SHOP, nil, { owned = true })
+	eq(#all, 2)
+	eq(all[1].vendor, "Lars")
+	eq(all[1].zone, "Dornogal")
+	eq(all[1].total, 2)
+	eq(all[1].owned, 1)
+	eq(all[1].missing, 1)
+	eq(all[1].entries[1].name, "Banner", "sorted by name")
+	eq(all[2].vendor, "Mira")
+	eq(all[2].total, 2, "a decor several vendors sell is under each")
+	local missing = ns.Decor_Vendors(SHOP, nil, {})
+	eq(#missing, 1, "a vendor you have everything from is left out")
+	eq(missing[1].vendor, "Lars")
+	eq(#missing[1].entries, 2, "but a vendor's list keeps what you have")
+end)
+
+test("learned vendors add what they were seen selling", function()
+	local learned = { [900] = { name = "lars", items = { [104] = true, [999] = true } },
+		[901] = { name = "Kesha", items = { [101] = true } }, [902] = { items = { [101] = true } } }
+	local all = ns.Decor_Vendors(SHOP, learned, { owned = true })
+	eq(#all, 3)
+	eq(all[1].vendor, "Kesha")
+	eq(all[1].total, 1)
+	eq(all[2].vendor, "Lars")
+	eq(all[2].total, 3, "the rug joins Lars (names match without case), an unknown item doesn't")
+	eq(all[3].vendor, "Mira")
+end)
+
+test("decor by vendor matches the vendor, zone or any of their decor", function()
+	local function Names(query)
+		local names = {}
+		for _, v in ipairs(ns.Decor_Vendors(SHOP, nil, { owned = true, query = query })) do
+			names[#names + 1] = v.vendor
+		end
+		return table.concat(names, ",")
+	end
+	eq(Names("mira"), "Mira")
+	eq(Names("hallow"), "Mira")
+	eq(Names("banner"), "Lars,Mira")
+	eq(Names("oak"), "Lars")
+	eq(Names("nothing"), "")
+	local lars = ns.Decor_Vendors(SHOP, nil, { owned = true, query = "oak" })[1]
+	eq(#lars.entries, 2, "a matching vendor lists everything they sell")
+end)
+
+test("the cost at a vendor", function()
+	local e = { cost = "5g", vendors = { { name = "Lars", cost = "5g" }, { name = "Mira", cost = "9g" }, { name = "Kesha" } } }
+	eq(ns.Decor_CostAt(e, "mira"), "9g")
+	eq(ns.Decor_CostAt(e, "kesha"), "5g", "a vendor line without a cost falls back to the first")
+	eq(ns.Decor_CostAt({}, "lars"), nil)
+end)
+
 test("counts per source", function()
 	local c = ns.Decor_Counts(ENTRIES)
 	eq(c.total, 8)

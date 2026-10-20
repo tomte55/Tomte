@@ -1,6 +1,7 @@
 local addonName, ns = ...
 
--- Housing decor: a Decor page listing the decor you're missing by source (Page.lua), a "Decor: collected / not
+-- Housing decor: a Decor page listing the decor you're missing by source or by vendor, with a preview pane
+-- (Page.lua, Detail.lua), a "Decor: collected / not
 -- collected" line on decor item tooltips, a Next up source and an Around you block for decor vendors in your zone,
 -- and Blizzard's own tracking (C_ContentTracking) as the click action that leads to a vendor, achievement or boss,
 -- with a waypoint to a learned vendor spot (Vendors.lua) where Blizzard's tracking can't lead.
@@ -448,7 +449,7 @@ module = ns.RegisterModule({
 	category = "collections",
 	icon = ICON,
 	summary = "The housing decor you're missing, where it comes from, and vendors near you.",
-	description = "A Decor page with the housing decor you're missing, grouped by where it comes from (vendors, achievements, quests, drops, professions), with search and a turning model. Click one to track it with Blizzard's tracking, which leads you to the vendor, achievement or boss; for vendors Blizzard can't lead to, Tomte learns where they stand when you open their shop and gives a waypoint. Decor item tooltips say whether you have it. Next up and Around you name decor vendors in your zone that sell decor you're missing. Decor rewards of achievements are in Almost Done.",
+	description = "A Decor page with the housing decor you're missing, grouped by where it comes from (vendors, achievements, quests, drops, professions) with how much of each you have, or by vendor with everything each one sells, and search. Click one to see its model in a preview you can turn and zoom, and track it with Blizzard's tracking, which leads you to the vendor, achievement or boss; for vendors Blizzard can't lead to, Tomte learns where they stand when you open their shop and gives a waypoint. Decor item tooltips say whether you have it. Next up and Around you name decor vendors in your zone that sell decor you're missing. Decor rewards of achievements are in Almost Done.",
 	enabledByDefault = true,
 	home = {
 		{ kind = "page", key = "decor", order = 42, name = "Decor", icon = ICON, page = ns.DecorPage,
@@ -475,8 +476,10 @@ module = ns.RegisterModule({
 	defaults = {
 		tooltip = true,
 		preview = true,
-		filter = { source = "all", owned = false }, -- the Decor page's source filter and "Show collected"
+		-- The Decor page's view ("items" by source, or "vendors"), source filter and "Show collected"
+		filter = { view = "items", source = "all", owned = false },
 		collapsed = {}, -- [source key] = true while that group is folded on the Decor page
+		vendorsOpen = {}, -- [lower-case vendor name] = true while that vendor is open on the Decor page
 		-- Learned decor vendors (Vendors.lua): [npcID] = { name, mapID, x, y, items = { [itemID] = true }, seen }
 		vendors = {},
 	},
@@ -503,8 +506,11 @@ module = ns.RegisterModule({
 	},
 	options = {
 		{ type = "header", label = "Decor page" },
-		{ type = "checkbox", key = "preview", label = "Model preview",
-			tooltip = "Hovering a decor on the Decor page shows its model, turning, next to the tooltip." },
+		{ type = "checkbox", key = "preview", label = "Preview pane",
+			tooltip = "Clicking a decor on the Decor page shows its model next to the list, where you can turn, move and zoom it. Off: a click tracks it straight away.",
+			onChange = function()
+				ns.DecorPage_Refresh()
+			end },
 		{ type = "button", label = "Decor page", text = "Open", onClick = Open },
 		{ type = "button", label = "Housing catalog", text = "Read again", onClick = Scan,
 			tooltip = "Read the catalog again and print how much decor you have per source." },

@@ -75,6 +75,11 @@ function ns.DecorVendors_Learn()
 	return true
 end
 
+-- Every learned vendor (Data.lua's shape), for the page's decor by vendor. Read only.
+function ns.DecorVendors_Learned()
+	return db.vendors
+end
+
 -- The learned vendor for a decor entry, or nil.
 function ns.DecorVendors_Spot(e)
 	local _, v = ns.Decor_VendorSpot(e, db.vendors)

@@ -56,7 +56,7 @@ local function MakeEntry(info)
 		id = info.recordID, itemID = info.itemID, name = info.name, icon = info.iconTexture, atlas = info.iconAtlas,
 		asset = info.asset, sceneID = info.uiModelSceneID, quality = info.quality, owned = ns.Decor_OwnedCount(info),
 		raw = info.sourceText, source = d.source, line = d.line, vendor = d.vendor, zone = d.zone, zones = d.zones,
-		categoryIDs = info.categoryIDs,
+		cost = d.cost, vendors = d.vendors, categoryIDs = info.categoryIDs,
 	}
 end
 

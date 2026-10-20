@@ -1,9 +1,9 @@
 local addonName, ns = ...
 
 -- Housing decor: pure logic (no WoW API calls; unit-tested in tests/test_decor.lua). What kind of source a decor's
--- catalog source text names (vendor, achievement, quest, drop, profession, other), the vendor and zone in it, the
--- page's filtering, grouping and counts, the vendors in your zone, the learned vendor spots, what a click does and
--- the tooltip line. The source text is read with
+-- catalog source text names (vendor, achievement, quest, drop, profession, other), the vendors, zones and costs in it,
+-- the page's filtering, grouping and counts, decor by vendor, the vendors in your zone, the learned vendor spots, what
+-- a click does and the tooltip line. The source text is read with
 -- Collect here's parser (ns.Collect_ParseSource in Modules/Collect/Data.lua, looked up at call time): the catalog
 -- writes the same labelled lines as the mount and pet journals ("Vendor: Name|nZone: Zone|nCost: 100").
 
@@ -50,26 +50,47 @@ local function Plain(s)
 	return Trim((s or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|T.-|t", ""))
 end
 
--- raw catalog source text -> { source, line, vendor, zone, zones }. source: a DECOR_SOURCES key; line: the parser's
--- one-line summary ("Vendor: Name · 100g") or nil; vendor/zone: the first vendor and zone values or nil; zones: the
--- parser's lower-case zone candidates (for matching your zone). parse defaults to ns.Collect_ParseSource.
+-- raw catalog source text -> { source, line, vendor, zone, cost, vendors, zones }. source: a DECOR_SOURCES key; line:
+-- the parser's one-line summary ("Vendor: Name · 100g") or nil; vendor/zone/cost: the first vendor, zone and cost
+-- values or nil (cost keeps its currency icon); vendors: every vendor line with the zone and cost lines after it,
+-- { { name, zone, cost } } (a decor several vendors sell lists them one after another); zones: the parser's lower-case
+-- zone candidates (for matching your zone). parse defaults to ns.Collect_ParseSource.
 function ns.Decor_Describe(raw, parse)
 	parse = parse or ns.Collect_ParseSource
 	local parsed = parse(ns.Decor_CleanSource(raw))
-	local d = { source = "other", line = parsed.line, zones = parsed.zones or {} }
+	local d = { source = "other", line = parsed.line, zones = parsed.zones or {}, vendors = {} }
 	local found = false
+	local current -- the vendor the next zone and cost lines belong to
 	for _, entry in ipairs(parsed.lines or {}) do
 		local label = entry.label
 		if not found and not NOT_A_SOURCE[label] then
 			d.source = LABEL_SOURCE[label] or "other"
 			found = true
 		end
-		if label == "vendor" and not d.vendor then
+		if label == "vendor" then
 			local name = Plain(entry.value)
-			d.vendor = name ~= "" and name or nil
-		elseif ZONE_LABELS[label] and not d.zone then
+			current = nil
+			if name ~= "" then
+				current = { name = name }
+				d.vendors[#d.vendors + 1] = current
+				d.vendor = d.vendor or name
+			end
+		elseif ZONE_LABELS[label] then
 			local zone = Plain(entry.value)
-			d.zone = zone ~= "" and zone or nil
+			if zone ~= "" then
+				d.zone = d.zone or zone
+				if current and not current.zone then
+					current.zone = zone
+				end
+			end
+		elseif label == "cost" then
+			local cost = Trim(entry.raw or entry.value or "")
+			if cost ~= "" then
+				d.cost = d.cost or cost
+				if current and not current.cost then
+					current.cost = cost
+				end
+			end
 		end
 	end
 	return d
@@ -151,30 +172,122 @@ function ns.Decor_List(entries, opts)
 	return out
 end
 
--- list: from Decor_List. collapsed: [source key] = true. The non-empty sections in DECOR_SOURCES order:
--- { key, title, entries, missing, owned, collapsed }.
-function ns.Decor_Sections(list, collapsed)
+-- list: from Decor_List. collapsed: [source key] = true. hideOwned: leave what you have out of the section's entries
+-- but still count it. The non-empty sections in DECOR_SOURCES order: { key, title, entries, total, owned, missing,
+-- collapsed }; a section whose decor you all have is left out while hideOwned is set.
+function ns.Decor_Sections(list, collapsed, hideOwned)
 	local by = {}
 	for _, e in ipairs(list) do
 		local key = SOURCE_KEYS[e.source] and e.source or "other"
-		by[key] = by[key] or {}
-		table.insert(by[key], e)
+		by[key] = by[key] or { entries = {}, total = 0, owned = 0 }
+		local s = by[key]
+		s.total = s.total + 1
+		if (e.owned or 0) > 0 then
+			s.owned = s.owned + 1
+		end
+		if not (hideOwned and (e.owned or 0) > 0) then
+			s.entries[#s.entries + 1] = e
+		end
 	end
 	local out = {}
 	for _, s in ipairs(ns.DECOR_SOURCES) do
-		local entries = by[s.key]
-		if entries then
-			local owned = 0
-			for _, e in ipairs(entries) do
-				if (e.owned or 0) > 0 then
-					owned = owned + 1
-				end
-			end
-			out[#out + 1] = { key = s.key, title = s.title, entries = entries, owned = owned,
-				missing = #entries - owned, collapsed = (collapsed or {})[s.key] == true }
+		local found = by[s.key]
+		if found and #found.entries > 0 then
+			out[#out + 1] = { key = s.key, title = s.title, entries = found.entries, total = found.total,
+				owned = found.owned, missing = found.total - found.owned, collapsed = (collapsed or {})[s.key] == true }
 		end
 	end
 	return out
+end
+
+-- "124 / 1,290": thousands passes ns.Thousands in (Core/Format.lua) or tostring.
+function ns.Decor_Ratio(owned, total, thousands)
+	thousands = thousands or tostring
+	return ("%s / %s"):format(thousands(owned), thousands(total))
+end
+
+-- Decor by vendor ---------------------------------------------------------------------------------------------
+-- Every vendor the catalog names (a decor several vendors sell is under each), plus what learned vendors (the shops
+-- you opened) were seen selling, so a vendor's list is as full as Tomte knows it.
+
+local function VendorMatches(v, query)
+	return Lower(v.vendor):find(query, 1, true) or Lower(v.zone):find(query, 1, true)
+end
+
+-- entries: catalog entries (with vendors from Decor_Describe). learned: [npcID] = { name, items = { [itemID] = true
+-- } } or nil. opts = { query (lower case), owned = true to keep vendors you have everything from }. Returns the
+-- vendors sorted by name: { key (lower-case name), vendor, zone, entries (everything they sell, by name), total,
+-- owned, missing }. A vendor matches the query by name, zone or any decor they sell, and then lists all of it.
+function ns.Decor_Vendors(entries, learned, opts)
+	opts = opts or {}
+	local byKey, byItem, order = {}, {}, {}
+	local function Vendor(name, zone)
+		local key = name:lower()
+		local v = byKey[key]
+		if not v then
+			v = { key = key, vendor = name, zone = zone, entries = {}, has = {} }
+			byKey[key] = v
+			order[#order + 1] = v
+		end
+		v.zone = v.zone or zone
+		return v
+	end
+	local function Add(v, e)
+		if not v.has[e] then
+			v.has[e] = true
+			v.entries[#v.entries + 1] = e
+		end
+	end
+	for _, e in ipairs(entries) do
+		if e.itemID then
+			byItem[e.itemID] = e
+		end
+		for _, sold in ipairs(e.vendors or {}) do
+			Add(Vendor(sold.name, sold.zone), e)
+		end
+	end
+	for _, spot in pairs(learned or {}) do
+		if type(spot.name) == "string" and spot.name ~= "" then
+			for itemID in pairs(spot.items or {}) do
+				local e = byItem[itemID]
+				if e then
+					Add(Vendor(spot.name), e)
+				end
+			end
+		end
+	end
+	local query = opts.query or ""
+	local out = {}
+	for _, v in ipairs(order) do
+		v.has = nil
+		v.total, v.owned = #v.entries, 0
+		local match = query == "" or VendorMatches(v, query)
+		for _, e in ipairs(v.entries) do
+			if (e.owned or 0) > 0 then
+				v.owned = v.owned + 1
+			end
+			match = match or ns.Decor_Matches(e, query)
+		end
+		v.missing = v.total - v.owned
+		if match and (opts.owned or v.missing > 0) then
+			table.sort(v.entries, ByName)
+			out[#out + 1] = v
+		end
+	end
+	table.sort(out, function(a, b)
+		return a.key < b.key
+	end)
+	return out
+end
+
+-- What a vendor asks for a decor: the cost on that vendor's line of its source text, else the first cost.
+function ns.Decor_CostAt(e, vendorKey)
+	for _, sold in ipairs(e.vendors or {}) do
+		if sold.name:lower() == vendorKey and sold.cost then
+			return sold.cost
+		end
+	end
+	return e.cost
 end
 
 -- { total, owned, missing, by = { [source key] = { total, owned, missing } } } for every entry.
