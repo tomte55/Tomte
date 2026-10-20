@@ -45,6 +45,8 @@ Data/Older/Gold.lua
 Data/WarWithin/Pets.lua
 Data/Midnight/Pets.lua
 Data/Older/Pets.lua
+Data/WarWithin/Buffs.lua
+Data/Midnight/Buffs.lua
 Cinematic/Engine.lua
 Cinematic/SceneKit.lua
 Cinematic/Showcase.lua
@@ -119,6 +121,10 @@ Modules/Hunter/StablePage.lua
 Modules/Hunter/Hunter.lua
 Modules/Rogue/Data.lua
 Modules/Rogue/Rogue.lua
+Modules/Buffs/Data.lua
+Modules/Buffs/Read.lua
+Modules/Buffs/Strip.lua
+Modules/Buffs/Buffs.lua
 Modules/Talents/Data.lua
 Modules/Talents/Card.lua
 Modules/Talents/Talents.lua
