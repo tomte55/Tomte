@@ -13,6 +13,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - New module, Buff reminders: in dungeons, raids and delves and on ready checks, icons for what you're missing before the pull (food, flask, augment rune, weapon oil or stone, and the group buff your class brings when someone lacks it). Out of combat only; Edit Mode moves them.
 - New module, Graphics presets (off by default): a graphics quality level and frame rate cap for the open world, cities, dungeons and delves, raids, PvP and while AFK. Your own settings come back when you leave, change them yourself or turn it off.
 - New module, Cursor highlight (off by default): shake the mouse and a ring in your theme's color shows where the cursor is; optionally always in combat or always, with a short trail.
+- New module, Housing decor: a Decor page with the housing decor you're missing by source, with search and a turning model. Click one to have Blizzard's tracking lead you there, or get a waypoint to a vendor Tomte has seen (it learns where a vendor stands when you open their shop). Decor tooltips say whether you have it, and Next up and Around you name decor vendors in your zone.
 
 ## v1.16.0 - 2026-10-19
 

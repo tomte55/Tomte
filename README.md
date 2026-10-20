@@ -235,6 +235,7 @@ are Tomte window settings.
 | Gold world quests | Your week | A window (like GoldWQ) with every world quest that gives gold in your expansion's zones, by zone with zone totals and the grand total, richest first: click to track. Also the special assignments (done, up with time left, or locked with how many world quests until it unlocks) and the weekly caches you haven't done this week (right-click hides one). Route tracks the gold quests one by one, nearest first from where you stand, and moves on when you hand one in. Characters shows each character's world quest gold this week and in all and its caches. A chat line at login with what's up and one per hand-in (both settings). Movable, resizable, foldable; scale and opacity are settings. Follows your expansion (The War Within or Midnight); a menu shows an older one's gold quests instead (Legion to Dragonflight), with Route through them. |
 | Delves | Your week | Today's bountiful delves (click one to track it with the Waypoints marker, or a routed map pin on another continent), your Restored Coffer Keys and shards, which delve tier raises your Great Vault's World slots, and your companion's level, role and curios. A note beside Blizzard's tier picker at a delve entrance, a Delves block in Around you, Next up suggestions (bountiful delves while you hold a key, or always) and a companion level moment. |
 | Collect here | Collections | A tab in the world map's side panel with the mounts and battle pets (from the journals' source text) and achievements still missing on the map you're looking at. A toast (once a day per zone) when you arrive in a zone with mounts or pets left, and when a rare that drops one is up. |
+| Housing decor | Collections | A Decor page with the housing decor you're missing, grouped by where it comes from (vendors, achievements, quests, drops, professions), with search and a turning model. Click one to have Blizzard's tracking lead you there; for vendors it can't lead to, Tomte learns where they stand when you open their shop and gives a waypoint. Decor tooltips say whether you have it, and Next up and Around you name decor vendors in your zone. |
 | Holidays & events | Collections | The world events on now and starting soon, what you're still missing from each holiday (mounts, battle pets, toys, achievements), the holiday's daily boss and the Darkmoon Faire profession quests. On Home, on an Events page, in Next up, in the Weekly board's "Still open" list, and as a toast when a holiday starts (optionally a day before). |
 | Flight Timer | Travel | Times flight paths account-wide and shows a countdown while flying, with an optional cinematic flight mode. Coverage tab and a flight master map show which routes you've timed. |
 | Waypoints | Travel | An in-world marker for whatever you track (quest, map pin, POI, rare, corpse): icon, optional beam, name, distance and arrival time. Up close it turns into a card with the objectives; off-screen, an arrow at the edge points to it. Classic or Minimal style. Map pins are tracked as soon as you place them, a map pin on another continent is routed through the portals, zeppelins and boats on the way, and a guard's directions can become a map pin (Never, Ask or Always). Replaces WaypointUI. |
@@ -303,6 +304,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte buffs why` (each check and what it found), `/tomte buffs test` (sample icons), `/tomte buffs check`
 - `/tomte graphics why` (which place this counts as and what's applied), `/tomte graphics restore` (your own graphics settings back now)
 - `/tomte cursor test` (show the ring for a few seconds)
+- `/tomte decor open`, `/tomte decor scan` (read the housing catalog again and count decor per source), `/tomte decor why <item link or ID>` (what the catalog says about a decor item), `/tomte decor vendors` (the vendors Tomte has learned the spot of)
 
 Key bindings for toggling the Tomte window, Smart Mount, the Gold world quests window, whisper reply, the whisper inbox, Next pet battle move, Heal battle pets, Apply missing poison, Fishing and Copy chat are under **Tomte** in the game's Key Bindings menu.
 
@@ -325,7 +327,8 @@ Themes/      one file per theme (colors, fonts and art by role, registered with 
 Media/       logo, theme art and fonts (with their OFL licenses)
 Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Rogue, Combat, Social, Chat, Gear,
              Achievements, Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value,
-             Minimap, Pets, Fishing, Gather, Delves, Holidays, Share, Materials)
+             Minimap, Pets, Fishing, Gather, Delves, Holidays, Share, Materials, Mail, Talents, Graphics, Cursor, Buffs,
+             Decor)
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 tools/       dev scripts (waynet.py builds Modules/Travel/Network*.lua from Blizzard's waypoint tables, events.py
              builds Modules/Holidays/Generated.lua from the client's toy and holiday tables, materials.py builds
@@ -414,6 +417,11 @@ or modules, major for changes that reset or break settings.
   come from it. Special assignment and weekly cache quest IDs from [WeeklyRewards](https://github.com/cybertk/WeeklyRewards) by cybertk (MIT); the 11.0 Khaz Algar special assignment quest IDs from [Plumber](https://github.com/Peterodox/Plumber) (IDs only); map IDs from [wago.tools](https://wago.tools).
 - Holidays & events: holiday, Dungeon Finder, achievement category and toy source data from the client's tables on
   [wago.tools](https://wago.tools); Darkmoon Faire quest IDs from warcraft.wiki.gg.
+- Mail, Talent check, Graphics presets, Cursor highlight, Buff reminders and Housing decor follow the ideas of
+  [Postal](https://www.curseforge.com/wow/addons/postal) and Mailbox Plus, MKeysTalents, PeaversPerformance,
+  CursorGlow and CursorTrail, BuffReminders, and Home Bound and HomeDecor (the ideas only; no code taken). Graphics
+  presets mirrors how Blizzard's own Graphics Quality slider sets its sub-settings; consumable buff spell IDs from
+  [wago.tools](https://wago.tools).
 - Fonts: [Cinzel](https://github.com/NDISCOVER/Cinzel) by Natanael Gama and
   [Alegreya](https://github.com/huertatipografica/Alegreya) by Juan Pablo del Peral (Huerta Tipográfica), both under
   the SIL Open Font License 1.1 (texts in `Media/Fonts`). `AlegreyaNumbers-Regular.ttf` is a modified Alegreya with
