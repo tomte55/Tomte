@@ -9,6 +9,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Moments: a new battle pet moment replaces Blizzard's "You have captured" text after a pet battle instead of showing on top of it. Turn it off under Moments, "Replace Blizzard's capture text".
 - Moments: the house level moment no longer shows up at random (a burst of levels when the housing dashboard loaded, or while visiting a friend's house). It now shows only when one of your own houses actually levels up.
 - New module, Mail: one click opens all your mail (never cash on delivery; Shift-click for gold only), keeps taking gold when your bags are full and sums up the gold and your Auction House sales, purchases, expired and cancelled auctions and outbids. On the Send tab, pick one of your characters or someone you mailed lately.
+- New module, Talent check: remembers which saved talent loadout you use in the open world, dungeons, raids, delves and PvP (or in one particular dungeon). Arrive on the wrong one, or get a ready check, and a card offers a one-click switch; switch by hand inside a place and it asks whether to remember that.
 
 ## v1.16.0 - 2026-10-19
 
