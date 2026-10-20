@@ -235,7 +235,7 @@ end
 
 local KIND_LABELS = {
 	upgrade = "Upgrade", mount = "New mount", pet = "New battle pet", toy = "New toy", achievement = "Achievement",
-	rare = "Rare killed", tame = "Tamed",
+	rare = "Rare killed", tame = "Tamed", mail = "Mail",
 }
 local QUALITY_LABELS = { [3] = "Rare", [4] = "Epic", [5] = "Legendary", [6] = "Artifact", [7] = "Heirloom" }
 

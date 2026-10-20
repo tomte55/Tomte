@@ -264,6 +264,12 @@ function ns.Alts_UsedBy(itemID)
 	return ids and ns.Alts_UsedByChars(db.chars, db.recipes, ids) or {}
 end
 
+-- Every character Alts knows ({ [GUID] = { name, realm, class, ... } }, read-only for callers), for Mail's
+-- character picker; {} while Alts is off.
+function ns.Alts_Characters()
+	return module.active and db.chars or {}
+end
+
 -- Commands -------------------------------------------------------------------------------------------------
 
 -- One character out of every module's saved data (Alts, Weekly, Almost Done, Gear Check, Hunter Pets, Moments,

@@ -240,6 +240,8 @@ ns.BUG_FILES = {
 	"Modules/Recent/Recent.lua",
 	"Modules/Value/Data.lua",
 	"Modules/Value/Value.lua",
+	"Modules/Mail/Data.lua",
+	"Modules/Mail/Mail.lua",
 	"Modules/Pets/Tamers.lua",
 	"Modules/Pets/Data.lua",
 	"Modules/Pets/Strings.lua",
