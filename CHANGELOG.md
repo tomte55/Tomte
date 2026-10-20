@@ -12,6 +12,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - New module, Talent check: remembers which saved talent loadout you use in the open world, dungeons, raids, delves and PvP (or in one particular dungeon). Arrive on the wrong one, or get a ready check, and a card offers a one-click switch; switch by hand inside a place and it asks whether to remember that.
 - New module, Buff reminders: in dungeons, raids and delves and on ready checks, icons for what you're missing before the pull (food, flask, augment rune, weapon oil or stone, and the group buff your class brings when someone lacks it). Out of combat only; Edit Mode moves them.
 - New module, Graphics presets (off by default): a graphics quality level and frame rate cap for the open world, cities, dungeons and delves, raids, PvP and while AFK. Your own settings come back when you leave, change them yourself or turn it off.
+- New module, Cursor highlight (off by default): shake the mouse and a ring in your theme's color shows where the cursor is; optionally always in combat or always, with a short trail.
 
 ## v1.16.0 - 2026-10-19
 
