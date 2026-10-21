@@ -6,6 +6,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 ## Unreleased
 
 - Whispers: "Sample whispers" (and `/tomte whispers preview`) also opens the inbox with a few made-up conversations, so you can see what it looks like. Your real whispers come back when you close it.
+- Gold world quests: the window's resize corner now stays under the cursor instead of running ahead of it, and resizing no longer leaves rows highlighted.
 
 ## v1.18.0 - 2026-10-20
 

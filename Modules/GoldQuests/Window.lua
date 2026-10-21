@@ -242,6 +242,7 @@ local function Row(y, height, indent, data)
 	row:SetPoint("RIGHT")
 	row.data = data
 	row:EnableMouse(data ~= nil)
+	row.hover:Hide()
 	row.tracked:Hide()
 	row.line:Hide()
 	row.left:Hide()
@@ -466,7 +467,8 @@ function Draw()
 		GameTooltip:Hide()
 	end
 	-- IsMouseOver ignores the scroll clipping: rows scrolled out of view lie over whatever is below the window.
-	if not frame.scroll:IsMouseOver() then
+	-- While sizing, the grip holds the mouse focus, so a row lit here would never get its OnLeave.
+	if frame.sizing or not frame.scroll:IsMouseOver() then
 		return
 	end
 	for i = 1, used do
@@ -639,11 +641,32 @@ local function Build()
 	frame.grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
 	frame.grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
 	frame.grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+	-- Sized from the cursor by hand: StartSizing works from the anchor, and a window clamped to the screen is drawn
+	-- away from its anchor, so the corner ran ahead of the cursor. The grab offset keeps the corner under the cursor.
+	local grabX, grabY
+	local function Cursor()
+		local x, y = GetCursorPosition()
+		local scale = frame:GetEffectiveScale()
+		return x / scale, y / scale
+	end
 	frame.grip:SetScript("OnMouseDown", function()
-		frame:StartSizing("BOTTOMRIGHT")
+		frame.sizing = true
+		UI.TopLeftPoint(frame)
+		local x, y = Cursor()
+		grabX, grabY = frame:GetRight() - x, y - frame:GetBottom()
+	end)
+	frame.grip:SetScript("OnUpdate", function()
+		if not frame.sizing then
+			return
+		end
+		local x, y = Cursor()
+		local minW, minH, maxW, maxH = frame:GetResizeBounds()
+		local w = math.min(math.max(x + grabX - frame:GetLeft(), minW), maxW)
+		local h = math.min(math.max(frame:GetTop() - (y - grabY), minH), maxH)
+		frame:SetSize(w, h)
 	end)
 	frame.grip:SetScript("OnMouseUp", function()
-		frame:StopMovingOrSizing()
+		frame.sizing = false
 		SavePlace()
 	end)
 
