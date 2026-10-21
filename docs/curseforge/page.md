@@ -18,10 +18,28 @@ Dev-only (docs/ is left out of the release zip).
 
 ## Images tab
 
-Upload these from `docs/screenshots/` (real in-game shots, no AI editing, character and guild names hidden), with
-the alt text from README.md as the title: `hero.png` (featured), `window-home.png`, `showcase-card.png`,
-`gearcheck-tooltip.png`, `weekly-board.png`, `alts.png`, `crafting-list.png`, `waypoints.png`,
-`map-worldquests.png`, `gold-wq.png`, `gathering-map.png`, `sessions.png`, `afk.png`, `moment.png`.
+Upload the showcase slides from `docs/curseforge/images/` (1920x1080, in this order; real in-game shots laid out on
+slides, character and guild names blurred), with these titles. `01-title.png` is the featured image.
+
+| File | Title |
+| --- | --- |
+| `01-title.png` | Tomte: your gear, your week, your alts, gold and travel, in one window |
+| `02-home.png` | Open it and see where you're at |
+| `03-showcase.png` | Showcase: your character with all your gear around it |
+| `04-gear-check.png` | Gear Check: is it an upgrade? |
+| `05-weekly-board.png` | The Weekly board, for all your alts |
+| `06-crafting.png` | Crafting with your alts |
+| `07-waypoints.png` | Waypoints you can actually see |
+| `08-world-map.png` | More out of the world map |
+| `09-gold.png` | Making gold |
+| `10-social.png` | Chat & social |
+| `11-moments.png` | Little moments |
+| `12-housing-decor.png` | Housing decor |
+| `13-more.png` | And a bunch more |
+| `14-your-call.png` | Doesn't get in your way |
+
+The slides were laid out from crops in `docs/screenshots/new/`; the inbox on slide 10 is `/tomte whispers preview`.
+Remove the old screenshots from the Images tab when these are up.
 
 ## First file
 
