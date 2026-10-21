@@ -246,6 +246,7 @@ are Tomte window settings.
 | Session recap | Ambience | What you got done this session: time, gold (and where it came from), notable loot, achievements, rares, tames, levels and renown. A card with the time left during the /camp logout countdown (Esc cancels the logout) and on `/tomte recap`, a highlights page on the AFK screen, and a toast at login for your last session (covers instant logouts). A Sessions page keeps past sessions: a gold-per-hour chart (with loot value), this character / all and this week / all time with totals, optional play nights, and each session's recap card. |
 | Moments | Ambience | Title cards for level ups, achievements, new mounts/pets/toys, new zones, renown, campaign chapters, house levels, tamed pets and gear upgrades. Banner or small cinematic; new mounts, battle pets and tames get a centered reveal scaled by rarity (mount rarity via Mount Journal Enhanced). |
 | Cursor highlight | Ambience | Shake the mouse and a ring in your theme's color pops up around the cursor so you find it at once. Can also stay on in combat or all the time, with an optional short trail. Off by default. |
+| Blackjack | Ambience | A blackjack table for play chips (never gold): you against the dealer, six decks, dealer stands on soft 17, blackjack pays 3:2, double and split. 1,000 chips to start and the house gives you more when you run out; chips and stats (hover the chip count) stay between sessions. Open it with `/tomte blackjack` or a key binding, or let it open on its own when you take a flight path (it closes when you land, and the flight cinematic waits while it's open). Hides in combat. |
 | Hunter Pets | Class & combat | Call Pet tooltips, a Stable tab with your pets and a tame log (with 3D models of the beasts you've seen), and a pet check on entering dungeons, raids and delves, and on ready checks. |
 | Rogue Poisons | Class & combat | Out of combat, a button appears for each poison missing from your weapons or about to run out (10 minutes by default); click it, or press the "Apply missing poison" key, to apply it. Offers the poison you applied last (Deadly for Assassination, Instant for the others until you pick), two of each with Dragon-Tempered Blades. A poison check on entering dungeons, raids and delves, and on ready checks. Edit Mode moves the buttons. |
 | Buff reminders | Class & combat | In dungeons, raids and delves and on ready checks, icons for what you're missing before the pull: food, flask, augment rune, weapon oil or stone, and the group buff your class brings when someone lacks it (with who). Out of combat only; the game hides buffs inside a started Mythic+ key, during boss fights and in PvP, so it stays quiet there. Edit Mode moves the icons. |
@@ -306,9 +307,10 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte buffs why` (each check and what it found), `/tomte buffs test` (sample icons), `/tomte buffs check`
 - `/tomte graphics why` (which place this counts as and what's applied), `/tomte graphics restore` (your own graphics settings back now)
 - `/tomte cursor test` (show the ring for a few seconds)
+- `/tomte blackjack` (open or close the table), `/tomte blackjack stats` (in chat), `/tomte blackjack split` (your next hand is a pair), `/tomte blackjack reset` (table position)
 - `/tomte decor open`, `/tomte decor scan` (read the housing catalog again and count decor per source), `/tomte decor why <item link or ID>` (what the catalog says about a decor item), `/tomte decor vendors` (the vendors Tomte has learned the spot of)
 
-Key bindings for toggling the Tomte window, Smart Mount, the Gold world quests window, whisper reply, the whisper inbox, Next pet battle move, Heal battle pets, Apply missing poison, Fishing and Copy chat are under **Tomte** in the game's Key Bindings menu.
+Key bindings for toggling the Tomte window, Smart Mount, the Gold world quests window, whisper reply, the whisper inbox, Next pet battle move, Heal battle pets, Apply missing poison, Fishing, Copy chat and the Blackjack table are under **Tomte** in the game's Key Bindings menu.
 
 </details>
 
@@ -330,7 +332,7 @@ Media/       logo, theme art and fonts (with their OFL licenses)
 Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Rogue, Combat, Social, Chat, Gear,
              Achievements, Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value,
              Minimap, Pets, Fishing, Gather, Delves, TradingPost, Holidays, Share, Materials, Mail, Talents, Graphics,
-             Cursor, Buffs, Decor)
+             Cursor, Buffs, Decor, Games)
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 tools/       dev scripts (waynet.py builds Modules/Travel/Network*.lua from Blizzard's waypoint tables, events.py
              builds Modules/Holidays/Generated.lua from the client's toy and holiday tables, materials.py builds

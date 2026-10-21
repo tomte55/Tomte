@@ -23,6 +23,9 @@
 	<Binding name="TOMTE_GATHER_SKIP" category="Tomte">
 		Tomte_Binding("GATHER_SKIP")
 	</Binding>
+	<Binding name="TOMTE_BLACKJACK" category="Tomte">
+		Tomte_Binding("BLACKJACK")
+	</Binding>
 	<Binding name="CLICK TomteSmartMount:LeftButton" category="Tomte"/>
 	<Binding name="CLICK TomteSmartMount:RightButton" category="Tomte"/>
 	<Binding name="CLICK TomtePoison1:LeftButton" category="Tomte"/>
