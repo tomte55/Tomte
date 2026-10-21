@@ -5,6 +5,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- New module, Trading Post: a reminder when Trader's Tender is waiting in the Collector's Cache (you get 500 there every month), with a click for a waypoint to it, and when a new month brings new stock. A Trading Post page shows the Traveler's Log (points, milestones and the Tender they pay, the activities closest to done first; click one to track it) and the shop from your last visit, marked with what you already own and what you can afford.
 - Whispers: "Sample whispers" (and `/tomte whispers preview`) also opens the inbox with a few made-up conversations, so you can see what it looks like. Your real whispers come back when you close it.
 - Gold world quests: the window's resize corner now stays under the cursor instead of running ahead of it, and resizing no longer leaves rows highlighted.
 

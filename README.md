@@ -175,9 +175,9 @@ controls: any key or click ends them.
 
 ### And more
 
-Pet battle help (the right pet to swap to, tamer teams, Xu-Fu strategies), Delves, holidays and events, Almost Done
-achievements, a bigger dressing room, whisper toasts and an inbox, a trade chat filter, one-key fishing, repairs and
-junk selling, and class helpers for hunters and rogues. The full list is below.
+Pet battle help (the right pet to swap to, tamer teams, Xu-Fu strategies), Delves, Trading Post reminders, holidays
+and events, Almost Done achievements, a bigger dressing room, whisper toasts and an inbox, a trade chat filter,
+one-key fishing, repairs and junk selling, and class helpers for hunters and rogues. The full list is below.
 
 ## Using Tomte
 
@@ -234,6 +234,7 @@ are Tomte window settings.
 | World quests | Your week | A tab in the world map's side panel with the world quests on the map you're looking at, grouped by reward and sorted by what they're worth: missing mounts, pets and toys and real gear upgrades (from Gear Check) on top, then gear, gold, currencies and reputation, with time left. Click one to track it. Route tracks the listed quests one by one, nearest first from where you stand (fold a section to leave it out). A toast when you arrive in a zone with one worth doing. |
 | Gold world quests | Your week | A window (like GoldWQ) with every world quest that gives gold in your expansion's zones, by zone with zone totals and the grand total, richest first: click to track. Also the special assignments (done, up with time left, or locked with how many world quests until it unlocks) and the weekly caches you haven't done this week (right-click hides one). Route tracks the gold quests one by one, nearest first from where you stand, and moves on when you hand one in. Characters shows each character's world quest gold this week and in all and its caches. A chat line at login with what's up and one per hand-in (both settings). Movable, resizable, foldable; scale and opacity are settings. Follows your expansion (The War Within or Midnight); a menu shows an older one's gold quests instead (Legion to Dragonflight), with Route through them. |
 | Delves | Your week | Today's bountiful delves (click one to track it with the Waypoints marker, or a routed map pin on another continent), your Restored Coffer Keys and shards, which delve tier raises your Great Vault's World slots, and your companion's level, role and curios. A note beside Blizzard's tier picker at a delve entrance, a Delves block in Around you, Next up suggestions (bountiful delves while you hold a key, or always) and a companion level moment. |
+| Trading Post | Your week | Reminds you when Trader's Tender is waiting in the Collector's Cache (every account with game time gets 500 there each month), with a waypoint to the cache, and when a new month brings new stock. A Trading Post page with the Traveler's Log (points, milestones and the Tender they pay, the activities closest to done first, click one to track it) and the shop from your last visit this month, marked with what you already own and what you can afford. Next up suggestions and a Trading Post block in Around you in Stormwind, Orgrimmar and Dornogal. |
 | Collect here | Collections | A tab in the world map's side panel with the mounts and battle pets (from the journals' source text) and achievements still missing on the map you're looking at. A toast (once a day per zone) when you arrive in a zone with mounts or pets left, and when a rare that drops one is up. |
 | Housing decor | Collections | A Decor page with the housing decor you're missing, grouped by where it comes from (vendors, achievements, quests, drops, professions) with how much of each you have, or by vendor with everything each one sells, and search. Click one to see it in a preview you can turn, move and zoom, and have Blizzard's tracking lead you there; for vendors it can't lead to, Tomte learns where they stand when you open their shop and gives a waypoint. Decor tooltips say whether you have it, and Next up and Around you name decor vendors in your zone. |
 | Holidays & events | Collections | The world events on now and starting soon, what you're still missing from each holiday (mounts, battle pets, toys, achievements), the holiday's daily boss and the Darkmoon Faire profession quests. On Home, on an Events page, in Next up, in the Weekly board's "Still open" list, and as a toast when a holiday starts (optionally a day before). |
@@ -298,6 +299,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte wgq` (the Gold world quests window), `/tomte wgq list` / `report` (in chat), `/tomte wgq route` / `stop`, `/tomte wgq reset` (window position)
 - `/tomte share list` (friends sharing with you), `/tomte share sync` (ask everyone for what's new now), `/tomte share why <name>` (what was exchanged with that friend)
 - `/tomte delves` (the Delves page), `/tomte delves list` (today's delves, bountiful marked, and your keys), `/tomte delves vault` (the Great Vault World plan and tier ladder)
+- `/tomte tradingpost` (the Trading Post page), `/tomte tradingpost status` (Tender, the cache, the Traveler's Log and the time left), `/tomte tradingpost shop` (the shop from your last visit), `/tomte tradingpost way` (waypoint to the nearest Collector's Cache), `/tomte tradingpost test` (sample toast)
 - `/tomte events` (the Events page), `/tomte events list`, `/tomte events calendar` (today's raw calendar rows), `/tomte events ids` (Darkmoon Faire quest IDs with the game's names), `/tomte events test` (sample toast)
 - `/tomte mail open` (at a mailbox: open all, again to stop), `/tomte mail gold` (take only the gold), `/tomte mail why` (each letter and what Open all does with it)
 - `/tomte talents why` (the place, your loadout and what's saved), `/tomte talents list`, `/tomte talents check`
@@ -327,8 +329,8 @@ Themes/      one file per theme (colors, fonts and art by role, registered with 
 Media/       logo, theme art and fonts (with their OFL licenses)
 Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Rogue, Combat, Social, Chat, Gear,
              Achievements, Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value,
-             Minimap, Pets, Fishing, Gather, Delves, Holidays, Share, Materials, Mail, Talents, Graphics, Cursor, Buffs,
-             Decor)
+             Minimap, Pets, Fishing, Gather, Delves, TradingPost, Holidays, Share, Materials, Mail, Talents, Graphics,
+             Cursor, Buffs, Decor)
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 tools/       dev scripts (waynet.py builds Modules/Travel/Network*.lua from Blizzard's waypoint tables, events.py
              builds Modules/Holidays/Generated.lua from the client's toy and holiday tables, materials.py builds
@@ -412,6 +414,9 @@ or modules, major for changes that reset or break settings.
   on Wowhead (IDs only).
 - Delves: delve POI, currency, item and companion faction IDs from [Plumber](https://github.com/Peterodox/Plumber)
   (IDs only); Midnight map IDs also from RareScanner.
+- Trading Post: the Collector's Cache spots in Stormwind and Orgrimmar from
+  [warcraft.wiki.gg](https://warcraft.wiki.gg/wiki/Collector%27s_Cache); the Traveler's Log points rule follows
+  Blizzard's own UI.
 - Gold world quests is modelled on [GoldWQ](https://www.curseforge.com/wow/addons/goldwq) by DartrilasM (public
   domain): its window, features and its special assignment and route logic were the reference, and its cache item IDs
   come from it. Special assignment and weekly cache quest IDs from [WeeklyRewards](https://github.com/cybertk/WeeklyRewards) by cybertk (MIT); the 11.0 Khaz Algar special assignment quest IDs from [Plumber](https://github.com/Peterodox/Plumber) (IDs only); map IDs from [wago.tools](https://wago.tools).

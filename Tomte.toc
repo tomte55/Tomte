@@ -289,6 +289,10 @@ Modules/Delves/Read.lua
 Modules/Delves/Entrance.lua
 Modules/Delves/Page.lua
 Modules/Delves/Delves.lua
+Modules/TradingPost/Data.lua
+Modules/TradingPost/Read.lua
+Modules/TradingPost/Page.lua
+Modules/TradingPost/TradingPost.lua
 Modules/Gather/Data.lua
 Modules/Gather/Nodes.lua
 Modules/Gather/Route.lua
