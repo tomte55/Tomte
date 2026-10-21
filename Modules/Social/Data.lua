@@ -100,6 +100,52 @@ function ns.Social_ConvoKey(with, guid)
 	return with .. "@" .. guid
 end
 
+-- Made-up conversations for the inbox preview (/tomte whispers preview): never saved, never sent. ago = seconds
+-- before now; the last `unread` messages of each come in unread, so the list shows badges and a NEW divider.
+local SAMPLE_CONVOS = {
+	{ name = "Thrall", class = "SHAMAN", level = 80, area = "Orgrimmar", online = true, unread = 2, messages = {
+		{ ago = 1500, text = "Raid tonight at 8, are you in?" },
+		{ ago = 1440, text = "Yes! Healer or damage?", out = true },
+		{ ago = 1400, text = "Healer please, we're one short." },
+		{ ago = 1320, text = "On it. Need anything from the auction house?", out = true },
+		{ ago = 140, text = "Flasks if you have spare, I'll pay you back." },
+		{ ago = 60, text = "Bring flasks!" },
+	} },
+	{ name = "Jaina", class = "MAGE", level = 80, area = "Dornogal", online = true, unread = 1, messages = {
+		{ ago = 90000, text = "Thanks for the portal earlier!", out = true },
+		{ ago = 89880, text = "Any time." },
+		{ ago = 300, text = "Left you a few Sunwell Shards in the mail." },
+	} },
+	{ name = "Valeera", class = "ROGUE", level = 80, area = "The Ringing Deeps", online = true, unread = 0, messages = {
+		{ ago = 5400, text = "Up for a delve?", out = true },
+		{ ago = 5340, text = "Sure, give me five minutes." },
+	} },
+	{ name = "Anduin", class = "PRIEST", level = 80, online = false, unread = 0, messages = {
+		{ ago = 172800, text = "That last pull was close." },
+		{ ago = 172740, text = "Too close. Same time next week?", out = true },
+	} },
+}
+
+-- The preview conversations at time now, newest first: inbox convos with convo.sample set and convo.who (the
+-- header's line about who they are, without className: the caller adds the game's own class name).
+function ns.Social_SampleConvos(now)
+	local list = {}
+	for _, s in ipairs(SAMPLE_CONVOS) do
+		local convo = { key = "sample:" .. s.name, name = s.name, class = s.class, sample = true, unread = s.unread,
+			messages = {}, who = { online = s.online, level = s.online and s.level or nil, area = s.area,
+			classFile = s.class, friend = true } }
+		for i, m in ipairs(s.messages) do
+			convo.messages[i] = { at = now - m.ago, text = m.text, out = m.out }
+		end
+		convo.last = convo.messages[#convo.messages].at
+		list[#list + 1] = convo
+	end
+	table.sort(list, function(a, b)
+		return a.last > b.last
+	end)
+	return list
+end
+
 -- Who to whisper: "Name-Realm" or "bn:BattleTag" (an untagged conversation's key is that already).
 function ns.Social_With(convo)
 	return convo.with or convo.key

@@ -29,6 +29,7 @@ local SAMPLES = {
 local module
 local MAX_RESTRICTED = 50 -- instance whispers kept this session
 local restricted = { key = RESTRICTED, name = "In instance", restricted = true, unread = 0, messages = {} }
+local sample -- the preview's made-up conversations (ns.Social_SampleConvos) while its inbox is open, else nil
 local bnTokens = {} -- [conversation key] = this session's |K account name, for replies
 local recapUp = false -- the unread card is showing
 local wasAFK = false
@@ -62,8 +63,21 @@ function ns.Whispers_IsMine(convo)
 	return convo ~= nil and ns.Social_IsMine(convo, (Me()))
 end
 
--- Conversations for the inbox: the saved ones plus this session's secret ones.
+local function SampleConvo(key)
+	for _, convo in ipairs(sample) do
+		if convo.key == key then
+			return convo
+		end
+	end
+	return nil
+end
+
+-- Conversations for the inbox: the saved ones plus this session's secret ones. During the preview only the
+-- made-up ones, so a screenshot of it shows nobody's real whispers.
 function ns.Whispers_Convos()
+	if sample then
+		return { unpack(sample) }
+	end
 	local list = ns.Social_SortedConvos(Store())
 	if #restricted.messages > 0 then
 		table.insert(list, 1, restricted)
@@ -72,7 +86,9 @@ function ns.Whispers_Convos()
 end
 
 function ns.Whispers_Get(key)
-	if key == RESTRICTED then
+	if sample then
+		return SampleConvo(key)
+	elseif key == RESTRICTED then
 		return #restricted.messages > 0 and restricted or nil
 	end
 	return Store().convos[key]
@@ -125,7 +141,10 @@ local function Changed()
 end
 
 function ns.Whispers_MarkRead(key)
-	if key == RESTRICTED then
+	local convo = sample and SampleConvo(key)
+	if convo then
+		convo.unread = 0
+	elseif key == RESTRICTED then
 		restricted.unread = 0
 	else
 		ns.Social_MarkRead(Store(), key)
@@ -134,9 +153,21 @@ function ns.Whispers_MarkRead(key)
 end
 
 function ns.Whispers_MarkAllRead()
+	if sample then
+		for _, convo in ipairs(sample) do
+			convo.unread = 0
+		end
+		ns.Inbox_Refresh()
+		return
+	end
 	ns.Social_MarkAllRead(Store(), (Me()))
 	restricted.unread = 0
 	Changed()
+end
+
+-- The inbox closed: the preview's conversations go, the real ones come back.
+function ns.Whispers_EndSample()
+	sample = nil
 end
 
 -- Pinned conversations sit at the top of the inbox and are never trimmed or pruned.
@@ -215,6 +246,10 @@ end
 function ns.Whispers_Send(key, text)
 	text = strtrim(text or "")
 	if text == "" then
+		return true
+	end
+	if sample then
+		ns.Print("that's a sample conversation: nothing was sent.")
 		return true
 	end
 	if not CanSend(key) then
@@ -473,6 +508,19 @@ local function Preview()
 			PlayWhisperSound()
 		end)
 	end
+	-- And the inbox with made-up conversations, until it's closed.
+	local classNames = {}
+	for id = 1, GetNumClasses() do
+		local info = C_CreatureInfo.GetClassInfo(id)
+		if info then
+			classNames[info.classFile] = info.className
+		end
+	end
+	sample = ns.Social_SampleConvos(time())
+	for _, convo in ipairs(sample) do
+		convo.who.className = classNames[convo.class]
+	end
+	ns.Inbox_Toggle(sample[1].key)
 end
 
 local function Activate()
@@ -490,6 +538,7 @@ local function Deactivate()
 	ns.Toast_Unpin(RECAP)
 	recapUp = false
 	ns.Inbox_Hide()
+	sample = nil
 end
 
 local function ClearHistory()
@@ -537,7 +586,8 @@ local options = {
 		confirm = "Forget all whisper conversations, on every character?" },
 	{ type = "header", label = "Preview" },
 	{ type = "button", label = "Sample whispers", text = "Show", onClick = Preview,
-		tooltip = "Three sample whisper toasts (two from the same person merge)." },
+		tooltip = "Three sample whisper toasts (two from the same person merge) and the inbox with made-up "
+			.. "conversations. Your real whispers come back when you close it." },
 }
 ns.Toast_Options(options)
 
@@ -586,7 +636,7 @@ module = ns.RegisterModule({
 		{ "inbox", "open the whisper inbox", function()
 			ns.Inbox_Toggle()
 		end },
-		{ "preview", "show sample whisper toasts", Preview },
+		{ "preview", "show sample whisper toasts and an inbox with made-up conversations", Preview },
 	},
 	options = options,
 })

@@ -419,4 +419,22 @@ test("CopyText names a tagged conversation by who it's with", function()
 	end), "t Kesha-Draenor: hi")
 end)
 
+test("SampleConvos: newest first, sample-marked, times relative to now", function()
+	local list = ns.Social_SampleConvos(100000)
+	eq(#list, 4)
+	eq(list[1].name, "Thrall")
+	for i, convo in ipairs(list) do
+		eq(convo.sample, true)
+		eq(convo.key, "sample:" .. convo.name)
+		eq(convo.last, convo.messages[#convo.messages].at)
+		if i > 1 then
+			eq(list[i - 1].last >= convo.last, true)
+		end
+	end
+	eq(list[1].last, 100000 - 60)
+	eq(list[1].unread, 2)
+	eq(list[1].who.online, true)
+	eq(list[#list].who.level, nil) -- offline: no level in the header
+end)
+
 H.done()

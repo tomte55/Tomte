@@ -85,7 +85,9 @@ end
 -- who for a conversation, or nil when they're not a friend, Battle.net friend or guildmate (or it's the session's
 -- secret "In instance" conversation). See ns.Inbox_StatusText for the fields.
 function ns.InboxWho_Get(convo)
-	if not convo or convo.restricted then
+	if convo and convo.sample then
+		return convo.who
+	elseif not convo or convo.restricted then
 		return nil
 	end
 	local with = ns.Social_With(convo)

@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Whispers: "Sample whispers" (and `/tomte whispers preview`) also opens the inbox with a few made-up conversations, so you can see what it looks like. Your real whispers come back when you close it.
+
 ## v1.18.0 - 2026-10-20
 
 - Housing decor: click a decor on the Decor page to see it in a preview pane next to the list, where you can turn, move and zoom the model, with where it comes from and buttons to track it or link it. Each group now shows how much of it you have ("49 / 1,215 collected"), and a new By vendor view lists every decor vendor with what you have from them; open one to see everything they sell, with prices, and right-click a vendor Tomte has seen for a waypoint.

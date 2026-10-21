@@ -90,7 +90,7 @@ end
 
 local function OpenMenu(owner, key)
 	local convo = ns.Whispers_Get(key)
-	if not convo or convo.restricted then
+	if not convo or convo.restricted or convo.sample then
 		return
 	end
 	local who = ns.InboxWho_Get(convo)
@@ -159,7 +159,7 @@ local function ShowConversation()
 	end
 	header.status:SetText(status)
 	header.invite:SetShown(mine and ns.InboxWho_CanInvite(who))
-	header.more:SetShown(not convo.restricted)
+	header.more:SetShown(not (convo.restricted or convo.sample))
 
 	-- Same conversation, no new message (someone else wrote, or it was only marked read): keep the scroll.
 	local count, newest = #convo.messages, convo.messages[#convo.messages]
@@ -521,6 +521,7 @@ local function Build()
 		if UIParent:IsShown() then
 			drawn = nil
 			newIndex = nil
+			ns.Whispers_EndSample()
 		end
 		if ticker then
 			ticker:Cancel()
