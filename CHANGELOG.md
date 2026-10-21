@@ -5,6 +5,8 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+## v1.19.0 - 2026-10-21
+
 - New module, Blackjack: a blackjack table to play for play chips (never gold), on flight paths or whenever you like. You against the dealer with six decks; the dealer stands on soft 17, blackjack pays 3:2, and you can double and split. You start with 1,000 chips and the house gives you more if you run out; your chips and stats are kept. Cards slide in and turn over, with sounds, floating wins and losses, and a "Blackjack!" when you hit one. Open it with `/tomte blackjack` or a key binding, or have it open on its own when you take a flight path. It hides in combat.
 - New module, Trading Post: a reminder when Trader's Tender is waiting in the Collector's Cache (you get 500 there every month), with a click for a waypoint to it, and when a new month brings new stock. A Trading Post page shows the Traveler's Log (points, milestones and the Tender they pay, the activities closest to done first; click one to track it) and the shop from your last visit, marked with what you already own and what you can afford.
 - Whispers: "Sample whispers" (and `/tomte whispers preview`) also opens the inbox with a few made-up conversations, so you can see what it looks like. Your real whispers come back when you close it.

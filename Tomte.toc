@@ -2,7 +2,7 @@
 ## Title: Tomte
 ## Notes: Your gear, your week, your alts, gold, travel and collecting in one window, with a cinematic touch.
 ## Author: tomte55
-## Version: 1.18.0
+## Version: 1.19.0
 ## IconTexture: Interface\AddOns\Tomte\Media\Logo
 ## SavedVariables: TomteDB
 ## OptionalDeps: Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI, Syndicator, Auctionator, TradeSkillMaster, DialogueUI
