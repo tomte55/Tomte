@@ -51,7 +51,7 @@ ns.Blackjack_IsNatural = Natural
 
 local function Stats()
 	return { hands = 0, wins = 0, losses = 0, pushes = 0, blackjacks = 0, biggestWin = 0, streak = 0,
-		bestStreak = 0, peak = START_CHIPS, refills = 0, earned = 0 }
+		bestStreak = 0, peak = START_CHIPS, refills = 0, earned = 0, net = 0 }
 end
 
 function ns.Blackjack_NewGame()
@@ -142,6 +142,26 @@ function ns.Blackjack_Refill(game, to)
 	return given
 end
 
+-- Net chips won or lost -----------------------------------------------------------------------------------------
+
+-- game.session = { key, blackjack, poker, slots }: each game's net this play session. key names the play session
+-- (Window.lua builds it from Core's session); a new one starts the counts over.
+function ns.Blackjack_SessionCheck(game, key)
+	local session = game.session
+	if type(session) ~= "table" or session.key ~= key then
+		game.session = { key = key, blackjack = 0, poker = 0, slots = 0 }
+	end
+end
+
+-- A settled round of `which` ("blackjack", "poker", "slots") won (net > 0) or lost chips: counted for the session.
+-- Each game's rules count its all-time net in its own stats.
+function ns.Blackjack_RecordNet(game, which, net)
+	local session = game.session
+	if type(session) == "table" then
+		session[which] = (session[which] or 0) + net
+	end
+end
+
 -- Chips from outside the table (earned by playing the game).
 function ns.Blackjack_AddChips(game, amount)
 	game.chips = game.chips + amount
@@ -200,6 +220,8 @@ local function Settle(game)
 	end
 	game.chips = game.chips + paid
 	round.net = paid - staked
+	stats.net = stats.net + round.net
+	ns.Blackjack_RecordNet(game, "blackjack", round.net)
 	round.phase = "done"
 	round.dealerNatural = dealerNatural
 	if round.net > 0 then

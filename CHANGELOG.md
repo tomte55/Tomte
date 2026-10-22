@@ -15,7 +15,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 ### New
 
 - **Casino:** video poker joins blackjack. Jacks or Better on the full-pay table: pick a coin (10 to 500) and 1 to 5 coins, click the cards you want to keep, then draw once. Five coins make a royal flush pay 4,000 coins.
-- **Casino:** slots. Three reels of WoW icons, five lines always on, a Hearthstone jackpot and the pay table in chips beside the reels. Click Spin again to stop the reels early.
+- **Casino:** slots. Three dark reels of WoW icons (Murlocs, copper, silver and gold bars, rubies and a Hearthstone jackpot), five lines always on and numbered down both sides, the jackpot for your bet across the top and the pay table in chips beside the machine. Spin with the button or pull the lever; click again to stop the reels early.
+- **Casino:** how many chips you've won or lost in each game, this session and all time, when you hover your chips and in `/tomte casino stats`.
 - **Casino:** two new card backs to unlock: Four of a kind (three fours of a kind in video poker) and Jackpot (a slots jackpot). Hover a locked back at the Cashier to see how far along you are.
 - **Casino:** earn chips by playing the game: 10 a minute on flight paths, 25 for a quest (50 for a daily, 250 for a weekly), 1,000 for the week's Great Vault and a chip per gold you loot (up to 500 a day). Each can be turned off. Hover your chips to see what you earned today, or use `/tomte casino today`.
 - **Casino:** the Cashier, in the window's title bar, sells card backs and felts for chips; three backs unlock with feats instead (50 blackjacks, a 10-hand win streak, 100,000 chips at once). Your rank (Regular, High roller, Whale) follows the most chips you've held.
@@ -23,6 +24,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### Improved
 
+- **Blackjack:** nothing about a new hand shows until the cards are down: no totals, no "Blackjack" and no buttons that give away a dealer blackjack early. A hit's total waits for its card too.
 - **Casino:** Blackjack is now the Casino: one window with a tab for each game, sharing your chips, the Cashier and your rank. It opens on the last game you played. The command is now `/tomte casino` (`/tomte casino blackjack`, `poker` or `slots` open a game directly, `/tomte casino stats` covers all three). Your chips, stats and settings carry over; the key binding is now called Casino and needs setting again.
 - **Blackjack:** a classic casino table. A half-moon green felt with a padded rail, "Blackjack pays 3 to 2" and the dealer's rule printed on it, a shoe the cards slide out of, a betting circle with your bet as a stack of chips, and round chip buttons.
 - **Blackjack:** the play buttons are now colored icons with their names underneath, in the order Stand, Split, Double, Hit. Split and Double only show when you can use them.

@@ -11,6 +11,7 @@ local HAND_GAP = 70 -- pixels between two split hands
 local MAX_CARDS = 11 -- the most cards a hand can hold without busting (four aces, four twos, three threes)
 local DEAL_STAGGER = 0.15 -- seconds between the first four cards
 local DEALER_PACE = 0.55 -- seconds between the dealer's cards once you stand
+local CARD_LAND = 0.3 -- seconds a dealt card takes to land (Card.lua's slide, plus a hair)
 local DEALER_Y, PLAYER_Y = -70, -246 -- card rows' tops, from the window's top (around the print on the felt)
 local SPOT_Y = -368 -- the betting circles' middles
 local MESSAGE_Y = -402 -- the message line's middle, just inside the rail
@@ -137,6 +138,7 @@ function face.Stats(line, double)
 	double("Blackjacks", ns.Thousands(s.blackjacks))
 	double("Biggest win", ns.Thousands(s.biggestWin))
 	double("Best win streak", ns.Thousands(s.bestStreak))
+	ns.GamesWindow_NetLines(double, "blackjack", s.net)
 end
 
 function face.StatsFooter(line)
@@ -553,6 +555,10 @@ function Draw(animate)
 	-- and the dealer's draws follow. The hole card stays face down until it has turned.
 	local holeAt = not shown.hole and 2 or nil
 	local delay = 0
+	local landAt -- seconds until your newly dealt cards are down: nothing about them shows before
+	local function Landed(nextDelay, step)
+		landAt = math.max(landAt or 0, nextDelay - step + CARD_LAND)
+	end
 	if round then
 		local before = { shown.hands[1], shown.hands[2] }
 		local beforeDealer = shown.dealer
@@ -578,10 +584,15 @@ function Draw(animate)
 				card:Deal(card.fromX, card.fromY, delay, DealSound)
 				delay = delay + DEAL_STAGGER
 			end
+			Landed(delay, DEAL_STAGGER)
 			before[1], beforeDealer = 2, 2
 		end
 		for i, hand in ipairs(hands) do
+			local from = delay
 			delay = DealNew(frame.hands[i], hand.cards, before[i], delay, DEAL_STAGGER)
+			if animate and delay > from then
+				Landed(delay, DEAL_STAGGER)
+			end
 			shown.hands[i] = #hand.cards
 		end
 		if round.phase == "done" then
@@ -642,14 +653,43 @@ function Draw(animate)
 		revealTimer:Cancel()
 		revealTimer = nil
 	end
-	if settledShown then
-		Labels(true)
-	else
-		Labels(false)
-		revealTimer = C_Timer.NewTimer(delay + 0.1, function()
-			revealTimer = nil
+	-- Once your cards are down: the round as it stands, or (settled) the dealer's play first, then the result.
+	local function Reveal()
+		if settledShown then
 			Labels(true)
+		else
+			Labels(false)
+			revealTimer = C_Timer.NewTimer(math.max(delay - (landAt or 0), 0) + 0.1, function()
+				revealTimer = nil
+				Labels(true)
+			end)
+		end
+	end
+	if animate and landAt then
+		if fresh then
+			-- A new deal: last round's labels and buttons come off the table, and nothing about the new hands shows
+			-- (no totals, no "Blackjack", no play buttons, no payout in the chip count) until the four cards are down.
+			frame.dealer.value:SetText("")
+			for _, row in ipairs(frame.hands) do
+				row.value:SetText("")
+				row.mark:Hide()
+			end
+			frame.message:SetText("")
+			frame.playing:Hide()
+			frame.betting:Hide()
+			frame.refill:Hide()
+			local chips = game.chips
+			for _, hand in ipairs(hands) do
+				chips = chips - (hand.payout or 0)
+			end
+			SetChips(chips, 0.3)
+		end
+		revealTimer = C_Timer.NewTimer(landAt, function()
+			revealTimer = nil
+			Reveal()
 		end)
+	else
+		Reveal()
 	end
 end
 

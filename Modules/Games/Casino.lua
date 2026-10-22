@@ -245,14 +245,17 @@ local function Stats()
 	local T = ns.Thousands
 	ns.Print(("casino: %s chips (%s). Most chips %s, chips earned %s, house refills %s."):format(T(game.chips),
 		ns.Chips_Rank(s.peak), T(s.peak), T(s.earned), T(s.refills)))
-	ns.Print(("blackjack: %s hands: %s won, %s lost, %s pushed, %s blackjacks. Biggest win %s, best streak %s.")
-		:format(T(s.hands), T(s.wins), T(s.losses), T(s.pushes), T(s.blackjacks), T(s.biggestWin), T(s.bestStreak)))
+	ns.Print(("blackjack: %s hands: %s won, %s lost, %s pushed, %s blackjacks. Biggest win %s, best streak %s, "
+		.. "net %s.")
+		:format(T(s.hands), T(s.wins), T(s.losses), T(s.pushes), T(s.blackjacks), T(s.biggestWin), T(s.bestStreak),
+		ns.GamesWindow_Signed(s.net)))
 	local p = game.poker.stats
-	ns.Print(("video poker: %s hands, %s won, biggest win %s. Royal flushes %s, straight flushes %s, fours of a kind "
-		.. "%s."):format(T(p.hands), T(p.wins), T(p.biggestWin), T(p.royal), T(p.straightFlush), T(p.quads)))
+	ns.Print(("video poker: %s hands, %s won, biggest win %s, net %s. Royal flushes %s, straight flushes %s, fours "
+		.. "of a kind %s."):format(T(p.hands), T(p.wins), T(p.biggestWin), ns.GamesWindow_Signed(p.net), T(p.royal),
+		T(p.straightFlush), T(p.quads)))
 	local sl = game.slots.stats
-	ns.Print(("slots: %s spins, %s won, biggest win %s, jackpots %s."):format(T(sl.spins), T(sl.wins),
-		T(sl.biggestWin), T(sl.jackpots)))
+	ns.Print(("slots: %s spins, %s won, biggest win %s, jackpots %s, net %s."):format(T(sl.spins), T(sl.wins),
+		T(sl.biggestWin), T(sl.jackpots), ns.GamesWindow_Signed(sl.net)))
 end
 
 local function StackPair()
@@ -322,7 +325,8 @@ module = ns.RegisterModule({
 		frame = { point = "CENTER", relPoint = "CENTER", x = 0, y = 60 }, -- ns.GamesWindow_ResetPlace repeats it
 		lastGame = "blackjack", -- the game the window opens on: "blackjack", "poker" or "slots"
 		-- Chips, bet, shoe, round in play and stats (BlackjackRules.lua); game.poker and game.slots hold the other
-		-- games (PokerRules.lua, SlotsRules.lua), filled in by their Repair.
+		-- games (PokerRules.lua, SlotsRules.lua), filled in by their Repair; game.session each game's net chips this
+		-- play session (ns.Blackjack_SessionCheck).
 		game = NewGame(),
 		earn = { flight = true, quest = true, vault = true, loot = true }, -- which ways of earning chips are on
 		-- Today's tally (ChipRules.lua): day, today = { [source] = chips }, lootCopper, vaultWeek, refillDay (reset

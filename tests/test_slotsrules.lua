@@ -36,7 +36,7 @@ local function find(i, key)
 end
 
 test("each reel has 26 stops with the planned counts, no symbol next to itself", function()
-	local want = { murloc = 10, copper = 5, silver = 4, gold = 3, diamond = 3, hearth = 1 }
+	local want = { murloc = 10, copper = 5, silver = 4, gold = 3, ruby = 3, hearth = 1 }
 	for i, reel in ipairs(ns.SLOTS_REELS) do
 		eq(#reel, 26, "reel " .. i)
 		local counts = {}
@@ -54,14 +54,14 @@ test("the machine pays back 94.9% over time", function()
 	near(ns.Slots_ReturnRate(), 0.94902, "return rate")
 end)
 
-test("line pays: three of a kind, any three coins, else nothing", function()
+test("line pays: three of a kind, any three bars, else nothing", function()
 	eq(ns.Slots_LinePay("murloc", "murloc", "murloc"), 4)
 	eq(ns.Slots_LinePay("hearth", "hearth", "hearth"), 1000)
 	eq(select(2, ns.Slots_LinePay("gold", "gold", "gold")), "three")
 	eq(ns.Slots_LinePay("copper", "gold", "silver"), 2)
-	eq(select(2, ns.Slots_LinePay("copper", "copper", "silver")), "coins")
+	eq(select(2, ns.Slots_LinePay("copper", "copper", "silver")), "bars")
 	eq(ns.Slots_LinePay("murloc", "murloc", "copper"), 0)
-	eq(ns.Slots_LinePay("diamond", "gold", "gold"), 0)
+	eq(ns.Slots_LinePay("ruby", "gold", "gold"), 0)
 end)
 
 test("cells wrap around the strip", function()
@@ -82,6 +82,7 @@ test("a jackpot on the middle line", function()
 	eq(last.payout >= 10000, true)
 	eq(game.chips, 1000 - 50 + last.payout)
 	eq(game.slots.stats.jackpots, 1)
+	eq(game.slots.stats.net, last.payout - 50)
 	eq(game.slots.stats.spins, 1)
 	eq(game.slots.stats.wins, 1)
 	eq(game.stats.peak, game.chips)
@@ -138,6 +139,13 @@ test("repair fills in a missing or damaged game", function()
 	eq(slots.bet, 10)
 	eq(slots.stops[3], 1)
 	eq(slots.last, nil)
+	slots.last = { payout = 4, wins = { { line = 1, pay = 4, symbol = "diamond", kind = "three" } } }
+	ns.Slots_Repair(game)
+	eq(slots.last, nil, "a result naming a symbol that's gone")
+	local kept = { payout = 4, wins = { { line = 1, pay = 4, symbol = "ruby", kind = "three" } } }
+	slots.last = kept
+	ns.Slots_Repair(game)
+	eq(slots.last, kept)
 end)
 
 H.done()

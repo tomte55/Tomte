@@ -6,27 +6,27 @@ local addonName, ns = ...
 -- saved game (BlackjackRules.lua holds the chips). Drawn in SlotMachine.lua.
 
 local LINE_SHARE = 5 -- a fifth of the bet rides on each line
-local ANY_COINS = 2 -- three coins of mixed metals on a line pay this, times the line bet
+local ANY_BARS = 2 -- three bars of mixed metals on a line pay this, times the line bet
 
 ns.SLOTS_BETS = { 10, 50, 100, 500 } -- the chip buttons; all multiples of LINE_SHARE, so line pays stay whole
-ns.SLOTS_ANY_COINS = ANY_COINS
+ns.SLOTS_ANY_BARS = ANY_BARS
 
 -- Lowest first. pay: three on a line pay this times the line bet. icon: a file ID.
 ns.SLOTS_SYMBOLS = {
 	{ key = "murloc", letter = "M", name = "Murloc", pay = 4, icon = 134169 }, -- inv_misc_head_murloc_01
-	{ key = "copper", letter = "C", name = "Copper coin", pay = 15, icon = 133788, coin = true }, -- inv_misc_coin_05
-	{ key = "silver", letter = "S", name = "Silver coin", pay = 30, icon = 133786, coin = true }, -- inv_misc_coin_03
-	{ key = "gold", letter = "G", name = "Gold coin", pay = 60, icon = 133784, coin = true }, -- inv_misc_coin_01
-	{ key = "diamond", letter = "D", name = "Diamond", pay = 120, icon = 134095 }, -- inv_misc_gem_diamond_02
+	{ key = "copper", letter = "C", name = "Copper bar", pay = 15, icon = 133216, bar = true }, -- inv_ingot_02
+	{ key = "silver", letter = "S", name = "Silver bar", pay = 30, icon = 133215, bar = true }, -- inv_ingot_01
+	{ key = "gold", letter = "G", name = "Gold bar", pay = 60, icon = 133217, bar = true }, -- inv_ingot_03
+	{ key = "ruby", letter = "R", name = "Ruby", pay = 120, icon = 134129 }, -- inv_misc_gem_ruby_02
 	{ key = "hearth", letter = "H", name = "Hearthstone", pay = 1000, icon = 134414, jackpot = true }, -- inv_misc_rune_01
 }
 
--- Each reel's strip, by symbol letter: 10 murlocs, 5 copper, 4 silver, 3 gold, 3 diamonds and 1 Hearthstone in 26
+-- Each reel's strip, by symbol letter: 10 murlocs, 5 copper, 4 silver, 3 gold, 3 rubies and 1 Hearthstone in 26
 -- stops, no symbol next to itself. With the pays above that returns 94.9% of what's bet (Slots_ReturnRate).
 local STRIPS = {
-	"MHMSMGCMDMSGMGMSMCSCDMCMDC",
-	"CDCSMGSHMCGMCMSMDMDMSMGMCM",
-	"SMCMCHMGCMSMGDMCMDGMSMCDSM",
+	"MHMSMGCMRMSGMGMSMCSCRMCMRC",
+	"CRCSMGSHMCGMCMSMRMRMSMGMCM",
+	"SMCMCHMGCMSMGRMCMRGMSMCRSM",
 }
 
 -- Rows 1-3 (top to bottom) per reel; the middle row first.
@@ -63,13 +63,13 @@ function ns.Slots_Cell(i, stop, row)
 	return ns.Slots_At(i, stop + row - 2)
 end
 
--- What three symbols on a line pay, times the line bet: the multiplier and "three" or "coins" (0 and nil: nothing).
+-- What three symbols on a line pay, times the line bet: the multiplier and "three" or "bars" (0 and nil: nothing).
 function ns.Slots_LinePay(a, b, c)
 	if a == b and b == c then
 		return SYMBOLS[a].pay, "three"
 	end
-	if SYMBOLS[a].coin and SYMBOLS[b].coin and SYMBOLS[c].coin then
-		return ANY_COINS, "coins"
+	if SYMBOLS[a].bar and SYMBOLS[b].bar and SYMBOLS[c].bar then
+		return ANY_BARS, "bars"
 	end
 	return 0, nil
 end
@@ -91,7 +91,7 @@ end
 -- The game -----------------------------------------------------------------------------------------------------
 
 local function Stats()
-	return { spins = 0, wins = 0, biggestWin = 0, jackpots = 0 }
+	return { spins = 0, wins = 0, biggestWin = 0, jackpots = 0, net = 0 }
 end
 
 local function ValidBet(bet)
@@ -101,6 +101,19 @@ local function ValidBet(bet)
 		end
 	end
 	return false
+end
+
+-- A saved result whose wins all name a symbol this machine has (symbols were renamed once: coins became bars).
+local function ValidLast(last)
+	if type(last) ~= "table" or type(last.wins) ~= "table" then
+		return false
+	end
+	for _, win in ipairs(last.wins) do
+		if type(win) ~= "table" or not SYMBOLS[win.symbol] then
+			return false
+		end
+	end
+	return true
 end
 
 -- game.slots, made or filled in where an older or damaged save lacks it. Returns it.
@@ -121,7 +134,7 @@ function ns.Slots_Repair(game)
 			slots.stats[k] = v
 		end
 	end
-	if slots.last ~= nil and (type(slots.last) ~= "table" or type(slots.last.wins) ~= "table") then
+	if slots.last ~= nil and not ValidLast(slots.last) then
 		slots.last = nil
 	end
 	return slots
@@ -135,7 +148,7 @@ function ns.Slots_SetBet(game, bet)
 	return true
 end
 
--- The lines `stops` win: { { line = n, pay = chips, symbol = key, kind = "three" or "coins" } ... }, and the total.
+-- The lines `stops` win: { { line = n, pay = chips, symbol = key, kind = "three" or "bars" } ... }, and the total.
 function ns.Slots_Wins(stops, bet)
 	local wins, total = {}, 0
 	local lineBet = bet / LINE_SHARE
@@ -176,6 +189,8 @@ function ns.Slots_Spin(game, random)
 	game.chips = game.chips + payout
 	local stats = slots.stats
 	stats.spins = stats.spins + 1
+	stats.net = stats.net + payout - bet
+	ns.Blackjack_RecordNet(game, "slots", payout - bet)
 	if payout > bet then
 		stats.wins = stats.wins + 1
 		stats.biggestWin = math.max(stats.biggestWin, payout - bet)

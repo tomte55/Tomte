@@ -56,10 +56,11 @@ The standard machine, full-pay 9/6 table (99.5% return with perfect play).
 A three-reel machine with WoW item icons, three rows, five paylines (the three rows and both diagonals, always on).
 
 - Bet per spin with the chip buttons: 10, 50, 100 or 500; a fifth of it rides on each line.
-- Symbols, low to high: Murloc, Copper coin, Silver coin, Gold coin, Diamond, Hearthstone. Each reel is a 26-stop
-  strip (10 murlocs, 5 copper, 4 silver, 3 gold, 3 diamonds, 1 Hearthstone), in a different order per reel.
-- Pays per line (times the line bet): three Murlocs 4, Copper 15, Silver 30, Gold 60, Diamonds 120, Hearthstones
-  1,000 (the jackpot); **any three coins** mixed 2.
+- Symbols, low to high: Murloc, Copper bar, Silver bar, Gold bar, Ruby, Hearthstone (bars and the ruby replaced
+  coins and a diamond after the first in-game test: they were hard to tell apart). Each reel is a 26-stop
+  strip (10 murlocs, 5 copper, 4 silver, 3 gold, 3 rubies, 1 Hearthstone), in a different order per reel.
+- Pays per line (times the line bet): three Murlocs 4, Copper 15, Silver 30, Gold 60, Rubies 120, Hearthstones
+  1,000 (the jackpot); **any three bars** mixed 2.
 - That returns 94.9% of what's bet over time (exact, from enumerating every stop; a unit test checks it), about 58%
   of spins win something, and the jackpot comes about once in 3,500 spins.
 - The reels spin with a decelerating roll and stop left to right with a click; clicking Spin while they roll stops
@@ -108,8 +109,8 @@ game.slots = { bet = 10, stops = { 1, 1, 1 }, last = nil | { wins, payout, bet }
 Nothing new from the game: plain frames, `math.random`, `SOUNDKIT` keys checked in
 `Blizzard_SharedXML/Mainline/SoundKitConstants.lua` (live): `IG_MAINMENU_OPTION_CHECKBOX_ON/OFF`,
 `UI_80_AZERITEARMOR_ROTATIONSTARTCLICKS`, `UI_PROFESSION_SPEC_PIP_LOCKIN`, `TRADING_POST_UI_REWARD_TIER_COMPLETE`.
-Icons (wago.tools listfile): 134169 inv_misc_head_murloc_01, 133788 inv_misc_coin_05, 133786 inv_misc_coin_03,
-133784 inv_misc_coin_01, 134095 inv_misc_gem_diamond_02, 134414 inv_misc_rune_01. Frame `SetClipsChildren` masks
+Icons (wago.tools listfile): 134169 inv_misc_head_murloc_01, 133216 inv_ingot_02, 133215 inv_ingot_01,
+133217 inv_ingot_03, 134129 inv_misc_gem_ruby_02, 134414 inv_misc_rune_01. Frame `SetClipsChildren` masks
 the reels; `CreateLine` draws the paylines.
 
 ## Testing (in game)

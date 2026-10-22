@@ -114,7 +114,7 @@ end
 -- The game -----------------------------------------------------------------------------------------------------
 
 local function Stats()
-	local stats = { hands = 0, wins = 0, biggestWin = 0 }
+	local stats = { hands = 0, wins = 0, biggestWin = 0, net = 0 }
 	for _, hand in ipairs(ns.POKER_HANDS) do
 		stats[hand.key] = 0
 	end
@@ -253,6 +253,8 @@ function ns.Poker_Draw(game)
 	game.chips = game.chips + payout
 	local stats = poker.stats
 	stats.hands = stats.hands + 1
+	stats.net = stats.net + round.net
+	ns.Blackjack_RecordNet(game, "poker", round.net)
 	if key then
 		stats[key] = stats[key] + 1
 	end

@@ -98,7 +98,31 @@ local Line = UI.TipLine
 
 local function Double(left, right)
 	local r, g, b = UI.RGB("textMuted")
-	GameTooltip:AddDoubleLine(left, right, r, g, b)
+	local rr, rg, rb = UI.RGB("text")
+	GameTooltip:AddDoubleLine(left, right, r, g, b, rr, rg, rb)
+end
+
+-- Chips won or lost: "+1,250" in success, "-300" in danger, "0".
+function ns.GamesWindow_Signed(n)
+	if n > 0 then
+		return UI.Wrap("+" .. ns.Thousands(n), "success")
+	elseif n < 0 then
+		return UI.Wrap("-" .. ns.Thousands(-n), "danger")
+	end
+	return "0"
+end
+
+-- The net tooltip lines every game shows: this play session, then all time.
+function ns.GamesWindow_NetLines(double, which, allTime)
+	local session = Game().session
+	double("Net this session", ns.GamesWindow_Signed(type(session) == "table" and session[which] or 0))
+	double("Net all time", ns.GamesWindow_Signed(allTime))
+end
+
+-- Starts the per-game session nets over when this is a new play session (a login, not a /reload: Core's session).
+local function CheckSession()
+	local session = ns.Session_Current()
+	ns.Blackjack_SessionCheck(Game(), tostring(session.guid) .. ":" .. tostring(session.start))
 end
 
 local function StatsTooltip(owner)
@@ -379,6 +403,7 @@ function ns.GamesWindow_Show(key)
 	if not frame then
 		Create()
 	end
+	CheckSession()
 	UI.PlaceDialog(frame)
 	if not frame:IsShown() then
 		Sound("open")
@@ -414,6 +439,7 @@ function ns.GamesWindow_Refresh()
 	if active and active.root and active.OnHide then
 		active.OnHide()
 	end
+	CheckSession()
 	Redraw()
 	ns.CasinoCashier_Refresh()
 end

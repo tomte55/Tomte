@@ -148,6 +148,7 @@ function face.Stats(line, double)
 	double("Hands played", ns.Thousands(s.hands))
 	double("Hands won", ns.Thousands(s.wins))
 	double("Biggest win", ns.Thousands(s.biggestWin))
+	ns.GamesWindow_NetLines(double, "poker", s.net)
 	for _, hand in ipairs(ns.POKER_HANDS) do
 		if hand.key ~= "jacks" and s[hand.key] > 0 then
 			double(hand.name, ns.Thousands(s[hand.key]))

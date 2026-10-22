@@ -89,6 +89,7 @@ test("deal takes the bet, hold and draw pay the hand", function()
 	eq(game.poker.stats.flush, 1)
 	eq(game.poker.stats.wins, 1)
 	eq(game.poker.stats.biggestWin, 250)
+	eq(game.poker.stats.net, 250)
 	eq(game.stats.peak, 1250)
 end)
 
