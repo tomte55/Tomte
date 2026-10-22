@@ -29,5 +29,6 @@ Theme.Register("blizzard", {
 		success = Global("GREEN_FONT_COLOR", "#19ff19"),
 		warning = Global("ORANGE_FONT_COLOR", "#ff8040"),
 		danger = Global("RED_FONT_COLOR", "#ff2020"),
+		info = Global("LIGHTBLUE_FONT_COLOR", "#87aaff"),
 	},
 })

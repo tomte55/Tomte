@@ -164,7 +164,10 @@ local function NewFloat(parent)
 end
 
 -- Text that rises from (x, y) off anchor's `point` and fades, in a color role. parent: a frame above whatever it
--- floats over (a window's own regions draw under its child frames). opts: size, rise (pixels, negative drifts down).
+-- floats over (a window's own regions draw under its child frames). opts: size, rise (pixels, negative drifts down),
+-- own (the text's point put on (x, y), default CENTER). anchor must hold still while the text floats: re-laying out
+-- the anchor (a rolling count's SetText, a popping text's font size) restarts the rise every frame, so the text sits
+-- frozen and jumps when the anchor settles. Anchor to a fixed frame next to such text instead.
 function ns.GamesFx_Float(parent, text, role, anchor, point, x, y, opts)
 	opts = opts or {}
 	local fs
@@ -182,7 +185,7 @@ function ns.GamesFx_Float(parent, text, role, anchor, point, x, y, opts)
 	UI.SetTextRole(fs, role)
 	fs:SetText(text)
 	fs:ClearAllPoints()
-	fs:SetPoint("CENTER", anchor, point, x or 0, y or 0)
+	fs:SetPoint(opts.own or "CENTER", anchor, point, x or 0, y or 0)
 	fs.rise:SetOffset(0, opts.rise or FLOAT_RISE)
 	fs:Show()
 	fs.ag:Stop()

@@ -5,7 +5,7 @@ local addonName, ns = ...
 -- Rules and the saved game in BlackjackRules.lua; cards in Card.lua; registered in Blackjack.lua. Plain frames:
 -- nothing here is protected.
 
-local WIDTH, HEIGHT = 500, 372
+local WIDTH, HEIGHT = 500, 396
 local CARD_STEP = 30 -- pixels between overlapping cards in a hand
 local HAND_GAP = 60 -- pixels between two split hands
 local MAX_CARDS = 11 -- the most cards a hand can hold without busting (four aces, four twos, three threes)
@@ -20,6 +20,9 @@ local CHIP_ROLL = 0.8 -- seconds for the chip count to roll to a round's payout
 local GLOW_REST = 0.35 -- a winning hand's glow once it has flashed
 local CHIP_FLOAT_DRIFT = -22 -- pixels the +/- under the chip count drifts (down, away from the count)
 local MESSAGE_SIZE, BANNER_SIZE = 14, 30 -- font sizes of the message line and the "Blackjack!" banner
+local PLAY_W, PLAY_H, PLAY_ICON, PLAY_GAP = 56, 34, 26, 8 -- the play buttons: size, icon size, space between
+local PLAY_LABEL = 14 -- pixels under the play buttons for their names
+local PLAY_MEDIA = "Interface\\AddOns\\Tomte\\Media\\Games\\"
 
 local UI = ns.UI
 
@@ -129,8 +132,9 @@ local function AddChip(amount)
 	if game.bet > before then
 		Sound("chip")
 		ns.GamesFx_PopText(frame.betText, "number", 13, 1.35, 0.2)
-		ns.GamesFx_Float(frame.fx, "+" .. ns.Thousands(game.bet - before), "accent", frame.betText, "TOP", 0, 6,
-			{ size = 13 })
+		-- Over the bet text, right-aligned with it, but anchored to Deal: the text pops (changes size) as it floats.
+		ns.GamesFx_Float(frame.fx, "+" .. ns.Thousands(game.bet - before), "accent", frame.deal, "LEFT", -12, 7,
+			{ size = 13, own = "BOTTOMRIGHT" })
 	end
 end
 
@@ -149,8 +153,8 @@ local function Refill()
 		Sound("refill")
 		ns.Print(("the house gives you %s chips."):format(ns.Thousands(ns.BLACKJACK_START_CHIPS)))
 		SetChips(Game().chips, CHIP_ROLL, "success")
-		ns.GamesFx_Float(frame.fx, "+" .. ns.Thousands(ns.BLACKJACK_START_CHIPS), "success", frame.chips, "BOTTOM", 0,
-			-10, { rise = CHIP_FLOAT_DRIFT })
+		ns.GamesFx_Float(frame.fx, "+" .. ns.Thousands(ns.BLACKJACK_START_CHIPS), "success", frame.chipsBox,
+			"BOTTOMRIGHT", 0, 0, { rise = CHIP_FLOAT_DRIFT, own = "TOPRIGHT" })
 	end
 	Draw(false)
 end
@@ -198,6 +202,30 @@ local function Button(parent, width, text, onClick, tip)
 	if tip then
 		ButtonTip(b, tip)
 	end
+	return b
+end
+
+-- A play button: an icon in its color role with its name underneath, the border taking that color on hover.
+local function PlayButton(parent, icon, role, name, onClick)
+	local b = Button(parent, PLAY_W, nil, onClick)
+	b:SetHeight(PLAY_H)
+	b.name = UI.Text(b, 10, "textMuted", "label")
+	b.name:SetPoint("TOP", b, "BOTTOM", 0, -3)
+	b.name:SetText(name)
+	b.icon = b:CreateTexture(nil, "ARTWORK")
+	b.icon:SetSize(PLAY_ICON, PLAY_ICON)
+	b.icon:SetPoint("CENTER")
+	b.icon:SetTexture(PLAY_MEDIA .. icon)
+	b.icon:SetVertexColor(UI.Color(role))
+	b:HookScript("OnEnter", function(self)
+		UI.SetBorderColor(self, role, 1)
+	end)
+	b:HookScript("OnMouseDown", function(self)
+		self.icon:SetPoint("CENTER", 1, -1)
+	end)
+	b:HookScript("OnMouseUp", function(self)
+		self.icon:SetPoint("CENTER")
+	end)
 	return b
 end
 
@@ -259,6 +287,7 @@ local function Create()
 	chips:EnableMouse(true)
 	chips:SetScript("OnEnter", StatsTooltip)
 	chips:SetScript("OnLeave", GameTooltip_Hide)
+	frame.chipsBox = chips
 	frame.chips = UI.Text(chips, 15, "accent", "number")
 	frame.chips:SetPoint("RIGHT")
 	frame.chips:SetJustifyH("RIGHT")
@@ -299,7 +328,7 @@ local function Create()
 
 	-- Bottom row: chips and Deal between rounds, the play buttons during one.
 	local bottom = CreateFrame("Frame", nil, frame)
-	bottom:SetSize(WIDTH - 32, 24)
+	bottom:SetSize(WIDTH - 32, PLAY_H + PLAY_LABEL) -- the bet controls center on the play buttons' height
 	bottom:SetPoint("BOTTOM", 0, 14)
 	frame.bottom = bottom
 
@@ -327,23 +356,20 @@ local function Create()
 
 	frame.playing = CreateFrame("Frame", nil, bottom)
 	frame.playing:SetAllPoints()
-	frame.hit = Button(frame.playing, 96, "Hit", function()
-		Act(ns.Blackjack_Hit)
-	end, "Take another card.")
-	frame.stand = Button(frame.playing, 96, "Stand", function()
+	frame.stand = PlayButton(frame.playing, "Stand", "danger", "Stand", function()
 		Act(ns.Blackjack_Stand)
-	end, "Keep this hand; the dealer plays.")
-	frame.double = Button(frame.playing, 96, "Double", function()
-		Act(ns.Blackjack_Double)
-	end, "Double your bet for exactly one more card.")
-	frame.split = Button(frame.playing, 96, "Split", function()
+	end)
+	frame.split = PlayButton(frame.playing, "Split", "warning", "Split", function()
 		Act(ns.Blackjack_Split)
-	end, "Split the pair into two hands, each with its own bet.")
-	local x = -((96 * 4 + 8 * 3) / 2) + 48
-	for _, b in ipairs({ frame.hit, frame.stand, frame.double, frame.split }) do
-		b:SetPoint("CENTER", bottom, "CENTER", x, 0)
-		x = x + 104
-	end
+	end)
+	frame.double = PlayButton(frame.playing, "Double", "info", "Double", function()
+		Act(ns.Blackjack_Double)
+	end)
+	frame.hit = PlayButton(frame.playing, "Hit", "success", "Hit", function()
+		Act(ns.Blackjack_Hit)
+	end)
+	-- Left to right; Split and Double only show when you can.
+	frame.playOrder = { frame.stand, frame.split, frame.double, frame.hit }
 
 	frame.refill = Button(bottom, 140, "House chips", Refill,
 		("Out of chips: the house gives you %s to play on."):format(ns.Thousands(ns.BLACKJACK_START_CHIPS)))
@@ -432,6 +458,22 @@ local function Message(game, settled, dealing)
 	return ns.Blackjack_RoundText(round, ns.Thousands)
 end
 
+-- The shown play buttons side by side, centered, their names on the bottom row's bottom.
+local function LayoutPlay()
+	local shownButtons = {}
+	for _, b in ipairs(frame.playOrder) do
+		if b:IsShown() then
+			shownButtons[#shownButtons + 1] = b
+		end
+	end
+	local x = -((#shownButtons - 1) * (PLAY_W + PLAY_GAP)) / 2
+	for _, b in ipairs(shownButtons) do
+		b:ClearAllPoints()
+		b:SetPoint("BOTTOM", frame.bottom, "BOTTOM", x, PLAY_LABEL)
+		x = x + PLAY_W + PLAY_GAP
+	end
+end
+
 local function ShowButtons(game, settled)
 	local round = game.round
 	local inPlay = round and round.phase == "player"
@@ -443,8 +485,9 @@ local function ShowButtons(game, settled)
 		local can = ns.Blackjack_Actions(game)
 		SetUsable(frame.hit, can.hit)
 		SetUsable(frame.stand, can.stand)
-		SetUsable(frame.double, can.double)
-		SetUsable(frame.split, can.split)
+		frame.double:SetShown(can.double)
+		frame.split:SetShown(can.split)
+		LayoutPlay()
 	else
 		SetUsable(frame.deal, settled and game.bet >= ns.BLACKJACK_MIN_BET and game.bet <= game.chips)
 		SetUsable(frame.clear, settled and game.bet > 0)
@@ -522,8 +565,8 @@ local function Settled(round, celebrate)
 	end
 	SetChips(Game().chips, CHIP_ROLL, net > 0 and "success" or (net < 0 and "danger") or nil)
 	if net ~= 0 then
-		ns.GamesFx_Float(frame.fx, SignedChips(net), OutcomeRole(round), frame.chips, "BOTTOM", 0, -10,
-			{ rise = CHIP_FLOAT_DRIFT })
+		ns.GamesFx_Float(frame.fx, SignedChips(net), OutcomeRole(round), frame.chipsBox, "BOTTOMRIGHT", 0, 0,
+			{ rise = CHIP_FLOAT_DRIFT, own = "TOPRIGHT" })
 	end
 end
 

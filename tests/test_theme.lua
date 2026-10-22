@@ -36,7 +36,7 @@ local function endsWith(s, tail)
 end
 
 local ROLES = { "bg", "bgTop", "bgBottom", "surface", "hover", "text", "heading", "textMuted", "textFaint", "accent",
-	"accentDeep", "frame", "frameDark", "rule", "contour", "success", "warning", "danger" }
+	"accentDeep", "frame", "frameDark", "rule", "contour", "success", "warning", "danger", "info" }
 
 test("every color role exists with 3 or 4 numbers in 0..1", function()
 	for _, role in ipairs(ROLES) do

@@ -54,5 +54,6 @@ Theme.Register("classic", {
 		success = { 0.45, 0.85, 0.45 }, -- the modules' GREEN
 		warning = { 1, 0.6, 0.2 }, -- ORANGE (world quest time, weekly board)
 		danger = { 1, 0.45, 0.35 }, -- RED
+		info = { 0.4, 0.65, 1 },
 	},
 })

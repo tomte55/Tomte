@@ -5,6 +5,9 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 ## Unreleased
 
+- Blackjack: the play buttons are now colored icons with their names underneath, in the order Stand, Split, Double, Hit. Split and Double only show when you can use them.
+- Blackjack: the floating wins and losses under your chips, and the amount over your bet, now drift smoothly instead of sticking and then jumping.
+
 ## v1.19.0 - 2026-10-21
 
 - New module, Blackjack: a blackjack table to play for play chips (never gold), on flight paths or whenever you like. You against the dealer with six decks; the dealer stands on soft 17, blackjack pays 3:2, and you can double and split. You start with 1,000 chips and the house gives you more if you run out; your chips and stats are kept. Cards slide in and turn over, with sounds, floating wins and losses, and a "Blackjack!" when you hit one. Open it with `/tomte blackjack` or a key binding, or have it open on its own when you take a flight path. It hides in combat.

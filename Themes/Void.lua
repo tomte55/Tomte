@@ -60,5 +60,6 @@ Theme.Register("void", {
 		success = Hex("#7fd9ab"),
 		warning = Hex("#ebbb6c"),
 		danger = Hex("#ff6f8e"),
+		info = Hex("#6c9cff"),
 	},
 })

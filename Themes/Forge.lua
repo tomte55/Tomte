@@ -64,5 +64,6 @@ Theme.Register("forge", {
 		success = Hex("#9dc47c"),
 		warning = Hex("#e8cb5a"),
 		danger = Hex("#e2605a"),
+		info = Hex("#6aa2de"),
 	},
 })

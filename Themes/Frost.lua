@@ -50,5 +50,6 @@ Theme.Register("frost", {
 		success = Hex("#85c99b"),
 		warning = Hex("#e2bb62"),
 		danger = Hex("#e2735f"),
+		info = Hex("#5f95e8"), -- deeper than the ice-blue accent
 	},
 })

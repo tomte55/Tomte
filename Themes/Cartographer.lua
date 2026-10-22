@@ -50,5 +50,6 @@ Theme.Register("cartographer", {
 		success = Hex("#8fbf7a"),
 		warning = Hex("#d9a55b"),
 		danger = Hex("#d0654f"),
+		info = Hex("#6f9fd8"),
 	},
 })

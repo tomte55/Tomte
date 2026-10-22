@@ -59,5 +59,6 @@ Theme.Register("emerald", {
 		success = Hex("#a9d46a"),
 		warning = Hex("#e2b257"),
 		danger = Hex("#e07560"),
+		info = Hex("#6fa3e6"),
 	},
 })
