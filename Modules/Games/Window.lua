@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Games: the casino window (a movable UI.Dialog; Esc closes it). The title bar holds one tab per game, the rank, the
 -- chip count (stats on hover), the Cashier (Cashier.lua, shown in place of the game) and close; under it the game's
 -- face. Faces register with ns.GamesWindow_AddFace: Table.lua (blackjack), PokerMachine.lua, SlotMachine.lua. Chips,
--- refill and rank rules in ChipRules.lua; registered in Blackjack.lua. Plain frames: nothing here is protected.
+-- refill and rank rules in ChipRules.lua; registered in Casino.lua. Plain frames: nothing here is protected.
 
 local WIDTH, HEIGHT = 560, 506
 local CHIP_ROLL = 0.8 -- seconds for the chip count to roll to a new value
@@ -66,7 +66,7 @@ local function Redraw()
 end
 
 local function Refill()
-	local given = ns.Chips_Refill(Game(), db.earned, (ns.BlackjackEarn_Day()))
+	local given = ns.Chips_Refill(Game(), db.earned, (ns.CasinoEarn_Day()))
 	if given then
 		Sound("refill")
 		SetChips(Game().chips, CHIP_ROLL, "success")
@@ -80,7 +80,7 @@ function ns.GamesWindow_BrokeText()
 	if Game().chips >= ns.BLACKJACK_MIN_BET then
 		return nil
 	end
-	local day, left = ns.BlackjackEarn_Day()
+	local day, left = ns.CasinoEarn_Day()
 	if ns.Chips_RefillReady(db.earned, day) then
 		return "You're out of chips."
 	end
@@ -89,7 +89,7 @@ end
 
 -- The house's refill button can show: out of chips and not refilled today.
 function ns.GamesWindow_RefillReady()
-	return Game().chips < ns.BLACKJACK_MIN_BET and ns.Chips_RefillReady(db.earned, (ns.BlackjackEarn_Day()))
+	return Game().chips < ns.BLACKJACK_MIN_BET and ns.Chips_RefillReady(db.earned, (ns.CasinoEarn_Day()))
 end
 
 -- Tooltips ------------------------------------------------------------------------------------------------------
@@ -107,7 +107,7 @@ local function StatsTooltip(owner)
 	GameTooltip:SetText("Casino", UI.Color("heading"))
 	Line("Play chips only, kept between sessions and shared by all three games. Earn more by playing the game: "
 		.. "flight paths, quests, the Great Vault and gold you loot.", "textMuted", true)
-	local today = ns.Chips_Today(db.earned, (ns.BlackjackEarn_Day()))
+	local today = ns.Chips_Today(db.earned, (ns.CasinoEarn_Day()))
 	if #today > 0 then
 		Line(" ")
 		Line("Earned today", "heading")
@@ -292,7 +292,7 @@ local function NewTab(face, prev)
 end
 
 local function Create()
-	frame = UI.Dialog("TomteBlackjack", WIDTH, HEIGHT)
+	frame = UI.Dialog("TomteCasino", WIDTH, HEIGHT)
 	frame:SetScript("OnDragStop", function(self)
 		self:StopMovingOrSizing()
 		SavePlace()
@@ -332,7 +332,7 @@ local function Create()
 	frame.rank:SetPoint("RIGHT", frame.chips, "LEFT", -8, 0) -- follows the count's width as it grows
 	frame.rank:SetJustifyH("RIGHT")
 
-	frame.cashier = ns.BlackjackCashier_Create(frame, db, ApplyLook)
+	frame.cashier = ns.CasinoCashier_Create(frame, db, ApplyLook)
 
 	-- Above every face: the chip count's floats.
 	frame.top = CreateFrame("Frame", nil, frame)
@@ -415,7 +415,7 @@ function ns.GamesWindow_Refresh()
 		active.OnHide()
 	end
 	Redraw()
-	ns.BlackjackCashier_Refresh()
+	ns.CasinoCashier_Refresh()
 end
 
 -- Chips earned out in the world: the count rolls up with a "+25 quest" under it. While a face holds a result back
@@ -429,7 +429,7 @@ function ns.GamesWindow_Earned(source, amount)
 		SetChips(Game().chips, CHIP_ROLL, "success")
 		Redraw()
 	end
-	ns.BlackjackCashier_Refresh()
+	ns.CasinoCashier_Refresh()
 end
 
 function ns.GamesWindow_ApplyLook()

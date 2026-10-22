@@ -126,4 +126,21 @@ ns.MIGRATIONS = {
 		end
 		saved.angle = nil
 	end,
+	-- 13: Blackjack became the Casino (1.20): its saved game and settings, its on/off and Recent's checkbox for its
+	-- toasts move from the key "blackjack" to "casino".
+	function(db)
+		if type(db.blackjack) == "table" and db.casino == nil then
+			db.casino = db.blackjack
+		end
+		db.blackjack = nil
+		local include = type(db.recent) == "table" and db.recent.include
+		for _, list in pairs({ enabled = db.enabled, include = include }) do
+			if type(list) == "table" and list.blackjack ~= nil then
+				if list.casino == nil then
+					list.casino = list.blackjack
+				end
+				list.blackjack = nil
+			end
+		end
+	end,
 }

@@ -130,4 +130,23 @@ test("Minimap Buttons: a button already placed keeps its spot", function()
 	eq(db.minimap.angle, nil)
 end)
 
+test("Casino: Blackjack's saved data, on/off and Recent checkbox move to the casino key", function()
+	local game = { chips = 4321 }
+	local db = { schema = 12, blackjack = { game = game, taxi = true }, enabled = { blackjack = false },
+		recent = { include = { blackjack = false } } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.blackjack, nil)
+	eq(db.casino.game, game)
+	eq(db.casino.taxi, true)
+	eq(db.enabled.casino, false)
+	eq(db.enabled.blackjack, nil)
+	eq(db.recent.include.casino, false)
+end)
+test("Casino: nothing to move on an install without Blackjack", function()
+	local db = { schema = 12 }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.casino, nil)
+	eq(db.enabled, nil)
+end)
+
 H.done()

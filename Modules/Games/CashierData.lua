@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Blackjack Cashier: pure logic (no WoW API calls; unit-tested in tests/test_cashierdata.lua). The card backs and
+-- Casino Cashier: pure logic (no WoW API calls; unit-tested in tests/test_cashierdata.lua). The card backs and
 -- felts you can buy with chips or unlock with a feat, what you own and which one is in use. Colors are theme roles:
 -- base fills the back (dimmed by `dim`), ink draws its pattern (Media/Games/<pattern>.tga) and rule; a felt's role
 -- tints the felt (dimmed by `dim`, else Felt.lua's default). A feat counts a stat of the casino's stats (game.stats)

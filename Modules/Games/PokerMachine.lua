@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Video poker: the machine, a face of the casino window (Window.lua). A screen in the felt's color with the pay table
 -- on top (one column per bet, the current one lit), five big cards (click to hold), the message line and the bet and
 -- win readouts; under it the coin chips, Bet one, Bet max and Deal/Draw. Rules in PokerRules.lua; cards in Card.lua;
--- registered in Blackjack.lua.
+-- registered in Casino.lua.
 
 local WIDTH = ns.GAMES_WINDOW_W
 local SCREEN_TOP, SCREEN_BOTTOM = -46, -434 -- the screen's edges, from the window's top
@@ -357,7 +357,7 @@ function face.OnHide()
 	if revealTimer then
 		revealTimer:Cancel()
 		revealTimer = nil
-		ns.Blackjack_CheckFeats() -- the cut-off reveal would have checked them
+		ns.Casino_CheckFeats() -- the cut-off reveal would have checked them
 	end
 	shown.round = nil -- shown again later: the cards as they are, without replaying the deal
 end
@@ -437,7 +437,7 @@ local function Settled(round, celebrate)
 		ns.GamesFx_Float(root.fx, "+" .. ns.Thousands(round.payout), "success", root.winText, "RIGHT", 0, 14,
 			{ own = "RIGHT" })
 	end
-	ns.Blackjack_CheckFeats()
+	ns.Casino_CheckFeats()
 end
 
 -- animate: a fresh deal slides in, a draw turns the new cards over one by one, and the result waits for the last.

@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Blackjack: the Cashier, the table window's other face (the title bar's Cashier button swaps them). Card backs and
+-- Casino: the Cashier, the window's other face (the title bar's Cashier button swaps them). Card backs and
 -- felts to buy with chips or unlock with a feat, and your rank. Catalog and rules in CashierData.lua and
 -- ChipRules.lua; the window is Table.lua's.
 
@@ -73,8 +73,8 @@ local function Buy(cell)
 			if ok then
 				ns.GamesWindow_Sound("bigWin")
 				ns.GamesWindow_SetChips(Game().chips, 0.3)
-				ns.Session_Note("blackjack", { title = ("Casino: the %s %s"):format(item.name, KIND_NAMES[cell.kind]),
-					icon = ns.BLACKJACK_ICON, detail = "bought for " .. ns.Thousands(item.cost) .. " chips" })
+				ns.Session_Note("casino", { title = ("Casino: the %s %s"):format(item.name, KIND_NAMES[cell.kind]),
+					icon = ns.CASINO_ICON, detail = "bought for " .. ns.Thousands(item.cost) .. " chips" })
 				Use(cell)
 			else
 				Refresh()
@@ -169,7 +169,7 @@ end
 -- API -------------------------------------------------------------------------------------------------------------
 
 -- changed(): the look in use changed (Table.lua repaints the felt and the cards).
-function ns.BlackjackCashier_Create(window, saved, changed)
+function ns.CasinoCashier_Create(window, saved, changed)
 	db, onChange = saved, changed
 	panel = CreateFrame("Frame", nil, window)
 	panel:SetPoint("TOPLEFT", 0, -TOP)
@@ -187,4 +187,4 @@ function ns.BlackjackCashier_Create(window, saved, changed)
 	return panel
 end
 
-ns.BlackjackCashier_Refresh = Refresh
+ns.CasinoCashier_Refresh = Refresh

@@ -268,7 +268,7 @@ local function Tick()
 			-- An open casino window (Modules/Games) ends the cinematic for this flight: it would fade the window out.
 			local wanted = db.cinematic and not flight.cinematicDone and not paused
 				and ns.CinematicWanted(flight.expected, elapsed, db.cinematicMin)
-				and not (ns.Blackjack_IsOpen and ns.Blackjack_IsOpen())
+				and not (ns.Casino_IsOpen and ns.Casino_IsOpen())
 			if wanted and not ns.Cinematic.IsActive() then
 				ns.Cinematic.Enter(ns.FlightScene, flight, CinematicOptions(elapsed))
 			elseif not wanted and (ns.Cinematic.IsOwner(flight) or flight.cinematic) then

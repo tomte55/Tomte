@@ -1,10 +1,10 @@
 local addonName, ns = ...
 
--- Casino (module key "blackjack", its first game): blackjack, video poker and slots for play chips in one window,
--- opened by command, key binding or (settings) on its own when you take a flight path or queue for a group. Hides in
--- combat and comes back after. Chips are earned by playing the game (Earn.lua, paid by ChipRules.lua) and spent at
+-- Casino: blackjack, video poker and slots for play chips in one window, opened by command, key binding or
+-- (settings) on its own when you take a flight path or queue for a group. Hides in combat and comes back after. Was
+-- the Blackjack module (key "blackjack") until 1.20: migration 13 moved its saved data. Chips are earned by playing the game (Earn.lua, paid by ChipRules.lua) and spent at
 -- the Cashier (Cashier.lua, CashierData.lua). While the window is open the Flight module skips its cinematic
--- (Modules/Flight/Flight.lua asks ns.Blackjack_IsOpen). Rules in BlackjackRules.lua, PokerRules.lua and
+-- (Modules/Flight/Flight.lua asks ns.Casino_IsOpen). Rules in BlackjackRules.lua, PokerRules.lua and
 -- SlotsRules.lua; the window in Window.lua, its games in Table.lua, PokerMachine.lua and SlotMachine.lua.
 
 local TAXI_CHECK = 1 -- seconds between UnitOnTaxi checks after losing control (it can lag the event)
@@ -13,12 +13,12 @@ local FLIGHT_POLL = 1 -- seconds between checks while flying
 local LANDED_CHECKS = 3 -- checks off the taxi in a row that count as landed
 local LOADING_GRACE = 3 -- seconds after a loading screen before UnitOnTaxi is trusted (as in Modules/Flight)
 local FEAT_CHECK = 5 -- seconds after the module starts before feats already earned are announced
-local MODULE_KEY = "blackjack"
+local MODULE_KEY = "casino"
 local ICON = 134493 -- inv_misc_ticket_tarot_stack_01
 -- Group queues the table waits through: dungeon finder, raid finder, scenarios (battlegrounds are read separately).
 local LFG_CATEGORIES = { LE_LFG_CATEGORY_LFD, LE_LFG_CATEGORY_RF, LE_LFG_CATEGORY_SCENARIO }
 
-ns.BLACKJACK_ICON = ICON
+ns.CASINO_ICON = ICON
 
 local module, db
 local forFlight = false -- the table opened on its own for this flight
@@ -42,34 +42,34 @@ local function Toggle()
 	end
 end
 
-function ns.Blackjack_Active()
+function ns.Casino_Active()
 	return module.active
 end
 
 -- Feats -----------------------------------------------------------------------------------------------------------
 
 -- Card backs unlocked by a feat (CashierData.lua) since the last check get a toast.
-function ns.Blackjack_CheckFeats()
+function ns.Casino_CheckFeats()
 	if not module.active then
 		return
 	end
 	for _, item in ipairs(ns.Cashier_NewFeats(db.game, db.feats)) do
 		ns.Toast_Show({
-			owner = MODULE_KEY, label = "Casino", accent = "accent", icon = ICON, mergeKey = "blackjack:" .. item.key,
+			owner = MODULE_KEY, label = "Casino", accent = "accent", icon = ICON, mergeKey = "casino:" .. item.key,
 			title = item.name .. " card back",
 			text = ("Unlocked for %s. Pick it at the Cashier."):format(item.feat.text),
 		})
-		ns.Session_Note("blackjack", { title = "Casino: the " .. item.name .. " card back", icon = ICON,
+		ns.Session_Note("casino", { title = "Casino: the " .. item.name .. " card back", icon = ICON,
 			detail = "unlocked for " .. item.feat.text })
 	end
-	ns.BlackjackCashier_Refresh()
+	ns.CasinoCashier_Refresh()
 end
 
 -- Earning ---------------------------------------------------------------------------------------------------------
 
 local function Paid(source, amount)
 	ns.GamesWindow_Earned(source, amount)
-	ns.Blackjack_CheckFeats()
+	ns.Casino_CheckFeats()
 end
 
 -- Flight paths ----------------------------------------------------------------------------------------------------
@@ -85,7 +85,7 @@ end
 
 local function Landed()
 	StopWatchingFlight()
-	ns.BlackjackEarn_FlightEnd()
+	ns.CasinoEarn_FlightEnd()
 	if forFlight then
 		forFlight = false
 		if db.closeOnLand then
@@ -109,7 +109,7 @@ local function CheckTaxi()
 	if not module.active or flightTicker or not UnitOnTaxi("player") then
 		return
 	end
-	ns.BlackjackEarn_FlightStart()
+	ns.CasinoEarn_FlightStart()
 	offTaxi = 0
 	flightTicker = C_Timer.NewTicker(FLIGHT_POLL, FlightTick)
 	if db.taxi and not InCombatLockdown() and not ns.GamesWindow_IsShown() then
@@ -166,7 +166,7 @@ events:SetScript("OnEvent", function(self, event, ...)
 	if self[event] then
 		self[event](self, ...)
 	end
-	ns.BlackjackEarn_OnEvent(event, ...)
+	ns.CasinoEarn_OnEvent(event, ...)
 end)
 
 -- Losing control may be a takeoff: UnitOnTaxi can take a moment to say so.
@@ -215,26 +215,26 @@ local function Start()
 	for _, event in ipairs(EVENTS) do
 		events:RegisterEvent(event)
 	end
-	for _, event in ipairs(ns.BLACKJACK_EARN_EVENTS) do
+	for _, event in ipairs(ns.CASINO_EARN_EVENTS) do
 		events:RegisterEvent(event)
 	end
 	wasQueued = QueueState()
 	if ns.inWorld then
 		CheckTaxi()
 	end
-	C_Timer.After(FEAT_CHECK, ns.Blackjack_CheckFeats)
+	C_Timer.After(FEAT_CHECK, ns.Casino_CheckFeats)
 end
 
 local function Stop()
 	events:UnregisterAllEvents()
 	StopWatchingFlight()
-	ns.BlackjackEarn_Stop()
+	ns.CasinoEarn_Stop()
 	forFlight, forQueue, wasQueued, afterCombat = false, false, false, false
 	ns.GamesWindow_Hide()
 end
 
 -- For the Flight module: the table is up, so no cinematic over it.
-function ns.Blackjack_IsOpen()
+function ns.Casino_IsOpen()
 	return module.active and ns.GamesWindow_IsShown() or false
 end
 
@@ -281,7 +281,7 @@ local function StartOver()
 end
 
 local function Today()
-	local today = ns.Chips_Today(db.earned, (ns.BlackjackEarn_Day()))
+	local today = ns.Chips_Today(db.earned, (ns.CasinoEarn_Day()))
 	if #today == 0 then
 		ns.Print("casino: no chips earned today yet.")
 		return
@@ -294,11 +294,11 @@ local function Today()
 end
 
 -- Key bindings (Bindings.xml, Key Bindings > Tomte), through ns.Binding_Add.
-ns.Binding_Add("BLACKJACK", MODULE_KEY, function()
+ns.Binding_Add("CASINO", MODULE_KEY, function()
 	forFlight, forQueue = false, false
 	ns.GamesWindow_Toggle()
 end)
-BINDING_NAME_TOMTE_BLACKJACK = "Casino"
+BINDING_NAME_TOMTE_CASINO = "Casino"
 
 module = ns.RegisterModule({
 	key = MODULE_KEY,
@@ -310,7 +310,7 @@ module = ns.RegisterModule({
 		.. "dealer stands on all 17s, blackjack pays 3:2, double and split. Video poker: Jacks or Better on the "
 		.. "full-pay table. Slots: three reels, five lines, a Hearthstone jackpot. Earn chips on flight paths, from "
 		.. "quests, the Great Vault and gold you loot; spend them on card backs and felts at the Cashier. Run dry and "
-		.. "the house tops you up once a day. Open it with /tomte blackjack or a key binding, or have it open on its "
+		.. "the house tops you up once a day. Open it with /tomte casino or a key binding, or have it open on its "
 		.. "own on flight paths or while you wait in a queue.",
 	enabledByDefault = true,
 	toasts = true,
@@ -338,7 +338,7 @@ module = ns.RegisterModule({
 		ns.Blackjack_Repair(db.game)
 		ns.Poker_Repair(db.game)
 		ns.Slots_Repair(db.game)
-		ns.BlackjackEarn_Init(db, Paid)
+		ns.CasinoEarn_Init(db, Paid)
 		ns.GamesWindow_Init(db)
 		ns.BlackjackTable_Init(db)
 		ns.PokerMachine_Init(db)
@@ -356,7 +356,7 @@ module = ns.RegisterModule({
 		{ "open", "open the casino on the last game played", function()
 			Show()
 		end },
-		{ "table", "open the blackjack table", function()
+		{ "blackjack", "open the blackjack table", function()
 			Show("blackjack")
 		end },
 		{ "poker", "open video poker", function()

@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Blackjack: the table, the blackjack face of the casino window (Window.lua). A classic half-moon table (Felt.lua):
 -- dealer row on top, the rules printed across the middle, your hand or hands below with their bets in betting circles,
 -- a message line near the rail, the bet chips or the play buttons under the table. Rules and the saved game in
--- BlackjackRules.lua and ChipRules.lua; cards in Card.lua; registered in Blackjack.lua.
+-- BlackjackRules.lua and ChipRules.lua; cards in Card.lua; registered in Casino.lua.
 
 local WIDTH = ns.GAMES_WINDOW_W
 local CARD_STEP = 30 -- pixels between overlapping cards in a hand
@@ -76,7 +76,7 @@ local function Act(fn)
 		return
 	end
 	local game = Game()
-	local hand = ns.Blackjack_ActiveHand(game)
+	local hand = ns.Casino_ActiveHand(game)
 	fn(game, Random)
 	Draw(true)
 	-- A hand that just went bust shakes as its last card lands.
@@ -282,7 +282,7 @@ function face.OnHide()
 	if revealTimer then
 		revealTimer:Cancel()
 		revealTimer = nil
-		ns.Blackjack_CheckFeats() -- the cut-off reveal would have checked them
+		ns.Casino_CheckFeats() -- the cut-off reveal would have checked them
 	end
 	shown.round = nil -- shown again later: draw the table as it is, without replaying the deal
 end
@@ -472,7 +472,7 @@ local function Settled(round, celebrate)
 	if net ~= 0 then
 		ChipFloat(SignedChips(net), OutcomeRole(round))
 	end
-	ns.Blackjack_CheckFeats()
+	ns.Casino_CheckFeats()
 end
 
 -- animate: new cards slide in and the dealer plays out at a pace; otherwise everything shows as it is.

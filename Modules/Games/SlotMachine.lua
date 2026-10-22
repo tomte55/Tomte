@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Slots: the machine, a face of the casino window (Window.lua). Three reels of WoW icons behind a glass, five paylines
 -- drawn when they win, the pay table in chips for the bet beside them, the message line, and under it the bet chips
 -- and Spin. A spin is settled at once (SlotsRules.lua); the reels only play it out: each rolls on a decelerating tween
--- (Effects.lua) and stops left to right, and the win shows when the last one lands. Registered in Blackjack.lua.
+-- (Effects.lua) and stops left to right, and the win shows when the last one lands. Registered in Casino.lua.
 
 local WIDTH = ns.GAMES_WINDOW_W
 local REEL_W, REEL_GAP = 96, 8
@@ -408,7 +408,7 @@ function face.OnHide()
 	if revealTimer then
 		revealTimer:Cancel()
 		revealTimer = nil
-		ns.Blackjack_CheckFeats() -- the cut-off reveal would have checked them
+		ns.Casino_CheckFeats() -- the cut-off reveal would have checked them
 	end
 	shown.last = nil
 end
@@ -447,7 +447,7 @@ local function Celebrate(last)
 				(stacked[glow] - 1) * 18)
 		end
 	end
-	ns.Blackjack_CheckFeats()
+	ns.Casino_CheckFeats()
 end
 
 -- animate: a spin just happened (the reels roll it out). landed: the reels were stopped early, so the result shows

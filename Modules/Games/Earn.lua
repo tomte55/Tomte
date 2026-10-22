@@ -1,16 +1,16 @@
 local addonName, ns = ...
 
--- Blackjack: chips earned by playing the game, read from the game here and paid by the rules in ChipRules.lua.
--- Flight paths (start and landing come from Blackjack.lua's taxi checks), quests turned in, the week's first Great
--- Vault claim and gold picked up from loot. Blackjack.lua owns the event frame and passes events on through
--- ns.BlackjackEarn_OnEvent while the module is on.
+-- Casino: chips earned by playing the game, read from the game here and paid by the rules in ChipRules.lua.
+-- Flight paths (start and landing come from Casino.lua's taxi checks), quests turned in, the week's first Great
+-- Vault claim and gold picked up from loot. Casino.lua owns the event frame and passes events on through
+-- ns.CasinoEarn_OnEvent while the module is on.
 
 local db
-local onPaid -- onPaid(source, amount): Blackjack.lua shows it and checks feats
+local onPaid -- onPaid(source, amount): Casino.lua shows it and checks feats
 local frequency = {} -- [questID] = "daily" / "weekly", noted when the quest frame offers the turn-in
 local looting, moneyBefore = false, nil
 
-ns.BLACKJACK_EARN_EVENTS = { "QUEST_COMPLETE", "QUEST_TURNED_IN", "LOOT_READY", "LOOT_CLOSED", "PLAYER_MONEY" }
+ns.CASINO_EARN_EVENTS = { "QUEST_COMPLETE", "QUEST_TURNED_IN", "LOOT_READY", "LOOT_CLOSED", "PLAYER_MONEY" }
 
 local function Day()
 	return ns.Chips_ResetKey(GetServerTime(), C_DateAndTime.GetSecondsUntilDailyReset())
@@ -28,19 +28,19 @@ local function Pay(source, amount)
 end
 
 local function On(source)
-	return db ~= nil and ns.Blackjack_Active() and db.earn[source]
+	return db ~= nil and ns.Casino_Active() and db.earn[source]
 end
 
 -- Flight paths ----------------------------------------------------------------------------------------------------
 
 -- On a taxi: the start time is saved, so a /reload in the air still pays the whole flight.
-function ns.BlackjackEarn_FlightStart()
+function ns.CasinoEarn_FlightStart()
 	if not db.earned.flightStart then
 		db.earned.flightStart = GetServerTime()
 	end
 end
 
-function ns.BlackjackEarn_FlightEnd()
+function ns.CasinoEarn_FlightEnd()
 	local start = db.earned.flightStart
 	db.earned.flightStart = nil
 	if start and On("flight") then
@@ -94,7 +94,7 @@ function handlers.PLAYER_MONEY()
 	end
 end
 
-function ns.BlackjackEarn_OnEvent(event, ...)
+function ns.CasinoEarn_OnEvent(event, ...)
 	local handler = handlers[event]
 	if handler then
 		handler(...)
@@ -113,16 +113,16 @@ end)
 
 -- API ---------------------------------------------------------------------------------------------------------
 
-function ns.BlackjackEarn_Init(saved, paid)
+function ns.CasinoEarn_Init(saved, paid)
 	db, onPaid = saved, paid
 end
 
-function ns.BlackjackEarn_Stop()
+function ns.CasinoEarn_Stop()
 	looting, moneyBefore = false, nil
 	wipe(frequency)
 end
 
 -- The day key and seconds to the daily reset, for the house refill.
-function ns.BlackjackEarn_Day()
+function ns.CasinoEarn_Day()
 	return Day(), C_DateAndTime.GetSecondsUntilDailyReset()
 end

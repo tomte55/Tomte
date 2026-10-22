@@ -1,8 +1,8 @@
 local addonName, ns = ...
 
--- Blackjack: pure logic (no WoW API calls; unit-tested in tests/test_chiprules.lua). Chips earned by playing the game
+-- Casino: pure logic (no WoW API calls; unit-tested in tests/test_chiprules.lua). Chips earned by playing the game
 -- (flight paths, quests, the Great Vault, looted gold), the house's once-a-day refill and the rank from the most chips
--- ever held. The day's tally is TomteDB.blackjack.earned; days and weeks are keyed by the time of their next reset.
+-- ever held. The day's tally is TomteDB.casino.earned; days and weeks are keyed by the time of their next reset.
 -- Read from the game in Earn.lua, drawn in Table.lua.
 
 local PER_FLIGHT_MINUTE = 10
@@ -27,7 +27,7 @@ function ns.Chips_ResetKey(now, secondsLeft)
 	return math.floor((now + secondsLeft) / RESET_ROUND + 0.5) * RESET_ROUND
 end
 
--- The tally (TomteDB.blackjack.earned), started over when the day moved on.
+-- The tally (TomteDB.casino.earned), started over when the day moved on.
 local function Tally(earned, day)
 	if earned.day ~= day or type(earned.today) ~= "table" then
 		earned.day = day

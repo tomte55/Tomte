@@ -1,10 +1,10 @@
 local addonName, ns = ...
 
 -- Blackjack: pure logic (no WoW API calls; unit-tested in tests/test_blackjackrules.lua). The game is one plain
--- table (saved as TomteDB.blackjack.game): chips, the bet on the table, the shoe, the round in play and the stats.
+-- table (saved as TomteDB.casino.game): chips, the bet on the table, the shoe, the round in play and the stats.
 -- Rules: 6 decks, dealer stands on soft 17 and peeks with an ace or ten showing, blackjack pays 3:2, double on any
 -- first two cards (also after a split), one split, split aces get one card each. Cards come from CardData.lua.
--- Drawn in Table.lua, registered in Blackjack.lua.
+-- Drawn in Table.lua, registered in Casino.lua.
 
 local START_CHIPS = 1000
 local MIN_BET = 10
@@ -102,7 +102,7 @@ function ns.Blackjack_InPlay(game)
 	return game.round ~= nil and game.round.phase == "player"
 end
 
-function ns.Blackjack_ActiveHand(game)
+function ns.Casino_ActiveHand(game)
 	local round = game.round
 	return round and round.phase == "player" and round.hands[round.active] or nil
 end
@@ -288,7 +288,7 @@ end
 
 -- What the active hand may do: { hit, stand, double, split } as booleans (all false between rounds).
 function ns.Blackjack_Actions(game)
-	local hand = ns.Blackjack_ActiveHand(game)
+	local hand = ns.Casino_ActiveHand(game)
 	if not hand then
 		return { hit = false, stand = false, double = false, split = false }
 	end
@@ -303,7 +303,7 @@ function ns.Blackjack_Actions(game)
 end
 
 function ns.Blackjack_Hit(game, random)
-	local hand = ns.Blackjack_ActiveHand(game)
+	local hand = ns.Casino_ActiveHand(game)
 	if not hand then
 		return false
 	end
@@ -315,7 +315,7 @@ function ns.Blackjack_Hit(game, random)
 end
 
 function ns.Blackjack_Stand(game, random)
-	local hand = ns.Blackjack_ActiveHand(game)
+	local hand = ns.Casino_ActiveHand(game)
 	if not hand then
 		return false
 	end
@@ -329,7 +329,7 @@ function ns.Blackjack_Double(game, random)
 	if not ns.Blackjack_Actions(game).double then
 		return false
 	end
-	local hand = ns.Blackjack_ActiveHand(game)
+	local hand = ns.Casino_ActiveHand(game)
 	game.chips = game.chips - hand.bet
 	hand.bet = hand.bet * 2
 	hand.doubled = true
