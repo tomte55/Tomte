@@ -265,7 +265,7 @@ local function Tick()
 			if paused then
 				ns.Cinematic.Watch(flight)
 			end
-			-- An open blackjack table (Modules/Games) ends the cinematic for this flight: it would fade the table out.
+			-- An open casino window (Modules/Games) ends the cinematic for this flight: it would fade the window out.
 			local wanted = db.cinematic and not flight.cinematicDone and not paused
 				and ns.CinematicWanted(flight.expected, elapsed, db.cinematicMin)
 				and not (ns.Blackjack_IsOpen and ns.Blackjack_IsOpen())

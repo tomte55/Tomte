@@ -1,14 +1,15 @@
 local addonName, ns = ...
 
--- Games: the casino window (a movable UI.Dialog; Esc closes it). The title bar holds the chip count (stats on hover),
--- the rank, the Cashier (Cashier.lua, shown in place of the game) and close; under it one game's face. Faces register
--- with ns.GamesWindow_AddFace (Table.lua is blackjack). Chips, refill and rank rules in ChipRules.lua; registered in
--- Blackjack.lua. Plain frames: nothing here is protected.
+-- Games: the casino window (a movable UI.Dialog; Esc closes it). The title bar holds one tab per game, the rank, the
+-- chip count (stats on hover), the Cashier (Cashier.lua, shown in place of the game) and close; under it the game's
+-- face. Faces register with ns.GamesWindow_AddFace: Table.lua (blackjack), PokerMachine.lua, SlotMachine.lua. Chips,
+-- refill and rank rules in ChipRules.lua; registered in Blackjack.lua. Plain frames: nothing here is protected.
 
 local WIDTH, HEIGHT = 560, 506
 local CHIP_ROLL = 0.8 -- seconds for the chip count to roll to a new value
 local CHIP_FLOAT_DRIFT = -22 -- pixels the +/- under the chip count drifts (down, away from the count)
 local TOP_LEVELS = 80 -- frame levels above the window for the chip count's floats (over any face's cards)
+local TAB_SIZE, TAB_GAP = 14, 16 -- the game tabs' font size, and pixels between them
 
 ns.GAMES_WINDOW_W, ns.GAMES_WINDOW_H = WIDTH, HEIGHT
 
@@ -16,7 +17,8 @@ local UI = ns.UI
 
 local db, frame
 -- Faces in tab order. Each: key, name, Create(window) -> its frame (covering the window), Draw(animate), and as
--- needed Busy() (a result still held back from the chip count), OnHide(), ApplyLook(felt), Stats(line, double).
+-- needed Busy() (a result still held back from the chip count), OnHide() (closed or switched away), ApplyLook(felt),
+-- Stats(line, double) and StatsFooter(line, double) (its lines in the chip count's tooltip).
 local faces = {}
 local active -- the face shown
 local shownChips -- the number on the chip count (it rolls to new values)
@@ -95,15 +97,16 @@ end
 local Line = UI.TipLine
 
 local function Double(left, right)
-	GameTooltip:AddDoubleLine(left, right, UI.Color("textMuted"))
+	local r, g, b = UI.RGB("textMuted")
+	GameTooltip:AddDoubleLine(left, right, r, g, b)
 end
 
 local function StatsTooltip(owner)
 	local s = Game().stats
 	GameTooltip:SetOwner(owner, "ANCHOR_BOTTOMLEFT")
-	GameTooltip:SetText("Blackjack", UI.Color("heading"))
-	Line("Play chips only, kept between sessions. Earn more by playing the game: flight paths, quests, the Great "
-		.. "Vault and gold you loot.", "textMuted", true)
+	GameTooltip:SetText("Casino", UI.Color("heading"))
+	Line("Play chips only, kept between sessions and shared by all three games. Earn more by playing the game: "
+		.. "flight paths, quests, the Great Vault and gold you loot.", "textMuted", true)
 	local today = ns.Chips_Today(db.earned, (ns.BlackjackEarn_Day()))
 	if #today > 0 then
 		Line(" ")
@@ -114,12 +117,14 @@ local function StatsTooltip(owner)
 	end
 	Line(" ")
 	Double("Chips earned", ns.Thousands(s.earned))
-	if active and active.Stats then
-		active.Stats(Line, Double)
-	end
 	Double("Most chips held", ns.Thousands(s.peak))
 	if s.refills > 0 then
 		Double("House refills", ns.Thousands(s.refills))
+	end
+	if active and active.Stats then
+		Line(" ")
+		Line(active.name, "heading")
+		active.Stats(Line, Double)
 	end
 	if active and active.StatsFooter then
 		Line(" ")
@@ -172,19 +177,22 @@ local function ApplyPlace()
 	frame:SetPoint(db.frame.point, UIParent, db.frame.relPoint, db.frame.x, db.frame.y)
 end
 
--- The look in use (the Cashier's choice): the felt on every face, and every card's back.
+local function Felt()
+	return ns.Cashier_Using(db.look, "felt", db.owned, Game())
+end
+
+-- The look in use (the Cashier's choice): the felt on every face built so far, and every card's back.
 local function ApplyLook()
 	if not frame then
 		return
 	end
-	local stats = Game().stats
-	local felt = ns.Cashier_Using(db.look, "felt", db.owned, stats)
+	local felt = Felt()
 	for _, face in ipairs(faces) do
 		if face.root and face.ApplyLook then
 			face.ApplyLook(felt)
 		end
 	end
-	ns.GamesCard_SetBack(ns.Cashier_Using(db.look, "back", db.owned, stats))
+	ns.GamesCard_SetBack(ns.Cashier_Using(db.look, "back", db.owned, Game()))
 end
 
 local function ShowCashier(show)
@@ -199,6 +207,90 @@ local function ShowCashier(show)
 	end
 end
 
+-- Game tabs -----------------------------------------------------------------------------------------------------
+
+local function FaceFor(key)
+	for _, face in ipairs(faces) do
+		if face.key == key then
+			return face
+		end
+	end
+	return faces[1]
+end
+
+local function PaintTabs()
+	for _, tab in ipairs(frame.tabs) do
+		local on = tab.face == active
+		UI.SetTextRole(tab.text, on and "heading" or (tab:IsMouseOver() and "text" or "textMuted"))
+		tab.line:SetShown(on)
+	end
+end
+
+-- Builds a face the first time it's needed.
+local function Build(face)
+	if face.root then
+		return
+	end
+	face.root = face.Create(frame)
+	face.root:Hide()
+	if face.ApplyLook then
+		face.ApplyLook(Felt())
+	end
+end
+
+-- Shows the face for key (the Cashier closes); the window remembers it for next time.
+local function Switch(key)
+	local face = FaceFor(key)
+	if frame.cashier:IsShown() then
+		ShowCashier(false)
+	end
+	if face == active and face.root:IsShown() then
+		return
+	end
+	if active and active.root and active ~= face then
+		if active.OnHide then
+			active.OnHide()
+		end
+		active.root:Hide()
+	end
+	Build(face)
+	active = face
+	db.lastGame = face.key
+	face.root:Show()
+	PaintTabs()
+	if frame:IsShown() then
+		face.Draw(false)
+	end
+end
+
+local function NewTab(face, prev)
+	local tab = CreateFrame("Button", nil, frame)
+	tab.face = face
+	tab.text = UI.Text(tab, TAB_SIZE, "textMuted", "title")
+	tab.text:SetPoint("LEFT")
+	tab.text:SetText(face.name)
+	tab:SetSize(tab.text:GetStringWidth() + 2, 22)
+	if prev then
+		tab:SetPoint("LEFT", prev, "RIGHT", TAB_GAP, 0)
+	else
+		tab:SetPoint("TOPLEFT", 16, -12)
+	end
+	tab.line = tab:CreateTexture(nil, "ARTWORK")
+	tab.line:SetHeight(2)
+	tab.line:SetPoint("BOTTOMLEFT", 0, -2)
+	tab.line:SetPoint("BOTTOMRIGHT", 0, -2)
+	tab.line:SetColorTexture(UI.Color("accent"))
+	tab:SetScript("OnClick", function()
+		if active ~= face or frame.cashier:IsShown() then
+			Sound("tab")
+		end
+		Switch(face.key)
+	end)
+	tab:SetScript("OnEnter", PaintTabs)
+	tab:SetScript("OnLeave", PaintTabs)
+	return tab
+end
+
 local function Create()
 	frame = UI.Dialog("TomteBlackjack", WIDTH, HEIGHT)
 	frame:SetScript("OnDragStop", function(self)
@@ -207,11 +299,12 @@ local function Create()
 	end)
 	ApplyPlace()
 
-	local title = UI.Text(frame, 16, "heading", "title")
-	title:SetPoint("TOPLEFT", 16, -14)
-	title:SetText("Blackjack")
-	frame.rank = UI.Text(frame, 11, "textMuted", "label")
-	frame.rank:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 10, 1)
+	frame.tabs = {}
+	local prev
+	for _, face in ipairs(faces) do
+		prev = NewTab(face, prev)
+		frame.tabs[#frame.tabs + 1] = prev
+	end
 
 	local close = UI.Button(frame, 20, "x")
 	close:SetPoint("TOPRIGHT", -10, -10)
@@ -235,11 +328,9 @@ local function Create()
 	frame.chips = UI.Text(chips, 15, "accent", "number")
 	frame.chips:SetPoint("RIGHT")
 	frame.chips:SetJustifyH("RIGHT")
-
-	for _, face in ipairs(faces) do
-		face.root = face.Create(frame)
-	end
-	active = faces[1]
+	frame.rank = UI.Text(frame, 11, "textMuted", "label")
+	frame.rank:SetPoint("RIGHT", frame.chips, "LEFT", -8, 0) -- follows the count's width as it grows
+	frame.rank:SetJustifyH("RIGHT")
 
 	frame.cashier = ns.BlackjackCashier_Create(frame, db, ApplyLook)
 
@@ -248,6 +339,7 @@ local function Create()
 	frame.top:SetAllPoints()
 	frame.top:SetFrameLevel(frame:GetFrameLevel() + TOP_LEVELS)
 	ApplyLook()
+	Switch(db.lastGame)
 
 	frame:HookScript("OnHide", function(self)
 		if not self:IsShown() then -- closed, not just hidden with UIParent (Alt+Z, a cinematic)
@@ -263,7 +355,7 @@ end
 
 -- API -----------------------------------------------------------------------------------------------------------
 
--- face: see `faces` above. Called at file load by each game's face file.
+-- face: see `faces` above. Called at file load by each game's face file, in tab order.
 function ns.GamesWindow_AddFace(face)
 	faces[#faces + 1] = face
 end
@@ -272,7 +364,7 @@ function ns.GamesWindow_Init(saved)
 	db = saved
 end
 
--- The face is on screen (the window shown, the face not swapped out for the Cashier).
+-- The face is on screen (the window shown, the face not swapped out for the Cashier or another game).
 function ns.GamesWindow_Showing(face)
 	return frame ~= nil and frame:IsShown() and face == active and face.root ~= nil and face.root:IsShown()
 end
@@ -282,7 +374,8 @@ function ns.GamesWindow_UpdateRank()
 	frame.rank:SetText((ns.Chips_Rank(Game().stats.peak)))
 end
 
-function ns.GamesWindow_Show()
+-- key: the game to show ("blackjack", "poker", "slots"); nil shows the last one played.
+function ns.GamesWindow_Show(key)
 	if not frame then
 		Create()
 	end
@@ -291,7 +384,11 @@ function ns.GamesWindow_Show()
 		Sound("open")
 	end
 	frame:Show()
-	active.Draw(false)
+	if key and key ~= active.key then
+		Switch(key)
+	else
+		active.Draw(false)
+	end
 end
 
 function ns.GamesWindow_Hide()
@@ -312,7 +409,11 @@ function ns.GamesWindow_Toggle()
 	end
 end
 
+-- The saved game changed under the faces (Start over): the active one drops any reveal in progress and draws anew.
 function ns.GamesWindow_Refresh()
+	if active and active.root and active.OnHide then
+		active.OnHide()
+	end
 	Redraw()
 	ns.BlackjackCashier_Refresh()
 end

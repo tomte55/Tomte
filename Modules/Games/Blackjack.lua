@@ -1,10 +1,11 @@
 local addonName, ns = ...
 
--- Blackjack: a blackjack table for play chips, opened by command, key binding or (settings) on its own when you take
--- a flight path or queue for a group. Hides in combat and comes back after. Chips are earned by playing the game
--- (Earn.lua, paid by ChipRules.lua) and spent at the Cashier (Cashier.lua, CashierData.lua). While the table is open
--- the Flight module skips its cinematic (Modules/Flight/Flight.lua asks ns.Blackjack_IsOpen). Rules in
--- BlackjackRules.lua, the window in Table.lua.
+-- Casino (module key "blackjack", its first game): blackjack, video poker and slots for play chips in one window,
+-- opened by command, key binding or (settings) on its own when you take a flight path or queue for a group. Hides in
+-- combat and comes back after. Chips are earned by playing the game (Earn.lua, paid by ChipRules.lua) and spent at
+-- the Cashier (Cashier.lua, CashierData.lua). While the window is open the Flight module skips its cinematic
+-- (Modules/Flight/Flight.lua asks ns.Blackjack_IsOpen). Rules in BlackjackRules.lua, PokerRules.lua and
+-- SlotsRules.lua; the window in Window.lua, its games in Table.lua, PokerMachine.lua and SlotMachine.lua.
 
 local TAXI_CHECK = 1 -- seconds between UnitOnTaxi checks after losing control (it can lag the event)
 local TAKEOFF_CHECKS = 5 -- that many checks before losing control is taken as not a flight
@@ -27,9 +28,10 @@ local afterCombat = false -- combat hid the table: show it again when combat end
 local flightTicker -- runs while you're on a flight path
 local offTaxi = 0 -- checks in a row the flight ticker found you off the taxi
 
-local function Show()
+-- game: "blackjack", "poker" or "slots"; nil opens the last one played.
+local function Show(game)
 	if ns.Module_RequireOn(module) then
-		ns.GamesWindow_Show()
+		ns.GamesWindow_Show(game)
 	end
 end
 
@@ -51,13 +53,13 @@ function ns.Blackjack_CheckFeats()
 	if not module.active then
 		return
 	end
-	for _, item in ipairs(ns.Cashier_NewFeats(db.game.stats, db.feats)) do
+	for _, item in ipairs(ns.Cashier_NewFeats(db.game, db.feats)) do
 		ns.Toast_Show({
-			owner = MODULE_KEY, label = "Blackjack", accent = "accent", icon = ICON, mergeKey = "blackjack:" .. item.key,
+			owner = MODULE_KEY, label = "Casino", accent = "accent", icon = ICON, mergeKey = "blackjack:" .. item.key,
 			title = item.name .. " card back",
-			text = ("Unlocked for %s. Pick it at the table's Cashier."):format(item.feat.text),
+			text = ("Unlocked for %s. Pick it at the Cashier."):format(item.feat.text),
 		})
-		ns.Session_Note("blackjack", { title = "Blackjack: the " .. item.name .. " card back", icon = ICON,
+		ns.Session_Note("blackjack", { title = "Casino: the " .. item.name .. " card back", icon = ICON,
 			detail = "unlocked for " .. item.feat.text })
 	end
 	ns.BlackjackCashier_Refresh()
@@ -240,11 +242,17 @@ end
 
 local function Stats()
 	local game, s = db.game, db.game.stats
-	ns.Print(("blackjack: %s chips (%s). %s hands: %s won, %s lost, %s pushed, %s blackjacks. Biggest win %s, best "
-		.. "streak %s, most chips %s, chips earned %s, house refills %s."):format(ns.Thousands(game.chips),
-		ns.Chips_Rank(s.peak), ns.Thousands(s.hands), ns.Thousands(s.wins), ns.Thousands(s.losses),
-		ns.Thousands(s.pushes), ns.Thousands(s.blackjacks), ns.Thousands(s.biggestWin), ns.Thousands(s.bestStreak),
-		ns.Thousands(s.peak), ns.Thousands(s.earned), ns.Thousands(s.refills)))
+	local T = ns.Thousands
+	ns.Print(("casino: %s chips (%s). Most chips %s, chips earned %s, house refills %s."):format(T(game.chips),
+		ns.Chips_Rank(s.peak), T(s.peak), T(s.earned), T(s.refills)))
+	ns.Print(("blackjack: %s hands: %s won, %s lost, %s pushed, %s blackjacks. Biggest win %s, best streak %s.")
+		:format(T(s.hands), T(s.wins), T(s.losses), T(s.pushes), T(s.blackjacks), T(s.biggestWin), T(s.bestStreak)))
+	local p = game.poker.stats
+	ns.Print(("video poker: %s hands, %s won, biggest win %s. Royal flushes %s, straight flushes %s, fours of a kind "
+		.. "%s."):format(T(p.hands), T(p.wins), T(p.biggestWin), T(p.royal), T(p.straightFlush), T(p.quads)))
+	local sl = game.slots.stats
+	ns.Print(("slots: %s spins, %s won, biggest win %s, jackpots %s."):format(T(sl.spins), T(sl.wins),
+		T(sl.biggestWin), T(sl.jackpots)))
 end
 
 local function StackPair()
@@ -258,24 +266,31 @@ local function StackPair()
 end
 
 -- Cashier purchases are kept: they were bought, they aren't stats.
+local function NewGame()
+	local game = ns.Blackjack_NewGame()
+	ns.Poker_Repair(game)
+	ns.Slots_Repair(game)
+	return game
+end
+
 local function StartOver()
-	db.game = ns.Blackjack_NewGame()
+	db.game = NewGame()
 	ns.GamesWindow_ApplyLook()
 	ns.GamesWindow_Refresh()
-	ns.Print(("blackjack: a fresh %s chips, stats cleared."):format(ns.Thousands(ns.BLACKJACK_START_CHIPS)))
+	ns.Print(("casino: a fresh %s chips, stats cleared."):format(ns.Thousands(ns.BLACKJACK_START_CHIPS)))
 end
 
 local function Today()
 	local today = ns.Chips_Today(db.earned, (ns.BlackjackEarn_Day()))
 	if #today == 0 then
-		ns.Print("blackjack: no chips earned today yet.")
+		ns.Print("casino: no chips earned today yet.")
 		return
 	end
 	local parts = {}
 	for _, row in ipairs(today) do
 		parts[#parts + 1] = row[1] .. " " .. ns.Thousands(row[2])
 	end
-	ns.Print("blackjack, earned today: " .. table.concat(parts, ", ") .. ".")
+	ns.Print("casino, earned today: " .. table.concat(parts, ", ") .. ".")
 end
 
 -- Key bindings (Bindings.xml, Key Bindings > Tomte), through ns.Binding_Add.
@@ -283,19 +298,20 @@ ns.Binding_Add("BLACKJACK", MODULE_KEY, function()
 	forFlight, forQueue = false, false
 	ns.GamesWindow_Toggle()
 end)
-BINDING_NAME_TOMTE_BLACKJACK = "Blackjack table"
+BINDING_NAME_TOMTE_BLACKJACK = "Casino"
 
 module = ns.RegisterModule({
 	key = MODULE_KEY,
-	name = "Blackjack",
+	name = "Casino",
 	category = "ambience",
 	icon = ICON,
-	summary = "A blackjack table for play chips you earn out in the world.",
-	description = "You against the dealer at a classic casino table, for play chips only. Six decks, the dealer "
-		.. "stands on all 17s, blackjack pays 3:2, double and split. Earn chips on flight paths, from quests, the "
-		.. "Great Vault and gold you loot; spend them on card backs and felts at the Cashier. Run dry and the house "
-		.. "tops you up once a day. Open it with /tomte blackjack or a key binding, or have it open on its own on "
-		.. "flight paths or while you wait in a queue.",
+	summary = "Blackjack, video poker and slots for play chips you earn out in the world.",
+	description = "Three games in one window, for play chips only. Blackjack: you against the dealer, six decks, the "
+		.. "dealer stands on all 17s, blackjack pays 3:2, double and split. Video poker: Jacks or Better on the "
+		.. "full-pay table. Slots: three reels, five lines, a Hearthstone jackpot. Earn chips on flight paths, from "
+		.. "quests, the Great Vault and gold you loot; spend them on card backs and felts at the Cashier. Run dry and "
+		.. "the house tops you up once a day. Open it with /tomte blackjack or a key binding, or have it open on its "
+		.. "own on flight paths or while you wait in a queue.",
 	enabledByDefault = true,
 	toasts = true,
 	defaults = {
@@ -304,7 +320,10 @@ module = ns.RegisterModule({
 		queue = false,
 		sounds = true,
 		frame = { point = "CENTER", relPoint = "CENTER", x = 0, y = 60 }, -- ns.GamesWindow_ResetPlace repeats it
-		game = ns.Blackjack_NewGame(), -- chips, bet, shoe, round in play, stats (BlackjackRules.lua)
+		lastGame = "blackjack", -- the game the window opens on: "blackjack", "poker" or "slots"
+		-- Chips, bet, shoe, round in play and stats (BlackjackRules.lua); game.poker and game.slots hold the other
+		-- games (PokerRules.lua, SlotsRules.lua), filled in by their Repair.
+		game = NewGame(),
 		earn = { flight = true, quest = true, vault = true, loot = true }, -- which ways of earning chips are on
 		-- Today's tally (ChipRules.lua): day, today = { [source] = chips }, lootCopper, vaultWeek, refillDay (reset
 		-- times as keys), flightStart (server time, while on a taxi).
@@ -317,9 +336,13 @@ module = ns.RegisterModule({
 	init = function(saved)
 		db = saved
 		ns.Blackjack_Repair(db.game)
+		ns.Poker_Repair(db.game)
+		ns.Slots_Repair(db.game)
 		ns.BlackjackEarn_Init(db, Paid)
 		ns.GamesWindow_Init(db)
 		ns.BlackjackTable_Init(db)
+		ns.PokerMachine_Init(db)
+		ns.SlotMachine_Init(db)
 	end,
 	toggle = function(active)
 		if active then
@@ -329,30 +352,44 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "", "open or close the table", Toggle, hidden = true },
-		{ "open", "open the blackjack table", Show },
-		{ "stats", "your chips and stats, in chat", Stats },
+		{ "", "open or close the casino", Toggle, hidden = true },
+		{ "open", "open the casino on the last game played", function()
+			Show()
+		end },
+		{ "table", "open the blackjack table", function()
+			Show("blackjack")
+		end },
+		{ "poker", "open video poker", function()
+			Show("poker")
+		end },
+		{ "slots", "open the slots", function()
+			Show("slots")
+		end },
+		{ "stats", "your chips and stats for all three games, in chat", Stats },
 		{ "today", "chips earned today, in chat", Today },
 		{ "split", "make your next hand a pair (to try a split)", StackPair },
-		{ "reset", "put the table back in the middle of the screen", ns.GamesWindow_ResetPlace, whileOff = true },
+		{ "reset", "put the window back in the middle of the screen", ns.GamesWindow_ResetPlace, whileOff = true },
 	},
 	options = {
-		{ type = "header", label = "Table" },
-		{ type = "button", label = "Blackjack table", text = "Open", onClick = Show,
-			tooltip = "Key Bindings > Tomte > Blackjack table opens and closes it with a key." },
+		{ type = "header", label = "Casino" },
+		{ type = "button", label = "Casino", text = "Open", onClick = function()
+			Show()
+		end, tooltip = "Opens on the last game you played. Key Bindings > Tomte > Casino opens and closes it with a "
+			.. "key." },
 		{ type = "checkbox", key = "sounds", label = "Sounds",
-			tooltip = "Cards, chips and a sound for each win or loss, on the game's sound effects volume." },
-		{ type = "button", label = "Table position", text = "Reset", onClick = ns.GamesWindow_ResetPlace },
+			tooltip = "Cards, chips, reels and a sound for each win, on the game's sound effects volume." },
+		{ type = "button", label = "Window position", text = "Reset", onClick = ns.GamesWindow_ResetPlace },
 		{ type = "button", label = "Chips and stats", text = "Start over", onClick = StartOver,
-			confirm = "Start over with a fresh 1,000 chips and clear your blackjack stats? Card backs and felts you "
-				.. "bought stay yours." },
+			confirm = "Start over with a fresh 1,000 chips and clear your stats in all three games? Card backs and "
+				.. "felts you bought stay yours." },
 		{ type = "header", label = "Opens on its own" },
 		{ type = "checkbox", key = "taxi", label = "On flight paths",
-			tooltip = "The table opens when you take a flight path. While it's open, Flight Timer's cinematic doesn't play." },
+			tooltip = "The casino opens when you take a flight path. While it's open, Flight Timer's cinematic doesn't "
+				.. "play." },
 		{ type = "checkbox", key = "closeOnLand", label = "Close when you land", parent = "taxi",
 			tooltip = "Only when it opened for that flight." },
 		{ type = "checkbox", key = "queue", label = "While you wait in a queue",
-			tooltip = "The table opens when you queue for a dungeon, raid or battleground (not from inside an "
+			tooltip = "The casino opens when you queue for a dungeon, raid or battleground (not from inside an "
 				.. "instance), and closes when the queue pops so the accept button is free." },
 		{ type = "header", label = "Earning chips" },
 		{ type = "checkbox", key = "earn.flight", label = "Flight paths",

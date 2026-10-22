@@ -282,6 +282,7 @@ function face.OnHide()
 	if revealTimer then
 		revealTimer:Cancel()
 		revealTimer = nil
+		ns.Blackjack_CheckFeats() -- the cut-off reveal would have checked them
 	end
 	shown.round = nil -- shown again later: draw the table as it is, without replaying the deal
 end

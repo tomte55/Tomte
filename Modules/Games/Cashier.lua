@@ -5,10 +5,10 @@ local addonName, ns = ...
 -- ChipRules.lua; the window is Table.lua's.
 
 local TOP = 44 -- the Cashier's top, below the window's title bar
-local COLUMNS = 4
-local CELL_W, CELL_GAP = 122, 10
-local BACK_CELL_H, FELT_CELL_H = 126, 98
-local FELT_SWATCH_W, FELT_SWATCH_H = 104, 44
+local COLUMNS = 5
+local CELL_W, CELL_GAP = 100, 8
+local BACK_CELL_H, FELT_CELL_H = 126, 96
+local FELT_SWATCH_W, FELT_SWATCH_H = 92, 44
 -- The part of the felt and print textures a felt swatch shows: the middle of the table, where the print is.
 local SWATCH_LEFT, SWATCH_RIGHT = 0.3, 0.7
 local SWATCH_FELT_TOP, SWATCH_FELT_BOTTOM = 0.18, 0.36
@@ -43,9 +43,9 @@ local function Refresh()
 	local playing = ns.Blackjack_InPlay(game)
 	for _, cell in ipairs(panel.cells) do
 		local item, kind = cell.item, cell.kind
-		local has = ns.Cashier_Has(item, db.owned, stats)
-		local using = ns.Cashier_Using(db.look, kind, db.owned, stats) == item
-		cell.status:SetText(using and "In use" or ns.Cashier_Status(item, db.owned, stats, ns.Thousands))
+		local has = ns.Cashier_Has(item, db.owned, game)
+		local using = ns.Cashier_Using(db.look, kind, db.owned, game) == item
+		cell.status:SetText(using and "In use" or ns.Cashier_Status(item, db.owned, game, ns.Thousands))
 		UI.SetTextRole(cell.status, using and "success" or (has and "textMuted" or "textFaint"))
 		cell.button:SetShown(not using and (has or not item.feat))
 		if has then
@@ -72,7 +72,8 @@ local function Buy(cell)
 			local ok = ns.Cashier_Buy(Game(), db.owned, item)
 			if ok then
 				ns.GamesWindow_Sound("bigWin")
-				ns.Session_Note("blackjack", { title = ("Blackjack: the %s %s"):format(item.name, KIND_NAMES[cell.kind]),
+				ns.GamesWindow_SetChips(Game().chips, 0.3)
+				ns.Session_Note("blackjack", { title = ("Casino: the %s %s"):format(item.name, KIND_NAMES[cell.kind]),
 					icon = ns.BLACKJACK_ICON, detail = "bought for " .. ns.Thousands(item.cost) .. " chips" })
 				Use(cell)
 			else
@@ -119,11 +120,22 @@ local function Cell(parent, kind, item, x, y, height)
 	cell.status:SetWidth(CELL_W)
 	cell.status:SetJustifyH("CENTER")
 	cell.status:SetWordWrap(false)
+	if item.feat then
+		-- What unlocks it, with how far along you are.
+		cell:EnableMouse(true)
+		cell:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_TOP")
+			UI.TipLine(item.name, "heading")
+			UI.TipLine(ns.Cashier_FeatText(item, Game(), ns.Thousands), "text", true)
+			GameTooltip:Show()
+		end)
+		cell:SetScript("OnLeave", GameTooltip_Hide)
+	end
 	cell.button = UI.Button(cell, BUTTON_W, "Buy")
 	cell.button:SetHeight(BUTTON_H)
 	cell.button:SetPoint("BOTTOM")
 	cell.button:SetScript("OnClick", function()
-		if ns.Cashier_Has(item, db.owned, Game().stats) then
+		if ns.Cashier_Has(item, db.owned, Game()) then
 			Use(cell)
 		else
 			Buy(cell)

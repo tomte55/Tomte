@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Blackjack Cashier: pure logic (no WoW API calls; unit-tested in tests/test_cashierdata.lua). The card backs and
 -- felts you can buy with chips or unlock with a feat, what you own and which one is in use. Colors are theme roles:
 -- base fills the back (dimmed by `dim`), ink draws its pattern (Media/Games/<pattern>.tga) and rule; a felt's role
--- tints the felt (dimmed by `dim`, else Felt.lua's default). Drawn in Cashier.lua, Card.lua and Felt.lua.
+-- tints the felt (dimmed by `dim`, else Felt.lua's default). A feat counts a stat of the casino's stats (game.stats)
+-- or, with `game`, of that game's (game.poker.stats, game.slots.stats). Drawn in Cashier.lua, Card.lua and Felt.lua.
 
 ns.CASHIER_BACKS = {
 	{ key = "classic", name = "Classic", base = "accentDeep", ink = "accent", cost = 0 },
@@ -18,6 +19,10 @@ ns.CASHIER_BACKS = {
 		feat = { stat = "bestStreak", at = 10, text = "a 10-hand win streak" } },
 	{ key = "whale", name = "Whale", base = "info", dim = 0.25, ink = "accent", pattern = "BackWaves",
 		feat = { stat = "peak", at = 100000, text = "100,000 chips at once" } },
+	{ key = "quads", name = "Four of a kind", base = "danger", dim = 0.35, ink = "warning", pattern = "BackLattice",
+		feat = { game = "poker", stat = "quads", at = 3, text = "3 fours of a kind in video poker" } },
+	{ key = "jackpot", name = "Jackpot", base = "success", dim = 0.3, ink = "warning", pattern = "BackStars",
+		feat = { game = "slots", stat = "jackpots", at = 1, text = "a slots jackpot" } },
 }
 
 ns.CASHIER_FELTS = {
@@ -38,18 +43,25 @@ function ns.Cashier_Item(kind, key)
 	end
 end
 
-local function FeatMet(item, stats)
-	return item.feat ~= nil and (stats[item.feat.stat] or 0) >= item.feat.at
+-- How far along a feat is. game: the casino's saved game.
+local function FeatCount(item, game)
+	local from = item.feat.game and game[item.feat.game]
+	local stats = from and from.stats or game.stats
+	return stats and stats[item.feat.stat] or 0
 end
 
--- owned: [item key] = true (bought). stats: the game's stats (feats).
-function ns.Cashier_Has(item, owned, stats)
-	return item.cost == 0 or owned[item.key] == true or FeatMet(item, stats)
+local function FeatMet(item, game)
+	return item.feat ~= nil and FeatCount(item, game) >= item.feat.at
+end
+
+-- owned: [item key] = true (bought). game: the casino's saved game (for feats).
+function ns.Cashier_Has(item, owned, game)
+	return item.cost == 0 or owned[item.key] == true or FeatMet(item, game)
 end
 
 -- Buys item with chips. Returns true, or false and why: "owned", "feat" (not for sale), "playing" or "chips".
 function ns.Cashier_Buy(game, owned, item)
-	if ns.Cashier_Has(item, owned, game.stats) then
+	if ns.Cashier_Has(item, owned, game) then
 		return false, "owned"
 	end
 	if item.feat then
@@ -66,31 +78,39 @@ function ns.Cashier_Buy(game, owned, item)
 end
 
 -- The item in use for kind: the chosen one while you have it, else the free one.
-function ns.Cashier_Using(look, kind, owned, stats)
+function ns.Cashier_Using(look, kind, owned, game)
 	local item = ns.Cashier_Item(kind, look[kind])
-	if item and ns.Cashier_Has(item, owned, stats) then
+	if item and ns.Cashier_Has(item, owned, game) then
 		return item
 	end
 	return LISTS[kind][1]
 end
 
--- Under a swatch: "Owned", "2,500 chips" or "50 blackjacks (12 so far)". thousands: the number formatter.
-function ns.Cashier_Status(item, owned, stats, thousands)
-	if ns.Cashier_Has(item, owned, stats) then
+-- Under a swatch: "Owned", "2,500 chips" or a feat's progress, "12 / 50". thousands: the number formatter.
+function ns.Cashier_Status(item, owned, game, thousands)
+	if ns.Cashier_Has(item, owned, game) then
 		return "Owned"
 	end
 	if item.feat then
-		return ("%s (%s so far)"):format(item.feat.text, thousands(stats[item.feat.stat] or 0))
+		return ("%s / %s"):format(thousands(FeatCount(item, game)), thousands(item.feat.at))
 	end
 	return thousands(item.cost) .. " chips"
 end
 
+-- A feat item's hover line: "Unlocks with 50 blackjacks (12 so far)." Nil for items with a price.
+function ns.Cashier_FeatText(item, game, thousands)
+	if not item.feat then
+		return nil
+	end
+	return ("Unlocks with %s (%s so far)."):format(item.feat.text, thousands(FeatCount(item, game)))
+end
+
 -- Feat items unlocked since last asked: marks them in seen ([item key] = true) and returns them.
-function ns.Cashier_NewFeats(stats, seen)
+function ns.Cashier_NewFeats(game, seen)
 	local out = {}
 	for _, list in pairs(LISTS) do
 		for _, item in ipairs(list) do
-			if FeatMet(item, stats) and not seen[item.key] then
+			if FeatMet(item, game) and not seen[item.key] then
 				seen[item.key] = true
 				out[#out + 1] = item
 			end

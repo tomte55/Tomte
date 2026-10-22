@@ -14,12 +14,16 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### New
 
+- **Casino:** video poker joins blackjack. Jacks or Better on the full-pay table: pick a coin (10 to 500) and 1 to 5 coins, click the cards you want to keep, then draw once. Five coins make a royal flush pay 4,000 coins.
+- **Casino:** slots. Three reels of WoW icons, five lines always on, a Hearthstone jackpot and the pay table in chips beside the reels. Click Spin again to stop the reels early.
+- **Casino:** two new card backs to unlock: Four of a kind (three fours of a kind in video poker) and Jackpot (a slots jackpot). Hover a locked back at the Cashier to see how far along you are.
 - **Blackjack:** earn chips by playing the game: 10 a minute on flight paths, 25 for a quest (50 for a daily, 250 for a weekly), 1,000 for the week's Great Vault and a chip per gold you loot (up to 500 a day). Each can be turned off. Hover your chips to see what you earned today, or use `/tomte blackjack today`.
 - **Blackjack:** the Cashier, in the table's title bar, sells card backs and felts for chips; three backs unlock with feats instead (50 blackjacks, a 10-hand win streak, 100,000 chips at once). Your rank (Regular, High roller, Whale) follows the most chips you've held.
 - **Blackjack:** a new setting opens the table while you wait in a dungeon, raid or battleground queue. When a queue pops the table always closes, so it never covers the accept button.
 
 ### Improved
 
+- **Casino:** Blackjack is now the Casino: one window with a tab for each game, sharing your chips, the Cashier and your rank. It opens on the last game you played; `/tomte blackjack poker` and `/tomte blackjack slots` open a game directly, and `/tomte blackjack stats` covers all three.
 - **Blackjack:** a classic casino table. A half-moon green felt with a padded rail, "Blackjack pays 3 to 2" and the dealer's rule printed on it, a shoe the cards slide out of, a betting circle with your bet as a stack of chips, and round chip buttons.
 - **Blackjack:** the play buttons are now colored icons with their names underneath, in the order Stand, Split, Double, Hit. Split and Double only show when you can use them.
 - **Blackjack:** the floating wins and losses under your chips, and the amount over your bet, now drift smoothly instead of sticking and then jumping.

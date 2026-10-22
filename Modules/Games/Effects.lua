@@ -1,8 +1,9 @@
 local addonName, ns = ...
 
--- Games: sounds and small effects shared by the games (Table.lua): text that pops in, floating numbers that rise and
--- fade, a shake, a glow that flashes and settles, a number that rolls to its new value. Animation
--- groups, plus one OnUpdate for eased numbers and text sizes that runs only while one is moving.
+-- Games: sounds and small effects shared by the games (Table.lua, PokerMachine.lua, SlotMachine.lua): text that pops
+-- in, floating numbers that rise and fade, a shake, a glow that flashes and settles, a number that rolls to its new
+-- value, and eased tweens (the slot reels). Animation groups, plus one OnUpdate for tweens that runs only while one is
+-- moving. A tween's step must not start another tween (the driver is walking the list): defer that with C_Timer.
 
 local FLOAT_RISE = 34 -- pixels a floating number rises
 local FLOAT_TIME = 1.3 -- seconds it takes
@@ -27,6 +28,12 @@ local SOUNDS = {
 	refill = "TRADING_POST_UI_COLLECTING_COINS",
 	open = "IG_SPELLBOOK_OPEN",
 	close = "IG_SPELLBOOK_CLOSE",
+	hold = "IG_MAINMENU_OPTION_CHECKBOX_ON",
+	release = "IG_MAINMENU_OPTION_CHECKBOX_OFF",
+	spin = "UI_80_AZERITEARMOR_ROTATIONSTARTCLICKS",
+	reelStop = "UI_PROFESSION_SPEC_PIP_LOCKIN",
+	jackpot = "TRADING_POST_UI_REWARD_TIER_COMPLETE",
+	tab = "IG_CHARACTER_INFO_TAB",
 }
 
 -- On the Effects channel, so the game's sound effects volume (and its mute) applies.
@@ -112,6 +119,16 @@ end)
 local function Tween(key, seconds, step)
 	tweens[key] = { start = GetTime(), seconds = seconds, step = step }
 	driver:Show()
+end
+ns.GamesFx_Tween = Tween
+
+-- Ends the tween on key now: finish runs its last step (e = 1), otherwise it just stops where it is.
+function ns.GamesFx_TweenStop(key, finish)
+	local tw = tweens[key]
+	tweens[key] = nil
+	if tw and finish then
+		tw.step(1)
+	end
 end
 
 -- Grows a font string's text from `from` times `size` down to `size` (in fontRole). Font size, not a scale
