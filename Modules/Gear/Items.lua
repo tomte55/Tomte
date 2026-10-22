@@ -56,7 +56,10 @@ local function ReadTooltip(desc, link)
 		local text, right = line.leftText, line.rightText
 		if text and not Secret(text) and text ~= "" then
 			local unique = ns.Gear_ParseUnique(text)
-			if unique then
+			local ilvl = not desc.tooltipIlvl and ns.Gear_ParseItemLevel(text)
+			if ilvl then
+				desc.tooltipIlvl = ilvl
+			elseif unique then
 				desc.unique = unique
 			elseif EFFECT_TYPES[line.type] then
 				desc.effect = desc.effect or Short(text)
@@ -134,6 +137,10 @@ function ns.GearItems_Describe(link)
 		waiting = true
 		return nil
 	end
+	-- The tooltip's level wins: for some old scaling items (Pierced Gloves at level 80, link modifier 28:2888)
+	-- GetDetailedItemLevelInfo says 362 where the tooltip and GetCurrentItemLevel say 71 (measured 12.1.5).
+	desc.ilvl = desc.tooltipIlvl or desc.ilvl
+	desc.tooltipIlvl = nil
 	-- No stats at all (not even armor) is usually a read before the item's bonus data arrived: use it, but read it
 	-- again next time instead of keeping it.
 	-- Some gear really has no stats (cosmetic armor): after UNREAD_GRACE it's kept as it is, or every bag refresh

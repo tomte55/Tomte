@@ -123,6 +123,8 @@ end
 -- "Unique-Equipped: Embellished (2)" and "Unique-Equipped" / "Unique", in the client's language.
 local UNIQUE_CATEGORY = ns.Gear_FormatPattern(G("ITEM_LIMIT_CATEGORY_MULTIPLE", "Unique-Equipped: %s (%d)"))
 local UNIQUE_PLAIN = { [G("ITEM_UNIQUE_EQUIPPABLE", "Unique-Equipped")] = true, [G("ITEM_UNIQUE", "Unique")] = true }
+-- "Item Level 71", open so a Timewarped or heirloom "Item Level 165 (200)" matches too.
+local ITEM_LEVEL_LINE = ns.Gear_FormatPattern(G("ITEM_LEVEL", "Item Level %d"), true)
 
 -- Whether the Catalyst takes an item with this upgrade info ({ track, trackID }).
 function ns.Gear_CatalystTrack(upgrade)
@@ -373,6 +375,15 @@ function ns.Gear_ParseUnique(text)
 		return { max = 1 }
 	end
 	return nil
+end
+
+-- The item level a tooltip line shows, nil on any other line.
+function ns.Gear_ParseItemLevel(text)
+	if type(text) ~= "string" then
+		return nil
+	end
+	local ilvl = text:match(ITEM_LEVEL_LINE)
+	return ilvl and tonumber(ilvl)
 end
 
 ---------------------------------------------------------------------------------------------------------------
