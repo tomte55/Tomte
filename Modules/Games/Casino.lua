@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- (settings) on its own when you take a flight path or queue for a group. Hides in combat and comes back after. Was
 -- the Blackjack module (key "blackjack") until 1.20: migration 13 moved its saved data. Chips are earned by playing the game (Earn.lua, paid by ChipRules.lua) and spent at
 -- the Cashier (Cashier.lua, CashierData.lua). While the window is open the Flight module skips its cinematic
--- (Modules/Flight/Flight.lua asks ns.Casino_IsOpen). Rules in BlackjackRules.lua, PokerRules.lua and
+-- (Modules/Flight/Flight.lua asks ns.Casino_IsOpen); in the cinematic it's played from the games drawer instead. Rules in BlackjackRules.lua, PokerRules.lua and
 -- SlotsRules.lua; the window in Window.lua, its games in Table.lua, PokerMachine.lua and SlotMachine.lua.
 
 local TAXI_CHECK = 1 -- seconds between UnitOnTaxi checks after losing control (it can lag the event)
@@ -187,8 +187,9 @@ function events:PLAYER_ENTERING_WORLD()
 	end)
 end
 
+-- Docked in the flight cinematic's drawer, combat pauses the cinematic and that closes the window.
 function events:PLAYER_REGEN_DISABLED()
-	if ns.GamesWindow_IsShown() then
+	if ns.GamesWindow_IsShown() and not ns.GamesWindow_Docked() then
 		afterCombat = true
 		ns.GamesWindow_Hide()
 	end
@@ -233,10 +234,25 @@ local function Stop()
 	ns.GamesWindow_Hide()
 end
 
--- For the Flight module: the table is up, so no cinematic over it.
+-- For the Flight module: the table is up, so no cinematic over it. Docked in the cinematic's drawer it's part of it.
 function ns.Casino_IsOpen()
-	return module.active and ns.GamesWindow_IsShown() or false
+	return module.active and ns.GamesWindow_IsShown() and not ns.GamesWindow_Docked() or false
 end
+
+-- In the flight cinematic's games drawer (Cinematic/Drawer.lua).
+ns.Drawer_Add({
+	key = MODULE_KEY,
+	name = "Casino",
+	text = "Blackjack, video poker and slots.",
+	icon = ICON,
+	width = ns.GAMES_WINDOW_W,
+	height = ns.GAMES_WINDOW_H,
+	Shown = function()
+		return module.active
+	end,
+	Open = ns.GamesWindow_Dock,
+	Close = ns.GamesWindow_Undock,
+})
 
 -- Commands ------------------------------------------------------------------------------------------------------
 

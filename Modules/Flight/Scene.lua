@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Flight scene for the cinematic engine, drawn inside the letterbox bands:
 -- top = title card (destination),
 -- bottom = character (left), flight timer (center), rotating flight stats (right).
--- The "Entering <zone>" text (ZoneText.lua) belongs to this scene too.
+-- The "Entering <zone>" text (ZoneText.lua) belongs to this scene too, and so does the games drawer on the right
+-- (Cinematic/Drawer.lua).
 
 local PAD = 48 -- side padding inside the bottom band
 local LINE_WIDTH = 440 -- progress line under the timer
@@ -139,6 +140,7 @@ function scene.Create(parent, letterbox)
 	Place(card, card.statLine, "TOPRIGHT", letterbox.bottom, "RIGHT", -PAD, -3)
 
 	ns.ZoneText_Create(parent)
+	ns.Drawer_Create(parent, letterbox)
 end
 
 function scene.Begin(f)
@@ -162,6 +164,7 @@ function scene.Begin(f)
 
 	BuildPages()
 	ShowPage(GetTime() - f.start)
+	ns.Drawer_Begin()
 
 	local recording = f.expected == nil
 	card.track:SetShown(not recording)
@@ -193,6 +196,7 @@ end
 function scene.Update(alpha, dt)
 	ns.ZoneText_SetAlpha(alpha)
 	card:SetAlpha(alpha)
+	ns.Drawer_Update(alpha, dt)
 	if not flight or alpha <= 0 then
 		return
 	end
@@ -219,3 +223,10 @@ function scene.Update(alpha, dt)
 	end
 	ns.UpdateSwap(statsSwap, dt)
 end
+
+-- Landing, a pause or combat: the game in the drawer closes.
+function scene.End()
+	ns.Drawer_End()
+end
+
+scene.Escape = ns.Drawer_Escape

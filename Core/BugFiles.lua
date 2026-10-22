@@ -43,6 +43,7 @@ ns.BUG_FILES = {
 	"Data/Midnight/Buffs.lua",
 	"Cinematic/Engine.lua",
 	"Cinematic/SceneKit.lua",
+	"Cinematic/Drawer.lua",
 	"Cinematic/Showcase.lua",
 	"Cinematic/Banner.lua",
 	"Panel/Layout.lua",

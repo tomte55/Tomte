@@ -22,6 +22,7 @@ local db, frame
 local faces = {}
 local active -- the face shown
 local shownChips -- the number on the chip count (it rolls to new values)
+local docked -- while docked in the flight cinematic's games drawer: the drawer's onClosed (ns.GamesWindow_Dock)
 
 local function Game()
 	return db.game
@@ -201,6 +202,19 @@ local function ApplyPlace()
 	frame:SetPoint(db.frame.point, UIParent, db.frame.relPoint, db.frame.x, db.frame.y)
 end
 
+-- Out of the drawer, closed, back on UIParent where it was, movable again. Returns the drawer's onClosed.
+local function Undock()
+	local onClosed = docked
+	docked = nil
+	frame:Hide()
+	frame:SetParent(UIParent)
+	frame:SetScale(1)
+	frame:SetFrameStrata("DIALOG")
+	frame:RegisterForDrag("LeftButton")
+	ApplyPlace()
+	return onClosed
+end
+
 local function Felt()
 	return ns.Cashier_Using(db.look, "felt", db.owned, Game())
 end
@@ -366,7 +380,8 @@ local function Create()
 	Switch(db.lastGame)
 
 	frame:HookScript("OnHide", function(self)
-		if not self:IsShown() then -- closed, not just hidden with UIParent (Alt+Z, a cinematic)
+		local closed = not self:IsShown() -- not just hidden with UIParent (Alt+Z, a cinematic) or the drawer shutting
+		if closed then
 			Sound("close")
 		end
 		GameTooltip_Hide()
@@ -374,6 +389,9 @@ local function Create()
 			active.OnHide()
 		end
 		ShowCashier(false)
+		if closed and docked then
+			Undock()() -- closed in the drawer (its close button): the drawer goes back to its list
+		end
 	end)
 end
 
@@ -404,7 +422,9 @@ function ns.GamesWindow_Show(key)
 		Create()
 	end
 	CheckSession()
-	UI.PlaceDialog(frame)
+	if not docked then
+		UI.PlaceDialog(frame)
+	end
 	if not frame:IsShown() then
 		Sound("open")
 	end
@@ -424,6 +444,33 @@ end
 
 function ns.GamesWindow_IsShown()
 	return frame ~= nil and frame:IsShown()
+end
+
+-- Into host (the flight cinematic's games drawer, Cinematic/Drawer.lua), centered, shown, not movable, scaled down
+-- if host is smaller. onClosed() runs if it's closed there (its close button); ns.GamesWindow_Undock doesn't run it.
+function ns.GamesWindow_Dock(host, onClosed)
+	if not frame then
+		Create()
+	end
+	docked = onClosed
+	frame:SetParent(host)
+	frame:SetScale(math.min(1, host:GetWidth() / WIDTH, host:GetHeight() / HEIGHT))
+	frame:SetFrameStrata(host:GetFrameStrata()) -- the letterbox's: at DIALOG it would draw under it
+	frame:SetFrameLevel(host:GetFrameLevel() + 2)
+	frame:RegisterForDrag() -- the drawer holds it in place
+	frame:ClearAllPoints()
+	frame:SetPoint("CENTER", host)
+	ns.GamesWindow_Show()
+end
+
+function ns.GamesWindow_Undock()
+	if docked then
+		Undock()
+	end
+end
+
+function ns.GamesWindow_Docked()
+	return docked ~= nil
 end
 
 function ns.GamesWindow_Toggle()
@@ -464,7 +511,7 @@ end
 
 function ns.GamesWindow_ResetPlace()
 	db.frame.point, db.frame.relPoint, db.frame.x, db.frame.y = "CENTER", "CENTER", 0, 60
-	if frame then
+	if frame and not docked then -- a docked window gets the place when it undocks
 		ApplyPlace()
 	end
 end

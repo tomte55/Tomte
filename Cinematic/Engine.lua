@@ -24,6 +24,7 @@ local addonName, ns = ...
 --   scene.Begin(state)               every Enter
 --   scene.Update(contentAlpha, dt)   every frame while the letterbox is visible
 --   scene.End()                      optional, on Exit
+--   scene.Escape()                   optional, on Esc: true when the scene used it (closed something of its own)
 -- state is the caller's persisted table. The engine records what it changed on it (zoomedOut, pitchLimited,
 -- musicHandle, musicStarted, cinematic, orbitFactor, resumeAt, resumeDelay) so a /reload can still undo it.
 
@@ -48,6 +49,8 @@ local HINT_TIME = 4 -- seconds the pause hint stays up
 local HINT_FADE = 0.5
 local HINT_PAD = 48
 local UI_PANEL_KEYS = { "left", "center", "right", "doublewide", "fullscreen" }
+
+ns.CINEMATIC_BAND = LETTERBOX_FRACTION -- for scene pieces that fit between the bands (Drawer.lua)
 
 -- Expansion main themes, newest first. Options show the names; a track is picked by index.
 ns.MUSIC_TRACKS = {
@@ -564,6 +567,10 @@ local function CreateLetterbox()
 	letterbox:SetScript("OnMouseWheel", function() end)
 	letterbox:SetScript("OnKeyDown", function(self, key)
 		if InCombatLockdown() then
+			return
+		end
+		if key == "ESCAPE" and scene.Escape and scene.Escape() then
+			self:SetPropagateKeyboardInput(false) -- the scene closed something of its own; the cinematic stays
 			return
 		end
 		if key == "ESCAPE" and not escapeToGame then

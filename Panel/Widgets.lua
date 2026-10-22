@@ -118,16 +118,19 @@ end
 -- their strata, so there it would sit behind the Tomte window). Only while a dialogue addon hides UIParent does it go
 -- on WorldFrame, scaled to UIParent's size (the trick Cinematic/Engine.lua uses for its hint). DialogueUI hides it
 -- by fading it to alpha 0 while it stays shown, so a faded UIParent counts as hidden. SetParent can carry the
--- parent's strata over, so it's set again.
+-- parent's strata over, so it's set again. On WorldFrame it goes above a cinematic's letterbox (FULLSCREEN: the
+-- Cashier asks from the flight cinematic's games drawer) and is marked ours, so the cinematic doesn't fade it out.
 function UI.PlaceDialog(frame)
 	if UIParent:IsShown() and UIParent:GetAlpha() >= 0.99 then
 		frame:SetParent(UIParent)
 		frame:SetScale(1)
+		frame:SetFrameStrata("DIALOG")
 	else
 		frame:SetParent(WorldFrame)
 		frame:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
+		frame:SetFrameStrata("FULLSCREEN_DIALOG")
+		ns.ownFrames[frame] = true
 	end
-	frame:SetFrameStrata("DIALOG")
 end
 
 -- Clips texture to a circle: a mask created on parent (the frame that owns texture), covering texture. Returns it.
