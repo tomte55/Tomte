@@ -365,7 +365,8 @@ until it's done.
 
 ### Releasing
 
-1. Move the lines under **Unreleased** in `CHANGELOG.md` into a new `## vX.Y.Z - <date>` section.
+1. Move the lines under **Unreleased** in `CHANGELOG.md` into a new `## vX.Y.Z - <date>` section, keeping their
+   `### New` / `### Improved` / `### Fixed` groups.
 2. Set `## Version: X.Y.Z` in `Tomte.toc`.
 3. Run the unit tests (see Tests), commit (`Tomte vX.Y.Z`), then `git tag -a vX.Y.Z -m "Tomte vX.Y.Z"` and
    `git push origin main vX.Y.Z`.

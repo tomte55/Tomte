@@ -235,7 +235,7 @@ just restates the code. Fix comments that point at moved or renamed code in the 
 3. TOC lines in load order (see Layout), `OptionalDeps` if it uses a new addon, `lua Tomte/tools/bugfiles.lua`.
 4. `tests/test_<name>.lua` for the pure file; all tests green.
 5. README: a row in the module table (player wording), its commands under Commands, the folder in Layout, a Credits
-   line for any source. CHANGELOG **Unreleased**: "New module, <Name>: ...".
+   line for any source. CHANGELOG **Unreleased**, under `### New`: "- **<Name> (new module):** ...".
 
 **Changing a module**
 - Keep the file roles: rules into the pure file (with a test), UI into the UI file.
@@ -262,7 +262,9 @@ just restates the code. Fix comments that point at moved or renamed code in the 
 - Start Claude from `Interface\AddOns\Tomte` (this folder), so this file and the project memory load.
 - Commit after each working step the user has confirmed in game, and add a line for it under **Unreleased** in
   `CHANGELOG.md` in player-facing wording (what a friend notices, not internals). Pure refactors get no
-  CHANGELOG line.
+  CHANGELOG line. Each version groups its lines under `### New`, `### Improved` and `### Fixed` (in that order,
+  empty groups left out), and each line starts with the module in bold: `- **Whispers:** ...`; a new module is
+  `- **Name (new module):** ...`. This is what CurseForge and the GitHub release show.
 - Commit messages: `<Module>: what changed` in plain words (`Smart Mount: flying mount on the water surface where
   you can fly`). Pure moves and refactors say so (`Split X into A and B (pure moves)`) and never carry a behavior
   change.
@@ -274,8 +276,8 @@ just restates the code. Fix comments that point at moved or renamed code in the 
 
 ### Releasing (only when the user asks)
 
-1. In `CHANGELOG.md`, move the **Unreleased** lines into a new `## vX.Y.Z - YYYY-MM-DD` section right below it
-   (leave an empty **Unreleased** heading).
+1. In `CHANGELOG.md`, move the **Unreleased** lines, with their `###` groups, into a new `## vX.Y.Z - YYYY-MM-DD`
+   section right below it (leave an empty **Unreleased** heading).
 2. Set `## Version: X.Y.Z` in `Tomte.toc`.
 3. Run the unit tests (see Tests), commit (`Tomte vX.Y.Z`), then `git tag -a vX.Y.Z -m "Tomte vX.Y.Z"`
    and `git push origin main vX.Y.Z`.
