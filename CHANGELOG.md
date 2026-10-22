@@ -12,6 +12,12 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+## v1.20.1 - 2026-10-22
+
+### Fixed
+
+- **Gear Check:** some old items that scale with your level no longer show a huge upgrade ("+197 item level") in their tooltip: the item level now matches what the tooltip says.
+
 ## v1.20.0 - 2026-10-22
 
 ### New
