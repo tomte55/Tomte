@@ -5,7 +5,10 @@ local addonName, ns = ...
 -- lists matches from every group. Built and refreshed by Panel.lua (ns.PanelSidebar_Create, ns.PanelSidebar_Refresh).
 
 local UI = ns.UI
-local RAIL_W = 64
+local RAIL_W = 72
+local RAIL_INSET = 3 -- keeps the buttons clear of the window border, which some themes draw over the body's edge
+local RAIL_LABEL = 10 -- label font size; a label wider than its button steps down to RAIL_LABEL_MIN
+local RAIL_LABEL_MIN = 8
 local LIST_W = 176
 local SIDEBAR_W = RAIL_W + LIST_W
 local RAIL_ROW_H = 46 -- icon, label and a little air above and below
@@ -85,13 +88,18 @@ local function CreateRailButton(rail, group)
 	b.ring = CreateFrame("Frame", nil, b)
 	b.ring:SetAllPoints(b.icon)
 	UI.Border(b.ring, "frame", 0.6)
-	b.name = UI.Text(b, 10, "text", "label")
+	b.name = UI.Text(b, RAIL_LABEL, "text", "label")
 	b.name:SetPoint("TOP", b.icon, "BOTTOM", 0, -3)
-	b.name:SetPoint("LEFT", 2, 0)
-	b.name:SetPoint("RIGHT", -2, 0)
+	b.name:SetWidth(RAIL_W - RAIL_INSET - 4)
 	b.name:SetJustifyH("CENTER")
 	b.name:SetWordWrap(false)
 	b.name:SetText(group.short or group.name)
+	-- Wide label fonts (small caps) overflow the button at full size, so those labels step down instead.
+	local size = RAIL_LABEL
+	while size > RAIL_LABEL_MIN and b.name:GetUnboundedStringWidth() > b.name:GetWidth() do
+		size = size - 1
+		ns.Theme.SetFont(b.name, "label", size)
+	end
 	b:SetScript("OnEnter", function(self)
 		self.bg:Show()
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -125,7 +133,7 @@ local function CreateRail(parent)
 	local y = 10
 	for i, group in ipairs(ns.PANEL_GROUPS) do
 		local b = CreateRailButton(rail, group)
-		b:SetPoint("TOPLEFT", 0, -y)
+		b:SetPoint("TOPLEFT", RAIL_INSET, -y)
 		b:SetPoint("RIGHT", rail, "RIGHT")
 		railButtons[i] = b
 		y = y + RAIL_ROW_H

@@ -7,6 +7,7 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 
 - Blackjack: the play buttons are now colored icons with their names underneath, in the order Stand, Split, Double, Hit. Split and Double only show when you can use them.
 - Blackjack: the floating wins and losses under your chips, and the amount over your bet, now drift smoothly instead of sticking and then jumping.
+- Settings: the group names on the left (Ambience, Collect and the rest) no longer run into the window's edge.
 
 ## v1.19.0 - 2026-10-21
 
