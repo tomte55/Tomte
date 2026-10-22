@@ -12,6 +12,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+## v1.20.0 - 2026-10-22
+
 ### New
 
 - **Casino:** video poker joins blackjack. Jacks or Better on the full-pay table: pick a coin (10 to 500) and 1 to 5 coins, click the cards you want to keep, then draw once. Five coins make a royal flush pay 4,000 coins.
