@@ -1,14 +1,17 @@
 local addonName, ns = ...
 
 -- Games: one playing card on screen. The face is the theme's text color (light on every theme) with the rank and
--- suit in bg (spades, clubs) or danger (hearts, diamonds); the back is accentDeep with an accent rule. Cards slide
--- in when dealt and turn over when revealed. Card numbers are CardData.lua's; used by Table.lua.
+-- suit in bg (spades, clubs) or danger (hearts, diamonds); the back is the Cashier's choice (CashierData.lua), by
+-- default accentDeep with an accent rule and mark. Cards slide in when dealt and turn over when revealed. Card numbers
+-- are CardData.lua's; used by Table.lua and Cashier.lua.
 
 local CARD_W, CARD_H = 52, 74
 local SUIT_MEDIA = "Interface\\AddOns\\Tomte\\Media\\Games\\"
 local SUIT_FILE = { spade = "Spade", heart = "Heart", diamond = "Diamond", club = "Club" }
 local BACK_MARK = "Interface\\AddOns\\Tomte\\Media\\Showcase\\Diamond"
-local SLIDE_TIME = 0.22 -- seconds for a dealt card to slide into place
+local PATTERN_V = 182 / 256 -- a back pattern's share of its texture's height (tools/games_art.py)
+local PATTERN_ALPHA = 0.55
+local SLIDE_TIME = 0.28 -- seconds for a dealt card to slide into place (from the shoe, across the table)
 local FLIP_TIME = 0.08 -- seconds for each half of a card turning over
 local DEAL_SCALE = 0.8 -- a dealt card starts this size and grows to full as it lands
 local SHADE_ALPHA = 0.4 -- darkness over a losing hand's cards
@@ -122,6 +125,51 @@ local function Fill(frame, role)
 	return t
 end
 
+-- Card backs --------------------------------------------------------------------------------------------------------
+
+local cards = {} -- every card made, so a new back reaches them all
+local back -- the back in use: an item of ns.CASHIER_BACKS (nil until Table.lua sets one: the classic look)
+
+-- item: base fills the back (times dim), ink draws the pattern and the rule; no pattern shows the classic mark.
+local function PaintBack(f, item)
+	local base, ink, dim = "accentDeep", "accent", 1
+	if item then
+		base, ink, dim = item.base, item.ink, item.dim or 1
+	end
+	local r, g, b = UI.Color(base)
+	f.backFill:SetColorTexture(r * dim, g * dim, b * dim)
+	UI.SetBorderColor(f.rule, ink, 0.7)
+	local pattern = item and item.pattern
+	if pattern then
+		f.pattern:SetTexture(SUIT_MEDIA .. pattern)
+		f.pattern:SetTexCoord(0, 1, 0, PATTERN_V)
+		f.pattern:SetVertexColor(UI.Color(ink))
+		f.pattern:SetAlpha(PATTERN_ALPHA)
+	end
+	f.pattern:SetShown(pattern ~= nil)
+	f.mark:SetVertexColor(UI.Color(ink))
+	f.mark:SetShown(pattern == nil)
+end
+
+function ns.GamesCard_SetBack(item)
+	back = item
+	for _, f in ipairs(cards) do
+		if not f.swatch then
+			PaintBack(f, item)
+		end
+	end
+end
+
+-- A back on any frame of card size (the Cashier's swatches): a card that only ever shows its back.
+function ns.GamesCard_Swatch(parent, item)
+	local f = ns.GamesCard_Create(parent)
+	PaintBack(f, item)
+	f.swatch = item
+	f:SetCard(nil)
+	f:Show()
+	return f
+end
+
 function ns.GamesCard_Create(parent)
 	local f = CreateFrame("Frame", nil, parent)
 	f:SetSize(CARD_W, CARD_H)
@@ -150,18 +198,22 @@ function ns.GamesCard_Create(parent)
 
 	f.back = CreateFrame("Frame", nil, f)
 	f.back:SetAllPoints()
-	Fill(f.back, "accentDeep")
+	f.backFill = Fill(f.back, "accentDeep")
 	UI.Border(f.back, "frameDark", 0.8)
+	f.pattern = f.back:CreateTexture(nil, "ARTWORK")
+	f.pattern:SetPoint("TOPLEFT", 4, -4)
+	f.pattern:SetPoint("BOTTOMRIGHT", -4, 4)
 	f.rule = CreateFrame("Frame", nil, f.back)
 	f.rule:SetPoint("TOPLEFT", 4, -4)
 	f.rule:SetPoint("BOTTOMRIGHT", -4, 4)
 	UI.Border(f.rule, "accent", 0.7)
-	local mark = f.back:CreateTexture(nil, "ARTWORK")
-	mark:SetTexture(BACK_MARK)
-	mark:SetSize(22, 22)
-	mark:SetPoint("CENTER")
-	mark:SetVertexColor(UI.Color("accent"))
-	mark:SetAlpha(0.6)
+	f.mark = f.back:CreateTexture(nil, "ARTWORK", nil, 1)
+	f.mark:SetTexture(BACK_MARK)
+	f.mark:SetSize(22, 22)
+	f.mark:SetPoint("CENTER")
+	f.mark:SetAlpha(0.6)
+	cards[#cards + 1] = f
+	PaintBack(f, back)
 
 	f.slide = f:CreateAnimationGroup()
 	f.from = f.slide:CreateAnimation("Translation")

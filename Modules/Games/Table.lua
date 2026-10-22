@@ -1,18 +1,20 @@
 local addonName, ns = ...
 
--- Blackjack: the table window (a movable UI.Dialog; Esc closes it). Dealer row on top, your hand or hands below, a
--- message line between, the bet controls or the play buttons at the bottom, chips top right (stats on hover).
--- Rules and the saved game in BlackjackRules.lua; cards in Card.lua; registered in Blackjack.lua. Plain frames:
--- nothing here is protected.
+-- Blackjack: the table window (a movable UI.Dialog; Esc closes it). A classic half-moon table (Felt.lua): dealer row
+-- on top, the rules printed across the middle, your hand or hands below with their bets in betting circles, a message
+-- line near the rail, the bet chips or the play buttons under the table. Title bar: rank, chips (stats on hover), the
+-- Cashier (Cashier.lua, the window's other face) and close. Rules and the saved game in BlackjackRules.lua and
+-- ChipRules.lua; cards in Card.lua; registered in Blackjack.lua. Plain frames: nothing here is protected.
 
-local WIDTH, HEIGHT = 500, 396
+local WIDTH, HEIGHT = 560, 506
 local CARD_STEP = 30 -- pixels between overlapping cards in a hand
-local HAND_GAP = 60 -- pixels between two split hands
+local HAND_GAP = 70 -- pixels between two split hands
 local MAX_CARDS = 11 -- the most cards a hand can hold without busting (four aces, four twos, three threes)
 local DEAL_STAGGER = 0.15 -- seconds between the first four cards
 local DEALER_PACE = 0.55 -- seconds between the dealer's cards once you stand
-local SLIDE_FROM_X, SLIDE_FROM_Y = 120, 60 -- where dealt cards come from (up and to the right: the shoe)
-local DEALER_Y, PLAYER_Y = -78, -216 -- card rows' tops, from the window's top
+local DEALER_Y, PLAYER_Y = -70, -246 -- card rows' tops, from the window's top (around the print on the felt)
+local SPOT_Y = -368 -- the betting circles' middles
+local MESSAGE_Y = -402 -- the message line's middle, just inside the rail
 local RESULT_ROLES = { blackjack = "success", win = "success", push = "textMuted", lose = "danger", bust = "danger" }
 local BIG_WIN = 500 -- chips won in one round that count as a big win (a bigger sound)
 local SHUFFLE_TIME = 0.4 -- seconds of shuffling sounds before the first card of a fresh shoe
@@ -27,7 +29,7 @@ local PLAY_MEDIA = "Interface\\AddOns\\Tomte\\Media\\Games\\"
 local UI = ns.UI
 
 local db, frame
-local Draw
+local Draw, ShowCashier
 -- What the window shows of the round, so only new cards animate: the round table, cards shown per hand and for
 -- the dealer, whether the hole card is face up, and which round's result has had its sounds and effects.
 local shown = { round = nil, hands = {}, dealer = 0, hole = false, handCount = 1 }
@@ -48,6 +50,7 @@ local function Sound(name)
 		ns.GamesFx_Sound(name)
 	end
 end
+ns.Blackjack_Sound = Sound
 
 local function DealSound()
 	Sound("deal")
@@ -148,13 +151,18 @@ local function ClearBet()
 	Draw(false)
 end
 
+-- Floats text under the chip count (anchored to its box: the count itself rolls).
+local function ChipFloat(text, role)
+	ns.GamesFx_Float(frame.fx, text, role, frame.chipsBox, "BOTTOMRIGHT", 0, 0,
+		{ rise = CHIP_FLOAT_DRIFT, own = "TOPRIGHT" })
+end
+
 local function Refill()
-	if ns.Blackjack_Refill(Game()) then
+	local given = ns.Chips_Refill(Game(), db.earned, (ns.BlackjackEarn_Day()))
+	if given then
 		Sound("refill")
-		ns.Print(("the house gives you %s chips."):format(ns.Thousands(ns.BLACKJACK_START_CHIPS)))
 		SetChips(Game().chips, CHIP_ROLL, "success")
-		ns.GamesFx_Float(frame.fx, "+" .. ns.Thousands(ns.BLACKJACK_START_CHIPS), "success", frame.chipsBox,
-			"BOTTOMRIGHT", 0, 0, { rise = CHIP_FLOAT_DRIFT, own = "TOPRIGHT" })
+		ChipFloat("+" .. ns.Thousands(given), "success")
 	end
 	Draw(false)
 end
@@ -167,8 +175,18 @@ local function StatsTooltip(owner)
 	local s = Game().stats
 	GameTooltip:SetOwner(owner, "ANCHOR_BOTTOMLEFT")
 	GameTooltip:SetText("Blackjack", UI.Color("heading"))
-	Line("Play chips only, kept between sessions.", "textMuted", true)
+	Line("Play chips only, kept between sessions. Earn more by playing the game: flight paths, quests, the Great "
+		.. "Vault and gold you loot.", "textMuted", true)
+	local today = ns.Chips_Today(db.earned, (ns.BlackjackEarn_Day()))
+	if #today > 0 then
+		Line(" ")
+		Line("Earned today", "heading")
+		for _, row in ipairs(today) do
+			GameTooltip:AddDoubleLine(row[1], ns.Thousands(row[2]), UI.Color("textMuted"))
+		end
+	end
 	Line(" ")
+	GameTooltip:AddDoubleLine("Chips earned", ns.Thousands(s.earned), UI.Color("textMuted"))
 	GameTooltip:AddDoubleLine("Hands played", ns.Thousands(s.hands), UI.Color("textMuted"))
 	GameTooltip:AddDoubleLine("Won / lost / pushed", ("%s / %s / %s"):format(ns.Thousands(s.wins),
 		ns.Thousands(s.losses), ns.Thousands(s.pushes)), UI.Color("textMuted"))
@@ -177,7 +195,7 @@ local function StatsTooltip(owner)
 	GameTooltip:AddDoubleLine("Best win streak", ns.Thousands(s.bestStreak), UI.Color("textMuted"))
 	GameTooltip:AddDoubleLine("Most chips held", ns.Thousands(s.peak), UI.Color("textMuted"))
 	if s.refills > 0 then
-		GameTooltip:AddDoubleLine("House chips taken", ns.Thousands(s.refills), UI.Color("textMuted"))
+		GameTooltip:AddDoubleLine("House refills", ns.Thousands(s.refills), UI.Color("textMuted"))
 	end
 	Line(" ")
 	Line(("%d cards left in the shoe"):format(ns.Blackjack_Left(Game())), "textFaint")
@@ -244,6 +262,29 @@ local function ApplyPlace()
 	frame:SetPoint(db.frame.point, UIParent, db.frame.relPoint, db.frame.x, db.frame.y)
 end
 
+-- The look in use (the Cashier's choice): the felt and every card's back.
+local function ApplyLook()
+	if not frame then
+		return
+	end
+	local stats = Game().stats
+	ns.BlackjackFelt_SetFelt(frame.felt, ns.Cashier_Using(db.look, "felt", db.owned, stats))
+	ns.GamesCard_SetBack(ns.Cashier_Using(db.look, "back", db.owned, stats))
+end
+
+-- The Cashier in place of the table, or the table back.
+function ShowCashier(show)
+	if not frame.cashier then
+		return
+	end
+	frame.cashier:SetShown(show)
+	frame.felt:SetShown(not show)
+	frame.cashierButton.label:SetText(show and "Table" or "Cashier")
+	if not show and frame:IsShown() then
+		Draw(false)
+	end
+end
+
 local function NewHandRow(parent)
 	local row = { cards = {} }
 	for i = 1, MAX_CARDS do
@@ -251,8 +292,7 @@ local function NewHandRow(parent)
 	end
 	row.value = UI.Text(parent, 13, "heading", "number")
 	row.value:SetJustifyH("CENTER")
-	row.bet = UI.Text(parent, 11, "textMuted")
-	row.bet:SetJustifyH("CENTER")
+	row.bet = UI.Text(parent, 11, "text", "number")
 	row.mark = UI.Hairline(parent, 90, 1, "accent")
 	-- Behind a winning hand: the cards are child frames, so any texture of the window is under them.
 	row.glow = parent:CreateTexture(nil, "ARTWORK")
@@ -274,6 +314,8 @@ local function Create()
 	local title = UI.Text(frame, 16, "heading", "title")
 	title:SetPoint("TOPLEFT", 16, -14)
 	title:SetText("Blackjack")
+	frame.rank = UI.Text(frame, 11, "textMuted", "label")
+	frame.rank:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 10, 1)
 
 	local close = UI.Button(frame, 20, "x")
 	close:SetPoint("TOPRIGHT", -10, -10)
@@ -281,9 +323,15 @@ local function Create()
 		frame:Hide()
 	end)
 
+	frame.cashierButton = Button(frame, 74, "Cashier", function()
+		ShowCashier(not frame.cashier:IsShown())
+	end, "Card backs and felts, for chips.")
+	frame.cashierButton:SetHeight(20)
+	frame.cashierButton:SetPoint("TOPRIGHT", close, "TOPLEFT", -8, 0)
+
 	local chips = CreateFrame("Frame", nil, frame)
 	chips:SetSize(150, 20)
-	chips:SetPoint("TOPRIGHT", close, "TOPLEFT", -10, 0)
+	chips:SetPoint("TOPRIGHT", frame.cashierButton, "TOPLEFT", -10, 0)
 	chips:EnableMouse(true)
 	chips:SetScript("OnEnter", StatsTooltip)
 	chips:SetScript("OnLeave", GameTooltip_Hide)
@@ -292,21 +340,24 @@ local function Create()
 	frame.chips:SetPoint("RIGHT")
 	frame.chips:SetJustifyH("RIGHT")
 
-	local rule = UI.Hairline(frame, WIDTH - 40, 0.5)
-	rule:SetPoint("TOP", 0, -42)
+	-- The table: the felt and everything on it, on a frame the Cashier swaps out.
+	local felt = ns.BlackjackFelt_Create(frame)
+	frame.felt = felt
 
-	frame.dealerLabel = UI.Text(frame, 12, "textMuted", "label")
-	frame.dealerLabel:SetPoint("TOP", 0, -54)
-	frame.dealer = NewHandRow(frame)
+	frame.dealerLabel = UI.Text(felt, 12, "textMuted", "label")
+	frame.dealerLabel:SetPoint("TOP", 0, -52)
+	frame.dealer = NewHandRow(felt)
 	frame.dealer.bet:Hide()
 	frame.dealer.mark:Hide()
 
-	frame.message = UI.Text(frame, MESSAGE_SIZE, "text")
-	frame.message:SetPoint("CENTER", frame, "TOP", 0, DEALER_Y - ns.GAMES_CARD_H - 26)
-	frame.message:SetWidth(WIDTH - 40)
+	frame.message = UI.Text(felt, MESSAGE_SIZE, "text")
+	frame.message:SetPoint("CENTER", frame, "TOP", 0, MESSAGE_Y)
+	frame.message:SetWidth(WIDTH - 140)
 	frame.message:SetJustifyH("CENTER")
 
-	frame.hands = { NewHandRow(frame), NewHandRow(frame) }
+	frame.hands = { NewHandRow(felt), NewHandRow(felt) }
+
+	frame.cashier = ns.BlackjackCashier_Create(frame, db, ApplyLook)
 
 	-- "Blackjack!" over your hand: pops in big, then fades.
 	-- Above the cards: the banner and floating numbers.
@@ -326,17 +377,17 @@ local function Create()
 		frame.banner:Hide()
 	end)
 
-	-- Bottom row: chips and Deal between rounds, the play buttons during one.
-	local bottom = CreateFrame("Frame", nil, frame)
+	-- Bottom row, under the table: chips and Deal between rounds, the play buttons during one.
+	local bottom = CreateFrame("Frame", nil, felt)
 	bottom:SetSize(WIDTH - 32, PLAY_H + PLAY_LABEL) -- the bet controls center on the play buttons' height
-	bottom:SetPoint("BOTTOM", 0, 14)
+	bottom:SetPoint("BOTTOM", 0, 10)
 	frame.bottom = bottom
 
 	frame.betting = CreateFrame("Frame", nil, bottom)
 	frame.betting:SetAllPoints()
 	local prev
 	for _, amount in ipairs(ns.BLACKJACK_CHIPS) do
-		local b = Button(frame.betting, 46, ns.Thousands(amount), function()
+		local b = ns.BlackjackFelt_ChipButton(frame.betting, amount, function()
 			AddChip(amount)
 		end)
 		if prev then
@@ -347,7 +398,7 @@ local function Create()
 		prev = b
 	end
 	frame.clear = Button(frame.betting, 56, "Clear", ClearBet)
-	frame.clear:SetPoint("LEFT", prev, "RIGHT", 6, 0)
+	frame.clear:SetPoint("LEFT", prev, "RIGHT", 10, 0)
 	frame.deal = Button(frame.betting, 90, "Deal", Deal)
 	frame.deal:SetPoint("RIGHT")
 	frame.betText = UI.Text(frame.betting, 13, "heading", "number")
@@ -372,8 +423,9 @@ local function Create()
 	frame.playOrder = { frame.stand, frame.split, frame.double, frame.hit }
 
 	frame.refill = Button(bottom, 140, "House chips", Refill,
-		("Out of chips: the house gives you %s to play on."):format(ns.Thousands(ns.BLACKJACK_START_CHIPS)))
+		("Out of chips: the house tops you up to %s, once a day."):format(ns.Thousands(ns.CHIPS_REFILL_TO)))
 	frame.refill:SetPoint("CENTER")
+	ApplyLook()
 
 	frame:HookScript("OnHide", function(self)
 		if not self:IsShown() then -- closed, not just hidden with UIParent (Alt+Z, a cinematic)
@@ -385,16 +437,21 @@ local function Create()
 			revealTimer = nil
 		end
 		shown.round = nil -- shown again later: draw the table as it is, without replaying the deal
+		ShowCashier(false)
 	end)
 end
 
 -- Drawing -------------------------------------------------------------------------------------------------------
 
--- Puts a row of cards with its left edge at x, top at y; one card frame shown per entry of cards.
+-- Puts a row of cards with its left edge at x, top at y; one card frame shown per entry of cards. Each card notes
+-- how far away the shoe is: dealt cards slide from there.
 local function LayoutRow(row, cards, x, y)
 	for i, card in ipairs(row.cards) do
+		local left = x + (i - 1) * CARD_STEP
 		card:ClearAllPoints()
-		card:SetPoint("TOPLEFT", frame, "TOP", x + (i - 1) * CARD_STEP, y)
+		card:SetPoint("TOPLEFT", frame, "TOP", left, y)
+		card.fromX = ns.BLACKJACK_SHOE_X - (WIDTH / 2 + left + ns.GAMES_CARD_W / 2)
+		card.fromY = ns.BLACKJACK_SHOE_Y - (y - ns.GAMES_CARD_H / 2)
 		card:SetLevel(frame:GetFrameLevel() + i * ns.GAMES_CARD_LEVELS)
 		card:SetShown(cards[i] ~= nil)
 	end
@@ -410,7 +467,7 @@ local function DealNew(row, cards, from, delay, step)
 	for i = from + 1, #cards do
 		local card = row.cards[i]
 		card:SetCard(cards[i])
-		card:Deal(SLIDE_FROM_X, SLIDE_FROM_Y, delay, DealSound)
+		card:Deal(card.fromX, card.fromY, delay, DealSound)
 		delay = delay + step
 	end
 	return delay
@@ -433,7 +490,7 @@ local function HandLabels(row, hand, settled, active)
 		text = text .. "  ·  " .. UI.Wrap(ns.Blackjack_ResultText(hand.result), RESULT_ROLES[hand.result])
 	end
 	row.value:SetText(text)
-	row.bet:SetText("Bet " .. ns.Thousands(hand.bet) .. (hand.doubled and " (doubled)" or ""))
+	row.bet:SetText(ns.Thousands(hand.bet) .. (hand.doubled and " (doubled)" or ""))
 	row.mark:SetShown(active)
 end
 
@@ -442,7 +499,12 @@ local function Message(game, settled, dealing)
 	local round = game.round
 	if not round then
 		if game.chips < ns.BLACKJACK_MIN_BET then
-			return "You're out of chips."
+			local day, left = ns.BlackjackEarn_Day()
+			if ns.Chips_RefillReady(db.earned, day) then
+				return "You're out of chips."
+			end
+			return ("Out of chips. The house refills at reset (%s), or earn chips out in the world.")
+				:format(ns.Chips_WaitText(left))
 		end
 		return "Place your bet, then Deal."
 	end
@@ -480,7 +542,7 @@ local function ShowButtons(game, settled)
 	local broke = not inPlay and game.chips < ns.BLACKJACK_MIN_BET and game.bet == 0
 	frame.playing:SetShown(inPlay and true or false)
 	frame.betting:SetShown(not inPlay and not broke)
-	frame.refill:SetShown(broke and settled)
+	frame.refill:SetShown(broke and settled and ns.Chips_RefillReady(db.earned, (ns.BlackjackEarn_Day())))
 	if inPlay then
 		local can = ns.Blackjack_Actions(game)
 		SetUsable(frame.hit, can.hit)
@@ -565,9 +627,9 @@ local function Settled(round, celebrate)
 	end
 	SetChips(Game().chips, CHIP_ROLL, net > 0 and "success" or (net < 0 and "danger") or nil)
 	if net ~= 0 then
-		ns.GamesFx_Float(frame.fx, SignedChips(net), OutcomeRole(round), frame.chipsBox, "BOTTOMRIGHT", 0, 0,
-			{ rise = CHIP_FLOAT_DRIFT, own = "TOPRIGHT" })
+		ChipFloat(SignedChips(net), OutcomeRole(round))
 	end
+	ns.Blackjack_CheckFeats()
 end
 
 -- animate: new cards slide in and the dealer plays out at a pace; otherwise everything shows as it is.
@@ -579,6 +641,7 @@ function Draw(animate)
 	local round = game.round
 	local hands = round and round.hands or {}
 	local fresh = round ~= shown.round
+	frame.rank:SetText((ns.Chips_Rank(game.stats.peak)))
 	if fresh then
 		shown.round = round
 		shown.hands = { 0, 0 }
@@ -619,9 +682,10 @@ function Draw(animate)
 		if hand then
 			LayoutRow(row, hand.cards, x, PLAYER_Y)
 			row.value:ClearAllPoints()
-			row.value:SetPoint("TOP", frame, "TOP", x + widths[i] / 2, PLAYER_Y - ns.GAMES_CARD_H - 8)
+			row.value:SetPoint("TOP", frame, "TOP", x + widths[i] / 2, PLAYER_Y - ns.GAMES_CARD_H - 6)
+			local ring = ns.BlackjackFelt_Spot(frame.felt, i, true, x + widths[i] / 2, SPOT_Y, hand.bet)
 			row.bet:ClearAllPoints()
-			row.bet:SetPoint("TOP", row.value, "BOTTOM", 0, -3)
+			row.bet:SetPoint("LEFT", ring, "RIGHT", 4, 0)
 			row.mark:ClearAllPoints()
 			row.mark:SetPoint("TOP", frame, "TOP", x + widths[i] / 2, PLAYER_Y + 8)
 			row.glow:ClearAllPoints()
@@ -630,6 +694,8 @@ function Draw(animate)
 			x = x + widths[i] + HAND_GAP
 		else
 			LayoutRow(row, {}, 0, PLAYER_Y)
+			-- Between rounds the first circle holds the bet being placed.
+			ns.BlackjackFelt_Spot(frame.felt, i, i == 1, 0, SPOT_Y, i == 1 and game.bet or nil)
 		end
 		row.value:SetShown(hand ~= nil)
 		row.bet:SetShown(hand ~= nil)
@@ -664,8 +730,9 @@ function Draw(animate)
 				{ frame.hands[1], hands[1].cards, 2 }, { frame.dealer, round.dealer, 2 } }
 			for _, o in ipairs(order) do
 				local row, cards, i = o[1], o[2], o[3]
-				row.cards[i]:SetCard(not (row == frame.dealer and i == holeAt) and cards[i] or nil)
-				row.cards[i]:Deal(SLIDE_FROM_X, SLIDE_FROM_Y, delay, DealSound)
+				local card = row.cards[i]
+				card:SetCard(not (row == frame.dealer and i == holeAt) and cards[i] or nil)
+				card:Deal(card.fromX, card.fromY, delay, DealSound)
 				delay = delay + DEAL_STAGGER
 			end
 			before[1], beforeDealer = 2, 2
@@ -781,6 +848,25 @@ end
 
 function ns.BlackjackTable_Refresh()
 	Draw(false)
+	ns.BlackjackCashier_Refresh()
+end
+
+-- Chips earned out in the world: the count rolls up with a "+25 quest" under it. Mid-reveal the reveal sets the
+-- count itself (it holds back the round's payout until the cards are down).
+function ns.BlackjackTable_Earned(source, amount)
+	if not (frame and frame:IsShown()) then
+		return
+	end
+	ChipFloat(ns.Chips_FloatText(source, amount, ns.Thousands), "success")
+	if not revealTimer then
+		SetChips(Game().chips, CHIP_ROLL, "success")
+		Draw(false)
+	end
+	ns.BlackjackCashier_Refresh()
+end
+
+function ns.BlackjackTable_ApplyLook()
+	ApplyLook()
 end
 
 function ns.BlackjackTable_ResetPlace()

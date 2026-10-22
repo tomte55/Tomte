@@ -247,11 +247,37 @@ end)
 
 test("house chips only when broke", function()
 	local g = ns.Blackjack_NewGame()
-	eq(ns.Blackjack_Refill(g), false)
+	eq(ns.Blackjack_Refill(g, 500), false)
 	g.chips = 5
-	eq(ns.Blackjack_Refill(g), true)
-	eq(g.chips, 1000)
+	eq(ns.Blackjack_Refill(g, 500), 495)
+	eq(g.chips, 500)
 	eq(g.stats.refills, 1)
+end)
+
+test("earned chips count toward stats and the peak", function()
+	local g = ns.Blackjack_NewGame()
+	ns.Blackjack_AddChips(g, 250)
+	eq(g.chips, 1250)
+	eq(g.stats.earned, 250)
+	eq(g.stats.peak, 1250)
+end)
+
+test("spending needs the chips and no hand in play, and trims the bet", function()
+	local g = game(500)
+	eq(ns.Blackjack_Spend(g, 2000), false)
+	eq(ns.Blackjack_Spend(g, 600), true)
+	eq(g.chips, 400)
+	eq(g.bet, 400)
+	g.bet = 100
+	ns.Blackjack_Deal(g, noRandom)
+	eq(ns.Blackjack_Spend(g, 10), false)
+end)
+
+test("an old saved game gets the earned stat", function()
+	local g = ns.Blackjack_NewGame()
+	g.stats.earned = nil
+	ns.Blackjack_Repair(g)
+	eq(g.stats.earned, 0)
 end)
 
 test("reshuffles when a quarter of the shoe is left", function()

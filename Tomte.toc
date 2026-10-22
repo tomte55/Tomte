@@ -115,8 +115,13 @@ Modules/Moments/ZoneText.lua
 Modules/Moments/Moments.lua
 Modules/Games/CardData.lua
 Modules/Games/BlackjackRules.lua
+Modules/Games/ChipRules.lua
+Modules/Games/CashierData.lua
+Modules/Games/Earn.lua
 Modules/Games/Effects.lua
 Modules/Games/Card.lua
+Modules/Games/Felt.lua
+Modules/Games/Cashier.lua
 Modules/Games/Table.lua
 Modules/Games/Blackjack.lua
 Modules/Cursor/Data.lua

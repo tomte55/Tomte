@@ -8,6 +8,11 @@ Newest first. Add a line under **Unreleased** with each change; at release time 
 - Blackjack: the play buttons are now colored icons with their names underneath, in the order Stand, Split, Double, Hit. Split and Double only show when you can use them.
 - Blackjack: the floating wins and losses under your chips, and the amount over your bet, now drift smoothly instead of sticking and then jumping.
 - Settings: the group names on the left (Ambience, Collect and the rest) no longer run into the window's edge.
+- Blackjack: a classic casino table. A half-moon green felt with a padded rail, "Blackjack pays 3 to 2" and the dealer's rule printed on it, a shoe the cards slide out of, a betting circle with your bet as a stack of chips, and round chip buttons.
+- Blackjack: earn chips by playing the game: 10 a minute on flight paths, 25 for a quest (50 for a daily, 250 for a weekly), 1,000 for the week's Great Vault and a chip per gold you loot (up to 500 a day). Each can be turned off. Hover your chips to see what you earned today, or use `/tomte blackjack today`.
+- Blackjack: the Cashier, in the table's title bar, sells card backs and felts for chips; three backs unlock with feats instead (50 blackjacks, a 10-hand win streak, 100,000 chips at once). Your rank (Regular, High roller, Whale) follows the most chips you've held.
+- Blackjack: when you run out, the house now tops you up to 500 chips once a day instead of handing out 1,000 every time.
+- Blackjack: a new setting opens the table while you wait in a dungeon, raid or battleground queue. When a queue pops the table always closes, so it never covers the accept button.
 
 ## v1.19.0 - 2026-10-21
 

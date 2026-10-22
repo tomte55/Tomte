@@ -51,7 +51,7 @@ ns.Blackjack_IsNatural = Natural
 
 local function Stats()
 	return { hands = 0, wins = 0, losses = 0, pushes = 0, blackjacks = 0, biggestWin = 0, streak = 0,
-		bestStreak = 0, peak = START_CHIPS, refills = 0 }
+		bestStreak = 0, peak = START_CHIPS, refills = 0, earned = 0 }
 end
 
 function ns.Blackjack_NewGame()
@@ -129,14 +129,33 @@ function ns.Blackjack_ClearBet(game)
 	end
 end
 
--- Out of chips: the house gives a fresh stack. False while you can still bet.
-function ns.Blackjack_Refill(game)
+-- Out of chips: the house tops you up to `to`. Returns the chips given, or false while you can still bet.
+-- How often it may happen is ChipRules.lua's call.
+function ns.Blackjack_Refill(game, to)
 	if game.chips >= MIN_BET or ns.Blackjack_InPlay(game) then
 		return false
 	end
-	game.chips = START_CHIPS
+	local given = to - game.chips
+	game.chips = to
 	game.stats.refills = game.stats.refills + 1
 	game.stats.peak = math.max(game.stats.peak, game.chips)
+	return given
+end
+
+-- Chips from outside the table (earned by playing the game).
+function ns.Blackjack_AddChips(game, amount)
+	game.chips = game.chips + amount
+	game.stats.earned = game.stats.earned + amount
+	game.stats.peak = math.max(game.stats.peak, game.chips)
+end
+
+-- Chips spent at the Cashier. False when you don't have them or a hand is in play (its bet isn't in your chips).
+function ns.Blackjack_Spend(game, amount)
+	if ns.Blackjack_InPlay(game) or game.chips < amount then
+		return false
+	end
+	game.chips = game.chips - amount
+	game.bet = math.min(game.bet, MaxBet(game))
 	return true
 end
 
