@@ -29,14 +29,14 @@ local offTaxi = 0 -- checks in a row the flight ticker found you off the taxi
 
 local function Show()
 	if ns.Module_RequireOn(module) then
-		ns.BlackjackTable_Show()
+		ns.GamesWindow_Show()
 	end
 end
 
 local function Toggle()
 	if ns.Module_RequireOn(module) then
 		forFlight, forQueue = false, false
-		ns.BlackjackTable_Toggle()
+		ns.GamesWindow_Toggle()
 	end
 end
 
@@ -66,7 +66,7 @@ end
 -- Earning ---------------------------------------------------------------------------------------------------------
 
 local function Paid(source, amount)
-	ns.BlackjackTable_Earned(source, amount)
+	ns.GamesWindow_Earned(source, amount)
 	ns.Blackjack_CheckFeats()
 end
 
@@ -87,7 +87,7 @@ local function Landed()
 	if forFlight then
 		forFlight = false
 		if db.closeOnLand then
-			ns.BlackjackTable_Hide()
+			ns.GamesWindow_Hide()
 		end
 	end
 end
@@ -110,9 +110,9 @@ local function CheckTaxi()
 	ns.BlackjackEarn_FlightStart()
 	offTaxi = 0
 	flightTicker = C_Timer.NewTicker(FLIGHT_POLL, FlightTick)
-	if db.taxi and not InCombatLockdown() and not ns.BlackjackTable_IsShown() then
+	if db.taxi and not InCombatLockdown() and not ns.GamesWindow_IsShown() then
 		forFlight = true
-		ns.BlackjackTable_Show()
+		ns.GamesWindow_Show()
 	end
 end
 
@@ -146,14 +146,14 @@ local function CheckQueue()
 	wasQueued = queued
 	if popped then
 		forQueue, afterCombat = false, false
-		ns.BlackjackTable_Hide()
+		ns.GamesWindow_Hide()
 	elseif forQueue and not queued then
 		forQueue = false
-		ns.BlackjackTable_Hide()
+		ns.GamesWindow_Hide()
 	elseif started and db.queue and not IsInInstance() and not InCombatLockdown()
-		and not ns.BlackjackTable_IsShown() then
+		and not ns.GamesWindow_IsShown() then
 		forQueue = true
-		ns.BlackjackTable_Show()
+		ns.GamesWindow_Show()
 	end
 end
 
@@ -186,16 +186,16 @@ function events:PLAYER_ENTERING_WORLD()
 end
 
 function events:PLAYER_REGEN_DISABLED()
-	if ns.BlackjackTable_IsShown() then
+	if ns.GamesWindow_IsShown() then
 		afterCombat = true
-		ns.BlackjackTable_Hide()
+		ns.GamesWindow_Hide()
 	end
 end
 
 function events:PLAYER_REGEN_ENABLED()
 	if afterCombat then
 		afterCombat = false
-		ns.BlackjackTable_Show()
+		ns.GamesWindow_Show()
 	end
 end
 
@@ -228,12 +228,12 @@ local function Stop()
 	StopWatchingFlight()
 	ns.BlackjackEarn_Stop()
 	forFlight, forQueue, wasQueued, afterCombat = false, false, false, false
-	ns.BlackjackTable_Hide()
+	ns.GamesWindow_Hide()
 end
 
 -- For the Flight module: the table is up, so no cinematic over it.
 function ns.Blackjack_IsOpen()
-	return module.active and ns.BlackjackTable_IsShown() or false
+	return module.active and ns.GamesWindow_IsShown() or false
 end
 
 -- Commands ------------------------------------------------------------------------------------------------------
@@ -260,8 +260,8 @@ end
 -- Cashier purchases are kept: they were bought, they aren't stats.
 local function StartOver()
 	db.game = ns.Blackjack_NewGame()
-	ns.BlackjackTable_ApplyLook()
-	ns.BlackjackTable_Refresh()
+	ns.GamesWindow_ApplyLook()
+	ns.GamesWindow_Refresh()
 	ns.Print(("blackjack: a fresh %s chips, stats cleared."):format(ns.Thousands(ns.BLACKJACK_START_CHIPS)))
 end
 
@@ -281,7 +281,7 @@ end
 -- Key bindings (Bindings.xml, Key Bindings > Tomte), through ns.Binding_Add.
 ns.Binding_Add("BLACKJACK", MODULE_KEY, function()
 	forFlight, forQueue = false, false
-	ns.BlackjackTable_Toggle()
+	ns.GamesWindow_Toggle()
 end)
 BINDING_NAME_TOMTE_BLACKJACK = "Blackjack table"
 
@@ -303,7 +303,7 @@ module = ns.RegisterModule({
 		closeOnLand = true,
 		queue = false,
 		sounds = true,
-		frame = { point = "CENTER", relPoint = "CENTER", x = 0, y = 60 }, -- ns.BlackjackTable_ResetPlace repeats it
+		frame = { point = "CENTER", relPoint = "CENTER", x = 0, y = 60 }, -- ns.GamesWindow_ResetPlace repeats it
 		game = ns.Blackjack_NewGame(), -- chips, bet, shoe, round in play, stats (BlackjackRules.lua)
 		earn = { flight = true, quest = true, vault = true, loot = true }, -- which ways of earning chips are on
 		-- Today's tally (ChipRules.lua): day, today = { [source] = chips }, lootCopper, vaultWeek, refillDay (reset
@@ -318,6 +318,7 @@ module = ns.RegisterModule({
 		db = saved
 		ns.Blackjack_Repair(db.game)
 		ns.BlackjackEarn_Init(db, Paid)
+		ns.GamesWindow_Init(db)
 		ns.BlackjackTable_Init(db)
 	end,
 	toggle = function(active)
@@ -333,7 +334,7 @@ module = ns.RegisterModule({
 		{ "stats", "your chips and stats, in chat", Stats },
 		{ "today", "chips earned today, in chat", Today },
 		{ "split", "make your next hand a pair (to try a split)", StackPair },
-		{ "reset", "put the table back in the middle of the screen", ns.BlackjackTable_ResetPlace, whileOff = true },
+		{ "reset", "put the table back in the middle of the screen", ns.GamesWindow_ResetPlace, whileOff = true },
 	},
 	options = {
 		{ type = "header", label = "Table" },
@@ -341,7 +342,7 @@ module = ns.RegisterModule({
 			tooltip = "Key Bindings > Tomte > Blackjack table opens and closes it with a key." },
 		{ type = "checkbox", key = "sounds", label = "Sounds",
 			tooltip = "Cards, chips and a sound for each win or loss, on the game's sound effects volume." },
-		{ type = "button", label = "Table position", text = "Reset", onClick = ns.BlackjackTable_ResetPlace },
+		{ type = "button", label = "Table position", text = "Reset", onClick = ns.GamesWindow_ResetPlace },
 		{ type = "button", label = "Chips and stats", text = "Start over", onClick = StartOver,
 			confirm = "Start over with a fresh 1,000 chips and clear your blackjack stats? Card backs and felts you "
 				.. "bought stay yours." },

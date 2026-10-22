@@ -71,7 +71,7 @@ local function Buy(cell)
 		function()
 			local ok = ns.Cashier_Buy(Game(), db.owned, item)
 			if ok then
-				ns.Blackjack_Sound("bigWin")
+				ns.GamesWindow_Sound("bigWin")
 				ns.Session_Note("blackjack", { title = ("Blackjack: the %s %s"):format(item.name, KIND_NAMES[cell.kind]),
 					icon = ns.BLACKJACK_ICON, detail = "bought for " .. ns.Thousands(item.cost) .. " chips" })
 				Use(cell)

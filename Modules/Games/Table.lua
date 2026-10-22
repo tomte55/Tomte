@@ -1,12 +1,11 @@
 local addonName, ns = ...
 
--- Blackjack: the table window (a movable UI.Dialog; Esc closes it). A classic half-moon table (Felt.lua): dealer row
--- on top, the rules printed across the middle, your hand or hands below with their bets in betting circles, a message
--- line near the rail, the bet chips or the play buttons under the table. Title bar: rank, chips (stats on hover), the
--- Cashier (Cashier.lua, the window's other face) and close. Rules and the saved game in BlackjackRules.lua and
--- ChipRules.lua; cards in Card.lua; registered in Blackjack.lua. Plain frames: nothing here is protected.
+-- Blackjack: the table, the blackjack face of the casino window (Window.lua). A classic half-moon table (Felt.lua):
+-- dealer row on top, the rules printed across the middle, your hand or hands below with their bets in betting circles,
+-- a message line near the rail, the bet chips or the play buttons under the table. Rules and the saved game in
+-- BlackjackRules.lua and ChipRules.lua; cards in Card.lua; registered in Blackjack.lua.
 
-local WIDTH, HEIGHT = 560, 506
+local WIDTH = ns.GAMES_WINDOW_W
 local CARD_STEP = 30 -- pixels between overlapping cards in a hand
 local HAND_GAP = 70 -- pixels between two split hands
 local MAX_CARDS = 11 -- the most cards a hand can hold without busting (four aces, four twos, three threes)
@@ -20,21 +19,22 @@ local BIG_WIN = 500 -- chips won in one round that count as a big win (a bigger 
 local SHUFFLE_TIME = 0.4 -- seconds of shuffling sounds before the first card of a fresh shoe
 local CHIP_ROLL = 0.8 -- seconds for the chip count to roll to a round's payout
 local GLOW_REST = 0.35 -- a winning hand's glow once it has flashed
-local CHIP_FLOAT_DRIFT = -22 -- pixels the +/- under the chip count drifts (down, away from the count)
 local MESSAGE_SIZE, BANNER_SIZE = 14, 30 -- font sizes of the message line and the "Blackjack!" banner
 local PLAY_W, PLAY_H, PLAY_ICON, PLAY_GAP = 56, 34, 26, 8 -- the play buttons: size, icon size, space between
 local PLAY_LABEL = 14 -- pixels under the play buttons for their names
 local PLAY_MEDIA = "Interface\\AddOns\\Tomte\\Media\\Games\\"
 
 local UI = ns.UI
+local Sound, SetChips, ChipFloat = ns.GamesWindow_Sound, ns.GamesWindow_SetChips, ns.GamesWindow_ChipFloat
+local Button, SetUsable = ns.GamesWindow_Button, ns.GamesWindow_SetUsable
 
-local db, frame
-local Draw, ShowCashier
+local db, frame -- frame: the felt, this face's root (it covers the window)
+local face = { key = "blackjack", name = "Blackjack" }
+local Draw
 -- What the window shows of the round, so only new cards animate: the round table, cards shown per hand and for
 -- the dealer, whether the hole card is face up, and which round's result has had its sounds and effects.
 local shown = { round = nil, hands = {}, dealer = 0, hole = false, handCount = 1 }
 local revealTimer
-local shownChips -- the number on the chip count (it rolls to new values)
 local bustShown = {} -- [hand] = true: already shook and sounded when it busted
 
 local function Game()
@@ -45,36 +45,12 @@ local function Random(n)
 	return math.random(n)
 end
 
-local function Sound(name)
-	if db.sounds then
-		ns.GamesFx_Sound(name)
-	end
-end
-ns.Blackjack_Sound = Sound
-
 local function DealSound()
 	Sound("deal")
 end
 
 local function FlipSound()
 	Sound("flip")
-end
-
-local function ChipsText(chips)
-	return ns.Thousands(chips) .. " chips"
-end
-
--- The chip count, rolled to its new value (roll) or set at once. role: its color while rolling.
-local function SetChips(value, roll, role)
-	if value == shownChips then
-		return -- unchanged: a roll on its way there keeps going
-	end
-	if roll and shownChips then
-		ns.GamesFx_CountTo(frame.chips, shownChips, value, roll, ChipsText, "accent", role)
-	else
-		ns.GamesFx_CountTo(frame.chips, value, value, 0, ChipsText, "accent")
-	end
-	shownChips = value
 end
 
 -- Actions -------------------------------------------------------------------------------------------------------
@@ -108,7 +84,7 @@ local function Act(fn)
 		bustShown[hand] = true
 		local row = HandRow(hand)
 		C_Timer.After(0.25, function()
-			if frame:IsShown() and row then
+			if ns.GamesWindow_Showing(face) and row then
 				Sound("lose")
 				ShakeRow(row)
 			end
@@ -151,77 +127,23 @@ local function ClearBet()
 	Draw(false)
 end
 
--- Floats text under the chip count (anchored to its box: the count itself rolls).
-local function ChipFloat(text, role)
-	ns.GamesFx_Float(frame.fx, text, role, frame.chipsBox, "BOTTOMRIGHT", 0, 0,
-		{ rise = CHIP_FLOAT_DRIFT, own = "TOPRIGHT" })
-end
+-- Tooltip lines (Window.lua's chip count tooltip) -------------------------------------------------------------------
 
-local function Refill()
-	local given = ns.Chips_Refill(Game(), db.earned, (ns.BlackjackEarn_Day()))
-	if given then
-		Sound("refill")
-		SetChips(Game().chips, CHIP_ROLL, "success")
-		ChipFloat("+" .. ns.Thousands(given), "success")
-	end
-	Draw(false)
-end
-
--- Tooltips ------------------------------------------------------------------------------------------------------
-
-local Line = UI.TipLine
-
-local function StatsTooltip(owner)
+function face.Stats(line, double)
 	local s = Game().stats
-	GameTooltip:SetOwner(owner, "ANCHOR_BOTTOMLEFT")
-	GameTooltip:SetText("Blackjack", UI.Color("heading"))
-	Line("Play chips only, kept between sessions. Earn more by playing the game: flight paths, quests, the Great "
-		.. "Vault and gold you loot.", "textMuted", true)
-	local today = ns.Chips_Today(db.earned, (ns.BlackjackEarn_Day()))
-	if #today > 0 then
-		Line(" ")
-		Line("Earned today", "heading")
-		for _, row in ipairs(today) do
-			GameTooltip:AddDoubleLine(row[1], ns.Thousands(row[2]), UI.Color("textMuted"))
-		end
-	end
-	Line(" ")
-	GameTooltip:AddDoubleLine("Chips earned", ns.Thousands(s.earned), UI.Color("textMuted"))
-	GameTooltip:AddDoubleLine("Hands played", ns.Thousands(s.hands), UI.Color("textMuted"))
-	GameTooltip:AddDoubleLine("Won / lost / pushed", ("%s / %s / %s"):format(ns.Thousands(s.wins),
-		ns.Thousands(s.losses), ns.Thousands(s.pushes)), UI.Color("textMuted"))
-	GameTooltip:AddDoubleLine("Blackjacks", ns.Thousands(s.blackjacks), UI.Color("textMuted"))
-	GameTooltip:AddDoubleLine("Biggest win", ns.Thousands(s.biggestWin), UI.Color("textMuted"))
-	GameTooltip:AddDoubleLine("Best win streak", ns.Thousands(s.bestStreak), UI.Color("textMuted"))
-	GameTooltip:AddDoubleLine("Most chips held", ns.Thousands(s.peak), UI.Color("textMuted"))
-	if s.refills > 0 then
-		GameTooltip:AddDoubleLine("House refills", ns.Thousands(s.refills), UI.Color("textMuted"))
-	end
-	Line(" ")
-	Line(("%d cards left in the shoe"):format(ns.Blackjack_Left(Game())), "textFaint")
-	GameTooltip:Show()
+	double("Hands played", ns.Thousands(s.hands))
+	double("Won / lost / pushed", ("%s / %s / %s"):format(ns.Thousands(s.wins), ns.Thousands(s.losses),
+		ns.Thousands(s.pushes)))
+	double("Blackjacks", ns.Thousands(s.blackjacks))
+	double("Biggest win", ns.Thousands(s.biggestWin))
+	double("Best win streak", ns.Thousands(s.bestStreak))
 end
 
-local function ButtonTip(button, text)
-	button:HookScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_TOP")
-		Line(text, "text", true)
-		GameTooltip:Show()
-	end)
-	button:HookScript("OnLeave", GameTooltip_Hide)
+function face.StatsFooter(line)
+	line(("%d cards left in the shoe"):format(ns.Blackjack_Left(Game())), "textFaint")
 end
 
 -- Building ------------------------------------------------------------------------------------------------------
-
-local function Button(parent, width, text, onClick, tip)
-	local b = UI.Button(parent, width, text)
-	b:SetHeight(24)
-	b:SetScript("OnClick", onClick)
-	if tip then
-		ButtonTip(b, tip)
-	end
-	return b
-end
 
 -- A play button: an icon in its color role with its name underneath, the border taking that color on hover.
 local function PlayButton(parent, icon, role, name, onClick)
@@ -247,44 +169,6 @@ local function PlayButton(parent, icon, role, name, onClick)
 	return b
 end
 
-local function SetUsable(button, usable)
-	button:SetEnabled(usable)
-	button:SetAlpha(usable and 1 or 0.35)
-end
-
-local function SavePlace()
-	local point, _, relPoint, x, y = frame:GetPoint()
-	db.frame.point, db.frame.relPoint, db.frame.x, db.frame.y = point, relPoint, x, y
-end
-
-local function ApplyPlace()
-	frame:ClearAllPoints()
-	frame:SetPoint(db.frame.point, UIParent, db.frame.relPoint, db.frame.x, db.frame.y)
-end
-
--- The look in use (the Cashier's choice): the felt and every card's back.
-local function ApplyLook()
-	if not frame then
-		return
-	end
-	local stats = Game().stats
-	ns.BlackjackFelt_SetFelt(frame.felt, ns.Cashier_Using(db.look, "felt", db.owned, stats))
-	ns.GamesCard_SetBack(ns.Cashier_Using(db.look, "back", db.owned, stats))
-end
-
--- The Cashier in place of the table, or the table back.
-function ShowCashier(show)
-	if not frame.cashier then
-		return
-	end
-	frame.cashier:SetShown(show)
-	frame.felt:SetShown(not show)
-	frame.cashierButton.label:SetText(show and "Table" or "Cashier")
-	if not show and frame:IsShown() then
-		Draw(false)
-	end
-end
-
 local function NewHandRow(parent)
 	local row = { cards = {} }
 	for i = 1, MAX_CARDS do
@@ -303,46 +187,10 @@ local function NewHandRow(parent)
 	return row
 end
 
-local function Create()
-	frame = UI.Dialog("TomteBlackjack", WIDTH, HEIGHT)
-	frame:SetScript("OnDragStop", function(self)
-		self:StopMovingOrSizing()
-		SavePlace()
-	end)
-	ApplyPlace()
-
-	local title = UI.Text(frame, 16, "heading", "title")
-	title:SetPoint("TOPLEFT", 16, -14)
-	title:SetText("Blackjack")
-	frame.rank = UI.Text(frame, 11, "textMuted", "label")
-	frame.rank:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 10, 1)
-
-	local close = UI.Button(frame, 20, "x")
-	close:SetPoint("TOPRIGHT", -10, -10)
-	close:SetScript("OnClick", function()
-		frame:Hide()
-	end)
-
-	frame.cashierButton = Button(frame, 74, "Cashier", function()
-		ShowCashier(not frame.cashier:IsShown())
-	end, "Card backs and felts, for chips.")
-	frame.cashierButton:SetHeight(20)
-	frame.cashierButton:SetPoint("TOPRIGHT", close, "TOPLEFT", -8, 0)
-
-	local chips = CreateFrame("Frame", nil, frame)
-	chips:SetSize(150, 20)
-	chips:SetPoint("TOPRIGHT", frame.cashierButton, "TOPLEFT", -10, 0)
-	chips:EnableMouse(true)
-	chips:SetScript("OnEnter", StatsTooltip)
-	chips:SetScript("OnLeave", GameTooltip_Hide)
-	frame.chipsBox = chips
-	frame.chips = UI.Text(chips, 15, "accent", "number")
-	frame.chips:SetPoint("RIGHT")
-	frame.chips:SetJustifyH("RIGHT")
-
-	-- The table: the felt and everything on it, on a frame the Cashier swaps out.
-	local felt = ns.BlackjackFelt_Create(frame)
-	frame.felt = felt
+-- The table: the felt and everything on it, on a frame the Cashier swaps out.
+function face.Create(window)
+	local felt = ns.BlackjackFelt_Create(window)
+	frame = felt
 
 	frame.dealerLabel = UI.Text(felt, 12, "textMuted", "label")
 	frame.dealerLabel:SetPoint("TOP", 0, -52)
@@ -356,8 +204,6 @@ local function Create()
 	frame.message:SetJustifyH("CENTER")
 
 	frame.hands = { NewHandRow(felt), NewHandRow(felt) }
-
-	frame.cashier = ns.BlackjackCashier_Create(frame, db, ApplyLook)
 
 	-- "Blackjack!" over your hand: pops in big, then fades.
 	-- Above the cards: the banner and floating numbers.
@@ -422,23 +268,27 @@ local function Create()
 	-- Left to right; Split and Double only show when you can.
 	frame.playOrder = { frame.stand, frame.split, frame.double, frame.hit }
 
-	frame.refill = Button(bottom, 140, "House chips", Refill,
-		("Out of chips: the house tops you up to %s, once a day."):format(ns.Thousands(ns.CHIPS_REFILL_TO)))
+	frame.refill = ns.GamesWindow_RefillButton(bottom)
 	frame.refill:SetPoint("CENTER")
-	ApplyLook()
+	return frame
+end
 
-	frame:HookScript("OnHide", function(self)
-		if not self:IsShown() then -- closed, not just hidden with UIParent (Alt+Z, a cinematic)
-			Sound("close")
-		end
-		GameTooltip_Hide()
-		if revealTimer then
-			revealTimer:Cancel()
-			revealTimer = nil
-		end
-		shown.round = nil -- shown again later: draw the table as it is, without replaying the deal
-		ShowCashier(false)
-	end)
+function face.ApplyLook(felt)
+	ns.BlackjackFelt_SetFelt(frame, felt)
+end
+
+-- The window closed or another face took its place.
+function face.OnHide()
+	if revealTimer then
+		revealTimer:Cancel()
+		revealTimer = nil
+	end
+	shown.round = nil -- shown again later: draw the table as it is, without replaying the deal
+end
+
+-- The round's payout is held back from the chip count until the cards are down.
+function face.Busy()
+	return revealTimer ~= nil
 end
 
 -- Drawing -------------------------------------------------------------------------------------------------------
@@ -498,15 +348,7 @@ end
 local function Message(game, settled, dealing)
 	local round = game.round
 	if not round then
-		if game.chips < ns.BLACKJACK_MIN_BET then
-			local day, left = ns.BlackjackEarn_Day()
-			if ns.Chips_RefillReady(db.earned, day) then
-				return "You're out of chips."
-			end
-			return ("Out of chips. The house refills at reset (%s), or earn chips out in the world.")
-				:format(ns.Chips_WaitText(left))
-		end
-		return "Place your bet, then Deal."
+		return ns.GamesWindow_BrokeText() or "Place your bet, then Deal."
 	end
 	if round.phase == "player" then
 		if #round.hands > 1 then
@@ -542,7 +384,7 @@ local function ShowButtons(game, settled)
 	local broke = not inPlay and game.chips < ns.BLACKJACK_MIN_BET and game.bet == 0
 	frame.playing:SetShown(inPlay and true or false)
 	frame.betting:SetShown(not inPlay and not broke)
-	frame.refill:SetShown(broke and settled and ns.Chips_RefillReady(db.earned, (ns.BlackjackEarn_Day())))
+	frame.refill:SetShown(broke and settled and ns.GamesWindow_RefillReady())
 	if inPlay then
 		local can = ns.Blackjack_Actions(game)
 		SetUsable(frame.hit, can.hit)
@@ -634,14 +476,14 @@ end
 
 -- animate: new cards slide in and the dealer plays out at a pace; otherwise everything shows as it is.
 function Draw(animate)
-	if not (frame and frame:IsShown()) then
+	if not ns.GamesWindow_Showing(face) then
 		return
 	end
 	local game = Game()
 	local round = game.round
 	local hands = round and round.hands or {}
 	local fresh = round ~= shown.round
-	frame.rank:SetText((ns.Chips_Rank(game.stats.peak)))
+	ns.GamesWindow_UpdateRank()
 	if fresh then
 		shown.round = round
 		shown.hands = { 0, 0 }
@@ -683,7 +525,7 @@ function Draw(animate)
 			LayoutRow(row, hand.cards, x, PLAYER_Y)
 			row.value:ClearAllPoints()
 			row.value:SetPoint("TOP", frame, "TOP", x + widths[i] / 2, PLAYER_Y - ns.GAMES_CARD_H - 6)
-			local ring = ns.BlackjackFelt_Spot(frame.felt, i, true, x + widths[i] / 2, SPOT_Y, hand.bet)
+			local ring = ns.BlackjackFelt_Spot(frame, i, true, x + widths[i] / 2, SPOT_Y, hand.bet)
 			row.bet:ClearAllPoints()
 			row.bet:SetPoint("LEFT", ring, "RIGHT", 4, 0)
 			row.mark:ClearAllPoints()
@@ -695,7 +537,7 @@ function Draw(animate)
 		else
 			LayoutRow(row, {}, 0, PLAYER_Y)
 			-- Between rounds the first circle holds the bet being placed.
-			ns.BlackjackFelt_Spot(frame.felt, i, i == 1, 0, SPOT_Y, i == 1 and game.bet or nil)
+			ns.BlackjackFelt_Spot(frame, i, i == 1, 0, SPOT_Y, i == 1 and game.bet or nil)
 		end
 		row.value:SetShown(hand ~= nil)
 		row.bet:SetShown(hand ~= nil)
@@ -816,62 +658,5 @@ function ns.BlackjackTable_Init(saved)
 	db = saved
 end
 
-function ns.BlackjackTable_Show()
-	if not frame then
-		Create()
-	end
-	UI.PlaceDialog(frame)
-	if not frame:IsShown() then
-		Sound("open")
-	end
-	frame:Show()
-	Draw(false)
-end
-
-function ns.BlackjackTable_Hide()
-	if frame then
-		frame:Hide()
-	end
-end
-
-function ns.BlackjackTable_IsShown()
-	return frame ~= nil and frame:IsShown()
-end
-
-function ns.BlackjackTable_Toggle()
-	if ns.BlackjackTable_IsShown() then
-		ns.BlackjackTable_Hide()
-	else
-		ns.BlackjackTable_Show()
-	end
-end
-
-function ns.BlackjackTable_Refresh()
-	Draw(false)
-	ns.BlackjackCashier_Refresh()
-end
-
--- Chips earned out in the world: the count rolls up with a "+25 quest" under it. Mid-reveal the reveal sets the
--- count itself (it holds back the round's payout until the cards are down).
-function ns.BlackjackTable_Earned(source, amount)
-	if not (frame and frame:IsShown()) then
-		return
-	end
-	ChipFloat(ns.Chips_FloatText(source, amount, ns.Thousands), "success")
-	if not revealTimer then
-		SetChips(Game().chips, CHIP_ROLL, "success")
-		Draw(false)
-	end
-	ns.BlackjackCashier_Refresh()
-end
-
-function ns.BlackjackTable_ApplyLook()
-	ApplyLook()
-end
-
-function ns.BlackjackTable_ResetPlace()
-	db.frame.point, db.frame.relPoint, db.frame.x, db.frame.y = "CENTER", "CENTER", 0, 60
-	if frame then
-		ApplyPlace()
-	end
-end
+face.Draw = Draw
+ns.GamesWindow_AddFace(face)

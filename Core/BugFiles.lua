@@ -116,6 +116,7 @@ ns.BUG_FILES = {
 	"Modules/Games/Card.lua",
 	"Modules/Games/Felt.lua",
 	"Modules/Games/Cashier.lua",
+	"Modules/Games/Window.lua",
 	"Modules/Games/Table.lua",
 	"Modules/Games/Blackjack.lua",
 	"Modules/Cursor/Data.lua",
