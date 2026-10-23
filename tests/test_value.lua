@@ -91,4 +91,54 @@ test("stale", function()
 	eq(ns.Value_Stale(9, 7), true)
 end)
 
+-- Backpack item tracker -------------------------------------------------------------------------------------------
+
+test("ParseItems reads IDs and item links, each once", function()
+	eq(table.concat(ns.Value_ParseItems("224025, 210796 224025"), ","), "224025,210796")
+	local link = "|cff0070dd|Hitem:37829::::::::80:::::|h[Brewfest Prize Token]|h|r"
+	eq(table.concat(ns.Value_ParseItems(link .. ", 21100"), ","), "37829,21100")
+	eq(table.concat(ns.Value_ParseItems("|cnIQ4:|Hitem:49927::|h[Love Token]|h|r"), ","), "49927")
+	eq(#ns.Value_ParseItems(nil), 0)
+	eq(#ns.Value_ParseItems("none"), 0)
+end)
+
+test("ToggleItem adds at the end, then takes it out", function()
+	local text, added = ns.Value_ToggleItem("224025", 210796)
+	eq(text, "224025, 210796")
+	eq(added, true)
+	text, added = ns.Value_ToggleItem(text, 224025)
+	eq(text, "210796")
+	eq(added, false)
+	eq((ns.Value_ToggleItem("", 5)), "5")
+end)
+
+local counts = { ["item:37829"] = 12, ["currency:515"] = 40, ["currency:3445"] = 7, ["currency:3446"] = 0,
+	["currency:3444"] = 3, ["item:224025"] = 2, ["item:210796"] = 0 }
+local function count(kind, id)
+	return counts[kind .. ":" .. id]
+end
+
+test("BackpackEntries: holidays, crests from the top tier, then tracked items", function()
+	local entries = ns.Value_BackpackEntries({
+		items = { 224025, 210796 }, holidays = { brewfest = true, darkmoon = true },
+		crests = { 3442, 3443, 3444, 3445, 3446 }, count = count,
+	})
+	local keys = {}
+	for i, e in ipairs(entries) do
+		keys[i] = e.kind .. ":" .. e.id .. "=" .. e.count
+	end
+	eq(table.concat(keys, " "), "currency:515=40 item:37829=12 currency:3445=7 currency:3444=3 item:224025=2")
+end)
+
+test("BackpackEntries skips Blizzard's tracked currencies, repeats and holidays that are off", function()
+	local entries = ns.Value_BackpackEntries({
+		items = { 37829 }, holidays = { brewfest = true }, crests = { 3444, 3445 },
+		watched = { [3445] = true }, count = count,
+	})
+	eq(#entries, 2)
+	eq(entries[1].id, 37829)
+	eq(entries[2].id, 3444)
+	eq(#ns.Value_BackpackEntries({ items = {}, count = count }), 0)
+end)
+
 H.done()

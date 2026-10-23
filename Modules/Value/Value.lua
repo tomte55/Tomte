@@ -6,6 +6,7 @@ local addonName, ns = ...
 --   Alts           each character's bags (and bank, read when it's open) and the Warband bank, priced; a column in
 --                  the roster and "worth" next to the total gold.
 --   Crafting tab   what the materials cost, what the result sells for and the difference.
+--   Bags           tracked items, holiday tokens and upgrade crests on the bag's currency bar (Backpack.lua).
 -- Choices are in Data.lua (unit-tested).
 
 local DEBOUNCE = 2 -- seconds of quiet bags before they're priced
@@ -248,6 +249,11 @@ end
 
 function events:BAG_UPDATE_DELAYED()
 	ReadWorthSoon()
+	ns.ValueBackpack_Refresh()
+end
+
+function events:CURRENCY_DISPLAY_UPDATE()
+	ns.ValueBackpack_Refresh()
 end
 
 function events:BANKFRAME_OPENED()
@@ -291,7 +297,9 @@ function ns.Value_Plan(plan, recipe, crafts)
 	return { cost = cost, complete = complete, sells = sells, profit = sells and (sells - cost) or nil }
 end
 
-local EVENTS = { "PLAYER_ENTERING_WORLD", "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED" }
+local EVENTS = {
+	"PLAYER_ENTERING_WORLD", "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "CURRENCY_DISPLAY_UPDATE",
+}
 
 -- text: lower-cased by /tomte; rawText: as typed (Core/Core.lua passes both), so a link keeps its bonus IDs and
 -- prints as a link.
@@ -316,6 +324,23 @@ local function PrintPrice(text, rawText)
 		stale and ", stale" or "", ns.Value_SourceName()))
 end
 
+-- /tomte value track <item link or ID>: shows it on the bag's currency bar, or stops.
+local function Track(text, rawText)
+	local itemID = ns.Value_ParseItems(rawText or text)[1]
+	if not itemID then
+		ns.Print("usage: /tomte value track <item link or ID> (shift-click the item into the command).")
+		return
+	end
+	if not db.backpack.shown then
+		ns.Print("turn on \"Items on the bag's currency bar\" in Gold & value's settings to see it.")
+	end
+	ns.ValueBackpack_Track(itemID)
+end
+
+local function BackpackChanged()
+	ns.ValueBackpack_Toggle(module.active and db.backpack.shown, db.backpack)
+end
+
 module = ns.RegisterModule({
 	key = "value",
 	name = "Gold & value",
@@ -324,8 +349,9 @@ module = ns.RegisterModule({
 	summary = "What your loot, bags and crafts are worth at the auction house.",
 	description = "What things are worth, from Auctionator or TSM: the value of a session's loot on the recap card and "
 		.. "the Sessions page, each character's bags and bank in Alts, and what a craft costs and sells for in the "
-		.. "Crafting tab.",
+		.. "Crafting tab. Also items you track, holiday tokens and upgrade crests on the bag's currency bar.",
 	enabledByDefault = true,
+	replaces = { { addon = "Plumber", why = "the backpack item tracker on the bag's currency bar" } },
 	uses = {
 		{ addon = "Auctionator", why = "auction prices", without = "uses TSM or vendor prices" },
 		{ addon = "TradeSkillMaster", why = "auction prices (if you pick TSM)", without = "uses Auctionator or vendor prices" },
@@ -339,6 +365,12 @@ module = ns.RegisterModule({
 		alts = true,
 		owned = "market", -- market | free
 		stale = 7,
+		backpack = {
+			shown = true,
+			holidays = true,
+			crests = true,
+			items = "", -- tracked item IDs, comma-separated (the settings list; /tomte value track edits it)
+		},
 	},
 	init = function(saved)
 		db = saved
@@ -351,6 +383,7 @@ module = ns.RegisterModule({
 				events:UnregisterEvent(event)
 			end
 		end
+		ns.ValueBackpack_Toggle(active and db.backpack.shown, db.backpack)
 		if active then
 			ReadWorthSoon()
 		else
@@ -403,8 +436,23 @@ module = ns.RegisterModule({
 		{ type = "dropdown", key = "owned", label = "Materials you have", choices = function()
 			return { { value = "market", text = "Count at market price" }, { value = "free", text = "Count as free" } }
 		end, tooltip = "In the Crafting tab's cost: what the materials you already have are worth." },
+		{ type = "header", label = "Bags" },
+		{ type = "checkbox", key = "backpack.shown", label = "Items on the bag's currency bar", onChange = BackpackChanged,
+			tooltip = "Items you track, holiday tokens and upgrade crests, with your count, next to the currencies "
+				.. "the game tracks at the bottom of your bags. Ones you have none of are left out." },
+		{ type = "checkbox", key = "backpack.holidays", label = "Holiday tokens", parent = "backpack.shown",
+			onChange = ns.ValueBackpack_Refresh,
+			tooltip = "During a holiday, its token (Brewfest Prize Tokens, Tricky Treats, Darkmoon tickets ...). Needs "
+				.. "Holidays & events on." },
+		{ type = "checkbox", key = "backpack.crests", label = "Upgrade crests", parent = "backpack.shown",
+			onChange = ns.ValueBackpack_Refresh, tooltip = "This season's crests for upgrading gear." },
+		{ type = "input", key = "backpack.items", label = "Tracked items", parent = "backpack.shown",
+			placeholder = "item IDs: 224025, 210796", onChange = ns.ValueBackpack_Refresh,
+			tooltip = "Item IDs, separated by commas. Easier: /tomte value track and shift-click the item. Right-click "
+				.. "one on the bar to take it off." },
 	},
 	commands = {
 		{ "price", "what an item is worth: /tomte value price <item link or ID>", PrintPrice },
+		{ "track", "show an item on the bag's currency bar, or stop: /tomte value track <item link or ID>", Track },
 	},
 })

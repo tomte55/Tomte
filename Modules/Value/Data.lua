@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 -- Gold & value: pure logic (unit-tested with plain Lua). Value.lua reads prices from Auctionator or TSM and the
--- game; this file decides which price counts and adds things up.
+-- game; this file decides which price counts and adds things up, and what the backpack item tracker shows.
 
 local TRADEGOODS, REAGENT, GEM = 7, 5, 3
 local WEAPON, ARMOR = 2, 4
@@ -115,4 +115,88 @@ end
 -- Whether a price is too old to trust. age in days (nil = unknown, trusted).
 function ns.Value_Stale(age, maxDays)
 	return age ~= nil and age > maxDays
+end
+
+-- Backpack item tracker (Backpack.lua) --------------------------------------------------------------------------
+
+-- A holiday's token, shown on the bag's currency bar while the holiday is on. Keys are the Holidays module's
+-- (Modules/Holidays/Table.lua). Item and currency IDs checked on warcraft.wiki.gg.
+ns.VALUE_HOLIDAY_TOKENS = {
+	lunar = { kind = "item", id = 21100 }, -- Coin of Ancestry
+	love = { kind = "item", id = 49927 }, -- Love Token
+	noblegarden = { kind = "item", id = 44791 }, -- Noblegarden Chocolate
+	midsummer = { kind = "item", id = 23247 }, -- Burning Blossom
+	brewfest = { kind = "item", id = 37829 }, -- Brewfest Prize Token
+	hallows = { kind = "item", id = 33226 }, -- Tricky Treats
+	darkmoon = { kind = "currency", id = 515 }, -- Darkmoon Prize Ticket
+	timewalking = { kind = "currency", id = 1166 }, -- Timewalking Badge
+}
+-- The order holiday tokens are listed in when two holidays overlap.
+local HOLIDAY_ORDER = { "darkmoon", "timewalking", "lunar", "love", "noblegarden", "midsummer", "brewfest", "hallows" }
+
+-- The item IDs in the settings list ("224025, 210796"; item links work too), each once, in order.
+function ns.Value_ParseItems(text)
+	local list, seen = {}, {}
+	-- Color codes carry digits ("|cff0070dd", "|cnIQ4:"): out first. A link counts as its item ID; other links go.
+	text = (text or ""):gsub("|c%x%x%x%x%x%x%x%x", " "):gsub("|cn[^:]*:", " "):gsub("|r", " ")
+	text = text:gsub("|Hitem:(%d+)[^|]*|h.-|h", " %1 "):gsub("|H.-|h.-|h", " ")
+	for id in text:gmatch("%d+") do
+		id = tonumber(id)
+		if id and id > 0 and not seen[id] then
+			seen[id] = true
+			list[#list + 1] = id
+		end
+	end
+	return list
+end
+
+-- The settings list with itemID added at the end or, when it's there, taken out. Returns the new text and true when
+-- it was added.
+function ns.Value_ToggleItem(text, itemID)
+	local list, kept, found = ns.Value_ParseItems(text), {}, false
+	for _, id in ipairs(list) do
+		if id == itemID then
+			found = true
+		else
+			kept[#kept + 1] = id
+		end
+	end
+	if not found then
+		kept[#kept + 1] = itemID
+	end
+	return table.concat(kept, ", "), not found
+end
+
+-- What the backpack tracker shows, in order: tokens of the holidays on now, the upgrade crests (highest tier first),
+-- then the tracked items. Each { kind = "item" | "currency", id, count }. Left out: anything with no count, and a
+-- currency Blizzard's own tracker shows already. opts = { items = { itemID, ... }, holidays = { [key] = true },
+-- crests = { currencyID, ... } (lowest tier first), watched = { [currencyID] = true }, count = fn(kind, id) -> n }.
+function ns.Value_BackpackEntries(opts)
+	local entries, seen = {}, {}
+	local watched = opts.watched or {}
+	local function add(kind, id)
+		local key = kind .. ":" .. id
+		if seen[key] or (kind == "currency" and watched[id]) then
+			return
+		end
+		seen[key] = true
+		local count = opts.count(kind, id)
+		if count and count > 0 then
+			entries[#entries + 1] = { kind = kind, id = id, count = count }
+		end
+	end
+	for _, key in ipairs(HOLIDAY_ORDER) do
+		local token = ns.VALUE_HOLIDAY_TOKENS[key]
+		if opts.holidays and opts.holidays[key] and token then
+			add(token.kind, token.id)
+		end
+	end
+	local crests = opts.crests or {}
+	for i = #crests, 1, -1 do
+		add("currency", crests[i])
+	end
+	for _, id in ipairs(opts.items or {}) do
+		add("item", id)
+	end
+	return entries
 end
