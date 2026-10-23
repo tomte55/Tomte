@@ -137,8 +137,19 @@ end
 
 local SEARCHED = { "name", "line", "vendor", "zone" }
 
--- query: lower case, trimmed. Matches the name, the source line, the vendor or the zone.
-function ns.Decor_Matches(e, query)
+-- The whole source text in plain lower case (every line: achievement, quest, drop, currency names), cached on the
+-- entry (the catalog makes new entries on every read).
+local function FullSource(e)
+	if not e.fullSource then
+		local text = ns.Decor_CleanSource(e.raw):gsub("|n", " "):gsub("%s+", " ")
+		e.fullSource = Lower(Plain(text))
+	end
+	return e.fullSource
+end
+
+-- query: lower case, trimmed. Matches the name, the source line, the vendor or the zone; full: also anything in the
+-- whole source text.
+function ns.Decor_Matches(e, query, full)
 	if not query or query == "" then
 		return true
 	end
@@ -147,7 +158,7 @@ function ns.Decor_Matches(e, query)
 			return true
 		end
 	end
-	return false
+	return full == true and FullSource(e):find(query, 1, true) ~= nil
 end
 
 local function ByName(a, b)
@@ -158,13 +169,14 @@ local function ByName(a, b)
 end
 
 -- entries: { id, name, owned (count), source, line, vendor, zone }. opts = { source = "all" | key, query (lower
--- case), owned = true to include what you have }. The matching entries, sorted by name.
+-- case), owned = true to include what you have, full = true to search the whole source text }. The matching entries,
+-- sorted by name.
 function ns.Decor_List(entries, opts)
 	local out = {}
 	local source = opts.source or "all"
 	for _, e in ipairs(entries) do
 		if (opts.owned or (e.owned or 0) == 0) and (source == "all" or e.source == source)
-			and ns.Decor_Matches(e, opts.query) then
+			and ns.Decor_Matches(e, opts.query, opts.full) then
 			out[#out + 1] = e
 		end
 	end
@@ -215,7 +227,8 @@ local function VendorMatches(v, query)
 end
 
 -- entries: catalog entries (with vendors from Decor_Describe). learned: [npcID] = { name, items = { [itemID] = true
--- } } or nil. opts = { query (lower case), owned = true to keep vendors you have everything from }. Returns the
+-- } } or nil. opts = { query (lower case), owned = true to keep vendors you have everything from, full = true to
+-- search the decor's whole source text }. Returns the
 -- vendors sorted by name: { key (lower-case name), vendor, zone, entries (everything they sell, by name), total,
 -- owned, missing }. A vendor matches the query by name, zone or any decor they sell, and then lists all of it.
 function ns.Decor_Vendors(entries, learned, opts)
@@ -266,7 +279,7 @@ function ns.Decor_Vendors(entries, learned, opts)
 			if (e.owned or 0) > 0 then
 				v.owned = v.owned + 1
 			end
-			match = match or ns.Decor_Matches(e, query)
+			match = match or ns.Decor_Matches(e, query, opts.full)
 		end
 		v.missing = v.total - v.owned
 		if match and (opts.owned or v.missing > 0) then

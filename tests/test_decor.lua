@@ -321,4 +321,21 @@ test("vendors here also match by learned spots", function()
 	eq(none, 0)
 end)
 
+test("search through the whole source text", function()
+	local raw = "|cFFFFD200Achievement: |rTwo Hundred Chairs|n|cFFFFD200Category: |rHousing"
+	local e = { id = 1, name = "Oak Chair", line = "Achievement: Two Hundred Chairs", raw = raw }
+	assert(not ns.Decor_Matches(e, "housing"), "the category line isn't in the short fields")
+	assert(ns.Decor_Matches(e, "housing", true), "the full source text has it")
+	assert(not ns.Decor_Matches(e, "ffd200", true), "color codes aren't searched")
+	local cur = { id = 2, name = "Lamp", raw = "|cFFFFD200Cost: |r50 |Hcurrency:3008|h[Valorstones]|h" }
+	assert(ns.Decor_Matches(cur, "valorstones", true))
+	local list = ns.Decor_List({ e, cur }, { query = "valorstones", owned = true, full = true })
+	eq(#list, 1)
+	eq(list[1].name, "Lamp")
+	eq(#ns.Decor_List({ e, cur }, { query = "valorstones", owned = true }), 0)
+	local vendors = ns.Decor_Vendors({ { id = 3, name = "Rug", vendors = { { name = "Kesha" } }, raw = raw } }, nil,
+		{ query = "category", owned = true, full = true })
+	eq(#vendors, 1)
+end)
+
 H.done()

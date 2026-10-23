@@ -5,8 +5,11 @@ local addonName, ns = ...
 -- collected" line on decor item tooltips, a Next up source and an Around you block for decor vendors in your zone,
 -- and Blizzard's own tracking (C_ContentTracking) as the click action that leads to a vendor, achievement or boss,
 -- with a waypoint to a learned vendor spot (Vendors.lua) where Blizzard's tracking can't lead.
--- Read-only. Every housing call is guarded so an account or client without housing stays quiet. The catalog is read
--- in Catalog.lua, rules in Data.lua. Decor achievement rewards stay in Almost Done (Achievements/Rewards.lua).
+-- Every housing call is guarded so an account or client without housing stays quiet. The catalog is read in
+-- Catalog.lua, rules in Data.lua. Decor achievement rewards stay in Almost Done (Achievements/Rewards.lua).
+-- Extras, each with its own setting: house editor hover info, Alt to place another, dye copy and a clock
+-- (Editor.lua), banana for scale in the preview (Detail.lua), your houses with teleports (Houses.lua) and a click on
+-- the "decor acquired" alert to preview it (Alert.lua). One event bus for the module (ns.Decor_Events, Editor.lua).
 
 local START_DELAY = 8 -- seconds after the first loading screen before the catalog is read
 local RESCAN_DELAY = 3 -- seconds of storage updates gathered into one catalog read
@@ -30,10 +33,8 @@ local startTimer
 local printWhenRead = false -- /tomte decor scan prints the counts when the read it started finishes
 local hooked = false
 
-local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
+local OWNER = "decor"
+local events = ns.Decor_Events
 
 local function Ready()
 	return ns.DecorCatalog_State().usable
@@ -196,7 +197,7 @@ local rescan = UI.Debounce(RESCAN_DELAY, function()
 	end
 end)
 
-function events:PLAYER_ENTERING_WORLD()
+local function EnteredWorld()
 	if started then
 		return
 	end
@@ -206,32 +207,34 @@ function events:PLAYER_ENTERING_WORLD()
 		ns.Decor_EnsureScan()
 	end)
 end
+events:On(OWNER, "PLAYER_ENTERING_WORLD", EnteredWorld)
 
-function events:HOUSING_STORAGE_UPDATED()
+events:On(OWNER, "HOUSING_STORAGE_UPDATED", function()
 	rescan()
-end
+end)
 
-function events:HOUSE_DECOR_ADDED_TO_CHEST(_, decorID)
+events:On(OWNER, "HOUSE_DECOR_ADDED_TO_CHEST", function(_, _, decorID)
 	if type(decorID) ~= "number" or not ns.DecorCatalog_Update(decorID) then
 		rescan()
 	end
-end
+end)
 
-function events:HOUSING_SERVICES_AVAILABILITY_UPDATED()
+events:On(OWNER, "HOUSING_SERVICES_AVAILABILITY_UPDATED", function()
 	rescan()
-end
+end)
 
-function events:CONTENT_TRACKING_UPDATE()
+events:On(OWNER, "CONTENT_TRACKING_UPDATE", function()
 	ns.DecorPage_Refresh()
-end
+end)
 
 -- A shop opened (or its list filled in): learn the vendor if it sells decor.
-function events:MERCHANT_SHOW()
+local function ShopOpened()
 	if ns.DecorVendors_Learn() then
 		OnChanged()
 	end
 end
-events.MERCHANT_UPDATE = events.MERCHANT_SHOW
+events:On(OWNER, "MERCHANT_SHOW", ShopOpened)
+events:On(OWNER, "MERCHANT_UPDATE", ShopOpened)
 
 -- Tooltip -----------------------------------------------------------------------------------------------------
 
@@ -269,22 +272,25 @@ end
 
 local function Start()
 	for _, event in ipairs(HOUSING_EVENTS) do
-		pcall(events.RegisterEvent, events, event) -- a client without housing doesn't know these events
+		events:TryWatch(OWNER, event) -- a client without housing doesn't know these events
 	end
-	events:RegisterEvent("PLAYER_ENTERING_WORLD")
-	events:RegisterEvent("MERCHANT_SHOW")
-	events:RegisterEvent("MERCHANT_UPDATE")
+	events:Watch(OWNER, "PLAYER_ENTERING_WORLD")
+	events:Watch(OWNER, "MERCHANT_SHOW")
+	events:Watch(OWNER, "MERCHANT_UPDATE")
 	if not hooked and TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall then
 		hooked = true -- post-calls can't be removed; OnItem checks module.active
 		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, OnItem)
 	end
 	if ns.inWorld then
-		events:PLAYER_ENTERING_WORLD()
+		EnteredWorld()
 	end
+	ns.DecorEditor_Start()
+	ns.DecorHouses_Start()
+	ns.DecorAlert_Start()
 end
 
 local function Stop()
-	events:UnregisterAllEvents()
+	events:UnwatchAll(OWNER)
 	if startTimer then
 		startTimer:Cancel()
 		startTimer = nil
@@ -292,6 +298,9 @@ local function Stop()
 	started, printWhenRead = false, false
 	ns.DecorCatalog_Stop()
 	ns.DecorPage_Refresh()
+	ns.DecorEditor_Stop()
+	ns.DecorHouses_Stop()
+	ns.DecorAlert_Stop()
 end
 
 -- Commands ----------------------------------------------------------------------------------------------------
@@ -449,7 +458,7 @@ module = ns.RegisterModule({
 	category = "collections",
 	icon = ICON,
 	summary = "The housing decor you're missing, where it comes from, and vendors near you.",
-	description = "A Decor page with the housing decor you're missing, grouped by where it comes from (vendors, achievements, quests, drops, professions) with how much of each you have, or by vendor with everything each one sells, and search. Click one to see its model in a preview you can turn and zoom, and track it with Blizzard's tracking, which leads you to the vendor, achievement or boss; for vendors Blizzard can't lead to, Tomte learns where they stand when you open their shop and gives a waypoint. Decor item tooltips say whether you have it. Next up and Around you name decor vendors in your zone that sell decor you're missing. Decor rewards of achievements are in Almost Done.",
+	description = "A Decor page with the housing decor you're missing, grouped by where it comes from (vendors, achievements, quests, drops, professions) with how much of each you have, or by vendor with everything each one sells, and search. Click one to see its model in a preview you can turn and zoom, and track it with Blizzard's tracking, which leads you to the vendor, achievement or boss; for vendors Blizzard can't lead to, Tomte learns where they stand when you open their shop and gives a waypoint. Decor item tooltips say whether you have it. Next up and Around you name decor vendors in your zone that sell decor you're missing. Decor rewards of achievements are in Almost Done. In the house editor: hovering a placed decor shows how many you have in storage and its budget cost, Alt places another, right-click copies a decor's dyes to paste on another, and a clock shows the time. The preview can put a banana next to the model for scale, a Houses window teleports you to any of your houses, and a click on the \"decor acquired\" alert previews it.",
 	enabledByDefault = true,
 	home = {
 		{ kind = "page", key = "decor", order = 42, name = "Decor", icon = ICON, page = ns.DecorPage,
@@ -482,11 +491,30 @@ module = ns.RegisterModule({
 		vendorsOpen = {}, -- [lower-case vendor name] = true while that vendor is open on the Decor page
 		-- Learned decor vendors (Vendors.lua): [npcID] = { name, mapID, x, y, items = { [itemID] = true }, seen }
 		vendors = {},
+		searchSources = true, -- the Decor page's search also looks through the whole source text
+		hover = true, -- house editor: storage count and budget cost on hovered decor (Editor.lua)
+		dupe = false, -- house editor: Alt places another of the hovered decor
+		dyeCopy = false, -- house editor: right-click copies dyes, Paste dyes previews them
+		clock = true, -- house editor: the clock above the mode bar
+		editorSeconds = 0, -- seconds spent in the house editor, all sessions
+		banana = true, -- the preview's Banana button and size in bananas (Detail.lua)
+		bananaShown = false, -- the banana is next to the model (the Banana button)
+		houses = true, -- the Houses window and the Teleport home key (Houses.lua)
+		alertPreview = true, -- a click on the "decor acquired" alert previews it (Alert.lua)
+	},
+	keep = { "editorSeconds" },
+	replaces = {
+		{ addon = "Plumber", why = "the house editor's decor info, duplicate, dye copy and clock, banana for scale, "
+			.. "teleport home, the house list and the decor alert preview" },
 	},
 	init = function(saved)
 		db = saved
 		ns.DecorPage_Init(db)
 		ns.DecorVendors_Init(db)
+		ns.DecorDetail_Init(db)
+		ns.DecorEditor_Init(db)
+		ns.DecorHouses_Init(db)
+		ns.DecorAlert_Init(db)
 		ns.DecorCatalog_SetChanged(OnChanged)
 	end,
 	toggle = function(active)
@@ -503,6 +531,12 @@ module = ns.RegisterModule({
 		{ "vendors", "the decor vendors Tomte has learned the spot of", function()
 			ns.DecorVendors_Print()
 		end },
+		{ "houses", "open the list of your houses, with a teleport to each", function()
+			ns.DecorHouses_Toggle()
+		end },
+		{ "home", "how to teleport home (a key or a click: commands can't teleport)", function()
+			ns.DecorHouses_HomeHelp()
+		end },
 	},
 	options = {
 		{ type = "header", label = "Decor page" },
@@ -514,6 +548,54 @@ module = ns.RegisterModule({
 		{ type = "button", label = "Decor page", text = "Open", onClick = Open },
 		{ type = "button", label = "Housing catalog", text = "Read again", onClick = Scan,
 			tooltip = "Read the catalog again and print how much decor you have per source." },
+		{ type = "checkbox", key = "searchSources", label = "Search where decor comes from",
+			tooltip = "The search also finds decor by anything in its source: achievement, quest, boss, currency or profession names.",
+			onChange = function()
+				ns.DecorPage_Refresh()
+			end },
+		{ type = "checkbox", key = "banana", label = "Banana for scale",
+			tooltip = "The preview gets a Banana button that puts a banana next to the model, and shows the model's size in bananas.",
+			onChange = function()
+				ns.DecorPage_Refresh()
+			end },
+		{ type = "header", label = "House editor" },
+		{ type = "checkbox", key = "hover", label = "Decor info on hover",
+			tooltip = "Hovering a placed decor while decorating shows how many you have in storage, how many are placed and its decor budget cost.",
+			onChange = function()
+				ns.DecorEditor_Apply()
+			end },
+		{ type = "checkbox", key = "dupe", label = "Alt places another",
+			tooltip = "While decorating, press Alt on a placed decor to pick up another one from your storage to place.",
+			onChange = function()
+				ns.DecorEditor_Apply()
+			end },
+		{ type = "checkbox", key = "dyeCopy", label = "Copy dyes",
+			tooltip = "In customize mode, right-click a dyed decor to copy its dyes. Select another decor and press Paste dyes under the dye pane to try them on; Blizzard's Apply saves them.",
+			onChange = function()
+				ns.DecorEditor_Apply()
+			end },
+		{ type = "checkbox", key = "clock", label = "Clock",
+			tooltip = "A clock above the editor's mode bar. Hover it for the time you've spent decorating.",
+			onChange = function()
+				ns.DecorEditor_Apply()
+			end },
+		{ type = "header", label = "Houses" },
+		{ type = "checkbox", key = "houses", label = "House list and Teleport home",
+			tooltip = "A Houses button on the Decor page lists your houses with a teleport to each. The Teleport home key (Key Bindings > Tomte) takes you to your house, or back from a visit.",
+			onChange = function()
+				ns.DecorHouses_Apply()
+				ns.DecorPage_Refresh()
+			end },
+		{ type = "button", label = "Your houses", text = "Open", onClick = function()
+			ns.DecorHouses_Toggle()
+		end, shown = function()
+			return db.houses
+		end },
+		{ type = "checkbox", key = "alertPreview", label = "Preview from the decor alert",
+			tooltip = "Clicking the \"decor acquired\" alert opens a preview of the decor.",
+			onChange = function()
+				ns.DecorAlert_Apply()
+			end },
 		{ type = "header", label = "Tooltips" },
 		{ type = "checkbox", key = "tooltip", label = "Collected or not on decor items",
 			tooltip = "Decor item tooltips get a line: \"Decor: collected\" with how many you have, or \"Decor: not collected\"." },

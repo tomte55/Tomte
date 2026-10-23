@@ -4,7 +4,8 @@ local addonName, ns = ...
 -- source, with how much of each source you have, and decor by vendor, each vendor folding open to everything they
 -- sell. A source filter, a search box and counts on top; clicking a row shows the decor in the preview pane
 -- (Detail.lua), where you can turn and zoom it and track it with Blizzard's tracking or get a waypoint to a learned
--- vendor (Vendors.lua); shift-click links it. With the preview off, a click tracks it straight away.
+-- vendor (Vendors.lua); shift-click links it. With the preview off, a click tracks it straight away. A Houses button
+-- opens the house list (Houses.lua).
 -- Filtering, grouping and counts in Data.lua, the entries from Catalog.lua, actions in Decor.lua.
 
 local ROW_H, HEADER_H = 26, 28
@@ -268,7 +269,8 @@ end
 -- Show collected is ticked.
 local function SourceItems(entries, query)
 	local items, shown = {}, 0
-	local list = ns.Decor_List(entries, { source = db.filter.source, query = query, owned = true })
+	local list = ns.Decor_List(entries, { source = db.filter.source, query = query, owned = true,
+		full = db.searchSources })
 	for _, section in ipairs(ns.Decor_Sections(list, db.collapsed, not db.filter.owned)) do
 		local key = section.key
 		items[#items + 1] = { kind = "header", text = (section.collapsed and "+ " or "- ") .. section.title,
@@ -307,7 +309,8 @@ end
 -- they sell. A narrow search opens the vendors it leaves.
 local function VendorItems(entries, query)
 	local items, shown = {}, 0
-	local vendors = ns.Decor_Vendors(entries, ns.DecorVendors_Learned(), { query = query, owned = db.filter.owned })
+	local vendors = ns.Decor_Vendors(entries, ns.DecorVendors_Learned(), { query = query, owned = db.filter.owned,
+		full = db.searchSources })
 	local openAll = query ~= "" and #vendors <= OPEN_MATCHES
 	for _, v in ipairs(vendors) do
 		local open = openAll or db.vendorsOpen[v.key] == true
@@ -365,6 +368,7 @@ local function Layout()
 	page.filter:SetShown(not ByVendor())
 	page.filter:Refresh()
 	page.owned:SetChecked(db.filter.owned)
+	page.houses:SetShown(ns.DecorHouses_Enabled())
 	Place()
 	local items, more, vendors = {}, false, nil
 	if info.usable then
@@ -447,6 +451,19 @@ ns.DecorPage = {
 			db.filter.source = value
 			ns.DecorPage_Refresh()
 		end
+		page.houses = UI.Button(page, 80, "Houses")
+		UI.FitButton(page.houses, 80)
+		page.houses:SetPoint("TOPRIGHT", -8, 0)
+		page.houses:SetScript("OnClick", function()
+			ns.DecorHouses_Toggle()
+		end)
+		page.houses:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+			GameTooltip:SetText("Your houses", UI.Color("heading"))
+			UI.TipLine("Every house you own, with a button to teleport there.", "text", true)
+			GameTooltip:Show()
+		end)
+		page.houses:SetScript("OnLeave", GameTooltip_Hide)
 		page.search = SearchBox(page, ns.DecorPage_Refresh)
 		page.search:SetPoint("TOPLEFT", 8, -TOP)
 		page.search:SetWidth(240)

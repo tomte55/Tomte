@@ -39,6 +39,11 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Material uses:** the Professions book shows how much specialization knowledge each profession has left to spend, also on its buttons' tooltips.
 - **Fishing:** the Underlight Angler's artifact window shows its traits again.
 - **Gathering:** Midnight herbalists can turn on a seed button: point at Rich Soil with Resilient Seeds in your bags and one click plants one (off by default).
+- **Housing decor:** in the house editor, hovering a placed decor shows how many you have in storage, how many are placed and its budget cost; a clock shows the time you've spent decorating.
+- **Housing decor:** press Alt on a placed decor to place another from your storage, and copy dyes in customize mode (right-click a dyed decor, then Paste dyes on another); both off by default.
+- **Housing decor:** a Banana button in the decor preview, for scale, and the decor's size in bananas.
+- **Housing decor:** a Houses window (Decor page, `/tomte decor houses`) with a teleport to each of your houses, and a Teleport home key binding.
+- **Housing decor:** click the "decor acquired" alert to preview the decor; the Decor page's search also finds decor by achievement, quest, boss, currency or profession.
 - **Waypoints:** opening the world map pings your arrow so you find yourself at a glance.
 - **Waypoints:** world quests and events you track show a countdown on the marker and the close-up card.
 - **Waypoints:** two new key bindings (and `/tomte way next` / `prev`) cycle the focus through your tracked quests; `/way 45.2 67.8 Some name` names the pin.

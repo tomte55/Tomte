@@ -38,6 +38,7 @@
 	<Binding name="TOMTE_WAY_PREV" category="Tomte">
 		Tomte_Binding("WAY_PREV")
 	</Binding>
+	<Binding name="CLICK TomteDecorHome:LeftButton" category="Tomte"/>
 	<Binding name="TOMTE_LOOT_TAKE_ALL" category="Tomte">
 		Tomte_Binding("LOOT_TAKE_ALL")
 	</Binding>
