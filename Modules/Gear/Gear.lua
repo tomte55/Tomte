@@ -9,7 +9,9 @@ local addonName, ns = ...
 -- gems, enchants, off-spec) in Advice.lua, built-in weights and gem IDs per expansion in Data/<Expansion>/Gear.lua
 -- (picked by the character's content expansion, Scales.lua), item reading in Items.lua, the character sheet button
 -- and panel in Sheet.lua, upgrades for other characters in Alts.lua, the new-upgrade reveal and equip toast in
--- Reveal.lua, the quest reward pick in Rewards.lua (rules) and RewardCard.lua (the card).
+-- Reveal.lua, the quest reward pick in Rewards.lua (rules) and RewardCard.lua (the card), the character pane at the
+-- upgrade NPC (Upgrade.lua), the gem socket helper (Sockets.lua) and the bag quality border and sort direction
+-- (Bags.lua), with their rules in HelperData.lua.
 -- Weights: imported Pawn string per character and spec > built-in for the spec > primary 1 / secondaries 0.5.
 
 local Context = ns.Gear_OwnContext
@@ -183,6 +185,9 @@ local function Start()
 	ns.GearSlotLevels_Init()
 	ns.GearReveal_Start(db)
 	ns.GearRewardCard_Start(db)
+	ns.GearUpgrade_Start(db)
+	ns.GearSockets_Start(db)
+	ns.GearBags_Start(db)
 	C_Timer.After(ns.inWorld and 0 or 8, WeightsHint) -- at login, after the chat flood
 end
 
@@ -190,6 +195,9 @@ local function Stop()
 	events:UnwatchAll("gear")
 	ns.GearReveal_Stop()
 	ns.GearRewardCard_Stop()
+	ns.GearUpgrade_Stop()
+	ns.GearSockets_Stop()
+	ns.GearBags_Stop()
 	ns.GearWeights_HideDialog()
 	InvalidateVerdicts()
 	ns.GearSheet_Refresh()
@@ -204,7 +212,11 @@ module = ns.RegisterModule({
 		{ addon = "DialogueUI", why = "the quest reward pick sits above its window",
 			without = "the reward pick stays where Edit Mode puts it" },
 	},
-	replaces = { { addon = "Pawn", why = "upgrade verdicts on item tooltips" } },
+	replaces = {
+		{ addon = "Pawn", why = "upgrade verdicts on item tooltips" },
+		{ addon = "Plumber", why = "the character pane at the item upgrade NPC" },
+		{ addon = "EnhanceQoL", why = "the gem socket helper, the stronger item quality border and the bag sort order" },
+	},
 	home = {
 		{ kind = "quick", key = "reveal", order = 3, name = "Reveal upgrades", open = function()
 			ns.GearReveal_ShowBags()
@@ -224,7 +236,8 @@ module = ns.RegisterModule({
 		.. "for empty sockets, missing enchants, and item levels on the character sheet and Inspect slots. Can mark upgrades in Baganator and reveal new upgrades as a moment "
 		.. "with a click-to-equip toast. Warbound and Bind on Equip gear also says which of your other characters "
 		.. "it's an upgrade for. When a quest lets you choose a reward, a card names the best one for you and the one "
-		.. "that sells for the most.",
+		.. "that sells for the most. At the item upgrade NPC it opens your character pane, while socketing it lists the gems "
+		.. "in your bags that fit, and it can draw a thicker quality border on bag items and set the bag sort order.",
 	enabledByDefault = true,
 	toasts = "Gear upgrades",
 	defaults = {
@@ -254,8 +267,15 @@ module = ns.RegisterModule({
 		altMail = true,
 		rewardPick = true,
 		rewardCard = { point = "TOP", relPoint = "TOP", x = 0, y = -120 }, -- the reward card's spot (Edit Mode)
+		upgradePane = true, -- open the character pane at the item upgrade NPC
+		gemHelper = true,
+		qualityGlow = false,
+		bagSort = "keep", -- keep | ltr | rtl: the bag sort direction Tomte sets (keep: the game's own setting)
+		-- The game's sort direction before Tomte changed it ("rtl" or "ltr"), put back when bagSort goes back to keep
+		-- or Gear Check stops; "none" while Tomte hasn't changed it.
+		bagSortGame = "none",
 	},
-	noShare = { "sheetOpen" }, -- not in settings strings (Core/Profile.lua)
+	noShare = { "sheetOpen", "bagSortGame" }, -- not in settings strings (Core/Profile.lua)
 	init = function(moduleDB)
 		db = moduleDB
 		ns.gearDB = moduleDB
@@ -321,6 +341,16 @@ module = ns.RegisterModule({
 			tooltip = "An arrow in the theme's warning color on gear whose stats say upgrade but that needs checking: a trinket or effect to "
 				.. "sim, same item level with different stats, or a warning like breaking your set. Not in the upgrade "
 				.. "search. In Baganator's settings (Icons) it's \"Tomte Gear Check: maybe an upgrade\"." },
+		{ type = "checkbox", key = "qualityGlow", label = "Stronger quality border", onChange = function()
+			ns.GearBags_RepaintAll()
+		end, tooltip = "A thicker border in the item's quality color on rare, epic and better items in the game's own "
+			.. "bags (not Baganator's)." },
+		{ type = "dropdown", key = "bagSort", label = "Clean Up Bags order", onChange = function()
+			ns.GearBags_ApplySort()
+		end, choices = function()
+			return { { value = "keep", text = "Don't change" }, { value = "ltr", text = "Left to right" },
+				{ value = "rtl", text = "Right to left" } }
+		end, tooltip = "Which way the bag's Clean Up button sorts. \"Don't change\" leaves the game's own setting." },
 		{ type = "header", label = "Upgrades for alts" },
 		{ type = "dropdown", key = "altUpgrades", label = "Upgrades for alts", onChange = function()
 			ns.GearAlts_Invalidate()
@@ -346,6 +376,14 @@ module = ns.RegisterModule({
 		end, tooltip = "When a quest lets you choose a reward, a card names the best one for you (as the tooltips judge "
 			.. "it) and the one that sells for the most. With DialogueUI it sits above its window, else move it in "
 			.. "Edit Mode." },
+		{ type = "header", label = "Upgrades and gems" },
+		{ type = "checkbox", key = "upgradePane", label = "Character pane at the upgrade NPC",
+			tooltip = "Opening the item upgrade window also opens your character pane beside it, and closes it again "
+				.. "when you leave (if it wasn't open already). Not in combat." },
+		{ type = "checkbox", key = "gemHelper", label = "Gem socket helper", onChange = function()
+			ns.GearSockets_Refresh()
+		end, tooltip = "While you socket an item, a strip under the window shows the gems in your bags that fit, with "
+			.. "the best one for your spec marked. Click a gem to put it in the first empty socket, then press Apply." },
 		{ type = "header", label = "Upgrade reveal" },
 		{ type = "checkbox", key = "reveal", label = "Reveal new upgrades",
 			tooltip = "When gear that's new to your bags (loot, quest rewards, the vault, mail) is a clean upgrade, show "

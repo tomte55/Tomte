@@ -172,6 +172,7 @@ Modules/Chat/Copy.lua
 Modules/Gear/Rules.lua
 Modules/Gear/Advice.lua
 Modules/Gear/Rewards.lua
+Modules/Gear/HelperData.lua
 Modules/Gear/Scales.lua
 Modules/Gear/Items.lua
 Modules/Gear/Sheet.lua
@@ -185,6 +186,9 @@ Modules/Gear/Gear.lua
 Modules/Gear/Alts.lua
 Modules/Gear/Reveal.lua
 Modules/Gear/RewardCard.lua
+Modules/Gear/Upgrade.lua
+Modules/Gear/Sockets.lua
+Modules/Gear/Bags.lua
 Modules/Showcase/Data.lua
 Modules/Showcase/Camera.lua
 Modules/Showcase/Card.lua
