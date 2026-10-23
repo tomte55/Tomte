@@ -6,7 +6,7 @@ local addonName, ns = ...
 -- unless the preset lists them); one added in a later Tomte version follows its own enabledByDefault until the user
 -- runs /tomte setup again.
 
-ns.SETUP_BASE = { "minimap", "vendor", "dura", "hunter", "pet", "rogue" }
+ns.SETUP_BASE = { "minimap", "vendor", "dura", "hunter", "pet", "rogue", "loot" }
 
 -- A preset (Everything too) leaves these as the player has them unless it lists them in `on`: switching someone's
 -- whisper toasts or group alerts off is a surprise, not a preset.

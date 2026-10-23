@@ -328,6 +328,12 @@ Modules/Share/Roster.lua
 Modules/Share/Page.lua
 Modules/Share/Share.lua
 
+Modules/Loot/Data.lua
+Modules/Loot/Read.lua
+Modules/Loot/Window.lua
+Modules/Loot/Feed.lua
+Modules/Loot/Toasts.lua
+Modules/Loot/Loot.lua
 Modules/Quests/Data.lua
 Modules/Quests/Read.lua
 Modules/Quests/Automation.lua

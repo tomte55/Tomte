@@ -265,6 +265,7 @@ are Tomte window settings.
 | Showcase | Ambience | A character view in the game world: the camera glides in on your character (left of center), the UI fades out, and your gear sits in two columns around it (item level, upgrade track, enchant or "No enchant", gems) with your stats on the right. The camera turns slowly until you drag it; scroll to zoom. Hover a slot for a card with the item's 3D model, stats (with your percent), effects, enchant, gems and Gear Check's verdict (Alt: the full tooltip); click it to swap the item from your bags, socket gems or apply enchants and oils. A yellow diamond marks slots where your bags hold better gear. Opens with `/tomte showcase`, a key binding or its minimap button; Esc or combat closes it and puts the camera back. |
 | Dressing room | Gear & loot | Blizzard's dressing room opens bigger (a share of your screen's height, same size every open), with a slot bar under the model (hover for the item, click to hide or show a piece, Shift-click to link it) and buttons to undress, show your target's outfit, and list the outfit with where each piece comes from (to copy). Only hooks Blizzard's window, so its own Link and outfit buttons keep working. |
 | Almost Done | Collections | Near-complete achievements in a list docked to the Achievements window: search, threshold, category/expansion/reward filters, reward icons (owned ones greyed out) with a model preview, and a meta browser. A Top 5 tracker (pins first) and toasts when something reaches the threshold, has one step left, or a pinned one moves. Replaces AlmostCompletedAchievements. |
+| Loot | Gear & loot | Replaces the game's loot window, in three styles: a compact list, a card with the best item, its upgrade verdict and price, or a feed of lines beside your character (the same item again adds to its line and counts up) that only opens a window when something can't be looted by itself (full bags, rolls, locked loot). Fast loot, a Take all key, owned counts, new appearances, junk folded into one line, reputation and currency lines, Blizzard's loot pop-ups shown the same way, and a quieter boss loot banner (hidden while solo, or valuable items only). Replaces Plumber's loot window. |
 | Quests | Quests | Talk to an NPC and its quests are accepted and handed in, and the gossip option that moves a quest on is picked; hold Shift to do it yourself. Leaves dailies and quests that cost gold to you, can pick the reward Gear Check calls an upgrade, signs you up for events like the Theater Troupe, skips cinematics you've seen, can quiet the Talking Head or show it as plain text, shows your race medals at skyriding timekeepers and names the quest an item starts. Right-click a targeted NPC's portrait to leave that NPC to you. Off by default. |
 | Vendor Helper | Gear & loot | At a vendor: repairs (guild funds first when the withdraw limit covers it) and sells grey items, then one summary toast. Hold Shift while opening the vendor to skip it. |
 | Durability | Gear & loot | A toast when your worst item drops below a threshold (once per drop) or an item breaks, and a warning when you enter a dungeon, raid or delve with low gear. |
@@ -311,8 +312,9 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte casino` (open or close the casino), `/tomte casino blackjack`, `/tomte casino poker`, `/tomte casino slots` (open on that game), `/tomte casino stats` (all three games, in chat), `/tomte casino today` (chips earned today), `/tomte casino split` (your next blackjack hand is a pair), `/tomte casino reset` (window position)
 - `/tomte decor open`, `/tomte decor scan` (read the housing catalog again and count decor per source), `/tomte decor why <item link or ID>` (what the catalog says about a decor item), `/tomte decor vendors` (the vendors Tomte has learned the spot of)
 - `/tomte quests why` (why the last NPC's quests and gossip were or weren't done for you), `/tomte quests ignore` (the NPCs you left to yourself; `ignore <ID>` takes one off, `ignore clear` empties the list)
+- `/tomte loot test` (a sample loot window and feed lines), `/tomte loot why` (how the last loot window was handled: auto loot, key, fast loot, style, what was left)
 
-Key bindings for toggling the Tomte window, Smart Mount, the Gold world quests window, whisper reply, the whisper inbox, Next pet battle move, Heal battle pets, Apply missing poison, Fishing, Copy chat and the Casino are under **Tomte** in the game's Key Bindings menu.
+Key bindings for toggling the Tomte window, Smart Mount, the Gold world quests window, whisper reply, the whisper inbox, Next pet battle move, Heal battle pets, Apply missing poison, Fishing, Copy chat, Take all loot and the Casino are under **Tomte** in the game's Key Bindings menu.
 
 </details>
 
@@ -334,7 +336,7 @@ Media/       logo, theme art and fonts (with their OFL licenses)
 Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Rogue, Combat, Social, Chat, Gear,
              Achievements, Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value,
              Minimap, Pets, Fishing, Gather, Delves, TradingPost, Holidays, Share, Materials, Mail, Talents, Graphics,
-             Cursor, Buffs, Decor, Games, Quests)
+             Cursor, Buffs, Decor, Games, Quests, Loot)
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 tools/       dev scripts (waynet.py builds Modules/Travel/Network*.lua from Blizzard's waypoint tables, events.py
              builds Modules/Holidays/Generated.lua from the client's toy and holiday tables, materials.py builds
@@ -433,7 +435,7 @@ or modules, major for changes that reset or break settings.
   only; no code taken). Graphics
   presets mirrors how Blizzard's own Graphics Quality slider sets its sub-settings; consumable buff spell IDs from
   [wago.tools](https://wago.tools).
-- Quests takes over features of [EnhanceQoL](https://www.curseforge.com/wow/addons/enhanceqol)
+- Quests and Loot take over features of [EnhanceQoL](https://www.curseforge.com/wow/addons/enhanceqol)
   and [Plumber](https://github.com/Peterodox/Plumber) (the features only; no code taken). Event sign-up gossip option
   IDs (Theater Troupe, Time Rift), the "Race Times" aura icon and the holiday and Timewalking random dungeon IDs come
   from Plumber (IDs only).
