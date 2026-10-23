@@ -39,6 +39,7 @@ Data/Midnight/Weekly.lua
 Data/Midnight/Gear.lua
 Data/WarWithin/Delves.lua
 Data/Midnight/Delves.lua
+Data/Midnight/Prey.lua
 Data/WarWithin/Gold.lua
 Data/Midnight/Gold.lua
 Data/Older/Gold.lua
@@ -239,6 +240,11 @@ Modules/Weekly/Weekly.lua
 Modules/Summary/Data.lua
 Modules/Summary/Page.lua
 Modules/Summary/Summary.lua
+Modules/Prey/Data.lua
+Modules/Prey/Read.lua
+Modules/Prey/HuntTable.lua
+Modules/Prey/Page.lua
+Modules/Prey/Prey.lua
 Modules/Alts/PlanData.lua
 Modules/Alts/RosterData.lua
 Modules/Alts/GearData.lua
