@@ -161,4 +161,117 @@ test("TrailFade ages and drops dots", function()
 	near(fade[2], 1 - 0.05 / 0.3, "newer dot")
 end)
 
+test("TrailAdd numbers points so each keeps its own twinkle", function()
+	local p = {}
+	ns.Cursor_TrailAdd(p, 0, 0, 0, 10, 2)
+	ns.Cursor_TrailAdd(p, 1, 20, 0, 10, 2)
+	ns.Cursor_TrailAdd(p, 2, 40, 0, 10, 2)
+	eq(p[1].n, 2, "serial survives dropping the oldest")
+	eq(p[2].n, 3, "newest")
+end)
+
+test("TrailFade reuses its result table and trims it", function()
+	local out = { 9, 9, 9, 9 }
+	local p = { { t = 0, x = 0, y = 0 }, { t = 0.2, x = 1, y = 0 } }
+	local fade = ns.Cursor_TrailFade(p, 0.35, 0.3, out)
+	eq(fade, out, "same table")
+	eq(#out, 1, "trimmed to the points left")
+end)
+
+test("TrailLook tapers size and fades opacity", function()
+	local size, alpha = ns.Cursor_TrailLook(1, 14, 0.6, 0.5)
+	near(size, 14, "fresh point at head size")
+	near(alpha, 0.5, "fresh point at full opacity")
+	size, alpha = ns.Cursor_TrailLook(0, 14, 0.6, 0.5)
+	near(size, 14 * 0.4, "tail shrunk to 40%")
+	near(alpha, 0, "tail gone")
+	size = ns.Cursor_TrailLook(0.5, 20, 0, 1)
+	near(size, 20, "no taper keeps the size")
+	size = ns.Cursor_TrailLook(2, 10, 1, 1)
+	near(size, 10, "strength clamped")
+end)
+
+test("Twinkle and Spin stay in range and differ per point", function()
+	for n = 1, 20 do
+		for age = 0, 1, 0.05 do
+			local k = ns.Cursor_Twinkle(n, age)
+			assert(k >= 0.45 - 1e-9 and k <= 1 + 1e-9, "twinkle " .. k)
+			local r = ns.Cursor_Spin(n, age)
+			assert(r >= 0 and r < 2 * math.pi, "spin " .. r)
+		end
+	end
+	assert(ns.Cursor_Twinkle(1, 0) ~= ns.Cursor_Twinkle(2, 0), "neighbours out of step")
+end)
+
+test("TrailGate: off, mouse-look, and the three modes", function()
+	eq(ns.Cursor_TrailGate(false, "moving", {}), 0, "trail off")
+	eq(ns.Cursor_TrailGate(true, "moving", { hidden = true }), 0, "mouse-look hides")
+	eq(ns.Cursor_TrailGate(true, "moving", {}), 1, "moving: always")
+	eq(ns.Cursor_TrailGate(true, "combat", { combat = false }), 0, "combat: out of combat")
+	eq(ns.Cursor_TrailGate(true, "combat", { combat = true }), 1, "combat: in combat")
+	near(ns.Cursor_TrailGate(true, "ring", { ringAlpha = 0.4 }), 0.4, "ring: fades with the ring")
+	eq(ns.Cursor_TrailGate(true, "ring", { ringAlpha = 0 }), 0, "ring: hidden with the ring")
+	near(ns.Cursor_TrailGate(true, nil, { ringAlpha = 1 }), 1, "missing mode acts as ring")
+end)
+
+test("IdleFade holds, then fades the spell effect out", function()
+	eq(ns.Cursor_IdleFade(0), 1, "moving")
+	eq(ns.Cursor_IdleFade(0.2), 1, "short pause")
+	local mid = ns.Cursor_IdleFade(0.4)
+	assert(mid > 0 and mid < 1, "fading: " .. mid)
+	eq(ns.Cursor_IdleFade(1), 0, "gone")
+end)
+
+test("Pulse breathes around normal size", function()
+	local lo, hi = math.huge, -math.huge
+	for t = 0, 1.6, 0.01 do
+		local s, a = ns.Cursor_Pulse(t)
+		lo, hi = math.min(lo, s), math.max(hi, s)
+		assert(a >= 0.7 - 1e-9 and a <= 1 + 1e-9, "alpha " .. a)
+	end
+	near(lo, 0.92, "smallest")
+	near(hi, 1.08, "biggest")
+end)
+
+test("HueRGB and Hue", function()
+	local r, g, b = ns.Cursor_HueRGB(0)
+	near(r, 1, "red")
+	near(g + b, 0, "only red")
+	r, g, b = ns.Cursor_HueRGB(1 / 3)
+	near(g, 1, "green")
+	near(r + b, 0, "only green")
+	r, g, b = ns.Cursor_HueRGB(2 / 3)
+	near(b, 1, "blue")
+	r, g, b = ns.Cursor_HueRGB(1.5)
+	near(r, 0, "1.5 wraps round to cyan")
+	near(g + b, 2, "cyan")
+	near(ns.Cursor_Hue(1.5), 0.5, "half a turn")
+	near(ns.Cursor_Hue(3), 0, "full turn")
+end)
+
+test("Color picks by mode and falls back to the accent", function()
+	local palette = { accent = { 0.1, 0.2, 0.3 }, class = { 0.4, 0.5, 0.6 }, custom = {} }
+	eq(table.concat({ ns.Cursor_Color("theme", palette, 0) }, ","), "0.1,0.2,0.3", "theme")
+	eq(table.concat({ ns.Cursor_Color("class", palette, 0) }, ","), "0.4,0.5,0.6", "class")
+	eq(table.concat({ ns.Cursor_Color("custom", palette, 0) }, ","), "0.1,0.2,0.3", "custom not picked yet")
+	palette.custom = { r = 0.7, g = 0.8, b = 0.9 }
+	eq(table.concat({ ns.Cursor_Color("custom", palette, 0) }, ","), "0.7,0.8,0.9", "custom")
+	palette.class = nil
+	eq(table.concat({ ns.Cursor_Color("class", palette, 0) }, ","), "0.1,0.2,0.3", "no class color")
+	local r, g, b = ns.Cursor_Color("rainbow", palette, 0)
+	near(r, 1, "rainbow starts red")
+	near(g + b, 0, "only red")
+end)
+
+test("Find falls back to the first entry; Choices lists every entry", function()
+	eq(ns.Cursor_Find(ns.CURSOR_RING_SHAPES, "crosshair").art, "Crosshair", "found")
+	eq(ns.Cursor_Find(ns.CURSOR_RING_SHAPES, "gone").key, "ring", "fallback")
+	local choices = ns.Cursor_Choices(ns.CURSOR_TRAIL_SHAPES)
+	eq(#choices, #ns.CURSOR_TRAIL_SHAPES, "one choice each")
+	eq(choices[5].value, "ribbon", "value is the key")
+	for _, e in ipairs(ns.CURSOR_EFFECTS) do
+		assert(type(e.file) == "number" and e.scale > 0 and #e.turn == 3, "effect " .. e.key)
+	end
+end)
+
 H.done()

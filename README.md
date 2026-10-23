@@ -247,7 +247,7 @@ are Tomte window settings.
 | AFK Screen | Ambience | A cinematic screen while you're AFK: orbiting camera, your character, time away, clock, session stats and missed whispers. It gets out of the way for queue pops, ready checks, invites, summons, duels and trades. |
 | Session recap | Ambience | What you got done this session: time, gold (and where it came from), notable loot, achievements, rares, tames, levels and renown. A card with the time left during the /camp logout countdown (Esc cancels the logout) and on `/tomte recap`, a highlights page on the AFK screen, and a toast at login for your last session (covers instant logouts). A Sessions page keeps past sessions: a gold-per-hour chart (with loot value), this character / all and this week / all time with totals, optional play nights, and each session's recap card. An optional break reminder. |
 | Moments | Ambience | Title cards for level ups, achievements, new mounts/pets/toys, new zones, renown, campaign chapters, house levels, tamed pets and gear upgrades. Banner or small cinematic; new mounts, battle pets and tames get a centered reveal scaled by rarity (mount rarity via Mount Journal Enhanced). |
-| Cursor highlight | Interface | Shake the mouse and a ring in your theme's color pops up around the cursor so you find it at once. Can also stay on in combat or all the time, with an optional short trail. Off by default. |
+| Cursor highlight | Interface | Shake the mouse and a sharp ring pops up around the cursor so you find it at once. Can also stay on in combat or all the time, pulse gently, and be a thick ring, soft glow or crosshair. An optional trail of glow dots, rings, stars, sparkles, a ribbon or a spell effect follows the cursor with the ring, whenever it moves, or in combat. Colors: theme, class, your own or rainbow. Off by default. |
 | Tooltip extras | Interface | Shows which key opens a delve's Bountiful Coffer, which faction a reputation token raises and whether you're already maxed, what a combine item needs and how many you own, and where a token is spent (Ctrl-click it in your bags for a waypoint). Choice windows show how many you own of what they take and give. |
 | Nameplates | Interface | In the open world: a quest icon with your progress (3/8) beside creatures your quests need, the name of what the Interact key would use (with a cast bar while you gather or open it), and Radiant Remnant counts on Hallowfall's Keyflames. Off by default. |
 | Drawers | Interface | Up to four drawers of your own: a button on screen that opens a row of the items, spells, mounts and toys you put in it; click one to use it, in combat too. Add things by shift-clicking, typing a name or dragging them onto the editor. Each has a key binding, opens up, down, left or right, and Edit Mode moves it. Off by default. |
@@ -446,7 +446,8 @@ or modules, major for changes that reset or break settings.
 - Mail, Talent check, Graphics presets, Cursor highlight, Buff reminders and Housing decor follow the ideas of
   [Postal](https://www.curseforge.com/wow/addons/postal) and Mailbox Plus, MKeysTalents, PeaversPerformance,
   CursorGlow and CursorTrail, BuffReminders, and Home Bound, HomeDecor and Vamoose's Housing Decor Guide (the ideas
-  only; no code taken). Graphics
+  only; no code taken). Cursor highlight's spell effect model IDs, scales and placement method come from
+  [CursorTrail](https://www.curseforge.com/wow/addons/cursortrail) by UppyDan (IDs and method only). Graphics
   presets mirrors how Blizzard's own Graphics Quality slider sets its sub-settings; consumable buff spell IDs from
   [wago.tools](https://wago.tools).
 - Quests, Loot and Instances take over features of [EnhanceQoL](https://www.curseforge.com/wow/addons/enhanceqol)
