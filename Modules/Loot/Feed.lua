@@ -19,7 +19,6 @@ local GAP = 3
 local SLIDE = 16 -- pixels a line slides in from
 local SLIDE_TIME = 0.25
 local FADE_TIME = 0.8
-local START = 0.001 -- an instant first step of an animation (a zero duration doesn't hold the offset)
 local PULSE, PULSE_ALPHA = 0.5, 0.35 -- seconds and strength of a merged line's flash
 local COUNT_TIME = 0.6 -- seconds a merged line's number takes to count up to its new total
 -- What Edit Mode shows.
@@ -42,17 +41,32 @@ local function LineHeight()
 	return db.fontSize + LINE_EXTRA
 end
 
+-- A line sliding in sits this far left of its place (eases out). The slide moves the line's anchor each frame
+-- rather than through a Translation animation, which let the strip and the icon and text drift apart while moving.
+local function SlideX(f)
+	if not f.slide then
+		return 0
+	end
+	local p = math.min(f.slide / SLIDE_TIME, 1)
+	return -SLIDE * (1 - p) ^ 2
+end
+
+local function Place(f)
+	f:ClearAllPoints()
+	f:SetPoint(f.at, holder, f.at, SlideX(f), f.atY)
+end
+
 local function Layout()
 	local h = LineHeight()
 	holder:SetSize(LINE_W * db.fontSize / BASE_FONT, h)
 	for i, f in ipairs(lines) do
-		f:ClearAllPoints()
 		f:SetSize(math.min(holder:GetWidth(), f.width or holder:GetWidth()), h)
 		if db.growUp then
-			f:SetPoint("BOTTOMLEFT", holder, "BOTTOMLEFT", 0, (i - 1) * (h + GAP))
+			f.at, f.atY = "BOTTOMLEFT", (i - 1) * (h + GAP)
 		else
-			f:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, -(i - 1) * (h + GAP))
+			f.at, f.atY = "TOPLEFT", -(i - 1) * (h + GAP)
 		end
+		Place(f)
 	end
 end
 
@@ -62,7 +76,7 @@ local function Release(f)
 	f.pulse:Stop()
 	f:SetScript("OnUpdate", nil)
 	f:Hide()
-	f.mergeKey, f.entry, f.copper, f.counting = nil, nil, nil, nil
+	f.mergeKey, f.entry, f.copper, f.counting, f.slide = nil, nil, nil, nil, nil
 	for i, shown in ipairs(lines) do
 		if shown == f then
 			table.remove(lines, i)
@@ -104,27 +118,12 @@ local function CreateLine()
 	glow:SetSmoothing("OUT")
 	f.pulse:SetToFinalAlpha(true)
 
-	-- In: jump SLIDE to the left, then slide back while fading in.
+	-- In: fade in while the line slides into place (Tick).
 	f.inAnim = f:CreateAnimationGroup()
-	local jump = f.inAnim:CreateAnimation("Translation")
-	jump:SetOffset(-SLIDE, 0)
-	jump:SetDuration(START)
-	jump:SetOrder(1)
-	local hide = f.inAnim:CreateAnimation("Alpha")
-	hide:SetFromAlpha(0)
-	hide:SetToAlpha(0)
-	hide:SetDuration(START)
-	hide:SetOrder(1)
-	local slide = f.inAnim:CreateAnimation("Translation")
-	slide:SetOffset(SLIDE, 0)
-	slide:SetDuration(SLIDE_TIME)
-	slide:SetSmoothing("OUT")
-	slide:SetOrder(2)
 	local show = f.inAnim:CreateAnimation("Alpha")
 	show:SetFromAlpha(0)
 	show:SetToAlpha(1)
 	show:SetDuration(SLIDE_TIME)
-	show:SetOrder(2)
 
 	-- Out: wait the fade delay, then fade.
 	f.outAnim = f:CreateAnimationGroup()
@@ -215,14 +214,38 @@ local function FindMerge(key)
 end
 
 -- A merged line's number counts up from the old total to the new one (spec.count = { from, to, text = fn(n) }).
+-- A number on the way can be wider than the total (gold: "1g 87s 43c" before "2g 64s"), so the line widens to fit
+-- it instead of cutting it short.
 local function CountStep(f, elapsed)
 	local c = f.counting
 	c.t = c.t + elapsed
 	local p = math.min(c.t / COUNT_TIME, 1)
 	p = 1 - (1 - p) ^ 3 -- eases out: fast, then settling on the total
 	f.text:SetText(c.text(math.floor(c.from + (c.to - c.from) * p + 0.5)))
+	local need = math.ceil(f.text:GetUnboundedStringWidth()) - f.text:GetWidth()
+	if need > 0 then
+		f.text:SetWidth(f.text:GetWidth() + need)
+		f.width = f.width + need
+		f:SetWidth(math.min(holder:GetWidth(), f.width))
+	end
 	if p >= 1 then
 		f.counting = nil
+	end
+end
+
+-- Per frame while a line slides in or counts up; off once neither is going.
+local function Tick(f, elapsed)
+	if f.slide then
+		f.slide = f.slide + elapsed
+		if f.slide >= SLIDE_TIME then
+			f.slide = nil
+		end
+		Place(f)
+	end
+	if f.counting then
+		CountStep(f, elapsed)
+	end
+	if not (f.slide or f.counting) then
 		f:SetScript("OnUpdate", nil)
 	end
 end
@@ -235,7 +258,7 @@ local function Merge(f, spec)
 	if count and count.to > count.from then
 		f.counting = { from = count.from, to = count.to, text = count.text, t = 0 }
 		f.text:SetText(count.text(count.from))
-		f:SetScript("OnUpdate", CountStep)
+		f:SetScript("OnUpdate", Tick)
 	end
 	f.pulse:Stop()
 	f.pulse:Play()
@@ -265,9 +288,11 @@ function ns.LootFeed_Push(spec)
 	local f = table.remove(pool) or CreateLine()
 	Fill(f, spec)
 	f.mergeKey = spec.mergeKey
+	f.slide = 0
 	lines[#lines + 1] = f
 	Layout()
 	f:Show()
+	f:SetScript("OnUpdate", Tick)
 	f.inAnim:Play()
 	return f
 end
