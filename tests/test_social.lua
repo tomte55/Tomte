@@ -452,4 +452,33 @@ test("SampleConvos: newest first, sample-marked, times relative to now", functio
 	eq(list[#list].who.level, nil) -- offline: no level in the header
 end)
 
+test("FullName adds your realm to a bare name", function()
+	eq(ns.Social_FullName("Aldric", "Silvermoon"), "Aldric-Silvermoon")
+	eq(ns.Social_FullName("Kesha-Draenor", "Silvermoon"), "Kesha-Draenor")
+	eq(ns.Social_FullName("Mira", nil), "Mira")
+	eq(ns.Social_FullName("", "Silvermoon"), nil)
+	eq(ns.Social_FullName(nil, "Silvermoon"), nil)
+end)
+
+test("LevelFromLines reads the level through the game's text", function()
+	eq(ns.Social_LevelFromLines({ "Aldric", "Level 80 Tauren Paladin (Player)" }, "Level %s"), 80)
+	eq(ns.Social_LevelFromLines({ "Aldric", "<Night Watch>", "Level 72 Human Mage" }, "Level %s"), 72, "under a guild")
+	eq(ns.Social_LevelFromLines({ "Kesha", "Stufe 90 Zwerg" }, "Stufe %d"), 90, "other languages")
+	eq(ns.Social_LevelFromLines({ "Mira", "Level ?? Human" }, "Level %s"), nil, "unknown level")
+	eq(ns.Social_LevelFromLines({ "Mira", "Level 80" }, nil), nil, "no template")
+	eq(ns.Social_LevelFromLines({ "Mira (x)", "Lv.(80)" }, "Lv.(%s)"), 80, "magic characters in the template")
+end)
+
+test("InviterText leaves out what isn't known", function()
+	local function paint(name, class)
+		return "[" .. name .. ":" .. tostring(class) .. "]"
+	end
+	local info = { level = 80, className = "Paladin", classFile = "PALADIN", guild = "Night Watch" }
+	eq(ns.Social_InviterText(info, paint), "Level 80  [Paladin:PALADIN]  <Night Watch>")
+	eq(ns.Social_InviterText({ className = "Mage", classFile = "MAGE" }, paint), "[Mage:MAGE]")
+	eq(ns.Social_InviterText({ level = 12 }), "Level 12")
+	eq(ns.Social_InviterText({ className = "" }), nil)
+	eq(ns.Social_InviterText({}), nil)
+end)
+
 H.done()

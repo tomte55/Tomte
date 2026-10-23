@@ -3,14 +3,24 @@ local addonName, ns = ...
 -- Group Alerts module: party invites, dungeon/raid finder and PvP queue pops, ready checks and summons get
 -- a sound (on the effects channel by default, or Master to be heard with effects muted), optionally repeated until
 -- you've answered, and a taskbar flash where Blizzard has none (summons). Blizzard's own popups and sounds stay.
+-- Party and guild invite popups get a line under them with the inviter's level, class and guild where the game
+-- knows them (friend lists, the guild roster, Battle.net, a nearby player's tooltip; never /who). The line is our
+-- own frame laid against Blizzard's popup: the popup itself isn't touched.
 
 local TICK = 0.5
 local POPUP_DELAY = 0.2 -- seconds: Blizzard's popup shows on the same event as ours
+local LINE_CHECK = 0.1 -- seconds between checks that the popup under the inviter line is still up
+local LINE_PAD = 8
 local CHANNEL_CHOICES = {
 	{ value = "SFX", text = "Effects" },
 	{ value = "Master", text = "Master" },
 }
-local EVENTS = { "PARTY_INVITE_REQUEST", "LFG_PROPOSAL_SHOW", "UPDATE_BATTLEFIELD_STATUS", "READY_CHECK", "CONFIRM_SUMMON" }
+local EVENTS = {
+	"PARTY_INVITE_REQUEST", "LFG_PROPOSAL_SHOW", "UPDATE_BATTLEFIELD_STATUS", "READY_CHECK", "CONFIRM_SUMMON",
+	"GUILD_INVITE_REQUEST",
+}
+local UI = ns.UI
+local IsSecret = ns.IsSecret
 
 local module
 local active = {} -- [alert key] = { next = GetTime() of the next repeat, left = repeats left }
@@ -109,8 +119,168 @@ local function TriggerSoon(key)
 	end)
 end
 
-function events:PARTY_INVITE_REQUEST()
+-- Who invited you -----------------------------------------------------------------------------------------------
+
+local line -- the frame under the popup: { text, popup, which }
+
+-- A Battle.net friend playing the character with this GUID: their game account info, or nil.
+local function BNetByGUID(guid)
+	for i = 1, BNGetNumFriends() or 0 do
+		for j = 1, C_BattleNet.GetFriendNumGameAccounts(i) or 0 do
+			local game = C_BattleNet.GetFriendGameAccountInfo(i, j)
+			if game and game.playerGuid == guid then
+				return game
+			end
+		end
+	end
+	return nil
+end
+
+-- The level from the tooltip of a player near you (the game only has it for players it has seen).
+local function TooltipLevel(guid)
+	local data = C_TooltipInfo.GetHyperlink("unit:" .. guid)
+	if not (data and data.lines) then
+		return nil
+	end
+	local texts = {}
+	for i, tipLine in ipairs(data.lines) do
+		if IsSecret(tipLine.leftText) then
+			return nil
+		end
+		texts[i] = tipLine.leftText
+	end
+	return ns.Social_LevelFromLines(texts, TOOLTIP_UNIT_LEVEL)
+end
+
+-- What the game knows about the inviter: { level, className, classFile, guild } (any may be nil). name: as the
+-- event gives it ("Name" on your realm); guid: party invites only.
+local function InviterInfo(name, guid)
+	local info = {}
+	if guid and not IsSecret(guid) then
+		local className, classFile = GetPlayerInfoByGUID(guid)
+		if not IsSecret(className) then
+			info.className, info.classFile = className, classFile
+		end
+	end
+	local key = ns.Social_FullName(name, GetNormalizedRealmName())
+	local who = key and ns.InboxWho_Get and ns.InboxWho_Get({ with = key })
+	if who then
+		info.level = info.level or who.level
+		info.className = info.className or who.className
+		info.classFile = info.classFile or who.classFile
+		if who.guild then
+			info.guild = GetGuildInfo("player")
+		end
+	end
+	if guid and not IsSecret(guid) then
+		if not info.level then
+			local game = BNetByGUID(guid)
+			if game and game.characterLevel and game.characterLevel > 0 then
+				info.level = game.characterLevel
+			end
+		end
+		info.level = info.level or TooltipLevel(guid)
+	end
+	return info
+end
+
+local function PaintClass(className, classFile)
+	return UI.ClassColored(className, classFile)
+end
+
+local function HideLine()
+	if line then
+		line:Hide()
+	end
+end
+
+local sinceLineCheck = 0
+local function LineOnUpdate(self, elapsed)
+	sinceLineCheck = sinceLineCheck + elapsed
+	if sinceLineCheck < LINE_CHECK then
+		return
+	end
+	sinceLineCheck = 0
+	local popup = self.popup
+	-- Blizzard reuses its popup frames: one that now shows another dialog isn't the invite any more.
+	if not (module.active and popup:IsShown()) or (self.which and popup.which ~= self.which) then
+		self:Hide()
+	end
+end
+
+local function CreateLine()
+	line = CreateFrame("Frame", nil, UIParent)
+	line:SetFrameStrata("DIALOG")
+	UI.Panel(line, { subtle = true })
+	line.text = UI.Text(line, 12, "text")
+	line.text:SetPoint("CENTER")
+	line:SetScript("OnUpdate", LineOnUpdate)
+	line:Hide()
+end
+
+-- Shows text against popup: under it, or above it with above = true (the guild invite has its buttons at the
+-- bottom). which: the StaticPopup dialog it belongs to, nil for a popup of its own.
+local function ShowLine(popup, text, which, above)
+	if not line then
+		CreateLine()
+	end
+	line.popup, line.which = popup, which
+	line.text:SetText(text)
+	line:SetSize(line.text:GetStringWidth() + 2 * LINE_PAD, line.text:GetStringHeight() + LINE_PAD)
+	line:SetFrameLevel(popup:GetFrameLevel() + 5)
+	line:ClearAllPoints()
+	if above then
+		line:SetPoint("BOTTOM", popup, "TOP", 0, 4)
+	else
+		line:SetPoint("TOP", popup, "BOTTOM", 0, -4)
+	end
+	sinceLineCheck = 0
+	line:Show()
+end
+
+local function ShowPartyInviter(name, guid)
+	local popup, which
+	if LFGInvitePopup and LFGInvitePopup:IsShown() then
+		popup = LFGInvitePopup
+	else
+		popup = StaticPopup_FindVisible("PARTY_INVITE")
+		which = "PARTY_INVITE"
+	end
+	local text = popup and ns.Social_InviterText(InviterInfo(name, guid), PaintClass)
+	if text then
+		ShowLine(popup, text, which)
+	end
+end
+
+local function ShowGuildInviter(name)
+	if not (GuildInviteFrame and GuildInviteFrame:IsShown()) then
+		return
+	end
+	local text = ns.Social_InviterText(InviterInfo(name), PaintClass)
+	if text then
+		ShowLine(GuildInviteFrame, text, nil, true)
+	end
+end
+
+function events:PARTY_INVITE_REQUEST(name, _, _, _, _, _, guid)
 	TriggerSoon("invite")
+	if ns.alertsDB.inviter and not IsSecret(name) then
+		C_Timer.After(POPUP_DELAY, function()
+			if module.active then
+				ShowPartyInviter(name, guid)
+			end
+		end)
+	end
+end
+
+function events:GUILD_INVITE_REQUEST(inviter)
+	if ns.alertsDB.inviter and not IsSecret(inviter) then
+		C_Timer.After(POPUP_DELAY, function()
+			if module.active then
+				ShowGuildInviter(inviter)
+			end
+		end)
+	end
 end
 
 function events:LFG_PROPOSAL_SHOW()
@@ -160,6 +330,13 @@ for _, alert in ipairs(ALERTS) do
 	options[#options + 1] = { type = "checkbox", key = "on." .. alert.key, label = alert.name,
 		tooltip = alert.flash and "Also flashes the taskbar icon (Blizzard doesn't for this one)." or nil }
 end
+options[#options + 1] = { type = "checkbox", key = "inviter", label = "Who's inviting",
+	onChange = function(on)
+		if not on then
+			HideLine()
+		end
+	end,
+	tooltip = "Under a group or guild invite: the inviter's level, class and guild, when the game knows them (friends, your guild, Battle.net friends, players near you)." }
 options[#options + 1] = { type = "header", label = "Sound" }
 options[#options + 1] = { type = "dropdown", key = "sound", label = "Sound", onChange = function(value)
 	ns.Social_PlaySound(value, ns.alertsDB.channel)
@@ -193,14 +370,16 @@ module = ns.RegisterModule({
 	category = "social",
 	icon = 133706, -- inv_misc_bell_01
 	summary = "Invites, queue pops and summons you can't miss.",
-	description = "Invites, queue pops, ready checks and summons you can't miss: a sound (once, or repeating until you've answered), and a taskbar flash for summons.",
+	description = "Invites, queue pops, ready checks and summons you can't miss: a sound (once, or repeating until you've answered), and a taskbar flash for summons. Group and guild invites show who's inviting: level, class and guild when the game knows them.",
 	enabledByDefault = true,
+	replaces = { { addon = "Plumber", why = "the inviter's level and class on group and guild invites" } },
 	defaults = {
 		on = { invite = true, lfg = true, pvp = true, readyCheck = true, summon = true },
 		sound = "bell",
 		channel = "SFX", -- "SFX" or "Master" (PlaySound channel)
 		repeats = 0,
 		interval = 5,
+		inviter = true,
 	},
 	init = function(db)
 		ns.alertsDB = db
@@ -214,6 +393,7 @@ module = ns.RegisterModule({
 			events:UnregisterAllEvents()
 			wipe(active)
 			ticker:Hide()
+			HideLine()
 		end
 	end,
 	commands = {

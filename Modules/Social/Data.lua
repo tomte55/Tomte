@@ -495,3 +495,59 @@ function ns.Social_NewlyOnline(before, now, known)
 	table.sort(list)
 	return list
 end
+
+-- Group Alerts: who invited you ---------------------------------------------------------------------------------
+
+-- "Name" (your realm: invites leave it out) -> "Name-Realm"; a name with its realm stays as it is.
+function ns.Social_FullName(name, realm)
+	if type(name) ~= "string" or name == "" then
+		return nil
+	end
+	if name:find("-", 1, true) or not realm or realm == "" then
+		return name
+	end
+	return name .. "-" .. realm
+end
+
+-- Pattern for the game's level text ("Level %s", "Niveau %s", ...) -> the level as a capture.
+local function LevelPattern(template)
+	local escaped = template:gsub("([%(%)%.%[%]%*%+%-%?%^%$])", "%%%1")
+	local pattern = escaped:gsub("%%[sd]", "(%%d+)", 1)
+	return pattern
+end
+
+-- The level in a unit tooltip's lines (plain strings), found through the game's level text (TOOLTIP_UNIT_LEVEL),
+-- so it works in every client language. Nil when no line has it.
+function ns.Social_LevelFromLines(lines, template)
+	if type(template) ~= "string" or not template:find("%%[sd]") then
+		return nil
+	end
+	local pattern = LevelPattern(template)
+	for _, text in ipairs(lines) do
+		local level = type(text) == "string" and tonumber(text:match(pattern))
+		if level and level > 0 then
+			return level
+		end
+	end
+	return nil
+end
+
+-- The line under an invite: "Level 80  Paladin  <Guild>", leaving out what isn't known. info = { level,
+-- className, classFile, guild }; paint(className, classFile) colors the class (the caller's class colors).
+-- Nil when nothing is known.
+function ns.Social_InviterText(info, paint)
+	local parts = {}
+	if info.level then
+		parts[#parts + 1] = "Level " .. info.level
+	end
+	if info.className and info.className ~= "" then
+		parts[#parts + 1] = paint and paint(info.className, info.classFile) or info.className
+	end
+	if info.guild and info.guild ~= "" then
+		parts[#parts + 1] = "<" .. info.guild .. ">"
+	end
+	if #parts == 0 then
+		return nil
+	end
+	return table.concat(parts, "  ")
+end

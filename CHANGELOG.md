@@ -19,6 +19,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Loot (new module):** replaces the game's loot window. A compact list, a card with the best item and its upgrade verdict, or a feed of lines beside your character, where the same item again adds to its line and counts up. Fast loot, a Take all key (E while looting), owned counts, new appearances, prices, junk folded into one line, reputation and currency lines, and Blizzard's loot pop-ups shown the same way.
 - **Instances (new module):** readable difficulty on the minimap ("5 · H", "M+12", "D8", "LFR"), and outside an instance a click changes it. Near a dungeon or raid portal, pick the difficulty and see your lockout on each; a banner with your lockout when you go in. A small panel by the queue eye with your time in queue, the average wait and who's been found, and the holiday or Timewalking dungeon picked when you first open Dungeon Finder.
 - **Rogue Poisons:** Handy Lockpick: right-click a locked lockbox in your bags, or in the trade window's "will not be traded" slot, to pick it. For rogues and Mechagnomes of any class. Off by default.
+- **Group Alerts:** group and guild invites show who's inviting: their level, class and guild, when the game knows them.
 
 ### Improved
 
