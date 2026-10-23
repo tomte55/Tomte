@@ -35,6 +35,9 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Material uses:** the Professions book shows how much specialization knowledge each profession has left to spend, also on its buttons' tooltips.
 - **Fishing:** the Underlight Angler's artifact window shows its traits again.
 - **Gathering:** Midnight herbalists can turn on a seed button: point at Rich Soil with Resilient Seeds in your bags and one click plants one (off by default).
+- **Waypoints:** opening the world map pings your arrow so you find yourself at a glance.
+- **Waypoints:** world quests and events you track show a countdown on the marker and the close-up card.
+- **Waypoints:** two new key bindings (and `/tomte way next` / `prev`) cycle the focus through your tracked quests; `/way 45.2 67.8 Some name` names the pin.
 
 ### Improved
 

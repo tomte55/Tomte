@@ -2,12 +2,15 @@ local addonName, ns = ...
 
 -- Waypoints, pure logic: no WoW API calls (unit-tested with plain Lua). Distance and arrival text, the
 -- marker's state (far, close-up card, compass, hidden), distance scaling, the edge arrow's position and angle, the
--- indoor compass, and the
--- Classic/Minimal style presets. Distances are in yards everywhere; only the text converts to meters.
+-- indoor compass, the Classic/Minimal style presets, the countdown on timed waypoints, quest focus cycling and
+-- matching a named map pin. Distances are in yards everywhere; only the text converts to meters.
 
 local atan2 = math.atan2 or math.atan -- WoW (5.1) has atan2; plain Lua 5.4 takes atan(y, x)
 
 local YARD_TO_METER = 0.9144
+ns.WAY_TIME_WARNING = 15 * 60 -- seconds left when a countdown turns to the warning color
+ns.WAY_TIME_DANGER = 3 * 60 -- ... and to the danger color
+local PIN_MATCH = 0.0005 -- map coordinates (0..1) within which two pins count as the same spot
 -- Distance scaling (Way_DistanceScale); exported for the tests.
 ns.WAY_SCALE_DISTANCE = 600 -- yards where the marker is drawn at its set size
 ns.WAY_SCALE_MIN = 0.7
@@ -113,8 +116,9 @@ function ns.Way_UpdateArrival(state, distance, now)
 	return state.seconds
 end
 
--- The footer line under the marker for a footer mode. Missing parts are left out.
-function ns.Way_FooterText(mode, distanceText, arrivalText, name)
+-- The footer line under the marker for a footer mode. Missing parts are left out. timeText (a countdown, already
+-- colored) joins the distance line in the "all" mode.
+function ns.Way_FooterText(mode, distanceText, arrivalText, name, timeText)
 	if mode == "none" then
 		return nil
 	elseif mode == "distance" then
@@ -130,6 +134,9 @@ function ns.Way_FooterText(mode, distanceText, arrivalText, name)
 	end
 	if arrivalText then
 		parts[#parts + 1] = arrivalText
+	end
+	if timeText then
+		parts[#parts + 1] = timeText
 	end
 	local line = #parts > 0 and table.concat(parts, "  ·  ") or nil
 	if name and name ~= "" then
@@ -197,4 +204,77 @@ function ns.Way_TurnToward(current, target, rate)
 		return target
 	end
 	return current + diff * rate
+end
+
+-- Timed waypoints --------------------------------------------------------------------------------------------
+
+-- Whole seconds left until endsAt (server time, GetServerTime) at now; nil without an end or once it has passed.
+function ns.Way_TimeLeft(endsAt, now)
+	if not endsAt or not now then
+		return nil
+	end
+	local left = math.floor(endsAt - now)
+	return left > 0 and left or nil
+end
+
+-- The countdown: "Ends in 12:34" (ticking under an hour), "Ends in 5h 12m", "Ends in 2d 4h", and its color role
+-- (muted, then warning and danger as the end nears). nil for no time left.
+function ns.Way_TimeLeftText(seconds)
+	if not seconds or seconds <= 0 then
+		return nil
+	end
+	local text
+	if seconds < 3600 then
+		text = ns.Clock(seconds)
+	elseif seconds < 86400 then
+		local h, m = math.floor(seconds / 3600), math.floor(seconds % 3600 / 60)
+		text = m > 0 and ("%dh %dm"):format(h, m) or ("%dh"):format(h)
+	else
+		local d, h = math.floor(seconds / 86400), math.floor(seconds % 86400 / 3600)
+		text = h > 0 and ("%dd %dh"):format(d, h) or ("%dd"):format(d)
+	end
+	local role = seconds <= ns.WAY_TIME_DANGER and "danger" or seconds <= ns.WAY_TIME_WARNING and "warning"
+		or "textMuted"
+	return "Ends in " .. text, role
+end
+
+-- Quest focus --------------------------------------------------------------------------------------------------
+
+-- The watched quests in tracker order: regular watches, then world quest watches, each quest once.
+function ns.Way_WatchList(regular, world)
+	local list, seen = {}, {}
+	for _, source in ipairs({ regular or {}, world or {} }) do
+		for _, questID in ipairs(source) do
+			if questID and not seen[questID] then
+				seen[questID] = true
+				list[#list + 1] = questID
+			end
+		end
+	end
+	return list
+end
+
+-- The quest after (step 1) or before (step -1) current in list, wrapping around; the first (or the last) when current
+-- isn't in the list; nil for an empty list.
+function ns.Way_CycleQuest(list, current, step)
+	local n = #list
+	if n == 0 then
+		return nil
+	end
+	for i, questID in ipairs(list) do
+		if questID == current then
+			return list[(i - 1 + step) % n + 1]
+		end
+	end
+	return step < 0 and list[n] or list[1]
+end
+
+-- Named pins -----------------------------------------------------------------------------------------------------
+
+-- Two map points ({ mapID, x, y }, x and y 0..1) are the same pin: same map, within PIN_MATCH.
+function ns.Way_SamePoint(a, b)
+	if not (a and b and a.mapID and a.mapID == b.mapID and a.x and a.y and b.x and b.y) then
+		return false
+	end
+	return math.abs(a.x - b.x) <= PIN_MATCH and math.abs(a.y - b.y) <= PIN_MATCH
 end

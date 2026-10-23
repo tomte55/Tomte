@@ -17,6 +17,7 @@ local CARD_COMPACT_ICON = 20
 local CARD_LINES = 3
 -- Card height with text lines: top padding, the name line, the gap above the lines, the lines, bottom padding.
 local CARD_PAD_TOP, CARD_NAME_H, CARD_LINES_GAP, CARD_PAD_BOTTOM = 8, 18, 4, 10
+local CARD_TIMER_H = 14 -- the countdown line of a timed target, along the card's bottom
 local ARROW_R = 34 -- chevron tip distance from the arrow's center
 local ARROW_ARM = 16
 local EDGE_RX, EDGE_RY = 0.4, 0.36 -- edge ellipse radii as a share of the screen size
@@ -122,6 +123,9 @@ local function CreateCard()
 	card.lines:SetWidth(CARD_W - (10 + CARD_ICON + 8) - 8) -- explicit: the height is measured before the card is placed
 	card.lines:SetSpacing(2)
 	card.lines:SetJustifyV("TOP")
+	-- Countdown of a timed target (world quest, event): lined up with the name, along the bottom (placed in SetTarget).
+	card.timer = Shadowed(UI.Text(card, 12, "textMuted", "number"))
+	card.timer:Hide()
 
 	card.pin = Diamond(card, 10, "OVERLAY")
 	card.pin:SetPoint("CENTER", card, "BOTTOM", 0, -10)
@@ -207,7 +211,7 @@ function ns.WayMarker_Apply(saved)
 	card.compact = compact
 end
 
--- target: { name, icon, lines = { "text", ... } } from Target.lua.
+-- target: { name, icon, lines = { "text", ... }, endsAt } from Target.lua.
 function ns.WayMarker_SetTarget(target)
 	if not holder then
 		return
@@ -218,21 +222,31 @@ function ns.WayMarker_SetTarget(target)
 	card.name:SetText(target.name or "")
 	card.name:ClearAllPoints()
 	card.name:SetPoint("RIGHT", card.distance, "LEFT", -6, 0)
+	local nameX = 10
 	if card.icon:IsShown() then
 		card.name:SetPoint("TOPLEFT", card.icon, "TOPRIGHT", 8, card.compact and -1 or 0)
+		nameX = 10 + card.icon:GetWidth() + 8
 	else
 		card.name:SetPoint("TOPLEFT", 10, -8)
 	end
+	card.timer:ClearAllPoints()
+	card.timer:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", nameX, 6)
 	local lines = {}
 	for i = 1, math.min(#(target.lines or {}), CARD_LINES) do
 		lines[i] = target.lines[i]
 	end
 	card.lines:SetText(table.concat(lines, "\n"))
-	if card.compact or #lines == 0 then
-		card:SetHeight(card.compact and CARD_COMPACT_ICON + 16 or CARD_ICON + 16)
+	-- A timed target keeps a line free for the countdown; a full card without text lines has room for it already.
+	local timed = target.endsAt ~= nil and db.countdown
+	card.timer:SetShown(timed)
+	card.lastTime = nil
+	if card.compact then
+		card:SetHeight(CARD_COMPACT_ICON + 16 + (timed and CARD_TIMER_H or 0))
+	elseif #lines == 0 then
+		card:SetHeight(CARD_ICON + 16)
 	else
 		card:SetHeight(math.max(CARD_ICON + 16, CARD_PAD_TOP + CARD_NAME_H + CARD_LINES_GAP + card.lines:GetStringHeight()
-			+ CARD_PAD_BOTTOM))
+			+ CARD_PAD_BOTTOM + (timed and CARD_TIMER_H or 0)))
 	end
 end
 
@@ -278,8 +292,8 @@ local function AnchorTo(navFrame)
 end
 
 -- Shows one view. state: "far" | "card" | "offscreen"; sx, sy: target in screen pixels (for the edge arrow);
--- footer/distance text; scale: distance scale for the far view.
-function ns.WayMarker_Show(state, navFrame, sx, sy, footer, distanceText, scale)
+-- footer/distance text; scale: distance scale for the far view; timeText and timeRole: the card's countdown.
+function ns.WayMarker_Show(state, navFrame, sx, sy, footer, distanceText, scale, timeText, timeRole)
 	AnchorTo(navFrame)
 	if state ~= view then
 		far:SetShown(state == "far")
@@ -309,6 +323,11 @@ function ns.WayMarker_Show(state, navFrame, sx, sy, footer, distanceText, scale)
 		if card.lastDistance ~= distanceText then
 			card.lastDistance = distanceText
 			card.distance:SetText(distanceText or "")
+		end
+		if card.lastTime ~= timeText then
+			card.lastTime = timeText
+			card.timer:SetText(timeText or "")
+			UI.SetTextRole(card.timer, timeRole or "textMuted")
 		end
 	elseif state == "offscreen" then
 		local w, h = holder:GetSize()

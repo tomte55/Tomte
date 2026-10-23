@@ -93,6 +93,7 @@ ns.BUG_FILES = {
 	"Modules/Travel/Route.lua",
 	"Modules/Travel/Target.lua",
 	"Modules/Travel/Marker.lua",
+	"Modules/Travel/MapPing.lua",
 	"Modules/Travel/Guard.lua",
 	"Modules/Travel/Router.lua",
 	"Modules/Travel/Waypoint.lua",

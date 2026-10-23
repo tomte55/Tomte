@@ -3,8 +3,9 @@ local addonName, ns = ...
 -- Waypoints module: replaces WaypointUI. Follows Blizzard's navigation frame (C_Navigation.GetFrame) with our own
 -- marker, close-up card and edge arrow (or a compass of our own for a route step indoors), hides Blizzard's SuperTrackedFrame while on, and super-tracks map pins as
 -- soon as they're placed. Pure logic is in Data.lua, target info in Target.lua, frames in Marker.lua, guard
--- directions in Guard.lua, portal routes to other continents in Router.lua (Route.lua, Network*.lua).
--- The update frame only runs while a navigation frame exists.
+-- directions in Guard.lua, portal routes to other continents in Router.lua (Route.lua, Network*.lua), the ping on
+-- your arrow when the map opens in MapPing.lua. Here too: keys that cycle the focus through tracked quests, and
+-- ns.Way_SetPoint for other modules. The update frame only runs while a navigation frame exists.
 
 local TICK = 0.1 -- seconds between distance/state/text updates (position updates every frame)
 local FADE_IN = 0.25 -- seconds to fade in after the target changes
@@ -24,6 +25,7 @@ local targetDirty = true
 local arrival = ns.Way_NewArrival()
 local elapsed = 0
 local state, footer, distanceText, scale = "none", nil, nil, 1
+local timeText, timeRole -- the countdown of a timed target
 local alpha, alphaGoal = 0, 1
 local loadedAt = 0
 local hooked
@@ -105,7 +107,8 @@ local function UpdateInfo()
 		distance = distance,
 		inQuestArea = ns.WayTarget_InQuestArea(target),
 		offscreen = C_Navigation.WasClampedToScreen(),
-		hasDetails = #target.lines > 0,
+		-- A countdown is a detail too: a timed target gets its card up close.
+		hasDetails = #target.lines > 0 or (target.endsAt ~= nil and db.countdown),
 		compass = compassDistance ~= nil,
 	}, db)
 	if state == "offscreen" and not db.arrow then
@@ -116,7 +119,12 @@ local function UpdateInfo()
 
 	local seconds = ns.Way_UpdateArrival(arrival, distance, GetTime())
 	distanceText = ns.Way_FormatDistance(distance, db.metric)
-	footer = ns.Way_FooterText(db.footer, distanceText, ns.Way_FormatArrival(seconds), target.redirect or target.name)
+	timeText, timeRole = nil, nil
+	if db.countdown and target.endsAt then
+		timeText, timeRole = ns.Way_TimeLeftText(ns.Way_TimeLeft(target.endsAt, GetServerTime()))
+	end
+	footer = ns.Way_FooterText(db.footer, distanceText, ns.Way_FormatArrival(seconds), target.redirect or target.name,
+		timeText and ns.UI.Wrap(timeText, timeRole))
 	scale = ns.Way_DistanceScale(distance)
 end
 
@@ -147,7 +155,7 @@ local function OnUpdate(_, dt)
 	end
 	alpha = math.min(alpha + dt / FADE_IN, alphaGoal)
 	ns.WayMarker_SetAlpha(alpha * db.alpha)
-	ns.WayMarker_Show(state, navFrame, sx, sy, footer, distanceText, scale)
+	ns.WayMarker_Show(state, navFrame, sx, sy, footer, distanceText, scale, timeText, timeRole)
 end
 ticker:SetScript("OnUpdate", OnUpdate)
 
@@ -240,15 +248,29 @@ local function TestPin()
 	ns.TrackPin(mapID, x, y)
 end
 
--- "45.2 67.8", "45.2, 67.8" or TomTom's "#2248 45.2 67.8" (a map ID first). Anything after the coordinates
--- (TomTom's description) is ignored: a map pin can't carry a name.
-local function PinAt(text)
+-- For other modules (Tips, Prey, ...): a map pin at x, y (0..1) on mapID, tracked, with a name for the marker and
+-- card (the game's map pin carries none) and, optionally, opts.endsAt (server time, GetServerTime) for a countdown.
+-- Places the pin with Waypoints off too (the game's own arrow then shows it). Prints nothing. Returns true when
+-- placed now, false when it waits for the end of combat, nil when that map can't take a pin.
+function ns.Way_SetPoint(mapID, x, y, title, opts)
+	if not (mapID and x and y) or not C_Map.CanSetUserWaypointOnMap(mapID) then
+		return nil
+	end
+	ns.WayTarget_NamePin({ mapID = mapID, x = x, y = y, title = title, endsAt = opts and opts.endsAt })
+	MarkDirty()
+	return ns.TrackPin(mapID, x, y)
+end
+
+-- "45.2 67.8", "45.2, 67.8" or TomTom's "#2248 45.2 67.8" (a map ID first). Text after the coordinates (TomTom's
+-- description) names the pin. text: as typed (Core passes the fallback both lower-cased and raw).
+local function PinAt(text, rawText)
 	if not ns.Module_RequireOn(module) then
 		return
 	end
+	text = rawText or text
 	local mapID, rest = text:match("^#(%d+)%s+(.*)$")
 	mapID = tonumber(mapID) or C_Map.GetBestMapForUnit("player")
-	local x, y = (rest or text):match("^([%d.]+)[%s,]+([%d.]+)")
+	local x, y, title = (rest or text):match("^([%d.]+)[%s,]+([%d.]+)%s*(.-)%s*$")
 	x, y = tonumber(x), tonumber(y)
 	if not x or not y or x < 0 or x > 100 or y < 0 or y > 100 then
 		local cmd = SlashCmdList.TOMTEWAY and "/way" or "/tomte way"
@@ -259,10 +281,33 @@ local function PinAt(text)
 		ns.Print("can't place a map pin on that map.")
 		return
 	end
-	local now = ns.TrackPin(mapID, x / 100, y / 100)
+	local now = ns.Way_SetPoint(mapID, x / 100, y / 100, title ~= "" and title or nil)
 	local info = C_Map.GetMapInfo(mapID)
 	ns.Print(("%s %.1f, %.1f in %s."):format(now and "tracking" or "after combat: tracking", x, y,
 		info and info.name or ("map " .. mapID)))
+end
+
+-- Quest focus: the next or previous tracked quest becomes the one the marker (and the game's arrow) leads to.
+local function WatchedQuests()
+	local regular, world = {}, {}
+	for i = 1, C_QuestLog.GetNumQuestWatches() do
+		regular[#regular + 1] = C_QuestLog.GetQuestIDForQuestWatchIndex(i)
+	end
+	for i = 1, C_QuestLog.GetNumWorldQuestWatches() do
+		world[#world + 1] = C_QuestLog.GetQuestIDForWorldQuestWatchIndex(i)
+	end
+	return ns.Way_WatchList(regular, world)
+end
+
+local function CycleFocus(step)
+	local questID = ns.Way_CycleQuest(WatchedQuests(), C_SuperTrack.GetSuperTrackedQuestID(), step)
+	if not questID then
+		ns.Print("no tracked quests to focus.")
+		return
+	end
+	ns.SafeTrack(function()
+		C_SuperTrack.SetSuperTrackedQuestID(questID)
+	end)
 end
 
 -- /way is TomTom's: Tomte claims it only when TomTom isn't loaded, and only once Waypoints is on (an off or blocked
@@ -334,16 +379,28 @@ function ns.Way_Metric()
 	return db.metric
 end
 
+-- Key bindings (Bindings.xml, Key Bindings > Tomte), through ns.Binding_Add.
+ns.Binding_Add("WAY_NEXT", "way", function()
+	CycleFocus(1)
+end)
+ns.Binding_Add("WAY_PREV", "way", function()
+	CycleFocus(-1)
+end)
+BINDING_NAME_TOMTE_WAY_NEXT = "Waypoints: focus the next tracked quest"
+BINDING_NAME_TOMTE_WAY_PREV = "Waypoints: focus the previous tracked quest"
+
 module = ns.RegisterModule({
 	key = "way",
 	conflicts = { { addon = "WaypointUI", why = "Waypoints stays off while it's enabled" } },
+	replaces = { { addon = "Plumber", why = "the map ping on your arrow and the keys that cycle quest focus" } },
 	name = "Waypoints",
 	category = "travel",
 	icon = 237381, -- inv_misc_map02
 	summary = "A marker in the world that shows the way to what you track.",
 	description = "An in-world marker for whatever you track: icon, beam, distance and arrival time, a close-up card "
 		.. "with the objective, and an arrow at the screen edge when it's off-screen. Map pins are tracked as soon as "
-		.. "you place them. Replaces WaypointUI.",
+		.. "you place them, world quests and events show a countdown, the map pings your arrow when it opens, and two "
+		.. "keys cycle the focus through your tracked quests. Replaces WaypointUI.",
 	enabledByDefault = true,
 	defaults = {
 		style = "classic",
@@ -363,6 +420,8 @@ module = ns.RegisterModule({
 		portals = true,
 		routes = {}, -- per character GUID: the real map pin while a portal route has the pin on a step
 		showWhenHidden = false,
+		countdown = true,
+		mapPing = true,
 	},
 	init = function(saved)
 		db = saved
@@ -384,9 +443,11 @@ module = ns.RegisterModule({
 			ClaimWay()
 			ns.WayGuard_Toggle(true, db)
 			ns.WayRouter_Toggle(db.portals, db)
+			ns.WayPing_Toggle(db.mapPing)
 		else
 			ns.WayGuard_Toggle(false, db)
 			ns.WayRouter_Toggle(false, db)
+			ns.WayPing_Toggle(false)
 			events:UnwatchAll(OWNER)
 			ticker:Hide()
 			ns.WayMarker_Hide()
@@ -404,8 +465,20 @@ module = ns.RegisterModule({
 				ns.WayRouter_Print()
 			end
 		end },
+		{ "next", "focus the next tracked quest (also a key binding)", function()
+			CycleFocus(1)
+		end },
+		{ "prev", "focus the previous tracked quest (also a key binding)", function()
+			CycleFocus(-1)
+		end },
+		{ "ping", "ping your arrow on the open world map", function()
+			if not ns.WayPing_Play() then
+				ns.Print("open the world map on the zone you're in first.")
+			end
+		end },
 	},
-	fallbackCommand = { "<x> <y>", "pin and track a spot on this map (also /way <x> <y> when TomTom isn't loaded)", PinAt, pattern = "^[#%d.]" },
+	fallbackCommand = { "<x> <y> [name]", "pin and track a spot on this map (also /way <x> <y> when TomTom isn't loaded)",
+		PinAt, pattern = "^[#%d.]" },
 	options = {
 		{ type = "header", label = "Look" },
 		{ type = "dropdown", key = "style", label = "Style",
@@ -475,6 +548,13 @@ module = ns.RegisterModule({
 			end },
 		{ type = "checkbox", key = "showWhenHidden", label = "Show when the UI is hidden", onChange = ApplyLook,
 			tooltip = "Keep the marker visible after Alt+Z." },
+		{ type = "checkbox", key = "countdown", label = "Countdown on timed waypoints", onChange = ApplyLook,
+			tooltip = "World quests and events that end soon show the time left under the marker and on the card." },
+		{ type = "checkbox", key = "mapPing", label = "Ping your arrow when the map opens",
+			onChange = function()
+				ns.WayPing_Toggle(module.active and db.mapPing)
+			end,
+			tooltip = "Rings spread out from where you stand for a moment, so you find yourself on the map." },
 		{ type = "button", label = "Pin ahead of you", text = "Test", onClick = TestPin,
 			tooltip = ("Places a map pin about %d yards ahead and tracks it."):format(TEST_DISTANCE) },
 		{ type = "button", label = "Stop tracking", text = "Clear", onClick = Clear },

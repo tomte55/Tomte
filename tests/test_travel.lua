@@ -84,6 +84,8 @@ test("FooterText per mode", function()
 	eq(ns.Way_FooterText("all", "10 m", "5s", "Bob"), "Bob\n10 m  ·  5s")
 	eq(ns.Way_FooterText("all", "10 m", nil, nil), "10 m")
 	eq(ns.Way_FooterText("all", nil, nil, "Bob"), "Bob")
+	eq(ns.Way_FooterText("all", "10 m", "5s", "Bob", "Ends in 3:00"), "Bob\n10 m  ·  5s  ·  Ends in 3:00")
+	eq(ns.Way_FooterText("distance", "10 m", "5s", "Bob", "Ends in 3:00"), "10 m")
 end)
 
 -- State ----------------------------------------------------------------------------------------------------
@@ -200,6 +202,74 @@ test("ApplyStyle sets the preset keys and the style", function()
 	eq(db.metric, true, "untouched")
 	eq(ns.Way_ApplyStyle(db, "nope"), false)
 	eq(db.style, "minimal")
+end)
+
+-- Timed waypoints ----------------------------------------------------------------------------------------------
+
+test("TimeLeft counts down to the end and stops there", function()
+	eq(ns.Way_TimeLeft(1000, 400), 600)
+	eq(ns.Way_TimeLeft(1000, 999.5), nil, "under a second")
+	eq(ns.Way_TimeLeft(1000, 1000), nil)
+	eq(ns.Way_TimeLeft(1000, 2000), nil)
+	eq(ns.Way_TimeLeft(nil, 400), nil)
+end)
+
+test("TimeLeftText ticks under an hour, then hours and days", function()
+	local text, role = ns.Way_TimeLeftText(45)
+	eq(text, "Ends in 45s")
+	eq(role, "danger")
+	text, role = ns.Way_TimeLeftText(12 * 60 + 34)
+	eq(text, "Ends in 12:34")
+	eq(role, "warning")
+	text, role = ns.Way_TimeLeftText(5 * 3600 + 12 * 60)
+	eq(text, "Ends in 5h 12m")
+	eq(role, "textMuted")
+	eq(ns.Way_TimeLeftText(2 * 3600), "Ends in 2h")
+	eq(ns.Way_TimeLeftText(2 * 86400 + 4 * 3600 + 59), "Ends in 2d 4h")
+	eq(ns.Way_TimeLeftText(3 * 86400), "Ends in 3d")
+	eq(ns.Way_TimeLeftText(0), nil)
+	eq(ns.Way_TimeLeftText(nil), nil)
+end)
+
+test("TimeLeftText turns to warning and danger at the thresholds", function()
+	eq(select(2, ns.Way_TimeLeftText(ns.WAY_TIME_WARNING + 1)), "textMuted")
+	eq(select(2, ns.Way_TimeLeftText(ns.WAY_TIME_WARNING)), "warning")
+	eq(select(2, ns.Way_TimeLeftText(ns.WAY_TIME_DANGER)), "danger")
+end)
+
+-- Quest focus ----------------------------------------------------------------------------------------------------
+
+test("WatchList puts world quests after the others, each once", function()
+	local list = ns.Way_WatchList({ 10, 20, 30 }, { 40, 20, 50 })
+	eq(table.concat(list, ","), "10,20,30,40,50")
+	eq(#ns.Way_WatchList(nil, nil), 0)
+end)
+
+test("CycleQuest steps both ways and wraps", function()
+	local list = { 10, 20, 30 }
+	eq(ns.Way_CycleQuest(list, 10, 1), 20)
+	eq(ns.Way_CycleQuest(list, 30, 1), 10)
+	eq(ns.Way_CycleQuest(list, 10, -1), 30)
+	eq(ns.Way_CycleQuest(list, 20, -1), 10)
+end)
+
+test("CycleQuest starts at an end when the focus isn't a watched quest", function()
+	local list = { 10, 20, 30 }
+	eq(ns.Way_CycleQuest(list, 0, 1), 10)
+	eq(ns.Way_CycleQuest(list, 99, -1), 30)
+	eq(ns.Way_CycleQuest({ 10 }, 10, 1), 10)
+	eq(ns.Way_CycleQuest({}, 10, 1), nil)
+end)
+
+-- Named pins -----------------------------------------------------------------------------------------------------
+
+test("SamePoint matches the same spot on the same map", function()
+	local pin = { mapID = 2248, x = 0.452, y = 0.678 }
+	eq(ns.Way_SamePoint(pin, { mapID = 2248, x = 0.4521, y = 0.6779 }), true)
+	eq(ns.Way_SamePoint(pin, { mapID = 2248, x = 0.46, y = 0.678 }), false)
+	eq(ns.Way_SamePoint(pin, { mapID = 2214, x = 0.452, y = 0.678 }), false)
+	eq(ns.Way_SamePoint(pin, nil), false)
+	eq(ns.Way_SamePoint(nil, pin), false)
 end)
 
 H.done()

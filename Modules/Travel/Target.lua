@@ -1,8 +1,9 @@
 local addonName, ns = ...
 
--- Waypoints: what is super-tracked, as { kind, name, icon, lines, questID, redirect, indoor }. icon is { atlas = }
--- or { texture = }, lines are the card's text lines (objectives, turn-in text, descriptions), indoor the world point
--- of a route step inside a building (WayRouter_Step). Rebuilt on events,
+-- Waypoints: what is super-tracked, as { kind, name, icon, lines, questID, redirect, indoor, endsAt }. icon is
+-- { atlas = } or { texture = }, lines are the card's text lines (objectives, turn-in text, descriptions), indoor the
+-- world point of a route step inside a building (WayRouter_Step), endsAt the server time (GetServerTime) a world
+-- quest, timed area POI or named pin ends (the countdown). Rebuilt on events,
 -- not per frame. API facts checked against the 12.1.0 docs (GetNextWaypointForMap moved to C_Navigation).
 
 local ST = Enum.SuperTrackingType
@@ -22,6 +23,21 @@ if OWNER.Self then
 	HOUSING_ATLAS[OWNER.Self] = "housing-map-plot-player-house"
 	HOUSING_ATLAS[OWNER.Friend] = "housing-map-plot-occupied-friend"
 	HOUSING_ATLAS[OWNER.Stranger] = "housing-map-plot-occupied"
+end
+
+local named -- the pin other modules placed through ns.Way_SetPoint: { mapID, x, y, title, endsAt }
+
+-- Server time `seconds` from now, for a time left that's known and readable; else nil.
+local function EndsIn(seconds)
+	if not seconds or ns.IsSecret(seconds) or seconds <= 0 then
+		return nil
+	end
+	return GetServerTime() + seconds
+end
+
+-- When a world quest (or another timed task quest) ends; nil for quests without a time limit.
+local function QuestEnd(questID)
+	return EndsIn(C_TaskQuest.GetQuestTimeLeftSeconds(questID))
 end
 
 local function Asset(asset, isAtlas)
@@ -78,6 +94,7 @@ local function Quest(questID)
 		name = C_QuestLog.GetTitleForQuestID(questID) or ItemName(),
 		icon = QuestIcon(questID) or ICON_DEFAULT,
 		lines = QuestLines(questID),
+		endsAt = QuestEnd(questID),
 	}
 end
 
@@ -106,7 +123,20 @@ local function UserWaypoint()
 	if spot then
 		return { kind = "pin", name = spot.name, icon = spot.icon, lines = { spot.line } }
 	end
+	-- A pin another module named (Way_SetPoint). Matched by its spot, not cleared on a mismatch: a portal route moves
+	-- the pin away for a while and puts it back.
+	local point = named and C_Map.GetUserWaypoint()
+	if point and point.position and ns.Way_SamePoint(named,
+		{ mapID = point.uiMapID, x = point.position.x, y = point.position.y }) then
+		return { kind = "pin", name = named.title or ItemName() or "Map pin", icon = ICON_PIN, lines = {},
+			endsAt = named.endsAt }
+	end
 	return { kind = "pin", name = ItemName() or "Map pin", icon = ICON_PIN, lines = {} }
+end
+
+-- point: { mapID, x, y, title, endsAt } (Way_SetPoint), or nil to forget it.
+function ns.WayTarget_NamePin(point)
+	named = point
 end
 
 local function HousingIcon(plotDataID)
@@ -134,9 +164,11 @@ local function MapPin()
 				target.icon = { atlas = info.atlasName }
 			end
 		end
+		target.endsAt = EndsIn(C_AreaPoiInfo.GetAreaPOISecondsLeft(id))
 	elseif pinType == PIN.QuestOffer and id then
 		target.name = C_QuestLog.GetTitleForQuestID(id) or name
 		target.icon = QuestIcon(id, true) or ICON_DEFAULT
+		target.endsAt = QuestEnd(id)
 	elseif pinType == PIN.TaxiNode then
 		target.icon = ICON_TAXI
 	elseif pinType == PIN.DigSite then
