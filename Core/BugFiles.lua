@@ -383,4 +383,9 @@ ns.BUG_FILES = {
 	"Modules/Tips/Tooltip.lua",
 	"Modules/Tips/Choice.lua",
 	"Modules/Tips/Tips.lua",
+	"Modules/Nameplates/Data.lua",
+	"Modules/Nameplates/Read.lua",
+	"Modules/Nameplates/Badge.lua",
+	"Modules/Nameplates/SoftTarget.lua",
+	"Modules/Nameplates/Nameplates.lua",
 }
