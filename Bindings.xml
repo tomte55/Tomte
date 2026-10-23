@@ -32,6 +32,10 @@
 	<Binding name="CLICK TomtePetNext:LeftButton" category="Tomte"/>
 	<Binding name="CLICK TomtePetHeal:LeftButton" category="Tomte"/>
 	<Binding name="CLICK TomteFishing:LeftButton" category="Tomte"/>
+	<Binding name="CLICK TomteDrawer1:LeftButton" category="Tomte"/>
+	<Binding name="CLICK TomteDrawer2:LeftButton" category="Tomte"/>
+	<Binding name="CLICK TomteDrawer3:LeftButton" category="Tomte"/>
+	<Binding name="CLICK TomteDrawer4:LeftButton" category="Tomte"/>
 	<Binding name="TOMTE_WAY_NEXT" category="Tomte">
 		Tomte_Binding("WAY_NEXT")
 	</Binding>
