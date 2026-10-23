@@ -57,7 +57,7 @@ function ns.Weekly_ReadCurated(expansion)
 	return out
 end
 
--- Resources: { { name, icon, text, dim } }, crests first.
+-- Resources: { { name, icon, text, dim, id, crest } }, crests first.
 local function ReadResources(expansion)
 	local list = {}
 	local function Add(id, crest)
@@ -75,7 +75,8 @@ local function ReadResources(expansion)
 				useTotal = info.useTotalEarnedForMaxQty })
 			text = cap and ("%d  %s"):format(info.quantity or 0, UI.Wrap(("%d/%d"):format(have, cap), "textMuted")) or text
 		end
-		list[#list + 1] = { name = info.name, icon = info.iconFileID, text = text, dim = (info.quantity or 0) == 0 }
+		list[#list + 1] = { name = info.name, icon = info.iconFileID, text = text, dim = (info.quantity or 0) == 0,
+			id = id, crest = crest }
 	end
 	local crests = ns.WeeklyCollect_CrestSet(expansion)
 	for _, id in ipairs(crests and crests.ids or {}) do
@@ -86,6 +87,7 @@ local function ReadResources(expansion)
 	end
 	return list
 end
+ns.Weekly_ReadResources = ReadResources -- read-only, for Expansion summary (Modules/Summary)
 
 function ns.WeeklyActivitiesView(parent)
 	local Kit = ns.HomeKit

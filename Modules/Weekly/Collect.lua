@@ -181,6 +181,18 @@ local function Read(reader, snap, now)
 	end, snap, now)
 end
 
+-- Read-only, for Expansion summary (Modules/Summary): the vault, crests and raid lockouts of the character you're
+-- playing, read now with the same readers, into a fresh table (no snapshot is stored or changed). Works while the
+-- Weekly board is off. { expansion, vault, vaultReady, currencies, crests, lockouts }
+function ns.Weekly_ReadLive()
+	local now = GetServerTime()
+	local snap = { expansion = ns.ContentExpansion() }
+	Read(ReadVault, snap, now)
+	Read(ReadCurrencies, snap, now)
+	Read(ReadLockouts, snap, now)
+	return snap
+end
+
 local function ScheduleResetRefresh(snap, now)
 	if resetTimer then
 		resetTimer:Cancel()

@@ -131,6 +131,7 @@ ns.WeeklyRaids_Read = ReadRaids
 local function IsKilled(mapID, encounterID, difficultyID)
 	return mapID ~= nil and encounterID ~= nil and C_RaidLocks.IsEncounterComplete(mapID, encounterID, difficultyID) == true
 end
+ns.Weekly_RaidKilled = IsKilled -- read-only, for Expansion summary (Modules/Summary)
 
 function ns.WeeklyRaidsView(parent)
 	local Kit = ns.HomeKit

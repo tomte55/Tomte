@@ -521,3 +521,8 @@ end
 function ns.Weekly_Active()
 	return module.active
 end
+
+-- Read-only, for Expansion summary (Modules/Summary): the learned weekly quests ([questID] = { title, group }).
+function ns.Weekly_LearnedQuests()
+	return db and db.quests or {}
+end
