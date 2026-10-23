@@ -3,8 +3,7 @@ local addonName, ns = ...
 -- Housing decor: the Decor page's preview pane. The selected decor's model in the catalog's own model scene, the way
 -- the housing catalog previews it (Blizzard_HousingModelPreview: the entry's model file in its uiModelSceneID, in a
 -- PanningModelSceneMixinTemplate: left-drag turns, right-drag moves, the wheel zooms), with its name, how many you
--- have, where it comes from and what a click on it does. A Banana button puts a banana next to the model for scale,
--- and the model's size in bananas shows under it (both with the Banana for scale setting). Placed and filled by
+-- have, where it comes from and what a click on it does, and how many people tall it is. Placed and filled by
 -- Page.lua; actions in Decor.lua.
 
 local INFO_H = 200 -- the text and buttons under the model
@@ -25,8 +24,9 @@ local ACTION_NOTES = {
 	learn = "Open %s's shop once and Tomte remembers where they stand for a waypoint.",
 	none = "Blizzard's tracking can't lead to this one.",
 }
-local BANANA_FILE = 647739 -- a banana model (file ID; the same one Plumber's scale reference uses)
-local BANANA_GAP = 0.25 -- banana lengths of space between the decor and the banana
+-- A person's height in model units: what Blizzard's model scenes size models against (ModelSceneActorMixin's
+-- MODEL_SCENE_ACTOR_DIMENSIONS_FOR_NORMALIZATION, "roughly the dimensions of a human male model").
+local PERSON_HEIGHT = 2.118
 local UI = ns.UI
 
 local db
@@ -36,7 +36,7 @@ local function DefaultScene()
 	return consts and consts.HOUSING_CATALOG_DECOR_MODELSCENEID_DEFAULT or DEFAULT_SCENE
 end
 
--- Banana for scale ------------------------------------------------------------------------------------------------
+-- Size line ------------------------------------------------------------------------------------------------------
 
 -- An actor's bounding box (model units, before its scale), or nil while it isn't loaded.
 local function Box(actor)
@@ -50,65 +50,13 @@ local function Box(actor)
 	return { x1 = x1, y1 = y1, z1 = z1, x2 = x2, y2 = y2, z2 = z2 }
 end
 
--- The banana's length (its longest side) in model units, or nil while it's loading.
-local function BananaLength(pane)
-	local box = Box(pane.banana)
-	if not box then
-		return nil
-	end
-	return math.max(box.x2 - box.x1, box.y2 - box.y1, box.z2 - box.z1)
-end
-
--- Puts the banana beside the decor on its floor at the decor's scale (shown while the setting and the Banana button
--- are on), and the size line in bananas under the model. Runs again when the decor's model loads or its scale settles.
-local function PlaceBanana(pane)
+-- "about 1.5 people tall" over the model (the Size next to a person setting). Runs again when the model loads.
+local function SizeLine(pane)
 	local actor = pane.hasModel and pane.scene:GetActorByTag(ACTOR_TAG)
-	local box, length = Box(actor), BananaLength(pane)
-	local on = db and db.banana
-	local text = on and box and length and ns.DecorEditor_SizeText(box.y2 - box.y1, box.x2 - box.x1, box.z2 - box.z1,
-		length)
+	local box = db and db.sizeLine and Box(actor)
+	local text = box and ns.DecorEditor_PeopleText(box.z2 - box.z1, PERSON_HEIGHT)
 	pane.size:SetText(text or "")
 	pane.size:SetShown(text ~= nil)
-	pane.bananaButton:SetShown(on == true and pane.hasModel == true)
-	local shown = on and db.bananaShown and box and length
-	if not shown then
-		pane.banana:Hide()
-		return
-	end
-	local scale = actor:GetScale()
-	local bananaBox = Box(pane.banana)
-	local ax, ay, az = actor:GetPosition()
-	pane.banana:SetScale(scale)
-	pane.banana:SetPosition(ax, ay + (box.y2 + length * BANANA_GAP - bananaBox.y1) * scale,
-		az + (box.z1 - bananaBox.z1) * scale)
-	pane.banana:Show()
-end
-
-local function CreateBanana(pane)
-	pane.banana = pane.scene:CreateActor()
-	if pane.banana.HasScript and pane.banana:HasScript("OnModelLoaded") then
-		pane.banana:SetScript("OnModelLoaded", function()
-			PlaceBanana(pane)
-		end)
-	end
-	pane.banana:SetModelByFileID(BANANA_FILE)
-	pane.banana:Hide()
-	pane.bananaButton = UI.Button(pane.reset:GetParent(), 70, "Banana")
-	UI.FitButton(pane.bananaButton, 60, 16)
-	pane.bananaButton:SetPoint("RIGHT", pane.reset, "LEFT", -6, 0)
-	pane.bananaButton:SetScript("OnClick", function()
-		db.bananaShown = not db.bananaShown
-		PlaceBanana(pane)
-	end)
-	pane.bananaButton:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_TOP")
-		GameTooltip:SetText("Banana for scale", UI.Color("heading"))
-		UI.TipLine("Puts a banana next to the decor so you can see how big it is.", "text", true)
-		GameTooltip:Show()
-	end)
-	pane.bananaButton:SetScript("OnLeave", GameTooltip_Hide)
-	pane.size = UI.Text(pane.reset:GetParent(), 11, "textMuted", "number")
-	pane.size:SetPoint("TOPLEFT", 10, -10)
 end
 
 -- Loads the entry's model in a fresh camera (also the Reset button); false when it has none or the scene has no
@@ -126,9 +74,9 @@ local function LoadModel(pane, e)
 	if actor.SetPreferModelCollisionBounds then
 		actor:SetPreferModelCollisionBounds(true)
 	end
-	-- The banana follows the model's size: its scale settles a frame after it loads (ModelSceneActorMixin).
+	-- The size line waits for the model: its box is there once it loads.
 	local function Follow()
-		PlaceBanana(pane)
+		SizeLine(pane)
 	end
 	if actor.SetOnModelLoadedCallback then
 		actor:SetOnModelLoadedCallback(Follow)
@@ -193,7 +141,7 @@ function ns.DecorDetail_Show(pane, e)
 		pane.id, pane.hasModel = nil, false
 		ShowModel(pane, false, nil, "Pick a decor",
 			"Click one in the list to see it here. Drag to turn it, scroll to zoom.")
-		PlaceBanana(pane)
+		SizeLine(pane)
 		return
 	end
 	if pane.id ~= e.id then
@@ -201,7 +149,7 @@ function ns.DecorDetail_Show(pane, e)
 		pane.hasModel = LoadModel(pane, e)
 	end
 	ShowModel(pane, pane.hasModel, e.icon, "No model to show", "The housing catalog has no model for this one.")
-	PlaceBanana(pane)
+	SizeLine(pane)
 	pane.name:SetText(e.name or "")
 	local owned = e.owned or 0
 	pane.owned:SetText(owned > 0 and UI.Wrap(("Collected: you have %d."):format(owned), "success")
@@ -265,7 +213,8 @@ function ns.DecorDetail_Create(parent)
 			pane.hasModel = LoadModel(pane, pane.entry)
 		end
 	end)
-	CreateBanana(pane)
+	pane.size = UI.Text(pane.reset:GetParent(), 11, "textMuted", "number")
+	pane.size:SetPoint("TOPLEFT", 10, -10)
 
 	local info = pane.info
 	pane.name = UI.Text(info, 15, "heading", "title")

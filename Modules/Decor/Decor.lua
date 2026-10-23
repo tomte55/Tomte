@@ -8,7 +8,7 @@ local addonName, ns = ...
 -- Every housing call is guarded so an account or client without housing stays quiet. The catalog is read in
 -- Catalog.lua, rules in Data.lua. Decor achievement rewards stay in Almost Done (Achievements/Rewards.lua).
 -- Extras, each with its own setting: house editor hover info, Alt to place another, dye copy and a clock
--- (Editor.lua), banana for scale in the preview (Detail.lua), your houses with teleports (Houses.lua) and a click on
+-- (Editor.lua), the size next to a person in the preview (Detail.lua), your houses with teleports (Houses.lua) and a click on
 -- the "decor acquired" alert to preview it (Alert.lua). One event bus for the module (ns.Decor_Events, Editor.lua).
 
 local START_DELAY = 8 -- seconds after the first loading screen before the catalog is read
@@ -458,7 +458,7 @@ module = ns.RegisterModule({
 	category = "collections",
 	icon = ICON,
 	summary = "The housing decor you're missing, where it comes from, and vendors near you.",
-	description = "A Decor page with the housing decor you're missing, grouped by where it comes from (vendors, achievements, quests, drops, professions) with how much of each you have, or by vendor with everything each one sells, and search. Click one to see its model in a preview you can turn and zoom, and track it with Blizzard's tracking, which leads you to the vendor, achievement or boss; for vendors Blizzard can't lead to, Tomte learns where they stand when you open their shop and gives a waypoint. Decor item tooltips say whether you have it. Next up and Around you name decor vendors in your zone that sell decor you're missing. Decor rewards of achievements are in Almost Done. In the house editor: hovering a placed decor shows how many you have in storage and its budget cost, Alt places another, right-click copies a decor's dyes to paste on another, and a clock shows the time. The preview can put a banana next to the model for scale, a Houses window teleports you to any of your houses, and a click on the \"decor acquired\" alert previews it.",
+	description = "A Decor page with the housing decor you're missing, grouped by where it comes from (vendors, achievements, quests, drops, professions) with how much of each you have, or by vendor with everything each one sells, and search. Click one to see its model in a preview you can turn and zoom, and track it with Blizzard's tracking, which leads you to the vendor, achievement or boss; for vendors Blizzard can't lead to, Tomte learns where they stand when you open their shop and gives a waypoint. Decor item tooltips say whether you have it. Next up and Around you name decor vendors in your zone that sell decor you're missing. Decor rewards of achievements are in Almost Done. In the house editor: hovering a placed decor shows how many you have in storage and its budget cost, Alt places another, right-click copies a decor's dyes to paste on another, and a clock shows the time. The preview says how many people tall a decor is, a Houses window teleports you to any of your houses, and a click on the \"decor acquired\" alert previews it.",
 	enabledByDefault = true,
 	home = {
 		{ kind = "page", key = "decor", order = 42, name = "Decor", icon = ICON, page = ns.DecorPage,
@@ -486,25 +486,25 @@ module = ns.RegisterModule({
 		tooltip = true,
 		preview = true,
 		-- The Decor page's view ("items" by source, or "vendors"), source filter and "Show collected"
-		filter = { view = "items", source = "all", owned = false },
+		-- searchIn: what the Decor page's search looks at, each on or off (ns.Decor_Matches' fields)
+		filter = { view = "items", source = "all", owned = false,
+			searchIn = { name = true, vendor = true, zone = true, source = true } },
 		collapsed = {}, -- [source key] = true while that group is folded on the Decor page
 		vendorsOpen = {}, -- [lower-case vendor name] = true while that vendor is open on the Decor page
 		-- Learned decor vendors (Vendors.lua): [npcID] = { name, mapID, x, y, items = { [itemID] = true }, seen }
 		vendors = {},
-		searchSources = true, -- the Decor page's search also looks through the whole source text
 		hover = true, -- house editor: storage count and budget cost on hovered decor (Editor.lua)
 		dupe = false, -- house editor: Alt places another of the hovered decor
 		dyeCopy = false, -- house editor: right-click copies dyes, Paste dyes previews them
 		clock = true, -- house editor: the clock above the mode bar
 		editorSeconds = 0, -- seconds spent in the house editor, all sessions
-		banana = true, -- the preview's Banana button and size in bananas (Detail.lua)
-		bananaShown = false, -- the banana is next to the model (the Banana button)
+		sizeLine = true, -- the preview's "about 1.5 people tall" line (Detail.lua)
 		houses = true, -- the Houses window and the Teleport home key (Houses.lua)
 		alertPreview = true, -- a click on the "decor acquired" alert previews it (Alert.lua)
 	},
 	keep = { "editorSeconds" },
 	replaces = {
-		{ addon = "Plumber", why = "the house editor's decor info, duplicate, dye copy and clock, banana for scale, "
+		{ addon = "Plumber", why = "the house editor's decor info, duplicate, dye copy and clock, the size for scale, "
 			.. "teleport home, the house list and the decor alert preview" },
 	},
 	init = function(saved)
@@ -548,13 +548,8 @@ module = ns.RegisterModule({
 		{ type = "button", label = "Decor page", text = "Open", onClick = Open },
 		{ type = "button", label = "Housing catalog", text = "Read again", onClick = Scan,
 			tooltip = "Read the catalog again and print how much decor you have per source." },
-		{ type = "checkbox", key = "searchSources", label = "Search where decor comes from",
-			tooltip = "The search also finds decor by anything in its source: achievement, quest, boss, currency or profession names.",
-			onChange = function()
-				ns.DecorPage_Refresh()
-			end },
-		{ type = "checkbox", key = "banana", label = "Banana for scale",
-			tooltip = "The preview gets a Banana button that puts a banana next to the model, and shows the model's size in bananas.",
+		{ type = "checkbox", key = "sizeLine", label = "Size next to a person",
+			tooltip = "The preview says how tall the decor is next to a person: \"about 1.5 people tall\".",
 			onChange = function()
 				ns.DecorPage_Refresh()
 			end },

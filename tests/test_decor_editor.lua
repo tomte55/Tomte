@@ -3,7 +3,7 @@ local ns = {}
 assert(loadfile("Tomte/Modules/Decor/EditorData.lua"))("Tomte", ns)
 
 local H = dofile("Tomte/tests/harness.lua")
-local test, eq = H.test, H.eq
+local test, eq, near = H.test, H.eq, H.near
 
 -- Dye slots as the game lists them: not always in display order.
 local SLOTS = {
@@ -105,14 +105,6 @@ test("clock text", function()
 	eq(ns.DecorEditor_ClockText(12, 15, false, "am", "pm"), "12:15 pm")
 end)
 
-test("size in bananas", function()
-	eq(ns.DecorEditor_SizeText(1.5, 0.5, 2, 1), "1.5 x 0.5 x 2 bananas")
-	eq(ns.DecorEditor_SizeText(1, 1, 1, 0.5), "2 x 2 x 2 bananas")
-	eq(ns.DecorEditor_SizeText(1.04, 1, 1, 1), "1 x 1 x 1 bananas")
-	eq(ns.DecorEditor_SizeText(1, 1, 1, nil), nil)
-	eq(ns.DecorEditor_SizeText(nil, 1, 1, 1), nil)
-end)
-
 local HOUSES = {
 	{ houseName = "Mira's Cottage", neighborhoodName = "Razorwind Shores", neighborhoodGUID = "n1", houseGUID = "h1",
 		plotID = 4 },
@@ -147,6 +139,12 @@ test("the alert's decor by name", function()
 	eq(ns.DecorEditor_FindByName("Bed", {}, entries), nil)
 	eq(ns.DecorEditor_FindByName(nil, {}, entries), nil)
 	eq(ns.DecorEditor_FindByName("", nil, nil), nil)
+end)
+
+test("size next to a person", function()
+	eq(ns.DecorEditor_PeopleText(3, 2), "about 1.5 people tall")
+	eq(ns.DecorEditor_PeopleText(2, 2), "about 1 person tall")
+	eq(ns.DecorEditor_PeopleText(nil, 2), nil)
 end)
 
 H.done()

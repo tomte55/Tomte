@@ -321,20 +321,58 @@ test("vendors here also match by learned spots", function()
 	eq(none, 0)
 end)
 
+test("search skips the money icon in the source line", function()
+	local e = { id = 1, name = "Isolation Painting", vendor = "Hesta Forlath", zone = "Silvermoon City",
+		line = "Vendor: Hesta Forlath · 375|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t" }
+	assert(not ns.Decor_Matches(e, "gold"), "the icon's path isn't text")
+	assert(not ns.Decor_Matches(e, "gold"))
+	assert(ns.Decor_Matches(e, "hesta"))
+	assert(ns.Decor_Matches(e, "375"))
+end)
+
+test("search fields, each on its own", function()
+	local e = { id = 1, name = "Oak Chair", vendor = "Hesta Forlath", zone = "Silvermoon City",
+		line = "Vendor: Hesta Forlath", raw = "|cFFFFD200Achievement: |rTwo Hundred Chairs" }
+	assert(ns.Decor_Matches(e, "oak", { name = true }))
+	assert(not ns.Decor_Matches(e, "hesta", { name = true }), "the vendor isn't the name")
+	assert(ns.Decor_Matches(e, "hesta", { vendor = true }))
+	assert(not ns.Decor_Matches(e, "silvermoon", { name = true, vendor = true }))
+	assert(ns.Decor_Matches(e, "silvermoon", { zone = true }))
+	assert(not ns.Decor_Matches(e, "hundred", { name = true, vendor = true, zone = true }))
+	assert(ns.Decor_Matches(e, "hundred", { source = true }), "the source covers the whole source text")
+	assert(ns.Decor_Matches(e, "hundred"), "nil: every field")
+	-- By vendor: the vendor's own name counts under vendor, its zone under zone.
+	local shop = { { id = 2, name = "Lamp", vendors = { { name = "Kesha", zone = "Dornogal" } } } }
+	eq(#ns.Decor_Vendors(shop, nil, { owned = true, query = "kesha" }), 1)
+	eq(#ns.Decor_Vendors(shop, nil, { owned = true, query = "kesha", fields = { name = true } }), 0)
+	eq(#ns.Decor_Vendors(shop, nil, { owned = true, query = "dornogal", fields = { zone = true } }), 1)
+	eq(#ns.Decor_Vendors(shop, nil, { owned = true, query = "lamp", fields = { name = true } }), 1)
+end)
+
+test("the last search field stays on", function()
+	local fields = { name = true, vendor = true }
+	eq(ns.Decor_ToggleSearchField(fields, "vendor"), true)
+	eq(fields.vendor, false)
+	eq(ns.Decor_ToggleSearchField(fields, "name"), false)
+	eq(fields.name, true)
+	eq(ns.Decor_ToggleSearchField(fields, "zone"), true)
+	eq(fields.zone, true)
+end)
+
 test("search through the whole source text", function()
 	local raw = "|cFFFFD200Achievement: |rTwo Hundred Chairs|n|cFFFFD200Category: |rHousing"
 	local e = { id = 1, name = "Oak Chair", line = "Achievement: Two Hundred Chairs", raw = raw }
-	assert(not ns.Decor_Matches(e, "housing"), "the category line isn't in the short fields")
-	assert(ns.Decor_Matches(e, "housing", true), "the full source text has it")
-	assert(not ns.Decor_Matches(e, "ffd200", true), "color codes aren't searched")
+	assert(not ns.Decor_Matches(e, "housing", { name = true, vendor = true, zone = true }), "the category line is only in the source")
+	assert(ns.Decor_Matches(e, "housing"), "the full source text has it")
+	assert(not ns.Decor_Matches(e, "ffd200"), "color codes aren't searched")
 	local cur = { id = 2, name = "Lamp", raw = "|cFFFFD200Cost: |r50 |Hcurrency:3008|h[Valorstones]|h" }
-	assert(ns.Decor_Matches(cur, "valorstones", true))
-	local list = ns.Decor_List({ e, cur }, { query = "valorstones", owned = true, full = true })
+	assert(ns.Decor_Matches(cur, "valorstones"))
+	local list = ns.Decor_List({ e, cur }, { query = "valorstones", owned = true })
 	eq(#list, 1)
 	eq(list[1].name, "Lamp")
-	eq(#ns.Decor_List({ e, cur }, { query = "valorstones", owned = true }), 0)
+	eq(#ns.Decor_List({ e, cur }, { query = "valorstones", owned = true, fields = { name = true, vendor = true, zone = true } }), 0)
 	local vendors = ns.Decor_Vendors({ { id = 3, name = "Rug", vendors = { { name = "Kesha" } }, raw = raw } }, nil,
-		{ query = "category", owned = true, full = true })
+		{ query = "category", owned = true })
 	eq(#vendors, 1)
 end)
 

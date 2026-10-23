@@ -111,7 +111,8 @@ function UI.Switch(parent)
 end
 
 -- Segmented buttons: one segment per choice, the current one lit. Set getValue, setValue and choices like
--- UI.Dropdown, then call Refresh (lays the segments out and sizes the frame to them).
+-- UI.Dropdown, then call Refresh (lays the segments out and sizes the frame to them). For toggles that can each be
+-- on (several at once), set isOn(value) -> bool and toggle(value) instead of getValue and setValue.
 function UI.Segmented(parent)
 	local f = CreateFrame("Frame", nil, parent)
 	f:SetHeight(SEGMENT_H)
@@ -119,6 +120,13 @@ function UI.Segmented(parent)
 	f.segments = {}
 	f.measure = UI.Text(f, 12, "text")
 	f.measure:Hide()
+
+	local function Selected(value)
+		if f.isOn then
+			return f.isOn(value) == true
+		end
+		return f.getValue() == value
+	end
 
 	local function Paint(seg, selected)
 		seg.bg:SetShown(selected or seg:IsMouseOver())
@@ -150,19 +158,23 @@ function UI.Segmented(parent)
 		seg.label = UI.Text(seg, 12, "textMuted")
 		seg.label:SetPoint("CENTER", 0, 0)
 		seg:SetScript("OnEnter", function(self)
-			Paint(self, f.getValue() == self.value)
+			Paint(self, Selected(self.value))
 			if f.onEnter then
 				f.onEnter()
 			end
 		end)
 		seg:SetScript("OnLeave", function(self)
-			self.bg:SetShown(f.getValue() == self.value)
+			self.bg:SetShown(Selected(self.value))
 			if f.onLeave then
 				f.onLeave()
 			end
 		end)
 		seg:SetScript("OnClick", function(self)
-			if f.getValue() ~= self.value then
+			if f.toggle then
+				f.toggle(self.value)
+				PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+				f:Refresh()
+			elseif f.getValue() ~= self.value then
 				PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
 				f.setValue(self.value)
 				f:Refresh()
@@ -184,7 +196,6 @@ function UI.Segmented(parent)
 
 	function f:Refresh()
 		local choices = self.choices()
-		local value = self.getValue()
 		local x = 0
 		for i, choice in ipairs(choices) do
 			local seg = Segment(i)
@@ -195,7 +206,7 @@ function UI.Segmented(parent)
 			seg:ClearAllPoints()
 			seg:SetPoint("TOPLEFT", x, 0)
 			seg.rule:SetShown(i > 1)
-			Paint(seg, choice.value == value)
+			Paint(seg, Selected(choice.value))
 			seg:Show()
 			x = x + w
 		end

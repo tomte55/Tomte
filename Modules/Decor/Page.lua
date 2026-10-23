@@ -18,6 +18,9 @@ local MAX_ROWS = 400 -- decor rows drawn at once; a search or a source narrows t
 local OPEN_MATCHES = 5 -- a search that leaves this many vendors or fewer opens them all
 local NONE_ICON = 134400 -- inv_misc_questionmark
 local VIEWS = { { value = "items", text = "Decor" }, { value = "vendors", text = "By vendor" } }
+-- What the search looks at (ns.Decor_Matches' fields), each switched on and off on its own.
+local SEARCH_IN = { { value = "name", text = "Name" }, { value = "vendor", text = "Vendor" },
+	{ value = "zone", text = "Zone" }, { value = "source", text = "Source" } }
 -- The row tooltip's click line per ns.Decor_ActionFor answer, while the preview is off; %s is the vendor's name.
 local CLICK_HINTS = {
 	stop = "Click to stop tracking it.",
@@ -270,7 +273,7 @@ end
 local function SourceItems(entries, query)
 	local items, shown = {}, 0
 	local list = ns.Decor_List(entries, { source = db.filter.source, query = query, owned = true,
-		full = db.searchSources })
+		fields = db.filter.searchIn })
 	for _, section in ipairs(ns.Decor_Sections(list, db.collapsed, not db.filter.owned)) do
 		local key = section.key
 		items[#items + 1] = { kind = "header", text = (section.collapsed and "+ " or "- ") .. section.title,
@@ -310,7 +313,7 @@ end
 local function VendorItems(entries, query)
 	local items, shown = {}, 0
 	local vendors = ns.Decor_Vendors(entries, ns.DecorVendors_Learned(), { query = query, owned = db.filter.owned,
-		full = db.searchSources })
+		fields = db.filter.searchIn })
 	local openAll = query ~= "" and #vendors <= OPEN_MATCHES
 	for _, v in ipairs(vendors) do
 		local open = openAll or db.vendorsOpen[v.key] == true
@@ -367,6 +370,7 @@ local function Layout()
 	page.view:Refresh()
 	page.filter:SetShown(not ByVendor())
 	page.filter:Refresh()
+	page.searchIn:Refresh()
 	page.owned:SetChecked(db.filter.owned)
 	page.houses:SetShown(ns.DecorHouses_Enabled())
 	Place()
@@ -403,6 +407,7 @@ local function SearchBox(parent, onChange)
 	local box = CreateFrame("EditBox", nil, parent)
 	box:SetHeight(22)
 	box:SetAutoFocus(false)
+	UI.SearchBoxClear(box)
 	UI.SetFont(box, "body", 12)
 	UI.SetTextRole(box, "text")
 	box:SetTextInsets(8, 8, 0, 0)
@@ -467,8 +472,22 @@ ns.DecorPage = {
 		page.search = SearchBox(page, ns.DecorPage_Refresh)
 		page.search:SetPoint("TOPLEFT", 8, -TOP)
 		page.search:SetWidth(240)
+		-- What the search looks at, beside it so a name-only search is one click away.
+		page.searchIn = UI.Segmented(page)
+		page.searchIn:SetPoint("LEFT", page.search, "RIGHT", 8, 0)
+		page.searchIn.choices = function()
+			return SEARCH_IN
+		end
+		page.searchIn.isOn = function(value)
+			return db.filter.searchIn[value]
+		end
+		page.searchIn.toggle = function(value)
+			if ns.Decor_ToggleSearchField(db.filter.searchIn, value) then
+				ns.DecorPage_Refresh()
+			end
+		end
 		page.owned = UI.Checkbox(page)
-		page.owned:SetPoint("LEFT", page.search, "RIGHT", 14, 0)
+		page.owned:SetPoint("LEFT", page.searchIn, "RIGHT", 14, 0)
 		page.owned.onChange = function(on)
 			db.filter.owned = on
 			ns.DecorPage_Refresh()

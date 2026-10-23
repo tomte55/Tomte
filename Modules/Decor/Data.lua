@@ -135,7 +135,11 @@ local function Lower(s)
 	return type(s) == "string" and s:lower() or ""
 end
 
-local SEARCHED = { "name", "line", "vendor", "zone" }
+-- What a search can look at (ns.Decor_Matches's fields), each the entry keys it reads; "source" also reads the
+-- whole source text.
+local SEARCHED = { name = { "name" }, vendor = { "vendor" }, zone = { "zone" }, source = { "line" } }
+-- Every field on: the default search.
+ns.DECOR_SEARCH_ALL = { name = true, vendor = true, zone = true, source = true }
 
 -- The whole source text in plain lower case (every line: achievement, quest, drop, currency names), cached on the
 -- entry (the catalog makes new entries on every read).
@@ -147,18 +151,52 @@ local function FullSource(e)
 	return e.fullSource
 end
 
--- query: lower case, trimmed. Matches the name, the source line, the vendor or the zone; full: also anything in the
--- whole source text.
-function ns.Decor_Matches(e, query, full)
+-- An entry key as plain lower-case text, cached on the entry: the source line carries the cost's money icon (a
+-- texture path with "GoldIcon" in it), which a search for "gold" must not find.
+local function Searched(e, key)
+	e.searched = e.searched or {}
+	local text = e.searched[key]
+	if not text then
+		text = Lower(Plain(e[key]))
+		e.searched[key] = text
+	end
+	return text
+end
+
+-- Turns one search field on or off (fields: Decor_Matches' set, changed in place). The last field that's on stays
+-- on: a search that looks at nothing would find nothing. Returns whether it changed.
+function ns.Decor_ToggleSearchField(fields, key)
+	local on = 0
+	for _, v in pairs(fields) do
+		if v then
+			on = on + 1
+		end
+	end
+	if fields[key] and on <= 1 then
+		return false
+	end
+	fields[key] = not fields[key]
+	return true
+end
+
+-- query: lower case, trimmed. fields: what the search looks at, a set of SEARCHED keys ({ name = true, zone = true }):
+-- the decor's name, its first vendor, its zone, and its source (the source line and the whole source text:
+-- achievement, quest, boss, currency names). nil: every field.
+function ns.Decor_Matches(e, query, fields)
 	if not query or query == "" then
 		return true
 	end
-	for _, key in ipairs(SEARCHED) do
-		if Lower(e[key]):find(query, 1, true) then
-			return true
+	fields = fields or ns.DECOR_SEARCH_ALL
+	for field, keys in pairs(SEARCHED) do
+		if fields[field] then
+			for _, key in ipairs(keys) do
+				if Searched(e, key):find(query, 1, true) then
+					return true
+				end
+			end
 		end
 	end
-	return full == true and FullSource(e):find(query, 1, true) ~= nil
+	return fields.source == true and FullSource(e):find(query, 1, true) ~= nil
 end
 
 local function ByName(a, b)
@@ -169,14 +207,14 @@ local function ByName(a, b)
 end
 
 -- entries: { id, name, owned (count), source, line, vendor, zone }. opts = { source = "all" | key, query (lower
--- case), owned = true to include what you have, full = true to search the whole source text }. The matching entries,
--- sorted by name.
+-- case), owned = true to include what you have, fields = what the search looks at (Decor_Matches) }. The
+-- matching entries, sorted by name.
 function ns.Decor_List(entries, opts)
 	local out = {}
 	local source = opts.source or "all"
 	for _, e in ipairs(entries) do
 		if (opts.owned or (e.owned or 0) == 0) and (source == "all" or e.source == source)
-			and ns.Decor_Matches(e, opts.query, opts.full) then
+			and ns.Decor_Matches(e, opts.query, opts.fields) then
 			out[#out + 1] = e
 		end
 	end
@@ -222,14 +260,16 @@ end
 -- Every vendor the catalog names (a decor several vendors sell is under each), plus what learned vendors (the shops
 -- you opened) were seen selling, so a vendor's list is as full as Tomte knows it.
 
-local function VendorMatches(v, query)
-	return Lower(v.vendor):find(query, 1, true) or Lower(v.zone):find(query, 1, true)
+-- A vendor's own name and zone, as far as the search fields reach them.
+local function VendorMatches(v, query, fields)
+	fields = fields or ns.DECOR_SEARCH_ALL
+	return (fields.vendor and Lower(v.vendor):find(query, 1, true)) or (fields.zone and Lower(v.zone):find(query, 1, true))
 end
 
 -- entries: catalog entries (with vendors from Decor_Describe). learned: [npcID] = { name, items = { [itemID] = true
--- } } or nil. opts = { query (lower case), owned = true to keep vendors you have everything from, full = true to
--- search the decor's whole source text }. Returns the
--- vendors sorted by name: { key (lower-case name), vendor, zone, entries (everything they sell, by name), total,
+-- } } or nil. opts = { query (lower case), owned = true to keep vendors you have everything from, fields = what the
+-- search looks at (Decor_Matches; the vendor's own name and zone count under vendor and zone) }. Returns the vendors sorted by
+-- name: { key (lower-case name), vendor, zone, entries (everything they sell, by name), total,
 -- owned, missing }. A vendor matches the query by name, zone or any decor they sell, and then lists all of it.
 function ns.Decor_Vendors(entries, learned, opts)
 	opts = opts or {}
@@ -274,12 +314,12 @@ function ns.Decor_Vendors(entries, learned, opts)
 	for _, v in ipairs(order) do
 		v.has = nil
 		v.total, v.owned = #v.entries, 0
-		local match = query == "" or VendorMatches(v, query)
+		local match = query == "" or VendorMatches(v, query, opts.fields)
 		for _, e in ipairs(v.entries) do
 			if (e.owned or 0) > 0 then
 				v.owned = v.owned + 1
 			end
-			match = match or ns.Decor_Matches(e, query, opts.full)
+			match = match or ns.Decor_Matches(e, query, opts.fields)
 		end
 		v.missing = v.total - v.owned
 		if match and (opts.owned or v.missing > 0) then

@@ -2,10 +2,10 @@ local addonName, ns = ...
 
 -- Housing decor: pure logic for the house editor extras and the house list (no WoW API calls; unit-tested in
 -- tests/test_decor_editor.lua). Copying dyes from one placed decor to another, which stored stack Alt places another
--- of, the hover lines, the editor clock, the preview's size in bananas, the house list order and what the Teleport
+-- of, the hover lines, the editor clock, the preview's size next to a person, the house list order and what the Teleport
 -- home binding does. The UI is in Editor.lua, Houses.lua and Alert.lua.
 
-local BANANA_DECIMALS = 1 -- "1.5 x 0.5 x 2 bananas"
+local SIZE_DECIMALS = 1 -- "about 1.5 people tall"
 
 -- Dyes --------------------------------------------------------------------------------------------------------------
 
@@ -147,24 +147,24 @@ function ns.DecorEditor_ClockText(hour, minute, military, am, pm)
 	return ("%d:%02d %s"):format(h, minute, hour < 12 and (am or "AM") or (pm or "PM"))
 end
 
--- Banana for scale ------------------------------------------------------------------------------------------------
+-- Size next to a person -------------------------------------------------------------------------------------------
 
 local function Round(n)
-	local mult = 10 ^ BANANA_DECIMALS
+	local mult = 10 ^ SIZE_DECIMALS
 	local r = math.floor(n * mult + 0.5) / mult
 	if r == math.floor(r) then
 		return ("%d"):format(r)
 	end
-	return ("%." .. BANANA_DECIMALS .. "f"):format(r)
+	return ("%." .. SIZE_DECIMALS .. "f"):format(r)
 end
 
--- A model's bounding box size in bananas: "1.5 x 0.5 x 2 bananas" (width x depth x height). banana: one banana's
--- length in the same units. nil when either size is unknown.
-function ns.DecorEditor_SizeText(width, depth, height, banana)
-	if not (width and depth and height and banana and banana > 0) then
+-- How tall a model is next to a person: "about 1.5 people tall". nil when a height is unknown.
+function ns.DecorEditor_PeopleText(height, person)
+	if not (height and person and person > 0) then
 		return nil
 	end
-	return ("%s x %s x %s bananas"):format(Round(width / banana), Round(depth / banana), Round(height / banana))
+	local n = height / person
+	return ("about %s %s tall"):format(Round(n), Round(n) == "1" and "person" or "people")
 end
 
 -- Houses ----------------------------------------------------------------------------------------------------------
