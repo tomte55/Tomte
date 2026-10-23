@@ -262,6 +262,7 @@ ns.BUG_FILES = {
 	"Modules/Collect/Data.lua",
 	"Modules/Collect/Catalog.lua",
 	"Modules/Collect/Tab.lua",
+	"Modules/Collect/Sources.lua",
 	"Modules/Collect/Collect.lua",
 	"Modules/Decor/Data.lua",
 	"Modules/Decor/Catalog.lua",

@@ -223,4 +223,51 @@ test("zone toast: marking drops other days", function()
 	eq(seen[2215], "2026-10-19")
 end)
 
+-- Clickable sources ---------------------------------------------------------------------------------------------
+
+local ACH = { ["glory of the pandaria hero"] = 6927, ["mountain o' mounts"] = 2537, ["leave no treasure unfound"] = 40 }
+local function lookup(name)
+	return ACH[name]
+end
+local function link(id, name)
+	return ("<%d:%s>"):format(id, name)
+end
+
+test("LinkAchievements links the name on an Achievement line", function()
+	local raw = "|cFFFFD200Achievement: |rGlory of the Pandaria Hero|n|cFFFFD200Category: |rDungeons & Raids"
+	local text, n = ns.Collect_LinkAchievements(raw, lookup, link)
+	eq(n, 1)
+	eq(text, "|cFFFFD200Achievement: |r<6927:Glory of the Pandaria Hero>|n|cFFFFD200Category: |rDungeons & Raids")
+end)
+
+test("LinkAchievements keeps the name's case and other lines as they are", function()
+	local raw = "Drop: Some Boss\nAchievement: Mountain O' Mounts"
+	local text, n = ns.Collect_LinkAchievements(raw, lookup, link)
+	eq(n, 1)
+	eq(text, "Drop: Some Boss\nAchievement: <2537:Mountain O' Mounts>")
+end)
+
+test("LinkAchievements links each known piece of a list", function()
+	local text, n = ns.Collect_LinkAchievements("Achievement: Mountain O' Mounts, Leave No Treasure Unfound",
+		lookup, link)
+	eq(n, 2)
+	eq(text, "Achievement: <2537:Mountain O' Mounts>, <40:Leave No Treasure Unfound>")
+end)
+
+test("LinkAchievements leaves unknown names and other labels alone", function()
+	local raw = "Achievement: Not A Real One|nVendor: Glory of the Pandaria Hero"
+	local text, n = ns.Collect_LinkAchievements(raw, lookup, link)
+	eq(n, 0)
+	eq(text, raw)
+	eq(select(2, ns.Collect_LinkAchievements(nil, lookup, link)), 0)
+	eq(select(2, ns.Collect_LinkAchievements("", lookup, link)), 0)
+end)
+
+test("LinkAchievements reads a French label with a space before the colon", function()
+	-- The label comes from BATTLE_PET_SOURCE_6 on the client; the English one is the fallback here.
+	local text, n = ns.Collect_LinkAchievements("Achievement : Glory of the Pandaria Hero", lookup, link)
+	eq(n, 1)
+	eq(text, "Achievement : <6927:Glory of the Pandaria Hero>")
+end)
+
 H.done()

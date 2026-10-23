@@ -2,7 +2,8 @@ local addonName, ns = ...
 
 -- Collect here module: mounts, battle pets and achievements still missing on the map you're looking at, in a tab of
 -- the world map's side panel (Tab.lua), plus two toasts: arriving in a zone with mounts or pets left, and a rare
--- that's up and drops something you're missing. Data in Catalog.lua, pure logic in Data.lua.
+-- that's up and drops something you're missing. Data in Catalog.lua, pure logic in Data.lua, clickable achievement
+-- sources in the Mount Journal and the decor catalog in Sources.lua.
 
 local OWNER = "collect"
 local START_DELAY = 6 -- seconds after the first loading screen before the journals are read
@@ -12,7 +13,7 @@ local CRITERIA_DEBOUNCE = 2 -- seconds between tab redraws for criteria progress
 local ACCENT = "success" -- toast accent (a role)
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "NEW_MOUNT_ADDED", "NEW_PET_ADDED", "ACHIEVEMENT_EARNED",
-	"CRITERIA_UPDATE", "VIGNETTES_UPDATED", "VIGNETTE_MINIMAP_UPDATED",
+	"CRITERIA_UPDATE", "VIGNETTES_UPDATED", "VIGNETTE_MINIMAP_UPDATED", "ADDON_LOADED",
 }
 local KIND_WORDS = { mount = "mount", pet = "pet" }
 local ICON = "Interface\\Icons\\Ability_Mount_RidingHorse" -- the same horse as the map tab's (Tab.lua)
@@ -236,6 +237,11 @@ end
 events.VIGNETTES_UPDATED = VignettesChanged
 events.VIGNETTE_MINIMAP_UPDATED = VignettesChanged
 
+-- The Mount Journal and the decor catalog load on demand (Sources.lua hooks them).
+function events:ADDON_LOADED(name)
+	ns.CollectSources_AddonLoaded(name)
+end
+
 -- Commands ------------------------------------------------------------------------------------------------------
 
 local function Here()
@@ -275,9 +281,10 @@ module = ns.RegisterModule({
 	category = "collections",
 	icon = 134442, -- inv_misc_spyglass_03
 	summary = "What's still missing on any map, and rares that drop it.",
-	description = "A tab in the world map's side panel with the mounts, battle pets and achievements still missing on the map you're looking at (from the journals' source text), toasts when you arrive in a zone with mounts or pets left, and when a rare that drops one is up.",
+	description = "A tab in the world map's side panel with the mounts, battle pets and achievements still missing on the map you're looking at (from the journals' source text), toasts when you arrive in a zone with mounts or pets left, and when a rare that drops one is up. In the Mount Journal and the decor catalog, achievements named as a source can be clicked.",
 	enabledByDefault = true,
 	toasts = true,
+	replaces = { { addon = "Plumber", why = "clickable achievements in the Mount Journal's and the decor catalog's sources" } },
 	home = {
 		{ kind = "next", key = "nextrare", name = "Rare up with a missing mount or pet", score = 95,
 			description = "A rare that's up now in your zone drops a mount or battle pet you're missing (click for a waypoint).",
@@ -390,6 +397,7 @@ module = ns.RegisterModule({
 		collapsed = { mounts = false, pets = false, achievements = false },
 		toasts = { zone = true, rare = true },
 		preview = true,
+		sourceLinks = true,
 		zoneToasts = {}, -- [uiMapID] = "YYYY-MM-DD" (local date) the zone toast last showed
 	},
 	noShare = { "zoneToasts" }, -- toast history: not in settings strings (Core/Profile.lua)
@@ -404,6 +412,7 @@ module = ns.RegisterModule({
 				events:RegisterEvent(event)
 			end
 			ns.CollectTab_SetEnabled(true)
+			ns.CollectSources_Toggle(db.sourceLinks)
 			if ns.inWorld then
 				Start()
 			end
@@ -412,6 +421,7 @@ module = ns.RegisterModule({
 			started = false
 			ns.Collect_Stop()
 			ns.CollectTab_SetEnabled(false)
+			ns.CollectSources_Toggle(false)
 			ns.Toast_Clear(OWNER)
 		end
 	end,
@@ -428,6 +438,13 @@ module = ns.RegisterModule({
 			tooltip = "Achievements that name the zone in their title or description." },
 		{ type = "checkbox", key = "preview", label = "Model preview",
 			tooltip = "Hovering a mount or pet shows its model, turning, next to the tooltip." },
+		{ type = "header", label = "Journals" },
+		{ type = "checkbox", key = "sourceLinks", label = "Clickable achievements in sources",
+			onChange = function()
+				ns.CollectSources_Toggle(module.active and db.sourceLinks)
+			end,
+			tooltip = "In the Mount Journal and the decor catalog, the achievement a source names becomes a link: click "
+				.. "to open it, Shift-click to link it in chat." },
 		{ type = "header", label = "Toasts" },
 		{ type = "checkbox", key = "toasts.zone", label = "Arriving in a zone with mounts or pets left",
 			tooltip = "Once per zone per session." },

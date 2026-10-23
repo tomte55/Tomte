@@ -38,6 +38,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Waypoints:** opening the world map pings your arrow so you find yourself at a glance.
 - **Waypoints:** world quests and events you track show a countdown on the marker and the close-up card.
 - **Waypoints:** two new key bindings (and `/tomte way next` / `prev`) cycle the focus through your tracked quests; `/way 45.2 67.8 Some name` names the pin.
+- **Collect here:** achievements named as a source in the Mount Journal and the decor catalog can be clicked to open them, or Shift-clicked to link them.
 
 ### Improved
 

@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
 -- Collect here, pure logic (unit-tested with plain Lua): reading the journals' source text, matching its zone names
--- against a map's names, whole-word achievement matching, the tab's sections and the toast text. The game has no
+-- against a map's names, whole-word achievement matching, the tab's sections, the toast text and linking the
+-- achievement names in source text (Sources.lua). The game has no
 -- zone data for collectibles, only these labelled source lines ("Drop: Doomwalker|nZone: Tanaris"), written in the
 -- client's language. The labels are recognised through Blizzard's localized globals (the ones the journals' own
 -- source filters use), with the English text as the fallback (plain Lua tests, and labels without a global).
@@ -359,4 +360,80 @@ function ns.Collect_MarkZoneToast(seen, mapID, today)
 		end
 	end
 	seen[mapID] = today
+end
+
+-- Clickable sources ---------------------------------------------------------------------------------------------
+
+-- The first ":" or full-width colon in s: its start and end, or nil.
+local function FindColon(s)
+	local s1, e1 = s:find(":", 1, true)
+	local s2, e2 = s:find(FULL_WIDTH_COLON, 1, true)
+	if s2 and (not s1 or s2 < s1) then
+		return s2, e2
+	end
+	return s1, e1
+end
+
+-- One source line: the achievement names in an Achievement line, linked.
+local function LinkSegment(segment, lookup, link)
+	local colon, colonEnd = FindColon(segment)
+	if not colon then
+		return segment, 0
+	end
+	local label = Trim(StripColors(segment:sub(1, colon - 1))):lower()
+	if LABEL_KEYS[label] ~= "achievement" then
+		return segment, 0
+	end
+	local value = ns.Collect_Clean(segment:sub(colonEnd + 1))
+	-- The whole value first; else each comma-separated piece ("A, B" names two achievements).
+	local names = { value }
+	if not lookup(value:lower()) then
+		names = {}
+		for piece in (value .. ","):gmatch("([^,]*),") do
+			names[#names + 1] = Trim(piece)
+		end
+	end
+	local lower = segment:lower()
+	local found, from = {}, colonEnd + 1
+	for _, name in ipairs(names) do
+		local id = name ~= "" and lookup(name:lower())
+		if id then
+			local s, e = lower:find(name:lower(), from, true)
+			if s then
+				found[#found + 1] = { s = s, e = e, id = id }
+				from = e + 1
+			end
+		end
+	end
+	for i = #found, 1, -1 do
+		local f = found[i]
+		segment = segment:sub(1, f.s - 1) .. link(f.id, segment:sub(f.s, f.e)) .. segment:sub(f.e + 1)
+	end
+	return segment, #found
+end
+
+-- Journal source text (mounts, decor) with the names on its Achievement lines turned into links. lookup(lower-case
+-- name) -> achievement ID or nil; link(id, name as written) -> the text to put in its place. Other lines, colors and
+-- line breaks are kept. Returns the text and how many names were linked.
+function ns.Collect_LinkAchievements(raw, lookup, link)
+	if not raw or raw == "" then
+		return raw, 0
+	end
+	local out, count, pos = {}, 0, 1
+	while true do
+		local s, e = raw:find("|n", pos, true)
+		local nl = raw:find("\n", pos, true)
+		if nl and (not s or nl < s) then
+			s, e = nl, nl
+		end
+		local segment, n = LinkSegment(raw:sub(pos, (s or #raw + 1) - 1), lookup, link)
+		out[#out + 1] = segment
+		count = count + n
+		if not s then
+			break
+		end
+		out[#out + 1] = raw:sub(s, e)
+		pos = e + 1
+	end
+	return table.concat(out), count
 end
