@@ -7,13 +7,18 @@ local addonName, ns = ...
 -- come out again), and gives the main window back every channel Tomte took from it.
 -- Channels are recognized by zone channel ID, the way Blizzard's chat frame does (zoneChannelList), since the saved
 -- name can differ from the shortcut.
+-- Also "Leave <channel>" entries in every chat tab's right-click menu, added through Menu.ModifyMenu (the way
+-- Blizzard's menus are meant to be extended; the hook can't be removed, so it adds nothing while the module is off).
 
 local LOGIN_SETTLE = 1 -- seconds after the first loading screen before the tab is looked for
+local TAB_MENU = "MENU_FCF_TAB" -- Blizzard's chat tab menu (FCF_Tab_SetupMenu in FloatingChatFrame.lua)
 
 local module
 local pending -- an Apply waiting for combat to end
 local restored -- "Restore my chat" this session: don't set the tab up again until the module is turned on again
 local worldReady = false
+local menuHooked = false
+local IsSecret = ns.IsSecret
 
 local events = ns.NewEvents() -- owners "login" (once, at file load) and "tabs" (while the module is on)
 
@@ -222,8 +227,40 @@ events:On("tabs", "PLAYER_REGEN_ENABLED", function(self)
 	end
 end)
 
+-- Leave entries in the chat tab menu ---------------------------------------------------------------------------
+
+-- The channel's number and full name ("Trade - City") while you're in it, for ns.Chat_LeaveEntries.
+local function Joined(name)
+	local number, full = GetChannelName(name)
+	if not full or IsSecret(number, full) then
+		return nil
+	end
+	return number, full
+end
+
+local function AddLeaveEntries(owner, root)
+	if not (module.active and module.db.leaveMenu) or not (owner and owner.GetID) then
+		return
+	end
+	local frame = FCF_GetChatFrameByID(owner:GetID())
+	local list = frame and ns.Chat_LeaveEntries(frame.channelList, Joined) or {}
+	if #list == 0 then
+		return
+	end
+	root:CreateDivider()
+	for _, entry in ipairs(list) do
+		root:CreateButton(entry.label, function()
+			LeaveChannelByName(entry.name)
+		end)
+	end
+end
+
 local function Activate()
 	restored = false
+	if not menuHooked then
+		menuHooked = true
+		Menu.ModifyMenu(TAB_MENU, AddLeaveEntries)
+	end
 	Apply() -- before the world is ready the login watch does it
 end
 
@@ -250,6 +287,9 @@ local options = {
 for _, channel in ipairs(ns.CHAT_CHANNELS) do
 	options[#options + 1] = { type = "checkbox", key = "channels." .. channel.key, label = channel.label, onChange = OnChange }
 end
+options[#options + 1] = { type = "header", label = "Tab menu" }
+options[#options + 1] = { type = "checkbox", key = "leaveMenu", label = "\"Leave\" in the tab menu",
+	tooltip = "Right-clicking any chat tab offers to leave each channel that tab shows." }
 options[#options + 1] = { type = "header", label = "Main window" }
 options[#options + 1] = { type = "dropdown", key = "mainWindow", label = "These channels in the main window",
 	onChange = OnChange, choices = function()
@@ -268,13 +308,15 @@ module = ns.RegisterModule({
 	category = "chat",
 	icon = 2056011, -- ui_chat
 	summary = "Trade and other busy channels get a chat tab of their own.",
-	description = "Moves Trade and other busy channels into their own chat tab. Turning it off puts your chat back.",
+	description = "Moves Trade and other busy channels into their own chat tab, and puts \"Leave\" entries for a tab's channels in its right-click menu. Turning it off puts your chat back.",
 	enabledByDefault = false,
+	replaces = { { addon = "Plumber", why = "leaving a channel from the chat menu" } },
 	keep = { "tabName" },
 	defaults = {
 		tabName = "Trade",
 		channels = { trade = true, services = true, general = false, lfg = false, defense = false },
 		mainWindow = "keep",
+		leaveMenu = true,
 		-- [player GUID] = what Tomte changed for that character, see State(); "Name-Realm" keys from before 1.16 until
 		-- that character logs in
 		windows = {},

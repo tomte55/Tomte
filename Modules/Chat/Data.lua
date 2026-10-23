@@ -307,3 +307,24 @@ function ns.Chat_TabsRecord(windows, guid, oldKey)
 	end
 	return type(record) == "table" and record or nil
 end
+
+-- The "Leave" entries for a chat tab's menu. names: the channels the tab shows (its channelList, any order, may
+-- repeat); joined(name) -> the channel's number and full name while you're in it, else nil. Returns
+-- { { name, number, label = "Leave 2. Trade - City" } } by channel number; channels you've left are skipped.
+function ns.Chat_LeaveEntries(names, joined)
+	local list, seen = {}, {}
+	for _, name in pairs(names or {}) do
+		if type(name) == "string" and name ~= "" then
+			local number, full = joined(name)
+			if number and number > 0 and not seen[number] then
+				seen[number] = true
+				list[#list + 1] = { name = name, number = number,
+					label = ("Leave %d. %s"):format(number, (full and full ~= "") and full or name) }
+			end
+		end
+	end
+	table.sort(list, function(a, b)
+		return a.number < b.number
+	end)
+	return list
+end

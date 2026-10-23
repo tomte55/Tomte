@@ -233,4 +233,23 @@ test("TabsRecord: a GUID record wins, a leftover old one goes, nothing saved is 
 	eq(ns.Chat_TabsRecord({}, "Player-1-A", "Aldric-Draenor"), nil)
 end)
 
+test("LeaveEntries lists the joined channels by number", function()
+	local joinedNow = { Trade = { 2, "Trade - City" }, Services = { 3, "Services - City" }, MyChannel = { 5 } }
+	local function joined(name)
+		local c = joinedNow[name]
+		if c then
+			return c[1], c[2]
+		end
+		return 0
+	end
+	local list = ns.Chat_LeaveEntries({ "Services", "LookingForGroup", "Trade", "MyChannel", "Trade" }, joined)
+	eq(#list, 3, "a left channel and a repeat are skipped")
+	eq(list[1].label, "Leave 2. Trade - City")
+	eq(list[1].name, "Trade")
+	eq(list[2].label, "Leave 3. Services - City")
+	eq(list[3].label, "Leave 5. MyChannel", "no full name: the saved name")
+	eq(#ns.Chat_LeaveEntries(nil, joined), 0)
+	eq(#ns.Chat_LeaveEntries({ "", 4 }, joined), 0)
+end)
+
 H.done()
