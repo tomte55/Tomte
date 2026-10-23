@@ -50,6 +50,9 @@ Data/Midnight/Buffs.lua
 Data/WarWithin/Quests.lua
 Data/Midnight/Quests.lua
 Data/Midnight/Seeds.lua
+Data/WarWithin/Tips.lua
+Data/Midnight/Tips.lua
+Data/Older/Tips.lua
 Cinematic/Engine.lua
 Cinematic/SceneKit.lua
 Cinematic/Drawer.lua
@@ -367,3 +370,8 @@ Modules/Instances/Badge.lua
 Modules/Instances/Entrance.lua
 Modules/Instances/Queue.lua
 Modules/Instances/Instances.lua
+Modules/Tips/Data.lua
+Modules/Tips/Read.lua
+Modules/Tips/Tooltip.lua
+Modules/Tips/Choice.lua
+Modules/Tips/Tips.lua
