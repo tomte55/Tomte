@@ -65,6 +65,17 @@ function UI.Debounce(seconds, fn)
 	end
 end
 
+-- Every search box: a right-click empties it and puts the cursor in it, ready for a new search. SetText fires the
+-- box's own OnTextChanged, so its list follows as if the text had been deleted by hand.
+function UI.SearchBoxClear(box)
+	box:HookScript("OnMouseUp", function(self, button)
+		if button == "RightButton" then
+			self:SetText("")
+			self:SetFocus()
+		end
+	end)
+end
+
 -- Puts a link into the open chat edit box (shift-click). Does nothing for a nil link.
 function UI.InsertLink(link)
 	if link then

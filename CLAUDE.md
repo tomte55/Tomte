@@ -141,6 +141,7 @@ just restates the code. Fix comments that point at moved or renamed code in the 
   `ns.ModelPreview_*`, `ns.Entry_Link` / `ns.Entry_Open` / `ns.Entry_Model`.
 - **UI** (`Panel/Widgets.lua`, `ns.UI`): `UI.Text`, `UI.Panel`, `UI.Surface`, `UI.Border`, `UI.Button`,
   `UI.Checkbox`, `UI.Slider`, `UI.Dropdown`, `UI.Scroll`, `UI.Dialog`, `UI.Hairline`, `UI.TipLine`, `UI.Debounce`,
+  `UI.SearchBoxClear` (every search box: right-click empties it),
   `UI.ClassColored`; `UI.Switch` and `UI.Segmented` in `Panel/Controls.lua`. Cinematic text and layout:
   `Cinematic/SceneKit.lua`.
 

@@ -56,6 +56,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### Improved
 
+- **Search boxes:** right-click any of Tomte's search boxes (settings, Almost Done, Decor, titles, recipes, pet battles) to empty it and start a new search.
 - **Settings:** new Quests, Chat and Interface groups in the Tomte window's sidebar, so modules sit where you'd look for them; the sidebar scrolls when the window is short.
 - **Cursor highlight:** a sharp new ring (also as a thick ring, soft glow or crosshair) that can pulse, in your theme's color, your class color, a color you pick or a rainbow; the trail now works on its own (with the ring, whenever the mouse moves, or in combat) and can be glow dots, rings, stars, sparkles, a ribbon or one of five spell effects, with its own length, spacing, size, taper and opacity.
 
