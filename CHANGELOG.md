@@ -22,6 +22,9 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Gear Check:** opening the item upgrade window also opens your character pane beside it, and closes it again when you leave.
 - **Gear Check:** while you socket an item, a strip under the window shows the gems in your bags that fit, with the best one for your spec marked; click one to put it in the empty socket.
 - **Gear Check:** a thicker quality-colored border on rare and better items in your bags (off by default), and a choice of which way Clean Up Bags sorts.
+- **Delves:** the Delves page shows your Gilded Stash finds this week (remembered while you're inside a delve) and a progress bar for your delve season journey.
+- **Delves:** Restored Coffer Key and Coffer Key Shard tooltips show this week's caps and how many shards your next key needs.
+- **Delves:** can pick delve powers for you: the only one offered, or your favourite from a list (off by default).
 - **Rogue Poisons:** Handy Lockpick: right-click a locked lockbox in your bags, or in the trade window's "will not be traded" slot, to pick it. For rogues and Mechagnomes of any class. Off by default.
 - **Group Alerts:** group and guild invites show who's inviting: their level, class and guild, when the game knows them.
 - **Chat Tabs:** right-clicking a chat tab offers "Leave" for each channel that tab shows.

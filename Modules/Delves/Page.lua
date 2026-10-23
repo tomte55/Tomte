@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
--- Delves page in the Tomte window: keys and the Delver's Journey, today's delves (bountiful first, click to track),
--- the Great Vault's World track with the tier advice and ladder, and the companion. It renders the readers' cache
+-- Delves page in the Tomte window: keys, the Delver's Journey with its bar, the Gilded Stash, today's delves
+-- (bountiful first, click to track), the Great Vault's World track with the tier advice and ladder, and the companion. It renders the readers' cache
 -- (Read.lua) and the scan's (Scan.lua); of its own it reads only display bits (the key currency's icon, atlas
 -- checks, Blizzard's quality names).
 
@@ -10,6 +10,7 @@ local Kit = ns.HomeKit
 local PAD = 8
 local SLOT_W, SLOT_H, SLOT_GAP = 96, 40, 10
 local PORTRAIT = 48
+local JOURNEY_BAR_GAP = 11 -- the season bar's height plus the space below it
 
 ns.DELVES_ICON = "Interface\\Icons\\INV_Misc_Key_03"
 
@@ -64,6 +65,8 @@ local function Build()
 	c.keys = Text(14, "text")
 	c.combine = Text(12, "success")
 	c.journey = Text(12, "textMuted")
+	c.journeyBar = UI.Bar(c, 5)
+	c.stash = Text(12, "textMuted")
 	c.today = Kit.Heading(c)
 	c.empty = Text(13, "textMuted")
 	c.vaultHead = Kit.Heading(c)
@@ -265,6 +268,19 @@ local function RenderCompanion(y, comp)
 	return y + 10
 end
 
+-- The Gilded Stash line; a count kept from earlier this week (or a widget the game marks as not current) says so.
+local function StashText(stash)
+	local text = ns.Delves_StashText(stash, stash and stash.name)
+	if not text then
+		return nil
+	end
+	UI.SetTextRole(c.stash, stash.n >= stash.of and "success" or "textMuted")
+	if stash.old then
+		text = text .. " · as last seen in the open world"
+	end
+	return text
+end
+
 local function Render()
 	if not (page and page:IsVisible()) then
 		return
@@ -275,7 +291,19 @@ local function Render()
 	y = Place(c.keys, y, s.keyLine or (minLevel and "" or "Reading your keys..."), 4)
 	local perKey = s.keys and s.keys.perKey or 100
 	y = Place(c.combine, y, s.canCombine and ("Combine %d shards into a key"):format(perKey) or nil, 4)
-	y = Place(c.journey, y, s.companion and ns.Delves_JourneyText(s.companion.journey), 4)
+	local journey = s.companion and s.companion.journey
+	y = Place(c.journey, y, ns.Delves_JourneyText(journey), 4)
+	if journey then
+		c.journeyBar:ClearAllPoints()
+		c.journeyBar:SetPoint("TOPLEFT", PAD, -y)
+		c.journeyBar:SetPoint("RIGHT", -PAD, 0)
+		c.journeyBar:Show()
+		c.journeyBar:SetValue(ns.Delves_JourneyFraction(journey))
+		y = y + JOURNEY_BAR_GAP
+	else
+		c.journeyBar:Hide()
+	end
+	y = Place(c.stash, y, StashText(s.stash), 4)
 	y = RenderToday(y + 8, ns.DelvesScan_List(), minLevel)
 	if not minLevel then
 		y = RenderVault(y, s.vault)

@@ -227,4 +227,130 @@ test("empty inputs", function()
 	eq(ns.Delves_Earned({}, "keys"), nil)
 end)
 
+test("stash data for both expansions", function()
+	for _, e in ipairs({ 10, 11 }) do
+		local s = ns.Content_Get(e, "delves").stash
+		eq(s.spell, 1216211, "stash spell " .. e)
+		assert(#s.widgets >= 1, "stash widgets " .. e)
+	end
+	local cap = ns.Content_Get(10, "delves").capItems
+	assert(#cap.keys > 0 and #cap.shards > 0, "cap items")
+end)
+
+test("stash count from the widget text", function()
+	local n, of = ns.Delves_StashParse("Gilded Stash\nLooted this week: 2/4")
+	eq(n, 2, "n")
+	eq(of, 4, "of")
+	n, of = ns.Delves_StashParse("Diese Woche geplündert: 0 / 3")
+	eq(n, 0, "spaced n")
+	eq(of, 3, "spaced of")
+	eq(ns.Delves_StashParse("no count here"), nil, "no count")
+	eq(ns.Delves_StashParse("1/0"), nil, "zero of")
+	eq(ns.Delves_StashParse(nil), nil, "nil")
+end)
+
+test("stash pick: live, saved this week, stale", function()
+	local week = 1000000
+	local s = ns.Delves_StashPick({ n = 1, of = 4, accurate = true }, { n = 3, of = 4, week = week }, week)
+	eq(s.n, 1, "live accurate wins")
+	eq(s.old, nil, "live not old")
+	s = ns.Delves_StashPick({ n = 0, of = 4, accurate = false }, { n = 3, of = 4, week = week + 2 }, week)
+	eq(s.n, 3, "saved this week (drifted a second or two)")
+	eq(s.old, true, "saved is old")
+	s = ns.Delves_StashPick(nil, { n = 3, of = 4, week = week - 7 * 86400 }, week)
+	eq(s, nil, "last week's saved is dropped")
+	s = ns.Delves_StashPick({ n = 2, of = 4, accurate = false }, nil, week)
+	eq(s.n, 2, "inaccurate live as fallback")
+	eq(s.old, true, "inaccurate is old")
+	eq(ns.Delves_StashPick(nil, nil, nil), nil, "nothing")
+end)
+
+test("stash text", function()
+	eq(ns.Delves_StashText({ n = 1, of = 4 }, "Gilded Stash"), "Gilded Stash: 1/4 this week")
+	eq(ns.Delves_StashText({ n = 4, of = 4 }, nil), "Gilded Stash: 4/4 this week (all found)")
+	eq(ns.Delves_StashText(nil, "x"), nil)
+end)
+
+test("journey fraction", function()
+	local near = H.near
+	near(ns.Delves_JourneyFraction({ level = 3, earned = 250, threshold = 1000, max = 10 }), 0.25, "quarter")
+	near(ns.Delves_JourneyFraction({ level = 10, earned = 0, threshold = 0, max = 10 }), 1, "max")
+	near(ns.Delves_JourneyFraction({ level = 3, earned = 50, threshold = 0 }), 0, "no threshold")
+	near(ns.Delves_JourneyFraction({ level = 3, earned = 1200, threshold = 1000 }), 1, "clamped")
+	near(ns.Delves_JourneyFraction(nil), 0, "nil")
+end)
+
+test("cap lines for the key tooltip", function()
+	local lines = ns.Delves_CapLines({ keys = 2, perKey = 100, shards = 250, earned = { n = 4, of = 4 },
+		shardEarned = { n = 1, of = 4 } }, "keys")
+	eq(#lines, 3, "count")
+	eq(lines[1].left, "Keys this week")
+	eq(lines[1].right, "4/4 (cap reached)")
+	eq(lines[1].role, "textMuted")
+	eq(lines[2].right, "1/4")
+	eq(lines[3].right, "250 (2 more keys)")
+	eq(lines[3].role, "success")
+	lines = ns.Delves_CapLines({ keys = 0, keyWeek = { n = 1, of = 3 }, earned = { n = 0, of = 4 } }, "keys")
+	eq(lines[1].right, "1/3", "the currency's own cap first")
+	eq(#lines, 1, "no shards")
+end)
+
+test("cap lines for the shard tooltip", function()
+	local lines = ns.Delves_CapLines({ perKey = 100, shards = 130, shardWeek = { n = 200, of = 600 } }, "shards")
+	eq(lines[1].left, "Shards this week")
+	eq(lines[1].right, "200/600")
+	eq(lines[2].left, "Next key")
+	eq(lines[2].right, "30/100")
+	eq(#lines, 2)
+	eq(#ns.Delves_CapLines(nil, "keys"), 0, "no keys read yet")
+	eq(#ns.Delves_CapLines({ shardWeek = { n = 0, of = 0 } }, "shards"), 0, "no cap")
+end)
+
+local function Power(spellID, header, extra)
+	local o = { spellID = spellID, header = header, buttons = { { id = spellID * 10 } } }
+	for k, v in pairs(extra or {}) do
+		o[k] = v
+	end
+	return o
+end
+
+test("preferred powers parse", function()
+	local p = ns.Delves_ParsePowers(" Sticky Fingers, 12345 ;Battle Ready ,, ")
+	eq(#p, 3, "count")
+	eq(p[1].name, "sticky fingers")
+	eq(p[2].id, 12345)
+	eq(p[3].name, "battle ready")
+	eq(#ns.Delves_ParsePowers(nil), 0, "nil")
+	eq(#ns.Delves_ParsePowers(""), 0, "empty")
+end)
+
+test("power pick: only option, preferred, none", function()
+	local o, why = ns.Delves_PickPower({ Power(1, "Alpha") }, {})
+	eq(o.spellID, 1, "only")
+	eq(why, "only")
+	local opts = { Power(1, "Alpha"), Power(2, "Beta"), Power(3, "Gamma") }
+	o, why = ns.Delves_PickPower(opts, ns.Delves_ParsePowers("gamma, 2"))
+	eq(o.spellID, 3, "first preference wins")
+	eq(why, "preferred")
+	o = ns.Delves_PickPower(opts, ns.Delves_ParsePowers("delta, 2"))
+	eq(o.spellID, 2, "by spell ID")
+	o, why = ns.Delves_PickPower(opts, ns.Delves_ParsePowers("delta"))
+	eq(o, nil, "no match")
+	eq(why, "nomatch")
+	o, why = ns.Delves_PickPower({}, {})
+	eq(why, "none")
+end)
+
+test("power pick: not a power choice", function()
+	local _, why = ns.Delves_PickPower({ Power(1, "Alpha"), { header = "Talk", buttons = { { id = 5 } } } },
+		ns.Delves_ParsePowers("alpha"))
+	eq(why, "notpowers", "an option without a spell")
+	_, why = ns.Delves_PickPower({ Power(1, "Alpha", { buttons = { { id = 1 }, { id = 2 } } }) }, {})
+	eq(why, "notpowers", "two buttons")
+	_, why = ns.Delves_PickPower({ Power(1, "Alpha", { buttons = { { id = 1, confirmation = "Sure?" } } }) }, {})
+	eq(why, "notpowers", "asks to confirm")
+	_, why = ns.Delves_PickPower({ Power(1, "Alpha", { disabledOption = true }) }, {})
+	eq(why, "notpowers", "disabled")
+end)
+
 H.done()

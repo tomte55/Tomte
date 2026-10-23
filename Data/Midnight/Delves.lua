@@ -13,4 +13,7 @@ ns.Content_Register(11, "delves", {
 	shardsPerKey = 100,
 	companionFaction = 2744, -- Valeera Sanguinar
 	vaultTopTier = 8,
+	-- Gilded Stash: the widget whose spell display holds this week's "n/of" (only filled in Midnight's open world).
+	-- Spell and widget IDs from Plumber (IDs only, checked 2026-10-23: ExpansionLandingPage/Retail/MID_Activity.lua).
+	stash = { spell = 1216211, widgets = { 7591 } },
 })

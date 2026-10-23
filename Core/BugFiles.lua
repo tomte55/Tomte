@@ -319,6 +319,8 @@ ns.BUG_FILES = {
 	"Modules/Delves/Data.lua",
 	"Modules/Delves/Scan.lua",
 	"Modules/Delves/Read.lua",
+	"Modules/Delves/Tooltip.lua",
+	"Modules/Delves/Powers.lua",
 	"Modules/Delves/Entrance.lua",
 	"Modules/Delves/Page.lua",
 	"Modules/Delves/Delves.lua",

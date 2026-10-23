@@ -1,8 +1,9 @@
 local addonName, ns = ...
 
 -- Delves module: today's bountiful delves with a click to track them, Restored Coffer Keys and shards, the delve tier
--- that raises the Great Vault's World slots, and the companion's level, role and curios. A page in the Tomte window,
--- a note beside the tier picker, an "Around you" block, three Next up sources and a companion level moment.
+-- that raises the Great Vault's World slots, the Gilded Stash, the season journey, and the companion's level, role and
+-- curios. A page in the Tomte window, a note beside the tier picker, an "Around you" block, three Next up sources, a
+-- companion level moment, key and shard caps on tooltips (Tooltip.lua) and auto-picked delve powers (Powers.lua).
 -- Pure logic: Data.lua. Readers: Scan.lua, Read.lua. See docs/superpowers/specs/2026-10-10-tomte-delves-design.md.
 
 local module, db
@@ -38,7 +39,10 @@ events:On("delves", "PLAYER_ENTERING_WORLD", function()
 	refreshScan()
 	ns.DelvesRead_Dirty()
 end)
-events:On("delves", "ZONE_CHANGED_NEW_AREA", refreshScan)
+events:On("delves", "ZONE_CHANGED_NEW_AREA", function()
+	refreshScan()
+	ns.DelvesRead_Dirty("stash")
+end)
 events:On("delves", "AREA_POIS_UPDATED", refreshScan)
 
 local function KeysChanged()
@@ -49,6 +53,15 @@ events:On("delves", "BAG_UPDATE_DELAYED", KeysChanged)
 
 events:On("delves", "WEEKLY_REWARDS_UPDATE", function()
 	ns.DelvesRead_Dirty("vault")
+end)
+
+-- UPDATE_UI_WIDGET fires for every widget in sight: only the Gilded Stash's own widgets mark the stash for a read.
+local stashWidgets = {}
+events:On("delves", "UPDATE_UI_WIDGET", function(_, info)
+	local id = info and info.widgetID
+	if id and not ns.IsSecret(id) and stashWidgets[id] then
+		ns.DelvesRead_Dirty("stash")
+	end
 end)
 
 local function CompanionChanged()
@@ -62,7 +75,7 @@ events:On("delves", "PLAYER_SPECIALIZATION_CHANGED", CompanionChanged)
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "AREA_POIS_UPDATED", "CURRENCY_DISPLAY_UPDATE",
 	"BAG_UPDATE_DELAYED", "WEEKLY_REWARDS_UPDATE", "UPDATE_FACTION", "TRAIT_CONFIG_UPDATED",
-	"DELVES_ACCOUNT_DATA_ELEMENT_CHANGED",
+	"DELVES_ACCOUNT_DATA_ELEMENT_CHANGED", "UPDATE_UI_WIDGET",
 }
 
 local function Toggle(active)
@@ -71,13 +84,17 @@ local function Toggle(active)
 			events:Watch("delves", event)
 		end
 		events:Watch("delves", "PLAYER_SPECIALIZATION_CHANGED", "player")
+		stashWidgets = ns.DelvesRead_StashWidgets()
 		ns.DelvesScan_Invalidate()
 		ns.DelvesRead_Dirty()
+		ns.DelvesTooltip_Start(db)
 	else
 		events:UnwatchAll("delves")
 		ns.DelvesRead_Stop()
+		ns.DelvesTooltip_Stop()
 	end
 	ns.DelvesEntrance_Toggle(active)
+	ns.DelvesPowers_Toggle(active)
 end
 
 -- Shared bits ----------------------------------------------------------------------------------------------------
@@ -241,9 +258,13 @@ local function List()
 		local name = e.bountiful and ns.UI.Wrap(e.name .. " (bountiful)", "accent") or e.name
 		print(("  %s, %s"):format(name, ns.DelvesScan_ZoneName(e.map) or "?"))
 	end
-	local keyLine = ns.DelvesRead_State().keyLine
-	if keyLine then
-		print("  " .. keyLine)
+	local s = ns.DelvesRead_State()
+	if s.keyLine then
+		print("  " .. s.keyLine)
+	end
+	local stash = ns.Delves_StashText(s.stash, s.stash and s.stash.name)
+	if stash then
+		print("  " .. stash .. (s.stash.old and " (as last seen in the open world)" or ""))
 	end
 end
 
@@ -303,15 +324,28 @@ module = ns.RegisterModule({
 	category = "week",
 	icon = 134237, -- inv_misc_key_03
 	summary = "Bountiful delves, coffer keys and the tier your vault needs.",
-	description = "Today's bountiful delves with a click to track them, your coffer keys and shards, the delve tier "
-		.. "that raises your Great Vault's World slots, and your companion's level, role and curios. A note beside "
-		.. "the tier picker at a delve entrance.",
+	description = "Today's bountiful delves with a click to track them, your coffer keys and shards, the Gilded "
+		.. "Stash, your season journey, the delve tier that raises your Great Vault's World slots, and your "
+		.. "companion's level, role and curios. A note beside the tier picker at a delve entrance, key and shard caps "
+		.. "on their tooltips, and if you want, delve powers picked for you.",
 	enabledByDefault = true,
-	defaults = { entrance = true, roleHint = true, nextBountiful = "key", companionLevel = {} },
+	defaults = {
+		entrance = true,
+		roleHint = true,
+		nextBountiful = "key",
+		companionLevel = {},
+		capTooltips = true,
+		autoPower = false,
+		powers = "", -- the "Preferred powers" text: names or spell IDs, comma separated
+		stash = {}, -- [player GUID] = { n, of, week }: the last current Gilded Stash count and its week's start
+	},
+	replaces = { { addon = "Plumber", why = "the Gilded Stash and season progress, coffer key caps on tooltips and "
+		.. "auto-picked delve powers" } },
 	init = function(saved)
 		db = saved
 		ns.DelvesRead_Init(db)
 		ns.DelvesEntrance_Init(db)
+		ns.DelvesPowers_Init(db)
 	end,
 	toggle = Toggle,
 	home = { PAGE, AROUND, NEXT_BOUNTIFUL, NEXT_TIER, NEXT_ROLE },
@@ -326,12 +360,29 @@ module = ns.RegisterModule({
 			end,
 			tooltip = "Next up's bountiful delve suggestion: only while you hold a Restored Coffer Key, or always "
 				.. "(without a key a bountiful delve is a normal run)." },
+		{ type = "checkbox", key = "capTooltips", label = "Key and shard caps on tooltips",
+			tooltip = "Restored Coffer Keys, Coffer Key Shards and the weekly caches that give them: how many you "
+				.. "got this week and how many shards make your next key." },
 		{ type = "button", label = "Page", text = "Open", onClick = Open },
+		{ type = "header", label = "Delve powers" },
+		{ type = "checkbox", key = "autoPower", label = "Pick delve powers for you",
+			onChange = function()
+				ns.DelvesPowers_Toggle(module.active)
+			end,
+			tooltip = "Inside a delve, when a power choice opens: picks it when there's only one, or the one first on "
+				.. "your preferred list. Other choices are left to you." },
+		{ type = "input", key = "powers", label = "Preferred powers", parent = "autoPower",
+			placeholder = "power name or spell ID, ...",
+			tooltip = "Names or spell IDs, separated by commas, best first. With the choice open, /tomte delves "
+				.. "powers lists its options and their spell IDs." },
 	},
 	commands = {
 		{ "", "open the Delves page", Open, hidden = true },
 		{ "open", "open the Delves page", Open },
 		{ "list", "today's delves (bountiful marked) and your keys, in chat", List },
 		{ "vault", "the Great Vault World plan and the tier ladder, in chat", Vault },
+		{ "powers", "the open power choice's options (names, spell IDs) and what auto-pick would do", function()
+			ns.DelvesPowers_Why()
+		end },
 	},
 })

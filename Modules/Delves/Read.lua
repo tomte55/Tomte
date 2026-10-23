@@ -1,13 +1,14 @@
 local addonName, ns = ...
 
--- Delves: readers for keys and shards, the Great Vault's World track and the delve companion. Each part is read
+-- Delves: readers for keys and shards, the Great Vault's World track, the delve companion (with the season journey)
+-- and the Gilded Stash. Each part is read
 -- out of combat, debounced (DelvesRead_Dirty), inside xpcall (a failure keeps the old value and goes to BugSack once
 -- per part per session), and cached for the page, the entrance note, Home and Next up. The companion calls are
 -- Blizzard_DelvesCompanionConfiguration's own; nothing here changes a curio, a role or a tier. A companion level that
 -- rises fires the "companion" moment.
 
 local db
-local state = {} -- { keys, keyLine, canCombine, vault, companion }
+local state = {} -- { keys, keyLine, canCombine, vault, companion, stash = { n, of, old, name } }
 local dirty = {}
 local timer
 local primed = {} -- [faction] = true once read this session (the first read only stores the level)
@@ -24,6 +25,9 @@ local function ReadKeys(def, expansion)
 	local k = { perKey = def.shardsPerKey or 100 }
 	local info = C_CurrencyInfo.GetCurrencyInfo(def.keyCurrency)
 	k.keys = info and info.quantity or 0
+	if info and (info.maxWeeklyQuantity or 0) > 0 then
+		k.keyWeek = { n = info.quantityEarnedThisWeek or 0, of = info.maxWeeklyQuantity }
+	end
 	local s = def.shards or {}
 	if s.currency then
 		local c = C_CurrencyInfo.GetCurrencyInfo(s.currency)
@@ -40,8 +44,55 @@ local function ReadKeys(def, expansion)
 		end
 		k.shards = n
 	end
-	k.earned = ns.Delves_Earned(ns.Weekly_ReadCurated and ns.Weekly_ReadCurated(expansion), "keys")
+	local curated = ns.Weekly_ReadCurated and ns.Weekly_ReadCurated(expansion)
+	k.earned = ns.Delves_Earned(curated, "keys")
+	k.shardEarned = ns.Delves_Earned(curated, "shards")
 	return k
+end
+
+-- The Gilded Stash count from its widget (filled only in the expansion's open world; shownState Shown means current).
+-- The read can be refused in tainted code (AllowedWhenUntainted) and the text can be secret: both count as no read.
+-- An accurate read is kept per character for the week, so the count still shows inside a delve or in town.
+local function ReadStash(def)
+	local s = def.stash
+	if not s then
+		state.stash = nil
+		return
+	end
+	local live
+	for _, id in ipairs(s.widgets) do
+		local ok, info = pcall(C_UIWidgetManager.GetSpellDisplayVisualizationInfo, id)
+		local spell = ok and type(info) == "table" and info.spellInfo
+		if spell and not ns.IsSecret(spell.spellID, spell.tooltip, spell.shownState) and spell.spellID == s.spell then
+			local n, of = ns.Delves_StashParse(spell.tooltip)
+			if n then
+				live = { n = n, of = of, accurate = spell.shownState == Enum.WidgetShownState.Shown }
+				if live.accurate then
+					break
+				end
+			end
+		end
+	end
+	local guid = UnitGUID("player")
+	local week = ns.WeekStart()
+	local saved = guid and db.stash[guid]
+	if guid and week and live and live.accurate then
+		db.stash[guid] = { n = live.n, of = live.of, week = week }
+	end
+	state.stash = ns.Delves_StashPick(live, saved, week)
+	if state.stash then
+		state.stash.name = C_Spell.GetSpellName(s.spell)
+	end
+end
+
+-- The stash widgets of the character's expansion, as a set (for UPDATE_UI_WIDGET).
+function ns.DelvesRead_StashWidgets()
+	local def = Def()
+	local set = {}
+	for _, id in ipairs(def and def.stash and def.stash.widgets or {}) do
+		set[id] = true
+	end
+	return set
 end
 
 local function ReadVault(def)
@@ -183,8 +234,9 @@ local READERS = {
 			CompanionMoment(c)
 		end
 	end,
+	stash = ReadStash,
 }
-local ORDER = { "keys", "vault", "companion" }
+local ORDER = { "keys", "vault", "companion", "stash" }
 
 -- No reads in combat, as a precaution: nothing here is needed mid-fight. The cache stays as it was until
 -- PLAYER_REGEN_ENABLED.
@@ -222,7 +274,7 @@ events:On("read", "PLAYER_REGEN_ENABLED", function(self)
 	ReadDirty()
 end)
 
--- part: "keys", "vault", "companion" or nil for all. One read a second later (out of combat).
+-- part: "keys", "vault", "companion", "stash" or nil for all. One read a second later (out of combat).
 function ns.DelvesRead_Dirty(part)
 	if part then
 		dirty[part] = true

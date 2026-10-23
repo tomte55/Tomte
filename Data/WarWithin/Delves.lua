@@ -20,4 +20,14 @@ ns.Content_Register(10, "delves", {
 	shardsPerKey = 100,
 	companionFaction = 2640, -- Brann Bronzebeard
 	vaultTopTier = 8, -- fallback when the game has no season data
+	-- Gilded Stash: the delveDifficultyScaling widgets whose spell display holds this week's "n/of" (Khaz Algar's
+	-- open world). IDs from Plumber (IDs only, checked 2026-10-23: Modules/DelvesDashboard.lua).
+	stash = { spell = 1216211, widgets = { 6659, 6718, 6719, 6720, 6721, 6722, 6723, 6724, 6725, 6726, 6727, 6728,
+		6729, 6794, 7193, 7591 } },
+	-- Weekly caches whose tooltip shows the key or shard cap (season 3 caches; IDs from Plumber, IDs only, checked
+	-- 2026-10-23: Modules/Shared/SharedData.lua). Keys come from the major caches, shards from the minor ones.
+	capItems = {
+		keys = { 244842, 244865, 245611, 255676 }, -- Fabled Veteran's, Pinnacle, Wriggling Pinnacle, Phase Diver's Cache
+		shards = { 245280, 250763, 250765, 250766, 250767, 250768, 250769, 250764, 244883 }, -- adventurer's caches
+	},
 })

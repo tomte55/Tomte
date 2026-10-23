@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
 -- Delves: pure logic (no WoW API calls; unit-tested with plain Lua 5.1). Bountiful detection and order, the key
--- line, the Great Vault World track plan, the tier ladder, the tier suggestion and the companion role hint.
+-- line, the Great Vault World track plan, the tier ladder, the tier suggestion, the companion role hint, the Gilded
+-- Stash count, the season journey bar, the key and shard caps for tooltips and the delve power pick.
 
 ns.DELVES_BOUNTIFUL_ATLAS = "delves-bountiful"
 ns.DELVES_ROLE_BY_ENUM = { [0] = "DAMAGER", [1] = "HEALER", [2] = "TANK" } -- Enum.CompanionRoleType
@@ -248,4 +249,157 @@ function ns.Delves_SuggestBountiful(keys, mode)
 		return true
 	end
 	return (keys or 0) > 0
+end
+
+-- Gilded Stash ---------------------------------------------------------------------------------------------------
+
+-- The stash widget's tooltip text holds this week's count as "n/of" (digits in every client language). Returns n, of
+-- or nil when there's no count in it.
+function ns.Delves_StashParse(text)
+	if type(text) ~= "string" then
+		return nil
+	end
+	local n, of = text:match("(%d+)%s*/%s*(%d+)")
+	n, of = tonumber(n), tonumber(of)
+	if not (n and of) or of <= 0 then
+		return nil
+	end
+	return n, of
+end
+
+-- live: { n, of, accurate } from the widget (nil away from the expansion's zones); saved: { n, of, week } from the
+-- last accurate read; week: this week's start (ns.WeekStart, which can drift by a second between calls, so "same
+-- week" allows WEEK_SLACK). Returns { n, of, old } (old: not read live this time) or nil.
+local WEEK_SLACK = 3600
+function ns.Delves_StashPick(live, saved, week)
+	if live and live.accurate then
+		return { n = live.n, of = live.of }
+	end
+	if saved and week and saved.week and math.abs(saved.week - week) < WEEK_SLACK and saved.of then
+		return { n = saved.n or 0, of = saved.of, old = true }
+	end
+	if live then
+		return { n = live.n, of = live.of, old = true }
+	end
+	return nil
+end
+
+-- name: the stash's own name (the game's spell name). The page line, or nil without a count.
+function ns.Delves_StashText(stash, name)
+	if not stash then
+		return nil
+	end
+	local text = ("%s: %d/%d this week"):format(name or "Gilded Stash", stash.n, stash.of)
+	if stash.n >= stash.of then
+		text = text .. " (all found)"
+	end
+	return text
+end
+
+-- Season journey -------------------------------------------------------------------------------------------------
+
+-- j: the reader's journey ({ level, earned, threshold, max }). The bar's fill, 0 to 1 (full at max renown).
+function ns.Delves_JourneyFraction(j)
+	if not j then
+		return 0
+	end
+	if j.max and j.level and j.level >= j.max then
+		return 1
+	end
+	if not j.threshold or j.threshold <= 0 then
+		return 0
+	end
+	return math.min(math.max((j.earned or 0) / j.threshold, 0), 1)
+end
+
+-- Tooltip caps ---------------------------------------------------------------------------------------------------
+
+local function CapLine(label, week)
+	if not (week and (week.of or 0) > 0) then
+		return nil
+	end
+	local done = (week.n or 0) >= week.of
+	return { left = label, right = ("%d/%d"):format(week.n or 0, week.of) .. (done and " (cap reached)" or ""),
+		role = done and "textMuted" or "text" }
+end
+
+-- k: the reader's keys ({ keys, perKey, shards, shardWeek, shardEarned, keyWeek, earned }); kind "keys" or "shards"
+-- (the tooltip being shown). Returns { { left, right, role } } for the tooltip, maybe empty.
+function ns.Delves_CapLines(k, kind)
+	local lines = {}
+	if not k then
+		return lines
+	end
+	local function Add(line)
+		if line then
+			lines[#lines + 1] = line
+		end
+	end
+	if kind == "keys" then
+		Add(CapLine("Keys this week", k.keyWeek or k.earned))
+		Add(CapLine("Shard caches this week", k.shardEarned))
+		if k.shards then
+			local perKey = k.perKey or 100
+			local more = math.floor(k.shards / perKey)
+			Add({ left = "Coffer Key Shards", right = more > 0 and ("%d (%d more %s)"):format(k.shards, more,
+				Plural(more, "key", "keys")) or tostring(k.shards), role = more > 0 and "success" or "text" })
+		end
+	elseif kind == "shards" then
+		Add(CapLine("Shards this week", k.shardWeek))
+		Add(CapLine("Shard caches this week", k.shardEarned))
+		if k.shards then
+			local perKey = k.perKey or 100
+			Add({ left = "Next key", right = ("%d/%d"):format(k.shards % perKey, perKey), role = "text" })
+		end
+		Add(CapLine("Keys this week", k.keyWeek or k.earned))
+	end
+	return lines
+end
+
+-- Delve powers ---------------------------------------------------------------------------------------------------
+
+-- The "Preferred powers" setting: names or spell IDs, separated by commas or semicolons. Returns the list in order,
+-- each { id = number } or { name = lower-case name }.
+function ns.Delves_ParsePowers(text)
+	local list = {}
+	for part in tostring(text or ""):gmatch("[^,;]+") do
+		part = part:match("^%s*(.-)%s*$")
+		if part ~= "" then
+			local id = tonumber(part)
+			list[#list + 1] = id and { id = id } or { name = part:lower() }
+		end
+	end
+	return list
+end
+
+local function Pickable(o)
+	local b = o.buttons and o.buttons[1]
+	return o.spellID ~= nil and not o.disabledOption and o.buttons and #o.buttons == 1 and b and b.id ~= nil
+		and not b.disabled and not b.confirmation
+end
+
+-- options: PlayerChoiceOptionInfo list ({ spellID, header, disabledOption, buttons = { { id, disabled,
+-- confirmation } } }); prefs: Delves_ParsePowers. Every option must be a power (a spell with one plain button), else
+-- nothing is picked. One option: that one. Several: the one earliest in prefs. Returns the option and why
+-- ("only", "preferred") or nil and why not ("notpowers", "nomatch", "none").
+function ns.Delves_PickPower(options, prefs)
+	if not options or #options == 0 then
+		return nil, "none"
+	end
+	for _, o in ipairs(options) do
+		if not Pickable(o) then
+			return nil, "notpowers"
+		end
+	end
+	if #options == 1 then
+		return options[1], "only"
+	end
+	for _, p in ipairs(prefs or {}) do
+		for _, o in ipairs(options) do
+			if (p.id and o.spellID == p.id) or (p.name and type(o.header) == "string" and o.header:lower() == p.name) then
+				return o, "preferred"
+			end
+		end
+	end
+	return nil, "nomatch"
 end
