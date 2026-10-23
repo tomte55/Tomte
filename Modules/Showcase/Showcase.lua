@@ -237,7 +237,7 @@ end
 module = ns.RegisterModule({
 	key = "showcase",
 	name = "Showcase",
-	category = "gear",
+	category = "ambience",
 	icon = 132624, -- inv_chest_chain
 	summary = "Show off your character, gear and stats in a slow camera view.",
 	description = "A character view in the game world: the camera glides in on your character, the UI fades out, "

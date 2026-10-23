@@ -253,7 +253,7 @@ end
 module = ns.RegisterModule({
 	key = "cursor",
 	name = "Cursor highlight",
-	category = "ambience",
+	category = "interface",
 	icon = 135934, -- spell_holy_mindvision
 	summary = "A ring around the mouse cursor when you shake the mouse, so you find it at once.",
 	description = "Shake the mouse and a ring in the theme's color pops up around the cursor, then fades once the mouse is still. It can also stay on in combat or all the time, with a short trail behind the cursor.",

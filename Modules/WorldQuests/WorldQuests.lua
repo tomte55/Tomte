@@ -184,7 +184,7 @@ end
 module = ns.RegisterModule({
 	key = "wq",
 	name = "World quests",
-	category = "week",
+	category = "quests",
 	icon = 134269, -- inv_misc_map_01
 	summary = "World quests on the map, sorted by what they're worth to you.",
 	description = "A tab in the world map's side panel with the world quests on the map you're looking at, grouped "

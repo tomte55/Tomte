@@ -173,7 +173,7 @@ ns.Toast_Options(options)
 module = ns.RegisterModule({
 	key = "mentions",
 	name = "Mentions",
-	category = "social",
+	category = "chat",
 	icon = 413584, -- achievement_guildperk_honorablemention
 	summary = "A toast when someone says your name or keywords in chat.",
 	description = "A toast when someone says your name (or one of your keywords) in guild, group, say or channel chat. Click it to answer in that channel.",

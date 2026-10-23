@@ -176,8 +176,9 @@ just restates the code. Fix comments that point at moved or renamed code in the 
   `button` (`text`, `onClick`, optional `confirm`), `input`. `key` is a dotted path into the module's db
   (`"check.onEnter"`), `onChange` applies it live, `shown()` hides a row, `parent = "<checkbox key>"` indents and
   dims a row while that checkbox is off, `tooltip` explains anything not obvious. No settings UI built by hand.
-- Each module names its settings group in `category`: `tomte`, `week`, `gear`, `professions`, `collections`,
-  `travel`, `social`, `ambience` or `class` (`ns.PANEL_GROUPS` in `Panel/Layout.lua`), and has an `icon` (a file ID
+- Each module names its settings group in `category`: `tomte`, `week`, `quests`, `gear` (gear & loot),
+  `professions`, `collections`, `travel`, `social` (groups & friends), `chat`, `interface`, `class` or `ambience`
+  (`ns.PANEL_GROUPS` in `Panel/Layout.lua`), and has an `icon` (a file ID
   checked to exist) and a one-sentence `summary` for the top of its settings page.
 - Labels and tooltips are player wording: short, sentence case, no internals.
 - Defaults are safe for a friend who didn't choose them; noisy or invasive modules are `enabledByDefault = false`.

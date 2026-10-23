@@ -323,7 +323,7 @@ options[#options + 1] = { type = "button", label = "What's applied", text = "Sho
 module = ns.RegisterModule({
 	key = "graphics",
 	name = "Graphics presets",
-	category = "tomte",
+	category = "interface",
 	icon = 136243, -- trade_engineering
 	summary = "A graphics quality level and frame rate cap for each kind of place.",
 	description = "Pick a graphics quality level and a frame rate cap for the open world, cities, dungeons and delves, raids, PvP and while AFK. Tomte switches as you go and puts your own settings back when you leave, when you change them yourself and when you turn this off.",

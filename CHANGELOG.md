@@ -16,6 +16,10 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Flight Timer:** a games drawer in the cinematic flight. A small tab on the right edge slides out a panel where you can play the Casino while the camera flies; Esc slides it shut, and the game closes when you land.
 
+### Improved
+
+- **Settings:** new Quests, Chat and Interface groups in the Tomte window's sidebar, so modules sit where you'd look for them; the sidebar scrolls when the window is short.
+
 ## v1.20.1 - 2026-10-22
 
 ### Fixed

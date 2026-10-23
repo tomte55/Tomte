@@ -11,19 +11,26 @@ ns.PANEL_GROUPS = {
 	{ key = "tomte", name = "Tomte", short = "Tomte", description = "The window, minimap buttons and Home." },
 	{ key = "week", name = "Your week", short = "Week", icon = 134376,
 		description = "What to do this week, on every character." },
-	{ key = "gear", name = "Gear", short = "Gear", icon = 132751, description = "Your gear, its upkeep and your looks." },
+	{ key = "quests", name = "Quests", short = "Quests", icon = 236672, -- achievement_quests_completed_daily_01
+		description = "Quest givers, world quests and gold quests." },
+	{ key = "gear", name = "Gear & loot", short = "Gear", icon = 132751,
+		description = "Your gear, its upkeep, your loot and your looks." },
 	{ key = "professions", name = "Professions & gold", short = "Profs", icon = 134708,
-		description = "Gathering, fishing, materials and gold." },
+		description = "Gathering, fishing, materials, mail and gold." },
 	{ key = "collections", name = "Collections", short = "Collect", icon = 1542848,
-		description = "Mounts, pets, achievements and holidays." },
+		description = "Mounts, pets, achievements, decor and holidays." },
 	{ key = "travel", name = "Travel", short = "Travel", icon = 132261,
 		description = "Flights, waypoints, mounts and teleports." },
-	{ key = "social", name = "Social & chat", short = "Social", icon = 133471,
-		description = "Friends, whispers, groups and chat." },
-	{ key = "ambience", name = "Ambience", short = "Ambience", icon = 133885,
-		description = "AFK screen, moments and session recaps." },
+	{ key = "social", name = "Groups & friends", short = "Groups", icon = 133471,
+		description = "Instances, groups, friends and whispers." },
+	{ key = "chat", name = "Chat", short = "Chat", icon = 2056011, -- ui_chat
+		description = "Chat tabs, filters, tags, mentions and copying." },
+	{ key = "interface", name = "Interface", short = "Interface", icon = 134063, -- inv_misc_gear_01
+		description = "The cursor, graphics and other screen helpers." },
 	{ key = "class", name = "Class & combat", short = "Class", icon = 135274,
 		description = "Helpers for your class and your pet." },
+	{ key = "ambience", name = "Ambience", short = "Ambience", icon = 133885,
+		description = "AFK screen, moments, recaps, showcase and the casino." },
 }
 
 local byKey = {}

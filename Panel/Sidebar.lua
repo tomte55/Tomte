@@ -130,15 +130,31 @@ local function CreateRail(parent)
 	rail.edge:SetPoint("BOTTOMRIGHT", 0, 12)
 	rail.edge:SetWidth(1)
 
+	-- The buttons sit on a scroll child: twelve groups don't fit a short window, so the wheel scrolls the rail
+	-- (no scrollbar, the rail is too narrow for one).
+	local scroll = CreateFrame("ScrollFrame", nil, rail)
+	scroll:SetPoint("TOPLEFT")
+	scroll:SetPoint("BOTTOMRIGHT", -1, 0)
+	local child = CreateFrame("Frame", nil, scroll)
+	child:SetWidth(RAIL_W - 1)
+	scroll:SetScrollChild(child)
+	rail.scroll = scroll
+	scroll:EnableMouseWheel(true)
+	scroll:SetScript("OnMouseWheel", function(self, delta)
+		local max = math.max(0, child:GetHeight() - self:GetHeight())
+		self:SetVerticalScroll(math.min(max, math.max(0, self:GetVerticalScroll() - delta * RAIL_ROW_H)))
+	end)
+
 	local y = 10
 	for i, group in ipairs(ns.PANEL_GROUPS) do
-		local b = CreateRailButton(rail, group)
+		local b = CreateRailButton(child, group)
 		b:SetPoint("TOPLEFT", RAIL_INSET, -y)
-		b:SetPoint("RIGHT", rail, "RIGHT")
+		b:SetPoint("RIGHT", child, "RIGHT")
+		b.top = y
 		railButtons[i] = b
 		y = y + RAIL_ROW_H
 		if i == 1 then -- Tomte is pinned: a short rule under it
-			local rule = rail:CreateTexture(nil, "ARTWORK")
+			local rule = child:CreateTexture(nil, "ARTWORK")
 			rule:SetColorTexture(UI.Color("rule"))
 			rule:SetAlpha(0.6)
 			rule:SetHeight(1)
@@ -147,7 +163,23 @@ local function CreateRail(parent)
 			y = y + 9
 		end
 	end
+	child:SetHeight(y + 10)
 	return rail
+end
+
+-- Scrolls the rail just enough to show button b.
+local function ShowRailButton(b)
+	local scroll = sidebar.rail.scroll
+	local view = scroll:GetHeight()
+	if view <= 0 then
+		return
+	end
+	local offset = scroll:GetVerticalScroll()
+	if b.top < offset then
+		scroll:SetVerticalScroll(math.max(0, b.top - 10))
+	elseif b.top + RAIL_ROW_H > offset + view then
+		scroll:SetVerticalScroll(b.top + RAIL_ROW_H + 10 - view)
+	end
 end
 
 local function RefreshRail(current)
@@ -166,6 +198,9 @@ local function RefreshRail(current)
 		b.icon:SetDesaturated(not usable)
 		b.icon:SetAlpha(usable and 1 or 0.5)
 		UI.SetTextRole(b.name, usable and (b.selected and "heading" or "text") or "textFaint")
+		if b.selected then
+			ShowRailButton(b)
+		end
 	end
 end
 

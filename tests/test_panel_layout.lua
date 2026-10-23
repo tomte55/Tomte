@@ -15,6 +15,14 @@ test("groups have unique keys, names and descriptions", function()
 	end
 	eq(ns.PANEL_GROUPS[1].key, "tomte", "Tomte is pinned first")
 	eq(ns.PanelLayout_Group("General"), nil)
+	eq(#ns.PANEL_GROUPS, 12)
+end)
+
+-- The rail's label is about 60 pixels wide: one short word.
+test("short labels are one word of at most 9 letters", function()
+	for _, g in ipairs(ns.PANEL_GROUPS) do
+		assert(g.short and g.short:match("^%a+$") and #g.short <= 9, g.key .. ": " .. tostring(g.short))
+	end
 end)
 
 test("two columns only when each column gets the minimum", function()

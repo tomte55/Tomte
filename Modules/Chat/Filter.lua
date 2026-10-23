@@ -296,7 +296,7 @@ ns.Toast_Options(options)
 module = ns.RegisterModule({
 	key = "tradefilter",
 	name = "Trade Filter",
-	category = "social",
+	category = "chat",
 	icon = 134441, -- inv_misc_spyglass_02
 	summary = "Trade chat shows only messages about your professions and keywords.",
 	description = "Trade chat shows only what you can help with: messages that name your professions or your own keywords, minus sellers and boosters.",
