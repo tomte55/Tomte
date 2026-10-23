@@ -145,6 +145,8 @@ local function Choices()
 			local name, _, quality, _, _, _, _, _, _, _, sell = C_Item.GetItemInfo(link)
 			c.name, c.quality, c.sell = name, quality, sell
 			c.verdict = ctx and ns.Gear_Verdict(link, ctx)
+			local equipLoc = select(4, C_Item.GetItemInfoInstant(link))
+			c.gear = equipLoc ~= nil and equipLoc ~= "" and equipLoc ~= "INVTYPE_NON_EQUIP_IGNORE"
 		end
 		choices[i] = c
 	end
@@ -173,6 +175,26 @@ local function Rows(choices, judged)
 		rows[#rows + 1] = { label = "Most gold", name = ItemName(c), sub = UI.Wrap("Sells for ", "textMuted") .. Price(c) }
 	end
 	return rows
+end
+
+-- The open quest's reward choice Gear Check calls a clean upgrade, or nil (Gear Check off, no spec, nothing sure).
+-- Quests' "Pick the reward for me" takes it. Nil until every choice is read (its name, and a verdict for gear): a
+-- still-loading choice could be the bigger upgrade, and a picked reward can't be undone.
+function ns.GearRewards_BestChoice()
+	if not ns.gearModule.active then
+		return nil
+	end
+	local choices, judged = Choices()
+	if not (choices and judged) then
+		return nil
+	end
+	for _, c in ipairs(choices) do
+		if not c.name or (c.gear and not c.verdict) then
+			return nil
+		end
+	end
+	local best, sure = Pick(choices)
+	return sure and best or nil
 end
 
 -- What Edit Mode shows while no quest is open.
