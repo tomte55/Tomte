@@ -33,6 +33,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Vendor Helper:** when you can't afford something, only the currencies or items you're missing turn red, not every cost on the row.
 - **Vendor Helper:** the Yes button of a purchase you can't refund waits a second, so a double click can't buy by accident.
 - **Material uses:** the Professions book shows how much specialization knowledge each profession has left to spend, also on its buttons' tooltips.
+- **Fishing:** the Underlight Angler's artifact window shows its traits again.
 
 ### Improved
 

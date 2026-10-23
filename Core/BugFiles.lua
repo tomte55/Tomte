@@ -307,6 +307,7 @@ ns.BUG_FILES = {
 	"Modules/Fishing/Data.lua",
 	"Modules/Fishing/Helpers.lua",
 	"Modules/Fishing/Key.lua",
+	"Modules/Fishing/Angler.lua",
 	"Modules/Fishing/Fishing.lua",
 	"Modules/Delves/Data.lua",
 	"Modules/Delves/Scan.lua",

@@ -214,3 +214,16 @@ function ns.Fishing_KeysUp(keys, isDown)
 	end
 	return true
 end
+
+ns.FISHING_ANGLER = 133755 -- Underlight Angler, the Legion fishing artifact (item ID, also taken by Plumber's fix)
+
+-- Whether the artifact window needs Angler.lua's fix: it shows the Underlight Angler and the game reports its tier
+-- below 1 (0 or nil), which hides every trait. Once the game reports tier 1 or more, nothing is touched.
+function ns.Fishing_AnglerNeedsFix(itemID, tier)
+	return itemID == ns.FISHING_ANGLER and (tier == nil or tier < 1)
+end
+
+-- Whether a trait button should be shown and linked while the fix is on: tier 1 traits (all the Angler has).
+function ns.Fishing_AnglerShowsTier(tier)
+	return type(tier) == "number" and tier <= 1
+end

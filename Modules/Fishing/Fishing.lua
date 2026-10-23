@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Fishing module: one key (Key Bindings > Tomte > Fishing) to cast and, while the bobber is out, to reel in and loot.
 -- Helpers while a cast is out: auto loot, no recast while looting, an optional louder splash, raft and Oversized
 -- Bobber toys (one press each), and an optional on-screen button. Pure rules in Data.lua, the CVar backup in
--- Helpers.lua, the key and button in Key.lua. Does nothing until a key is bound or the button is shown.
+-- Helpers.lua, the key and button in Key.lua, the Underlight Angler fix in Angler.lua. Does nothing until a key is
+-- bound or the button is shown (the Angler fix only acts in the artifact window).
 
 local UI = ns.UI
 local module, db
@@ -117,17 +118,23 @@ module = ns.RegisterModule({
 		bobber = false, -- Reusable Oversized Bobber
 		button = { shown = false, frame = { point = "CENTER", relPoint = "CENTER", x = 0, y = -180 }, scale = 1 },
 		restore = {}, -- [cvar] = { old, set }: the CVar backup while a cast is out (a collection: Reset keeps it)
+		angler = true, -- show the Underlight Angler's traits in the artifact window (Angler.lua)
 	},
 	conflicts = {
 		{ addon = "Angleur", why = "both bind a fishing key, and Angleur's override wins on its own key. Turn one off." },
+	},
+	replaces = {
+		{ addon = "Plumber", why = "the fix for the Underlight Angler's missing traits" },
 	},
 	init = function(moduleDB)
 		db = moduleDB
 		ns.FishingHelpers_Init(db)
 		ns.FishingKey_Init(db, module)
+		ns.FishingAngler_Init(db)
 	end,
 	toggle = function(active)
 		ns.FishingKey_Toggle(active)
+		ns.FishingAngler_Toggle(active)
 	end,
 	commands = {
 		{ "", "open the Fishing options", Open, hidden = true, whileOff = true },
@@ -168,5 +175,10 @@ module = ns.RegisterModule({
 		{ type = "button", label = "Position", text = "Reset", parent = "button.shown", onClick = function()
 			ns.FishingKey_ResetPosition()
 		end, tooltip = "Move the button back to below the middle of the screen." },
+
+		{ type = "header", label = "Underlight Angler" },
+		{ type = "checkbox", key = "angler", label = "Show the Underlight Angler's traits", onChange = function()
+			ns.FishingAngler_Apply()
+		end, tooltip = "The game opens the Underlight Angler's artifact window without its traits. This shows them again, so you can see and pick them." },
 	},
 })
