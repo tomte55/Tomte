@@ -447,4 +447,41 @@ test("session summary and line", function()
 	eq(ns.Gather_SessionLine({ nodes = 3, value = 50 }), "gathered 3 nodes")
 end)
 
+test("seeds: rich soil from the shipped list or learned", function()
+	eq(ns.Gather_IsSoil(500, { [500] = true }, {}), true)
+	eq(ns.Gather_IsSoil(501, {}, { [501] = true }), true)
+	eq(ns.Gather_IsSoil(502, { [500] = true }, { [501] = true }), false)
+	eq(ns.Gather_IsSoil(nil, { [500] = true }), false)
+end)
+
+test("seeds: seed for a plant spell", function()
+	local items = { { item = 1, spell = 10 }, { item = 2, spell = 20 } }
+	eq(ns.Gather_SeedForSpell(items, 20).item, 2)
+	eq(ns.Gather_SeedForSpell(items, 30), nil)
+	eq(ns.Gather_SeedForSpell(nil, 10), nil)
+end)
+
+test("seeds: learn the object pointed at just before planting", function()
+	local maps = { [2395] = true }
+	eq(ns.Gather_SoilLearn({ id = 77, at = 100, map = 2395 }, 130, maps), 77)
+	eq(ns.Gather_SoilLearn({ id = 77, at = 100, map = 2395 }, 100 + ns.GATHER_SOIL_LEARN + 1, maps), nil, "too long ago")
+	eq(ns.Gather_SoilLearn({ id = 77, at = 100, map = 1 }, 101, maps), nil, "not a seed map")
+	eq(ns.Gather_SoilLearn(nil, 101, maps), nil, "nothing pointed at")
+end)
+
+test("seeds: the button shows near soil with seeds, for a while", function()
+	local s = { on = true, herbalist = true, onMap = true, held = 2, soilAt = 100, now = 110 }
+	eq(ns.Gather_SeedsShown(s), true)
+	s.now = 100 + ns.GATHER_SOIL_LINGER + 1
+	eq(ns.Gather_SeedsShown(s), false, "soil not seen for a while")
+	s.now, s.held = 110, 0
+	eq(ns.Gather_SeedsShown(s), false, "no seeds")
+	s.held, s.herbalist = 1, false
+	eq(ns.Gather_SeedsShown(s), false, "not a herbalist")
+	s.herbalist, s.on = true, false
+	eq(ns.Gather_SeedsShown(s), false, "setting off")
+	s.on, s.soilAt = true, nil
+	eq(ns.Gather_SeedsShown(s), false, "no soil seen")
+end)
+
 H.done()

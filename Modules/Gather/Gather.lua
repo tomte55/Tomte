@@ -2,9 +2,10 @@ local addonName, ns = ...
 
 -- Gathering sessions module: tracks gathering runs (mining, herbalism, skinning, fishing): nodes, items with their
 -- ranks, value and gold per hour, rare finds, skill and knowledge, zones. A small tracker while a run is on, an
--- end-of-run toast and a Gathering page. Detection is Detect.lua, pure logic Data.lua. It only reads and counts.
+-- end-of-run toast and a Gathering page. Detection is Detect.lua, pure logic Data.lua. It only reads and counts
+-- (except the seed button, off by default, which plants a seed on a click).
 -- Node spots (Nodes.lua) show on the world map (MapPins.lua) and minimap (MinimapPins.lua), with a route to follow
--- (Route.lua, Follow.lua).
+-- (Route.lua, Follow.lua). The Resilient Seeds button at Rich Soil is Seeds.lua.
 
 local IDLE_DEFAULT = 600 -- seconds without a gather that end a run (the "End a run after" slider's default)
 local MIN_NODES_DEFAULT = 5 -- automatic runs with fewer nodes aren't kept
@@ -411,6 +412,11 @@ end)
 BINDING_NAME_TOMTE_GATHER_FOLLOW = "Gathering route: follow or stop"
 BINDING_NAME_TOMTE_GATHER_SKIP = "Gathering route: skip a spot"
 
+-- The Resilient Seeds options only show for a character in Midnight content (Data/Midnight/Seeds.lua).
+local function SeedsShown()
+	return ns.Content_Get(ns.ContentExpansion(), "seeds") ~= nil
+end
+
 module = ns.RegisterModule({
 	key = "gather",
 	name = "Gathering",
@@ -444,6 +450,11 @@ module = ns.RegisterModule({
 		nodeTypes = {}, -- [objectID] = { kind, name, item } (a collection)
 		hiddenTypes = {}, -- [objectID] = true: node types hidden on the maps and left out of routes (a collection)
 		pageScope = "all", pageRange = "all", pageKind = "all", pageView = "runs",
+		seeds = { on = false, frame = { point = "CENTER", relPoint = "CENTER", x = 0, y = -120 } }, -- Seeds.lua
+		soil = {}, -- [game object ID] = true: Rich Soil spots learned by planting (Seeds.lua; a collection)
+	},
+	replaces = {
+		{ addon = "Plumber", why = "the Resilient Seeds button at Rich Soil" },
 	},
 	-- Page filters and the route being followed: not in settings strings (Core/Profile.lua). Collections (runs, nodes) never are.
 	noShare = { "pageScope", "pageRange", "pageKind", "pageView", "follow" },
@@ -457,6 +468,7 @@ module = ns.RegisterModule({
 		end
 		ns.GatherPins_Init(db, module)
 		ns.GatherMini_Init(db, module)
+		ns.GatherSeeds_Init(db, module)
 		ns.GatherFollow_Init(db, module)
 		-- Friend sharing (Modules/Share) loads after this file, so it's looked up here, at init.
 		ns.Share_Register({
@@ -503,6 +515,7 @@ module = ns.RegisterModule({
 			ns.GatherTracker_Stop()
 			ns.GatherMini_Stop()
 		end
+		ns.GatherSeeds_Apply()
 		ns.GatherRoute_Changed()
 		ns.GatherPins_Refresh()
 		ns.Share_Changed("nodes")
@@ -530,6 +543,9 @@ module = ns.RegisterModule({
 		{ "follow", "follow the gathering route in your zone, or stop", ns.GatherFollow_Toggle },
 		{ "skip", "skip the route's next spot (somebody got there first)", ns.GatherFollow_Skip },
 		{ "route", "the gathering route in your zone", ns.GatherFollow_Info },
+		{ "soil", "the object your mouse pointed at last and the Rich Soil spots Tomte knows", function()
+			ns.GatherSeeds_Info()
+		end },
 	},
 	options = {
 		{ type = "header", label = "Runs" },
@@ -594,6 +610,16 @@ module = ns.RegisterModule({
 				ns.GatherFollow_Stop("user")
 				wipe(db.nodes)
 				NodesChanged()
+			end },
+
+		{ type = "header", label = "Resilient Seeds" },
+		{ type = "checkbox", key = "seeds.on", label = "Seed button at Rich Soil", shown = SeedsShown,
+			onChange = function()
+				ns.GatherSeeds_Apply()
+			end, tooltip = "Herbalists in Midnight: point your mouse at a Rich Soil spot with Resilient Seeds in your bags and a button for each seed appears; one click plants it. Tomte learns a soil spot the first time you plant there from your bags. Move the button in Blizzard's Edit Mode (\"Seed button\")." },
+		{ type = "button", label = "Seed button position", text = "Reset", parent = "seeds.on", shown = SeedsShown,
+			onClick = function()
+				ns.GatherSeeds_ResetPosition()
 			end },
 
 		{ type = "header", label = "Data" },

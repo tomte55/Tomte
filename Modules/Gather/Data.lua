@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Gathering sessions: pure logic (unit-tested with plain Lua, no WoW calls). Detect.lua turns casts and loot windows
 -- into plain tables; this file classifies them, learns gathering spells, keeps the run model and its numbers, the
--- run history and the totals the page shows.
+-- run history and the totals the page shows, and when the Resilient Seeds button shows.
 
 ns.GATHER_KINDS = { "mining", "herbalism", "skinning", "fishing" }
 ns.GATHER_SKILL_LINES = { mining = 186, herbalism = 182, skinning = 393, fishing = 356 }
@@ -651,4 +651,49 @@ function ns.Gather_SessionLine(g, money)
 		text = text .. " · " .. money(g.value)
 	end
 	return text
+end
+
+-- Seeds ---------------------------------------------------------------------------------------------------------------
+-- The seed button (Seeds.lua) with the "seeds" content (Data/Midnight/Seeds.lua).
+
+ns.GATHER_SOIL_LINGER = 30 -- seconds the seed button stays after you last pointed at Rich Soil
+ns.GATHER_SOIL_LEARN = 60 -- a plant cast this soon after pointing at an object teaches that object as Rich Soil
+
+-- Whether an object ID is a Rich Soil spot: shipped in the content data or learned in game.
+function ns.Gather_IsSoil(objectID, shipped, learned)
+	if type(objectID) ~= "number" then
+		return false
+	end
+	return (shipped and shipped[objectID]) == true or (learned and learned[objectID]) == true
+end
+
+-- The seed spell's entry in content.items, or nil.
+function ns.Gather_SeedForSpell(items, spellID)
+	for _, seed in ipairs(items or {}) do
+		if seed.spell == spellID then
+			return seed
+		end
+	end
+	return nil
+end
+
+-- A plant cast just succeeded: the object pointed at last ({ id, at, map }) is Rich Soil when it was seen within
+-- GATHER_SOIL_LEARN seconds, on a seed map. -> its object ID, or nil.
+function ns.Gather_SoilLearn(last, now, maps)
+	if type(last) ~= "table" or type(last.id) ~= "number" or not last.at or not now then
+		return nil
+	end
+	if now - last.at > ns.GATHER_SOIL_LEARN or not (maps and last.map and maps[last.map]) then
+		return nil
+	end
+	return last.id
+end
+
+-- Whether the seed button shows. s = { on (setting), herbalist, onMap (a seed map), held (seed types in the bags),
+-- soilAt (when Rich Soil was last pointed at), now }.
+function ns.Gather_SeedsShown(s)
+	if not (s.on and s.herbalist and s.onMap) or (s.held or 0) == 0 then
+		return false
+	end
+	return s.soilAt ~= nil and s.now ~= nil and s.now - s.soilAt <= ns.GATHER_SOIL_LINGER
 end

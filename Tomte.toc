@@ -49,6 +49,7 @@ Data/WarWithin/Buffs.lua
 Data/Midnight/Buffs.lua
 Data/WarWithin/Quests.lua
 Data/Midnight/Quests.lua
+Data/Midnight/Seeds.lua
 Cinematic/Engine.lua
 Cinematic/SceneKit.lua
 Cinematic/Drawer.lua
@@ -335,6 +336,7 @@ Modules/Gather/Page.lua
 Modules/Gather/MapPins.lua
 Modules/Gather/MinimapPins.lua
 Modules/Gather/Follow.lua
+Modules/Gather/Seeds.lua
 Modules/Gather/Gather.lua
 Modules/Share/Protocol.lua
 Modules/Share/Roster.lua

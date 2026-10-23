@@ -34,6 +34,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Vendor Helper:** the Yes button of a purchase you can't refund waits a second, so a double click can't buy by accident.
 - **Material uses:** the Professions book shows how much specialization knowledge each profession has left to spend, also on its buttons' tooltips.
 - **Fishing:** the Underlight Angler's artifact window shows its traits again.
+- **Gathering:** Midnight herbalists can turn on a seed button: point at Rich Soil with Resilient Seeds in your bags and one click plants one (off by default).
 
 ### Improved
 
