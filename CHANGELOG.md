@@ -15,6 +15,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 ### New
 
 - **Flight Timer:** a games drawer in the cinematic flight. A small tab on the right edge slides out a panel where you can play the Casino while the camera flies; Esc slides it shut, and the game closes when you land.
+- **Quests (new module):** talk to an NPC and its quests are accepted and handed in, and the gossip option that moves a quest on is picked; hold Shift to do it yourself. Leaves dailies and quests that cost gold to you, can pick the reward Gear Check calls an upgrade, signs you up for events like the Theater Troupe, skips cinematics you've seen, can quiet the Talking Head, shows your race medals at skyriding timekeepers and names the quest an item starts. Right-click an NPC's portrait to leave that NPC to you. Off by default.
 
 ### Improved
 

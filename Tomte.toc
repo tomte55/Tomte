@@ -47,6 +47,8 @@ Data/Midnight/Pets.lua
 Data/Older/Pets.lua
 Data/WarWithin/Buffs.lua
 Data/Midnight/Buffs.lua
+Data/WarWithin/Quests.lua
+Data/Midnight/Quests.lua
 Cinematic/Engine.lua
 Cinematic/SceneKit.lua
 Cinematic/Drawer.lua
@@ -325,3 +327,13 @@ Modules/Share/Protocol.lua
 Modules/Share/Roster.lua
 Modules/Share/Page.lua
 Modules/Share/Share.lua
+
+Modules/Quests/Data.lua
+Modules/Quests/Read.lua
+Modules/Quests/Automation.lua
+Modules/Quests/Menu.lua
+Modules/Quests/Medals.lua
+Modules/Quests/Cinematics.lua
+Modules/Quests/TalkingHead.lua
+Modules/Quests/Items.lua
+Modules/Quests/Quests.lua
