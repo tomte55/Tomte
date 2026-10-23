@@ -115,4 +115,30 @@ test("FormatLeft", function()
 	eq(ns.Rogue_FormatLeft(-3), "0 sec")
 end)
 
+local function line(text, r, g, b)
+	return { text = text, r = r or 1, g = g or 1, b = b or 1 }
+end
+
+test("LockState finds the lock line near the top", function()
+	local box = { line("Sturdy Lockbox"), line("Locked"), line("Use: Open the box.") }
+	eq(ns.Rogue_LockState(box, "Locked"), "pickable")
+	eq(ns.Rogue_LockState({ line("Sturdy Lockbox"), line("Locked", 1, 0.13, 0.13) }, "Locked"), "tooHard",
+		"a red line: your skill can't open it")
+	eq(ns.Rogue_LockState({ line("Sturdy Lockbox"), line("[-]Locked", 1, 0.13, 0.13) }, "Locked"), "tooHard",
+		"colorblind marker")
+	eq(ns.Rogue_LockState({ line("Kiste"), line("Verschlossen") }, "Verschlossen"), "pickable", "other languages")
+	eq(ns.Rogue_LockState({ line("Sturdy Lockbox"), line("Use: Open the box.") }, "Locked"), nil, "opened")
+	eq(ns.Rogue_LockState({ line("Locked"), line("Binds when picked up") }, "Locked"), nil, "the name line is skipped")
+	eq(ns.Rogue_LockState({ line("Box"), line("Unique"), line("x"), line("y"), line("z"), line("Locked") }, "Locked"),
+		nil, "too far down: a description")
+	eq(ns.Rogue_LockState({ line("Box"), line("\"The chest is Locked\"") }, "Locked"), nil, "a sentence isn't the line")
+	eq(ns.Rogue_LockState({ line("Box"), line("Locked") }, nil), nil, "no LOCKED text")
+end)
+
+test("Lockpick macros", function()
+	eq(ns.Rogue_LockpickMacro("Pick Lock", 0, 5), "/cast [@none] Pick Lock\n/use 0 5")
+	eq(ns.Rogue_LockpickTradeMacro("Skeleton Pinkie", "TradeRecipientItem7ItemButton"),
+		"/cast [@none] Skeleton Pinkie\n/click TradeRecipientItem7ItemButton")
+end)
+
 H.done()

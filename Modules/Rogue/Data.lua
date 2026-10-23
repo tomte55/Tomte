@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
--- Rogue Poisons: pure logic (no WoW API calls; unit-tested with plain Lua). Which poisons a rogue should have on,
--- and which ones to offer when one is missing or about to run out.
+-- Rogue Poisons: pure logic (no WoW API calls; unit-tested in tests/test_rogue.lua). Which poisons a rogue should
+-- have on, which ones to offer when one is missing or about to run out, and Handy Lockpick's lockbox check and
+-- macros.
 
 -- Poison spell IDs (the weapon buff on the player has the same ID). Lethal ones in the order they're offered
 -- when you haven't picked one yet; Assassination prefers Deadly Poison, the other specs Instant Poison.
@@ -118,4 +119,47 @@ function ns.Rogue_FormatLeft(seconds)
 		return math.floor(seconds / 60) .. " min"
 	end
 	return math.max(0, math.floor(seconds)) .. " sec"
+end
+
+-- Handy Lockpick --------------------------------------------------------------------------------------------------
+
+ns.ROGUE_PICK_LOCK = 1804
+ns.ROGUE_SKELETON_PINKIE = 312890 -- Mechagnome racial: opens lockboxes like Pick Lock
+-- The lock line sits right under the name and quality lines; a description further down may use the same word.
+local LOCK_LINES = 5
+-- Colorblind mode puts a short marker in front of the line ("[-]").
+local LOCK_PREFIX = 6
+
+local function IsRed(r, g, b)
+	return type(r) == "number" and r > 0.9 and (g or 0) < 0.35 and (b or 0) < 0.35
+end
+
+-- Whether an item tooltip says the item is locked. lines = { { text, r, g, b } } in tooltip order; locked =
+-- Blizzard's LOCKED text in the client's language. Returns "pickable", "tooHard" (the line is red: your skill
+-- can't open it) or nil (not locked).
+function ns.Rogue_LockState(lines, locked)
+	if type(locked) ~= "string" or locked == "" then
+		return nil
+	end
+	for i = 2, math.min(#lines, LOCK_LINES) do
+		local line = lines[i]
+		local text = line and line.text
+		if type(text) == "string" and #text >= #locked and #text <= #locked + LOCK_PREFIX
+			and text:sub(-#locked) == locked then
+			return IsRed(line.r, line.g, line.b) and "tooHard" or "pickable"
+		end
+	end
+	return nil
+end
+
+-- The macro that picks the lock of the item in bag, slot. [@none] keeps the spell waiting for a target, so a soft
+-- (interact) target in front of you can't take it before /use points it at the item.
+function ns.Rogue_LockpickMacro(spellName, bag, slot)
+	return ("/cast [@none] %s\n/use %d %d"):format(spellName, bag, slot)
+end
+
+-- The same for the trade window's "will not be traded" slot: clicking that slot's button while the spell waits
+-- for a target picks it. button = the slot's global button name.
+function ns.Rogue_LockpickTradeMacro(spellName, button)
+	return ("/cast [@none] %s\n/click %s"):format(spellName, button)
 end

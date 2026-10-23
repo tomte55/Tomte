@@ -137,6 +137,7 @@ ns.BUG_FILES = {
 	"Modules/Hunter/StablePage.lua",
 	"Modules/Hunter/Hunter.lua",
 	"Modules/Rogue/Data.lua",
+	"Modules/Rogue/Lockpick.lua",
 	"Modules/Rogue/Rogue.lua",
 	"Modules/Buffs/Data.lua",
 	"Modules/Buffs/Read.lua",

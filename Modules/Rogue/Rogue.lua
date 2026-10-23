@@ -2,8 +2,9 @@ local addonName, ns = ...
 
 -- Rogue Poisons: a row of buttons that appears when a poison is missing or about to run out, each one applying
 -- that poison with a click (or the "Apply missing poison" key binding), plus a poison check with a banner when
--- you enter a dungeon, raid or delve and on ready checks. Rogues only. Out of combat only: applying a poison is
--- a protected action, so the buttons are secure and can't change in combat. Pure rules in Data.lua.
+-- you enter a dungeon, raid or delve and on ready checks. Out of combat only: applying a poison is a protected
+-- action, so the buttons are secure and can't change in combat. Also Handy Lockpick (Lockpick.lua), which
+-- Mechagnomes of any class get too; the poison parts stay off for them. Pure rules in Data.lua.
 
 local BUTTONS = 4 -- two lethal and two non-lethal with Dragon-Tempered Blades
 local SIZE, GAP = 40, 6
@@ -29,6 +30,22 @@ local IsSecret = ns.IsSecret
 local function IsRogue()
 	local _, class = UnitClass("player")
 	return class == "ROGUE"
+end
+
+local function IsMechagnome()
+	local _, race = UnitRace("player")
+	return race == "Mechagnome"
+end
+
+-- The spell that picks locks for this character: Pick Lock for a rogue, else the Mechagnome racial; nil for
+-- anyone else.
+local function LockSpell()
+	if IsRogue() and (C_SpellBook.IsSpellKnown(ns.ROGUE_PICK_LOCK) or not IsMechagnome()) then
+		return ns.ROGUE_PICK_LOCK
+	elseif IsMechagnome() then
+		return ns.ROGUE_SKELETON_PINKIE
+	end
+	return nil
 end
 
 local function CharDB()
@@ -217,7 +234,7 @@ local function Allowed()
 end
 
 local function Refresh()
-	if InCombatLockdown() or not (holder or module.active) then
+	if InCombatLockdown() or not IsRogue() or not (holder or module.active) then
 		return
 	end
 	if not holder then -- made here, out of combat: a /reload in combat can't place a protected frame
@@ -272,6 +289,10 @@ local function FindProblems(verbose)
 end
 
 local function Check(verbose)
+	if not IsRogue() then
+		ns.Print("poisons are for rogues only.")
+		return
+	end
 	ns.Check_Report({
 		active = module.active,
 		verbose = verbose,
@@ -316,14 +337,28 @@ function events:PLAYER_REGEN_DISABLED()
 	if holder then
 		holder:Hide()
 	end
+	ns.RogueLock_Hide()
 end
 
 function events:UNIT_SPELLCAST_SUCCEEDED(_, _, spellID)
-	local kind = not IsSecret(spellID) and ns.Rogue_PoisonKind(spellID)
+	if IsSecret(spellID) then
+		return
+	end
+	ns.RogueLock_OnCast(spellID)
+	local kind = IsRogue() and ns.Rogue_PoisonKind(spellID)
 	if kind then
 		local last = CharDB().last
 		last[kind] = ns.Rogue_RememberPoison(last[kind], spellID)
 	end
+end
+
+-- An item picked up, or the other side of a trade changed its slots: the lockpick button's slot may be stale.
+function events:CURSOR_CHANGED()
+	ns.RogueLock_Hide()
+end
+
+function events:TRADE_TARGET_ITEM_CHANGED()
+	ns.RogueLock_Hide()
 end
 
 for _, event in ipairs({
@@ -353,19 +388,46 @@ local UNIT_EVENTS = {
 	"PLAYER_SPECIALIZATION_CHANGED",
 }
 
+-- Handy Lockpick's events (PLAYER_REGEN_DISABLED and UNIT_SPELLCAST_SUCCEEDED are the poison parts' too).
+local LOCK_EVENTS = { "PLAYER_REGEN_DISABLED", "CURSOR_CHANGED", "TRADE_TARGET_ITEM_CHANGED" }
+
+-- Turns Handy Lockpick on or off to match the module and its option.
+local function ApplyLockpick()
+	local spellID = LockSpell()
+	if module.active and db.lockpick and spellID then
+		ns.RogueLock_Start(spellID)
+		for _, event in ipairs(LOCK_EVENTS) do
+			events:RegisterEvent(event)
+		end
+		events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+		return
+	end
+	ns.RogueLock_Stop()
+	events:UnregisterEvent("CURSOR_CHANGED")
+	events:UnregisterEvent("TRADE_TARGET_ITEM_CHANGED")
+	if not (module.active and IsRogue()) then
+		events:UnregisterEvent("PLAYER_REGEN_DISABLED")
+		events:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+	end
+end
+
 local function Start()
-	for _, event in ipairs(EVENTS) do
-		events:RegisterEvent(event)
+	if IsRogue() then
+		for _, event in ipairs(EVENTS) do
+			events:RegisterEvent(event)
+		end
+		for _, event in ipairs(UNIT_EVENTS) do
+			events:RegisterUnitEvent(event, "player")
+		end
+		ticker = ticker or C_Timer.NewTicker(TICK, Refresh)
+		Refresh()
 	end
-	for _, event in ipairs(UNIT_EVENTS) do
-		events:RegisterUnitEvent(event, "player")
-	end
-	ticker = ticker or C_Timer.NewTicker(TICK, Refresh)
-	Refresh()
+	ApplyLockpick()
 end
 
 local function Stop()
 	events:UnregisterAllEvents()
+	ns.RogueLock_Stop()
 	if ticker then
 		ticker:Cancel()
 		ticker = nil
@@ -405,6 +467,19 @@ local function Minutes(v)
 	return v == 0 and "off" or (v .. " min")
 end
 
+-- The poison rows (shown to rogues only: a Mechagnome of another class only gets Handy Lockpick), then the
+-- lockpick card.
+local function Options(poisonRows)
+	for _, row in ipairs(poisonRows) do
+		row.shown = IsRogue
+	end
+	poisonRows[#poisonRows + 1] = { type = "header", label = "Handy Lockpick" }
+	poisonRows[#poisonRows + 1] = { type = "checkbox", key = "lockpick", label = "Right-click to pick lockboxes",
+		onChange = ApplyLockpick,
+		tooltip = "Right-click a locked lockbox in your bags, or in the trade window's \"will not be traded\" slot, to pick its lock (Pick Lock, or the Mechagnome racial). Out of combat only. Left-click still works as usual." }
+	return poisonRows
+end
+
 local function Scale(v)
 	return ("%.1f"):format(v)
 end
@@ -414,11 +489,13 @@ module = ns.RegisterModule({
 	name = "Rogue Poisons",
 	category = "class",
 	icon = 132273, -- ability_poisons
-	summary = "One click to reapply a missing poison, and a poison check.",
-	description = "Buttons that appear when a poison is missing from your weapons or about to run out: click one to apply that poison. A poison check when you enter a dungeon, raid or delve and on ready checks.",
+	summary = "One click to reapply a missing poison, a poison check, and right-click to pick lockboxes.",
+	description = "Buttons that appear when a poison is missing from your weapons or about to run out: click one to apply that poison. A poison check when you enter a dungeon, raid or delve and on ready checks. Handy Lockpick: right-click a locked lockbox in your bags or the trade window to pick it (rogues, and Mechagnomes of any class).",
 	enabledByDefault = true,
 	toasts = "Rogue poison check (banners)",
+	replaces = { { addon = "Plumber", why = "Handy Lockpick: right-click a lockbox to pick it" } },
 	defaults = {
+		lockpick = false,
 		bar = true,
 		lethal = true,
 		nonLethal = true,
@@ -433,8 +510,8 @@ module = ns.RegisterModule({
 		db = moduleDB
 	end,
 	blocked = function()
-		if not IsRogue() then
-			return "Only for rogues."
+		if not IsRogue() and not IsMechagnome() then
+			return "Only for rogues and Mechagnomes."
 		end
 	end,
 	toggle = function(active)
@@ -449,7 +526,7 @@ module = ns.RegisterModule({
 			Check(true)
 		end },
 	},
-	options = {
+	options = Options({
 		{ type = "header", label = "Poison buttons" },
 		{ type = "checkbox", key = "bar", label = "Show poison buttons", onChange = Refresh,
 			tooltip = "Out of combat, a button appears for each poison that's missing or about to run out. Click it to apply the poison. Key Bindings > Tomte > Apply missing poison does the same with a key." },
@@ -476,7 +553,7 @@ module = ns.RegisterModule({
 		{ type = "button", label = "Poison check", text = "Run", onClick = function()
 			Check(true)
 		end, tooltip = "List the poisons you know and have on, and what's missing." },
-	},
+	}),
 })
 
 _G["BINDING_NAME_" .. BINDING] = "Apply missing poison"
