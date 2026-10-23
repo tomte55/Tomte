@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
--- Dressing room pure logic (unit-tested in tests/test_dressup.lua): the slot bar's groups, the window's scale, the
--- item list's lines.
+-- Dressing room pure logic (no WoW API calls; unit-tested in tests/test_dressup.lua): the slot bar's groups, the
+-- window's scale, the item list's lines, outfit names, ensemble counts, the transmogrifier's pending changes and the
+-- title list.
 
 -- The slot bar, left to right: armor, then hands to feet, weapons, then shirt and tabard. false: a group gap.
 ns.DRESSUP_SLOTS = { 1, 3, 15, 5, 9, false, 10, 6, 7, 8, false, 16, 17, false, 4, 19 }
@@ -46,4 +47,136 @@ function ns.DressUp_ListLine(slotName, itemName, source)
 		line = line .. " - " .. source
 	end
 	return line
+end
+
+-- Outfits ------------------------------------------------------------------------------------------------------------
+
+-- The entry named `query` (any case): the exact name first, else the only name that starts with it, else the only
+-- name that holds it. entries: { { name = ... }, ... }. Returns the entry, or nil and the names that matched (more
+-- than one: the query is ambiguous; none: nothing matched).
+function ns.DressUp_FindByName(entries, query)
+	query = (query or ""):lower():match("^%s*(.-)%s*$")
+	if query == "" then
+		return nil, {}
+	end
+	local starts, holds = {}, {}
+	for _, e in ipairs(entries) do
+		local name = (e.name or ""):lower()
+		if name == query then
+			return e
+		end
+		if name:sub(1, #query) == query then
+			starts[#starts + 1] = e
+		elseif name:find(query, 1, true) then
+			holds[#holds + 1] = e
+		end
+	end
+	local list = #starts > 0 and starts or holds
+	if #list == 1 then
+		return list[1]
+	end
+	local names = {}
+	for i, e in ipairs(list) do
+		names[i] = e.name
+	end
+	return nil, names
+end
+
+-- Ensembles ----------------------------------------------------------------------------------------------------------
+
+-- How many of an ensemble's looks are collected. items: { { appearanceID = n, collected = bool }, ... }, one per
+-- piece; pieces that share a look count once, collected when any of them is. Returns have, total.
+function ns.DressUp_EnsembleCounts(items)
+	local seen, total, have = {}, 0, 0
+	for _, item in ipairs(items or {}) do
+		local id = item.appearanceID
+		if id then
+			if seen[id] == nil then
+				seen[id] = false
+				total = total + 1
+			end
+			if item.collected and not seen[id] then
+				seen[id] = true
+				have = have + 1
+			end
+		end
+	end
+	return have, total
+end
+
+-- The tooltip line and its color role, or nil for an empty set.
+function ns.DressUp_EnsembleLine(have, total)
+	if not total or total == 0 then
+		return nil
+	end
+	if have >= total then
+		return ("All %d appearances collected"):format(total), "success"
+	end
+	return ("%d of %d appearances collected"):format(have, total), have == 0 and "warning" or "accent"
+end
+
+-- The Catalyst's line under its result: whether the piece's look is new. collected: nil when the item has no look
+-- (or isn't loaded yet). Returns text, color role, or nil.
+function ns.DressUp_LookText(collected)
+	if collected == nil then
+		return nil
+	end
+	if collected then
+		return "Look collected", "textMuted"
+	end
+	return "New look", "success"
+end
+
+-- Transmogrifier ----------------------------------------------------------------------------------------------------
+
+-- The transmogrifier's pending changes. slots: { { slot = n, type = n, options = { option, ... } }, ... } (every
+-- appearance and illusion slot with the weapon options it has); read(slot, type, option) returns that slot's viewed
+-- info ({ hasPending, transmogID, displayType }) or nil. Returns a list of
+-- { slot, type, option, transmogID, displayType }, or nil when nothing is pending.
+function ns.DressUp_PendingChanges(slots, read)
+	local list = {}
+	for _, s in ipairs(slots or {}) do
+		for _, option in ipairs(s.options) do
+			local info = read(s.slot, s.type, option)
+			if info and info.hasPending and info.transmogID then
+				list[#list + 1] = { slot = s.slot, type = s.type, option = option, transmogID = info.transmogID,
+					displayType = info.displayType }
+			end
+		end
+	end
+	return #list > 0 and list or nil
+end
+
+-- Titles -------------------------------------------------------------------------------------------------------------
+
+ns.DRESSUP_TITLE_FILTERS = {
+	{ value = "owned", text = "Owned" },
+	{ value = "missing", text = "Missing" },
+	{ value = "all", text = "All" },
+}
+
+local function Trim(s)
+	return (s or ""):match("^%s*(.-)%s*$")
+end
+
+-- titles: { { id = n, name = "Corporal ", known = bool }, ... }; query: search text (any case, "" for all); filter:
+-- "owned", "missing" or "all". Returns { { id, name (trimmed), known }, ... } sorted by name.
+function ns.DressUp_FilterTitles(titles, query, filter)
+	query = Trim(query):lower()
+	local list = {}
+	for _, t in ipairs(titles or {}) do
+		local name = Trim(t.name)
+		local wanted = filter == "all" or (filter == "missing") == not t.known
+		if name ~= "" and wanted and (query == "" or name:lower():find(query, 1, true)) then
+			list[#list + 1] = { id = t.id, name = name, known = t.known and true or false }
+		end
+	end
+	table.sort(list, function(a, b)
+		local la, lb = a.name:lower(), b.name:lower()
+		if la ~= lb then
+			return la < lb
+		end
+		return a.id < b.id
+	end)
+	return list
 end

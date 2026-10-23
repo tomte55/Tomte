@@ -22,6 +22,11 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Group Alerts:** group and guild invites show who's inviting: their level, class and guild, when the game knows them.
 - **Chat Tabs:** right-clicking a chat tab offers "Leave" for each channel that tab shows.
 - **Session recap:** an optional reminder to take a break after an hour (30 to 180 minutes) of play in one sitting; it waits until you're out of combat, instances and cutscenes.
+- **Dressing room:** the Catalyst names the piece you'd get and says whether its look is new; Ctrl-click it to try it on, Shift-click to link it.
+- **Dressing room:** an Outfits button tries on your saved outfits in one click, and `/tomte dressup outfit <name>` does the same (or sets it up at the transmogrifier).
+- **Dressing room:** closed the transmogrifier before applying? Next time a "Restore last changes" button puts them back.
+- **Dressing room:** ensemble tooltips show how many of their appearances you have.
+- **Dressing room:** the character window's title list has a search box and an Owned / Missing / All filter.
 
 ### Improved
 

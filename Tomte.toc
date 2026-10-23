@@ -194,6 +194,11 @@ Modules/Showcase/Showcase.lua
 Modules/DressUp/Data.lua
 Modules/DressUp/Slots.lua
 Modules/DressUp/Tools.lua
+Modules/DressUp/Outfits.lua
+Modules/DressUp/Catalyst.lua
+Modules/DressUp/Restore.lua
+Modules/DressUp/Ensemble.lua
+Modules/DressUp/Titles.lua
 Modules/DressUp/DressUp.lua
 Modules/Achievements/Data.lua
 Modules/Achievements/Rewards.lua

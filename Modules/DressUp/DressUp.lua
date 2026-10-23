@@ -5,7 +5,10 @@ local addonName, ns = ...
 -- it maximizes or minimizes), with a slot bar along the bottom of the model (Slots.lua) and a toolbar on its right
 -- (Tools.lua: undress, target's outfit, item list). Everything is hooked (HookScript, hooksecurefunc) and talks only
 -- to the model's actor: no Blizzard function is replaced or called, so the window stays untainted.
--- Design: docs/superpowers/specs/2026-10-12-tomte-showcase-gear-menu-design.md ("Dressing room").
+-- Around it: saved outfits (Outfits.lua), the Catalyst preview (Catalyst.lua), restoring transmog changes
+-- (Restore.lua), ensemble tooltip counts (Ensemble.lua) and the title list's search (Titles.lua).
+-- Design: docs/superpowers/specs/2026-10-12-tomte-showcase-gear-menu-design.md ("Dressing room"); the extras:
+-- docs/superpowers/plans/2026-10-23-tomte-takeover-phases-4-5.md (task 2).
 
 local OWNER = "dressup"
 local CHECK_EVERY = 0.1 -- seconds between size checks while the window is open
@@ -98,6 +101,15 @@ local function UpdateExtras()
 	ns.DressUpTools.Update(on and db.tools)
 end
 
+-- The pieces outside the dressing room (Catalyst.lua, Restore.lua, Ensemble.lua, Titles.lua): each reads
+-- module.active and its own setting.
+local function UpdateOthers()
+	ns.DressUp_CatalystUpdate()
+	ns.DressUp_RestoreUpdate()
+	ns.DressUp_EnsembleUpdate()
+	ns.DressUp_TitlesUpdate()
+end
+
 local function Hook()
 	local frame = DressUpFrame
 	if hooked or not frame then
@@ -170,22 +182,38 @@ module = ns.RegisterModule({
 	name = "Dressing room",
 	category = "gear",
 	icon = 135030, -- inv_shirt_white_01
-	summary = "A bigger dressing room with a slot bar and outfit tools.",
+	summary = "A bigger dressing room with a slot bar and outfit tools, plus Catalyst previews, transmog and title "
+		.. "helpers.",
 	description = "The dressing room (Ctrl-click an item) opens bigger, with a slot bar under the model (click a "
-		.. "piece to hide it, Shift-click to link it) and buttons to undress, show your target's outfit and list the "
-		.. "outfit with where each piece comes from.",
+		.. "piece to hide it, Shift-click to link it) and buttons to undress, show your target's outfit, list the "
+		.. "outfit with where each piece comes from and try on your saved outfits. The Catalyst shows what you'd "
+		.. "get, the transmogrifier keeps changes you closed it on, ensembles show how many looks you have and the "
+		.. "title list can be searched.",
 	enabledByDefault = true,
 	defaults = {
 		height = 0.8,
 		slots = true,
 		tools = true,
 		ownBody = false,
+		catalyst = true, -- the Catalyst's result: a line under it, Ctrl-click to try on, Shift-click to link
+		restore = true, -- the transmogrifier offers back the changes it was closed on
+		ensemble = true, -- "N of M appearances collected" on ensemble tooltips
+		titles = true, -- search and filter on the character window's title list
+		titleFilter = "owned", -- "owned", "missing" or "all" (ns.DRESSUP_TITLE_FILTERS)
 		debug = false, -- chat lines when the dressing room's size is set (hidden /tomte dressup debug)
 	},
 	noShare = { "debug" }, -- a debug switch: not in settings strings (Core/Profile.lua)
+	replaces = {
+		{ addon = "Plumber", why = "the Catalyst preview, outfit picking, restoring transmog changes, ensemble "
+			.. "counts and the title search" },
+	},
 	init = function(saved)
 		db = saved
 		ns.DressUpTools.Init(saved)
+		ns.DressUp_CatalystInit(module, saved)
+		ns.DressUp_RestoreInit(module, saved)
+		ns.DressUp_EnsembleInit(module, saved)
+		ns.DressUp_TitlesInit(module, saved)
 	end,
 	toggle = function(active)
 		if active then
@@ -196,8 +224,13 @@ module = ns.RegisterModule({
 		end
 		Apply()
 		UpdateExtras()
+		UpdateOthers()
 	end,
 	commands = {
+		{ "outfit", "<name>: try on a saved outfit (at the transmogrifier: set it up there); no name lists them",
+			function(_, rawArg)
+				ns.DressUp_OutfitCommand(rawArg)
+			end },
 		{ "debug", "chat lines when the dressing room's size is set", function()
 			db.debug = not db.debug
 			ns.Print("Dressing room debug " .. (db.debug and "on" or "off") .. ".")
@@ -211,8 +244,19 @@ module = ns.RegisterModule({
 			tooltip = "A button per slot under the model: hover for the item, click to hide or show it, Shift-click to "
 				.. "link it." },
 		{ type = "checkbox", key = "tools", label = "Toolbar", onChange = UpdateExtras,
-			tooltip = "Undress, Target's outfit and Item list buttons on the right of the model." },
+			tooltip = "Undress, Target's outfit, Item list and Outfits buttons on the right of the model." },
 		{ type = "checkbox", key = "ownBody", label = "Target's outfit on your character", parent = "tools",
 			tooltip = "Target's outfit dresses your own character instead of the target's." },
+		{ type = "header", label = "Transmog" },
+		{ type = "checkbox", key = "catalyst", label = "Catalyst preview", onChange = UpdateOthers,
+			tooltip = "In the Catalyst, the piece you'd get is named under it with whether its look is new. "
+				.. "Ctrl-click it to try it on, Shift-click to link it." },
+		{ type = "checkbox", key = "restore", label = "Restore transmog changes", onChange = UpdateOthers,
+			tooltip = "Closed the transmogrifier before applying? Next time, a button puts your changes back." },
+		{ type = "checkbox", key = "ensemble", label = "Ensemble counts", onChange = UpdateOthers,
+			tooltip = "Ensemble tooltips say how many of their appearances you have." },
+		{ type = "header", label = "Titles" },
+		{ type = "checkbox", key = "titles", label = "Title search", onChange = UpdateOthers,
+			tooltip = "The character window's title list gets a search box and an Owned / Missing / All filter." },
 	},
 })

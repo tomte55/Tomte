@@ -1,8 +1,9 @@
 local addonName, ns = ...
 
--- Dressing room toolbar: three buttons down the right side of the model. Undress (everything off), Target's outfit
--- (inspects your target and puts its transmog on the model: the target's body, or yours with the setting) and Item
--- list (the outfit as copyable text, with where each piece comes from). Like the slot bar, these only talk to the
+-- Dressing room toolbar: four buttons down the right side of the model. Undress (everything off), Target's outfit
+-- (inspects your target and puts its transmog on the model: the target's body, or yours with the setting), Item
+-- list (the outfit as copyable text, with where each piece comes from) and Outfits (a menu of saved outfits,
+-- Outfits.lua). Like the slot bar, these only talk to the
 -- model's player actor and never call Blizzard's dressing room functions (DressUpFrame_Show and friends taint the
 -- window when an addon calls them: its Link > Copy button then gets blocked).
 
@@ -155,6 +156,11 @@ local TOOLS_LIST = {
 		tip = "Inspect your target and show its transmog.", run = TargetOutfit },
 	{ icon = "Interface\\Icons\\INV_Misc_Note_01", label = "Item list",
 		tip = "The outfit as text to copy, with where each piece comes from.", run = ItemList },
+	-- Outfits.lua loads after this file: looked up on click.
+	{ icon = "Interface\\Icons\\INV_Chest_Cloth_17", label = "Outfits",
+		tip = "Try on one of your saved outfits.", run = function(self)
+			ns.DressUp_OutfitMenu(self)
+		end },
 }
 
 local function CreateButton(def, i)
