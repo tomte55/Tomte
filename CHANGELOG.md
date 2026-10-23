@@ -23,6 +23,10 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Settings:** new Quests, Chat and Interface groups in the Tomte window's sidebar, so modules sit where you'd look for them; the sidebar scrolls when the window is short.
 
+### Fixed
+
+- **Whispers:** the "While you were away" card after AFK only counts whispers that came in while you were away, not one left unread from earlier (or from your last session).
+
 ## v1.20.1 - 2026-10-22
 
 ### Fixed

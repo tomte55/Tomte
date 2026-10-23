@@ -296,13 +296,29 @@ function ns.Social_MarkAllRead(store, guid)
 	end
 end
 
+-- How many of convo's unread messages came in at or after since (a time() stamp); all of them when since is nil.
+function ns.Social_UnreadSince(convo, since)
+	if not since then
+		return convo.unread
+	end
+	local messages, count = convo.messages, 0
+	for i = #messages, math.max(#messages - convo.unread + 1, 1), -1 do
+		if (messages[i].at or 0) >= since then
+			count = count + 1
+		end
+	end
+	return count
+end
+
 -- Total unread messages and the unread conversations, newest first. guid (optional): only that character's
--- conversations (ns.Social_IsMine).
-function ns.Social_Unread(store, guid)
+-- conversations (ns.Social_IsMine). since (optional): only messages that came in at or after it, so the recap after
+-- AFK doesn't count a whisper left unread from before (or from an earlier session).
+function ns.Social_Unread(store, guid, since)
 	local total, convos = 0, {}
 	for _, convo in ipairs(ns.Social_SortedConvos(store)) do
-		if convo.unread > 0 and (not guid or ns.Social_IsMine(convo, guid)) then
-			total = total + convo.unread
+		local count = (not guid or ns.Social_IsMine(convo, guid)) and ns.Social_UnreadSince(convo, since) or 0
+		if count > 0 then
+			total = total + count
 			convos[#convos + 1] = convo
 		end
 	end

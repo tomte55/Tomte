@@ -33,6 +33,8 @@ local sample -- the preview's made-up conversations (ns.Social_SampleConvos) whi
 local bnTokens = {} -- [conversation key] = this session's |K account name, for replies
 local recapUp = false -- the unread card is showing
 local wasAFK = false
+local awaySince -- time() when you went AFK, nil while you're not
+local recapSince -- the recap counts only whispers from this time() on (when you went AFK)
 
 local events = CreateFrame("Frame")
 events:SetScript("OnEvent", function(self, event, ...)
@@ -94,15 +96,17 @@ function ns.Whispers_Get(key)
 	return Store().convos[key]
 end
 
-local function UnreadTotal()
-	local total, convos = ns.Social_Unread(Store(), (Me()))
-	return total + restricted.unread, convos
+-- since (optional): only whispers that came in at or after this time().
+local function UnreadTotal(since)
+	local total, convos = ns.Social_Unread(Store(), (Me()), since)
+	local restrictedCount = ns.Social_UnreadSince(restricted, since)
+	return total + restrictedCount, convos, restrictedCount
 end
 
--- The unread card only comes up when you're back from AFK; after that it follows the unread count until
--- everything's read (answered, opened in the inbox, or right-clicked).
+-- The unread card only comes up when you're back from AFK, for whispers that came in while you were away; after
+-- that it follows their unread count until they're read (answered, opened in the inbox, or right-clicked).
 local function UpdateRecap(show)
-	local total, convos = UnreadTotal()
+	local total, convos, restrictedCount = UnreadTotal(recapSince)
 	if total == 0 or not ns.whispersDB.badge or not module.active then
 		recapUp = false
 		ns.Toast_Unpin(RECAP)
@@ -116,7 +120,7 @@ local function UpdateRecap(show)
 	for _, convo in ipairs(convos) do
 		names[#names + 1] = ns.Inbox_ColoredName(convo)
 	end
-	if restricted.unread > 0 then
+	if restrictedCount > 0 then
 		names[#names + 1] = "in instance"
 	end
 	ns.Toast_Pin(RECAP, {
@@ -479,7 +483,8 @@ function events:CHAT_MSG_BN_WHISPER_INFORM(text, target, _, _, _, _, _, _, _, _,
 	end
 end
 
--- Back from AFK with unread whispers: one recap card instead of the toasts still up or held back.
+-- Back from AFK with unread whispers from while you were away: one recap card instead of the toasts still up or
+-- held back. Whispers left unread from before (or from an earlier session) don't count.
 function events:PLAYER_FLAGS_CHANGED(unit)
 	local afk = UnitIsAFK("player")
 	-- The unit token and the AFK flag can come in as secret values under addon restrictions: compare them only
@@ -488,9 +493,15 @@ function events:PLAYER_FLAGS_CHANGED(unit)
 		return
 	end
 	afk = afk and true or false
-	if wasAFK and not afk and ns.whispersDB.badge and UnreadTotal() > 0 then
-		ns.Toast_Clear(OWNER)
-		UpdateRecap(true)
+	if afk and not wasAFK then
+		awaySince = time()
+	elseif wasAFK and not afk then
+		if ns.whispersDB.badge and awaySince and UnreadTotal(awaySince) > 0 then
+			ns.Toast_Clear(OWNER)
+			recapSince = awaySince
+			UpdateRecap(true)
+		end
+		awaySince = nil
 	end
 	wasAFK = afk
 end
@@ -530,6 +541,8 @@ local function Activate()
 	ns.Toast_SetDigest(OWNER, Digest)
 	local afk = UnitIsAFK("player")
 	wasAFK = Readable(afk) and afk and true or false
+	-- Already AFK (a /reload while away): the best guess for when is now.
+	awaySince = wasAFK and time() or nil
 end
 
 local function Deactivate()
