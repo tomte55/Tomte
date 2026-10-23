@@ -207,6 +207,7 @@ ns.BUG_FILES = {
 	"Modules/Achievements/Tracker.lua",
 	"Modules/Achievements/Achievements.lua",
 	"Modules/Upkeep/Data.lua",
+	"Modules/Upkeep/Merchant.lua",
 	"Modules/Upkeep/Vendor.lua",
 	"Modules/Upkeep/Durability.lua",
 	"Modules/Weekly/Model.lua",

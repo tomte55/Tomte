@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 -- Upkeep pure logic (unit-tested with plain Lua): how to pay for a repair, what the junk in the bags is worth,
--- the worst durability among equipped items and when a durability warning fires.
+-- the worst durability among equipped items and when a durability warning fires, and which merchant costs you lack.
 
 -- How to pay for a repair: "guild", "own", "poor" (can't afford it) or nil (nothing to repair).
 -- withdraw is GetGuildBankWithdrawMoney(): what you may still take out today, -1 for the guild leader (no limit).
@@ -90,4 +90,20 @@ end
 -- Percent text for a fraction: floors, so 29.9 % never reads as "30%" under a 30 % threshold.
 function ns.Durability_Percent(f)
 	return ("%d%%"):format(math.floor(f * 100))
+end
+
+-- Which costs of a merchant row you can't pay. price: the gold part in copper (0 or nil: none), money: your copper,
+-- costs: { { need, have } } for the row's currency and item costs, in the row's order (nil need or have: unknown,
+-- never marked short). -> { money = true when the gold is short, [i] = true for each cost you lack }.
+function ns.Upkeep_PriceShort(price, money, costs)
+	local short = {}
+	if price and price > 0 and money and money < price then
+		short.money = true
+	end
+	for i, cost in ipairs(costs or {}) do
+		if cost.need and cost.have and cost.have < cost.need then
+			short[i] = true
+		end
+	end
+	return short
 end

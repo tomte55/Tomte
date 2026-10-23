@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Vendor Helper: at a merchant, repair (guild funds first when the guild can pay the whole bill) and sell
 -- grey items, then one toast that sums it up. Holding Shift while opening the merchant skips both. Nothing runs
--- in combat or during a boss encounter. Rules in Data.lua.
+-- in combat or during a boss encounter. Rules in Data.lua; price colors and the non-refundable lock in Merchant.lua.
 
 local GUILD_CHECK_DELAY = 1 -- seconds before checking that a guild repair went through
 local ACCENT = "accent" -- toast accent (a role)
@@ -181,6 +181,7 @@ local function Toggle(active)
 		events:UnregisterAllEvents()
 		ns.Toast_Clear("vendor")
 	end
+	ns.UpkeepMerchant_Toggle(active)
 end
 
 module = ns.RegisterModule({
@@ -189,7 +190,7 @@ module = ns.RegisterModule({
 	category = "gear",
 	icon = 133639, -- inv_misc_bag_10
 	summary = "Repairs and sells grey items for you whenever you open a vendor.",
-	description = "Repairs (guild funds first) and sells grey items when you open a vendor, then sums it up in a toast. Hold Shift while opening the vendor to skip it.",
+	description = "Repairs (guild funds first) and sells grey items when you open a vendor, then sums it up in a toast. Hold Shift while opening the vendor to skip it. Prices show which currency you're missing, and buying something you can't refund asks a moment longer.",
 	enabledByDefault = true,
 	toasts = "Vendor",
 	defaults = {
@@ -197,10 +198,16 @@ module = ns.RegisterModule({
 		guild = false,
 		junk = true,
 		toast = true,
+		prices = true, -- only the costs you lack turn red on a merchant row (Merchant.lua)
+		lockNonRefundable = true, -- the Yes button of a non-refundable purchase waits a second (Merchant.lua)
 	},
 	noShare = { "guild" }, -- spending your guild's money is your choice, never a friend's string's (Core/Profile.lua)
+	replaces = {
+		{ addon = "Plumber", why = "merchant prices that show which currency you're missing, and the short lock on non-refundable purchases" },
+	},
 	init = function(moduleDB)
 		db = moduleDB
+		ns.UpkeepMerchant_Init(db)
 	end,
 	toggle = Toggle,
 	commands = {
@@ -222,5 +229,12 @@ module = ns.RegisterModule({
 			tooltip = "Bags set to \"Ignore junk selling\" are left alone." },
 		{ type = "checkbox", key = "toast", label = "Summary toast",
 			tooltip = "Off: one line in chat instead." },
+
+		{ type = "header", label = "Buying" },
+		{ type = "checkbox", key = "prices", label = "Show which cost you're missing", onChange = function()
+			ns.UpkeepMerchant_Refresh()
+		end, tooltip = "When you can't afford an item, the game greys all of its costs. This turns only the ones you lack red, so you see which currency or item is missing." },
+		{ type = "checkbox", key = "lockNonRefundable", label = "Wait a second before non-refundable buys",
+			tooltip = "When the game asks you to confirm a purchase you can't refund, its Yes button waits a second, so a double click can't buy by accident." },
 	},
 })

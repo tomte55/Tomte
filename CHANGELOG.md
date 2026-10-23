@@ -30,6 +30,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Dressing room:** closed the transmogrifier before applying? Next time a "Restore last changes" button puts them back.
 - **Dressing room:** ensemble tooltips show how many of their appearances you have.
 - **Dressing room:** the character window's title list has a search box and an Owned / Missing / All filter.
+- **Vendor Helper:** when you can't afford something, only the currencies or items you're missing turn red, not every cost on the row.
+- **Vendor Helper:** the Yes button of a purchase you can't refund waits a second, so a double click can't buy by accident.
 
 ### Improved
 
