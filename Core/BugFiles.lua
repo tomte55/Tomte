@@ -249,6 +249,7 @@ ns.BUG_FILES = {
 	"Modules/Alts/Alts.lua",
 	"Modules/Materials/Generated.lua",
 	"Modules/Materials/Data.lua",
+	"Modules/Materials/Knowledge.lua",
 	"Modules/Materials/Materials.lua",
 	"Modules/Recap/Data.lua",
 	"Modules/Recap/History.lua",

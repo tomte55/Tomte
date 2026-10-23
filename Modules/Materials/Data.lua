@@ -130,3 +130,48 @@ function ns.Materials_Lines(input)
 	end
 	return lines
 end
+
+-- Unspent knowledge ---------------------------------------------------------------------------------------------------
+
+-- The expansion skill line whose specializations the Professions book shows for a profession. candidates:
+-- { { id, name, parent, spec } } (every profession skill line: its localized name, its parent profession's skill line,
+-- whether it has specializations). base: the profession's skill line, name: the expansion part GetProfessionInfo
+-- names (localized). The skill line with that name wins; otherwise the newest (highest ID) one under base with
+-- specializations. nil when none has any.
+function ns.Materials_PickSkillLine(candidates, base, name)
+	local newest
+	for _, c in ipairs(candidates or {}) do
+		local under = c.parent == nil or c.parent == base
+		if name and name ~= "" and c.name == name and under then
+			return c.id
+		end
+		if c.parent == base and c.spec and (not newest or c.id > newest) then
+			newest = c.id
+		end
+	end
+	return newest
+end
+
+-- Knowledge left to spend across a profession's specialization tabs. tabs: { { currency, quantities = { [currency
+-- ID] = quantity } } }: each tab's spend currency and its tree's currency amounts. Tabs that share a currency (they
+-- usually all do) count it once. nil when no tab names a currency it has an amount for.
+function ns.Materials_KnowledgeSum(tabs)
+	local total, seen
+	for _, tab in ipairs(tabs or {}) do
+		local q = tab.currency and tab.quantities and tab.quantities[tab.currency]
+		if type(q) == "number" and not (seen and seen[tab.currency]) then
+			seen = seen or {}
+			seen[tab.currency] = true
+			total = (total or 0) + q
+		end
+	end
+	return total
+end
+
+-- The Professions book line for unspent knowledge, or nil when there's none to spend.
+function ns.Materials_KnowledgeText(n)
+	if type(n) ~= "number" or n <= 0 then
+		return nil
+	end
+	return ("%d knowledge to spend"):format(n)
+end
