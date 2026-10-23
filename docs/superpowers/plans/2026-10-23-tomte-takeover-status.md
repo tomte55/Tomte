@@ -58,50 +58,65 @@ The user asked to commit these before checking them. Ask for a check before buil
   "Take all" as accent text with a keycap. The feed lines have a quality bar and a strip that fades out to the
   right; a repeated item merges into its line and counts up (as Plumber does).
 
-## Left to build
+## Phases 4 and 5: built, not committed (2026-10-23)
 
-Each item gets its own short plan when it's reached (spec, "Planning"), and its own commit after the user's
-in-game check. Defaults: anything that only shows information is on; anything that acts for the player is off.
+Everything below is built in the working tree, reviewed, unit-tested, and wired into the TOC, `Bindings.xml`,
+README and CHANGELOG, per `docs/superpowers/plans/2026-10-23-tomte-takeover-phases-4-5.md` (tasks 1 to 11 and
+their decisions). None of it has been run in game. Commit per task (that plan's table gives each task's files)
+after the user's in-game check. Differences from the plan:
+
+- Prey's War Within extras: nothing built (the event sign-up is already in Quests; the rest is too large or not
+  War Within).
+- Tooltip extras: chest keys cover only delve Bountiful Coffers; no reputation amounts (Blizzard's text has them).
+- Professions: knowledge amounts on item tooltips dropped (no API); the Rich Soil spot is learned the first time
+  you plant from the bags.
+- Housing decor: Blizzard's own catalog search not extended (taint); the Decor page's search covers sources.
+- Dressing room: `/tomte dressup outfit` can't switch a transmog outfit away from the transmogrifier (prints
+  `/outfit N`).
+- Chat Tabs "Leave" entries only work while Chat Tabs is on (off by default).
+- Drawers don't close on Esc (protected frames in combat).
+
+Defaults: anything that only shows information is on; anything that acts for the player is off.
 
 ### Phase 4: small helpers in existing modules
 
-- [ ] **Rogue:** Handy Lockpick: right-click a lockbox in bags or the trade window to pick it (also the Mechagnome
+- [x] **Rogue:** Handy Lockpick: right-click a lockbox in bags or the trade window to pick it (also the Mechagnome
       racial). Secure button, created out of combat. Off by default (it acts).
-- [ ] **Dressing room:** Catalyst preview (Ctrl-click previews, Shift-click links), quick outfit button, restore
+- [x] **Dressing room:** Catalyst preview (Ctrl-click previews, Shift-click links), quick outfit button, restore
       unsaved transmog changes, collectable counts on ensemble tooltips, `/tomte` outfit command.
-- [ ] **Gear Check:** open the character pane at upgrade NPCs; gem socket helper; stronger item quality glow; bag
+- [x] **Gear Check:** open the character pane at upgrade NPCs; gem socket helper; stronger item quality glow; bag
       sort order switch.
-- [ ] **Vendor Helper:** merchant prices (grey out only the currencies you lack, list all costs); a short lock on
+- [x] **Vendor Helper:** merchant prices (grey out only the currencies you lack, list all costs); a short lock on
       the Yes button for non-refundable purchases.
-- [ ] **Professions:** unspent knowledge on the Professions book and in tooltips (Materials); the Underlight Angler
+- [x] **Professions:** unspent knowledge on the Professions book and in tooltips (Materials); the Underlight Angler
       fix (Fishing); Resilient Seeds quick slot (Gathering, Midnight only, through the content system).
-- [ ] **Group Alerts:** inviter's level and class on group and guild invites.
-- [ ] **Chat Tabs:** "Leave" entries in the channel right-click menu.
-- [ ] **Waypoints:** map ping on the player arrow when the map opens; countdown on timed waypoints; keys to cycle
+- [x] **Group Alerts:** inviter's level and class on group and guild invites.
+- [x] **Chat Tabs:** "Leave" entries in the channel right-click menu.
+- [x] **Waypoints:** map ping on the player arrow when the map opens; countdown on timed waypoints; keys to cycle
       focus through tracked quests. (Memory: never open the map from code.)
-- [ ] **Session recap:** break reminder, off by default.
-- [ ] **Backpack item tracker:** stackable items on the bag currency bar, holiday tokens pinned, upgrade currency
+- [x] **Session recap:** break reminder, off by default.
+- [x] **Backpack item tracker:** stackable items on the bag currency bar, holiday tokens pinned, upgrade currency
       tracked, zero-count items hidden. Home: Holidays or Gold & value (builder's call).
-- [ ] **Title manager:** search and filter titles. Home: Dressing room or Almost Done (builder's call).
-- [ ] **Clickable sources:** achievement names in the Mount Journal and the decor catalog become links (Collect
+- [x] **Title manager:** search and filter titles. Home: Dressing room or Almost Done (builder's call).
+- [x] **Clickable sources:** achievement names in the Mount Journal and the decor catalog become links (Collect
       here).
-- [ ] **Tooltip extras (new module,** key `tips`, on by default, category `interface`): which key opens a chest or
+- [x] **Tooltip extras (new module,** key `tips`, on by default, category `interface`): which key opens a chest or
       door, reputation tokens, reagents in combine items, token vendor locations (Ctrl-click pins through
       Waypoints), choice UI item counts. (Memory: no widget sets in GameTooltip.)
 
 ### Phase 5: larger pieces
 
-- [ ] **Delves:** dashboard (Great Vault and Gilded Stash progress), season progress bar, auto-pick delve powers
+- [x] **Delves:** dashboard (Great Vault and Gilded Stash progress), season progress bar, auto-pick delve powers
       (off by default), coffer key and shard caps in tooltips.
-- [ ] **Housing decor:** decorate-mode hover info and Alt-duplicate, customize-mode dye copy, editor clock, banana
+- [x] **Housing decor:** decorate-mode hover info and Alt-duplicate, customize-mode dye copy, editor clock, banana
       for scale, teleport-home macro, house list, click-to-preview acquired alert, catalog search.
-- [ ] **Expansion summary:** factions, activities, raid lockouts, vault, upgrade currency: a Tomte page with a
+- [x] **Expansion summary:** factions, activities, raid lockouts, vault, upgrade currency: a Tomte page with a
       minimap entry, sharing data with Weekly board.
-- [ ] **Nameplates (new module,** off by default, category `interface`): quest icons and progress on nameplates,
+- [x] **Nameplates (new module,** off by default, category `interface`): quest icons and progress on nameplates,
       soft-target name and cast bar, War Within Keyflame counts.
-- [ ] **Drawer macros:** custom flyouts of items, spells, mounts and toys. Secure-heavy; last. (Memory: secure
+- [x] **Drawer macros:** custom flyouts of items, spells, mounts and toys. Secure-heavy; last. (Memory: secure
       button gotchas.)
-- [ ] **Expansion content:** Midnight Prey hunt table and Prey waypoint; War Within event extras.
+- [x] **Expansion content:** Midnight Prey hunt table and Prey waypoint; War Within event extras.
 
 ### Also waiting
 

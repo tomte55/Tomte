@@ -327,7 +327,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte plates why` (what your target's nameplate shows and why)
 - `/tomte drawers edit [1-4]` (open the drawer editor)
 
-Key bindings for toggling the Tomte window, Smart Mount, the Gold world quests window, whisper reply, the whisper inbox, Next pet battle move, Heal battle pets, Apply missing poison, Fishing, Copy chat, Take all loot and the Casino are under **Tomte** in the game's Key Bindings menu.
+Key bindings for toggling the Tomte window, Smart Mount, the Gold world quests window, whisper reply, the whisper inbox, Next pet battle move, Heal battle pets, Apply missing poison, Fishing, Copy chat, Take all loot, the Casino, Open drawer 1-4, Teleport home (or back from a visit) and Waypoints: focus the next/previous tracked quest are under **Tomte** in the game's Key Bindings menu.
 
 </details>
 
@@ -341,7 +341,8 @@ Key bindings for toggling the Tomte window, Smart Mount, the Gold world quests w
 ```
 Tomte.toc, Bindings.xml
 Core/        saved variables, module registry, /tomte, play session, which expansion's content a character is in
-Data/        hand-kept data per expansion (WarWithin/, Midnight/): weekly activities, crests, raids, gear weights
+Data/        hand-kept data per expansion (WarWithin/, Midnight/, Older/): weekly activities, crests, raids, gear
+             weights, tooltip extras (Tips.lua), Prey
 Cinematic/   shared cinematic engine and banners
 Panel/       Tomte window, settings and widgets
 Themes/      one file per theme (colors, fonts and art by role, registered with ns.Theme.Register)
@@ -349,7 +350,7 @@ Media/       logo, theme art and fonts (with their OFL licenses)
 Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Rogue, Combat, Social, Chat, Gear,
              Achievements, Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value,
              Minimap, Pets, Fishing, Gather, Delves, TradingPost, Holidays, Share, Materials, Mail, Talents, Graphics,
-             Cursor, Buffs, Decor, Games, Quests, Loot, Instances)
+             Cursor, Buffs, Decor, Games, Quests, Loot, Instances, Tips, Nameplates, Drawers, Summary, Prey)
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 tools/       dev scripts (waynet.py builds Modules/Travel/Network*.lua from Blizzard's waypoint tables, events.py
              builds Modules/Holidays/Generated.lua from the client's toy and holiday tables, materials.py builds
@@ -454,6 +455,13 @@ or modules, major for changes that reset or break settings.
   and [Plumber](https://github.com/Peterodox/Plumber) (the features only; no code taken). Event sign-up gossip option
   IDs (Theater Troupe, Time Rift), the "Race Times" aura icon and the holiday and Timewalking random dungeon IDs come
   from Plumber (IDs only).
+- More from [Plumber](https://github.com/Peterodox/Plumber) by Peterodox, IDs only and no code: Tooltip extras' chest
+  key, choice token and combine item IDs and the token vendors' NPC IDs and spots; Nameplates' Keyflame widget set IDs
+  and the Radiant Remnant item; Prey's quest, criteria, achievement and faction IDs; the Resilient Seeds item and
+  spell pairs and the Rich Soil zone map IDs (Gathering); the Underlight Angler's item ID (Fishing); and Housing
+  decor's banana model and icon IDs. Drawers and the Dressing room's Catalyst, outfits and title list follow Plumber's
+  ideas (no code). Tooltip extras' reputation token list comes from the client's SpellEffect and ItemEffect tables
+  (12.1.5) on [wago.tools](https://wago.tools).
 - Gold & value: holiday token item IDs from warcraft.wiki.gg.
 - Fonts: [Cinzel](https://github.com/NDISCOVER/Cinzel) by Natanael Gama and
   [Alegreya](https://github.com/huertatipografica/Alegreya) by Juan Pablo del Peral (Huerta Tipográfica), both under
