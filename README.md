@@ -267,6 +267,7 @@ are Tomte window settings.
 | Almost Done | Collections | Near-complete achievements in a list docked to the Achievements window: search, threshold, category/expansion/reward filters, reward icons (owned ones greyed out) with a model preview, and a meta browser. A Top 5 tracker (pins first) and toasts when something reaches the threshold, has one step left, or a pinned one moves. Replaces AlmostCompletedAchievements. |
 | Loot | Gear & loot | Replaces the game's loot window, in three styles: a compact list, a card with the best item, its upgrade verdict and price, or a feed of lines beside your character (the same item again adds to its line and counts up) that only opens a window when something can't be looted by itself (full bags, rolls, locked loot). Fast loot, a Take all key, owned counts, new appearances, junk folded into one line, reputation and currency lines, Blizzard's loot pop-ups shown the same way, and a quieter boss loot banner (hidden while solo, or valuable items only). Replaces Plumber's loot window. |
 | Quests | Quests | Talk to an NPC and its quests are accepted and handed in, and the gossip option that moves a quest on is picked; hold Shift to do it yourself. Leaves dailies and quests that cost gold to you, can pick the reward Gear Check calls an upgrade, signs you up for events like the Theater Troupe, skips cinematics you've seen, can quiet the Talking Head or show it as plain text, shows your race medals at skyriding timekeepers and names the quest an item starts. Right-click a targeted NPC's portrait to leave that NPC to you. Off by default. |
+| Instances | Groups & friends | Near a dungeon or raid portal, pick Normal, Heroic or Mythic and see your lockout on each. Readable difficulty on the minimap ("5 · H", "M+12", "D8", "LFR"); click it outside an instance to change difficulty. A banner with your lockout when you enter a dungeon or raid, a small panel by the queue eye with your time in queue, the average wait and who's been found so far, and the holiday or Timewalking dungeon picked when you first open Dungeon Finder. |
 | Vendor Helper | Gear & loot | At a vendor: repairs (guild funds first when the withdraw limit covers it) and sells grey items, then one summary toast. Hold Shift while opening the vendor to skip it. |
 | Durability | Gear & loot | A toast when your worst item drops below a threshold (once per drop) or an item breaks, and a warning when you enter a dungeon, raid or delve with low gear. |
 
@@ -313,6 +314,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte decor open`, `/tomte decor scan` (read the housing catalog again and count decor per source), `/tomte decor why <item link or ID>` (what the catalog says about a decor item), `/tomte decor vendors` (the vendors Tomte has learned the spot of)
 - `/tomte quests why` (why the last NPC's quests and gossip were or weren't done for you), `/tomte quests ignore` (the NPCs you left to yourself; `ignore <ID>` takes one off, `ignore clear` empties the list)
 - `/tomte loot test` (a sample loot window and feed lines), `/tomte loot why` (how the last loot window was handled: auto loot, key, fast loot, style, what was left)
+- `/tomte instances why` (what the minimap badge, the portal card, the queue plate and the holiday pick see right now)
 
 Key bindings for toggling the Tomte window, Smart Mount, the Gold world quests window, whisper reply, the whisper inbox, Next pet battle move, Heal battle pets, Apply missing poison, Fishing, Copy chat, Take all loot and the Casino are under **Tomte** in the game's Key Bindings menu.
 
@@ -336,7 +338,7 @@ Media/       logo, theme art and fonts (with their OFL licenses)
 Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, Rogue, Combat, Social, Chat, Gear,
              Achievements, Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value,
              Minimap, Pets, Fishing, Gather, Delves, TradingPost, Holidays, Share, Materials, Mail, Talents, Graphics,
-             Cursor, Buffs, Decor, Games, Quests, Loot)
+             Cursor, Buffs, Decor, Games, Quests, Loot, Instances)
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 tools/       dev scripts (waynet.py builds Modules/Travel/Network*.lua from Blizzard's waypoint tables, events.py
              builds Modules/Holidays/Generated.lua from the client's toy and holiday tables, materials.py builds
@@ -435,7 +437,7 @@ or modules, major for changes that reset or break settings.
   only; no code taken). Graphics
   presets mirrors how Blizzard's own Graphics Quality slider sets its sub-settings; consumable buff spell IDs from
   [wago.tools](https://wago.tools).
-- Quests and Loot take over features of [EnhanceQoL](https://www.curseforge.com/wow/addons/enhanceqol)
+- Quests, Loot and Instances take over features of [EnhanceQoL](https://www.curseforge.com/wow/addons/enhanceqol)
   and [Plumber](https://github.com/Peterodox/Plumber) (the features only; no code taken). Event sign-up gossip option
   IDs (Theater Troupe, Time Rift), the "Race Times" aura icon and the holiday and Timewalking random dungeon IDs come
   from Plumber (IDs only).

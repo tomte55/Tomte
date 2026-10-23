@@ -336,4 +336,10 @@ ns.BUG_FILES = {
 	"Modules/Quests/TalkingHead.lua",
 	"Modules/Quests/Items.lua",
 	"Modules/Quests/Quests.lua",
+	"Modules/Instances/Data.lua",
+	"Modules/Instances/Read.lua",
+	"Modules/Instances/Badge.lua",
+	"Modules/Instances/Entrance.lua",
+	"Modules/Instances/Queue.lua",
+	"Modules/Instances/Instances.lua",
 }
