@@ -21,6 +21,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Rogue Poisons:** Handy Lockpick: right-click a locked lockbox in your bags, or in the trade window's "will not be traded" slot, to pick it. For rogues and Mechagnomes of any class. Off by default.
 - **Group Alerts:** group and guild invites show who's inviting: their level, class and guild, when the game knows them.
 - **Chat Tabs:** right-clicking a chat tab offers "Leave" for each channel that tab shows.
+- **Session recap:** an optional reminder to take a break after an hour (30 to 180 minutes) of play in one sitting; it waits until you're out of combat, instances and cutscenes.
 
 ### Improved
 

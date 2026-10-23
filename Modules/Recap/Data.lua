@@ -325,3 +325,20 @@ function ns.Recap_ItemID(link)
 	local id = type(link) == "string" and link:match("|Hitem:(%d+)")
 	return id and tonumber(id) or nil
 end
+
+-- Break reminder ------------------------------------------------------------------------------------------------
+
+-- Which break reminder is due: every interval seconds of one sitting (elapsed seconds so far) is a step; shown =
+-- the last step already reminded (nil or 0 for none). Returns the step to remind of now, or nil. A reminder that
+-- had to wait (combat, an instance) comes once, for the step reached by then, and the next one waits for the
+-- next interval.
+function ns.Recap_BreakDue(elapsed, interval, shown)
+	if not (interval and interval > 0 and elapsed and elapsed >= interval) then
+		return nil
+	end
+	local step = math.floor(elapsed / interval)
+	if step > (shown or 0) then
+		return step
+	end
+	return nil
+end

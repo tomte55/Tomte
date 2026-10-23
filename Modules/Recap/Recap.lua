@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Session recap module: what you got done this session (time, gold, notable loot, achievements, rares, tames,
 -- progress). A passthrough cinematic card during the /camp logout countdown and on /tomte recap, a login toast
 -- for the last session (covers instant logouts in rested areas, which give no countdown), and a page on the AFK
--- screen. The session itself is Core/Session.lua; tracking is Track.lua; pure logic is Data.lua.
+-- screen; an optional break reminder toast. The session itself is Core/Session.lua; tracking is Track.lua; pure logic is Data.lua.
 
 local TICK = 0.25
 local ROWS = 6 -- highlights on the card
@@ -13,9 +13,11 @@ local LOGOUT_GRACE = 5 -- seconds past the countdown before the card decides the
 local PREVIEW_ENTRIES = 40 -- Track.lua's MAX_ENTRIES
 local LOGIN_DELAY = 8 -- seconds after login before the last-session toast
 local TOAST_HOLD = 15
+local BREAK_TICK = 30 -- seconds between break reminder checks (also how soon one shows after combat or an instance)
 
 local module, db
 local playing -- engine state of the card on screen
+local breakTicker
 
 local events = ns.Recap_Events
 local ticker = CreateFrame("Frame")
@@ -334,17 +336,62 @@ events:On("recap", "PLAYER_ENTERING_WORLD", function(_, isInitialLogin)
 end)
 
 ---------------------------------------------------------------------------------------------------------------
+-- Break reminder
+
+-- Not in combat, an instance, a cutscene or a pet battle: the reminder waits and shows afterwards.
+local function BreakBlocked()
+	return InCombatLockdown() or IsInInstance() or ns.Cinematic.IsActive() or (InCinematic and InCinematic())
+		or (IsInCinematicScene and IsInCinematicScene()) or (MovieFrame and MovieFrame:IsShown())
+		or (C_PetBattles and C_PetBattles.IsInBattle())
+end
+
+-- The step reminded is kept on the session, so a /reload doesn't remind again.
+local function CheckBreak()
+	if not (module.active and db.breakReminder) or BreakBlocked() then
+		return
+	end
+	local session = ns.Session_Current()
+	local elapsed = GetServerTime() - session.start
+	local step = ns.Recap_BreakDue(elapsed, db.breakMinutes * 60, session.breakStep)
+	if not step then
+		return
+	end
+	session.breakStep = step
+	ns.Toast_Show({
+		owner = "recap",
+		label = "Break",
+		accent = "accent",
+		title = "Time for a break?",
+		text = ("You've played for %s. Stand up, stretch, drink some water."):format(ns.Recap_Duration(elapsed)),
+		icon = ns.ICON,
+		hold = TOAST_HOLD,
+	})
+end
+
+local function ApplyBreak()
+	local on = module.active and db.breakReminder
+	if on and not breakTicker then
+		breakTicker = C_Timer.NewTicker(BREAK_TICK, CheckBreak)
+	elseif not on and breakTicker then
+		breakTicker:Cancel()
+		breakTicker = nil
+	end
+end
+
+---------------------------------------------------------------------------------------------------------------
 
 local function Activate()
 	for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "PLAYER_CAMPING", "LOGOUT_CANCEL" }) do
 		events:Watch("recap", event)
 	end
 	ns.RecapTrack_Start()
+	ApplyBreak()
 end
 
 local function Deactivate()
 	events:UnwatchAll("recap")
 	ns.RecapTrack_Stop()
+	ApplyBreak()
 	Stop()
 	ns.Toast_Clear("recap")
 end
@@ -380,8 +427,9 @@ module = ns.RegisterModule({
 	category = "ambience",
 	icon = 133785, -- inv_misc_coin_02
 	summary = "What you got done each session: gold, loot and progress.",
-	description = "What you got done this session: time, gold and where it came from, notable loot, achievements, rares, tames and progress. A card while you log out, on /tomte recap and on the AFK screen; a toast at login for your last session.",
+	description = "What you got done this session: time, gold and where it came from, notable loot, achievements, rares, tames and progress. A card while you log out, on /tomte recap and on the AFK screen; a toast at login for your last session. Optionally a reminder to take a break after an hour or so of play.",
 	enabledByDefault = true,
+	replaces = { { addon = "Plumber", why = "the break time reminder" } },
 	toasts = true,
 	defaults = {
 		logoutCard = true,
@@ -397,6 +445,8 @@ module = ns.RegisterModule({
 		nights = false,
 		pageScope = "all", -- char | all
 		pageRange = "all", -- week | all
+		breakReminder = false,
+		breakMinutes = 60, -- a reminder every this many minutes played in one sitting
 	},
 	noShare = { "pageScope", "pageRange" }, -- page filters: not in settings strings (Core/Profile.lua)
 	init = function(moduleDB)
@@ -430,6 +480,13 @@ module = ns.RegisterModule({
 			tooltip = "Items you receive at this quality or better are listed. Achievements, new mounts, pets, toys and renown come from Moments (also when their style is off, but not with Moments turned off)." },
 		{ type = "button", label = "Preview", text = "Show", onClick = Preview,
 			tooltip = "Show the recap card with sample data. Any key or click closes it." },
+		{ type = "header", label = "Break reminder" },
+		{ type = "checkbox", key = "breakReminder", label = "Remind me to take a break", onChange = ApplyBreak,
+			tooltip = "A toast after every so many minutes played in one sitting. Never in combat, an instance or a cutscene: then it waits until you're out." },
+		{ type = "slider", key = "breakMinutes", label = "Every", min = 30, max = 180, step = 15,
+			parent = "breakReminder", format = function(value)
+				return ns.Recap_Duration(value * 60)
+			end },
 		{ type = "header", label = "Sessions page" },
 		-- "2 minutes" is History.lua's MIN_SECONDS.
 		{ type = "checkbox", key = "keepHistory", label = "Keep history",

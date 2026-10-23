@@ -373,4 +373,16 @@ test("ItemID from a link", function()
 	eq(ns.Recap_ItemID("nope"), nil)
 end)
 
+test("BreakDue: one reminder per interval, late ones once", function()
+	local hour = 3600
+	eq(ns.Recap_BreakDue(59 * 60, hour, nil), nil, "not yet")
+	eq(ns.Recap_BreakDue(hour, hour, nil), 1)
+	eq(ns.Recap_BreakDue(hour + 300, hour, 1), nil, "snoozed until the next interval")
+	eq(ns.Recap_BreakDue(2 * hour + 1, hour, 1), 2)
+	eq(ns.Recap_BreakDue(3.5 * hour, hour, 1), 3, "waited through an instance: once, for where it got to")
+	eq(ns.Recap_BreakDue(3.6 * hour, hour, 3), nil)
+	eq(ns.Recap_BreakDue(hour, 0, nil), nil, "no interval")
+	eq(ns.Recap_BreakDue(nil, hour, nil), nil)
+end)
+
 H.done()
