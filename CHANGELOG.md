@@ -17,8 +17,13 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Housing decor:** View Houses (right-click a player) shows each house as an open card with its neighborhood's
   picture, so you see Founder's Point or Razorwind Shores at a glance, and a Visit button on every card. Turn it off
   under Housing decor > Houses for Blizzard's list.
+- **Trading Post:** a "Buy what you can afford" button in Blizzard's Trading Post window. It lists what you don't
+  have, cheapest first, with what your Tender covers ticked; click an item to leave it out or to buy it instead of
+  cheaper ones, then buy them all with one click.
 
 ### Improved
+
+- **Trading Post:** the shop line counts how many items you can afford together, not each one on its own.
 
 - **Home:** Collect here, Teleports, World quests and Flight masters open the world map on their tab again, and a
   click on your location opens the map. It goes through Blizzard's own map button now, so the map no longer gets

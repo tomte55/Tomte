@@ -4,7 +4,7 @@ local addonName, ns = ...
 -- left before the shop and the Traveler's Log turn over, the Traveler's Log itself (points, milestones, activities
 -- with a click to track) and the shop from your last visit. A page in the Tomte window, reminders as toasts, two
 -- Next up sources and an "Around you" block in the Trading Post cities. Pure logic: Data.lua; reads: Read.lua;
--- the page: Page.lua. See docs/superpowers/specs/2026-10-21-tomte-trading-post-design.md.
+-- the page: Page.lua; the buy button in Blizzard's Trading Post window: Buy.lua. See docs/superpowers/specs/2026-10-21-tomte-trading-post-design.md.
 
 local OWNER = "tradingpost"
 local ICON = "Interface\\Icons\\INV_Misc_Treasurechest02b"
@@ -132,6 +132,7 @@ function ns.TradingPost_OnChanged()
 		return
 	end
 	ns.TradingPostPage_Refresh()
+	ns.TradingPostBuy_Refresh()
 	if ns.Panel_IsShown() then
 		ns.Panel_Refresh()
 	end
@@ -327,7 +328,7 @@ module = ns.RegisterModule({
 		seen = { month = 0, waitingDay = "", endingDay = "" }, -- last Trading Post month seen, last day a toast showed
 		spots = {}, -- [city key] = { map = uiMapID, x, y } (0..1), where the vendor stands, learned on a visit
 		shop = {}, -- { month = activePerksMonth, at = server time, items = { { id, name, icon, price, category,
-		-- itemID, mountID, speciesID, setID, appearanceID, bought } } }, from the last visit
+		-- itemID, mountID, speciesID, setID, appearanceID, bought, pending } } }, from the last visit
 	},
 	noShare = { "seen", "spots", "shop" }, -- reminder memory and collected data: not in settings strings
 	init = function(saved)
@@ -345,6 +346,7 @@ module = ns.RegisterModule({
 		else
 			events:UnwatchAll("main")
 			ns.TradingPost_ReadStop()
+			ns.TradingPostBuy_Stop()
 			loginPending, lastCity = false, nil
 			if loginTimer then
 				loginTimer:Cancel()

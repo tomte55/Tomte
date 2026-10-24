@@ -342,6 +342,7 @@ ns.BUG_FILES = {
 	"Modules/TradingPost/Data.lua",
 	"Modules/TradingPost/Read.lua",
 	"Modules/TradingPost/Page.lua",
+	"Modules/TradingPost/Buy.lua",
 	"Modules/TradingPost/TradingPost.lua",
 	"Modules/Gather/Data.lua",
 	"Modules/Gather/Nodes.lua",

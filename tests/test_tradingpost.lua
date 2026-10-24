@@ -173,10 +173,34 @@ test("ShopSummary and ShopText", function()
 	eq(s.total, 4)
 	eq(s.missing, 2)
 	eq(s.affordable, 1)
-	eq(ns.TradingPost_ShopText(s), "2 you don't have, 1 you can afford")
+	eq(ns.TradingPost_ShopText(s), "2 you don't have, you can afford 1 of them")
+	s = ns.TradingPost_ShopSummary({ { price = 500 }, { price = 500 }, { price = 500 }, { price = 2000 } }, 1390)
+	eq(s.affordable, 2, "the total counts, not each price alone")
+	eq(ns.TradingPost_ShopSummary({ { price = 900 }, { price = 200 }, { price = 300 } }, 600).affordable, 2,
+		"cheapest first")
 	eq(ns.TradingPost_ShopText(ns.TradingPost_ShopSummary({ { state = "owned" } }, 0)),
 		"You have everything in the shop")
 	eq(ns.TradingPost_ShopText(ns.TradingPost_ShopSummary({}, 0)), nil)
+end)
+
+test("BuyPlan: cheapest first, skips and wants", function()
+	local items = {
+		{ id = 1, name = "Horse", price = 700 }, { id = 2, name = "Hat", price = 100 },
+		{ id = 3, name = "Robe", price = 300 }, { id = 4, name = "Cat", price = 200, state = "owned" },
+		{ id = 5, name = "Boot", price = 100, pending = true },
+	}
+	local plan = ns.TradingPost_BuyPlan(items, 800)
+	eq(names(plan.list), "Hat Robe Horse", "owned and pending ones left out")
+	eq(names(plan.picked), "Hat Robe")
+	eq(plan.total, 400)
+	eq(plan.left, 400)
+	plan = ns.TradingPost_BuyPlan(items, 800, { [3] = "skip" })
+	eq(names(plan.picked), "Hat Horse", "a skipped one makes room for the next")
+	plan = ns.TradingPost_BuyPlan(items, 800, { [1] = "want" })
+	eq(names(plan.picked), "Horse Hat", "a wanted one goes in first")
+	eq(plan.chosen[items[1]], true)
+	eq(plan.chosen[items[3]], nil)
+	eq(#ns.TradingPost_BuyPlan(items, 50).picked, 0)
 end)
 
 test("SortShop: mounts first, dearest first", function()

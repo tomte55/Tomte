@@ -264,19 +264,61 @@ end
 
 -- The shop -------------------------------------------------------------------------------------------------------
 
+local function Cheaper(a, b)
+	if (a.price or 0) ~= (b.price or 0) then
+		return (a.price or 0) < (b.price or 0)
+	end
+	return (a.name or "") < (b.name or "")
+end
+
+-- What the Tender buys together. items { id, name, price, state = "bought" | "owned" | nil, pending }, choice
+-- { [id] = "skip" | "want" } (the player's clicks in the buy list). Wanted items go in first, then the cheapest, each
+-- one that still fits. -> { list (every item you don't have, cheapest first), picked (in the order chosen),
+-- chosen = { [item] = true }, total, left }.
+function ns.TradingPost_BuyPlan(items, tender, choice)
+	choice = choice or {}
+	local list = {}
+	for _, it in ipairs(items or {}) do
+		if not it.state and not it.pending then
+			list[#list + 1] = it
+		end
+	end
+	table.sort(list, Cheaper)
+	local order = {}
+	for _, it in ipairs(list) do
+		if choice[it.id] == "want" then
+			order[#order + 1] = it
+		end
+	end
+	for _, it in ipairs(list) do
+		if not choice[it.id] then
+			order[#order + 1] = it
+		end
+	end
+	local plan = { list = list, picked = {}, chosen = {}, total = 0, left = tender or 0 }
+	for _, it in ipairs(order) do
+		local price = it.price or 0
+		if price <= plan.left then
+			plan.left = plan.left - price
+			plan.total = plan.total + price
+			plan.picked[#plan.picked + 1] = it
+			plan.chosen[it] = true
+		end
+	end
+	return plan
+end
+
 -- items { price, state = "bought" | "owned" | nil } and the player's Tender -> { total, missing (not bought and not
--- owned), affordable (missing ones the Tender covers) }.
+-- owned), affordable (how many missing ones the Tender buys together, cheapest first) }.
 function ns.TradingPost_ShopSummary(items, tender)
-	local s = { total = 0, missing = 0, affordable = 0 }
+	local s = { total = 0, missing = 0 }
 	for _, it in ipairs(items or {}) do
 		s.total = s.total + 1
 		if not it.state then
 			s.missing = s.missing + 1
-			if (it.price or 0) <= (tender or 0) then
-				s.affordable = s.affordable + 1
-			end
 		end
 	end
+	s.affordable = #ns.TradingPost_BuyPlan(items, tender).picked
 	return s
 end
 
@@ -299,7 +341,7 @@ function ns.TradingPost_SortShop(items)
 	return list
 end
 
--- "Shop: 3 you don't have, 2 you can afford", from ShopSummary.
+-- "3 you don't have, you can afford 2 of them", from ShopSummary.
 function ns.TradingPost_ShopText(summary)
 	if summary.total == 0 then
 		return nil
@@ -307,5 +349,5 @@ function ns.TradingPost_ShopText(summary)
 	if summary.missing == 0 then
 		return "You have everything in the shop"
 	end
-	return ("%d you don't have, %d you can afford"):format(summary.missing, summary.affordable)
+	return ("%d you don't have, you can afford %d of them"):format(summary.missing, summary.affordable)
 end

@@ -180,7 +180,7 @@ local function ReadShop()
 				id = id, name = info.name, icon = info.iconTexture, price = info.price or 0,
 				category = info.perksVendorCategoryID, itemID = info.itemID, mountID = info.mountID,
 				speciesID = info.speciesID, setID = info.transmogSetID, appearanceID = info.itemModifiedAppearanceID,
-				bought = info.purchased or nil,
+				bought = info.purchased or nil, pending = info.isPurchasePending or nil,
 			}
 		end
 	end
@@ -189,6 +189,11 @@ local function ReadShop()
 end
 
 local readShopSoon = ns.UI.Debounce(SHOP_DELAY, ReadShop)
+
+-- True while the Trading Post vendor's window is open.
+function ns.TradingPost_AtVendor()
+	return vendorOpen
+end
 
 -- Where the player is ----------------------------------------------------------------------------------------
 
@@ -310,17 +315,20 @@ events:On("read", "PERKS_PROGRAM_OPEN", function()
 end)
 events:On("read", "PERKS_PROGRAM_DATA_REFRESH", readShopSoon)
 events:On("read", "PERKS_PROGRAM_PURCHASE_SUCCESS", readShopSoon)
+events:On("read", "PERKS_PROGRAM_PURCHASE_CART_SUCCESS", readShopSoon)
 events:On("read", "PERKS_PROGRAM_REFUND_SUCCESS", readShopSoon)
 events:On("read", "PERKS_PROGRAM_CLOSE", function()
 	ReadShop() -- the last look, before the list goes away
 	vendorOpen = false
+	Changed()
 end)
 
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "CHEST_REWARDS_UPDATED_FROM_SERVER", "PERKS_ACTIVITIES_UPDATED",
 	"PERKS_ACTIVITY_COMPLETED", "PERKS_ACTIVITIES_TRACKED_UPDATED", "PERKS_PROGRAM_CURRENCY_REFRESH",
 	"PERKS_PROGRAM_CURRENCY_AWARDED", "CURRENCY_DISPLAY_UPDATE", "PERKS_PROGRAM_OPEN", "PERKS_PROGRAM_DATA_REFRESH",
-	"PERKS_PROGRAM_PURCHASE_SUCCESS", "PERKS_PROGRAM_REFUND_SUCCESS", "PERKS_PROGRAM_CLOSE",
+	"PERKS_PROGRAM_PURCHASE_SUCCESS", "PERKS_PROGRAM_PURCHASE_CART_SUCCESS", "PERKS_PROGRAM_REFUND_SUCCESS",
+	"PERKS_PROGRAM_CLOSE",
 }
 
 function ns.TradingPost_ReadInit(saved)
