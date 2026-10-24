@@ -62,6 +62,16 @@ end
 
 -- Reagents ----------------------------------------------------------------------------------------------------------
 
+-- reagents: { { itemID, currencyID, need } } read from the recipe behind itemID's use spell. A recipe whose only
+-- reagent is one of the item itself is just the item being used up (an XP potion's buff), not a combine.
+function ns.Tips_IsCombine(itemID, reagents)
+	if #reagents == 0 then
+		return false
+	end
+	local only = reagents[1]
+	return not (#reagents == 1 and only.itemID == itemID and (only.need or 1) <= 1)
+end
+
 -- reagents: { { name, have, need } } for one recipe. Returns rows { left, right, role } and how many times you can
 -- make it now (0 when anything is short).
 function ns.Tips_ReagentRows(reagents)

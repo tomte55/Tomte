@@ -18,6 +18,11 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
   picture, so you see Founder's Point or Razorwind Shores at a glance, and a Visit button on every card. Turn it off
   under Housing decor > Houses for Blizzard's list.
 
+### Fixed
+
+- **Tooltip extras:** items you just use up, like experience potions, no longer show a "Reagents" section listing
+  themselves.
+
 ## v1.21.0 - 2026-10-23
 
 ### New

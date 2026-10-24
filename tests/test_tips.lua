@@ -105,6 +105,15 @@ test("RepStatus: paragon not yet reached is plain progress", function()
 	eq(text, "Revered  5 / 21,000")
 end)
 
+test("IsCombine: an item that only uses itself up isn't a combine", function()
+	eq(ns.Tips_IsCombine(100, {}), false)
+	eq(ns.Tips_IsCombine(100, { { itemID = 100, need = 1 } }), false)
+	eq(ns.Tips_IsCombine(100, { { itemID = 100 } }), false)
+	eq(ns.Tips_IsCombine(100, { { itemID = 100, need = 2 } }), true)
+	eq(ns.Tips_IsCombine(100, { { itemID = 200, need = 1 } }), true)
+	eq(ns.Tips_IsCombine(100, { { itemID = 100, need = 1 }, { currencyID = 3 } }), true)
+end)
+
 test("ReagentRows: counts, short reagents and how many you can make", function()
 	local rows, crafts = ns.Tips_ReagentRows({
 		{ name = "Shard", have = 25, need = 10 },

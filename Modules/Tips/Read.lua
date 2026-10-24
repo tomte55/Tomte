@@ -159,7 +159,7 @@ local function ReadSchematic(itemID)
 			}
 		end
 	end
-	if #reagents == 0 then
+	if not ns.Tips_IsCombine(itemID, reagents) then
 		return false
 	end
 	return { recipeID = schematic.recipeID, outputItemID = schematic.outputItemID, reagents = reagents }
