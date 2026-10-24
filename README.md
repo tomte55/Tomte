@@ -269,7 +269,7 @@ replace, and whether you have it. Hover a row to see which module cares and why.
 
 Home shows your character with its item level, gold, durability and location (hover each for more: missing
 enchants, this session's gold by source and the account total, the worst items, coordinates; click to open the
-character pane with Gear Check, the Sessions page or the durability list), the Weekly board, your
+character pane with Gear Check, the Sessions page, the durability list or the world map), the Weekly board, your
 characters, Next up, Recent and "Around you" (Collect here, World quests, Teleports, flight masters you haven't
 timed a route from with a click for a waypoint, Delves in your zone, and your mount zone favorites with a click to summon). The rail on
 the left shows a small count beside Alts (crafting list steps for this character) and Weekly board (vault rewards

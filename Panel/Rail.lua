@@ -22,7 +22,11 @@ end
 -- Rail -----------------------------------------------------------------------------------------------------
 
 local function CreateRailRow(parent, onSelect)
-	local row = CreateFrame("Button", nil, parent)
+	-- Map rows open the world map first (ns.MapTabs_Opener); the row's own click is its PostClick.
+	local row = CreateFrame("Button", nil, parent, "InsecureActionButtonTemplate")
+	ns.MapTabs_Opener(row, function(self)
+		return self.entry ~= nil and self.entry.kind == "map"
+	end)
 	row:SetHeight(RAIL_ROW_H)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
@@ -90,7 +94,7 @@ local function CreateRailRow(parent, onSelect)
 		self.bg:SetShown(self.selected)
 		GameTooltip:Hide()
 	end)
-	row:SetScript("OnClick", function(self)
+	row:SetScript("PostClick", function(self)
 		onSelect(self.entry)
 	end)
 	return row

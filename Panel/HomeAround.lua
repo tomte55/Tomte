@@ -23,7 +23,12 @@ function ns.PanelHome_CreateAround(parent, onOpen)
 		local block = around.blocks[b]
 		if not block then
 			-- Heading band: a faint accent strip with a bar on the left, the name, and its counts on the right.
-			block = CreateFrame("Button", nil, around)
+			-- Blocks whose entry has opensMap open the world map first (ns.MapTabs_Opener); the block's own click is its
+			-- PostClick.
+			block = CreateFrame("Button", nil, around, "InsecureActionButtonTemplate")
+			ns.MapTabs_Opener(block, function(btn)
+				return btn.entry.opensMap == true
+			end)
 			block:SetHeight(24)
 			block.bg = block:CreateTexture(nil, "BACKGROUND")
 			block.bg:SetAllPoints()
@@ -45,7 +50,7 @@ function ns.PanelHome_CreateAround(parent, onOpen)
 				SetColor(btn.text, "text")
 				btn.bg:SetColorTexture(UI.RGBA("accent", 0.16))
 				GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-				GameTooltip:SetText(btn.entry.openText or "Shows this tab in the world map's side panel (open the map first)", UI.Color("text"))
+				GameTooltip:SetText(btn.entry.openText or "Opens the world map on this tab", UI.Color("text"))
 				GameTooltip:Show()
 			end)
 			block:SetScript("OnLeave", function(btn)
@@ -53,7 +58,7 @@ function ns.PanelHome_CreateAround(parent, onOpen)
 				btn.bg:SetColorTexture(UI.RGBA("accent", 0.08))
 				GameTooltip:Hide()
 			end)
-			block:SetScript("OnClick", function(btn)
+			block:SetScript("PostClick", function(btn)
 				onOpen(btn.entry)
 			end)
 			around.blocks[b] = block

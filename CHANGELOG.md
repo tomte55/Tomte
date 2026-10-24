@@ -18,6 +18,12 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
   picture, so you see Founder's Point or Razorwind Shores at a glance, and a Visit button on every card. Turn it off
   under Housing decor > Houses for Blizzard's list.
 
+### Improved
+
+- **Home:** Collect here, Teleports, World quests and Flight masters open the world map on their tab again, and a
+  click on your location opens the map. It goes through Blizzard's own map button now, so the map no longer gets
+  blocked in combat afterwards.
+
 ### Fixed
 
 - **Tooltip extras:** items you just use up, like experience potions, no longer show a "Reagents" section listing

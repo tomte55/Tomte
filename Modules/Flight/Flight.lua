@@ -448,10 +448,14 @@ end
 
 local AROUND = {
 	kind = "around", key = "flightaround", order = 4, name = "Flight masters", maxRows = 2, icon = COVERAGE_ICON,
-	openText = "The world map (M) shows this zone's flight masters",
-	-- Tomte never opens the map itself (Panel/MapTabs.lua, ns.MapTabs_Open, says why).
+	openText = "Opens the world map on this zone",
+	-- Home opens the map before this runs (ns.MapTabs_Opener, Panel/MapTabs.lua); true lets the window step aside.
+	opensMap = true,
 	open = function()
-		ns.Print("open the map (M) to see this zone's flight masters.")
+		if WorldMapFrame:IsShown() then
+			return true
+		end
+		ns.Print_Combat("open the map")
 		return false
 	end,
 	title = function()

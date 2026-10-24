@@ -234,7 +234,7 @@ module = ns.RegisterModule({
 				return list
 			end },
 		{ kind = "around", key = "wqaround", order = 2, name = "World quests",
-			icon = "Interface\\Icons\\INV_Misc_Map_01",
+			icon = "Interface\\Icons\\INV_Misc_Map_01", opensMap = true,
 			open = function()
 				return ns.WQTab_Open()
 			end,

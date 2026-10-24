@@ -147,7 +147,16 @@ local FACTS = {
 				TipPair(tip, info and info.name or "Map", ("%.1f, %.1f"):format(pos.x * 100, pos.y * 100))
 			end
 		end,
-		-- No click: Tomte never opens the world map itself (Panel/MapTabs.lua, ns.MapTabs_Open, says why).
+		-- The click opens the map through ns.MapTabs_Opener; this only steps the window aside once it's open.
+		opensMap = true,
+		clickText = "Click: world map",
+		click = function()
+			if WorldMapFrame:IsShown() then
+				ns.Panel_Hide()
+			elseif InCombatLockdown() then
+				ns.Print_Combat("open the map")
+			end
+		end,
 	},
 }
 
@@ -249,7 +258,11 @@ function ns.PanelHome_CreateHero(parent, onOpen)
 	-- Each fact is a button (placed in Layout) with the faint row highlight on hover.
 	hero.facts = {}
 	for i, fact in ipairs(FACTS) do
-		local b = CreateFrame("Button", nil, hero)
+		-- Facts with opensMap open the world map first (ns.MapTabs_Opener); the fact's own click is its PostClick.
+		local b = CreateFrame("Button", nil, hero, "InsecureActionButtonTemplate")
+		ns.MapTabs_Opener(b, function(self)
+			return self.fact.opensMap == true
+		end)
 		b:SetHeight(21)
 		b.fact = fact
 		b.bg = b:CreateTexture(nil, "BACKGROUND")
@@ -270,7 +283,7 @@ function ns.PanelHome_CreateHero(parent, onOpen)
 			self.bg:Hide()
 			GameTooltip:Hide()
 		end)
-		b:SetScript("OnClick", function(self)
+		b:SetScript("PostClick", function(self)
 			if FactClickable(self.fact) then
 				PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
 				GameTooltip:Hide()

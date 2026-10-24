@@ -328,7 +328,7 @@ module = ns.RegisterModule({
 				return entries and (ns.Collect_ZoneToastText(ShownCounts(entries)) or "Nothing left here") or nil
 			end },
 		{ kind = "around", key = "collectaround", order = 1, name = "Collect here", keepEmpty = true,
-			icon = ICON,
+			icon = ICON, opensMap = true,
 			open = function()
 				return ns.CollectTab_Open()
 			end,

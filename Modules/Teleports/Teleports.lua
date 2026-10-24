@@ -148,7 +148,7 @@ module = ns.RegisterModule({
 				return ReadyCount() .. " ready"
 			end },
 		{ kind = "around", key = "teleportsaround", order = 3, name = "Teleports", maxRows = 3,
-			icon = PORTAL_ICON,
+			icon = PORTAL_ICON, opensMap = true,
 			open = function()
 				return ns.TpTab_Open()
 			end,

@@ -121,7 +121,8 @@ end
 --   "quick"    an action button under the hero: name, count() -> n (shown above 0), open()
 --   "around"   a block in Home's "Around you" column: name, icon, title() ("Name: counts"), items(limit) -> rows
 --              { icon, text, color, right, rightColor, onEnter, onClick }, maxRows, keepEmpty, open(), openText
---              (the heading's tooltip); the user can untick it in the Tomte window settings
+--              (the heading's tooltip), opensMap (the heading opens the world map before open() runs); the user can
+--              untick it in the Tomte window settings
 --   "section"  a Home section that draws itself: slot ("week", "characters", "next", "recent", "events"; the first
 --              entry per slot wins), Create(frame, kit), Refresh(frame) -> wanted height
 --   "next"     a Next up source (Modules/NextUp): name, candidates(now), score
