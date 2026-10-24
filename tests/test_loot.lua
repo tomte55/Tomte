@@ -189,6 +189,27 @@ test("valuable boss loot", function()
 	eq(ns.Loot_IsValuable({ classID = 4, subclassID = 2 }), false, "gear, quality not loaded")
 end)
 
+test("currency gains: real currencies only, not the game's hidden trackers", function()
+	local function info(over)
+		local t = { name = "Restored Coffer Key", discovered = true, iconFileID = 4622270,
+			description = "Unlocks a Bountiful Coffer." }
+		for k, v in pairs(over or {}) do
+			t[k] = v
+		end
+		return t
+	end
+	eq(ns.Loot_IsShownCurrency(info()), true, "a real currency")
+	eq(ns.Loot_IsShownCurrency(info({ name = "11.0 Delves - System - Seasonal Affix - Events Active",
+		description = "" })), false, "no description: a tracker")
+	eq(ns.Loot_IsShownCurrency(info({ description = "Tracks something (Hidden)" })), false, "marked hidden")
+	eq(ns.Loot_IsShownCurrency(info({ description = "DNT tracker" })), false, "marked do not translate")
+	eq(ns.Loot_IsShownCurrency(info({ iconFileID = 134400 })), false, "question mark icon")
+	eq(ns.Loot_IsShownCurrency(info({ iconFileID = 0 })), false, "no icon")
+	eq(ns.Loot_IsShownCurrency(info({ discovered = false })), false, "never earned")
+	eq(ns.Loot_IsShownCurrency(info({ isHeader = true })), false, "a header")
+	eq(ns.Loot_IsShownCurrency(nil), false, "no info")
+end)
+
 test("reputation lines from the game's strings", function()
 	local patterns = ns.Loot_RepPatterns({
 		"Reputation with %s increased by %d.",

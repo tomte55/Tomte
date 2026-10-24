@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Loot: pure logic (no WoW API calls; unit-tested in tests/test_loot.lua). Turns the loot slots Read.lua reads into
 -- the lines the window (Window.lua) and the feed (Feed.lua) show: sorting, folding junk, paging, the best item for
 -- the Card style, the small text after each line, whether the game auto-loots (fast loot), which boss loot counts as
--- valuable, the loot source's title and reputation gains read from the game's chat text.
+-- valuable, which currency gains are worth a line, the loot source's title and reputation gains read from the game's
+-- chat text.
 --
 -- An entry (one loot slot, Read.lua): { slot, kind = "item" | "money" | "currency" | "none", name, icon, quantity,
 --   quality, locked, quest = "starts" | "item" | nil, link, itemID, currencyID, classID, subclassID,
@@ -18,6 +19,9 @@ local CLASS_WEAPON, CLASS_ARMOR, CLASS_MISC, CLASS_BATTLEPET = 2, 4, 15, 17 -- E
 local MISC_JUNK, MISC_PET, MISC_MOUNT = 0, 2, 5 -- Enum.ItemMiscellaneousSubclass
 local JUNK_FOLD_MIN = 2 -- a single junk item keeps its own line
 local KIND_ORDER = { money = 1, currency = 2, item = 3 } -- coin first, as the game lists it
+local QUESTION_ICON = 134400 -- inv_misc_questionmark: a currency without its own icon (a hidden tracker)
+-- Description markers on the game's internal currencies ("(Hidden)", "DNT" = do not translate).
+local HIDDEN_MARKERS = { "(Hidden)", "DNT" }
 
 -- Fast loot -----------------------------------------------------------------------------------------------------
 
@@ -289,6 +293,30 @@ function ns.Loot_IsValuable(info)
 		return info.subclassID == MISC_JUNK and quality >= QUALITY_EPIC
 	end
 	return false
+end
+
+-- Currency lines ----------------------------------------------------------------------------------------------------
+
+-- Whether a currency gain is one the player would recognize, from C_CurrencyInfo's CurrencyInfo. The game also counts
+-- internal trackers as currencies ("11.0 Delves - System - Seasonal Affix ..."): they have no description, a generic
+-- icon or a "(Hidden)" / "DNT" note in it, and the game itself never shows them.
+function ns.Loot_IsShownCurrency(info)
+	if not (info and info.discovered and not info.isHeader and info.name and info.name ~= "") then
+		return false
+	end
+	if not info.iconFileID or info.iconFileID == 0 or info.iconFileID == QUESTION_ICON then
+		return false
+	end
+	local description = info.description
+	if not description or description == "" then
+		return false
+	end
+	for _, marker in ipairs(HIDDEN_MARKERS) do
+		if description:find(marker, 1, true) then
+			return false
+		end
+	end
+	return true
 end
 
 -- Reputation lines --------------------------------------------------------------------------------------------------

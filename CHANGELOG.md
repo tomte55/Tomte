@@ -33,6 +33,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Tooltip extras:** items you just use up, like experience potions, no longer show a "Reagents" section listing
   themselves.
+- **Loot:** the feed no longer shows the game's hidden tracker currencies, like the "11.0 Delves - System" lines
+  when you enter a delve.
 
 ## v1.21.0 - 2026-10-23
 

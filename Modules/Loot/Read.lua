@@ -11,7 +11,6 @@ local FISHING_SPELL = 131474 -- the Fishing spell, for the window's title (as Mo
 local SOURCE_UNITS = { "target", "mouseover", "softinteract" }
 -- Gear Check's headline color keys (Rules.lua) to theme roles, as its reward card maps them.
 local VERDICT_ROLES = { green = "success", yellow = "warning", grey = "textMuted", red = "danger", orange = "warning" }
-local QUESTION_ICON = 134400 -- inv_misc_questionmark: a currency without its own icon (a hidden tracker)
 
 local Readable = ns.Readable
 local IsGear = ns.Loot_IsGear
@@ -170,9 +169,7 @@ function ns.Loot_ReadCurrency(currencyID, link, quantity)
 	elseif currencyID then
 		info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
 	end
-	-- Hidden trackers: not discovered, no name, or no icon (0 or the question mark).
-	if not (info and info.discovered and info.name and info.name ~= "" and info.iconFileID)
-		or info.iconFileID == 0 or info.iconFileID == QUESTION_ICON or info.isHeader then
+	if not ns.Loot_IsShownCurrency(info) then
 		return nil
 	end
 	return { slot = 0, kind = "currency", currencyID = currencyID, name = info.name, icon = info.iconFileID,
