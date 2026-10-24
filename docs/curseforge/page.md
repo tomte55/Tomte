@@ -51,12 +51,40 @@ version's section of CHANGELOG.md (Markdown). Later versions upload themselves f
 
 ---
 
-**Tomte** is one addon for everything around the fighting: your gear, your week, your alts, gold, travel and
-collecting, with a cinematic touch.
+### Why Tomte exists
 
-It's a set of modules you switch on and off. Everything has a home in one window (`/tomte`), and the rest lives where
-you already look: tooltips, the world map, the mailbox, the bags. On first login Tomte asks what you want (Minimal,
-Collector, Crafter, Social or Everything), and `/tomte setup` brings that choice back any time.
+Tomte started out as something just for me. All I wanted was a flight timer, with good cinematics, that looked and
+felt the way I had in mind. Then I kept tinkering. One module turned into two, two turned into ten, and somewhere
+along the way it became this whole thing.
+
+That's when the real idea took shape: I wanted one addon for everything I need. Not a folder full of addons that each
+have to catch up after every game patch, each with its own look, its own settings window and its own minimap
+button. So I started building the things I liked about popular addons into one addon of my own, with one look and one
+place for all the settings.
+
+The part I like most is that the modules know about each other. Separate addons can't really do that, and it's where
+Tomte becomes more than the sum of its parts:
+
+- Gear Check doesn't just tell you whether an item is an upgrade for you. It tells you which of your alts it would be
+  an upgrade for.
+- Crafting materials say on their tooltip which of your characters use them, and at a mailbox "For your alts" attaches
+  what your other characters need.
+- **Next up** on the home page looks at your week, delves, world quests and what's left to collect, and tells you the
+  best thing to do right now. Click it to start.
+- A map pin on another continent gets a waypoint routed through the portals and boats on the way.
+- The world map shows what you're still missing on that map: mounts, pets and achievements.
+- Gold, sessions, whispers and alts cover all your characters, and when you log out the recap shows what the session
+  brought.
+
+After a while my friends wanted it too, so I cleaned it up and shared it with them, and now it's here for anyone who
+wants it. I play with it every day and I keep adding to it.
+
+### How it works
+
+Tomte is a set of modules you switch on and off. Everything has a home in one window (`/tomte`), and the rest lives
+where you already look: tooltips, the world map, the mailbox, the bags. On first login Tomte asks what you're into
+(Minimal, Collector, Crafter, Social or Everything), and `/tomte setup` brings that choice back any time. Anything
+you don't want, you turn off, and it's fully gone.
 
 ### Your gear
 
@@ -92,10 +120,15 @@ Collector, Crafter, Social or Everything), and `/tomte setup` brings that choice
 - **Gold world quests** with a route through them, **Gathering** runs with node spots and routes on the map,
   **Fishing** on one key, and **Sessions**: gold per hour and a recap card for every play session.
 
+### Housing decor
+
+The **Decor** page lists the decor you're missing, by source or by vendor. Turn one in a 3D preview and get led to
+where it comes from.
+
 ### The cinematic side
 
-An AFK screen, a session recap at logout, moments for new mounts, achievements and level ups, and a cinematic flight
-mode. Cinematics never lock your controls: any key or click ends them.
+This is where it all began. When you go AFK, log out, take a flight or get a new mount, achievement or level, Tomte
+gives it a moment. Cinematics never lock your controls: any key or click ends them.
 
 ### Chat & social
 
@@ -117,17 +150,17 @@ mode. Cinematics never lock your controls: any key or click ends them.
 ### And more
 
 Pet battle help (the right pet to swap to, tamer teams, paste Xu-Fu strategies and play them one key press at a time),
-seven themes, and settings sharing between players.
+seven themes so the whole thing looks the way you like, and settings sharing between players.
 
 ### Good to know
 
-- Retail only, English only.
-- Works with (all optional): Baganator + Syndicator, Auctionator or TradeSkillMaster, Mount Journal Enhanced.
-  Tomte's settings have an "Other addons" page that lists what it clashes with, works with or replaces.
-- Content follows your character's expansion (The War Within or Midnight). The Midnight data is newer and still
-  being checked in game: if something looks wrong there, a comment helps.
+- Retail only, and the text is English only.
+- It plays nicely with (all optional): Baganator + Syndicator, Auctionator or TradeSkillMaster, Mount Journal
+  Enhanced. Tomte's settings have an "Other addons" page that lists what it clashes with, works with or replaces.
+- Content follows your character's expansion (The War Within or Midnight). The Midnight data is newer and I'm still
+  checking it in game, so if something looks wrong there, a comment helps.
 - **Found a bug?** Type `/tomte bug`, copy the report and paste it in a comment or a GitHub issue. Nothing is sent
-  anywhere by Tomte itself.
+  anywhere by Tomte itself. This is a hobby project, but I do read them.
 
 ### Credits
 

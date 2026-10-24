@@ -9,6 +9,20 @@ with a cinematic touch. For retail WoW <b>12.1.5</b>. English only.
 
 ![Showcase: your character in the game world with your gear around it](docs/screenshots/hero.png)
 
+## Why Tomte
+
+Tomte started out as something just for me: a flight timer, with good cinematics, that looked and felt the way I had
+in mind. Then I kept tinkering, one module turned into ten, and it became this whole thing.
+
+What I really wanted was one addon for everything I need, instead of a folder full of addons that each have to catch
+up after every patch, each with its own look and its own settings. So I built the things I liked about popular addons
+into one addon of my own. The best part is that the modules know about each other: Gear Check tells you which of your
+alts an item is an upgrade for, materials say which of your characters use them, the mailbox attaches what your alts
+need, and **Next up** looks at your whole week and tells you what to do now. Together that's more than the same
+features would be as separate addons.
+
+It got big enough that my friends wanted it too, so I shared it, and now it's public for anyone who wants it.
+
 Tomte is a set of modules you switch on and off. Everything has a home in one window (`/tomte`), and the rest
 lives where you already look: tooltips, the world map, the mailbox, the bags.
 
