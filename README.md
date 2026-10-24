@@ -149,6 +149,25 @@ zone's route one spot at a time.
 
 ![Sessions page with the gold per hour chart](docs/screenshots/sessions.png)
 
+### Housing decor
+
+The **Decor** page lists the housing decor you're missing, by source or by vendor, with search. Click one to turn it
+in a 3D preview and get led to where it comes from; open a vendor's shop once and Tomte remembers where they stand.
+
+![Decor page with a painting in the preview](docs/screenshots/decor.png)
+
+### Whispers
+
+A toast for every whisper (click to reply), and an inbox with your conversations as chat bubbles: who they are, an
+Invite button, pinned conversations and a NEW line where unread messages start. One inbox for all your characters.
+
+<table>
+<tr>
+<td width="34%" valign="top"><img src="docs/screenshots/whispers-toasts.png" alt="Whisper toasts"></td>
+<td width="66%"><img src="docs/screenshots/whispers-inbox.png" alt="The whisper inbox"></td>
+</tr>
+</table>
+
 ### The cinematic side
 
 When you go AFK, log out, take a flight or get something new, Tomte gives it a moment. Cinematics never lock your
@@ -173,10 +192,41 @@ controls: any key or click ends them.
 </tr>
 </table>
 
+### Themes
+
+Pick Tomte's look in Settings > Tomte window > Theme.
+
+<table>
+<tr>
+<td width="25%"><img src="docs/screenshots/theme-blizzard.png" alt="Blizzard default theme"></td>
+<td width="25%"><img src="docs/screenshots/theme-cartographer.png" alt="Cartographer theme"></td>
+<td width="25%"><img src="docs/screenshots/theme-classic.png" alt="Tomte classic theme"></td>
+<td width="25%"><img src="docs/screenshots/theme-void.png" alt="Void theme"></td>
+</tr>
+<tr>
+<td align="center">Blizzard default</td>
+<td align="center">Cartographer</td>
+<td align="center">Tomte classic</td>
+<td align="center">Void</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/theme-northrend.png" alt="Northrend theme"></td>
+<td><img src="docs/screenshots/theme-forge.png" alt="Forge theme"></td>
+<td><img src="docs/screenshots/theme-emerald.png" alt="Emerald Dream theme"></td>
+<td></td>
+</tr>
+<tr>
+<td align="center">Northrend</td>
+<td align="center">Forge</td>
+<td align="center">Emerald Dream</td>
+<td></td>
+</tr>
+</table>
+
 ### And more
 
 Pet battle help (the right pet to swap to, tamer teams, Xu-Fu strategies), Delves, Trading Post reminders, holidays
-and events, Almost Done achievements, a bigger dressing room, whisper toasts and an inbox, a trade chat filter,
+and events, Almost Done achievements, a bigger dressing room, a trade chat filter,
 one-key fishing, repairs and junk selling, and class helpers for hunters and rogues. The full list is below.
 
 ## Using Tomte
