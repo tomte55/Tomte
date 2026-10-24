@@ -12,6 +12,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+## v1.22.0 - 2026-10-24
+
 ### New
 
 - **Housing decor:** View Houses (right-click a player) shows each house as an open card with its neighborhood's
@@ -24,7 +26,6 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 ### Improved
 
 - **Trading Post:** the shop line counts how many items you can afford together, not each one on its own.
-
 - **Home:** Collect here, Teleports, World quests and Flight masters open the world map on their tab again, and a
   click on your location opens the map. It goes through Blizzard's own map button now, so the map no longer gets
   blocked in combat afterwards.
