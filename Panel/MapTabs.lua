@@ -106,15 +106,15 @@ end
 -- Makes a button (created from InsecureActionButtonTemplate) open the world map with its side panel through
 -- Blizzard's own code, so the map isn't tainted (see ns.MapTabs_Open): the click is passed to the quest log micro
 -- button, whose OnClick runs ToggleQuestLog. Only out of combat (the template does nothing in combat).
--- opensMap(button) says whether this click should open the map. The button's own action goes in PostClick, which runs
--- after the map is open.
+-- opensMap(button, mouseButton) says whether this click should open the map. The button's own action goes in PostClick,
+-- which runs after the map is open.
 function ns.MapTabs_Opener(button, opensMap)
 	button:RegisterForClicks("LeftButtonUp")
 	-- Else, with the ActionButtonUseKeyDown CVar on, the template acts on the down press, which this button never gets.
 	button:SetAttribute("useOnKeyDown", false)
-	button:SetScript("PreClick", function(self)
+	button:SetScript("PreClick", function(self, mouseButton)
 		-- Already open: ToggleQuestLog would close it.
-		local open = QuestLogMicroButton ~= nil and not InCombatLockdown() and opensMap(self)
+		local open = QuestLogMicroButton ~= nil and not InCombatLockdown() and opensMap(self, mouseButton)
 			and not (WorldMapFrame:IsShown() and QuestMapFrame:IsShown())
 		self:SetAttribute("type", open and "click" or nil)
 		self:SetAttribute("clickbutton", open and QuestLogMicroButton or nil)

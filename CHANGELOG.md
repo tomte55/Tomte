@@ -12,6 +12,11 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+### Fixed
+
+- **Collect & World quests:** clicking a zone toast opens the world map on its tab again, instead of asking you to
+  open the map first.
+
 ## v1.22.0 - 2026-10-24
 
 ### New

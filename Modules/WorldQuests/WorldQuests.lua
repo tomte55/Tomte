@@ -47,6 +47,7 @@ local function ShowToast(zoneName, list, icon)
 	ns.Toast_Show({
 		owner = OWNER, label = "World quests", accent = ACCENT, title = title, text = text, icon = icon or ICON,
 		mergeKey = "wq:zone", holdInCombat = true, hold = 10, onClick = ns.WQTab_Open,
+		opensMap = true,
 	})
 end
 

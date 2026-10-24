@@ -15,7 +15,8 @@ local addonName, ns = ...
 --
 -- A module that shows toasts or banners declares toasts = true or a label (Recent's Include list).
 -- ns.Toast_Show(spec): spec = { owner, label, accent, title, text, chat, secret, icon, iconAtlas, mergeKey, hold,
---   holdInCombat, stale(), onClick(button), onDismiss(), digestName, count }. secret = title/text may be secret values.
+--   holdInCombat, stale(), onClick(button), onDismiss(), digestName, count, opensMap }. secret = title/text may be
+--   secret values. opensMap = a left-click opens the world map before onClick runs (for ns.MapTabs_Open).
 --   stale() = true drops the card if it was held back and is no longer worth showing when let go.
 --   accent = a theme color role, or an { r, g, b } that carries game meaning (ns.Toast_ChatColor, quality);
 --   chat = text is something another player wrote (shown in the chat font).
@@ -171,10 +172,15 @@ local function OnCardClick(card, button)
 end
 
 local function NewCard()
-	local card = CreateFrame("Button", nil, anchor)
+	-- Cards with opensMap open the world map first on a left-click (ns.MapTabs_Opener); the card's own click is its
+	-- PostClick.
+	local card = CreateFrame("Button", nil, anchor, "InsecureActionButtonTemplate")
 	card:SetWidth(WIDTH)
+	ns.MapTabs_Opener(card, function(self, mouseButton)
+		return mouseButton == "LeftButton" and self.spec ~= nil and self.spec.opensMap == true
+	end)
 	card:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	card:SetScript("OnClick", OnCardClick)
+	card:SetScript("PostClick", OnCardClick)
 	card:SetScript("OnEnter", function(self)
 		self.hovered = true
 		self.glow:Show()

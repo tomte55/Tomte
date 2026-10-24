@@ -71,7 +71,7 @@ local function ShowZoneToast(name, counts, sample)
 		owner = OWNER, label = "Collect here", accent = ACCENT, title = name,
 		text = ns.Collect_ZoneToastText(counts) .. (sample and "" or "\nClick for the list."),
 		icon = ICON, mergeKey = "collect:zone", holdInCombat = true, hold = 10,
-		test = sample or nil, onClick = not sample and ns.CollectTab_Open or nil,
+		test = sample or nil, onClick = not sample and ns.CollectTab_Open or nil, opensMap = not sample or nil,
 	})
 end
 
