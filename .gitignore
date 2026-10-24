@@ -2,3 +2,6 @@ luac.out
 *.zip
 __pycache__/
 .superpowers/
+# Raw screenshot drafts and exports, kept locally; only images the README uses are committed
+docs/screenshots/new/
+docs/screenshots/*.pdf
