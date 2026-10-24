@@ -2,8 +2,9 @@ local addonName, ns = ...
 
 -- Housing decor: pure logic for the house editor extras and the house list (no WoW API calls; unit-tested in
 -- tests/test_decor_editor.lua). Copying dyes from one placed decor to another, which stored stack Alt places another
--- of, the hover lines, the editor clock, the preview's size next to a person, the house list order and what the Teleport
--- home binding does. The UI is in Editor.lua, Houses.lua and Alert.lua.
+-- of, the hover lines, the editor clock, the preview's size next to a person, the house list order, what the Teleport
+-- home binding does and the View Houses cards' art crop. The UI is in Editor.lua, Houses.lua, HouseList.lua and
+-- Alert.lua.
 
 local SIZE_DECIMALS = 1 -- "about 1.5 people tall"
 
@@ -203,6 +204,64 @@ function ns.DecorEditor_HomeAction(rows, canReturn)
 		return "teleport", first.house
 	end
 	return "none"
+end
+
+-- View Houses window ------------------------------------------------------------------------------------------------
+
+-- Neighborhood pictures by C_Housing.GetNeighborhoodTextureSuffix: Blizzard's housing loading screens
+-- (Interface/Glues/LoadingScreens/Expansion10/Main), sharp where the dashboard's own neighborhood art is blurred.
+-- top/bottom: the painted part (0-1), the rest is grey bars; focusY: which band shows on a wide card (0 = top).
+local NEIGHBORHOOD_ART = {
+	elwynn = { file = 7377860, width = 2992, height = 1684, top = 0, bottom = 1, focusY = 0.55 }, -- Founder's Point
+	durotar = { file = 7490877, width = 2992, height = 1684, top = 0.165, bottom = 0.835, focusY = 0.5 }, -- Razorwind
+}
+NEIGHBORHOOD_ART.duratar = NEIGHBORHOOD_ART.durotar -- the dashboard atlas spells it this way too
+
+-- The picture for a neighborhood texture suffix, shaped like an AtlasInfo (file, width, height and tex coords of the
+-- painted part) plus focusY, for DecorEditor_ArtCrop. nil for a neighborhood without one here.
+function ns.DecorEditor_NeighborhoodArt(suffix)
+	local art = NEIGHBORHOOD_ART[suffix or ""]
+	if not art then
+		return nil
+	end
+	return { file = art.file, width = art.width, height = art.height * (art.bottom - art.top), leftTexCoord = 0,
+		rightTexCoord = 1, topTexCoord = art.top, bottomTexCoord = art.bottom, focusY = art.focusY }
+end
+
+-- Texture coordinates that show an atlas region (AtlasInfo: leftTexCoord, rightTexCoord, topTexCoord, bottomTexCoord,
+-- width, height) at `aspect` (width / height) without stretching: the full width and a band at focusY (0 = top,
+-- 1 = bottom) when the art is taller, the full height and the middle when it's wider. nil for a missing or empty
+-- region.
+function ns.DecorEditor_ArtCrop(info, aspect, focusY)
+	if not (info and info.width and info.height and info.width > 0 and info.height > 0 and aspect and aspect > 0) then
+		return nil
+	end
+	local l, r, t, b = info.leftTexCoord, info.rightTexCoord, info.topTexCoord, info.bottomTexCoord
+	local artAspect = info.width / info.height
+	if artAspect > aspect then
+		local keep = aspect / artAspect
+		local cut = (r - l) * (1 - keep) / 2
+		return l + cut, r - cut, t, b
+	end
+	local keep = artAspect / aspect
+	local spare = (b - t) * (1 - keep)
+	local top = t + spare * math.min(math.max(focusY or 0.5, 0), 1)
+	return l, r, top, top + (b - t) * keep
+end
+
+-- Whether a house card needs its own neighborhood line: not when the house name already says it ("1 Hot Gravel
+-- Settlement" in Hot Gravel Settlement).
+function ns.DecorEditor_ShowNeighborhood(houseName, neighborhoodName)
+	if type(neighborhoodName) ~= "string" or neighborhoodName == "" then
+		return false
+	end
+	return not (type(houseName) == "string" and houseName:lower():find(neighborhoodName:lower(), 1, true))
+end
+
+-- How many house cards the View Houses window shows before it scrolls: all of them up to `max`, and room for one
+-- (the "no houses" text) when there are none.
+function ns.DecorEditor_CardsShown(count, max)
+	return math.min(math.max(count or 0, 1), max)
 end
 
 -- Acquired alert ----------------------------------------------------------------------------------------------------

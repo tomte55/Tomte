@@ -12,6 +12,12 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+### New
+
+- **Housing decor:** View Houses (right-click a player) shows each house as an open card with its neighborhood's
+  picture, so you see Founder's Point or Razorwind Shores at a glance, and a Visit button on every card. Turn it off
+  under Housing decor > Houses for Blizzard's list.
+
 ## v1.21.0 - 2026-10-23
 
 ### New

@@ -147,4 +147,68 @@ test("size next to a person", function()
 	eq(ns.DecorEditor_PeopleText(nil, 2), nil)
 end)
 
+-- An atlas region in the middle of its file: 400 x 200 pixels at coords 0.2-0.6 by 0.1-0.3.
+local WIDE = { width = 400, height = 200, leftTexCoord = 0.2, rightTexCoord = 0.6, topTexCoord = 0.1,
+	bottomTexCoord = 0.3 }
+
+test("art taller than the card keeps the full width and a band at the focus", function()
+	-- The card is 4:1, the art 2:1: half the height stays.
+	local l, r, t, b = ns.DecorEditor_ArtCrop(WIDE, 4, 0)
+	near(l, 0.2)
+	near(r, 0.6)
+	near(t, 0.1)
+	near(b, 0.2)
+	l, r, t, b = ns.DecorEditor_ArtCrop(WIDE, 4, 1)
+	near(t, 0.2)
+	near(b, 0.3)
+	l, r, t, b = ns.DecorEditor_ArtCrop(WIDE, 4, 0.5)
+	near(t, 0.15)
+	near(b, 0.25)
+end)
+
+test("art wider than the card keeps the full height and the middle", function()
+	-- The card is 1:1, the art 2:1: the middle half of the width stays.
+	local l, r, t, b = ns.DecorEditor_ArtCrop(WIDE, 1, 0)
+	near(l, 0.3)
+	near(r, 0.5)
+	near(t, 0.1)
+	near(b, 0.3)
+end)
+
+test("art crop without a usable region or size is nil", function()
+	eq(ns.DecorEditor_ArtCrop(nil, 2), nil)
+	eq(ns.DecorEditor_ArtCrop({ width = 0, height = 10 }, 2), nil)
+	eq(ns.DecorEditor_ArtCrop(WIDE, 0), nil)
+end)
+
+test("neighborhood art covers only the painted part, both spellings of Durotar", function()
+	local art = ns.DecorEditor_NeighborhoodArt("durotar")
+	eq(art.file, 7490877)
+	near(art.topTexCoord, 0.165)
+	near(art.height, 1684 * 0.67)
+	eq(ns.DecorEditor_NeighborhoodArt("duratar").file, 7490877)
+	eq(ns.DecorEditor_NeighborhoodArt("elwynn").file, 7377860)
+	eq(ns.DecorEditor_NeighborhoodArt("quelthalas"), nil)
+	eq(ns.DecorEditor_NeighborhoodArt(nil), nil)
+	-- A wide card crops a band inside the painted part.
+	local _, _, t, b = ns.DecorEditor_ArtCrop(art, 3.4, art.focusY)
+	assert(t >= 0.165 and b <= 0.835, "the band stays off the grey bars")
+end)
+
+test("a house card names its neighborhood only when the house name doesn't", function()
+	eq(ns.DecorEditor_ShowNeighborhood("1 Hot Gravel Settlement", "Hot Gravel Settlement"), false)
+	eq(ns.DecorEditor_ShowNeighborhood("1 hot gravel settlement", "Hot Gravel Settlement"), false)
+	eq(ns.DecorEditor_ShowNeighborhood("Aldric's Cottage", "Hot Gravel Settlement"), true)
+	eq(ns.DecorEditor_ShowNeighborhood(nil, "Hot Gravel Settlement"), true)
+	eq(ns.DecorEditor_ShowNeighborhood("Aldric's Cottage", nil), false)
+	eq(ns.DecorEditor_ShowNeighborhood("Aldric's Cottage", ""), false)
+end)
+
+test("the View Houses window shows every card up to the max, and room for one with none", function()
+	eq(ns.DecorEditor_CardsShown(0, 3), 1)
+	eq(ns.DecorEditor_CardsShown(nil, 3), 1)
+	eq(ns.DecorEditor_CardsShown(2, 3), 2)
+	eq(ns.DecorEditor_CardsShown(7, 3), 3)
+end)
+
 H.done()

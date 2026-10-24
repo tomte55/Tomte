@@ -285,6 +285,7 @@ ns.BUG_FILES = {
 	"Modules/Decor/Vendors.lua",
 	"Modules/Decor/Editor.lua",
 	"Modules/Decor/Houses.lua",
+	"Modules/Decor/HouseList.lua",
 	"Modules/Decor/Alert.lua",
 	"Modules/Decor/Decor.lua",
 	"Modules/Holidays/Table.lua",

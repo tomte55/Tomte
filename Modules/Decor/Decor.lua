@@ -8,8 +8,9 @@ local addonName, ns = ...
 -- Every housing call is guarded so an account or client without housing stays quiet. The catalog is read in
 -- Catalog.lua, rules in Data.lua. Decor achievement rewards stay in Almost Done (Achievements/Rewards.lua).
 -- Extras, each with its own setting: house editor hover info, Alt to place another, dye copy and a clock
--- (Editor.lua), the size next to a person in the preview (Detail.lua), your houses with teleports (Houses.lua) and a click on
--- the "decor acquired" alert to preview it (Alert.lua). One event bus for the module (ns.Decor_Events, Editor.lua).
+-- (Editor.lua), the size next to a person in the preview (Detail.lua), your houses with teleports (Houses.lua), open
+-- cards in Blizzard's View Houses window (HouseList.lua) and a click on the "decor acquired" alert to preview it
+-- (Alert.lua). One event bus for the module (ns.Decor_Events, Editor.lua).
 
 local START_DELAY = 8 -- seconds after the first loading screen before the catalog is read
 local RESCAN_DELAY = 3 -- seconds of storage updates gathered into one catalog read
@@ -286,6 +287,7 @@ local function Start()
 	end
 	ns.DecorEditor_Start()
 	ns.DecorHouses_Start()
+	ns.DecorHouseList_Start()
 	ns.DecorAlert_Start()
 end
 
@@ -300,6 +302,7 @@ local function Stop()
 	ns.DecorPage_Refresh()
 	ns.DecorEditor_Stop()
 	ns.DecorHouses_Stop()
+	ns.DecorHouseList_Stop()
 	ns.DecorAlert_Stop()
 end
 
@@ -458,7 +461,7 @@ module = ns.RegisterModule({
 	category = "collections",
 	icon = ICON,
 	summary = "The housing decor you're missing, where it comes from, and vendors near you.",
-	description = "A Decor page with the housing decor you're missing, grouped by where it comes from (vendors, achievements, quests, drops, professions) with how much of each you have, or by vendor with everything each one sells, and search. Click one to see its model in a preview you can turn and zoom, and track it with Blizzard's tracking, which leads you to the vendor, achievement or boss; for vendors Blizzard can't lead to, Tomte learns where they stand when you open their shop and gives a waypoint. Decor item tooltips say whether you have it. Next up and Around you name decor vendors in your zone that sell decor you're missing. Decor rewards of achievements are in Almost Done. In the house editor: hovering a placed decor shows how many you have in storage and its budget cost, Alt places another, right-click copies a decor's dyes to paste on another, and a clock shows the time. The preview says how many people tall a decor is, a Houses window teleports you to any of your houses, and a click on the \"decor acquired\" alert previews it.",
+	description = "A Decor page with the housing decor you're missing, grouped by where it comes from (vendors, achievements, quests, drops, professions) with how much of each you have, or by vendor with everything each one sells, and search. Click one to see its model in a preview you can turn and zoom, and track it with Blizzard's tracking, which leads you to the vendor, achievement or boss; for vendors Blizzard can't lead to, Tomte learns where they stand when you open their shop and gives a waypoint. Decor item tooltips say whether you have it. Next up and Around you name decor vendors in your zone that sell decor you're missing. Decor rewards of achievements are in Almost Done. In the house editor: hovering a placed decor shows how many you have in storage and its budget cost, Alt places another, right-click copies a decor's dyes to paste on another, and a clock shows the time. The preview says how many people tall a decor is, a Houses window teleports you to any of your houses, View Houses on another player shows each house as an open card with its neighborhood's picture, and a click on the \"decor acquired\" alert previews it.",
 	enabledByDefault = true,
 	home = {
 		{ kind = "page", key = "decor", order = 42, name = "Decor", icon = ICON, page = ns.DecorPage,
@@ -500,6 +503,7 @@ module = ns.RegisterModule({
 		editorSeconds = 0, -- seconds spent in the house editor, all sessions
 		sizeLine = true, -- the preview's "about 1.5 people tall" line (Detail.lua)
 		houses = true, -- the Houses window and the Teleport home key (Houses.lua)
+		houseList = true, -- open cards with neighborhood pictures in Blizzard's View Houses window (HouseList.lua)
 		alertPreview = true, -- a click on the "decor acquired" alert previews it (Alert.lua)
 	},
 	keep = { "editorSeconds" },
@@ -514,6 +518,7 @@ module = ns.RegisterModule({
 		ns.DecorDetail_Init(db)
 		ns.DecorEditor_Init(db)
 		ns.DecorHouses_Init(db)
+		ns.DecorHouseList_Init(db)
 		ns.DecorAlert_Init(db)
 		ns.DecorCatalog_SetChanged(OnChanged)
 	end,
@@ -586,6 +591,11 @@ module = ns.RegisterModule({
 		end, shown = function()
 			return db.houses
 		end },
+		{ type = "checkbox", key = "houseList", label = "Nicer View Houses window",
+			tooltip = "Right-click a player and pick View Houses: each house is an open card with its neighborhood's picture, so you see Alliance or Horde at a glance, and a Visit button.",
+			onChange = function()
+				ns.DecorHouseList_Apply()
+			end },
 		{ type = "checkbox", key = "alertPreview", label = "Preview from the decor alert",
 			tooltip = "Clicking the \"decor acquired\" alert opens a preview of the decor.",
 			onChange = function()
