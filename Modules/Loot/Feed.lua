@@ -431,6 +431,11 @@ ns.EditMode_Register({
 		local p, at = db.feed, UI.TopLeftPoint(holder)
 		p.point, p.relPoint, p.x, p.y = at[1], at[2], at[3], at[4]
 	end,
+	module = "loot",
+	options = { "fontSize", "bgAlpha", "growUp", "fadeDelay", "extras.repCurrency" },
+	reset = function()
+		ns.LootFeed_ResetPosition()
+	end,
 })
 
 function ns.LootFeed_Init(moduleDB, lootModule)

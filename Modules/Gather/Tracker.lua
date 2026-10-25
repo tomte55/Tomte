@@ -375,4 +375,8 @@ ns.EditMode_Register({
 		ns.GatherTracker_Refresh()
 	end,
 	saved = SavePoint,
+	module = "gather",
+	reset = function()
+		ns.GatherTracker_ResetPosition()
+	end,
 })

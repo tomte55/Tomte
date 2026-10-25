@@ -723,6 +723,13 @@ function Unlock(unlock)
 	end
 end
 
+local function ResetPosition()
+	ns.db.toast.point = nil
+	if anchor then
+		PlaceAnchor()
+	end
+end
+
 -- A sample card while Edit Mode is open (straight to the screen: not a toast for Recent).
 ns.EditMode_Register({
 	name = "Toasts",
@@ -746,14 +753,8 @@ ns.EditMode_Register({
 		handlesGrow = nil -- PlaceHandles puts it on the side the stack grows towards
 		PlaceHandles(Flow())
 	end,
+	reset = ResetPosition,
 })
-
-local function ResetPosition()
-	ns.db.toast.point = nil
-	if anchor then
-		PlaceAnchor()
-	end
-end
 
 -- Sound choices (ns.SOCIAL_SOUND_CHOICES). channel: "Master" (default: heard with sound effects off) or "SFX" (follows
 -- the effects volume).

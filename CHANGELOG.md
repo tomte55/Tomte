@@ -16,6 +16,10 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Edit Mode:** Tomte's widgets snap while you drag them, like Blizzard's do (with Edit Mode's Snap option on):
   to the screen's edges and center, the grid, Blizzard's elements and each other, with the same red guide lines.
+- **Edit Mode:** click a Tomte widget to select it, like Blizzard's: a settings window opens beside it with the
+  settings that matter while placing it (size, font size, opacity, grow direction, what it shows), plus Reset
+  position, Hide (until Edit Mode closes) and All settings. The arrow keys nudge the selected widget (Shift: 10 at a
+  time).
 
 ### Fixed
 

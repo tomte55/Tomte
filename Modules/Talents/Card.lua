@@ -163,4 +163,8 @@ ns.EditMode_Register({
 		local p = db.card
 		p.point, p.relPoint, p.x, p.y = point, relPoint, x, y
 	end,
+	module = "talents",
+	reset = function()
+		ns.TalentsCard_ResetPosition()
+	end,
 })

@@ -251,6 +251,10 @@ ns.EditMode_Register({
 		end
 	end,
 	saved = SavePosition,
+	module = "instances",
+	reset = function()
+		ns.InstancesEntrance_ResetPosition()
+	end,
 })
 
 function ns.InstancesEntrance_Init(saved)

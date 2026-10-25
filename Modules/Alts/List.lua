@@ -628,6 +628,11 @@ ns.EditMode_Register({
 		ns.AltsList_Refresh()
 	end,
 	saved = SavePoint,
+	module = "alts",
+	options = { "tracker.mode", "tracker.scale", "tracker.hideInCombat" },
+	reset = function()
+		ns.AltsList_ResetPosition()
+	end,
 })
 
 function ns.AltsList_ResetPosition()

@@ -773,6 +773,11 @@ ns.EditMode_Register({
 	end,
 	refresh = RefreshPreview,
 	saved = SavePosition,
+	module = "loot",
+	options = { "style", "fontSize", "bgAlpha", "perPage", "growUp", "atMouse" },
+	reset = function()
+		ns.LootWindow_ResetPosition()
+	end,
 })
 
 function ns.LootWindow_Init(moduleDB, lootModule)

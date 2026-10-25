@@ -239,4 +239,12 @@ ns.EditMode_Register({
 		ns.AchTracker_Apply()
 	end,
 	saved = SavePoint,
+	module = "ach",
+	options = { "tracker.scale", "tracker.hideInCombat" },
+	reset = function()
+		DB().point = nil
+		if frame then
+			Place()
+		end
+	end,
 })

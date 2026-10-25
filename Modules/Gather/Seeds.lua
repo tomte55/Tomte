@@ -361,4 +361,8 @@ ns.EditMode_Register({
 		local f = db.seeds.frame
 		f.point, f.relPoint, f.x, f.y = point, relPoint, x, y
 	end,
+	module = "gather",
+	reset = function()
+		ns.GatherSeeds_ResetPosition()
+	end,
 })

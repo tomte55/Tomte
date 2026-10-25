@@ -789,4 +789,7 @@ ns.EditMode_Register({
 		ns.PetsBattle_Refresh()
 	end,
 	saved = SavePoint,
+	module = "pets",
+	options = { "advisor.scale", "advisor.steps", "runner.on" },
+	reset = ns.PetsBattle_ResetPosition,
 })

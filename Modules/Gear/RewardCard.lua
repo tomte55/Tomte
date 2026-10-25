@@ -270,6 +270,15 @@ ns.EditMode_Register({
 		local p = db.rewardCard
 		p.point, p.relPoint, p.x, p.y = point, relPoint, x, y
 	end,
+	module = "gear",
+	-- The same position as the rewardCard default in Gear.lua.
+	reset = function()
+		local p = db.rewardCard
+		p.point, p.relPoint, p.x, p.y = "TOP", "TOP", 0, -120
+		if card then
+			Place()
+		end
+	end,
 })
 
 function ns.GearRewardCard_Start(moduleDB)

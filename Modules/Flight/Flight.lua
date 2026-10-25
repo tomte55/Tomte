@@ -496,6 +496,10 @@ ns.EditMode_Register({
 		end
 	end,
 	saved = ns.Bar_SavePosition,
+	module = "flight",
+	reset = function()
+		ns.Bar_ResetPosition()
+	end,
 })
 
 module = ns.RegisterModule({

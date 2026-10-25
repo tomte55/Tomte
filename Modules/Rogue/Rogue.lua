@@ -461,6 +461,9 @@ ns.EditMode_Register({
 		local point, _, relPoint, x, y = holder:GetPoint()
 		db.frame.point, db.frame.relPoint, db.frame.x, db.frame.y = point, relPoint, x, y
 	end,
+	module = "rogue",
+	options = { "scale", "lethal", "nonLethal", "hideResting" },
+	reset = ResetPosition,
 })
 
 local function Minutes(v)

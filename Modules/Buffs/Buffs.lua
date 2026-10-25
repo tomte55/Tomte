@@ -329,6 +329,9 @@ ns.EditMode_Register({
 		local point, _, relPoint, x, y = ns.Buffs_StripFrame():GetPoint()
 		db.frame.point, db.frame.relPoint, db.frame.x, db.frame.y = point, relPoint, x, y
 	end,
+	module = "buffs",
+	options = { "scale" },
+	reset = ResetPosition,
 })
 
 local function Scale(v)

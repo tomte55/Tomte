@@ -6,16 +6,25 @@ local addonName, ns = ...
 -- name that drags it. Positions stay in Tomte's own settings (one per widget, not per Edit Mode layout), and the
 -- Lock checkboxes and unlock commands keep working on their own.
 --
+-- With Edit Mode's Snap checkbox on, a dragged widget snaps live like Blizzard's elements do (rules in
+-- EditModeData.lua): to the screen, Blizzard's grid lines, Blizzard's elements and the other Tomte widgets. It only
+-- reads EditModeMagnetismManager; adding our frames to it would put addon values into the tables that place the
+-- action bars and taint them. So Blizzard's elements don't snap to Tomte's.
 --
--- With Edit Mode's Snap checkbox on, a dragged widget snaps live like Blizzard's elements do (rules in EditModeData.lua):
--- to the screen, Blizzard's grid lines, Blizzard's elements and the other Tomte widgets. It only reads
--- EditModeMagnetismManager; adding our frames to it would put addon values into the tables that place the action
--- bars and taint them. So Blizzard's elements don't snap to Tomte's.
+-- Like Blizzard's, a press on a box selects it (yellow) and only the selected one drags (the same press can go on
+-- into the drag), and the arrow keys nudge it. The selected widget gets a settings dialog
+-- (Panel/EditModeDialog.lua). Selecting one of Blizzard's elements deselects ours; selecting ours deselects
+-- Blizzard's through EditModeManagerFrame:ClearSelectedSystem, which Blizzard runs through a secure delegate so addon
+-- calls don't taint it.
 --
 -- ns.EditMode_Register(spec): spec = { name, frame() -> the moving frame or nil, refresh() to show or hide it
---   (it asks ns.EditMode_Active()), saved() after a drag, place(box, frame) to size the box (default: the frame) }
+--   (it asks ns.EditMode_Active()), saved() after a drag, place(box, frame) to size the box (default: the frame),
+--   and for the settings dialog: module = "<module key>", options = { "<options key>", ... } (rows of that module's
+--   options schema), reset() to put it back in its default place }
 
 local DEFAULT_SNAP_RANGE = 8 -- screen pixels, Blizzard's EditModeMagnetismManager.magnetismRange
+local NUDGE, NUDGE_SHIFT = 1, 10 -- UIParent units per arrow key press, as Blizzard's ProcessMovementKey
+local NUDGE_KEYS = { UP = { 0, 1 }, DOWN = { 0, -1 }, LEFT = { -1, 0 }, RIGHT = { 1, 0 } }
 local SNAP_LINE_WIDTH = 1.5 -- screen pixels, Blizzard's magnetismPreviewLinePixelWidth
 
 local IsSecret = ns.IsSecret
@@ -35,7 +44,9 @@ local LAYOUT = {
 	RightEdge = { atlas = "!%s-NineSlice-EdgeRight" },
 	Center = { atlas = "%s-NineSlice-Center", x = -8, y = 8, x1 = 8, y1 = -8 },
 }
-local KIT, HOVER_KIT = "editmode-actionbar-highlight", "editmode-actionbar-selected"
+local KIT, SELECTED_KIT = "editmode-actionbar-highlight", "editmode-actionbar-selected"
+
+local selected -- the selected widget's spec
 
 function ns.EditMode_Active()
 	return active
@@ -176,7 +187,124 @@ local function StopDrag(spec, frame)
 	spec.saved()
 end
 
+-- Selecting -------------------------------------------------------------------------------------------------------
+
+-- The selected box's look, and the arrow keys while it's selected (keyboard can't be claimed in combat).
+local function SetKit(spec)
+	local box = spec.box
+	if not box then
+		return
+	end
+	NineSliceUtil.ApplyLayout(box, LAYOUT, spec == selected and SELECTED_KIT or KIT)
+	if not InCombatLockdown() then
+		box:EnableKeyboard(spec == selected)
+	end
+end
+
+-- Moves the widget by dx, dy UIParent units, keeping its anchor points (as a drag does); no snapping, like Blizzard.
+local function Nudge(spec, frame, dx, dy)
+	local toFrame = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+	local points = {}
+	for i = 1, frame:GetNumPoints() do
+		points[i] = { frame:GetPoint(i) }
+	end
+	for _, p in ipairs(points) do
+		frame:SetPoint(p[1], p[2], p[3], p[4] + dx * toFrame, p[5] + dy * toFrame)
+	end
+	spec.saved()
+end
+
+-- Arrow keys nudge the selected widget (Shift: further); every other key goes on to the game.
+local function OnKeyDown(spec, frame, box, key)
+	local dir = NUDGE_KEYS[key]
+	if InCombatLockdown() then
+		return
+	end
+	box:SetPropagateKeyboardInput(not dir)
+	if dir then
+		local step = IsShiftKeyDown() and NUDGE_SHIFT or NUDGE
+		Nudge(spec, frame, dir[1] * step, dir[2] * step)
+	end
+end
+
+function ns.EditMode_Selected()
+	return selected
+end
+
+function ns.EditMode_Deselect()
+	local old = selected
+	if not old then
+		return
+	end
+	selected = nil
+	SetKit(old)
+	ns.EditModeDialog_Hide()
+end
+
+local function Select(spec)
+	if selected == spec then
+		return
+	end
+	local old = selected
+	selected = spec
+	if old then
+		SetKit(old)
+	end
+	SetKit(spec)
+	if not InCombatLockdown() then
+		EditModeManagerFrame:ClearSelectedSystem()
+	end
+	ns.EditModeDialog_Show(spec)
+end
+
+-- On the first Edit Mode open, when EditModeManagerFrame surely exists.
+local hooked = false
+local function HookBlizzardSelect()
+	if hooked then
+		return
+	end
+	hooked = true
+	hooksecurefunc(EditModeManagerFrame, "SelectSystem", function()
+		ns.EditMode_Deselect()
+	end)
+end
+
+-- Hides a widget and its box until Edit Mode closes, to see what's under it (Blizzard's list has checkboxes for this).
+-- By alpha: whether the widget shows is its own module's call.
+function ns.EditMode_HideWidget(spec)
+	local frame = spec.frame()
+	if selected == spec then
+		ns.EditMode_Deselect()
+	end
+	if frame and not spec.hiddenFrame then
+		spec.hiddenFrame, spec.hiddenAlpha = frame, frame:GetAlpha()
+		frame:SetAlpha(0)
+	end
+	if spec.box then
+		spec.box:Hide()
+	end
+end
+
+local function Unhide(spec)
+	if spec.hiddenFrame then
+		spec.hiddenFrame:SetAlpha(spec.hiddenAlpha)
+		spec.hiddenFrame, spec.hiddenAlpha = nil, nil
+	end
+end
+
 -- Boxes -----------------------------------------------------------------------------------------------------------
+
+-- Blizzard's hover: the box's own kit again on top, added (EditModeSystemSelectionBaseMixin's MouseOverHighlight).
+local function HoverGlow(box)
+	local glow = CreateFrame("Frame", nil, box)
+	glow:SetAllPoints()
+	NineSliceUtil.ApplyLayout(glow, LAYOUT, KIT)
+	for _, region in ipairs({ glow:GetRegions() }) do
+		region:SetBlendMode("ADD")
+	end
+	glow:Hide()
+	return glow
+end
 
 local function Box(spec, frame)
 	local box = spec.box
@@ -189,38 +317,53 @@ local function Box(spec, frame)
 	box:SetIgnoreParentAlpha(true)
 	box:EnableMouse(true)
 	box:RegisterForDrag("LeftButton")
-	NineSliceUtil.ApplyLayout(box, LAYOUT, KIT)
+	box:SetPropagateKeyboardInput(true)
+	box:SetScript("OnKeyDown", function(self, key)
+		OnKeyDown(spec, frame, self, key)
+	end)
+	spec.box = box
+	SetKit(spec)
+	box.glow = HoverGlow(box)
 	box.label = box:CreateFontString(nil, "OVERLAY", "GameFontHighlightMedium")
 	box.label:SetPoint("CENTER")
 	box.label:SetText(spec.name)
+	box:SetScript("OnMouseDown", function(_, button)
+		if button == "LeftButton" then
+			Select(spec)
+		end
+	end)
 	box:SetScript("OnDragStart", function()
-		StartDrag(spec, frame)
+		if selected == spec then
+			StartDrag(spec, frame)
+		end
 	end)
 	box:SetScript("OnDragStop", function()
 		StopDrag(spec, frame)
 	end)
 	box:SetScript("OnHide", function()
 		StopDrag(spec, frame)
+		if selected == spec then
+			ns.EditMode_Deselect()
+		end
 	end)
 	box:SetScript("OnEnter", function(self)
-		NineSliceUtil.ApplyLayout(self, LAYOUT, HOVER_KIT)
+		self.glow:Show()
 	end)
 	box:SetScript("OnLeave", function(self)
-		NineSliceUtil.ApplyLayout(self, LAYOUT, KIT)
+		self.glow:Hide()
 	end)
 	if spec.place then
 		spec.place(box, frame)
 	else
 		box:SetAllPoints()
 	end
-	spec.box = box
 	return box
 end
 
 local function Apply(spec)
 	spec.refresh()
 	local frame = spec.frame()
-	if active and frame then
+	if active and frame and not spec.hiddenFrame then
 		Box(spec, frame):Show()
 	elseif spec.box then
 		spec.box:Hide()
@@ -236,7 +379,13 @@ end
 
 local function SetActive(on)
 	active = on
+	if on then
+		HookBlizzardSelect()
+	end
 	for _, spec in ipairs(widgets) do
+		if not on then
+			Unhide(spec)
+		end
 		local ok, err = pcall(Apply, spec)
 		if not ok then
 			ns.errorHandler(err)

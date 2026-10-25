@@ -340,6 +340,19 @@ local function SetLocked(locked)
 	Update()
 end
 
+local function Relayout()
+	if bar then
+		ApplyLayout()
+	end
+	Update()
+end
+
+-- Same position as defaults.frame below.
+local function ResetPosition()
+	db.frame.point, db.frame.relPoint, db.frame.x, db.frame.y = "CENTER", "CENTER", 0, -170
+	Relayout()
+end
+
 ns.EditMode_Register({
 	name = "Pet Health",
 	frame = function()
@@ -355,20 +368,10 @@ ns.EditMode_Register({
 		local point, _, relPoint, x, y = bar:GetPoint()
 		SavePosition(point, relPoint, x, y)
 	end,
+	module = "pet",
+	options = { "visibility", "threshold", "scale", "showPercent" },
+	reset = ResetPosition,
 })
-
-local function Relayout()
-	if bar then
-		ApplyLayout()
-	end
-	Update()
-end
-
--- Same position as defaults.frame below.
-local function ResetPosition()
-	db.frame.point, db.frame.relPoint, db.frame.x, db.frame.y = "CENTER", "CENTER", 0, -170
-	Relayout()
-end
 
 local VISIBILITY = {
 	{ value = "combat", text = "In combat, or hurt" },

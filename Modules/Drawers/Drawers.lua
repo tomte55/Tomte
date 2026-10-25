@@ -102,6 +102,11 @@ for i = 1, COUNT do
 		saved = function()
 			ns.Drawers_SavePosition(i)
 		end,
+		module = "drawers",
+		options = { "d" .. i .. ".name", "d" .. i .. ".direction", "d" .. i .. ".perLine", "scale", "showNames" },
+		reset = function()
+			ResetPosition(i)
+		end,
 	})
 end
 

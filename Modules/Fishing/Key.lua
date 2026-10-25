@@ -404,6 +404,11 @@ ns.EditMode_Register({
 		local f = db.button.frame
 		f.point, f.relPoint, f.x, f.y = point, relPoint, x, y
 	end,
+	module = "fishing",
+	options = { "button.scale" },
+	reset = function()
+		ns.FishingKey_ResetPosition()
+	end,
 })
 
 -- Events -------------------------------------------------------------------------------------------------------

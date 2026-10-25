@@ -285,6 +285,11 @@ ns.EditMode_Register({
 		local point, _, relPoint, x, y = frame:GetPoint()
 		db.thFrame.point, db.thFrame.relPoint, db.thFrame.x, db.thFrame.y = point, relPoint, x, y
 	end,
+	module = "quests",
+	options = { "thSize", "thHideInstance", "thHideWorldQuest" },
+	reset = function()
+		ns.QuestsTalkingHead_ResetPosition()
+	end,
 })
 
 -- The same position as the thFrame default in Quests.lua.
