@@ -220,7 +220,9 @@ just restates the code. Fix comments that point at moved or renamed code in the 
 - Push logic out of UI and event files into the pure file whenever it can be tested without the game.
 - Run all tests from the `AddOns` folder before saying something is done:
   `for t in Tomte/tests/test_*.lua; do lua "$t" >/dev/null 2>&1 || echo "FAIL $t"; done` (CI uses Lua 5.1).
-- After any TOC change: `lua Tomte/tools/bugfiles.lua` (else `test_bugreport` fails).
+- After any TOC change: `lua Tomte/tools/forevertoc.lua` then `lua Tomte/tools/bugfiles.lua` (else
+  `test_forevertoc` / `test_bugreport` fail). The Forever TOC is generated from `Tomte.toc` and
+  `tools/forever_list.lua` (what loads on World of Warcraft: Forever); never edit it by hand.
 - After a split or a new file: `luac -l <file> | grep -E 'GETGLOBAL|GETTABUP.*_ENV'` must list only WoW API and Lua
   globals, never a name that should have been a local or `ns.*`.
 - Everything else is tested in game by the user (see "Working with the user").

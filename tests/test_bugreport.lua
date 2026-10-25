@@ -11,11 +11,16 @@ local H = dofile("Tomte/tests/harness.lua")
 local test, eq = H.test, H.eq
 
 test("BugFiles matches the TOC", function()
-	local toc = {}
-	for line in io.lines("Tomte/Tomte.toc") do
-		local f = line:match("^([%w_/\\]+%.lua)%s*$")
-		if f then
-			toc[#toc + 1] = f:gsub("\\", "/")
+	-- Tomte.toc's files, then the Forever TOC's own (as tools/bugfiles.lua lists them).
+	local toc, seen = {}, {}
+	for _, path in ipairs({ "Tomte/Tomte.toc", "Tomte/" .. dofile("Tomte/tools/forever_list.lua").name }) do
+		for line in io.lines(path) do
+			local f = line:match("^([%w_/\\]+%.lua)%s*$")
+			f = f and f:gsub("\\", "/")
+			if f and not seen[f] then
+				seen[f] = true
+				toc[#toc + 1] = f
+			end
 		end
 	end
 	local hint = " (run: lua Tomte/tools/bugfiles.lua)"

@@ -1,11 +1,22 @@
 -- Regenerates Core/BugFiles.lua from Tomte.toc. Run from the AddOns folder: lua Tomte/tools/bugfiles.lua
 -- tests/test_bugreport.lua fails when the TOC and the list differ.
-local files = {}
-for line in io.lines("Tomte/Tomte.toc") do
-	local file = line:match("^([%w_/\\]+%.lua)%s*$")
-	if file then
-		files[#files + 1] = "\t\"" .. file:gsub("\\", "/") .. "\","
+local files, seen = {}, {}
+local function Add(toc)
+	for line in io.lines(toc) do
+		local file = line:match("^([%w_/\\]+%.lua)%s*$")
+		file = file and file:gsub("\\", "/")
+		if file and not seen[file] then
+			seen[file] = true
+			files[#files + 1] = "\t\"" .. file .. "\","
+		end
 	end
+end
+Add("Tomte/Tomte.toc")
+-- Then any Forever-only file (tools/forever_list.lua's extra), in the Forever TOC's order.
+local forever = io.open("Tomte/" .. dofile("Tomte/tools/forever_list.lua").name)
+if forever then
+	forever:close()
+	Add("Tomte/" .. dofile("Tomte/tools/forever_list.lua").name)
 end
 local out = assert(io.open("Tomte/Core/BugFiles.lua", "wb"))
 out:write("local addonName, ns = ...\n\n")
