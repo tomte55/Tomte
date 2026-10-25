@@ -4,6 +4,43 @@ Feature ideas captured for later. Newest first. Status: New, Discussing, Planned
 
 ---
 
+## Live previews for visual settings
+
+**Date:** 2026-10-25
+**Status:** Planned (next up after the loot window looks, `docs/superpowers/specs/2026-10-25-tomte-loot-window-looks-design.md`)
+
+**Description:**
+When a player changes a setting that changes how something looks (the loot window's look, font size, opacity, grow
+upward ...), they get a small preview right in the settings, in its tooltip, so they see what they're picking without
+leaving the Tomte window. Every setting that changes something visual should get one.
+
+Decided: **live miniatures, not screenshots.** The preview is drawn by the same code that draws the real widget, with
+sample data, so it always matches the theme, the font and the player's other settings. Screenshots were turned down:
+they'd ignore the theme, go stale, and every new image needs a full client restart.
+
+**Use Cases:**
+- Choosing between the loot window's Strips, Panel and Tiles looks without looting something to see each.
+- Any slider or switch that changes a look (size, opacity, layout): see the effect before closing the settings.
+- Friends who didn't build the addon and don't know what "Panel" or "Grow upward" means.
+
+**Benefits:**
+- Settings explain themselves; fewer "what does this do" questions.
+- Pushes every visual widget to have a sample mode, which Edit Mode and `/tomte <module> test` use too.
+
+**Complexity:** Medium for the framework, then Low per setting.
+- Settings renderer: an optional `preview` field on an options row (`Panel/Options.lua`, `Panel/OptionRows.lua`), shown
+  as a tooltip-like card beside the row on hover; for dropdowns/segmented buttons, one preview per choice under the
+  mouse.
+- Widgets need a way to draw into a given parent with sample data and given settings (a value not yet chosen) rather
+  than their one on-screen frame. Today's sample modes (`ns.LootWindow_Preview`, `ns.LootFeed_Preview`, Edit Mode
+  `refresh`) show the real frame in place; that may be the cheap first step (show the real widget beside the
+  settings window) before true miniatures.
+- The loot window looks should be built so each look can draw itself with sample loot into any frame: the first user.
+
+**Notes:**
+- Open: tooltip on hover vs a preview area always shown in the settings card; scaling (real size vs shrunk); which
+  modules' settings count as visual (a list to make when we start).
+
 ## Rares: a module to replace RareScanner
 
 **Date:** 2026-10-25
