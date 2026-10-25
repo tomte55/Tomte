@@ -12,6 +12,29 @@ local GAP = 3
 local QUEST_ICON = 3083385
 -- Seconds to gather a burst of quest log updates (one kill fires several) into one rescan of every plate.
 local QUEST_DELAY = 0.3
+-- The settings preview's sample: a quest of yours, a group member's, and the Radiant Remnants carried.
+local SAMPLE_QUESTS = { { progress = "3/8", party = false }, { progress = "45%", party = true } }
+local SAMPLE_COUNT = 12
+-- The preview's mock plates copy Blizzard's default plate with the name above the bar (Blizzard_NamePlates, live
+-- 12.1): NAMEPLATE_WIDTH 230 less HORIZONTAL_INSET 12 a side, SMALL_HEALTH_BAR_HEIGHT 10, HEALTH_BAR_FONT_HEIGHT 12,
+-- HEALTH_BAR_TO_NAME_ABOVE_SPACING 2, and the room the cast bar keeps under the health bar (10 high, 2 apart) above
+-- the widget container.
+local MOCK_WIDTH = 206
+local MOCK_BAR_H = 10
+local MOCK_NAME_H = 12
+local MOCK_NAME_GAP = 2
+local MOCK_CAST_ROOM = 12
+-- Blizzard's health bar background reaches 2 left, 3 up, 6 right and 6 down past the bar (UpdateAnchors).
+local MOCK_BG_LEFT, MOCK_BG_TOP, MOCK_BG_RIGHT, MOCK_BG_BOTTOM = 2, 3, 6, 6
+local MOCK_SPACING = 12 -- between two mock plates, as plates stack in a crowd
+-- FACTION_BAR_COLORS indexes: hostile (red) and neutral (yellow), the colors the plates' health bars use.
+local HOSTILE, NEUTRAL = 2, 4
+-- Mob names are made up; the Keyflame keeps its in-game role so the count reads as Hallowfall's.
+local MOCK_PLATES = {
+	{ name = "Ashfang Prowler", health = 1, quest = SAMPLE_QUESTS[1] },
+	{ name = "Duskmaw Hound", health = 0.62, quest = SAMPLE_QUESTS[2] },
+	{ name = "Keyflame", health = 1, neutral = true, count = true },
+}
 local UI = ns.UI
 local IsSecret = ns.IsSecret
 
@@ -61,17 +84,11 @@ local function Style(b)
 	UI.SetTextRole(b.count.text, "heading")
 end
 
-local function Acquire(plate)
-	local b = table.remove(pool) or CreateBadge()
-	b:SetParent(plate)
-	b:SetFrameLevel(plate:GetFrameLevel() + 10)
-	b:SetScale(db.scale)
+-- Where a badge sits on a plate's unit frame (Blizzard's, or the settings preview's mock with the same keys): the
+-- quest icon beside the health bar when the plate has one, else beside the name; the count under Blizzard's widgets.
+local function Place(b, unitFrame)
 	b:ClearAllPoints()
-	b:SetAllPoints(plate.UnitFrame)
-	Style(b)
-
-	-- Beside the health bar when the plate has one, else beside the name; the count under Blizzard's widgets.
-	local unitFrame = plate.UnitFrame
+	b:SetAllPoints(unitFrame)
 	local bars = unitFrame.HealthBarsContainer
 	b.quest:ClearAllPoints()
 	if bars and bars:IsShown() then
@@ -83,6 +100,15 @@ local function Acquire(plate)
 	end
 	b.count:ClearAllPoints()
 	b.count:SetPoint("TOP", unitFrame.WidgetContainer or unitFrame, "BOTTOM", 0, -GAP)
+end
+
+local function Acquire(plate)
+	local b = table.remove(pool) or CreateBadge()
+	b:SetParent(plate)
+	b:SetFrameLevel(plate:GetFrameLevel() + 10)
+	b:SetScale(db.scale)
+	Place(b, plate.UnitFrame)
+	Style(b)
 	b:Show()
 	return b
 end
@@ -131,7 +157,8 @@ local function QuestState(unit)
 	return ns.Plates_QuestState(lines, db.questParty) or false
 end
 
-local function ShowQuest(b, state)
+-- showProgress: the "Show progress" setting.
+local function ShowQuest(b, state, showProgress)
 	if not state then
 		b.quest:Hide()
 		return
@@ -142,7 +169,7 @@ local function ShowQuest(b, state)
 	else
 		b.quest.icon:SetVertexColor(1, 1, 1)
 	end
-	local text = db.questProgress and state.progress or nil
+	local text = showProgress and state.progress or nil
 	b.quest.text:SetText(text or "")
 	UI.SetTextRole(b.quest.text, state.party and "info" or "warning")
 	b.quest:Show()
@@ -150,16 +177,20 @@ end
 
 -- Item count ---------------------------------------------------------------------------------------------------
 
+local function FillCount(b, item, count)
+	b.count.item = item
+	b.count.icon:SetTexture(C_Item.GetItemIconByID(item))
+	b.count.text:SetText(ns.Thousands(count))
+	b.count:Show()
+end
+
 local function ShowCount(b, unit)
 	local info = db.keyflame and sets[ns.Plates_WidgetSet(unit) or 0]
 	if not info then
 		b.count:Hide()
 		return
 	end
-	b.count.item = info.item
-	b.count.icon:SetTexture(C_Item.GetItemIconByID(info.item))
-	b.count.text:SetText(ns.Thousands(C_Item.GetItemCount(info.item) or 0))
-	b.count:Show()
+	FillCount(b, info.item, C_Item.GetItemCount(info.item) or 0)
 end
 
 local function UpdateCounts()
@@ -198,7 +229,7 @@ local function UpdateUnit(unit)
 		badges[unit] = b
 	end
 	b.lastState = state
-	ShowQuest(b, state)
+	ShowQuest(b, state, db.questProgress)
 	ShowCount(b, unit)
 	if not (b.quest:IsShown() or b.count:IsShown()) then
 		Release(unit)
@@ -223,6 +254,120 @@ local updateSoon = UI.Debounce(QUEST_DELAY, function()
 		UpdateAll()
 	end
 end)
+
+-- Settings preview ----------------------------------------------------------------------------------------------
+
+-- A stand-in for Blizzard's plate unit frame with the keys Place reads (HealthBarsContainer, name, WidgetContainer),
+-- drawn with the default plate's own art, and a badge of its own.
+local function MockPlate(parent)
+	local plate = CreateFrame("Frame", nil, parent)
+	plate:SetSize(MOCK_WIDTH, MOCK_NAME_H + MOCK_NAME_GAP + MOCK_BAR_H + MOCK_CAST_ROOM)
+
+	local bars = CreateFrame("Frame", nil, plate)
+	bars:SetPoint("TOPLEFT", 0, -(MOCK_NAME_H + MOCK_NAME_GAP))
+	bars:SetPoint("TOPRIGHT", 0, -(MOCK_NAME_H + MOCK_NAME_GAP))
+	bars:SetHeight(MOCK_BAR_H)
+	bars.bg = bars:CreateTexture(nil, "BACKGROUND")
+	bars.bg:SetAtlas("UI-HUD-CoolDownManager-Bar-BG")
+	bars.bg:SetPoint("TOPLEFT", -MOCK_BG_LEFT, MOCK_BG_TOP)
+	bars.bg:SetPoint("BOTTOMRIGHT", MOCK_BG_RIGHT, -MOCK_BG_BOTTOM)
+	bars.fill = bars:CreateTexture(nil, "ARTWORK")
+	bars.fill:SetAtlas("UI-HUD-CoolDownManager-Bar")
+	bars.fill:SetPoint("TOPLEFT")
+	bars.fill:SetPoint("BOTTOMLEFT")
+	plate.HealthBarsContainer = bars
+
+	-- Blizzard's nameplate font, not a theme font: the plate is Blizzard's, only the badge is ours.
+	plate.name = plate:CreateFontString(nil, "OVERLAY")
+	plate.name:SetFontObject(SystemFont_NamePlate)
+	plate.name:SetTextHeight(MOCK_NAME_H)
+	plate.name:SetJustifyH("LEFT")
+	plate.name:SetWordWrap(false)
+	plate.name:SetPoint("BOTTOMLEFT", bars, "TOPLEFT", 4, MOCK_NAME_GAP)
+	plate.name:SetPoint("BOTTOMRIGHT", bars, "TOPRIGHT", -4, MOCK_NAME_GAP)
+
+	-- Empty, like the real one on a plate without widgets; 1 high so it has a bottom edge to hang the count from.
+	plate.WidgetContainer = CreateFrame("Frame", nil, plate)
+	plate.WidgetContainer:SetPoint("TOPLEFT", bars, "BOTTOMLEFT", 0, -MOCK_CAST_ROOM)
+	plate.WidgetContainer:SetPoint("TOPRIGHT", bars, "BOTTOMRIGHT", 0, -MOCK_CAST_ROOM)
+	plate.WidgetContainer:SetHeight(1)
+
+	plate.badge = CreateBadge()
+	plate.badge:SetParent(plate)
+	plate.badge:SetFrameLevel(plate:GetFrameLevel() + 10)
+	return plate
+end
+
+local function FillMock(plate, spec)
+	plate.name:SetText(spec.name)
+	plate.name:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB())
+	local c = FACTION_BAR_COLORS[spec.neutral and NEUTRAL or HOSTILE]
+	plate.HealthBarsContainer.fill:SetVertexColor(c.r, c.g, c.b)
+	plate.HealthBarsContainer.fill:SetWidth(MOCK_WIDTH * spec.health)
+end
+
+-- Settings preview (Panel/Preview.lua): three mock plates stacked like a crowd in the world (a mob your quest needs,
+-- one a group member's quest needs, a Keyflame), each with its badge put on by the same code as on a real plate.
+-- opts = { scale, quests, progress, party, keyflame } (the settings); the size scales the badges, not the plates, as
+-- in the game. Returns the size in host units, or nil when no badge would show.
+function ns.Plates_DrawSample(host, opts)
+	local root = host.plateSample
+	if not root then
+		root = CreateFrame("Frame", nil, host)
+		root:SetPoint("TOPLEFT")
+		root:SetSize(1, 1)
+		root.plates = {}
+		for i = 1, #MOCK_PLATES do
+			root.plates[i] = MockPlate(root)
+		end
+		host.plateSample = root
+	end
+	local scale = opts.scale
+	-- Fill every plate and badge first: the quest text, which reaches out left of the plate, sets the left margin.
+	local left, any = MOCK_BG_LEFT, false
+	for i, spec in ipairs(MOCK_PLATES) do
+		local plate = root.plates[i]
+		FillMock(plate, spec)
+		local b = plate.badge
+		b:SetScale(scale)
+		Place(b, plate)
+		Style(b)
+		local state = spec.quest and opts.quests and (opts.party or not spec.quest.party) and spec.quest
+		ShowQuest(b, state, opts.progress)
+		if spec.count and opts.keyflame then
+			FillCount(b, ns.PLATES_RADIANT_REMNANT, SAMPLE_COUNT)
+		else
+			b.count:Hide()
+		end
+		b:Show()
+		if b.quest:IsShown() then
+			-- The progress text ends 1 left of the icon, which ends GAP left of the health bar.
+			local text = math.ceil(b.quest.text:GetUnboundedStringWidth())
+			left = math.max(left, (GAP + ICON_SIZE + (text > 0 and text + 1 or 0)) * scale)
+		end
+		any = any or b.quest:IsShown() or b.count:IsShown()
+	end
+	if not any then
+		return nil
+	end
+	left = math.ceil(left)
+	local y = 0
+	for i, plate in ipairs(root.plates) do
+		plate:ClearAllPoints()
+		plate:SetPoint("TOPLEFT", root, "TOPLEFT", left, -y)
+		y = y + plate:GetHeight()
+		if plate.badge.count:IsShown() then
+			y = y + (GAP + COUNT_ICON_SIZE) * scale
+		end
+		if i < #root.plates then
+			y = y + MOCK_SPACING
+		elseif not plate.badge.count:IsShown() then
+			-- Nothing hangs under the last plate: end at its health bar background, not the empty cast bar room.
+			y = y - MOCK_CAST_ROOM + MOCK_BG_BOTTOM
+		end
+	end
+	return left + MOCK_WIDTH + MOCK_BG_RIGHT, math.ceil(y)
+end
 
 local function CheckAllowed()
 	allowed = ns.Plates_Allowed()

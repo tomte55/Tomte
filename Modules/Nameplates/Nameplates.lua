@@ -28,6 +28,28 @@ local function Scale(v)
 	return ("%.1f"):format(v)
 end
 
+-- Settings previews (Panel/Preview.lua): mock nameplates with the quest icons and the Keyflame count where they sit
+-- in the world, the badges at the chosen size (Badge.lua); the Interact icon with the name and cast bar under it
+-- (SoftTarget.lua).
+local function SoftPreview(host, get)
+	return ns.Plates_DrawSoftSample(host, {
+		scale = get("scale"),
+		name = get("softName"),
+		cast = get("softCast"),
+		npc = get("softNPC"),
+	})
+end
+
+local function BadgePreview(host, get)
+	return ns.Plates_DrawSample(host, {
+		scale = get("scale"),
+		quests = get("quests"),
+		progress = get("questProgress"),
+		party = get("questParty"),
+		keyflame = get("keyflame"),
+	})
+end
+
 module = ns.RegisterModule({
 	key = "plates",
 	name = "Nameplates",
@@ -63,32 +85,40 @@ module = ns.RegisterModule({
 	end,
 	commands = {
 		{ "why", "explain what your target's nameplate shows and why", Why },
+		{ "soft", "explain the name under the Interact icon: what Tomte sees and why it shows or not", function()
+			ns.Plates_SoftWhy()
+		end },
 	},
 	options = {
 		{ type = "header", label = "Quests" },
 		{ type = "checkbox", key = "quests", label = "Quest icon on nameplates", onChange = Refresh,
+			preview = BadgePreview,
 			tooltip = "An icon beside the nameplate of a creature one of your quests still needs (to kill, loot or use)." },
 		{ type = "checkbox", key = "questProgress", label = "Show progress", onChange = Refresh, parent = "quests",
+			preview = ns.Preview_When("quests", BadgePreview),
 			tooltip = "The count next to the icon, like 3/8 or 45%." },
 		{ type = "checkbox", key = "questParty", label = "Group members' quests", onChange = Refresh,
-			parent = "quests",
+			parent = "quests", preview = ns.Preview_When("quests", BadgePreview),
 			tooltip = "Also mark creatures only someone in your group still needs, with a blue icon." },
 
 		{ type = "header", label = "Interact target" },
-		{ type = "checkbox", key = "softName", label = "Name under the Interact icon", onChange = Refresh,
-			tooltip = "The name of the herb, ore, chest or object the Interact key would use, under the small icon the game shows over it. Needs the game's Interact Key with its target icons on (Options, Controls)." },
+		{ type = "checkbox", key = "softName", label = "Name of the Interact key's target", onChange = Refresh,
+			preview = SoftPreview,
+			tooltip = "The name of the herb, ore, chest or object the Interact key would use, written in the world under the small icon the game shows over it (not at your mouse). Needs the game's Interact Key with its target icons on (Options, Controls)." },
 		{ type = "checkbox", key = "softCast", label = "Cast bar while you use it", onChange = Refresh,
-			parent = "softName",
+			parent = "softName", preview = ns.Preview_When("softName", SoftPreview),
 			tooltip = "A small bar under the name while you gather, open or use it. Out of combat only." },
 		{ type = "checkbox", key = "softNPC", label = "Also for characters", onChange = Refresh, parent = "softName",
+			preview = ns.Preview_When("softName", SoftPreview),
 			tooltip = "Also name non-player characters the Interact key would talk to." },
 
 		{ type = "header", label = "Hallowfall" },
 		{ type = "checkbox", key = "keyflame", label = "Radiant Remnants on Keyflames", onChange = Refresh,
+			preview = BadgePreview,
 			tooltip = "Under a Keyflame's nameplate, how many Radiant Remnants you carry to light it." },
 
 		{ type = "header", label = "Look" },
 		{ type = "slider", key = "scale", label = "Size", min = 0.6, max = 1.6, step = 0.1, format = Scale,
-			onChange = Refresh },
+			onChange = Refresh, preview = BadgePreview },
 	},
 })
