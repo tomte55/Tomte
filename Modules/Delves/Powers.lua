@@ -7,7 +7,10 @@ local addonName, ns = ...
 -- Rules in Data.lua (Delves_PickPower); started and stopped from Delves.lua.
 
 local PICK_DELAY = 0 -- seconds: the next frame, so Blizzard's choice window has opened before the answer closes it
-local REPEAT_GUARD = 2 -- seconds: the same choice isn't answered twice while the first answer is on its way
+-- seconds: the same choice isn't answered twice while the first answer is on its way. Not
+-- C_PlayerChoice.IsWaitingForPlayerChoiceResponse: that is true the whole time a choice is open (warcraft.wiki.gg),
+-- so it blocked every pick.
+local REPEAT_GUARD = 2
 
 local db
 local events = ns.Delves_Events
@@ -51,10 +54,6 @@ local function Pick()
 	if not (db and db.autoPower and InDelve()) then
 		return
 	end
-	-- An answer (ours or the player's) is already on its way: the choice's updates until then aren't a new choice.
-	if C_PlayerChoice.IsWaitingForPlayerChoiceResponse() then
-		return
-	end
 	local choice = Choice()
 	if not choice then
 		return
@@ -71,6 +70,9 @@ local function Pick()
 	-- pcall: a client that does want a hardware event here refuses the call; then the player picks it as usual.
 	local ok = pcall(C_PlayerChoice.SendPlayerChoiceResponse, option.buttons[1].id)
 	if ok then
+		-- The answer alone leaves the choice open (measured 2026-10-25: the timer stopped, the window stayed). Blizzard
+		-- closes it next (OnSelectionMade, OnHide -> OnUIClosed); this ends it the same way (Plumber does too).
+		C_PlayerChoice.OnUIClosed()
 		ns.Print(("picked %s."):format(PowerText(option)))
 	elseif not refusedSaid then
 		refusedSaid = true

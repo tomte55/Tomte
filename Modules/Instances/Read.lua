@@ -32,6 +32,31 @@ end
 
 -- Current instance ------------------------------------------------------------------------------------------------
 
+-- The tier on the delve's scenario header widget ("11"), or nil. The widget set is the one the objective tracker's
+-- stage block shows (C_Scenario.GetStepInfo's 12th return).
+local function HeaderTier()
+	local delvesType = Enum.UIWidgetVisualizationType and Enum.UIWidgetVisualizationType.ScenarioHeaderDelves
+	if not (delvesType and C_Scenario and C_Scenario.GetStepInfo
+		and C_UIWidgetManager.GetScenarioHeaderDelvesWidgetVisualizationInfo) then
+		return nil
+	end
+	local setID = Num((select(12, C_Scenario.GetStepInfo())))
+	if not setID or setID == 0 then
+		return nil
+	end
+	for _, widget in ipairs(C_UIWidgetManager.GetAllWidgetsBySetID(setID) or {}) do
+		if widget.widgetType == delvesType then
+			local info = C_UIWidgetManager.GetScenarioHeaderDelvesWidgetVisualizationInfo(widget.widgetID)
+			local text = info and Str(info.tierText)
+			local tier = text and tonumber(text:match("%d+"))
+			if tier and tier > 0 then
+				return tier
+			end
+		end
+	end
+	return nil
+end
+
 local function DelveTier()
 	if not (C_DelvesUI and C_DelvesUI.HasActiveDelve and C_DelvesUI.GetActiveDelveTier) then
 		return nil
@@ -41,7 +66,13 @@ local function DelveTier()
 		return nil
 	end
 	local ok, info = pcall(C_DelvesUI.GetActiveDelveTier) -- "via party data": can be missing for a moment
-	return ok and type(info) == "table" and Num(info.tier) or nil
+	local tier = ok and type(info) == "table" and Num(info.tier)
+	if tier and tier > 0 then
+		return tier
+	end
+	-- The party data says tier 0 in some delves (seen in a labyrinth at tier 11). The tier flag on the scenario
+	-- header (Blizzard_UIWidgetTemplateScenarioHeaderDelves) reads the step's widget set, so read that.
+	return HeaderTier()
 end
 
 local function WorldTier()

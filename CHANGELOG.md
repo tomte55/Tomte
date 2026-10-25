@@ -16,6 +16,9 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Collect & World quests:** clicking a zone toast opens the world map on its tab again, instead of asking you to
   open the map first.
+- **Delves:** picking delve powers for you works now, and the choice window closes after the pick instead of
+  staying open.
+- **Instances:** shows the right delve tier in delves where the game reported tier 0 (seen in labyrinths).
 
 ## v1.22.0 - 2026-10-24
 
