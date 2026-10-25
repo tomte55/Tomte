@@ -12,6 +12,11 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+### Improved
+
+- **Edit Mode:** Tomte's widgets snap while you drag them, like Blizzard's do (with Edit Mode's Snap option on):
+  to the screen's edges and center, the grid, Blizzard's elements and each other, with the same red guide lines.
+
 ### Fixed
 
 - **Collect & World quests:** clicking a zone toast opens the world map on its tab again, instead of asking you to

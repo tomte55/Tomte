@@ -20,6 +20,7 @@ ns.BUG_FILES = {
 	"Core/Profile.lua",
 	"Core/BugReport.lua",
 	"Core/BugFiles.lua",
+	"Core/EditModeData.lua",
 	"Core/EditMode.lua",
 	"Core/SessionData.lua",
 	"Core/Session.lua",
