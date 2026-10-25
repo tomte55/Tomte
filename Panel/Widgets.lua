@@ -188,13 +188,18 @@ end
 function UI.Border(frame, role, alpha)
 	local r, g, b, a = RGBA(role or "frame", alpha)
 	frame.borderEdges = Edges(frame, 0, "BORDER", 0, r, g, b, a or 1)
+	frame.borderColor = { r, g, b, a or 1 } -- where UI.BorderTo (Motion.lua) eases from
 end
 
 function UI.SetBorderColor(frame, role, alpha)
 	local r, g, b, a = RGBA(role or "frame", alpha)
+	if UI.TweenStop then
+		UI.TweenStop(frame, "border")
+	end
 	for _, t in ipairs(frame.borderEdges) do
 		t:SetColorTexture(r, g, b, a or 1)
 	end
+	frame.borderColor = { r, g, b, a or 1 }
 end
 
 -- Line that fades out at both ends. Returns a frame `width` wide. role defaults to "frame".
@@ -441,6 +446,7 @@ function UI.Surface(frame, borderAlpha)
 	bg:SetAllPoints()
 	bg:SetColorTexture(Theme.Color("surface"))
 	UI.Border(frame, "frame", borderAlpha or 0.35)
+	frame.surfaceFill = bg -- a scroll inside matches its edge fades to it (UI.Scroll)
 	return bg
 end
 
@@ -500,16 +506,19 @@ function UI.Checkbox(parent)
 	end
 	b:SetScript("OnClick", function(self)
 		self:SetChecked(not self.checked)
-		PlaySound(self.checked and SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON or SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF)
+		if self.checked then
+			UI.Pop(self.fill, 0.4)
+		end
+		UI.Sound(self.checked and "on" or "off")
 		if self.onChange then
 			self.onChange(self.checked)
 		end
 	end)
 	b:SetScript("OnEnter", function(self)
-		UI.SetBorderColor(self, "accent", 1)
+		UI.BorderTo(self, "accent", 1)
 	end)
 	b:SetScript("OnLeave", function(self)
-		UI.SetBorderColor(self, "frame", 0.7)
+		UI.BorderTo(self, "frame", 0.7)
 	end)
 	b:SetScript("OnEnable", function(self)
 		self:SetAlpha(1)
@@ -534,6 +543,7 @@ function UI.Button(parent, width, text)
 	local bg = b:CreateTexture(nil, "BACKGROUND")
 	bg:SetAllPoints()
 	bg:SetColorTexture(Theme.Color("surface"))
+	UI.HoverWash(b)
 	UI.Border(b, "frame", BUTTON_RULE)
 	local single = text ~= nil and #text == 1
 	b.label = single and UI.Text(b, 13, "heading") or UI.Text(b, 11, "heading", "label")
@@ -542,13 +552,16 @@ function UI.Button(parent, width, text)
 	b.label:SetText(text)
 	b.labelY = single and 0 or LABEL_Y
 	b:SetScript("OnEnter", function(self)
-		UI.SetBorderColor(self, "accent", 1)
+		UI.HoverOn(self)
 	end)
 	b:SetScript("OnLeave", function(self)
-		UI.SetBorderColor(self, "frame", BUTTON_RULE)
+		UI.HoverOff(self, "frame", BUTTON_RULE)
 	end)
 	b:SetScript("OnMouseDown", function(self)
 		self.label:SetPoint("CENTER", 1, self.labelY - 1)
+		if self:IsEnabled() then
+			UI.Press(self)
+		end
 	end)
 	b:SetScript("OnMouseUp", function(self)
 		self.label:SetPoint("CENTER", 0, self.labelY)
@@ -600,7 +613,7 @@ function UI.CollapseButton(frame, isCollapsed, onToggle)
 	end)
 	b:SetScript("OnClick", function(self)
 		onToggle()
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		UI.Sound("pick")
 		self:Update()
 		if self:IsMouseOver() then
 			self:GetScript("OnEnter")(self)
@@ -641,6 +654,7 @@ function UI.TopLeftPoint(frame)
 end
 
 -- Drag-only slider (no mouse wheel: the options pane scrolls with the wheel).
+local SLIDER_THUMB_W, SLIDER_THUMB_H = 6, 12 -- grows a little while hovered or dragged
 function UI.Slider(parent, width)
 	local s = CreateFrame("Slider", nil, parent)
 	s:SetOrientation("HORIZONTAL")
@@ -659,8 +673,32 @@ function UI.Slider(parent, width)
 	track:SetPoint("RIGHT")
 	local thumb = s:CreateTexture(nil, "OVERLAY")
 	thumb:SetColorTexture(Theme.Color("accent"))
-	thumb:SetSize(6, 12)
+	thumb:SetSize(SLIDER_THUMB_W, SLIDER_THUMB_H)
 	s:SetThumbTexture(thumb)
+	local function Grow(on)
+		local fromW, fromH = thumb:GetSize()
+		local toW, toH = SLIDER_THUMB_W + (on and 2 or 0), SLIDER_THUMB_H + (on and 4 or 0)
+		UI.Tween(thumb, "grow", 0.12, function(t)
+			thumb:SetSize(UI.Lerp(fromW, toW, t), UI.Lerp(fromH, toH, t))
+		end, nil, on and UI.EaseOutBack or nil)
+	end
+	s:SetScript("OnEnter", function()
+		Grow(true)
+	end)
+	s:SetScript("OnLeave", function(self)
+		if not self.dragging then
+			Grow(false)
+		end
+	end)
+	s:SetScript("OnMouseDown", function(self)
+		self.dragging = true
+	end)
+	s:SetScript("OnMouseUp", function(self)
+		self.dragging = false
+		if not self:IsMouseOver() then
+			Grow(false)
+		end
+	end)
 	local fill = s:CreateTexture(nil, "ARTWORK")
 	fill:SetColorTexture(Theme.Color("accent"))
 	fill:SetAlpha(0.8)
@@ -672,6 +710,10 @@ function UI.Slider(parent, width)
 	s:SetScript("OnValueChanged", function(self, value, userInput)
 		if self.valueText then
 			self.valueText:SetText((self.format or tostring)(value))
+		end
+		if userInput and self.valueText and value ~= self.lastPopped then
+			self.lastPopped = value
+			UI.Pop(self.valueText, 0.12)
 		end
 		if userInput and self.onChange then
 			self.onChange(value)
@@ -733,6 +775,9 @@ end
 -- The caller anchors the frame and calls SetContentHeight after laying out the content. Optional
 -- scroll.onWidthChanged(width) runs when the width changes (for content that lays out by width).
 local SCROLL_STEP = 40
+local SCROLL_SECONDS = 0.18 -- the wheel's ease to the next step
+local EDGE_FADE = 18 -- height of the fades at a scroll's top and bottom edges
+local EDGE_LEVEL = 30 -- the fades' frame sits this many levels above the scroll, over its rows' own frames
 
 -- Draggable thumb: a 2 px bar (4 px while hovered or dragged) in a 10 px wide grab area. The owner positions it
 -- with thumb:Place(scroll, thumbH, offset) and scrolls with setScroll(value) while it's dragged.
@@ -744,12 +789,20 @@ function UI.ScrollThumb(parent, scroll, setScroll)
 	thumb.bar:SetPoint("TOPLEFT", 4, 0)
 	thumb.bar:SetPoint("BOTTOMLEFT", 4, 0)
 	thumb:Hide()
-	local function Look(active)
+	local function Look(active, now)
 		local r, g, b = Theme.Color("accent")
 		thumb.bar:SetColorTexture(r, g, b, active and 0.9 or 0.4)
-		thumb.bar:SetWidth(active and 4 or 2)
+		local from, to = thumb.bar:GetWidth(), active and 4 or 2
+		if now then
+			UI.TweenStop(thumb.bar, "width")
+			thumb.bar:SetWidth(to)
+			return
+		end
+		UI.Tween(thumb.bar, "width", 0.12, function(t)
+			thumb.bar:SetWidth(UI.Lerp(from, to, t))
+		end)
 	end
-	Look(false)
+	Look(false, true)
 	local function CursorY()
 		return select(2, GetCursorPosition()) / thumb:GetEffectiveScale()
 	end
@@ -782,7 +835,7 @@ function UI.ScrollThumb(parent, scroll, setScroll)
 		-- Hidden mid-drag (the page changed, the window closed): OnMouseUp never comes.
 		self.dragging = false
 		self:SetScript("OnUpdate", nil)
-		Look(false)
+		Look(false, true)
 	end)
 	function thumb:Place(owner, height, offset)
 		self:SetHeight(height)
@@ -791,6 +844,97 @@ function UI.ScrollThumb(parent, scroll, setScroll)
 		self:Show()
 	end
 	return thumb
+end
+
+-- Edge fades --------------------------------------------------------------------------------------------------
+
+-- The color behind a scroll at height y (screen units): the panel under it (UI.Panel's fill gradient, or the tooltip
+-- fill of the Blizzard theme) seen through every UI.Surface box between them. nil when no panel is found.
+local function BackdropColor(scroll, y)
+	local surfaces = {}
+	local frame = scroll:GetParent()
+	while frame do
+		local p = frame.themePanel
+		if p then
+			local r, g, b
+			if p.fill then
+				local top, bottom = frame:GetTop(), frame:GetBottom()
+				local t = (top and bottom and top > bottom) and math.min(math.max((y - bottom) / (top - bottom), 0), 1)
+					or 0.5
+				local tr, tg, tb = Theme.Color("bgTop")
+				local br, bg, bb = Theme.Color("bgBottom")
+				r, g, b = br + (tr - br) * t, bg + (tg - bg) * t, bb + (tb - bb) * t
+				-- Near the panel's top or bottom edge its vignette darkens the fill.
+				local shade = p.vignette and p.vignette[1]
+				local depth = shade and shade:IsShown() and shade:GetHeight() or 0
+				local d = (top and bottom) and math.min(y - bottom, top - y) or depth
+				if depth > 0 and d < depth then
+					local k = Theme.art.vignette * (1 - math.max(d, 0) / depth) * (p.alpha or 1)
+					r, g, b = r * (1 - k), g * (1 - k), b * (1 - k)
+				end
+			else
+				r, g, b = Theme.Color("bgTop")
+			end
+			-- The boxes in between, outermost first: each lays its own color over what's under it.
+			for i = #surfaces, 1, -1 do
+				local sr, sg, sb, sa = RGBA("surface")
+				sa = sa or 1
+				r, g, b = r + (sr - r) * sa, g + (sg - g) * sa, b + (sb - b) * sa
+			end
+			return r, g, b, p.alpha or 1
+		end
+		if frame.surfaceFill then
+			surfaces[#surfaces + 1] = frame
+		end
+		frame = frame:GetParent()
+	end
+	return nil
+end
+
+-- Soft fades at a scroll's top and bottom edges, in the color behind it, while there's more beyond that edge: a
+-- ScrollFrame can't fade its own content (no alpha masks), so they're overlays above it that take no mouse.
+local function EdgeFades(scroll)
+	local edges = CreateFrame("Frame", nil, scroll)
+	edges:SetAllPoints()
+	edges:SetFrameLevel(scroll:GetFrameLevel() + EDGE_LEVEL)
+	edges.top = edges:CreateTexture(nil, "OVERLAY")
+	edges.top:SetPoint("TOPLEFT")
+	edges.top:SetPoint("TOPRIGHT")
+	edges.top:SetHeight(EDGE_FADE)
+	edges.top:SetColorTexture(1, 1, 1, 1)
+	edges.top:SetAlpha(0)
+	edges.bottom = edges:CreateTexture(nil, "OVERLAY")
+	-- One screen pixel lower than the scroll's edge: its last pixel row of content showed under the fade (seen in
+	-- game).
+	PixelUtil.SetPoint(edges.bottom, "BOTTOMLEFT", edges, "BOTTOMLEFT", 0, -1)
+	PixelUtil.SetPoint(edges.bottom, "BOTTOMRIGHT", edges, "BOTTOMRIGHT", 0, -1)
+	edges.bottom:SetHeight(EDGE_FADE)
+	edges.bottom:SetColorTexture(1, 1, 1, 1)
+	edges.bottom:SetAlpha(0)
+	return edges
+end
+
+-- Recolors the fades for where the scroll sits now (its place in the panel's gradient). False when there's no plain
+-- panel behind it to match.
+local function PaintEdges(scroll)
+	local top, bottom = scroll:GetTop(), scroll:GetBottom()
+	if not (top and bottom) then
+		return false
+	end
+	-- Painted for this place and theme already (UpdateEdges runs every frame of a wheel scroll).
+	if scroll.edgeTop == top and scroll.edgeBottom == bottom and scroll.edgeTheme == Theme.name then
+		return scroll.edgePainted
+	end
+	scroll.edgeTop, scroll.edgeBottom, scroll.edgeTheme = top, bottom, Theme.name
+	local tr, tg, tb, ta = BackdropColor(scroll, top)
+	local br, bg, bb, ba = BackdropColor(scroll, bottom)
+	scroll.edgePainted = tr ~= nil
+	if tr then
+		local edges = scroll.edges
+		edges.top:SetGradient("VERTICAL", CreateColor(tr, tg, tb, 0), CreateColor(tr, tg, tb, ta))
+		edges.bottom:SetGradient("VERTICAL", CreateColor(br, bg, bb, ba), CreateColor(br, bg, bb, 0))
+	end
+	return scroll.edgePainted
 end
 
 function UI.Scroll(parent)
@@ -802,8 +946,28 @@ function UI.Scroll(parent)
 	scroll.thumb = UI.ScrollThumb(parent, scroll, function(value)
 		scroll:SetScroll(value)
 	end)
+	scroll.edges = EdgeFades(scroll)
+
+	-- scroll.noEdgeFade = true turns the fades off (a scroll over a picture or a busy background).
+	function scroll:UpdateEdges()
+		local viewH, contentH = self:GetHeight(), self.content:GetHeight()
+		local offset = self:GetVerticalScroll()
+		local fades = not self.noEdgeFade and self:IsVisible() and contentH > viewH + 1 and PaintEdges(self)
+		local wantTop = fades and offset > 1 or false
+		local wantBottom = fades and offset < contentH - viewH - 1 or false
+		local edges = self.edges
+		if wantTop ~= edges.topOn then
+			edges.topOn = wantTop
+			UI.WashTo(edges.top, wantTop, not fades)
+		end
+		if wantBottom ~= edges.bottomOn then
+			edges.bottomOn = wantBottom
+			UI.WashTo(edges.bottom, wantBottom, not fades)
+		end
+	end
 
 	function scroll:UpdateThumb()
+		self:UpdateEdges()
 		local viewH, contentH = self:GetHeight(), self.content:GetHeight()
 		if not self:IsShown() or contentH <= viewH + 1 then
 			self.thumb:Hide()
@@ -815,6 +979,8 @@ function UI.Scroll(parent)
 	end
 
 	function scroll:SetScroll(value)
+		UI.TweenStop(self, "wheel")
+		self.wheelTarget = nil
 		local maxScroll = math.max(self.content:GetHeight() - self:GetHeight(), 0)
 		self:SetVerticalScroll(math.min(math.max(value, 0), maxScroll))
 		self:UpdateThumb()
@@ -832,8 +998,18 @@ function UI.Scroll(parent)
 		end
 		self:UpdateThumb()
 	end)
+	-- The wheel eases to where it's going; a turn while it eases goes on from the target, so fast turns add up.
 	scroll:SetScript("OnMouseWheel", function(self, delta)
-		self:SetScroll(self:GetVerticalScroll() - delta * SCROLL_STEP)
+		local maxScroll = math.max(self.content:GetHeight() - self:GetHeight(), 0)
+		local from = self:GetVerticalScroll()
+		local to = math.min(math.max((self.wheelTarget or from) - delta * SCROLL_STEP, 0), maxScroll)
+		self.wheelTarget = to
+		UI.Tween(self, "wheel", SCROLL_SECONDS, function(t)
+			self:SetVerticalScroll(UI.Lerp(from, to, t))
+			self:UpdateThumb()
+		end, function()
+			self.wheelTarget = nil
+		end)
 	end)
 	scroll:SetScript("OnShow", scroll.UpdateThumb)
 	scroll:SetScript("OnHide", function(self)

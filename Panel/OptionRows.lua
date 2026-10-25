@@ -92,8 +92,10 @@ end
 local function RowEnter(row, value, has, label, anchor)
 	if not anchor then
 		RowTooltip(row)
+		UI.CardHoverPing(row) -- the card it sits on (Options.lua): reached straight onto a row, its OnEnter never came
 	end
-	if row.allowPreview then
+	-- previewInList: a dropdown whose preview only follows its open list (the theme), not the row itself.
+	if row.allowPreview and (anchor or not row.spec.previewInList) then
 		ns.Preview_Show(row, value, has, label, anchor)
 	end
 end
@@ -325,10 +327,10 @@ function Factory.input(parent)
 		self:ClearFocus()
 	end)
 	box:SetScript("OnEditFocusGained", function(self)
-		UI.SetBorderColor(self, "accent", 0.8)
+		UI.BorderTo(self, "accent", 0.8)
 	end)
 	box:SetScript("OnEditFocusLost", function(self)
-		UI.SetBorderColor(self, "frame", 0.35)
+		UI.BorderTo(self, "frame", 0.35)
 		local text = strtrim(self:GetText())
 		if text ~= (GetOption(row.module, row.spec.key) or "") then
 			SetOption(row.module, row.spec, text)
@@ -365,13 +367,22 @@ function Setup.status(row, module, spec)
 end
 
 -- A row of kind (a schema `type`) from the pool, shown, in parent.
-function ns.OptionRows_Acquire(kind, parent)
+-- spec: the option it's for. A rebuild hands each option the row it had before when it can, so a switch flipped by a
+-- setting whose onChange rebuilds the page (the Tomte window's) keeps sliding instead of showing up already flipped.
+function ns.OptionRows_Acquire(kind, parent, spec)
 	local pool = pools[kind]
 	if not pool then
 		pool = {}
 		pools[kind] = pool
 	end
-	local row = table.remove(pool) or Factory[kind](parent)
+	local row
+	for i = #pool, 1, -1 do
+		if spec and pool[i].spec == spec then
+			row = table.remove(pool, i)
+			break
+		end
+	end
+	row = row or table.remove(pool) or Factory[kind](parent)
 	row:SetParent(parent)
 	row:Show()
 	return row

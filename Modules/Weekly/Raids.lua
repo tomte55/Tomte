@@ -186,7 +186,7 @@ function ns.WeeklyRaidsView(parent)
 			row:SetScript("OnClick", function(self)
 				if self.raidID then
 					ns.weeklyDB.raidCollapsed[self.raidID] = not ns.weeklyDB.raidCollapsed[self.raidID] or nil
-					PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+					UI.Sound(ns.weeklyDB.raidCollapsed[self.raidID] and "off" or "on")
 					ns.WeeklyBoard_Refresh()
 				end
 			end)

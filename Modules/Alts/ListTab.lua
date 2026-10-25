@@ -604,7 +604,7 @@ local function CreateTodoToggle(parent)
 	end)
 	b:SetScript("OnClick", function()
 		ns.altsDB.listTodoOpen = not ns.altsDB.listTodoOpen or nil
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		UI.Sound(ns.altsDB.listTodoOpen and "on" or "off")
 		ns.AltsListTab_Refresh()
 	end)
 	return b

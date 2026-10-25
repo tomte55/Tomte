@@ -57,6 +57,7 @@ ns.BUG_FILES = {
 	"Panel/Layout.lua",
 	"Panel/Widgets.lua",
 	"Panel/Controls.lua",
+	"Panel/Motion.lua",
 	"Panel/Menu.lua",
 	"Panel/Dialog.lua",
 	"Panel/Confirm.lua",

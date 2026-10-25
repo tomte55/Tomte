@@ -81,7 +81,7 @@ local function CreateResultRow(parent)
 	row:SetScript("OnClick", function(self)
 		S.db.selected = self.id
 		S.db.crafts, S.db.quality, S.db.ranks = 1, nil, nil
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		UI.Sound("pick")
 		ns.AltsCraft_Refresh()
 	end)
 	return row
@@ -112,7 +112,7 @@ local function CreateGroupRow(parent)
 	end)
 	row:SetScript("OnClick", function(self)
 		S.db.collapsed[self.key] = not self.collapsed
-		PlaySound(self.collapsed and SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON or SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF)
+		UI.Sound(self.collapsed and "on" or "off")
 		ns.AltsCraft_Refresh()
 	end)
 	return row
@@ -171,7 +171,7 @@ local function SetAllCollapsed(collapsed)
 			S.db.collapsed[row.key] = collapsed
 		end
 	end
-	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+	UI.Sound(collapsed and "off" or "on")
 	ns.AltsCraft_Refresh()
 end
 

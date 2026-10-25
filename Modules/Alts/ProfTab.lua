@@ -136,7 +136,7 @@ local function CreateProfRow(parent)
 	row:SetScript("OnClick", function(self)
 		local first = self.best[1]
 		if first then
-			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			UI.Sound("nav")
 			ns.AltsCraft_Open(first.best.recipeID, self.char.guid == UnitGUID("player") and "me" or self.char.guid)
 		end
 	end)

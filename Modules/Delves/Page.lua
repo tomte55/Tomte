@@ -264,7 +264,7 @@ local function RenderCompanion(y, comp)
 	c.xp:ClearAllPoints()
 	c.xp:SetPoint("TOPLEFT", textX, -y)
 	c.xp:SetPoint("RIGHT", -PAD, 0)
-	c.xp:SetValue(comp.xpMax and comp.xpMax > 0 and comp.xp / comp.xpMax or 1)
+	UI.BarTo(c.xp, comp.xpMax and comp.xpMax > 0 and comp.xp / comp.xpMax or 1)
 	y = y + 11
 	c.role:ClearAllPoints()
 	c.role:SetPoint("TOPLEFT", textX, -y)
@@ -326,7 +326,7 @@ local function Render()
 		c.journeyBar:SetPoint("TOPLEFT", PAD, -y)
 		c.journeyBar:SetPoint("RIGHT", -PAD, 0)
 		c.journeyBar:Show()
-		c.journeyBar:SetValue(ns.Delves_JourneyFraction(journey))
+		UI.BarTo(c.journeyBar, ns.Delves_JourneyFraction(journey))
 		y = y + JOURNEY_BAR_GAP
 	else
 		c.journeyBar:Hide()

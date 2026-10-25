@@ -16,6 +16,7 @@ local MIN_COLUMN = 360 -- narrowest card in two columns: a long label beside a 1
 local MAX_CARD = 540 -- widest card: past this a switch ends up far from its label
 local FOOTER_H = 34
 local DIMMED = 0.45
+local CARD_RULE = 0.35 -- a card's border alpha at rest (it eases toward accent while hovered)
 
 local parent -- the options scroll's content frame
 local scrollFrame
@@ -62,11 +63,12 @@ local function AcquireCard()
 	local card = table.remove(cardPool)
 	if not card then
 		card = CreateFrame("Frame", nil, parent)
-		UI.Surface(card, 0.35)
+		UI.Surface(card, CARD_RULE)
 		card.title = UI.Text(card, 11, "accent", "label")
 		card.title:SetPoint("TOPLEFT", 14, -11)
 		card.title:SetPoint("RIGHT", -14, 0)
 		card.title:SetWordWrap(false)
+		UI.CardHover(card, { role = "frame", alpha = CARD_RULE }) -- its rows light it too (OptionRows.lua)
 	end
 	card:Show()
 	cards[#cards + 1] = card
@@ -232,7 +234,8 @@ local Build -- forward declaration
 local building = false
 
 -- Builds module's options into scroll.content (a UI.Scroll). Rebuilding the same module keeps the scroll offset.
-function ns.PanelOptions_Build(scroll, module)
+-- enter: the player just opened this page, so the cards rise in one after another (a rebuild after a change doesn't).
+function ns.PanelOptions_Build(scroll, module, enter)
 	if building then
 		-- Asked again from inside a build (an input saving as it's hidden): once this one is done.
 		C_Timer.After(0, function()
@@ -244,11 +247,11 @@ function ns.PanelOptions_Build(scroll, module)
 	end
 	building = true
 	-- An error in a module's choices() or label() still reaches BugSack, and the guard comes off either way.
-	xpcall(Build, ns.errorHandler, scroll, module)
+	xpcall(Build, ns.errorHandler, scroll, module, enter)
 	building = false
 end
 
-function Build(scroll, module)
+function Build(scroll, module, enter)
 	parent = scroll.content
 	scrollFrame = scroll
 	local keepScroll = builtFor == module and scroll:GetVerticalScroll() or 0
@@ -262,7 +265,7 @@ function Build(scroll, module)
 		card.title:SetShown(sec.title ~= nil)
 		local y = sec.title and CARD_TITLE_H or CARD_PAD
 		for i, spec in ipairs(sec.specs) do
-			local row = ns.OptionRows_Acquire(spec.type, card)
+			local row = ns.OptionRows_Acquire(spec.type, card, spec)
 			used[#used + 1] = row
 			row.allowPreview = true
 			local indent = spec.parent and INDENT or 0
@@ -289,4 +292,15 @@ function Build(scroll, module)
 	scroll.onWidthChanged = Layout
 	Layout(scroll:GetWidth())
 	scroll:SetScroll(keepScroll)
+	if enter then
+		-- The cards in the schema's order, then the reset links under them.
+		local arriving = {}
+		for i, card in ipairs(cards) do
+			arriving[i] = card
+		end
+		for i = 1, shownLinks do
+			arriving[#arriving + 1] = links[i]
+		end
+		UI.EnterUpRows(arriving)
+	end
 end

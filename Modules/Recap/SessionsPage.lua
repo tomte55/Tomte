@@ -76,7 +76,7 @@ local function SessionTooltip(owner, h)
 end
 
 local function Open(h)
-	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+	UI.Sound("open")
 	ns.Panel_Hide()
 	ns.Recap_ShowStored(h)
 end
@@ -288,7 +288,7 @@ local function Toggle(parent, width, get, texts, set)
 		self.label:SetText(texts[get()])
 	end
 	b:SetScript("OnClick", function(self)
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		UI.Sound("pick")
 		set()
 		page.Refresh()
 	end)

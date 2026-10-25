@@ -24,6 +24,7 @@ local MAX_W, MAX_H = 420, 340
 local PAD = 10
 local CAPTION_H = 18 -- the "Preview" line over the drawing
 local GAP = 4 -- from the tooltip, the row or the dropdown list
+local FADE_SECONDS = 0.15 -- the card fading in beside the tooltip (which shows at once)
 
 local UI = ns.UI
 
@@ -141,6 +142,7 @@ local function Draw()
 	local need = needs[spec.preview]
 	local host = Host(need and need.fn or spec.preview)
 	host:SetScale(1)
+	local fresh = not card:IsShown()
 	-- Shown (unseen) while it draws: a tooltip in host only lays out its lines while it can be seen.
 	card:SetAlpha(0)
 	card:Show()
@@ -163,7 +165,17 @@ local function Draw()
 	local width = math.max(w * scale, math.ceil(card.caption:GetUnboundedStringWidth()))
 	card:SetSize(math.ceil(width) + 2 * PAD, math.ceil(h * scale) + CAPTION_H + 2 * PAD)
 	Place()
-	card:SetAlpha(1)
+	-- A card that wasn't up fades in; a redraw (a slider dragged) stays put. A fade still running when it redraws
+	-- carries on from where it was.
+	if fresh then
+		card:SetAlpha(0)
+		card.fading = true
+		UI.AlphaTo(card, 1, FADE_SECONDS, function()
+			card.fading = false
+		end)
+	elseif not card.fading then
+		card:SetAlpha(1)
+	end
 end
 
 -- Sample tooltips ---------------------------------------------------------------------------------------------------

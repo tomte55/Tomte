@@ -4,6 +4,8 @@ local addonName, ns = ...
 -- uses Read.lua's readers (round counters, the interpreter's api, the plain tables for the matchup rules) and draws
 -- the battle helper: the enemy team, what hits it hard, your best pet, the strategy's steps and the Next move button.
 -- Next move does one action per press (a click, or its key from WoW's Key Bindings menu); nothing acts on its own.
+-- While the helper shows, its height eases and parts that come or go fade, minimizing included (ns.EditMode_Fold in
+-- Core/EditMode.lua).
 -- After a battle it refills the leveling slot and shows the Heal button (both live in Journal.lua), waiting for
 -- combat to end when needed.
 
@@ -13,6 +15,7 @@ local NPC_FRESH = 60 -- seconds a talked-to NPC counts as "the one you're fighti
 local AFTER_SECONDS = 5 -- how long after the after-battle work a journal update still redoes it (see afterUntil)
 local WIDTH = 460
 local CELL = 38
+local BAR_SECONDS = 0.35 -- a pet's health bar easing to its new value: quick, a round is short
 local LINE_H = 20
 local STEPS_H = 150
 local CELLS_Y = 40 -- top of the pet icons, below the title row and the "best" mark
@@ -142,7 +145,12 @@ local function SetCell(c, p, active, mark)
 	c.icon:SetDesaturated(p.dead)
 	c.ring:SetShown(active)
 	c.family:SetText(ns.Pets_FamilyIcon(p.type, 16))
-	c.bar:SetValue(p.health / math.max(p.maxHealth, 1))
+	-- Health eases down a hit (or up a heal) for the pet the cell showed last; another pet's shows at once.
+	if c.pet ~= p.name then
+		c.pet = p.name
+		c.bar.shownOnce = nil
+	end
+	UI.BarTo(c.bar, p.health / math.max(p.maxHealth, 1), BAR_SECONDS)
 	c.bar:SetColorRole(p.dead and "danger" or (p.health / math.max(p.maxHealth, 1) < 0.35 and "warning" or "success"))
 	c.mark:SetText(mark or "")
 	c.tip = { p.name or "?", ns.Pets_FamilyName(p.type) .. "  " .. p.health .. " / " .. p.maxHealth }
@@ -543,6 +551,24 @@ local function Fill(f, battle, collapsed, sampleTitle)
 	f:SetHeight(y + 4)
 end
 
+-- The parts under the title row, top down: what folding and redraws fade in and out.
+local function FoldRegions(f)
+	local list = { f.enemyLabel }
+	for i = 1, 3 do
+		list[#list + 1] = f.enemy[i]
+	end
+	list[#list + 1] = f.allyLabel
+	for i = 1, 3 do
+		list[#list + 1] = f.ally[i]
+	end
+	for i = 1, 3 do
+		list[#list + 1] = f.lines[i]
+	end
+	list[#list + 1] = f.script
+	list[#list + 1] = f.steps
+	return list
+end
+
 -- Shows, hides and fills the helper.
 function ns.PetsBattle_Refresh()
 	local editMode = ns.EditMode_Active()
@@ -557,8 +583,12 @@ function ns.PetsBattle_Refresh()
 	if not frame then
 		Build()
 	end
+	local regions = FoldRegions(frame)
+	local before = ns.EditMode_FoldStart(frame, regions)
 	Fill(frame, battle, db.advisor.collapsed, "Edit Mode preview")
+	ns.EditMode_FoldKeep(frame)
 	frame:Show()
+	ns.EditMode_Fold(frame, before, regions)
 end
 
 -- The settings preview (Panel/Preview.lua): the helper open, with Edit Mode's sample enemy team, at the size get

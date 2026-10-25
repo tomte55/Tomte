@@ -12,7 +12,28 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+### New
+
+- **Tomte window:** a Motion and sound card in its settings. Motion: Full, Subtle (soft fades and glides only) or
+  Off. Sounds: All, Only important (confirmations, errors, rewards) or Off.
+
 ### Improved
+
+- **Tomte window:** the window fades in and out; hovers ease instead of snapping; the rail and settings markers
+  glide to what you pick; pages and settings cards rise in; menus, dropdowns and dialogs fade in; switches spring;
+  long lists scroll smoothly and fade at their edges; settings cards light up under the mouse.
+- **Tomte window:** turning a module on flashes its row, and its new page slides into the rail; rail counts light
+  up when they change.
+- **Home:** gold, item level and durability count to their new values, with a floating +/- for gold; the
+  character turns a little toward your mouse, and a click makes it wave, cheer, laugh or salute.
+- **Home:** Around you blocks show shimmering placeholder rows while they're read.
+- **Toasts and banners:** toasts slide in with a small bounce, their icon pops and a shine sweeps across; banners
+  drift in and their icon pops.
+- **Weekly board:** progress eases, finished rows and unlocked vault slots sparkle, faction rings fill smoothly.
+- **Almost Done, Crafting list, Gathering, Pet battles:** minimizing and expanding ease, and new rows fade in
+  while the rest glide into place.
+- **Edit Mode:** a dropped widget flashes and clicks into place; arrow-key nudges tick.
+- **Setup:** larger, easier to read card text.
 
 - **Home:** while Tomte reads your collections, the housing catalog or something the game hasn't sent yet, a thin
   line shows it working: it fills as a scan goes on (Collect here, Decor vendors, Events, the Achievements dock, the

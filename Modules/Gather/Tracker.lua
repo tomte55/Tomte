@@ -3,6 +3,7 @@ local addonName, ns = ...
 -- Gathering run tracker: a small widget while a run is on (and in Edit Mode, with sample numbers when there's no
 -- run). Time, nodes and nodes per hour, value and gold per hour, the three biggest items with their rank icon,
 -- finds, skill and knowledge. Minimized it's one line. Hidden in instances and pet battles. Moved in Edit Mode.
+-- While it shows, its height eases and lines that come or go fade (ns.EditMode_Fold in Core/EditMode.lua).
 
 local UI = ns.UI
 local WIDTH = 260
@@ -337,6 +338,32 @@ local function Fill(f, run, sample, collapsed)
 	end
 	f:SetHeight(y + 6)
 	Clock(f, run, sample, collapsed)
+	-- A node gathered or more value while the tracker shows the same run pops what grew.
+	local seen = f.seen
+	if not sample and f:IsVisible() then
+		if seen and seen.run == run then
+			if n.nodes > seen.nodes then
+				UI.Pop(f.nodes, 0.12)
+			end
+			if (n.value or 0) > seen.value then
+				UI.Pop(f.value, 0.12)
+			end
+		end
+		f.seen = { run = run, nodes = n.nodes, value = n.value or 0 }
+	else
+		f.seen = nil
+	end
+end
+
+-- The lines under the title, top down: what folding and redraws fade in and out.
+local function FoldRegions(f)
+	local list = { f.nodes, f.value }
+	for _, fs in ipairs(f.items) do
+		list[#list + 1] = fs
+	end
+	list[#list + 1] = f.finds
+	list[#list + 1] = f.progress
+	return list
 end
 
 function ns.GatherTracker_Tick()
@@ -363,8 +390,12 @@ function ns.GatherTracker_Refresh()
 		run, sample = SampleRun(), true
 	end
 	current, currentSample = run, sample
+	local regions = FoldRegions(frame)
+	local before = ns.EditMode_FoldStart(frame, regions)
 	Fill(frame, run, sample, db.tracker.collapsed)
+	ns.EditMode_FoldKeep(frame)
 	frame:Show()
+	ns.EditMode_Fold(frame, before, regions)
 end
 
 -- The settings preview (Panel/Preview.lua): the tracker open, with the run going on now or the made-up one. Drawn by

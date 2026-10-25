@@ -18,6 +18,9 @@ local LIST_TOP = 170
 local SHADE_WIDTH = 620
 local TIMER_TOP = 60 -- countdown block, below the top band
 local TIMER_BAR = 260
+local GOLD_DELAY = 0.35 -- seconds before the net gold starts counting up: the card is still fading in
+local GOLD_SECONDS = 1.1 -- its count from nothing to the session's net
+local UI = ns.UI
 local Text, Spaced, Place, SetText = ns.SceneText, ns.Spaced, ns.ScenePlace, ns.SceneSetText
 
 local COIN_ICONS = {
@@ -142,7 +145,18 @@ local function ShowSummary()
 	SetText(card.label, Label())
 	SetText(card.title, summary.title)
 	SetText(card.subtitle, summary.subtitle)
-	SetText(card.gold, Signed(summary.net))
+	local net = summary.net
+	if card.gold.countValue == nil and net ~= 0 and not ns.IsSecret(net) then
+		-- A card that just began counts its gold up from nothing once it has faded in; later rebuilds run from the
+		-- amount shown (UI.CountTo replaces this tween: same key).
+		card.gold.countValue = net
+		SetText(card.gold, Signed(0))
+		UI.Tween(card.gold, "count", GOLD_SECONDS, function(t)
+			SetText(card.gold, Signed(math.floor(net * t + 0.5)))
+		end, nil, nil, GOLD_DELAY)
+	else
+		UI.CountTo(card.gold, net, Signed)
+	end
 	local sources = summary.net == 0 and #summary.sources == 0 and "no gold change" or SourcesLine(summary.sources)
 	if summary.lootText then
 		sources = sources .. "  -  " .. summary.lootText
@@ -262,6 +276,7 @@ function scene.Begin(s)
 		card.charName:SetTextColor(color:GetRGB())
 	end
 	card.charInfo:SetText(("Level %d %s %s"):format(UnitLevel("player"), UnitRace("player"), className))
+	card.gold.countValue = nil -- counts up again (ShowSummary)
 	ShowSummary()
 	UpdateTimer()
 	sinceRefresh = 0

@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 -- The kit Home's sections draw with (ns.HomeKit): heading, list row, row pool, and the small helpers the Home files
--- share (SetColor, TipLine, Snap, hairlines). Loaded before the modules that capture it. The hero is in HomeHero.lua,
+-- share (SetColor, TipLine, Snap, hairlines, Count for numbers that run to a new value). Loaded before the modules that capture it. The hero is in HomeHero.lua,
 -- "Around you" in HomeAround.lua, the view in Home.lua, the rail in Rail.lua.
 
 local UI = ns.UI
@@ -59,7 +59,7 @@ function Kit.Heading(parent)
 		SetColor(self.text, self.color)
 	end)
 	h.link:SetScript("OnClick", function(self)
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		UI.Sound("nav")
 		self.onClick()
 	end)
 	function h:Set(title, meta, linkText, onLink, linkColor)
@@ -200,6 +200,31 @@ function Kit.RowProgress(row, read)
 	if row.progress:Track(read) then
 		row.progress:SetWidth(math.max(row.right:GetStringWidth(), RIGHT_MIN_LINE))
 	end
+end
+
+-- A number on fs that runs to value (UI.CountTo through format). With deltaAnchor, a change seen while fs shows also
+-- floats deltaText(change) beside deltaAnchor, green for a gain and red for a loss; deltaText may return nil for a
+-- change too small to mention.
+function Kit.Count(fs, value, format, deltaAnchor, deltaText)
+	local from = fs.countValue
+	local live = fs:IsVisible()
+	UI.CountTo(fs, value, format)
+	if not (deltaAnchor and live and from and fs.countValue) or from == value then
+		return
+	end
+	local change = value - from
+	local text = deltaText(change)
+	if text then
+		UI.Delta(deltaAnchor, text, change > 0 and "success" or "danger")
+	end
+end
+
+-- A gold change for Kit.Count's deltaText: whole gold only (ns.Gold drops the silver, so less reads as "+0g").
+function Kit.GoldDelta(change)
+	if math.abs(change) < 10000 then
+		return nil
+	end
+	return ns.SignedGold(change)
 end
 
 function Kit.HideFrom(pool, first)

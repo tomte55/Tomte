@@ -100,7 +100,10 @@ local function SetEmblem(ring, rec)
 	local look = ns.Weekly_FactionRing(rec)
 	ring:SetColor(UI.Color(RING_ROLES[look.color] or "accent"))
 	ring:SetBadge(look.badge) -- before the progress: the ring leaves room for the badge
-	ring:SetProgress(look.frac)
+	-- The same faction a level higher than this ring last showed: it fills up, starts over and pops its badge.
+	local levelUp = ring.progressKey == rec.id and rec.level ~= nil and ring.level ~= nil and rec.level > ring.level
+	ring.level = rec.level
+	ring:ProgressTo(look.frac, rec.id, levelUp)
 	ring:SetGlow(look.glow)
 end
 
@@ -220,7 +223,7 @@ function ns.WeeklyFactionsView(parent)
 			ring:SetScript("OnClick", function(self)
 				if self.rec.renown then
 					ns.weeklyDB.faction = self.rec.id
-					PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+					UI.Sound("pick")
 					ns.WeeklyBoard_Refresh()
 				end
 			end)

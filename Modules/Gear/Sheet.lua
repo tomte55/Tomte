@@ -250,7 +250,7 @@ local function BuildButton()
 		GameTooltip:Hide()
 	end)
 	button:SetScript("OnClick", function()
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		UI.Sound(DB().sheetOpen and "close" or "open")
 		SetOpen(not DB().sheetOpen)
 	end)
 	-- Count of missing enchants and empty sockets.

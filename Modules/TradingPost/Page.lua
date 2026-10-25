@@ -38,6 +38,7 @@ local function Build()
 	c.nextText = Text(13, "accent")
 	c.noLog = Text(13, "textMuted")
 	c.actHead = Kit.Heading(c)
+	c.actNone = Text(13, "textMuted")
 	c.shopHead = Kit.Heading(c)
 	c.shopNote = Text(13, "textMuted")
 end
@@ -68,7 +69,11 @@ end
 
 local function RenderTender(y, s)
 	local icon = s.tenderIcon and ("|T%d:16:16|t "):format(s.tenderIcon) or ""
-	y = Place(c.tender, y, ("%s%s %s"):format(icon, ns.Thousands(s.tender), s.tenderName or "Trader's Tender"), 6)
+	local function TenderText(amount)
+		return ("%s%s %s"):format(icon, ns.Thousands(amount), s.tenderName or "Trader's Tender")
+	end
+	y = Place(c.tender, y, TenderText(s.tender), 6)
+	UI.CountTo(c.tender, s.tender, TenderText) -- runs up from what it showed while the page is open
 	if s.waiting > 0 then
 		c.cache:Set(CHEST_ICON, ("%s Tender waiting in the Collector's Cache"):format(ns.Thousands(s.waiting)),
 			"success", "Waypoint", "accent")
@@ -123,7 +128,7 @@ local function RenderLog(y, s)
 	c.logHead:Set("Traveler's Log", ("%s / %s points"):format(ns.Thousands(s.earned), ns.Thousands(s.max)))
 	y = PlaceFrame(c.logHead, y, 30) + 8
 	y = PlaceFrame(c.bar, y, BAR_H) + 8
-	c.bar:SetValue(s.max > 0 and s.earned / s.max or 0)
+	UI.BarTo(c.bar, s.max > 0 and s.earned / s.max or 0)
 	local width = c:GetWidth() - 2 * PAD
 	local parts = {}
 	for i, m in ipairs(s.milestones) do
@@ -180,6 +185,7 @@ end
 local function RenderActivities(y, s)
 	if not s.available then
 		c.actHead:Hide()
+		c.actNone:Hide()
 		Kit.HideFrom(activityRows, 1)
 		return y
 	end
@@ -217,6 +223,9 @@ local function RenderActivities(y, s)
 		end
 	end
 	Kit.HideFrom(activityRows, n + 1)
+	-- Every activity done (and the done ones folded away): a line, not a blank under the heading.
+	local none = n == 0 and (done > 0 and "Every activity done this month." or "No activities this month.") or nil
+	y = Place(c.actNone, y, none, 4)
 	return y + 14
 end
 

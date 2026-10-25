@@ -2,8 +2,10 @@ local addonName, ns = ...
 
 -- Title-card banner over the normal UI (Moments, and warnings from Hunter Pets, Pet Health, Rogue Poisons and
 -- Durability): an optional icon, a spaced label, the title in
--- the theme's title font, a line with a small diamond and a subtitle. Drifts up while fading in, holds,
--- fades out. Click-through. Banners queue and wait while a cinematic hides the UI, and while Blizzard's own
+-- the theme's title font, a line with a small diamond and a subtitle. Drifts up while fading in (the icon and
+-- diamond pop as it does; no scaling, which redraws the text at every size and makes it step), holds, fades out.
+-- The Tomte window's Motion setting tones it down: "subtle" has no pops, "off" shows and clears it at once (the same
+-- time on screen). Click-through. Banners queue and wait while a cinematic hides the UI, and while Blizzard's own
 -- center-screen text (zone text, event toasts, raid warnings, boss emotes) is up, so they never overlap it.
 -- A moment that tells the same thing as Blizzard's zone text can hide that text instead.
 
@@ -12,6 +14,7 @@ local FADE_IN, FADE_OUT = 0.8, 1.0
 local HOLD = 4.5
 local GAP = 0.4 -- between queued banners
 local DRIFT = 10
+local POP_AT = 0.55 -- share of the fade-in when the icon and the diamond pop
 local LINE_WIDTH = 360
 local ICON = 40
 local MAX_QUEUE = 6
@@ -23,6 +26,7 @@ local ZONE_TEXT_FRAMES = { "ZoneTextFrame", "SubZoneTextFrame" }
 local frame, block
 local queue = {}
 local current, t, wait = nil, nil, 0
+local popped = false -- the current banner's icon and diamond have popped
 local clearWait = 0 -- how long the next banner has waited for Blizzard's text
 local suppressUntil = 0 -- Blizzard's zone text stays hidden until then
 
@@ -109,6 +113,7 @@ local function Start(spec)
 	end
 	block:SetAlpha(0)
 	Place(-DRIFT)
+	popped = false
 end
 
 local function OnUpdate(self, dt)
@@ -133,10 +138,26 @@ local function OnUpdate(self, dt)
 	end
 	t = t + dt
 	local hold = current.hold or HOLD
-	if t < FADE_IN then
+	if ns.UI.MotionLevel() == "off" then
+		-- No drift or fades: up at once for as long as the fade-in and hold would take, then gone.
+		if t < FADE_IN + hold then
+			block:SetAlpha(1)
+			Place(0)
+		else
+			block:SetAlpha(0)
+			current, t, wait = nil, nil, GAP
+		end
+	elseif t < FADE_IN then
 		local p = Smooth(t / FADE_IN)
 		block:SetAlpha(p)
 		Place(-DRIFT * (1 - p))
+		if not popped and t >= FADE_IN * POP_AT then
+			popped = true
+			if block.icon:IsShown() then
+				ns.UI.Pop(block.icon, 0.2)
+			end
+			ns.UI.Pop(block.diamond, 0.8)
+		end
 	elseif t < FADE_IN + hold then
 		block:SetAlpha(1)
 		Place(0)

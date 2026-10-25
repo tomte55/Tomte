@@ -5,6 +5,7 @@ local addonName, ns = ...
 -- somebody has (an unlit one's tooltip says who has a free slot for it).
 
 local UI = ns.UI
+local Kit = ns.HomeKit
 local ROW_H = 24
 local FOOT_H = 84
 local HEADING_H = 40 -- room for the section heading above the rows
@@ -98,7 +99,12 @@ local function SetRow(row, c)
 		UI.SetTextRole(row.name, "text")
 	end
 	row.level:SetText(c.level or "?")
-	row.gold:SetText(ns.Alts_Gold(c.money))
+	-- Runs to a new amount only for the character the row showed before (rows follow the roster's order).
+	if row.goldOf ~= c then
+		row.goldOf = c
+		row.gold.countValue = nil
+	end
+	UI.CountTo(row.gold, c.money or 0, ns.Alts_Gold)
 	local profs = ns.Alts_Profs(c)
 	local anchor, x = row.level, 18
 	for i, p in ipairs(row.profs) do
@@ -209,8 +215,8 @@ local function Refresh(frame)
 	frame.hint:SetPoint("RIGHT")
 
 	local foot = frame.foot
-	foot.total:SetText(ns.Alts_Gold(ns.Alts_TotalGold(db.chars, db.warbandMoney)))
 	foot.totalLabel:SetText("Total gold" .. ns.Alts_WarbandText(db.warbandMoney))
+	Kit.Count(foot.total, ns.Alts_TotalGold(db.chars, db.warbandMoney), ns.Alts_Gold, foot.totalLabel, Kit.GoldDelta)
 	local covered = 0
 	for i, p in ipairs(PROFESSIONS) do
 		local b = foot.icons[i]
@@ -230,6 +236,11 @@ local function Refresh(frame)
 		b.icon:SetAlpha(has and 1 or 0.35)
 		UI.SetBorderColor(b, "frame", has and 0.6 or 0.1)
 	end
+	-- A profession newly covered while the section shows pops its count.
+	if foot.covered and covered > foot.covered and foot:IsVisible() then
+		UI.Pop(foot.covCount, 0.25)
+	end
+	foot.covered = foot:IsVisible() and covered or nil
 	foot.covCount:SetText(("%d of %d"):format(covered, #PROFESSIONS))
 	UI.SetTextRole(foot.covCount, covered == #PROFESSIONS and "accent" or "text")
 	-- One row of icons under the label, as large as the column allows (up to 26 px).

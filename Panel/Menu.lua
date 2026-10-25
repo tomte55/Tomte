@@ -98,7 +98,7 @@ local function CreateRow(level)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
 	row.bg:SetColorTexture(UI.Color("hover"))
-	row.bg:Hide()
+	row.bg:SetAlpha(0) -- eased in while the mouse is on the row (UI.WashTo)
 	row.bar = row:CreateTexture(nil, "ARTWORK")
 	row.bar:SetColorTexture(UI.Color("accent"))
 	row.bar:SetPoint("TOPLEFT")
@@ -125,7 +125,7 @@ local function CreateRow(level)
 	row:SetScript("OnEnter", function(self)
 		local d = self.desc
 		if Interactive(d) then
-			self.bg:Show()
+			UI.WashTo(self.bg, true)
 		end
 		local hover = levels[1].root.onHover
 		if hover and d.kind == "radio" then
@@ -138,7 +138,7 @@ local function CreateRow(level)
 		end
 	end)
 	row:SetScript("OnLeave", function(self)
-		self.bg:Hide()
+		UI.WashTo(self.bg, false)
 		local hover = levels[1].root.onHover
 		if hover then
 			hover(nil)
@@ -147,7 +147,7 @@ local function CreateRow(level)
 	row:SetScript("OnClick", function(self)
 		local d = self.desc
 		if d.kind == "checkbox" then
-			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			UI.Sound("pick")
 			d.onSelect(d.data)
 			for _, other in ipairs(level.rows) do
 				if other:IsShown() then
@@ -155,7 +155,7 @@ local function CreateRow(level)
 				end
 			end
 		elseif d.kind == "radio" or (d.kind == "button" and #d.children == 0) then
-			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			UI.Sound("pick")
 			CloseAll() -- before the action, which may open something of its own
 			local fn = d.kind == "radio" and d.onSelect or d.onClick
 			if fn then
@@ -256,7 +256,7 @@ function Render(depth, desc, anchor, minWidth)
 		row.label:SetText(d.text or "")
 		widest = math.max(widest, math.ceil(row.label:GetUnboundedStringWidth()) + left + 16
 			+ (row.arrow:IsShown() and ARROW_W or 0))
-		row.bg:Hide()
+		UI.WashTo(row.bg, false, true)
 		Paint(row)
 		row:Show()
 		y = y + height
@@ -296,7 +296,11 @@ function Render(depth, desc, anchor, minWidth)
 		local scale = level:GetEffectiveScale()
 		level:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale + 2, cy / scale - 2)
 	end
-	level:Show()
+	-- Opening (not a submenu redrawn for another row): a quick fade and grow in.
+	if not level:IsShown() then
+		level:Show()
+		UI.Appear(level)
+	end
 end
 
 local function Open(by, root, anchor, minWidth, arrow)

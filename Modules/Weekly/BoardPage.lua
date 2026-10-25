@@ -9,6 +9,7 @@ local UI = ns.UI
 local STATE_ROLES = { done = "success", open = "text", warn = "warning", dim = "textFaint", gold = "accent" }
 local ROW_H, HEADER_H, BANNER_H = 20, 28, 30
 local LABEL_W, CELL_MIN, CELL_MAX, GRID_HEAD_H = 210, 56, 96, 34
+local BAR_SECONDS = 0.6 -- a row's progress line easing to its new length
 
 -- color: a role, or a color table (class colors).
 local function SetColor(fs, color)
@@ -27,6 +28,11 @@ local TipLine = UI.TipLine
 -- ns.WeeklyList wraps it in a UI.Scroll; the board's week view puts two of them side by side.
 function ns.WeeklyRows(parent)
 	local rows = { rows = {}, used = 0 }
+	-- What each row showed while on screen, by its text: [left] = { state, frac }. A row whose line moved eases it, one
+	-- that turned done pops; forgotten when the list hides, so a reopened window or another view doesn't replay.
+	parent:HookScript("OnHide", function()
+		rows.seen = nil
+	end)
 
 	local function NewRow()
 		local row = CreateFrame("Frame", nil, parent)
@@ -88,6 +94,8 @@ function ns.WeeklyRows(parent)
 		end
 		self.used = 0
 		local y = 0
+		local was = parent:IsVisible() and self.seen or nil
+		local seen, finished = {}, {}
 		for _, item in ipairs(items) do
 			self.used = self.used + 1
 			local row = self.rows[self.used] or NewRow()
@@ -139,14 +147,36 @@ function ns.WeeklyRows(parent)
 				SetColor(row.left, dim and "textFaint" or (item.indent and "textMuted" or "text"))
 				row.right:SetText(item.right or "")
 				SetColor(row.right, color)
+				local before = was and item.left and was[item.left]
 				if item.frac then
-					row.bar:SetValue(item.frac)
-					row.bar:SetStatusBarColor(UI.RGBA(color, 0.7))
-					row.bar:Show()
+					local bar = row.bar
+					if before and before.frac and before.frac ~= item.frac then
+						local from, to = before.frac, item.frac
+						UI.Tween(bar, "fill", BAR_SECONDS, function(t)
+							bar:SetValue(UI.Lerp(from, to, t))
+						end)
+					else
+						UI.TweenStop(bar, "fill")
+						bar:SetValue(item.frac)
+					end
+					bar:SetStatusBarColor(UI.RGBA(color, 0.7))
+					bar:Show()
+				end
+				if before and item.state == "done" and before.state ~= "done" then
+					finished[#finished + 1] = row
+				end
+				if item.left then
+					seen[item.left] = { state = item.state, frac = item.frac }
 				end
 			end
 			row:Show()
 			y = y + row:GetHeight()
+		end
+		self.seen = parent:IsVisible() and seen or nil
+		-- Quiet: the game already sounds a quest turned in.
+		for _, row in ipairs(finished) do
+			UI.Burst(row, row.right, true)
+			UI.Pop(row.right, 0.3)
 		end
 		return y
 	end
@@ -328,7 +358,10 @@ local function Layout()
 	page.note:Hide()
 	list.scroll:SetShown(view == "profs")
 	grid.scroll:SetShown(view == "chars")
-	week.scroll:SetShown(false)
+	-- Shown only when it draws, and never hidden and shown again in one go: a hide makes its rows forget what they
+	-- showed (WeeklyRows), so a vault slot or a quest that's done now wouldn't be marked.
+	local current = view == "week" and ns.Weekly_CurrentView() or nil
+	week.scroll:SetShown(current ~= nil)
 	for key, tv in pairs(tabViews) do
 		tv.scroll:SetShown(key == view)
 	end
@@ -337,14 +370,12 @@ local function Layout()
 		return
 	end
 	if view == "week" then
-		local v = ns.Weekly_CurrentView()
-		if not v then
+		if not current then
 			page.note:SetText("The weekly board tracks max-level characters. Nothing to show for this one yet.")
 			page.note:Show()
 			return
 		end
-		week.scroll:Show()
-		week:Render(ns.Weekly_BoardModel(v, db.quests, now, db.learned), week.scroll:GetWidth())
+		week:Render(ns.Weekly_BoardModel(current, db.quests, now, db.learned), week.scroll:GetWidth())
 	elseif view == "profs" then
 		local items = ns.Weekly_ProfModel(ns.Weekly_Views(), now)
 		if #items == 0 then

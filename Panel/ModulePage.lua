@@ -45,8 +45,12 @@ local function CreateSwitch(parent)
 		end
 	end)
 	toggle.switch.onChange = function(checked)
-		ns.SetModuleEnabled(Selected().key, checked)
+		local key = Selected().key
+		ns.SetModuleEnabled(key, checked)
 		Refresh()
+		if checked then
+			ns.PanelSidebar_Flash(key) -- its row in the list lights up too
+		end
 	end
 	return toggle
 end
@@ -158,7 +162,7 @@ function ns.PanelModulePage_Create(parent)
 	page.more.text:SetPoint("LEFT")
 	page.more:SetScript("OnClick", function()
 		expanded = not expanded
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		UI.Sound("pick")
 		ns.PanelModulePage_Refresh()
 	end)
 	page.more:SetScript("OnEnter", function(self)
@@ -183,7 +187,13 @@ function ns.PanelModulePage_Create(parent)
 
 	page.options = UI.Scroll(page)
 	page.none = UI.Text(page, 12, "textMuted")
-	page.none:SetText("No options.")
+	page.none:SetText("Nothing to set here. It does its job on its own.")
+	-- Once the settings view has closed, its next refresh is an arrival (UI.EnterUp), not a redraw. Set on hide rather
+	-- than on show: the window's OnShow refreshes, and may run before this page's OnShow.
+	page.arriving = true
+	page:SetScript("OnHide", function()
+		page.arriving = true
+	end)
 	page:SetScript("OnSizeChanged", function()
 		if page:IsVisible() then
 			-- Text widths and the blocked strip's height follow the page width; the cards re-lay themselves
@@ -199,6 +209,11 @@ function ns.PanelModulePage_Refresh(headerOnly)
 	local module = Selected()
 	if not module then
 		return
+	end
+	-- Another module picked or the settings view opened: the page rises in. A redraw after a setting changed doesn't.
+	local arriving = not headerOnly and (shownFor ~= module or page.arriving)
+	if not headerOnly then
+		page.arriving = false
 	end
 	if shownFor ~= module then
 		expanded = false
@@ -306,7 +321,7 @@ function ns.PanelModulePage_Refresh(headerOnly)
 		page.options:SetPoint("LEFT", page, "LEFT", PAD - 8, 0)
 		page.options:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -(PAD - 8) - SCROLL_BAR, 14)
 		if not headerOnly then
-			ns.PanelOptions_Build(page.options, module)
+			ns.PanelOptions_Build(page.options, module, arriving)
 		end
 	else
 		ns.PanelOptions_Release()
@@ -314,4 +329,21 @@ function ns.PanelModulePage_Refresh(headerOnly)
 	page.none:SetShown(open and not showOptions and shownButtons == 0)
 	page.none:ClearAllPoints()
 	page.none:SetPoint("TOPLEFT", headerAnchor, "BOTTOMLEFT", 0, -16)
+
+	-- The header rises in as one block (its pieces sit on the page itself, so each gets the same UI.EnterUp); the
+	-- cards follow one after another (Options.lua).
+	if arriving then
+		local header = { page.icon, page.iconRing, page.title, page.summary, page.desc, page.more, page.toggle,
+			page.blocked, page.none }
+		for _, list in ipairs({ page.chips, page.openButtons }) do
+			for _, frame in ipairs(list) do
+				header[#header + 1] = frame
+			end
+		end
+		for _, region in ipairs(header) do
+			if region:IsShown() then
+				UI.EnterUp(region)
+			end
+		end
+	end
 end

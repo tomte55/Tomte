@@ -362,6 +362,27 @@ function ns.CollectTab_Refresh()
 	end
 end
 
+-- Something on the list was just earned (called by Collect.lua before the lists drop it): its row, when it's in view,
+-- bursts as it leaves. Silent: the game plays its own sound for a new mount, pet or achievement.
+function ns.CollectTab_Celebrate(kind, id)
+	if not (panel and panel:IsVisible()) then
+		return
+	end
+	local top, bottom = panel.scroll:GetTop(), panel.scroll:GetBottom()
+	for i = 1, used do
+		local row = rows[i]
+		local e = row.entry
+		local _, y = row:GetCenter()
+		local earned = e and e.kind == kind
+			and (kind == "ach" and e.id == id or kind ~= "ach" and not ns.Journal_StillMissing(kind, e.id))
+		if earned and y and top and y < top and y > bottom then
+			-- On the panel, not the row: the redraw that follows hands the row to another entry or hides it.
+			UI.Burst(panel, row.icon, true)
+			return
+		end
+	end
+end
+
 -- /tomte collect open, Home and the zone toast: this tab on the open map. True when it shows.
 function ns.CollectTab_Open()
 	return ns.Module_RequireOn("collect") and ns.MapTabs_Open(KEY)

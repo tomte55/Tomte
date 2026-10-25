@@ -7,6 +7,7 @@ local UI = ns.UI
 local Kit = ns.HomeKit
 local SetColor = Kit.SetColor
 local ROW_H = Kit.ROW_H
+local SKELETON_ROWS = 2 -- placeholder rows under a block still reading with nothing to list yet
 
 -- Around you: map entries as headed lists ------------------------------------------------------------------
 
@@ -149,6 +150,7 @@ function ns.PanelHome_CreateAround(parent, onOpen)
 		local y, used, shown = 40, 0, 0
 		wipe(placed)
 		local opens, opensFrom = 0, nil -- a block that just finished: its rows' height, and what slides below it
+		local closes, closesFrom = 0, nil -- the same for one whose rows took less room than its placeholders
 		for b, bl in ipairs(blocks) do
 			if y + 30 + (bl.rows > 0 and ROW_H or 0) > height then
 				if b > 1 then
@@ -185,6 +187,9 @@ function ns.PanelHome_CreateAround(parent, onOpen)
 			local grows = arrived and (bl.rows - (lastRows[bl.entry] or 0)) * ROW_H or 0
 			lastRows[bl.entry] = bl.rows
 			local firstRow = used + 1
+			-- Still reading with nothing to list yet: placeholder rows (UI.Skeleton) hold the rows' place.
+			local skeletonRows = reading and bl.rows == 0
+				and math.max(math.min(SKELETON_ROWS, math.floor((height - y - 30) / ROW_H)), 0) or 0
 			y = y + 30
 			for i = 1, bl.rows do
 				local item = bl.items[i]
@@ -207,17 +212,39 @@ function ns.PanelHome_CreateAround(parent, onOpen)
 				Place(row, y)
 				y = y + ROW_H
 			end
+			if skeletonRows > 0 then
+				-- On the block, so it hides and slides with it; it isn't in placed (it would slide twice).
+				if not block.skeleton then
+					block.skeleton = UI.Skeleton(block, skeletonRows, ROW_H)
+				end
+				local sk = block.skeleton
+				sk:SetRows(skeletonRows)
+				sk:ClearAllPoints()
+				sk:SetPoint("TOPLEFT", self, "TOPLEFT", 0, -y)
+				sk:SetPoint("RIGHT", self, "RIGHT")
+				sk:Show()
+				y = y + skeletonRows * ROW_H
+				-- The rows that replace it open the column only by what they add to its height.
+				lastRows[bl.entry] = skeletonRows
+			elseif block.skeleton then
+				block.skeleton:Hide()
+			end
 			if arrived then
 				UI.FadeInRows(self.rows, firstRow, used, UI.FADE_SPREAD)
 			end
 			if grows > 0 and not opensFrom then
 				opens, opensFrom = grows, #placed + 1
+			elseif grows < 0 and not closesFrom then
+				closes, closesFrom = -grows, #placed + 1
 			end
 			y = y + 18
 		end
-		-- Everything below the block that opened slides down into place.
+		-- Everything below the block that opened slides down into place (or up, where its placeholder rows left
+		-- more room than what arrived).
 		if opensFrom then
 			UI.SlideDown(placed, opensFrom, #placed, opens)
+		elseif closesFrom then
+			UI.SlideUp(placed, closesFrom, #placed, closes)
 		end
 		for b = shown + 1, #self.blocks do
 			self.blocks[b]:Hide()

@@ -21,11 +21,20 @@ local addonName, ns = ...
 --   (it asks ns.EditMode_Active()), saved() after a drag, place(box, frame) to size the box (default: the frame),
 --   and for the settings dialog: module = "<module key>", options = { "<options key>", ... } (rows of that module's
 --   options schema), reset() to put it back in its default place }
+--
+-- The widgets' shared motion is at the end (ns.EditMode_Fold*, ns.EditMode_Reflow): folding to the title eases, and
+-- rows that arrive or move while a widget shows fade and glide.
 
 local DEFAULT_SNAP_RANGE = 8 -- screen pixels, Blizzard's EditModeMagnetismManager.magnetismRange
 local NUDGE, NUDGE_SHIFT = 1, 10 -- UIParent units per arrow key press, as Blizzard's ProcessMovementKey
 local NUDGE_KEYS = { UP = { 0, 1 }, DOWN = { 0, -1 }, LEFT = { -1, 0 }, RIGHT = { 1, 0 } }
 local SNAP_LINE_WIDTH = 1.5 -- screen pixels, Blizzard's magnetismPreviewLinePixelWidth
+local SETTLE_SECONDS = 0.45 -- a dropped widget's outline easing from the accent color back to Edit Mode's
+local FOLD_SECONDS = 0.22 -- a widget's height easing to its folded or unfolded size
+local FOLD_FADE = 0.1 -- what a fold hides fading out before the widget shrinks
+local FOLD_STAGGER = 0.03 -- seconds between two regions fading in, top down
+local GLIDE_SECONDS = 0.25 -- a row gliding from where it was drawn to its new place
+local INSTANT = 0.001 -- an animation's shortest duration
 
 local IsSecret = ns.IsSecret
 
@@ -174,8 +183,39 @@ local function StartDrag(spec, frame)
 	end)
 end
 
--- Also runs when Edit Mode closes mid-drag (the box hides), so the position is saved either way.
-local function StopDrag(spec, frame)
+-- A dropped widget settles: its box's outline flashes the accent color and eases back. Made on the first drop, on
+-- top of the box's own outline (the selected kit, desaturated so the accent tints it true).
+local function Settle(box)
+	local UI = ns.UI
+	local flash = box.settle
+	if not flash then
+		flash = CreateFrame("Frame", nil, box)
+		flash:SetAllPoints()
+		NineSliceUtil.ApplyLayout(flash, LAYOUT, SELECTED_KIT)
+		if flash.Center then
+			flash.Center:Hide() -- the outline only, not a wash over the widget
+		end
+		for _, region in ipairs({ flash:GetRegions() }) do
+			region:SetDesaturated(true)
+			region:SetBlendMode("ADD")
+		end
+		flash:Hide()
+		box.settle = flash
+	end
+	local r, g, b = UI.Color("accent")
+	for _, region in ipairs({ flash:GetRegions() }) do
+		region:SetVertexColor(r, g, b)
+	end
+	flash:SetAlpha(1)
+	flash:Show()
+	UI.AlphaTo(flash, 0, SETTLE_SECONDS, function()
+		flash:Hide()
+	end)
+end
+
+-- Also runs when Edit Mode closes mid-drag (the box hides), so the position is saved either way; dropped: the player
+-- let go (the box settles with a sound), not the box hiding.
+local function StopDrag(spec, frame, dropped)
 	local box = spec.box
 	if not box.drag then
 		return
@@ -185,6 +225,10 @@ local function StopDrag(spec, frame)
 	box:SetScript("OnUpdate", nil)
 	box.drag = nil
 	spec.saved()
+	if dropped then
+		Settle(box)
+		ns.UI.Sound("drop")
+	end
 end
 
 -- Selecting -------------------------------------------------------------------------------------------------------
@@ -224,6 +268,7 @@ local function OnKeyDown(spec, frame, box, key)
 	if dir then
 		local step = IsShiftKeyDown() and NUDGE_SHIFT or NUDGE
 		Nudge(spec, frame, dir[1] * step, dir[2] * step)
+		ns.UI.Sound("tick")
 	end
 end
 
@@ -338,7 +383,7 @@ local function Box(spec, frame)
 		end
 	end)
 	box:SetScript("OnDragStop", function()
-		StopDrag(spec, frame)
+		StopDrag(spec, frame, true)
 	end)
 	box:SetScript("OnHide", function()
 		StopDrag(spec, frame)
@@ -391,6 +436,144 @@ local function SetActive(on)
 			ns.errorHandler(err)
 		end
 	end
+end
+
+-- Widget motion -----------------------------------------------------------------------------------------------------
+-- For the widgets above (Almost Done, Crafting list, Gathering run, Pet battle helper): the minus in their corner
+-- eases the height instead of snapping, and rows that arrive or move while a widget shows fade and glide. Widgets are
+-- anchored by their top, so only the bottom edge moves and saved positions stay put. Tweens follow the Tomte window's
+-- Motion setting on their own ("off": everything lands at once).
+
+-- What a redraw of f is compared with: the height f is drawn at and which of regions show. Take it just before.
+function ns.EditMode_FoldStart(f, regions)
+	local shown = {}
+	for _, r in ipairs(regions) do
+		shown[r] = r:IsShown()
+	end
+	return { height = f:GetHeight(), shown = shown, visible = f:IsVisible() }
+end
+
+-- Call after every redraw that sets f's height: while a fold runs, that height becomes where it eases to and f stays
+-- at the fold's height meanwhile (no one-frame jump).
+function ns.EditMode_FoldKeep(f)
+	if f.foldHeight then
+		f.foldTarget = f:GetHeight()
+		f:SetHeight(f.foldHeight)
+	end
+end
+
+local function FoldLand(f, height)
+	ns.UI.TweenStop(f, "fold")
+	f.foldHeight, f.foldTarget = nil, nil
+	f:SetHeight(height)
+	f:SetClipsChildren(false)
+end
+
+-- After the redraw (before = what EditMode_FoldStart took): f's height eases from what it was to what the redraw set.
+-- Regions the redraw hid fade out first and f shrinks after them; regions it showed fade in top down (regions are in
+-- top-down order) while f grows, clipped to it. A widget that wasn't showing lands at once.
+function ns.EditMode_Fold(f, before, regions)
+	local UI = ns.UI
+	local to = f.foldHeight and f.foldTarget or f:GetHeight()
+	-- A fold cut short: what it was fading out stays as the redraw left it.
+	for _, r in ipairs(f.foldLeaving or {}) do
+		UI.TweenStop(r, "alpha")
+		r:SetAlpha(1)
+	end
+	f.foldLeaving = nil
+	if not (before.visible and f:IsVisible()) or UI.MotionLevel() == "off" then
+		for _, r in ipairs(regions) do
+			UI.TweenStop(r, "alpha")
+			r:SetAlpha(1)
+		end
+		FoldLand(f, to)
+		return
+	end
+	local leaving, arriving = {}, {}
+	for _, r in ipairs(regions) do
+		local now = r:IsShown()
+		if before.shown[r] and not now then
+			leaving[#leaving + 1] = r
+		elseif now and not before.shown[r] then
+			arriving[#arriving + 1] = r
+		end
+	end
+	for _, r in ipairs(leaving) do
+		r:Show()
+		UI.AlphaTo(r, 0, FOLD_FADE, function()
+			r:Hide()
+			r:SetAlpha(1)
+		end)
+	end
+	f.foldLeaving = #leaving > 0 and leaving or nil
+	local step = #arriving > 0 and math.min(FOLD_STAGGER, FOLD_SECONDS / #arriving) or 0
+	for i, r in ipairs(arriving) do
+		r:SetAlpha(0)
+		UI.Tween(r, "alpha", FOLD_SECONDS, function(t)
+			r:SetAlpha(t)
+		end, nil, nil, (i - 1) * step)
+	end
+	local from = before.height
+	if math.abs(to - from) < 0.5 then
+		FoldLand(f, to)
+		return
+	end
+	f.foldHeight, f.foldTarget = from, to
+	f:SetHeight(from)
+	f:SetClipsChildren(true) -- what the growing widget doesn't reach yet stays out of sight
+	UI.Tween(f, "fold", FOLD_SECONDS, function(t)
+		f.foldHeight = UI.Lerp(from, f.foldTarget, t)
+		f:SetHeight(f.foldHeight)
+	end, function()
+		FoldLand(f, f.foldTarget)
+	end, nil, #leaving > 0 and FOLD_FADE or nil)
+end
+
+-- Draws row dy higher (negative: lower) than its place and glides it there. Moves only how it's drawn: its anchors are
+-- already final.
+local function Glide(row, dy)
+	local group = row.glide
+	if not group then
+		group = row:CreateAnimationGroup()
+		-- Within a group, a finished translation stays applied until the group ends: there at once, then back.
+		group.jump = group:CreateAnimation("Translation")
+		group.jump:SetOrder(1)
+		group.jump:SetDuration(INSTANT)
+		group.back = group:CreateAnimation("Translation")
+		group.back:SetOrder(2)
+		group.back:SetDuration(GLIDE_SECONDS)
+		group.back:SetSmoothing("IN_OUT")
+		row.glide = group
+	end
+	group:Stop()
+	group.jump:SetOffset(0, dy)
+	group.back:SetOffset(0, -dy)
+	group:Play()
+end
+
+-- For a list redrawn while it shows: rows[1..n] carry .key (nil: not followed) and .y (their top, in units down from
+-- their parent's top). spots is what this returned for the list's last draw (nil, a first draw or a list that wasn't
+-- showing: nothing moves). Rows with a new key fade in; rows drawn elsewhere last time glide from there, so the rows
+-- below one that arrived or left open or close up instead of jumping. Returns the spots for the next draw.
+function ns.EditMode_Reflow(rows, n, spots)
+	local UI = ns.UI
+	local glide = UI.MotionLevel() ~= "off"
+	local now, arrived = {}, {}
+	for i = 1, n do
+		local row = rows[i]
+		local key = row.key
+		if key ~= nil then
+			now[key] = row.y
+			local was = spots and spots[key]
+			if spots and was == nil then
+				arrived[#arrived + 1] = row
+			elseif was and was ~= row.y and glide then
+				Glide(row, row.y - was)
+			end
+		end
+	end
+	UI.FadeInRows(arrived, 1, #arrived, GLIDE_SECONDS)
+	return now
 end
 
 EventRegistry:RegisterCallback("EditMode.Enter", function()

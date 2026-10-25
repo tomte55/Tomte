@@ -68,6 +68,7 @@ end
 local function Apply()
 	if InCombatLockdown() then
 		ns.Print_Combat("import settings")
+		UI.Shake(preview)
 		return
 	end
 	if not preview.undo then
@@ -189,7 +190,10 @@ local function ShowPreview(result, title, undo)
 	preview.scroll:SetContentHeight(y)
 	preview.scroll:SetScroll(0)
 	UpdateImportButton()
-	preview:Show()
+	if not preview:IsShown() then
+		preview:Show()
+		UI.Appear(preview)
+	end
 end
 
 -- Import -------------------------------------------------------------------------------------------------------

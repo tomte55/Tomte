@@ -12,6 +12,25 @@ local DISPLAY_FONT, NARROW_FONT = Kit.DISPLAY_FONT, Kit.NARROW_FONT
 
 local HERO_W = 290
 ns.PanelHome_HERO_W = HERO_W
+-- The facts follow these while the hero shows.
+local LIVE_EVENTS = { "PLAYER_MONEY", "PLAYER_AVG_ITEM_LEVEL_UPDATE", "UPDATE_INVENTORY_DURABILITY" }
+local DRAG_PIXELS_PER_RADIAN = 90 -- cursor pixels a drag moves for one radian of turn
+-- The model turns a little toward the cursor while it's over the window: at most this far either side of where it
+-- rests (radians), at full motion and at subtle motion.
+local LOOK_RANGE = 0.35
+local LOOK_RANGE_SUBTLE = 0.15
+local LOOK_SPEED = 3 -- share of the remaining turn eased per second
+local LOOK_EPSILON = 0.001 -- radians: close enough to land
+local CLICK_SLOP = 5 -- cursor pixels a press may move and still count as a click, not a drag
+-- What a click on the model plays, picked at random: animation IDs (AnimationData) Wave, Cheer, Laugh, Salute.
+local EMOTES = { 67, 68, 70, 113 }
+local STAND_ANIM = 0
+-- Back to standing after this long even if the model never reports the emote finished (one with no such animation).
+local EMOTE_MAX_SECONDS = 5
+
+local function DurabilityText(percent)
+	return percent .. "%"
+end
 
 -- Hero: the current character ------------------------------------------------------------------------------
 
@@ -177,6 +196,111 @@ local function FactEnter(self)
 	GameTooltip:Show()
 end
 
+-- Model life -------------------------------------------------------------------------------------------------------
+
+-- The frame on UIParent that holds frame: the Tomte window.
+local function Window(frame)
+	local parent = frame:GetParent()
+	while parent and parent ~= UIParent do
+		frame, parent = parent, parent:GetParent()
+	end
+	return frame
+end
+
+local function LookRange()
+	local level = UI.MotionLevel()
+	if level == "full" then
+		return LOOK_RANGE
+	elseif level == "subtle" then
+		return LOOK_RANGE_SUBTLE
+	end
+	return 0
+end
+
+-- Where the cursor is across the window, from -1 (half a window left of the model) to 1, or nil off the window.
+local function CursorLean(model)
+	local window = Window(model)
+	if not window:IsMouseOver() then
+		return nil
+	end
+	local center = model:GetCenter()
+	local half = window:GetWidth() * window:GetEffectiveScale() / 2
+	if not center or half <= 0 then
+		return nil
+	end
+	local x = GetCursorPosition()
+	return math.max(-1, math.min(1, (x - center * model:GetEffectiveScale()) / half))
+end
+
+local function SetShownFacing(model, facing)
+	if model.shown ~= facing then
+		model.shown = facing
+		model:SetFacing(facing)
+	end
+end
+
+-- Runs while the model shows (and while it's dragged): a drag turns it and its resting facing; otherwise it eases
+-- toward the cursor. With no idle turning (Motion off) it stops itself once it's back at rest.
+local function ModelTick(self, elapsed)
+	if self.dragX then
+		local x = GetCursorPosition()
+		self.facing = self.facing + (x - self.dragX) / DRAG_PIXELS_PER_RADIAN
+		self.dragX = x
+		SetShownFacing(self, self.facing)
+		return
+	end
+	local range = LookRange()
+	local target = self.facing
+	if range > 0 then
+		-- After a drag the cursor is still on the model, right where the drag left it: wait until it leaves before
+		-- following again, so letting go doesn't swing the character off where it was put.
+		if self.lookPaused and not self:IsMouseOver() then
+			self.lookPaused = nil
+		end
+		local lean = not self.lookPaused and CursorLean(self)
+		if lean then
+			target = self.facing + lean * range
+		end
+	end
+	local shown = self.shown or target
+	local eased = shown + (target - shown) * math.min(elapsed * LOOK_SPEED, 1)
+	if math.abs(target - eased) < LOOK_EPSILON then
+		eased = target
+	end
+	SetShownFacing(self, eased)
+	if range == 0 and eased == target then
+		self:SetScript("OnUpdate", nil)
+	end
+end
+
+local function EmoteDone(model)
+	model:SetScript("OnAnimFinished", nil)
+	model.emoting = nil
+	model:SetAnimation(STAND_ANIM)
+end
+
+-- A friendly emote, not the same one twice in a row; back to standing when it's done.
+local function Emote(model)
+	if model.emoting or UI.MotionLevel() == "off" then
+		return
+	end
+	local i = math.random(#EMOTES)
+	if EMOTES[i] == model.lastEmote then
+		i = i % #EMOTES + 1
+	end
+	model.lastEmote = EMOTES[i]
+	local token = {}
+	model.emoting = token
+	model:SetAnimation(EMOTES[i])
+	-- As Blizzard's talking head model does (TalkingHeadUI.lua): the model reports when the animation has played.
+	model:SetScript("OnAnimFinished", EmoteDone)
+	C_Timer.After(EMOTE_MAX_SECONDS, function()
+		if model.emoting == token then
+			EmoteDone(model)
+		end
+	end)
+end
+
 function ns.PanelHome_CreateHero(parent, onOpen)
 	local hero = CreateFrame("Frame", nil, parent)
 	hero:SetWidth(HERO_W)
@@ -202,19 +326,22 @@ function ns.PanelHome_CreateHero(parent, onOpen)
 	model:SetPoint("TOPLEFT", 10, -6)
 	model:SetPoint("BOTTOMRIGHT", -10, 34)
 	model:EnableMouse(true)
+	-- facing is where it rests (a drag moves it); shown is where it's drawn, a little toward the cursor (ModelTick).
 	model.facing = 0.35
+	model.shown = model.facing
 	model:SetScript("OnMouseDown", function(self)
-		self.dragX = GetCursorPosition()
+		local x, y = GetCursorPosition()
+		self.dragX, self.downX, self.downY = x, x, y
+		self:SetScript("OnUpdate", ModelTick)
 	end)
-	model:SetScript("OnMouseUp", function(self)
-		self.dragX = nil
-	end)
-	model:SetScript("OnUpdate", function(self)
-		if self.dragX then
-			local x = GetCursorPosition()
-			self.facing = self.facing + (x - self.dragX) / 90
-			self.dragX = x
-			self:SetFacing(self.facing)
+	model:SetScript("OnMouseUp", function(self, button)
+		local x, y = GetCursorPosition()
+		local click = self.downX and math.abs(x - self.downX) < CLICK_SLOP and math.abs(y - self.downY) < CLICK_SLOP
+		self.dragX, self.downX, self.downY = nil, nil, nil
+		if not click then
+			self.lookPaused = true
+		elseif button == "LeftButton" then
+			Emote(self)
 		end
 	end)
 	-- SetUnit reloads the model (it blinks, and the character floated up into place every time the window opened), so
@@ -225,15 +352,30 @@ function ns.PanelHome_CreateHero(parent, onOpen)
 	function model:Load()
 		if self.needsUnit or not self:GetModelFileID() then
 			self.needsUnit = false
+			-- The reload starts the model standing: an emote that was playing is over.
+			self:SetScript("OnAnimFinished", nil)
+			self.emoting = nil
 			self:SetUnit("player", false)
-			self:SetFacing(self.facing)
+			self:SetFacing(self.shown)
 		end
 	end
 	model:SetScript("OnShow", function(self)
 		-- Loaded on show if it needs it (a model set while hidden may not render), whichever runs first, this or
 		-- Refresh.
 		self:Load()
+		self:SetScript("OnUpdate", ModelTick)
 	end)
+	model:SetScript("OnHide", function(self)
+		-- Back at rest and standing for the next open; nothing runs while it's hidden.
+		self:SetScript("OnUpdate", nil)
+		self.dragX, self.downX, self.downY, self.lookPaused = nil, nil, nil, nil
+		SetShownFacing(self, self.facing)
+		if self.emoting then
+			EmoteDone(self)
+		end
+	end)
+	-- Set now too: the hero starts shown, so the first OnShow may never come. OnUpdate doesn't run while it's hidden.
+	model:SetScript("OnUpdate", ModelTick)
 	model:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 	model:RegisterUnitEvent("UNIT_MODEL_CHANGED", "player")
 	model:SetScript("OnEvent", function(self)
@@ -243,6 +385,7 @@ function ns.PanelHome_CreateHero(parent, onOpen)
 		end
 	end)
 	hero.model = model
+	UI.FadeModel(model) -- fades with the window and with Home's arrival (Motion.lua)
 
 	hero.name = UI.Text(stage, 34, "heading", DISPLAY_FONT)
 	hero.name:SetPoint("BOTTOMLEFT", 6, 2)
@@ -286,7 +429,7 @@ function ns.PanelHome_CreateHero(parent, onOpen)
 		end)
 		b:SetScript("PostClick", function(self)
 			if FactClickable(self.fact) then
-				PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+				UI.Sound("nav")
 				GameTooltip:Hide()
 				ns.HomeCall(self.fact.click)
 			end
@@ -326,10 +469,16 @@ function ns.PanelHome_CreateHero(parent, onOpen)
 				end)
 				self.actions[i] = b
 			end
-			b.entry = entry
-			b.label:SetText(entry.name)
 			local count = ns.HomeCall(entry.count)
-			b.count:SetText(type(count) == "number" and count > 0 and tostring(count) or "")
+			count = type(count) == "number" and count > 0 and count or nil
+			-- A count that moved while the button shows (same action, not a redraw for another) pops.
+			local popCount = b.entry == entry and b.shownCount ~= count and count ~= nil and b.count:IsVisible()
+			b.entry, b.shownCount = entry, count
+			b.label:SetText(entry.name)
+			b.count:SetText(count and tostring(count) or "")
+			if popCount then
+				UI.Pop(b.count, 0.3)
+			end
 			b:ClearAllPoints()
 			b:SetPoint("BOTTOMLEFT", PAD, y)
 			b:SetPoint("BOTTOMRIGHT", -PAD, y)
@@ -368,24 +517,42 @@ function ns.PanelHome_CreateHero(parent, onOpen)
 			spec = select(2, C_SpecializationInfo.GetSpecializationInfo(index))
 		end
 		self.who:SetText(("Level %d %s%s"):format(UnitLevel("player"), UnitRace("player") or "", spec and (", " .. spec) or ""))
-		local _, equipped = GetAverageItemLevel()
-		local dura = Durability()
-		local values = {
-			equipped and tostring(math.floor(equipped)) or "?",
-			ns.Alts_Gold(GetMoney()),
-			(dura or 100) .. "%",
-			GetSubZoneText() ~= "" and GetSubZoneText() or GetZoneText(),
-		}
-		for i, f in ipairs(self.facts) do
-			f.value:SetText(values[i])
-			SetColor(f.value, i == 2 and "heading" or "text")
-		end
-		if dura and dura < 30 then
-			SetColor(self.facts[3].value, "danger")
-		end
+		self:RefreshFacts()
 		self.model:Load()
 		self:Layout(self:GetHeight())
 	end
+
+	-- The facts' values; numbers run to a new value while the hero shows, and gold floats what it gained or lost.
+	function hero:RefreshFacts()
+		local facts = self.facts
+		local _, equipped = GetAverageItemLevel()
+		if equipped then
+			Kit.Count(facts[1].value, math.floor(equipped), tostring)
+		else
+			UI.CountTo(facts[1].value, "?", tostring)
+		end
+		Kit.Count(facts[2].value, GetMoney(), ns.Alts_Gold, facts[2].label, Kit.GoldDelta)
+		local dura = Durability()
+		Kit.Count(facts[3].value, dura or 100, DurabilityText)
+		facts[4].value:SetText(GetSubZoneText() ~= "" and GetSubZoneText() or GetZoneText())
+		for i, f in ipairs(facts) do
+			SetColor(f.value, i == 2 and "heading" or "text")
+		end
+		if dura and dura < 30 then
+			SetColor(facts[3].value, "danger")
+		end
+	end
+
+	-- Gold, item level and durability follow the game while the hero shows (Home itself redraws only when opened or
+	-- when a module asks). Registered for good: the hero starts shown, so an OnShow wouldn't come for the first time.
+	for _, event in ipairs(LIVE_EVENTS) do
+		hero:RegisterEvent(event)
+	end
+	hero:SetScript("OnEvent", function(self)
+		if self:IsVisible() then
+			self:RefreshFacts()
+		end
+	end)
 
 	hero:SetScript("OnSizeChanged", function(self, _, height)
 		self:Layout(height)

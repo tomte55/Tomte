@@ -2,7 +2,9 @@ local addonName, ns = ...
 
 -- Almost Done: the Top 5 tracker. A small window with pinned achievements first, then the closest ones. Click a
 -- row to open it, right-click to pin or unpin. Unlocked, the whole window drags; rows whose progress went up
--- flash for a moment. The minus in the corner (on hover) folds it down to its title.
+-- flash for a moment, their bar grows and a shine runs across them. An achievement that joins the list while it shows
+-- fades in and the rows that moved glide to their new places. The minus in the corner (on hover) folds it down to its
+-- title, easing (ns.EditMode_Fold in Core/EditMode.lua).
 
 local UI = ns.UI
 local ROWS = 5
@@ -128,12 +130,36 @@ local function CreateRow(parent, i)
 	return row
 end
 
+local function FillWidth(percent)
+	return math.max(TRACK_W * math.min(percent, 100) / 100, 1)
+end
+
 local function FillRow(row, entry)
 	row.icon:SetTexture(entry.icon)
 	row.name:SetText(entry.name)
 	row.percent:SetText(("%d%%"):format(math.floor(entry.percent)))
 	row.pin:SetShown(entry.pinned == true)
-	row.fill:SetWidth(math.max(TRACK_W * math.min(entry.percent, 100) / 100, 1))
+	UI.TweenStop(row.fill, "width") -- a row refilled mid-growth (another entry now) takes its own width at once
+	row.fill:SetWidth(FillWidth(entry.percent))
+end
+
+-- A step gained, seen live: the bar grows from where it was, the percent pops and a shine runs across the row; a
+-- row that reached 100% bursts.
+local function Celebrate(row, from, to)
+	if not row:IsVisible() then
+		return
+	end
+	local a, b = FillWidth(from), FillWidth(to)
+	row.fill:SetWidth(a)
+	UI.Tween(row.fill, "width", FLASH / 2, function(e)
+		row.fill:SetWidth(UI.Lerp(a, b, e))
+	end)
+	UI.Pop(row.percent, 0.25)
+	UI.Shine(row)
+	if to >= 100 then
+		-- Silent: the game plays its own sound for a finished achievement.
+		UI.Burst(row, row.icon, true)
+	end
 end
 
 -- The tracker's look on f: the panel, the title and ROWS rows (f.rows). Shared by the real tracker and the settings
@@ -186,8 +212,10 @@ local function Build()
 	frame.collapse = UI.CollapseButton(frame, function()
 		return DB().collapsed
 	end, function()
+		local before = ns.EditMode_FoldStart(frame, rows)
 		DB().collapsed = not DB().collapsed
 		ns.AchTracker_Apply()
+		ns.EditMode_Fold(frame, before, rows)
 	end)
 end
 
@@ -203,20 +231,27 @@ function ns.AchTracker_Refresh(flashIDs)
 		return
 	end
 	local top = ns.achModule.active and ns.Ach_Top(ROWS) or {}
+	local spots = frame.spots
 	for i, row in ipairs(rows) do
 		local entry = top[i]
 		local old = row.entry
 		row.entry = entry
+		row.key, row.y = entry and entry.id, (i - 1) * ROW_H
 		if entry then
 			FillRow(row, entry)
 			if flashIDs and flashIDs[entry.id] and old and old.id == entry.id and entry.percent > old.percent then
 				row.flashLeft = FLASH
 				row:SetScript("OnUpdate", FlashUpdate)
+				Celebrate(row, old.percent, entry.percent)
 			end
 		end
 	end
 	frame.count = #top
 	ns.AchTracker_Apply()
+	-- Seen live (shown and open before and after): what joined fades in, what moved glides.
+	if frame.spots then
+		frame.spots = ns.EditMode_Reflow(rows, frame.count, spots)
+	end
 end
 
 -- combat: true/false when entering/leaving combat, nil to keep the current state.
@@ -238,6 +273,7 @@ function ns.AchTracker_Apply(combat)
 	frame:SetScale(db.scale)
 	local collapsed = db.collapsed
 	frame:SetHeight(collapsed and TITLE_H + 2 or TITLE_H + ROWS * ROW_H + 8)
+	ns.EditMode_FoldKeep(frame)
 	for i, row in ipairs(rows) do
 		row:SetShown(not collapsed and i <= (frame.count or 0))
 	end
@@ -247,6 +283,13 @@ function ns.AchTracker_Apply(combat)
 	local show = active and db.shown and (hasRows or not db.locked or editMode)
 		and not (db.hideInCombat and inCombat)
 	frame:SetShown(show)
+	-- Where the rows are drawn, while they show: the next Refresh glides from there. Nothing while folded or hidden,
+	-- so a list that opens or shows again just appears.
+	if frame:IsVisible() and not collapsed then
+		frame.spots = frame.spots or ns.EditMode_Reflow(rows, frame.count or 0, nil)
+	else
+		frame.spots = nil
+	end
 end
 
 -- The settings preview (Panel/Preview.lua): the tracker with your own top achievements, or SAMPLE before the first

@@ -4,9 +4,12 @@ local addonName, ns = ...
 -- it, the newest nearest. Where the spot is decides the flow (ns.Toast_Flow in Data.lua): down in the upper half of
 -- the screen, up in the lower half; cards come in from the nearest side edge, or from the top or bottom edge when
 -- the spot is in the middle third. A card has a spaced label in its accent color, a title (a name), a few lines of
--- text and an accent bar on the left. Left-click runs the card's onClick, right-click dismisses it; hovering pauses
--- its timer. A card with a mergeKey that is still up takes the next one with the same key (text replaced, count
--- shown). Pinned cards (the unread whisper recap) sit nearest the spot and never time out.
+-- text and an accent bar on the left. A card overshoots its place a little as it slides in, its icon pops as it
+-- lands and a shine sweeps across it once it has settled; a leaving card drifts back towards its edge. The Tomte
+-- window's Motion setting tones this down: "subtle" slides and fades without overshoot, pops, shine or bounce, "off"
+-- puts cards in place and takes them away at once. Left-click runs the card's onClick, right-click dismisses it;
+-- hovering pauses its timer. A card with a mergeKey that is still up takes the next one with the same key (text
+-- replaced, count shown). Pinned cards (the unread whisper recap) sit nearest the spot and never time out.
 -- While a cinematic hides the UI (and in combat, for cards with holdInCombat) cards are held back; when
 -- they're let go, cards whose stale() says they're no longer news (a whisper you answered meanwhile) are dropped,
 -- an owner with a digest builder gets one card for all of its held cards, and a card that waited long enough says
@@ -30,7 +33,12 @@ local PAD = 10
 local GAP = 6
 local ICON = 28
 local MAX_SHOWN = 4
-local SLIDE_IN = 0.45 -- seconds to slide in from the nearest screen edge
+local SLIDE_IN = 0.6 -- seconds to slide in from the nearest screen edge, overshoot and settle included
+local LAND = SLIDE_IN * 0.37 -- when UI.EaseOutBack first reaches its place: the icon pops then
+local BACK_SWING = 0.1 -- how far past 1 UI.EaseOutBack swings at most
+local OVERSHOOT = 6 -- pixels past its place at the most, whatever distance the card came from
+local SHINE_DELAY = 0.1 -- seconds after the card has settled before the shine sweeps across it
+local LEAVE_DRIFT = 24 -- pixels a leaving card drifts back towards the edge it came from while it fades
 local FADE_IN, FADE_OUT = 0.15, 0.6
 local PULSE = 0.5 -- a merged message: the card flashes in its accent color and bounces
 local BOUNCE = 10 -- pixels, towards the middle of the screen
@@ -58,9 +66,18 @@ local dodgeX, dodgeTarget, dodgeCheck = 0, 0, DODGE_CHECK
 
 local Smooth = ns.Smoothstep
 
-local function EaseOut(p)
-	local q = 1 - p
-	return 1 - q * q * q
+-- Offset along one axis while a card slides in from offset `from` (0 when it doesn't move on this axis), p in 0..1.
+-- It overshoots its place and settles back; the overshoot is capped in pixels, since a share of the distance from the
+-- screen edge would swing far past.
+local function SlideIn(from, p)
+	if from == 0 then
+		return 0
+	end
+	local left = 1 - UI.EaseOutBack(p)
+	if left >= 0 then
+		return from * left
+	end
+	return (from < 0 and -1 or 1) * left / BACK_SWING * OVERSHOOT
 end
 
 -- How the stack flows from where it sits now: grow "down" | "up", from "left" | "right" | "top" | "bottom".
@@ -351,6 +368,7 @@ local function Place(spec, pinKey)
 	-- Shown before OffscreenOffset, which reads the anchor's position.
 	anchor:Show()
 	card.enter, card.pulse = 0, nil
+	card.arrival, card.popped = 0, false
 	dodgeCheck = DODGE_CHECK -- a new card changes the stack height: look at the panels right away
 	local _, from = Flow()
 	card.fromX, card.fromY = OffscreenOffset(card, from)
@@ -399,6 +417,10 @@ local function Display(spec)
 		spec.count = (card.spec.count or 1) + (spec.count or 1)
 		Fill(card, spec)
 		card.pulse = 0
+		UI.Pop(card.count, 0.3)
+		if card.icon:IsShown() then
+			UI.Pop(card.icon)
+		end
 		return
 	end
 	for _, q in ipairs(queue) do
@@ -541,7 +563,8 @@ local function PlaceHandles(grow)
 	end
 end
 
-local function Layout(dt)
+-- level: the Motion setting (UI.MotionLevel), read once a frame by OnUpdate.
+local function Layout(dt, level)
 	dodgeCheck = dodgeCheck + dt
 	if dodgeCheck >= DODGE_CHECK then
 		dodgeCheck = 0
@@ -549,7 +572,7 @@ local function Layout(dt)
 	end
 	if dodgeX ~= dodgeTarget then
 		dodgeX = dodgeX + (dodgeTarget - dodgeX) * math.min(dt * MOVE_SPEED, 1)
-		if math.abs(dodgeTarget - dodgeX) < 0.5 then
+		if level == "off" or math.abs(dodgeTarget - dodgeX) < 0.5 then
 			dodgeX = dodgeTarget
 		end
 	end
@@ -559,16 +582,16 @@ local function Layout(dt)
 	local y = 0
 	for _, card in ipairs(shown) do
 		local target = grow == "down" and -y or y
-		if not card.y then
+		if not card.y or level == "off" then
 			card.y = target
 		else
 			card.y = card.y + (target - card.y) * math.min(dt * MOVE_SPEED, 1)
 		end
 		local sx, sy = 0, 0
 		if card.enter < SLIDE_IN then
-			local left = 1 - EaseOut(card.enter / SLIDE_IN)
-			sx, sy = math.floor(card.fromX * left + 0.5), math.floor(card.fromY * left + 0.5)
-		elseif card.pulse then
+			local p = card.enter / SLIDE_IN
+			sx, sy = math.floor(SlideIn(card.fromX, p) + 0.5), math.floor(SlideIn(card.fromY, p) + 0.5)
+		elseif card.pulse and level == "full" then
 			-- One hop away from the edge it came in from, then a smaller one back: a damped bounce.
 			local p = card.pulse / PULSE
 			local hop = BOUNCE * math.sin(p * math.pi * 2) * (1 - p)
@@ -576,6 +599,14 @@ local function Layout(dt)
 				sx = math.floor((card.fromX < 0 and hop or -hop) + 0.5)
 			else
 				sy = math.floor((card.fromY > 0 and -hop or hop) + 0.5)
+			end
+		end
+		if card.leaving then
+			local drift = math.floor(LEAVE_DRIFT * Smooth(math.min(card.leaving / FADE_OUT, 1)) + 0.5)
+			if card.fromX ~= 0 then
+				sx = sx + (card.fromX < 0 and -drift or drift)
+			else
+				sy = sy + (card.fromY > 0 and drift or -drift)
 			end
 		end
 		local x, cy = sx + dx, math.floor(card.y + 0.5) + sy
@@ -595,16 +626,35 @@ function OnUpdate(dt)
 		heldCheck = 0
 		ReleaseHeld()
 	end
+	local level = UI.MotionLevel()
+	-- Motion "off": a card's slide, flash and fade-out are over the moment they start.
+	local step = level == "off" and math.huge or dt
 	for i = #shown, 1, -1 do
 		local card = shown[i]
 		if card.enter < SLIDE_IN then
-			card.enter = card.enter + dt
+			card.enter = math.min(card.enter + step, SLIDE_IN)
 			if not card.leaving then
 				card:SetAlpha(Smooth(math.min(card.enter / FADE_IN, 1)))
 			end
 		end
+		-- Landing: the icon pops where the slide first reaches its place, and one shine once the card has settled.
+		if card.arrival then
+			card.arrival = card.arrival + dt
+			if not card.popped and card.arrival >= LAND then
+				card.popped = true
+				if card.icon:IsShown() then
+					UI.Pop(card.icon, 0.25)
+				end
+			end
+			if card.arrival >= SLIDE_IN + SHINE_DELAY then
+				card.arrival = nil
+				if not card.leaving then
+					UI.Shine(card)
+				end
+			end
+		end
 		if card.pulse then
-			card.pulse = card.pulse + dt
+			card.pulse = card.pulse + step
 			card.flash:SetAlpha(0.3 * (1 - Smooth(math.min(card.pulse / PULSE, 1))))
 			if card.pulse >= PULSE then
 				card.pulse = nil
@@ -612,7 +662,7 @@ function OnUpdate(dt)
 			end
 		end
 		if card.leaving then
-			card.leaving = card.leaving + dt
+			card.leaving = card.leaving + step
 			card:SetAlpha(1 - Smooth(math.min(card.leaving / FADE_OUT, 1)))
 			if card.leaving >= FADE_OUT then
 				Remove(card)
@@ -627,7 +677,7 @@ function OnUpdate(dt)
 	while #queue > 0 and Unpinned() < MAX_SHOWN do
 		Place(table.remove(queue, 1))
 	end
-	Layout(dt)
+	Layout(dt, level)
 	if #shown == 0 and #held == 0 and #queue == 0 and not Moving() then
 		anchor:Hide()
 	end
@@ -696,7 +746,8 @@ end
 function ns.Toast_Pin(key, spec)
 	local card = pinned[key]
 	local count = spec.recentCount or 0
-	if ns.Recent_Note and (not card or card.leaving or count > (pinNoted[key] or 0)) then
+	local rose = count > (pinNoted[key] or 0)
+	if ns.Recent_Note and (not card or card.leaving or rose) then
 		local copy = {} -- every field, recentTitle and test included
 		for k, v in pairs(spec) do
 			copy[k] = v
@@ -710,6 +761,12 @@ function ns.Toast_Pin(key, spec)
 		Fill(card, spec)
 		card.leaving = nil
 		card:SetAlpha(1)
+		if rose then
+			UI.Pop(card.count, 0.3)
+			if card.icon:IsShown() then
+				UI.Pop(card.icon)
+			end
+		end
 		return
 	end
 	Place(spec, key)

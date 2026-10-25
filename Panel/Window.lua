@@ -18,6 +18,26 @@ local function Redraw()
 	ns.Panel_Refresh()
 end
 
+local MOTION_CHOICES = {
+	{ value = "full", text = "Full" },
+	{ value = "subtle", text = "Subtle" },
+	{ value = "off", text = "Off" },
+}
+
+local SOUND_CHOICES = {
+	{ value = "all", text = "All" },
+	{ value = "important", text = "Only important" },
+	{ value = "off", text = "Off" },
+}
+
+local function MotionChoices()
+	return MOTION_CHOICES
+end
+
+local function SoundChoices()
+	return SOUND_CHOICES
+end
+
 -- Setup and sharing (Panel/Setup.lua, Panel/Share.lua, Panel/Bug.lua): last on the page, above the Reset rows.
 local SHARE = {
 	{ type = "header", label = "Setup and sharing" },
@@ -307,12 +327,14 @@ module = ns.RegisterModule({
 		opacity = 0.96,
 		resume = 5,
 		pills = true, -- counts on the rail
+		motion = "full", -- "full" | "subtle" | "off": how much Tomte animates (Panel/Motion.lua)
+		sounds = "all", -- "all" | "important" | "off": which interface sounds play (UI.Sound)
 		around = {}, -- [home entry key] = false hides that "Around you" block (one true per block, set in AddRows)
 	},
 	options = {
 		{ type = "header", label = "Look" },
 		{ type = "dropdown", key = "theme", label = "Theme", onChange = Redraw, choices = ns.Theme.Choices,
-			preview = ThemePreview, tooltip = "How every Tomte window, widget and toast looks. Takes effect after a reload." },
+			preview = ThemePreview, previewInList = true, tooltip = "How every Tomte window, widget and toast looks. Takes effect after a reload." },
 		{ type = "button", label = "The new theme shows after a reload", text = "Reload now",
 			shown = function()
 				return ns.ChoiceOrDefault(ns.db.window.theme, ns.Theme.Choices(), ns.Theme.DEFAULT) ~= ns.Theme.name
@@ -346,6 +368,22 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "pills", label = "Counts on the rail", onChange = Redraw,
 			tooltip = "A small count beside a page in the list on the left when it has something for you: crafting "
 				.. "list steps for this character (Alts), vault rewards and full Concentration (Weekly board)." },
+		{ type = "header", label = "Motion and sound" },
+		{ type = "dropdown", key = "motion", label = "Motion", choices = MotionChoices,
+			tooltip = "Full: windows fade, lists glide, finished things sparkle. Subtle: only soft fades and glides. "
+				.. "Off: everything shows at once." },
+		{ type = "dropdown", key = "sounds", label = "Sounds", choices = SoundChoices,
+			tooltip = "All: soft clicks for opening, moving around and switches. Only important: just confirmations, "
+				.. "errors and rewards. Off: Tomte's windows stay silent (alerts like whispers keep their own sound "
+				.. "settings)." },
 		{ type = "header", label = "Around you shows" },
 	},
 })
+
+function ns.Window_Motion()
+	return ns.ChoiceOrDefault(module.db and module.db.motion, MotionChoices(), "full")
+end
+
+function ns.Window_Sounds()
+	return ns.ChoiceOrDefault(module.db and module.db.sounds, SoundChoices(), "all")
+end

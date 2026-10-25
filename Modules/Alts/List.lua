@@ -2,7 +2,9 @@ local addonName, ns = ...
 
 -- Crafting list: crafts added from the Crafting tab, an on-screen tracker with the to-do for the character you're
 -- on ("Grab 10 Iron Ingot from bank", "Mail 20 Mycobloom to Mira", "Ready: craft 3 Flask"),
--- crafts counted down as they're made, and marks on the items to move in Baganator's bags and bank. The mailbox rows
+-- crafts counted down as they're made, and marks on the items to move in Baganator's bags and bank. While the tracker
+-- shows, a craft or step that joins fades in and what it pushes down glides (ns.EditMode_Reflow), and its height
+-- eases, folding included (ns.EditMode_Fold, both in Core/EditMode.lua). The mailbox rows
 -- are in Send.lua, the List tab in ListTab.lua, the rules in ListData.lua.
 -- Also the shared labels the Alts files draw items and recipes with: Alts_QualityMarkup, Alts_RankMarkup,
 -- Alts_ItemLabel, Alts_RecipeLabel and Alts_MissingText.
@@ -13,6 +15,7 @@ local TITLE_H = 22
 local HEAD_H = 20
 local LINE_H = 15
 local MAX_LINES = 6 -- per craft in the tracker
+local FILL_SECONDS = 0.5 -- a craft's progress line easing to its new length
 local DEFAULT_POINT = { "TOPRIGHT", "TOPRIGHT", -40, -260 }
 local BAGANATOR_ID = "tomte_craftlist"
 -- Seconds the to-do is kept. AltsList_Changed drops it on bag, bank, mail, craft and recipe changes; this only
@@ -496,13 +499,23 @@ local function CraftHead(t)
 	return ("%s  %s"):format(label, UI.Wrap("x" .. t.entry.crafts, "textMuted")), crafter, class
 end
 
--- Lays the crafts out on f (built by Dress) and sizes it.
+-- A step line's key within its craft, to follow it across redraws: its kind and item or recipe (not its text, whose
+-- counts change as things move), numbered when the same comes twice.
+local function LineKey(line, seen)
+	local key = ("%s:%s"):format(line.kind or "", tostring(line.itemID or line.recipeID or ""))
+	seen[key] = (seen[key] or 0) + 1
+	return key .. "#" .. seen[key]
+end
+
+-- Lays the crafts out on f (built by Dress) and sizes it. Each craft block and step line gets .key and .y for
+-- ns.EditMode_Reflow.
 local function Fill(f, todos)
 	local blocks = f.blocks
 	local y = TITLE_H
 	for i, t in ipairs(todos) do
 		local b = Block(f, i)
 		b.todo = t
+		b.key, b.y = t.entry, y
 		b:ClearAllPoints()
 		b:SetPoint("TOPLEFT", 10, -y)
 		b:SetPoint("RIGHT", -10, 0)
@@ -515,9 +528,23 @@ local function Fill(f, todos)
 		else
 			UI.SetTextRole(b.crafter, "textMuted")
 		end
-		b.fill:SetWidth(math.max((WIDTH - 20) * ns.Alts_CraftProgress(t), 1))
+		-- The same craft's progress eases to its new length while the tracker shows; a block now showing another craft
+		-- jumps.
+		local width = math.max((WIDTH - 20) * ns.Alts_CraftProgress(t), 1)
+		local fill = b.fill
+		if b.fillOf == t.entry and b:IsVisible() and math.abs(fill:GetWidth() - width) >= 1 then
+			local from = fill:GetWidth()
+			UI.Tween(fill, "width", FILL_SECONDS, function(p)
+				fill:SetWidth(UI.Lerp(from, width, p))
+			end)
+		else
+			UI.TweenStop(fill, "width")
+			fill:SetWidth(width)
+		end
+		b.fillOf = t.entry
 		local ly = HEAD_H
 		local shown = 0
+		local keys = {}
 		for _, line in ipairs(t.lines) do
 			if shown >= MAX_LINES then
 				break
@@ -525,6 +552,7 @@ local function Fill(f, todos)
 			shown = shown + 1
 			local l = Line(b, shown)
 			l.line = line
+			l.key, l.y = LineKey(line, keys), ly
 			l:ClearAllPoints()
 			l:SetPoint("TOPLEFT", 0, -ly)
 			l:SetPoint("RIGHT")
@@ -538,6 +566,7 @@ local function Fill(f, todos)
 			shown = shown + 1
 			local l = Line(b, shown)
 			l.line = {}
+			l.key, l.y = "more", ly
 			l:ClearAllPoints()
 			l:SetPoint("TOPLEFT", 0, -ly)
 			l:SetPoint("RIGHT")
@@ -549,6 +578,7 @@ local function Fill(f, todos)
 		for j = shown + 1, #b.lines do
 			b.lines[j]:Hide()
 		end
+		b.shownLines = shown
 		b:SetHeight(ly)
 		b:Show()
 		y = y + ly + 8
@@ -571,6 +601,8 @@ local function Fill(f, todos)
 	end
 	f:SetHeight(y + 4)
 end
+
+local Draw
 
 local function Build()
 	frame = CreateFrame("Frame", nil, UIParent)
@@ -600,7 +632,7 @@ local function Build()
 		return db.tracker.collapsed
 	end, function()
 		db.tracker.collapsed = not db.tracker.collapsed
-		ns.AltsList_Refresh()
+		Draw(true)
 	end)
 end
 
@@ -631,7 +663,32 @@ local function WantShown(todos)
 	return true
 end
 
-function ns.AltsList_Refresh()
+-- The tracker's crafts and note, top down: what a fold fades.
+local function FoldRegions()
+	local list = {}
+	for i, b in ipairs(frame.blocks) do
+		list[i] = b
+	end
+	list[#list + 1] = frame.note
+	return list
+end
+
+-- After a draw that shows the crafts: crafts and step lines that joined since the last one fade in and what moved
+-- glides (only when the tracker showed them before too).
+local function Reflow(todos, live)
+	local before = live and frame.spots
+	local lineSpots = {}
+	frame.spots = ns.EditMode_Reflow(frame.blocks, #todos, before or nil)
+	for i = 1, #todos do
+		local b = frame.blocks[i]
+		lineSpots[b.key] = ns.EditMode_Reflow(b.lines, b.shownLines,
+			before and before[b.key] ~= nil and frame.lineSpots and frame.lineSpots[b.key] or nil)
+	end
+	frame.lineSpots = lineSpots
+end
+
+-- fold: the minus was clicked (what folds away fades); any other draw only eases the height.
+function Draw(fold)
 	if not db then
 		return
 	end
@@ -646,19 +703,31 @@ function ns.AltsList_Refresh()
 		Build()
 		Place()
 	end
+	local before = ns.EditMode_FoldStart(frame, FoldRegions())
 	frame:SetScale(db.tracker.scale or 1)
 	frame.mover:SetShown(not db.tracker.locked and not ns.EditMode_Active())
-	if db.tracker.collapsed then
+	local collapsed = db.tracker.collapsed
+	if collapsed then
 		for _, b in ipairs(frame.blocks) do
 			b:Hide()
 		end
 		frame.note:Hide()
 		frame:SetHeight(TITLE_H)
-		frame:Show()
-		return
+	else
+		Fill(frame, todos)
 	end
-	Fill(frame, todos)
+	ns.EditMode_FoldKeep(frame)
 	frame:Show()
+	ns.EditMode_Fold(frame, before, fold and FoldRegions() or {})
+	if collapsed or not frame:IsVisible() then
+		frame.spots, frame.lineSpots = nil, nil
+	else
+		Reflow(todos, before.visible and not fold)
+	end
+end
+
+function ns.AltsList_Refresh()
+	Draw(false)
 end
 
 -- The settings preview (Panel/Preview.lua): the tracker with this character's to-do, or SAMPLE when nothing is

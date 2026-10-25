@@ -74,7 +74,7 @@ local function CreateTab(parent, key, text)
 	b.bar:SetPoint("BOTTOMRIGHT")
 	b:SetScript("OnClick", function(self)
 		if db.view ~= self.key then
-			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			UI.Sound("nav")
 			ShowTab(self.key)
 		end
 	end)
@@ -105,7 +105,7 @@ local AltsPage = {
 		page.chain:SetPoint("BOTTOMRIGHT", 0, 3)
 		page.chain:SetScript("OnClick", function()
 			db.chain = db.chain == "one" and "full" or "one"
-			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			UI.Sound("pick")
 			ShowTab("craft")
 		end)
 		page.chain:SetScript("OnEnter", function(self)

@@ -5,11 +5,11 @@ local addonName, ns = ...
 -- it by surprise (settings migration 2 marks them done).
 
 local UI = ns.UI
-local W, H = 660, 600
+local W, H = 660, 620
 local PAD = 16
 local CARD_W = (W - PAD * 2 - 12) / 2
 local CARD_H = 172
-local WIDE_H = 72 -- Everything: one line of text, across the window
+local WIDE_H = 90 -- Everything: across the window, room for its text to wrap once
 local FIRST_RUN_DELAY = 3 -- seconds after PLAYER_ENTERING_WORLD before the first-run picker tries to show
 local BUSY_RETRY = 5 -- seconds between tries while a cinematic or movie plays
 
@@ -19,9 +19,9 @@ local function SetSelected(key)
 	selected = key
 	for _, card in ipairs(frame.cards) do
 		if card.key == key then
-			UI.SetBorderColor(card, "accent", 1)
+			UI.BorderTo(card, "accent", 1)
 		else
-			UI.SetBorderColor(card, "frame", 0.35)
+			UI.BorderTo(card, "frame", 0.35)
 		end
 	end
 end
@@ -33,6 +33,7 @@ end
 local function UseThis()
 	if InCombatLockdown() then
 		ns.Print_Combat("apply a preset")
+		UI.Shake(frame)
 		return
 	end
 	local preset = ns.Setup_Preset(selected)
@@ -89,11 +90,11 @@ local function CreateCard(parent, preset)
 	card.match = UI.Text(card, 11, "success")
 	card.match:SetPoint("TOPRIGHT", -10, -12)
 	card.match:SetText("matches your setup now")
-	card.text = UI.Text(card, 12, "text")
+	card.text = UI.Text(card, 13, "text")
 	card.text:SetPoint("TOPLEFT", card.name, "BOTTOMLEFT", 0, -6)
 	card.text:SetPoint("RIGHT", -10, 0)
 	card.text:SetJustifyH("LEFT")
-	card.on = UI.Text(card, 11, "textMuted")
+	card.on = UI.Text(card, 12, "textMuted")
 	card.on:SetPoint("TOPLEFT", card.text, "BOTTOMLEFT", 0, -6)
 	card.on:SetPoint("RIGHT", -10, 0)
 	card.on:SetPoint("BOTTOM", 0, 8)
@@ -103,6 +104,9 @@ local function CreateCard(parent, preset)
 	card.name:SetText(preset.name)
 	card.text:SetText(preset.text)
 	card:SetScript("OnClick", function(self)
+		if selected ~= self.key then
+			UI.Sound("pick")
+		end
 		SetSelected(self.key)
 	end)
 	card:SetScript("OnDoubleClick", function(self)
@@ -111,12 +115,12 @@ local function CreateCard(parent, preset)
 	end)
 	card:SetScript("OnEnter", function(self)
 		if selected ~= self.key then
-			UI.SetBorderColor(self, "accent", 0.6)
+			UI.BorderTo(self, "accent", 0.6)
 		end
 	end)
 	card:SetScript("OnLeave", function(self)
 		if selected ~= self.key then
-			UI.SetBorderColor(self, "frame", 0.35)
+			UI.BorderTo(self, "frame", 0.35)
 		end
 	end)
 	return card
@@ -197,7 +201,11 @@ local function Show()
 	end
 	local saved = ns.db.setup.preset
 	SetSelected(pick or (ns.Setup_Preset(saved or "") and saved) or "everything")
-	frame:Show()
+	if not frame:IsShown() then
+		frame:Show()
+		UI.Appear(frame)
+		UI.EnterUpRows(frame.cards)
+	end
 end
 
 -- /tomte setup and the Run setup button.

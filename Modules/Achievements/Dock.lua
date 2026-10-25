@@ -2,7 +2,8 @@ local addonName, ns = ...
 
 -- Almost Done: the list docked to the right of the Achievements window. Two tabs: List (search, reward and sort
 -- dropdowns, a filters menu, the threshold, the rows) and Metas (the big expansion metas and the metas you're close
--- on; open one to see its children). Hovering a row shows its tooltip beside the dock and, for mounts, pets and
+-- on; open one to see its children). A List row whose progress went up while the dock is open pops and shines.
+-- Hovering a row shows its tooltip beside the dock and, for mounts, pets and
 -- appearances, a reward preview next to the tooltip. When closed, a small tab on the window's edge opens it again.
 -- Built once Blizzard_AchievementUI has loaded.
 
@@ -42,6 +43,9 @@ local clicked -- the last clicked record (List tab), shown in the accent color
 local metaPath = {} -- meta IDs opened in the Metas tab, last = shown
 local metaExpanded = {} -- [child meta id] = true
 local listRows, metaRows = {}, {}
+-- [achievement id] = percent the List tab last drew while the dock stayed open; nil when it hasn't drawn since it
+-- opened, so only progress seen live is celebrated.
+local drawnPercent
 
 local function DB()
 	return ns.achDB
@@ -307,6 +311,16 @@ local function SetListRow(row, record)
 	row.fill:SetColorTexture(UI.RGBA(record.percent >= 100 and "success" or "accent", 0.9))
 end
 
+-- Progress went up on a drawn row: the percent pops and a shine runs across the row; one that reached 100% bursts
+-- (silently: the game plays its own sound for a finished achievement).
+local function Celebrate(row, percent)
+	UI.Pop(row.percent, 0.25)
+	UI.Shine(row)
+	if percent >= 100 then
+		UI.Burst(row, row.icon, true)
+	end
+end
+
 -- "Scanning..." with a progress line under it while a scan runs (progress 0..1), else nothing.
 local function ScanStatus(progress)
 	dock.status:SetText(progress and "Scanning..." or "")
@@ -320,6 +334,7 @@ end
 local function RefreshList()
 	local list = ns.Ach_List(searchText)
 	local content = dock.list.content
+	local drawn = {}
 	for i, record in ipairs(list) do
 		local row = listRows[i] or NewListRow()
 		listRows[i] = row
@@ -328,7 +343,14 @@ local function RefreshList()
 		row:SetPoint("RIGHT", content, "RIGHT")
 		SetListRow(row, record)
 		row:Show()
+		local before = drawnPercent and drawnPercent[record.id]
+		if before and record.percent > before then
+			Celebrate(row, record.percent)
+		end
+		drawn[record.id] = record.percent
 	end
+	-- A scan (Rescan, another "Completed means") replaces every record: what it changes isn't progress made just now.
+	drawnPercent = not ns.Ach_ScanProgress() and drawn or nil
 	for i = #list + 1, #listRows do
 		listRows[i]:Hide()
 	end
@@ -562,7 +584,7 @@ local function CreateTab(parent, text, which)
 	end
 	b:SetScript("OnClick", function()
 		if tab ~= which then
-			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			UI.Sound("nav")
 			SetTab(which)
 		end
 	end)
@@ -784,6 +806,7 @@ local function Build()
 		Refresh()
 	end)
 	dock:SetScript("OnHide", function()
+		drawnPercent = nil
 		HidePreview()
 		GameTooltip:Hide()
 	end)

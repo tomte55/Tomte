@@ -397,7 +397,7 @@ local function CreateDetail(parent)
 	add:SetScript("OnClick", function()
 		box:ClearFocus()
 		if S.db.selected then
-			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			UI.Sound("confirm")
 			ns.AltsList_Add(S.db.selected, S.db.crafts or 1, { quality = S.db.quality, ranks = S.db.ranks })
 		end
 	end)

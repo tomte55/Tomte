@@ -319,7 +319,7 @@ function ns.AltsRoster_Create(frame, altsDB)
 	tab.mode:SetPoint("TOPRIGHT", -8, -4)
 	tab.mode:SetScript("OnClick", function()
 		db.roster = db.roster == "detailed" and "compact" or "detailed"
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		UI.Sound("pick")
 		Layout()
 	end)
 	tab.sort = UI.Dropdown(tab, 130)
@@ -358,7 +358,7 @@ function ns.AltsRoster_Create(frame, altsDB)
 		if col.sort then
 			b:SetScript("OnClick", function()
 				db.sort = col.sort
-				PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+				UI.Sound("pick")
 				Layout()
 			end)
 		end

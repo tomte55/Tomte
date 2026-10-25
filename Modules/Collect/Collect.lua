@@ -218,14 +218,17 @@ function events:ZONE_CHANGED_NEW_AREA()
 end
 
 function events:NEW_MOUNT_ADDED()
+	ns.CollectTab_Celebrate("mount")
 	ns.Collect_Earned("mount")
 end
 
 function events:NEW_PET_ADDED()
+	ns.CollectTab_Celebrate("pet")
 	ns.Collect_Earned("pet")
 end
 
 function events:ACHIEVEMENT_EARNED(id)
+	ns.CollectTab_Celebrate("ach", id)
 	ns.Collect_Earned("ach", id)
 end
 

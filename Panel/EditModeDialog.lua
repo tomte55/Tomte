@@ -181,7 +181,10 @@ function ns.EditModeDialog_Show(spec)
 	shownSpec = spec
 	Build()
 	Place(spec.box)
-	dialog:Show()
+	if not dialog:IsShown() then
+		dialog:Show()
+		UI.Appear(dialog)
+	end
 	dialog:Raise()
 end
 

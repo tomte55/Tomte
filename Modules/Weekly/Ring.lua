@@ -2,13 +2,15 @@ local addonName, ns = ...
 
 -- A progress ring around an emblem (Factions tab): a dim circle track, the progress as a Cooldown swipe of a filled
 -- circle, an inner disc on top that leaves only a ring showing, the emblem (atlas, file or creature portrait) in the
--- middle, a level badge under it and an optional pulsing glow (a paragon reward waiting).
+-- middle, a level badge under it and an optional pulsing glow (a paragon reward waiting). ProgressTo eases the fill
+-- when the same faction's progress moves.
 -- The swipe is set up like Plumber's faction rings (reverse, rotated 180 degrees so it starts and ends at the badge,
 -- paused before SetCooldown). How exactly its ends line up with the badge hasn't been measured in game.
 
 local UI = ns.UI
 local CIRCLE = "Interface\\CHARACTERFRAME\\TempPortraitAlphaMask"
 local BADGE_OFFSET = 0.06 -- the part of the ring hidden under the badge, at each end (Plumber's visualOffset)
+local FILL_SECONDS = 0.7 -- ProgressTo's run from the old fill to the new
 
 local function Disc(parent, layer, r, g, b, a)
 	local t = parent:CreateTexture(nil, layer)
@@ -96,6 +98,41 @@ function ns.WeeklyRing_Create(parent, size)
 		-- 100 "seconds" of which frac have passed, frozen (Plumber's RadialProgressBarMixin does the same).
 		self.cd:Pause()
 		self.cd:SetCooldown(GetTime() - 100 * frac, 100)
+	end
+
+	-- Eases the ring to frac when it shows the same key (a faction) as last time and is on screen, else sets it.
+	-- levelUp: the level went up since, so the ring runs to full first, starts over from empty and the badge pops.
+	function ring:ProgressTo(frac, key, levelUp)
+		frac = math.min(math.max(frac or 0, 0), 1)
+		local from = self.frac or 0
+		if self.progressKey ~= key or not self:IsVisible() or (from == frac and not levelUp) then
+			self.progressKey = key
+			UI.TweenStop(self, "fill")
+			self:SetProgress(frac)
+			return
+		end
+		if levelUp then
+			-- One run over both legs (the rest of the old level, then the new one's share), so the badge pops as it
+			-- wraps.
+			local rest = 1 - from
+			local popped = false
+			UI.Tween(self, "fill", FILL_SECONDS * 1.5, function(t)
+				local d = t * (rest + frac)
+				if d < rest then
+					self:SetProgress(from + d)
+				else
+					if not popped then
+						popped = true
+						UI.Pop(self.badge.text) -- the text flashes; scaling the badge would make its text step
+					end
+					self:SetProgress(d - rest)
+				end
+			end)
+			return
+		end
+		UI.Tween(self, "fill", FILL_SECONDS, function(t)
+			self:SetProgress(UI.Lerp(from, frac, t))
+		end)
 	end
 
 	function ring:SetColor(r, g, b)

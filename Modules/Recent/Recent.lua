@@ -75,7 +75,7 @@ local function Run(entry)
 	if not action then
 		return
 	end
-	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+	UI.Sound("nav")
 	ns.Panel_Hide()
 	action("LeftButton")
 end
@@ -211,7 +211,19 @@ local RecentPage = {
 			frame.info:SetText(("%d entr%s · %s"):format(#list, #list == 1 and "y" or "ies",
 				db.scope == "char" and "this character" or "all characters"))
 			local content = frame.scroll.content
+			-- Where each row and day heading was drawn last ([entry or heading text] = y), while the page stays open.
+			local before, places, arrivals = frame.places, {}, {}
 			local y, h, lastGroup = 0, 0, nil
+			-- Seen live: a new entry fades in, a row or heading that moved down slides there from where it was.
+			local function Arrive(region, key)
+				places[key] = y
+				local was = before and before[key]
+				if before and not was then
+					arrivals[#arrivals + 1] = region
+				elseif was and y > was then
+					UI.SlideDown({ region }, 1, 1, y - was)
+				end
+			end
 			for i, e in ipairs(list) do
 				local group = ns.Recent_Group(e.at, now, DayOf)
 				if group ~= lastGroup then
@@ -226,6 +238,7 @@ local RecentPage = {
 					head:ClearAllPoints()
 					head:SetPoint("TOPLEFT", 8, -(y + 8))
 					head:Show()
+					Arrive(head, group)
 					y = y + 30
 				end
 				local row = frame.rows[i]
@@ -238,8 +251,11 @@ local RecentPage = {
 				row:SetPoint("TOPLEFT", 0, -y)
 				row:SetPoint("RIGHT")
 				row:Show()
+				Arrive(row, e)
 				y = y + ROW_H
 			end
+			UI.FadeInRows(arrivals, 1, #arrivals, 0)
+			frame.places = places
 			for i = #list + 1, #frame.rows do
 				frame.rows[i]:Hide()
 			end
@@ -250,6 +266,10 @@ local RecentPage = {
 			frame.scroll:SetContentHeight(y)
 		end
 		frame:HookScript("OnShow", MarkSeen)
+		-- The next opening draws everything at once: only what arrives while the page is open moves.
+		frame:HookScript("OnHide", function()
+			frame.places = nil
+		end)
 	end,
 	Refresh = function(frame)
 		frame.Refresh()

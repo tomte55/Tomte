@@ -41,7 +41,7 @@ local function Toggle(it)
 	else
 		return
 	end
-	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+	UI.Sound(choice[it.id] == "want" and "on" or "off")
 	ns.TradingPostBuy_Refresh()
 end
 
@@ -124,7 +124,7 @@ local function Buy()
 	if #ids == 0 then
 		return
 	end
-	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+	UI.Sound("confirm")
 	ns.Print(("buying %d %s for %s Trader's Tender."):format(#ids, #ids == 1 and "item" or "items",
 		ns.Thousands(plan.total)))
 	C_PerksProgram.RequestCartCheckout(ids) -- in a click: a hardware event
@@ -151,7 +151,7 @@ local function BuildDialog()
 	dialog.cancel:SetHeight(24)
 	dialog.cancel:SetPoint("BOTTOMRIGHT", -PAD, 14)
 	dialog.cancel:SetScript("OnClick", function()
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF)
+		UI.Sound("close")
 		Close()
 	end)
 	dialog.buy = UI.Button(dialog, 90, "Buy")
@@ -195,7 +195,7 @@ local function BuildButton()
 	button:SetFrameLevel(leave:GetFrameLevel())
 	button:SetPoint("LEFT", leave, "RIGHT", BUTTON_GAP, 0)
 	button:SetScript("OnClick", function()
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		UI.Sound("open")
 		Open()
 	end)
 	local enter = button:GetScript("OnEnter")

@@ -53,7 +53,7 @@ local function Build()
 	Dress(card)
 	for _, b in ipairs(card.buttons) do
 		b:SetScript("OnClick", function(self)
-			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			UI.Sound("pick")
 			if self.onClick then
 				self.onClick() -- a mouse click: a hardware event, as switching talents wants
 			end
