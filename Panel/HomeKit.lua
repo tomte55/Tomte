@@ -11,6 +11,7 @@ local DISPLAY_FONT, NARROW_FONT = "title", "number"
 local PAD = 22
 local ROW_H = 24
 local ROW2_H = 36 -- a row with a second line
+local RIGHT_MIN_LINE = 24 -- narrowest progress line under a row's right-hand text (when it's short or empty)
 
 -- c: a color role, or a color table (sections pass item quality and class colors).
 local function SetColor(fs, c)
@@ -80,8 +81,15 @@ end
 -- (colors: roles or color tables). With sub the row gets a small muted second line and is Kit.ROW2_H tall (else
 -- ROW_H); sub "" is tall, one line.
 -- Optional row.onClick / row.onRightClick / row.onEnter(row).
-function Kit.Row(parent)
-	local row = CreateFrame("Button", nil, parent)
+-- With opensMap(row) the row opens the world map first on a left-click when that says so (ns.MapTabs_Opener), and the
+-- click runs as its PostClick.
+function Kit.Row(parent, opensMap)
+	local row = CreateFrame("Button", nil, parent, opensMap and "InsecureActionButtonTemplate" or nil)
+	if opensMap then
+		ns.MapTabs_Opener(row, function(self, mouseButton)
+			return mouseButton == "LeftButton" and opensMap(self)
+		end)
+	end
 	row:SetHeight(ROW_H)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
@@ -115,7 +123,8 @@ function Kit.Row(parent)
 		GameTooltip:Hide()
 	end)
 	row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	row:SetScript("OnClick", function(self, button)
+	-- OnClick would replace the template's, which opens the map.
+	row:SetScript(opensMap and "PostClick" or "OnClick", function(self, button)
 		if button == "RightButton" then
 			if self.onRightClick then
 				self.onRightClick(self)
@@ -167,15 +176,30 @@ end
 
 -- Rows kept per owner: Kit.PoolRow(pool, i, parent) gives the i-th row, creating it the first time, shown and with
 -- its click and hover handlers cleared.
-function Kit.PoolRow(pool, i, parent)
+function Kit.PoolRow(pool, i, parent, opensMap)
 	local row = pool[i]
 	if not row then
-		row = Kit.Row(parent)
+		row = Kit.Row(parent, opensMap)
 		pool[i] = row
 	end
 	row.onClick, row.onRightClick, row.onEnter = nil, nil, nil
+	if row.progress then
+		row.progress:Stop()
+	end
 	row:Show()
 	return row
+end
+
+-- A progress line (UI.ProgressLine) under the row's right-hand text, as wide as it, while read() says so. Call after
+-- row:Set; Kit.PoolRow stops it.
+function Kit.RowProgress(row, read)
+	if not row.progress then
+		row.progress = UI.ProgressLine(row)
+		row.progress:SetPoint("TOPRIGHT", row.right, "BOTTOMRIGHT", 0, -2)
+	end
+	if row.progress:Track(read) then
+		row.progress:SetWidth(math.max(row.right:GetStringWidth(), RIGHT_MIN_LINE))
+	end
 end
 
 function Kit.HideFrom(pool, first)

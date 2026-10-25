@@ -63,6 +63,7 @@ local function Build()
 		ns.DelvesPage_Refresh()
 	end
 	c.keys = Text(14, "text")
+	c.keysWait = UI.ProgressLine(c)
 	c.combine = Text(12, "success")
 	c.journey = Text(12, "textMuted")
 	c.journeyBar = UI.Bar(c, 5)
@@ -78,6 +79,7 @@ local function Build()
 		c.slotTiers[i]:SetWidth(SLOT_W)
 	end
 	c.advice = Text(13, "accent")
+	c.adviceWait = UI.ProgressLine(c)
 	c.ladder = Text(12, "textMuted")
 	c.compHead = Kit.Heading(c)
 	c.portrait = c:CreateTexture(nil, "ARTWORK")
@@ -106,6 +108,15 @@ local function Place(fs, y, text, gap)
 	fs:SetText(text)
 	fs:Show()
 	return y + fs:GetStringHeight() + (gap or 4)
+end
+
+-- A busy line under fs while its text says it waits on the game; Render runs again when the data arrives.
+local function Waiting(line, fs, waiting)
+	if waiting then
+		line:Below(fs):Track(UI.ProgressBusy)
+	else
+		line:Stop()
+	end
 end
 
 local function PlaceFrame(frame, y, height)
@@ -199,6 +210,7 @@ local function RenderVault(y, vault)
 		advice = "Reading the Great Vault..."
 	end
 	y = Place(c.advice, y, advice, 4)
+	Waiting(c.adviceWait, c.advice, not vault)
 	y = Place(c.ladder, y, vault and ns.Delves_LadderText(vault.ladder), 4)
 	return y + 14
 end
@@ -289,6 +301,7 @@ local function Render()
 	local minLevel = ns.DelvesScan_MinLevel()
 	local y = PAD
 	y = Place(c.keys, y, s.keyLine or (minLevel and "" or "Reading your keys..."), 4)
+	Waiting(c.keysWait, c.keys, not s.keyLine and not minLevel)
 	local perKey = s.keys and s.keys.perKey or 100
 	y = Place(c.combine, y, s.canCombine and ("Combine %d shards into a key"):format(perKey) or nil, 4)
 	local journey = s.companion and s.companion.journey
@@ -318,6 +331,7 @@ local function Render()
 		c.hint:Hide()
 		c.compNone:Hide()
 		c.advice:Hide()
+		c.adviceWait:Stop()
 		c.ladder:Hide()
 		for i = 1, 3 do
 			c.slots[i]:Hide()

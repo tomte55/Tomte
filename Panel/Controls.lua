@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
--- More ns.UI controls: an on/off switch, segmented buttons, a resize grip and Esc handling for Tomte's windows. The
--- rest of the widget kit is in Widgets.lua; menus and the list a UI.Dropdown opens are in Menu.lua.
+-- More ns.UI controls: an on/off switch, segmented buttons, a resize grip, a progress line and Esc handling for
+-- Tomte's windows. The rest of the widget kit is in Widgets.lua; menus and the list a UI.Dropdown opens are in
+-- Menu.lua.
 
 local UI = ns.UI
 local SWITCH_W, SWITCH_H = 34, 16
@@ -11,6 +12,10 @@ local SLIDE_SECONDS = 0.15
 UI.SWITCH_SECONDS = SLIDE_SECONDS -- Options.lua waits this long before re-laying rows after a switch
 local SEGMENT_PAD = 10 -- text inset on each side of a segment
 local SEGMENT_H = 20
+local PROGRESS_POLL = 0.25 -- seconds between reads of a progress line's read()
+local PROGRESS_EASE = 6 -- how fast a progress line catches up with the read value (per second)
+local BUSY_SECONDS = 1.6 -- one sweep of a busy line's segment
+local BUSY_SPAN = 0.25 -- the busy segment's share of the line's width
 
 -- Switch: same API as UI.Checkbox (SetChecked, .checked, .onChange, Enable/Disable dims it). Square, like the rest
 -- of the kit: a knob slides across and the accent gradient (as in UI.Bar) fills the track behind it. Only a click
@@ -241,6 +246,101 @@ function UI.ResizeGrip(frame, onDone)
 		end
 	end)
 	return grip
+end
+
+-- Progress line -------------------------------------------------------------------------------------------------------
+
+-- A faint 1px line for something still being read. line:Track(read) polls read() while the line is shown: a number
+-- (0..1) fills it, eased; true (waiting on the game, nothing to count) sweeps a short segment across; nil hides the
+-- line and stops polling. The caller anchors it and redraws its own content when the read is done.
+-- Track returns whether the line shows. line:Stop() hides it.
+function UI.ProgressLine(parent)
+	local line = CreateFrame("Frame", nil, parent)
+	line:SetHeight(1)
+	line.track = line:CreateTexture(nil, "BACKGROUND")
+	line.track:SetAllPoints()
+	line.track:SetColorTexture(UI.RGBA("accent", 0.12))
+	line.fill = line:CreateTexture(nil, "ARTWORK")
+	line.fill:SetColorTexture(UI.RGBA("accent", 0.7))
+	line:Hide()
+
+	local function Draw(self)
+		local width = self:GetWidth()
+		local left, right = 0, width * self.shown
+		if self.busy then
+			-- The segment enters from the left edge and leaves at the right, clipped to the track.
+			local span = width * BUSY_SPAN
+			local x = (width + span) * ns.Smoothstep((self.clock % BUSY_SECONDS) / BUSY_SECONDS) - span
+			left, right = math.max(x, 0), math.min(x + span, width)
+		end
+		self.fill:SetShown(right - left >= 1)
+		self.fill:ClearAllPoints()
+		self.fill:SetPoint("TOPLEFT", left, 0)
+		self.fill:SetPoint("BOTTOMLEFT", left, 0)
+		self.fill:SetWidth(math.max(right - left, 1))
+	end
+
+	local function Read(self)
+		local value = self.read()
+		if value == nil then
+			self:Stop()
+			return false
+		end
+		self.busy = value == true
+		self.target = self.busy and 0 or math.min(math.max(value, 0), 1)
+		return true
+	end
+
+	local function Update(self, elapsed)
+		self.clock = self.clock + elapsed
+		self.poll = self.poll - elapsed
+		if self.poll <= 0 then
+			self.poll = PROGRESS_POLL
+			if not Read(self) then
+				return
+			end
+		end
+		self.shown = self.shown + (self.target - self.shown) * math.min(elapsed * PROGRESS_EASE, 1)
+		Draw(self)
+	end
+
+	function line:Track(read)
+		local first = self.read ~= read
+		self.read = read
+		if not Read(self) then
+			return false
+		end
+		if first then
+			self.shown, self.clock = self.target, 0
+		end
+		self.poll = PROGRESS_POLL
+		self:Show()
+		Draw(self)
+		self:SetScript("OnUpdate", Update)
+		return true
+	end
+
+	function line:Stop()
+		self.read = nil
+		self:SetScript("OnUpdate", nil)
+		self:Hide()
+	end
+
+	-- Under fs's text (left-aligned text), as wide as it: line:Below(fs):Track(read).
+	function line:Below(fs)
+		self:ClearAllPoints()
+		self:SetPoint("TOPLEFT", fs, "BOTTOMLEFT", 0, -2)
+		self:SetWidth(math.max(fs:GetStringWidth(), 1))
+		return self
+	end
+
+	return line
+end
+
+-- A progress line's read for a wait on the game with nothing to count: busy until the caller stops the line (when
+-- what it waited for arrives and it redraws).
+function UI.ProgressBusy()
+	return true
 end
 
 -- Escape --------------------------------------------------------------------------------------------------------------

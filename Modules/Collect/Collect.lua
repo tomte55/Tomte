@@ -203,6 +203,9 @@ end
 -- The catalogs changed (one finished, or something was earned).
 local function OnChanged()
 	ns.CollectTab_Refresh()
+	if ns.Panel_IsShown() then
+		ns.Panel_Refresh() -- Home's Around you, Next up and the rail's count
+	end
 	ZoneToast()
 end
 
@@ -364,6 +367,13 @@ module = ns.RegisterModule({
 				local entries = ns.Collect_ForMap(PlayerMap())
 				local text = entries and ns.Collect_ZoneToastText(ShownCounts(entries))
 				return text and ("Collect here: " .. text) or "Collect here: nothing left in this zone"
+			end,
+			progress = function()
+				local state = ns.Collect_State()
+				if state.mounts and state.pets and state.achievements then
+					return nil
+				end
+				return state.progress
 			end,
 			-- Mounts and pets first, then the achievements closest to done.
 			items = function(limit)

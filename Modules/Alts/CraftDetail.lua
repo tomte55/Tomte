@@ -166,6 +166,8 @@ function LayoutDetail()
 		end
 	end
 	d.shop:Hide()
+	d.forWait = d.forWait or UI.ProgressLine(d.content)
+	d.forWait:Stop()
 	local recipe = S.db.selected and S.db.recipes[S.db.selected]
 	d.empty:SetShown(not recipe)
 	d.title:SetShown(recipe ~= nil)
@@ -238,13 +240,18 @@ function LayoutDetail()
 		headers[H_FOR] = fs
 		fs:SetWordWrap(true)
 		fs:SetJustifyH("LEFT")
+		local info = ForInfo(recipe, forChar, CompareQuality(quality))
 		fs:SetText(("%s %s"):format(UI.Wrap(("For %s:"):format(ClassName(forChar)), "heading"),
-			ForText(ForInfo(recipe, forChar, CompareQuality(quality)), forChar, recipe)))
+			ForText(info, forChar, recipe)))
 		fs:ClearAllPoints()
 		fs:SetPoint("TOPLEFT", 4, -(y + 6))
 		fs:SetPoint("RIGHT", -4, 0)
 		fs:Show()
 		y = y + fs:GetStringHeight() + 8
+		-- A busy line while item levels load (the items' loads redraw this).
+		if info and (info.loading or info.target and info.target.loading) then
+			d.forWait:Below(fs):Track(UI.ProgressBusy)
+		end
 	end
 	d.shop:ClearAllPoints()
 	d.shop:SetPoint("TOPRIGHT", -4, -(y + 8)) -- on the materials heading's line

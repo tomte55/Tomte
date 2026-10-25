@@ -307,6 +307,16 @@ local function SetListRow(row, record)
 	row.fill:SetColorTexture(UI.RGBA(record.percent >= 100 and "success" or "accent", 0.9))
 end
 
+-- "Scanning..." with a progress line under it while a scan runs (progress 0..1), else nothing.
+local function ScanStatus(progress)
+	dock.status:SetText(progress and "Scanning..." or "")
+	if progress and dock.progress:Track(ns.Ach_ScanProgress) then
+		dock.progress:SetWidth(dock.status:GetStringWidth())
+	else
+		dock.progress:Stop()
+	end
+end
+
 local function RefreshList()
 	local list = ns.Ach_List(searchText)
 	local content = dock.list.content
@@ -336,7 +346,7 @@ local function RefreshList()
 	end
 	dock.count:SetText(("%s at %d%% or more"):format(#list == 1 and "1 achievement" or (#list .. " achievements"),
 		DB().threshold))
-	dock.status:SetText(progress and ("Scanning %d%%"):format(progress * 100) or "")
+	ScanStatus(progress)
 	dock.threshold:SetValue(DB().threshold)
 	dock.rewardFilter:Refresh()
 	dock.sortBy:Refresh()
@@ -512,7 +522,7 @@ local function RefreshMetas()
 	end
 	dock.metas:SetContentHeight(y)
 	dock.count:SetText("")
-	dock.status:SetText("")
+	ScanStatus(nil)
 end
 
 -- Frame ---------------------------------------------------------------------------------------------------------
@@ -751,6 +761,9 @@ local function Build()
 	end)
 	dock.status = UI.Text(dock, 11, "heading")
 	dock.status:SetPoint("RIGHT", rescan, "LEFT", -8, 0)
+	-- Under "Scanning..." while a scan runs.
+	dock.progress = UI.ProgressLine(dock)
+	dock.progress:SetPoint("TOPRIGHT", dock.status, "BOTTOMRIGHT", 0, -2)
 	dock.count = UI.Text(dock, 11, "textMuted")
 	dock.count:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
 
@@ -811,8 +824,7 @@ end
 -- Scan progress in the header, without rebuilding the list.
 function ns.AchDock_ScanStatus()
 	if dock and dock:IsVisible() and tab == "list" then
-		local progress = ns.Ach_ScanProgress()
-		dock.status:SetText(progress and ("Scanning %d%%"):format(progress * 100) or "")
+		ScanStatus(ns.Ach_ScanProgress())
 	end
 end
 

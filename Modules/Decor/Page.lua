@@ -344,8 +344,7 @@ local function StatusText(info, counts, vendors)
 			.. ns.Decor_CollectedText(counts, ns.Thousands)
 			.. UI.Wrap(("  ·  %s missing"):format(ns.Thousands(counts.missing)), "textMuted")
 	end
-	local pct = math.floor(info.progress * 100)
-	return UI.Wrap(("Reading the housing catalog... %d%%"):format(pct), "textMuted")
+	return UI.Wrap("Reading the housing catalog...", "textMuted")
 end
 
 local function EmptyText(counts)
@@ -391,6 +390,9 @@ local function Layout()
 		end
 	end
 	page.status:SetText(StatusText(info, counts, vendors))
+	if page.progress:Track(ns.DecorCatalog_Progress) then
+		page.progress:SetWidth(page.status:GetStringWidth())
+	end
 	Render(items)
 	if db.preview then
 		ns.DecorDetail_Show(page.pane, selectedID and info.usable and ns.DecorCatalog_ByID(selectedID) or nil)
@@ -500,6 +502,9 @@ ns.DecorPage = {
 		page.status:SetPoint("RIGHT", -8, 0)
 		page.status:SetJustifyH("RIGHT")
 		page.status:SetWordWrap(false)
+		-- Under the status text while the catalog is read (as wide as the text, set in Layout).
+		page.progress = UI.ProgressLine(page)
+		page.progress:SetPoint("TOPRIGHT", page.status, "BOTTOMRIGHT", 0, -3)
 		page.list = { rows = {}, used = 0 }
 		page.list.scroll = UI.Scroll(page)
 		page.list.scroll:SetPoint("TOPLEFT", 0, -LIST_TOP)

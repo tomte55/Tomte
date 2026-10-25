@@ -239,6 +239,16 @@ function ns.DecorCatalog_State()
 		usable = state == "ready" or (#entries > 0 and state ~= "idle" and state ~= "unavailable") }
 end
 
+-- For a progress line (UI.ProgressLine) while there's nothing to show yet: 0..1 while reading, true while waiting for
+-- the game's search, nil once there's a read to show or the catalog can't be read.
+function ns.DecorCatalog_Progress()
+	local info = ns.DecorCatalog_State()
+	if info.usable or info.state == "unavailable" then
+		return nil
+	end
+	return info.state == "reading" and info.progress or true
+end
+
 function ns.DecorCatalog_Entries()
 	return entries
 end

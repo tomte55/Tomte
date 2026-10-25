@@ -475,14 +475,20 @@ module = ns.RegisterModule({
 			description = "A vendor in your zone sells housing decor you're missing (click to track it).",
 			candidates = NextCandidates },
 		{ kind = "around", key = "decoraround", order = 60, name = "Decor vendors", icon = ICON,
+			-- While the catalog is read it shows with its progress line, then only where vendors are.
 			shown = function()
 				local _, total = VendorsHere()
-				return total > 0
+				return total > 0 or ns.DecorCatalog_Progress() ~= nil
 			end,
+			keepEmpty = true,
 			title = function()
+				if ns.DecorCatalog_Progress() ~= nil then
+					return "Decor vendors: reading the housing catalog..."
+				end
 				local vendors, total = VendorsHere()
 				return ns.Decor_VendorsHereText(vendors, total) or "Decor vendors: none here"
 			end,
+			progress = ns.DecorCatalog_Progress,
 			items = AroundItems, maxRows = 4, open = Open, openText = "Open the Decor page" },
 	},
 	defaults = {

@@ -113,6 +113,9 @@ local function Row(y, height, indent, icon, text, textRole, right, rightRole, ki
 	row:SetPoint("TOPLEFT", indent, -y)
 	row:SetPoint("RIGHT")
 	row.onClick, row.tip = nil, nil
+	if row.progress then
+		row.progress:Stop()
+	end
 	local size = kind == "header" and HEADER_ICON or ICON
 	row.icon:SetSize(size, size)
 	row.icon:SetShown(icon ~= nil)
@@ -221,9 +224,14 @@ local function Lists(ev, y)
 	end
 	local missing = ns.Events_Missing(ev)
 	if not missing then
-		local state = ns.EventsCatalog_State()
-		Row(y, ROW_H, INDENT, nil, ("Reading your collections... %d%%"):format(math.floor(state.progress * 100)),
-			"textMuted", nil, nil, "note")
+		local row = Row(y, ROW_H, INDENT, nil, "Reading your collections...", "textMuted", nil, nil, "note")
+		if not row.progress then
+			row.progress = UI.ProgressLine(row)
+			row.progress:SetPoint("TOPLEFT", row.left, "BOTTOMLEFT", 0, -2)
+		end
+		if row.progress:Track(ns.EventsCatalog_Progress) then
+			row.progress:SetWidth(row.left:GetStringWidth())
+		end
 		return y + ROW_H
 	end
 	local any = false

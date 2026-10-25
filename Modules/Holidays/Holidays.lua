@@ -347,6 +347,9 @@ local function FillSection(frame, rows)
 		local right, rightColor = RightText(ev)
 		local text = ev.active and (ev.name .. "  " .. UI.Wrap(ns.Events_When(ev), "textMuted")) or ev.name
 		row:Set(ev.texture or ICON, text, ev.active and "text" or "textMuted", right, rightColor)
+		if ev.active and ev.def and not Counts(ev) then
+			Kit.RowProgress(row, ns.EventsCatalog_Progress)
+		end
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", 0, -(HEAD_H + (i - 1) * Kit.ROW_H))
 		row:SetPoint("RIGHT")

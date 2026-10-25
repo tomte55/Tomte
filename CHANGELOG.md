@@ -12,6 +12,21 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+### Improved
+
+- **Home:** while Tomte reads your collections, the housing catalog or something the game hasn't sent yet, a thin
+  line shows it working: it fills as a scan goes on (Collect here, Decor vendors, Events, the Achievements dock, the
+  Decor and Events pages, the Collect here map tab) and sweeps while waiting on the game (Delves keys and Great
+  Vault, Gear Check's panel on the character sheet, World quests rewards, an alt's item levels in the craft list).
+- **Home:** the Decor vendors block shows while the housing catalog is read, then stays only where vendors are.
+
+### Fixed
+
+- **Home:** clicking a mount, pet or achievement under Collect here (or a row under Teleports, World quests or
+  Flight masters) opens the world map on its tab, instead of asking you to open the map first.
+- **Home:** Collect here updates on its own once your collections are read, instead of staying on "reading your
+  collections" until you reopen the Tomte window.
+
 ## v1.23.0 - 2026-10-25
 
 ### New

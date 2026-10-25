@@ -19,6 +19,15 @@ local rows, used = {}, 0
 local tick = 0
 local Refresh
 
+-- The progress line's read: how far the journals are read, nil once they all are.
+local function ReadProgress()
+	local state = ns.Collect_State()
+	if state.mounts and state.pets and state.achievements then
+		return nil
+	end
+	return state.progress
+end
+
 -- Tooltip and model preview ------------------------------------------------------------------------------------------------------
 
 local function ShowPreview(e)
@@ -224,6 +233,7 @@ function Refresh()
 	if not entries then
 		HidePreview()
 		panel.note:SetText("")
+		panel.progress:Stop()
 		panel.empty:SetText("Open a zone or a continent to see what's left to collect there.")
 		panel.empty:Show()
 		panel.scroll:SetContentHeight(1)
@@ -233,7 +243,10 @@ function Refresh()
 	ns.Collect_ReadProgress(entries)
 	local note = mapName
 	if loading then
-		note = note .. "  " .. UI.Wrap(("reading the journals... %d%%"):format(math.floor(state.progress * 100)), "textFaint")
+		note = note .. "  " .. UI.Wrap("reading the journals...", "textFaint")
+		panel.progress:Track(ReadProgress)
+	else
+		panel.progress:Stop()
 	end
 	panel.note:SetText(note)
 	local sections = ns.Collect_Sections(entries, { show = db.show, collapsed = db.collapsed })
@@ -309,6 +322,10 @@ local function Build()
 	panel.note:SetPoint("TOPLEFT", panel.title, "BOTTOMLEFT", 0, -4)
 	panel.note:SetPoint("RIGHT", -10, 0)
 	panel.note:SetWordWrap(false)
+	-- In the gap under the note while the journals are read.
+	panel.progress = UI.ProgressLine(panel)
+	panel.progress:SetPoint("TOPLEFT", panel.note, "BOTTOMLEFT", 0, -4)
+	panel.progress:SetPoint("RIGHT", -10, 0)
 	panel.scroll = UI.Scroll(panel)
 	panel.scroll:SetPoint("TOPLEFT", panel.note, "BOTTOMLEFT", -6, -8)
 	panel.scroll:SetPoint("BOTTOMRIGHT", -10, 8)

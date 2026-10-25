@@ -10,6 +10,28 @@ local ROW_H = Kit.ROW_H
 
 -- Around you: map entries as headed lists ------------------------------------------------------------------
 
+-- A row without its own click opens its block's tab, so it opens the world map first like the block does.
+local function RowOpensMap(row)
+	return row.opensMap == true
+end
+
+-- One read function per entry, so the line keeps its fill across Home's redraws.
+local progressReads = setmetatable({}, { __mode = "k" })
+
+local function ProgressRead(entry)
+	if not entry.progress then
+		return nil
+	end
+	local read = progressReads[entry]
+	if not read then
+		read = function()
+			return ns.HomeCall(entry.progress)
+		end
+		progressReads[entry] = read
+	end
+	return read
+end
+
 function ns.PanelHome_CreateAround(parent, onOpen)
 	local around = CreateFrame("Frame", nil, parent)
 	around:SetClipsChildren(true) -- a first block taller than a short column is cut off at the bottom
@@ -38,6 +60,10 @@ function ns.PanelHome_CreateAround(parent, onOpen)
 			block.bar:SetPoint("TOPLEFT")
 			block.bar:SetPoint("BOTTOMLEFT")
 			block.bar:SetWidth(2)
+			-- Along the band's bottom edge while the entry is still reading (its progress()).
+			block.progress = UI.ProgressLine(block)
+			block.progress:SetPoint("BOTTOMLEFT", block.bar, "BOTTOMRIGHT")
+			block.progress:SetPoint("BOTTOMRIGHT")
 			block.text = UI.Text(block, 14, "accent")
 			block.text:SetPoint("LEFT", 10, 0)
 			block.text:SetWordWrap(false)
@@ -116,14 +142,21 @@ function ns.PanelHome_CreateAround(parent, onOpen)
 			block:SetPoint("TOPLEFT", 0, -y)
 			block:SetPoint("RIGHT")
 			block:Show()
+			local read = ProgressRead(bl.entry)
+			if read then
+				block.progress:Track(read)
+			else
+				block.progress:Stop()
+			end
 			y = y + 30
 			for i = 1, bl.rows do
 				local item = bl.items[i]
 				used = used + 1
-				local row = Kit.PoolRow(self.rows, used, self)
+				local row = Kit.PoolRow(self.rows, used, self, RowOpensMap)
 				row:Set(item.icon, item.text, item.color, item.right, item.rightColor)
 				row.onEnter = item.onEnter
 				local entry = bl.entry
+				row.opensMap = item.onClick == nil and entry.opensMap == true
 				-- An item's own click (a waypoint, a summon), else the block's.
 				row.onClick = item.onClick or function()
 					onOpen(entry)
