@@ -8,6 +8,9 @@ local addonName, ns = ...
 
 local BUTTONS = 4 -- two lethal and two non-lethal with Dragon-Tempered Blades
 local SIZE, GAP = 40, 6
+local BORDER = 2 -- the colored border reaches this far outside a button
+-- The settings preview's room for the title over the buttons and the labels under them.
+local PREVIEW_TOP, PREVIEW_BOTTOM = 20, 16
 local TICK = 5 -- seconds between checks out of combat (counts down "low" poisons, catches them running low)
 local ENTER_DELAY = 4 -- seconds after zoning in before the poison check
 -- Seconds to gather a burst of aura changes (a city full of buffs, applying a poison) into one rebuild.
@@ -131,18 +134,15 @@ local function ButtonOnEnter(self)
 	GameTooltip:Show()
 end
 
-local function CreateButton(i)
-	local b = CreateFrame("Button", BUTTON_PREFIX .. i, holder, "SecureActionButtonTemplate")
-	b:SetID(i)
+-- A button's looks (icon, border, label, pulse), on the secure button or on a settings preview's plain frame; row is
+-- the frame the buttons sit in, previous the button left of this one.
+local function Decorate(b, row, previous)
 	b:SetSize(SIZE, SIZE)
-	if i == 1 then
-		b:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, 0)
+	if previous then
+		b:SetPoint("LEFT", previous, "RIGHT", GAP, 0)
 	else
-		b:SetPoint("LEFT", buttons[i - 1], "RIGHT", GAP, 0)
+		b:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
 	end
-	b:RegisterForClicks("AnyDown")
-	b:SetAttribute("useOnKeyDown", true)
-
 	b.icon = b:CreateTexture(nil, "ARTWORK")
 	b.icon:SetAllPoints()
 	b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
@@ -150,7 +150,6 @@ local function CreateButton(i)
 	b.border:SetPoint("TOPLEFT", -2, 2)
 	b.border:SetPoint("BOTTOMRIGHT", 2, -2)
 	b.border:SetColorTexture(1, 1, 1)
-	b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 	b.label = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 	UI.SetFont(b.label, "body", 10)
 	b.label:SetShadowOffset(1, -1)
@@ -162,11 +161,40 @@ local function CreateButton(i)
 	fade:SetFromAlpha(1)
 	fade:SetToAlpha(0.25)
 	fade:SetDuration(0.7)
+end
 
+-- What a button shows for problem p (icon, border and label colored by how urgent, the pulse).
+local function Paint(b, p)
+	b.icon:SetTexture(C_Spell.GetSpellTexture(p.spellID) or ICON)
+	local role = p.reason == "low" and "warning" or "danger"
+	b.border:SetVertexColor(UI.Color(role))
+	b.label:SetText(p.reason == "low" and ns.Rogue_FormatLeft(p.left) or "Missing")
+	UI.SetTextRole(b.label, role)
+	if not b.pulse:IsPlaying() then
+		b.pulse:Play()
+	end
+end
+
+local function CreateButton(i)
+	local b = CreateFrame("Button", BUTTON_PREFIX .. i, holder, "SecureActionButtonTemplate")
+	b:SetID(i)
+	Decorate(b, holder, buttons[i - 1])
+	b:RegisterForClicks("AnyDown")
+	b:SetAttribute("useOnKeyDown", true)
+	b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 	b:SetScript("OnEnter", ButtonOnEnter)
 	b:SetScript("OnLeave", GameTooltip_Hide)
 	buttons[i] = b
 	return b
+end
+
+-- The "Apply poison" title over row (the holder, or a settings preview's row).
+local function AddTitle(row)
+	row.title = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	UI.SetFont(row.title, "title", 12)
+	UI.SetTextRole(row.title, "heading")
+	row.title:SetPoint("BOTTOMLEFT", row, "TOPLEFT", 0, 4)
+	row.title:SetText("Apply poison")
 end
 
 local function CreateHolder()
@@ -175,11 +203,7 @@ local function CreateHolder()
 	holder:SetMovable(true)
 	holder:SetClampedToScreen(true)
 	holder:SetFrameStrata("MEDIUM")
-	holder.title = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	UI.SetFont(holder.title, "title", 12)
-	UI.SetTextRole(holder.title, "heading")
-	holder.title:SetPoint("BOTTOMLEFT", holder, "TOPLEFT", 0, 4)
-	holder.title:SetText("Apply poison")
+	AddTitle(holder)
 	for i = 1, BUTTONS do
 		CreateButton(i)
 	end
@@ -199,14 +223,7 @@ local function SetButton(b, p, preview)
 		local name = C_Spell.GetSpellName(p.spellID)
 		b:SetAttribute("type", (name and not preview) and "macro" or nil)
 		b:SetAttribute("macrotext", (name and not preview) and ("/cast " .. name) or nil)
-		b.icon:SetTexture(C_Spell.GetSpellTexture(p.spellID) or ICON)
-		local role = p.reason == "low" and "warning" or "danger"
-		b.border:SetVertexColor(UI.Color(role))
-		b.label:SetText(p.reason == "low" and ns.Rogue_FormatLeft(p.left) or "Missing")
-		UI.SetTextRole(b.label, role)
-		if not b.pulse:IsPlaying() then
-			b.pulse:Play()
-		end
+		Paint(b, p)
 		b:Show()
 	else
 		b:SetAttribute("type", nil)
@@ -487,6 +504,37 @@ local function Scale(v)
 	return ("%.1f"):format(v)
 end
 
+-- Settings preview (Panel/Preview.lua): Edit Mode's sample buttons at the chosen size, on plain frames (the real
+-- ones are secure), also while they're off (the preview answers their switch as on). Nothing on other classes: the
+-- buttons are a rogue's.
+local function BarPreview(host, get)
+	if not IsRogue() then
+		return nil
+	end
+	local row = host.row
+	if not row then
+		row = CreateFrame("Frame", nil, host)
+		AddTitle(row)
+		row.buttons = {}
+		for i = 1, #PREVIEW do
+			row.buttons[i] = CreateFrame("Frame", nil, row)
+			Decorate(row.buttons[i], row, row.buttons[i - 1])
+		end
+		host.row = row
+	end
+	local scale = get("scale")
+	row:SetScale(scale)
+	row:ClearAllPoints()
+	row:SetPoint("TOPLEFT", BORDER, -PREVIEW_TOP)
+	local width = #PREVIEW * (SIZE + GAP) - GAP
+	row:SetSize(width, SIZE)
+	UI.SetTextRole(row.title, "heading")
+	for i, b in ipairs(row.buttons) do
+		Paint(b, PREVIEW[i])
+	end
+	return (width + 2 * BORDER) * scale, (PREVIEW_TOP + SIZE + PREVIEW_BOTTOM) * scale
+end
+
 module = ns.RegisterModule({
 	key = "rogue",
 	name = "Rogue Poisons",
@@ -532,11 +580,12 @@ module = ns.RegisterModule({
 	options = Options({
 		{ type = "header", label = "Poison buttons" },
 		{ type = "checkbox", key = "bar", label = "Show poison buttons", onChange = Refresh,
+			preview = ns.Preview_When("bar", BarPreview),
 			tooltip = "Out of combat, a button appears for each poison that's missing or about to run out. Click it to apply the poison. Key Bindings > Tomte > Apply missing poison does the same with a key." },
 		{ type = "checkbox", key = "hideResting", label = "Hide in cities and inns", onChange = Refresh,
 			parent = "bar" },
 		{ type = "slider", key = "scale", label = "Size", min = 0.6, max = 1.6, step = 0.1, format = Scale,
-			onChange = Relayout, parent = "bar" },
+			onChange = Relayout, parent = "bar", preview = ns.Preview_When("bar", BarPreview) },
 		{ type = "button", label = "Position", text = "Reset", onClick = ResetPosition, parent = "bar",
 			tooltip = "Move the buttons back to just below the middle of the screen. Blizzard's Edit Mode moves them too." },
 		{ type = "checkbox", key = "lethal", label = "Lethal poison", onChange = Refresh,

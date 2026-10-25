@@ -247,8 +247,9 @@ one-key fishing, repairs and junk selling, and class helpers for hunters and rog
 
 Open the Tomte window with `/tomte`, the minimap button, the addon compartment or a key binding. `/tomte help` lists
 all commands. The window is resizable and remembers its size and position. Every module has its settings in the
-window; switch off what you don't want. A command, key binding or button of a module that's off tells you so. In
-combat Tomte says what it can't do ("can't open the journal in combat") rather than waiting.
+window; switch off what you don't want. Point at a setting that changes a look to see a live preview of it. A
+command, key binding or button of a module that's off tells you so. In combat Tomte says what it can't do ("can't
+open the journal in combat") rather than waiting.
 
 **Reporting a bug:** `/tomte bug` opens a report to copy: versions, which modules are on, related addons and Tomte's
 last errors. Nothing is sent anywhere; paste it in a [GitHub issue](../../issues) or a CurseForge comment. `/tomte bug full` adds error details and
@@ -388,7 +389,8 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte summary open` (the Expansion summary page)
 - `/tomte prey open` (the Prey page), `/tomte prey status` (your hunt, this week's hunts and targets defeated), `/tomte prey way` (waypoint to your prey)
 - `/tomte tips why <item link or ID>` (what Tooltip extras knows about an item)
-- `/tomte plates why` (what your target's nameplate shows and why)
+- `/tomte plates why` (what your target's nameplate shows and why), `/tomte plates soft` (what the name under the
+  Interact icon sees and why it shows or not)
 - `/tomte drawers edit [1-4]` (open the drawer editor)
 
 Key bindings for toggling the Tomte window, Smart Mount, the Gold world quests window, whisper reply, the whisper inbox, Next pet battle move, Heal battle pets, Apply missing poison, Fishing, Copy chat, Take all loot, the Casino, Open drawer 1-4, Teleport home (or back from a visit) and Waypoints: focus the next/previous tracked quest are under **Tomte** in the game's Key Bindings menu.

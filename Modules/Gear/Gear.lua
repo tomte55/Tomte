@@ -343,6 +343,8 @@ module = ns.RegisterModule({
 				.. "search. In Baganator's settings (Icons) it's \"Tomte Gear Check: maybe an upgrade\"." },
 		{ type = "checkbox", key = "qualityGlow", label = "Stronger quality border", onChange = function()
 			ns.GearBags_RepaintAll()
+		end, preview = function(host, get)
+			return ns.GearBags_DrawSample(host, get)
 		end, tooltip = "A thicker border in the item's quality color on rare, epic and better items in the game's own "
 			.. "bags (not Baganator's)." },
 		{ type = "dropdown", key = "bagSort", label = "Clean Up Bags order", onChange = function()
@@ -373,7 +375,9 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Quest rewards" },
 		{ type = "checkbox", key = "rewardPick", label = "Reward pick", onChange = function()
 			ns.GearRewardCard_Refresh()
-		end, tooltip = "When a quest lets you choose a reward, a card names the best one for you (as the tooltips judge "
+		end, preview = ns.Preview_When("rewardPick", function(host)
+			return ns.GearRewardCard_DrawSample(host)
+		end), tooltip = "When a quest lets you choose a reward, a card names the best one for you (as the tooltips judge "
 			.. "it) and the one that sells for the most. With DialogueUI it sits above its window, else move it in "
 			.. "Edit Mode." },
 		{ type = "header", label = "Upgrades and gems" },
@@ -395,7 +399,9 @@ module = ns.RegisterModule({
 			end,
 			tooltip = "Upgrades below this are left alone (gear for an empty slot always counts)." },
 		{ type = "checkbox", key = "revealToast", label = "Equip toast", parent = "reveal",
-			tooltip = "A toast with the upgrade: click it to equip the item, right-click to dismiss. Not in combat." },
+			preview = ns.Preview_When("revealToast", function(host)
+				return ns.GearReveal_DrawSample(host)
+			end), tooltip = "A toast with the upgrade: click it to equip the item, right-click to dismiss. Not in combat." },
 		{ type = "checkbox", key = "equipSound", label = "Sound when equipped", parent = "revealToast",
 			tooltip = "Play the item upgrade sound with the \"Equipped\" toast once the upgrade from the toast is worn." },
 		{ type = "header", label = "Stat weights" },

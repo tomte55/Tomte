@@ -6,6 +6,8 @@ local addonName, ns = ...
 
 local GUILD_CHECK_DELAY = 1 -- seconds before checking that a guild repair went through
 local ACCENT = "accent" -- toast accent (a role)
+-- The settings preview's made-up visit: a repair and some junk sold (money in copper).
+local SAMPLE_VISIT = { repaired = 1834500, sold = 7, junkValue = 412300 }
 
 local module, db
 -- { repaired, funds, poor, unpaid, pending, sold, junkValue } from the latest visit, for /tomte vendor last
@@ -42,17 +44,27 @@ local function Summary(visit)
 	return parts
 end
 
+-- The summary toast: the first line as the title, the rest below it. sample: a settings preview (kept out of Recent).
+local function SummarySpec(parts, sample)
+	return {
+		owner = "vendor", label = "Vendor", accent = ACCENT, title = parts[1],
+		text = table.concat(parts, "\n", 2), icon = "Interface\\Icons\\INV_Misc_Bag_10", hold = 6,
+		test = sample or nil,
+	}
+end
+
+-- Settings preview (Panel/Preview.lua): a made-up visit, worded by the real summary code.
+local function SummaryPreview(host)
+	return ns.Toast_DrawSample(host, SummarySpec(Summary(SAMPLE_VISIT), true), 1)
+end
+
 local function Report(visit)
 	local parts = Summary(visit)
 	if #parts == 0 then
 		return
 	end
 	if db.toast then
-		-- First line as the title, the rest below it.
-		ns.Toast_Show({
-			owner = "vendor", label = "Vendor", accent = ACCENT, title = parts[1],
-			text = table.concat(parts, "\n", 2), icon = "Interface\\Icons\\INV_Misc_Bag_10", hold = 6,
-		})
+		ns.Toast_Show(SummarySpec(parts))
 	else
 		ns.Print(table.concat(parts, "  -  "))
 	end
@@ -227,7 +239,7 @@ module = ns.RegisterModule({
 			tooltip = "When the guild lets you repair and both your withdraw limit and the guild bank cover the whole bill. Otherwise your own gold pays." },
 		{ type = "checkbox", key = "junk", label = "Sell grey items",
 			tooltip = "Bags set to \"Ignore junk selling\" are left alone." },
-		{ type = "checkbox", key = "toast", label = "Summary toast",
+		{ type = "checkbox", key = "toast", label = "Summary toast", preview = ns.Preview_When("toast", SummaryPreview),
 			tooltip = "Off: one line in chat instead." },
 
 		{ type = "header", label = "Buying" },

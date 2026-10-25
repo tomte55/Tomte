@@ -10,6 +10,9 @@ local addonName, ns = ...
 local IDLE_DEFAULT = 600 -- seconds without a gather that end a run (the "End a run after" slider's default)
 local MIN_NODES_DEFAULT = 5 -- automatic runs with fewer nodes aren't kept
 local IDLE_CHECK = 15
+-- The rare-find toast's settings preview: a made-up find with Bismuth's icon (the tracker's sample run mines it).
+local SAMPLE_FIND = "Gleaming Bismuth Geode"
+local SAMPLE_FIND_ICON_ITEM = 210930
 
 local module, db
 local ticker
@@ -106,6 +109,15 @@ local function EndText(n)
 	return table.concat(parts, " · ")
 end
 
+-- The run-done toast for a run's numbers. sample: a settings preview (kept out of Recent).
+local function EndSpec(n, sample)
+	return {
+		owner = "gather", label = "Run done", accent = "accent", title = ns.Gather_RunTitle(n.mainKind, n.kinds),
+		text = EndText(n), icon = ns.Gather_RunIcon(n), hold = 8,
+		onClick = ns.Gather_Open, test = sample or nil,
+	}
+end
+
 -- reason: "idle" | "manual" | "switch" (another character, or a run left over from an earlier login).
 function ns.Gather_End(reason)
 	local run = db and db.run
@@ -125,12 +137,7 @@ function ns.Gather_End(reason)
 			ns.Gather_SessionAdd(session, 0, 0, 1)
 		end
 		if db.toastEnd and reason ~= "switch" and ns.Toast_Show then
-			local n = ns.Gather_Numbers(run)
-			ns.Toast_Show({
-				owner = "gather", label = "Run done", accent = "accent", title = ns.Gather_RunTitle(n.mainKind, n.kinds),
-				text = EndText(n), icon = ns.Gather_RunIcon(n), hold = 8,
-				onClick = ns.Gather_Open,
-			})
+			ns.Toast_Show(EndSpec(ns.Gather_Numbers(run)))
 		end
 	elseif reason == "manual" then
 		ns.Print(("run ended; it isn't kept (%d of %d nodes)."):format(run.nodes, db.minNodes))
@@ -183,23 +190,44 @@ local function ProfName(skillLine)
 	return nil
 end
 
+-- The rare-find toasts: an item by its name, a knowledge drop by its profession. sample: a settings preview (kept
+-- out of Recent).
+local function ItemFindSpec(name, icon, sample)
+	return {
+		owner = "gather", label = "Rare find", accent = "accent", title = name,
+		icon = icon, hold = 6, onClick = ns.Gather_Open, test = sample or nil,
+	}
+end
+
+local function KnowledgeSpec(profName, icon, done, total, sample)
+	return {
+		owner = "gather", label = "Rare find", accent = "accent", title = "Knowledge drop",
+		text = ("%s: %d of %d this week"):format(profName or "Profession", done or 0, total or 0),
+		icon = icon or ns.GATHER_KIND_ICONS.mining, hold = 6, onClick = ns.Gather_Open, test = sample or nil,
+	}
+end
+
 local function ToastFind(f)
 	if not (db.toastFind and ns.Toast_Show) then
 		return
 	end
 	if f.kind == "item" then
-		ns.Toast_Show({
-			owner = "gather", label = "Rare find", accent = "accent", title = ItemName(f.link, f.itemID),
-			icon = f.itemID and C_Item.GetItemIconByID(f.itemID) or nil, hold = 6, onClick = ns.Gather_Open,
-		})
+		ns.Toast_Show(ItemFindSpec(ItemName(f.link, f.itemID), f.itemID and C_Item.GetItemIconByID(f.itemID) or nil))
 	else
 		local name, icon = ProfName(f.skillLine)
-		ns.Toast_Show({
-			owner = "gather", label = "Rare find", accent = "accent", title = "Knowledge drop",
-			text = ("%s: %d of %d this week"):format(name or "Profession", f.done or 0, f.total or 0),
-			icon = icon or ns.GATHER_KIND_ICONS.mining, hold = 6, onClick = ns.Gather_Open,
-		})
+		ns.Toast_Show(KnowledgeSpec(name, icon, f.done, f.total))
 	end
+end
+
+-- Settings previews (Panel/Preview.lua), built by the real toasts' spec code: the tracker's made-up run as done, and
+-- a made-up item find over a knowledge drop.
+local function EndPreview(host)
+	return ns.Toast_DrawSample(host, EndSpec(ns.Gather_Numbers(ns.GatherTracker_SampleRun()), true), 1)
+end
+
+local function FindPreview(host)
+	ns.Toast_DrawSample(host, ItemFindSpec(SAMPLE_FIND, C_Item.GetItemIconByID(SAMPLE_FIND_ICON_ITEM), true), 1)
+	return ns.Toast_DrawSample(host, KnowledgeSpec(ns.GATHER_KIND_NAMES.mining, nil, 1, 2, true), 2)
 end
 
 local function MapSize(mapID)
@@ -417,6 +445,15 @@ local function SeedsShown()
 	return ns.Content_Get(ns.ContentExpansion(), "seeds") ~= nil
 end
 
+-- Settings previews (Panel/Preview.lua): the run tracker (Tracker.lua) and the seed row (Seeds.lua).
+local function TrackerPreview(host)
+	return ns.GatherTracker_DrawSample(host)
+end
+
+local function SeedsPreview(host)
+	return ns.GatherSeeds_DrawSample(host)
+end
+
 module = ns.RegisterModule({
 	key = "gather",
 	name = "Gathering",
@@ -565,13 +602,16 @@ module = ns.RegisterModule({
 
 		{ type = "header", label = "Tracker and toasts" },
 		{ type = "checkbox", key = "tracker.shown", label = "Show the tracker", onChange = Refresh,
+			preview = ns.Preview_When("tracker.shown", TrackerPreview),
 			tooltip = "A small window while a run is on: time, nodes, value, top items, finds, skill. Hidden in instances and pet battles. Move it in Blizzard's Edit Mode (\"Gathering run\")." },
 		{ type = "button", label = "Tracker position", text = "Reset", parent = "tracker.shown", onClick = function()
 			ns.GatherTracker_ResetPosition()
 		end },
 		{ type = "checkbox", key = "toastEnd", label = "Toast when a run ends",
+			preview = ns.Preview_When("toastEnd", EndPreview),
 			tooltip = "Time, nodes, value and gold per hour of the run." },
 		{ type = "checkbox", key = "toastFind", label = "Toast for rare finds",
+			preview = ns.Preview_When("toastFind", FindPreview),
 			tooltip = "A rare or better item, or a weekly knowledge drop, while gathering." },
 
 		{ type = "header", label = "Nodes" },
@@ -614,6 +654,7 @@ module = ns.RegisterModule({
 
 		{ type = "header", label = "Resilient Seeds" },
 		{ type = "checkbox", key = "seeds.on", label = "Seed button at Rich Soil", shown = SeedsShown,
+			preview = ns.Preview_When("seeds.on", SeedsPreview),
 			onChange = function()
 				ns.GatherSeeds_Apply()
 			end, tooltip = "Herbalists in Midnight: point your mouse at a Rich Soil spot with Resilient Seeds in your bags and a button for each seed appears; one click plants it. Tomte learns a soil spot the first time you plant there from your bags. Move the button in Blizzard's Edit Mode (\"Seed button\")." },

@@ -21,6 +21,9 @@ local ICON = "Interface\\Icons\\Achievement_GuildPerk_EverybodysFriend"
 local EVENTS = { "BN_CHAT_MSG_ADDON", "BN_FRIEND_ACCOUNT_ONLINE", "BN_FRIEND_ACCOUNT_OFFLINE", "BN_FRIEND_INFO_CHANGED",
 	"PLAYER_REGEN_ENABLED" }
 
+local SAMPLE_FRIEND = "Kesha" -- the settings preview's made-up friend
+local SAMPLE_ADDED = 12 -- and how many new entries she sent
+
 local UI = ns.UI
 
 local module, db
@@ -232,6 +235,19 @@ local function OnRequest(id, friend, msg)
 	Log(friend.tag, ("sending %s (%d %s)"):format(msg.set, #list, #list == 1 and "message" or "messages"))
 end
 
+-- The toast for something new from a friend. sample: a settings preview (kept out of Recent).
+local function ReceivedSpec(name, text, sample)
+	return { owner = OWNER, label = "Friend sharing", accent = { UI.Color("accent") }, icon = ICON,
+		title = name, text = text, hold = 8, test = sample or nil }
+end
+
+-- Settings preview (Panel/Preview.lua): a made-up friend's flight times, worded by the first shared set's own count.
+local function ReceivedPreview(host)
+	local set = sets[setOrder[1]]
+	local text = set and set.count(SAMPLE_ADDED, "new") or (SAMPLE_ADDED .. " new")
+	return ns.Toast_DrawSample(host, ReceivedSpec(SAMPLE_FRIEND, text, true), 1)
+end
+
 local function OnData(id, friend, row, msg)
 	local set = sets[msg.set]
 	if not Shared(msg.set) then
@@ -252,8 +268,7 @@ local function OnData(id, friend, row, msg)
 	Log(friend.tag, ("%s received, %d new"):format(msg.set, added))
 	if added > 0 then
 		if db.toast then
-			ns.Toast_Show({ owner = OWNER, label = "Friend sharing", accent = { UI.Color("accent") }, icon = ICON,
-				title = ShortName(friend.tag), text = set.count(added, "new"), hold = 8 })
+			ns.Toast_Show(ReceivedSpec(ShortName(friend.tag), set.count(added, "new")))
 		end
 		ns.Share_Changed(msg.set)
 	end
@@ -528,7 +543,8 @@ module = ns.RegisterModule({
 			end,
 			tooltip = "Send the mining and herbalism spots Gathering remembers to your friends and add theirs to your world map. A friend's spot right next to one of yours is the same node and isn't added twice." },
 		{ type = "header", label = "Friends" },
-		{ type = "checkbox", key = "toast", label = "Toast when friends send something new" },
+		{ type = "checkbox", key = "toast", label = "Toast when friends send something new",
+			preview = ns.Preview_When("toast", ReceivedPreview) },
 		{ type = "button", label = "Sync with friends", text = "Sync", onClick = Sync,
 			tooltip = "Say hello to every friend in WoW now. They send anything you don't have yet." },
 	},

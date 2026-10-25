@@ -8,6 +8,7 @@ local ENTER_DELAY = 4 -- seconds after zoning in, as Modules/Hunter/Checks.lua
 local ACCENT = "warning" -- toast and banner accents (roles)
 local BROKEN_ROLE = "danger"
 local ICON = "Interface\\Icons\\Trade_BlackSmithing"
+local SAMPLE_ITEM = "Runecarved Legguards" -- the settings previews' made-up worn item
 
 local SLOT_NAMES = {
 	[INVSLOT_HEAD] = "Head", [INVSLOT_SHOULDER] = "Shoulders", [INVSLOT_CHEST] = "Chest", [INVSLOT_WAIST] = "Waist",
@@ -53,22 +54,41 @@ local function Swapped()
 	return changed
 end
 
+-- The toasts. slotText: SlotText's line for the worst slot; sample: a settings preview (kept out of Recent).
+local function BrokenSpec(broken, slotText, sample)
+	return {
+		owner = "dura", label = "Broken", accent = BROKEN_ROLE, title = broken == 1 and "An item broke" or (broken .. " items broke"),
+		text = slotText .. "\nIts stats don't count until you repair it.", icon = ICON, hold = 10,
+		holdInCombat = true, test = sample or nil,
+	}
+end
+
+local function LowSpec(lowest, slotText, sample)
+	return {
+		owner = "dura", label = "Durability", accent = ACCENT, title = "Gear at " .. ns.Durability_Percent(lowest),
+		text = "Worst: " .. slotText, icon = ICON, hold = 8, holdInCombat = true, test = sample or nil,
+	}
+end
+
 local function Check()
 	local lowest, slot, broken = ns.Durability_Summary(Slots())
 	local alert = ns.Durability_Alert(alertState, lowest, broken, db.threshold / 100, Swapped())
 	if alert == "broken" and db.broken then
-		ns.Toast_Show({
-			owner = "dura", label = "Broken", accent = BROKEN_ROLE, title = broken == 1 and "An item broke" or (broken .. " items broke"),
-			text = SlotText(slot) .. "\nIts stats don't count until you repair it.", icon = ICON, hold = 10,
-			holdInCombat = true,
-		})
+		ns.Toast_Show(BrokenSpec(broken, SlotText(slot)))
 	-- With the "When an item breaks" toast off, a break still gets the plain low-durability toast.
 	elseif alert == "broken" or alert == "low" then
-		ns.Toast_Show({
-			owner = "dura", label = "Durability", accent = ACCENT, title = "Gear at " .. ns.Durability_Percent(lowest),
-			text = "Worst: " .. SlotText(slot), icon = ICON, hold = 8, holdInCombat = true,
-		})
+		ns.Toast_Show(LowSpec(lowest, SlotText(slot)))
 	end
+end
+
+-- Settings previews (Panel/Preview.lua): a made-up worn item, built by the real toasts' spec code. The low toast
+-- comes just under the chosen threshold (the db holds the previewed value while it draws).
+local function SampleSlotText()
+	return ("%s: %s"):format(SlotName(INVSLOT_LEGS), SAMPLE_ITEM)
+end
+
+local function BrokenPreview(host)
+	return ns.Toast_DrawSample(host, BrokenSpec(1, SampleSlotText(), true), 1)
 end
 
 local function InstanceCheck()
@@ -204,6 +224,7 @@ module = ns.RegisterModule({
 		{ type = "slider", key = "threshold", label = "Warn below", min = 10, max = 60, step = 5, format = Percent,
 			tooltip = "One toast when your worst item drops below this. It warns again after you've repaired." },
 		{ type = "checkbox", key = "broken", label = "When an item breaks",
+			preview = ns.Preview_When("broken", BrokenPreview),
 			tooltip = "A toast when a piece of gear breaks: its stats don't count until you repair it. Off: a break still gets the low durability toast." },
 		{ type = "header", label = "Instances" },
 		{ type = "checkbox", key = "instance", label = "Check when entering an instance",

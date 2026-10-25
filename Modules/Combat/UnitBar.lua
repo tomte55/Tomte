@@ -247,21 +247,24 @@ function UnitBar:SetLocked(locked)
 	self.moveHint:SetShown(not locked)
 end
 
--- onMoved(point, relPoint, x, y) after a drag.
-function ns.UnitBar_Create(onMoved)
-	local f = CreateFrame("Frame", nil, UIParent)
+-- onMoved(point, relPoint, x, y) after a drag. With a parent (a settings preview, see UnitBar_DrawSample): a still
+-- bar in that frame that never moves.
+function ns.UnitBar_Create(onMoved, parent)
+	local f = CreateFrame("Frame", nil, parent or UIParent)
 	Mixin(f, UnitBar)
 	f:SetSize(WIDTH, HEIGHT + ICON + 24)
-	f:SetFrameStrata("MEDIUM")
-	f:SetClampedToScreen(true)
-	f:SetMovable(true)
-	f:RegisterForDrag("LeftButton")
-	f:SetScript("OnDragStart", f.StartMoving)
-	f:SetScript("OnDragStop", function(self)
-		self:StopMovingOrSizing()
-		local point, _, relPoint, x, y = self:GetPoint()
-		onMoved(point, relPoint, x, y)
-	end)
+	if not parent then
+		f:SetFrameStrata("MEDIUM")
+		f:SetClampedToScreen(true)
+		f:SetMovable(true)
+		f:RegisterForDrag("LeftButton")
+		f:SetScript("OnDragStart", f.StartMoving)
+		f:SetScript("OnDragStop", function(self)
+			self:StopMovingOrSizing()
+			local point, _, relPoint, x, y = self:GetPoint()
+			onMoved(point, relPoint, x, y)
+		end)
+	end
 	f:EnableMouse(false)
 
 	-- Warning glow behind the bar: alpha from the curve on this frame, a looping pulse on the inner one.
@@ -346,4 +349,27 @@ function ns.UnitBar_Create(onMoved)
 	f.showPercent = true
 	f:Hide()
 	return f
+end
+
+-- Settings preview (Panel/Preview.lua): a still bar of host's own with fake health, drawn by the same code as the
+-- real one. opts = { scale, threshold (0..1), showPercent, spells (as SetSpells), name, fraction (0..1) }.
+-- Returns its size in host units, the warning glow's reach included.
+function ns.UnitBar_DrawSample(host, opts)
+	local f = host.unitBar
+	if not f then
+		f = ns.UnitBar_Create(nil, host)
+		host.unitBar = f
+	end
+	local reach = 9 -- the glow's outer edge outside the bar (Edge insets above)
+	f:SetScale(opts.scale)
+	f:ClearAllPoints()
+	f:SetPoint("TOPLEFT", reach, -reach)
+	f:SetThreshold(opts.threshold)
+	f:SetShowPercent(opts.showPercent)
+	f:SetLocked(true)
+	f:SetSpells(opts.spells)
+	f:ShowFake(opts.name, opts.fraction)
+	f:Show()
+	local w, h = f:GetSize()
+	return (w + 2 * reach) * opts.scale, (h + 2 * reach) * opts.scale
 end

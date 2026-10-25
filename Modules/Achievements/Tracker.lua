@@ -13,6 +13,13 @@ local ICON = 18
 local TRACK_W = WIDTH - 16 - (6 + ICON + 8) -- row insets, icon and its gaps
 local FLASH = 1.5 -- seconds
 local DEFAULT_POINT = { "TOPRIGHT", "TOPRIGHT", -250, -250 }
+local SAMPLE_ICON = 236376 -- the achievement shield (also the sample toast's)
+-- The settings preview's rows before the first scan has any (the first one pinned).
+local SAMPLE = {
+	{ name = "Treasures of the Hollow", icon = SAMPLE_ICON, percent = 92, pinned = true },
+	{ name = "Explore the Isle", icon = SAMPLE_ICON, percent = 88 },
+	{ name = "Level 10", icon = SAMPLE_ICON, percent = 80 },
+}
 
 local frame
 local rows = {}
@@ -64,8 +71,8 @@ local function FlashUpdate(self, dt)
 	end
 end
 
-local function CreateRow(i)
-	local row = CreateFrame("Button", nil, frame)
+local function CreateRow(parent, i)
+	local row = CreateFrame("Button", nil, parent)
 	row:SetHeight(ROW_H)
 	row:SetPoint("TOPLEFT", 8, -(TITLE_H + (i - 1) * ROW_H))
 	row:SetPoint("RIGHT", -8, 0)
@@ -121,6 +128,28 @@ local function CreateRow(i)
 	return row
 end
 
+local function FillRow(row, entry)
+	row.icon:SetTexture(entry.icon)
+	row.name:SetText(entry.name)
+	row.percent:SetText(("%d%%"):format(math.floor(entry.percent)))
+	row.pin:SetShown(entry.pinned == true)
+	row.fill:SetWidth(math.max(TRACK_W * math.min(entry.percent, 100) / 100, 1))
+end
+
+-- The tracker's look on f: the panel, the title and ROWS rows (f.rows). Shared by the real tracker and the settings
+-- preview.
+local function Dress(f)
+	f:SetSize(WIDTH, TITLE_H + ROWS * ROW_H + 8)
+	UI.Panel(f, { alpha = 0.55, subtle = true })
+	f.title = UI.Text(f, 10, "textMuted", "label")
+	f.title:SetPoint("TOPLEFT", 10, -6)
+	f.title:SetText(ns.Spaced("Almost done"))
+	f.rows = {}
+	for i = 1, ROWS do
+		f.rows[i] = CreateRow(f, i)
+	end
+end
+
 local function SavePoint()
 	DB().point = UI.TopLeftPoint(frame)
 end
@@ -128,18 +157,12 @@ end
 local function Build()
 	inCombat = inCombat or InCombatLockdown() -- built mid-fight (/reload, turned on): the REGEN events already went by
 	frame = CreateFrame("Frame", nil, UIParent)
-	frame:SetSize(WIDTH, TITLE_H + ROWS * ROW_H + 8)
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetClampedToScreen(true)
 	frame:SetMovable(true)
 	frame:Hide()
-	UI.Panel(frame, { alpha = 0.55, subtle = true })
-	frame.title = UI.Text(frame, 10, "textMuted", "label")
-	frame.title:SetPoint("TOPLEFT", 10, -6)
-	frame.title:SetText(ns.Spaced("Almost done"))
-	for i = 1, ROWS do
-		rows[i] = CreateRow(i)
-	end
+	Dress(frame)
+	rows = frame.rows
 
 	-- Unlocked: a cover over the rows takes the drag (rows don't click while moving).
 	local mover = CreateFrame("Frame", nil, frame)
@@ -185,11 +208,7 @@ function ns.AchTracker_Refresh(flashIDs)
 		local old = row.entry
 		row.entry = entry
 		if entry then
-			row.icon:SetTexture(entry.icon)
-			row.name:SetText(entry.name)
-			row.percent:SetText(("%d%%"):format(math.floor(entry.percent)))
-			row.pin:SetShown(entry.pinned == true)
-			row.fill:SetWidth(math.max(TRACK_W * math.min(entry.percent, 100) / 100, 1))
+			FillRow(row, entry)
 			if flashIDs and flashIDs[entry.id] and old and old.id == entry.id and entry.percent > old.percent then
 				row.flashLeft = FLASH
 				row:SetScript("OnUpdate", FlashUpdate)
@@ -228,6 +247,32 @@ function ns.AchTracker_Apply(combat)
 	local show = active and db.shown and (hasRows or not db.locked or editMode)
 		and not (db.hideInCombat and inCombat)
 	frame:SetShown(show)
+end
+
+-- The settings preview (Panel/Preview.lua): the tracker with your own top achievements, or SAMPLE before the first
+-- scan, at the scale under the mouse. Drawn by Dress and FillRow like the real one.
+function ns.AchTracker_DrawSample(host, get)
+	local f = host.tracker
+	if not f then
+		f = CreateFrame("Frame", nil, host)
+		f:SetPoint("TOPLEFT")
+		Dress(f)
+		host.tracker = f
+	end
+	local top = ns.achModule.active and ns.Ach_Top(ROWS) or {}
+	if #top == 0 then
+		top = SAMPLE
+	end
+	for i, row in ipairs(f.rows) do
+		local entry = top[i]
+		row:SetShown(entry ~= nil)
+		if entry then
+			FillRow(row, entry)
+		end
+	end
+	local scale = get("tracker.scale") or 1
+	f:SetScale(scale)
+	return f:GetWidth() * scale, f:GetHeight() * scale
 end
 
 ns.EditMode_Register({

@@ -12,6 +12,18 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+### New
+
+- **Settings:** point at a setting that changes how something looks or turns something on, and a live preview shows
+  under its tooltip, drawn with sample data in your theme. A switch that turns something on shows it even while
+  it's off; on segmented buttons and in dropdown lists each choice previews before you pick it; sliders update the
+  preview as you drag. Covers the loot window and feed, the Tomte window's theme, Channel tags, Talking Head text,
+  the cursor ring and trail, Waypoints, every on-screen tracker and widget (Almost Done, Alts, Gold world quests,
+  Buffs, Pet health, Rogue poisons, fishing button, Drawers, gathering tracker and seeds, quest reward pick, talent
+  check, Instances' difficulty picker, badge and queue plate, the pet battle helper), Next up and Holidays on Home,
+  quest icons on sample nameplates, Tooltip extras (an example tooltip per line), the zone text, and the toasts of
+  Whispers, Friends and every module that shows toasts.
+
 ### Improved
 
 - **Edit Mode:** Tomte's widgets snap while you drag them, like Blizzard's do (with Edit Mode's Snap option on):
@@ -30,6 +42,9 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Material uses:** the Professions book no longer shows how much profession knowledge you have left to spend.
 
 ### Fixed
+
+- **Nameplates:** with "Also for characters" on, the name under the Interact icon now shows for NPCs too (it
+  stayed hidden, waiting for a name on Blizzard's plate that never showed).
 
 - **Casino:** after a blackjack round with a split, switching to another game and back no longer replays the whole
   round and its payout on the table.

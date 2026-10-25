@@ -150,6 +150,25 @@ local Section = {
 	end,
 }
 
+local PREVIEW_W = 300 -- about Home's right column on a default-size Tomte window
+
+-- Settings preview (Panel/Preview.lua): the Home section with what's up now, drawn by Create and Refresh like the
+-- real one, as wide as the placement makes it (the strip at its two-column width) and tall enough for every row.
+local function SectionPreview(host)
+	local frame = host.section
+	if not frame then
+		frame = CreateFrame("Frame", nil, host)
+		frame:SetPoint("TOPLEFT")
+		Create(frame, ns.HomeKit)
+		host.section = frame
+	end
+	local width = db.placement == "strip" and TWO_COLS_W or PREVIEW_W
+	frame:SetSize(width, HEAD_H + db.rows * ns.HomeKit.ROW2_H)
+	local h = Refresh(frame)
+	frame:SetHeight(h)
+	return width, h
+end
+
 -- Minimap button tooltip lines (Minimap.lua asks).
 function ns.NextUp_TooltipLines()
 	if not (module and module.active and db.minimap) then
@@ -167,13 +186,16 @@ end
 local function BuildOptions()
 	local options = {
 		{ type = "header", label = "Suggestions" },
-		{ type = "checkbox", key = "home", label = "Show on Home" },
-		{ type = "dropdown", key = "placement", label = "Placement", parent = "home", choices = function()
-			return { { value = "characters", text = "Under Your characters" }, { value = "column", text = "Right column" },
-				{ value = "strip", text = "Strip under This week" } }
-		end, tooltip = "Under the character list (it goes to the right column when there are too many characters to fit), "
-			.. "on top of the right column (above Around you), or across Home under This week." },
-		{ type = "slider", key = "rows", label = "Rows", min = 3, max = 8, step = 1, parent = "home" },
+		{ type = "checkbox", key = "home", label = "Show on Home", preview = ns.Preview_When("home", SectionPreview) },
+		{ type = "dropdown", key = "placement", label = "Placement", parent = "home",
+			preview = ns.Preview_When("home", SectionPreview),
+			choices = function()
+				return { { value = "characters", text = "Under Your characters" },
+					{ value = "column", text = "Right column" }, { value = "strip", text = "Strip under This week" } }
+			end, tooltip = "Under the character list (it goes to the right column when there are too many characters "
+				.. "to fit), on top of the right column (above Around you), or across Home under This week." },
+		{ type = "slider", key = "rows", label = "Rows", min = 3, max = 8, step = 1, parent = "home",
+			preview = ns.Preview_When("home", SectionPreview) },
 		{ type = "slider", key = "perSource", label = "Most from one source", min = 1, max = 8, step = 1,
 			parent = "home",
 			tooltip = "So one source (say, achievements) can't fill the whole list." },

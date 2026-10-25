@@ -24,25 +24,26 @@ local events = ns.Gear_Events
 
 -- Card -------------------------------------------------------------------------------------------------------------
 
-local function Row(i)
-	local row = card.rows[i]
+-- Row i of card f (Dress), made on first need.
+local function Row(f, i)
+	local row = f.rows[i]
 	if row then
 		return row
 	end
 	row = {}
-	row.label = UI.Text(card, 11, "textMuted", "label")
+	row.label = UI.Text(f, 11, "textMuted", "label")
 	row.label:SetWidth(LABEL_W)
 	row.label:SetJustifyH("LEFT")
-	row.name = UI.Text(card, 13, "heading")
+	row.name = UI.Text(f, 13, "heading")
 	row.name:SetPoint("LEFT", row.label, "RIGHT", 4, 0)
-	row.name:SetPoint("RIGHT", card, "RIGHT", -PAD, 0)
+	row.name:SetPoint("RIGHT", f, "RIGHT", -PAD, 0)
 	row.name:SetJustifyH("LEFT")
 	row.name:SetWordWrap(false)
-	row.sub = UI.Text(card, 11, "textMuted")
+	row.sub = UI.Text(f, 11, "textMuted")
 	row.sub:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -2)
-	row.sub:SetPoint("RIGHT", card, "RIGHT", -PAD, 0)
+	row.sub:SetPoint("RIGHT", f, "RIGHT", -PAD, 0)
 	row.sub:SetJustifyH("LEFT")
-	card.rows[i] = row
+	f.rows[i] = row
 	return row
 end
 
@@ -69,32 +70,37 @@ local function Place()
 	card:SetPoint(p.point, WorldFrame, p.relPoint, p.x, p.y)
 end
 
+-- The card's looks on f: the real card's and the settings preview's (GearRewardCard_DrawSample below).
+local function Dress(f)
+	f:SetSize(CARD_W, 80)
+	UI.Panel(f, { alpha = 0.95 })
+	f.title = UI.Text(f, 10, "textMuted", "label")
+	f.title:SetPoint("TOPLEFT", PAD, -PAD)
+	f.title:SetText(ns.Spaced("Quest reward"))
+	f.rows = {}
+end
+
 local function Build()
 	-- On WorldFrame: DialogueUI and similar addons hide UIParent while you talk to the quest giver.
 	card = CreateFrame("Frame", nil, WorldFrame)
-	card:SetSize(CARD_W, 80)
 	card:SetFrameStrata("HIGH")
 	card:SetClampedToScreen(true)
 	card:SetMovable(true)
 	card:Hide()
-	UI.Panel(card, { alpha = 0.95 })
-	card.title = UI.Text(card, 10, "textMuted", "label")
-	card.title:SetPoint("TOPLEFT", PAD, -PAD)
-	card.title:SetText(ns.Spaced("Quest reward"))
-	card.rows = {}
+	Dress(card)
 end
 
--- rows: list of { label, name, sub } (sub may be nil). Lays them out and sizes the card.
-local function Draw(rows)
-	local y = PAD + card.title:GetStringHeight() + ROW_GAP
+-- rows: list of { label, name, sub } (sub may be nil). Lays them out on card f (Dress) and sizes it.
+local function Draw(f, rows)
+	local y = PAD + f.title:GetStringHeight() + ROW_GAP
 	for i, r in ipairs(rows) do
-		local row = Row(i)
+		local row = Row(f, i)
 		row.label:ClearAllPoints()
 		row.label:SetPoint("TOPLEFT", PAD, -y - 2)
 		row.label:SetText(r.label)
 		row.name:ClearAllPoints()
 		row.name:SetPoint("TOPLEFT", PAD + LABEL_W + 4, -y)
-		row.name:SetPoint("RIGHT", card, "RIGHT", -PAD, 0)
+		row.name:SetPoint("RIGHT", f, "RIGHT", -PAD, 0)
 		row.name:SetText(r.name)
 		row.sub:SetText(r.sub or "")
 		row.sub:SetShown(r.sub ~= nil)
@@ -106,13 +112,13 @@ local function Draw(rows)
 		end
 		y = y + ROW_GAP
 	end
-	for i = #rows + 1, #card.rows do
-		local row = card.rows[i]
+	for i = #rows + 1, #f.rows do
+		local row = f.rows[i]
 		row.label:Hide()
 		row.name:Hide()
 		row.sub:Hide()
 	end
-	card:SetHeight(y - ROW_GAP + PAD)
+	f:SetHeight(y - ROW_GAP + PAD)
 end
 
 -- Rows ---------------------------------------------------------------------------------------------------------------
@@ -231,10 +237,23 @@ local function Refresh()
 	if not (card:IsShown() and ns.EditMode_Active()) then
 		Place()
 	end
-	Draw(rows)
+	Draw(card, rows)
 	card:Show()
 end
 ns.GearRewardCard_Refresh = Refresh
+
+-- The settings preview (Panel/Preview.lua): the card with Edit Mode's sample rows, drawn by Dress and Draw.
+function ns.GearRewardCard_DrawSample(host)
+	local f = host.card
+	if not f then
+		f = CreateFrame("Frame", nil, host)
+		f:SetPoint("TOPLEFT")
+		Dress(f)
+		host.card = f
+	end
+	Draw(f, PreviewRows())
+	return CARD_W, f:GetHeight()
+end
 
 local refreshSoon = UI.Debounce(REFRESH_DELAY, Refresh)
 

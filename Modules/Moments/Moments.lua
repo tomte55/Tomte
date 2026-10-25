@@ -692,6 +692,9 @@ end
 options[#options + 1] = { type = "header", label = "Zone text" }
 options[#options + 1] = { type = "checkbox", key = "zoneText", label = "Zone text in Tomte's style",
 	tooltip = "Show the zone and subzone name you enter (and Sanctuary, Contested and so on) in the Tomte theme instead of Blizzard's text. Same timing as Blizzard's.",
+	preview = ns.Preview_When("zoneText", function(host, get)
+		return ns.Moments_ZoneTextSample(host, get)
+	end),
 	onChange = function(on)
 		ns.Moments_ZoneText(on and module.active)
 	end }

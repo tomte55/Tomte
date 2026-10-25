@@ -551,6 +551,15 @@ for i = 1, MAX_ROWS do
 	}
 end
 
+-- Settings preview (Panel/Preview.lua): the card that offers to remember a hand switch, drawn in Card.lua.
+local function OfferPreview(host)
+	return ns.TalentsCard_DrawSample(host, {
+		text = ns.Talents_OfferText("Mythic+", { kind = "dungeon" }),
+		detail = "Until now: Raid.",
+		buttons = { { text = "Yes" }, { text = "No" } },
+	})
+end
+
 local options = {
 	{ type = "header", label = "Checks" },
 	{ type = "checkbox", key = "check.onEnter", label = "When entering an instance",
@@ -566,6 +575,7 @@ local options = {
 	{ type = "checkbox", key = "learn", label = "Learn on its own",
 		tooltip = "The first time you're somewhere with nothing saved, remember the loadout you're on for that kind of place." },
 	{ type = "checkbox", key = "offer", label = "Offer to remember a switch",
+		preview = ns.Preview_When("offer", OfferPreview),
 		tooltip = "When you change loadout by hand inside a place, ask whether to use it there from now on." },
 
 	{ type = "header", label = "Saved loadouts" },

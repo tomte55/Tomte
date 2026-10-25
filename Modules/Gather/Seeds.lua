@@ -76,6 +76,18 @@ local function ButtonOnEnter(self)
 	GameTooltip:Show()
 end
 
+-- A seed button's looks: the real (secure) buttons' and the settings preview's plain ones (DrawSample below).
+local function ButtonLooks(button)
+	button:SetSize(SIZE, SIZE)
+	button.icon = button:CreateTexture(nil, "ARTWORK")
+	button.icon:SetAllPoints()
+	button.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	UI.Border(button, "frame", 0.8)
+	button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+	button.count = UI.Text(button, 11, "text", "number")
+	button.count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -2, 2)
+end
+
 local function ApplyLayout()
 	local f = db.seeds.frame
 	holder:ClearAllPoints()
@@ -93,19 +105,12 @@ local function Create()
 	holder:Hide()
 	for i = 1, MAX_SEEDS do
 		local button = CreateFrame("Button", BUTTON_NAME .. i, holder, "SecureActionButtonTemplate")
-		button:SetSize(SIZE, SIZE)
 		button:SetPoint("LEFT", holder, "LEFT", (i - 1) * (SIZE + GAP), 0)
 		-- Clicked by mouse only (no binding): SecureActionButton_OnClick runs a real mouse press on the up click
 		-- whatever useOnKeyDown says, so up clicks, as the Decor house rows.
 		button:RegisterForClicks("AnyUp")
 		button:SetAttribute("useOnKeyDown", false)
-		button.icon = button:CreateTexture(nil, "ARTWORK")
-		button.icon:SetAllPoints()
-		button.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-		UI.Border(button, "frame", 0.8)
-		button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-		button.count = UI.Text(button, 11, "text", "number")
-		button.count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -2, 2)
+		ButtonLooks(button)
 		button:SetScript("OnEnter", ButtonOnEnter)
 		button:SetScript("OnLeave", GameTooltip_Hide)
 		button:Hide()
@@ -141,6 +146,32 @@ local function Preview(content)
 		list[#list + 1] = { item = seed.item, spell = seed.spell, count = C_Item.GetItemCount(seed.item) or 0 }
 	end
 	return list
+end
+
+-- The settings preview (Panel/Preview.lua): the row with every seed of the list, as Edit Mode shows it, on plain
+-- frames with the buttons' looks (the real ones are secure). Nothing outside content with seeds.
+function ns.GatherSeeds_DrawSample(host)
+	local list = Preview(Content())
+	if #list == 0 then
+		return nil
+	end
+	host.seeds = host.seeds or {}
+	for i, seed in ipairs(list) do
+		local b = host.seeds[i]
+		if not b then
+			b = CreateFrame("Button", nil, host)
+			ButtonLooks(b)
+			b:SetPoint("TOPLEFT", (i - 1) * (SIZE + GAP), 0)
+			host.seeds[i] = b
+		end
+		b.icon:SetTexture(C_Item.GetItemIconByID(seed.item))
+		b.count:SetText(seed.count)
+		b:Show()
+	end
+	for i = #list + 1, #host.seeds do
+		host.seeds[i]:Hide()
+	end
+	return #list * (SIZE + GAP) - GAP, SIZE
 end
 
 local function Wanted(content, held)

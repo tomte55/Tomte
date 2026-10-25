@@ -25,10 +25,25 @@ local LINE_COLORS = {
 	grab = "text", collect = "text", take = "text", mail = "text", deposit = "text", fetch = "text", missing = "danger",
 	craft = "accent", ready = "success", wait = "textMuted", other = "textMuted",
 }
+-- The settings preview's crafts when nothing is tracked: to-dos as ListData.lua builds them, plus their own head
+-- (sample: the recipe's name, the crafter and its class file), as made-up recipes and characters aren't saved.
+local SAMPLE = {
+	{ entry = { crafts = 3 }, needed = 4, inPlace = 2,
+		sample = { name = "Flask of Alchemical Chaos", crafter = "Mira", class = "MAGE" },
+		lines = {
+			{ kind = "grab", mine = true, text = "Grab 10 Mycobloom from bank" },
+			{ kind = "mail", mine = true, text = "Mail 20 Luredrop to Mira" },
+			{ kind = "wait", text = "Mira crafts Flask of Alchemical Chaos" },
+		} },
+	{ entry = { crafts = 1 }, needed = 1, inPlace = 1,
+		sample = { name = "Charged Runeaxe", crafter = "Aldric", class = "PALADIN" },
+		lines = {
+			{ kind = "ready", mine = true, text = "Ready: craft Charged Runeaxe" },
+		} },
+}
 
 local db
 local frame
-local blocks = {}
 local cache, cacheAt
 local pending -- recipe spell ID of the craft that just started
 local inCombat = false
@@ -367,12 +382,12 @@ local function LineTooltip(owner, line)
 	GameTooltip:Show()
 end
 
-local function Block(i)
-	local b = blocks[i]
+local function Block(f, i)
+	local b = f.blocks[i]
 	if b then
 		return b
 	end
-	b = CreateFrame("Button", nil, frame)
+	b = CreateFrame("Button", nil, f)
 	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	b.title = UI.Text(b, 13, "heading")
 	b.title:SetPoint("TOPLEFT", 0, 0)
@@ -413,7 +428,7 @@ local function Block(i)
 	b:SetScript("OnLeave", function()
 		GameTooltip:Hide()
 	end)
-	blocks[i] = b
+	f.blocks[i] = b
 	return b
 end
 
@@ -451,21 +466,119 @@ local function Line(b, i)
 	return l
 end
 
+-- The tracker's look on f: the panel, the title and the note (crafts go in f.blocks). Shared by the real tracker and
+-- the settings preview.
+local function Dress(f)
+	f:SetSize(WIDTH, 60)
+	UI.Panel(f, { alpha = 0.55, subtle = true })
+	f.title = UI.Text(f, 10, "textMuted")
+	f.title:SetPoint("TOPLEFT", 10, -6)
+	f.title:SetText(ns.Spaced and ns.Spaced("Crafting list") or "CRAFTING LIST")
+	f.note = UI.Text(f, 10, "textMuted")
+	f.note:SetWidth(WIDTH - 20)
+	f.note:SetJustifyH("LEFT")
+	f.note:SetWordWrap(true)
+	f.blocks = {}
+end
+
+-- A craft's title line and its crafter (name and class file, nil when nobody). The preview's sample crafts carry
+-- their own (t.sample), as their recipes and characters aren't in the saved data.
+local function CraftHead(t)
+	local s = t.sample
+	local label, crafter, class
+	if s then
+		label, crafter, class = s.name, s.crafter, s.class
+	else
+		label = ns.Alts_RecipeLabel(t.entry.recipeID, 15, t.entry.quality)
+		local c = t.crafter and ns.altsDB.chars[t.crafter]
+		crafter, class = c and c.name, c and c.class
+	end
+	return ("%s  %s"):format(label, UI.Wrap("x" .. t.entry.crafts, "textMuted")), crafter, class
+end
+
+-- Lays the crafts out on f (built by Dress) and sizes it.
+local function Fill(f, todos)
+	local blocks = f.blocks
+	local y = TITLE_H
+	for i, t in ipairs(todos) do
+		local b = Block(f, i)
+		b.todo = t
+		b:ClearAllPoints()
+		b:SetPoint("TOPLEFT", 10, -y)
+		b:SetPoint("RIGHT", -10, 0)
+		local title, crafter, class = CraftHead(t)
+		b.title:SetText(title)
+		local color = class and C_ClassColor.GetClassColor(class)
+		b.crafter:SetText(crafter or "nobody")
+		if color then
+			b.crafter:SetTextColor(color.r, color.g, color.b)
+		else
+			UI.SetTextRole(b.crafter, "textMuted")
+		end
+		b.fill:SetWidth(math.max((WIDTH - 20) * ns.Alts_CraftProgress(t), 1))
+		local ly = HEAD_H
+		local shown = 0
+		for _, line in ipairs(t.lines) do
+			if shown >= MAX_LINES then
+				break
+			end
+			shown = shown + 1
+			local l = Line(b, shown)
+			l.line = line
+			l:ClearAllPoints()
+			l:SetPoint("TOPLEFT", 0, -ly)
+			l:SetPoint("RIGHT")
+			l.text:SetText(line.text)
+			UI.SetTextRole(l.text, line.mine and (LINE_COLORS[line.kind] or "text") or "textMuted")
+			local h = math.max(LINE_H, math.ceil(l.text:GetStringHeight()) + 3)
+			l:SetHeight(h)
+			ly = ly + h
+		end
+		if #t.lines > MAX_LINES then
+			shown = shown + 1
+			local l = Line(b, shown)
+			l.line = {}
+			l:ClearAllPoints()
+			l:SetPoint("TOPLEFT", 0, -ly)
+			l:SetPoint("RIGHT")
+			l.text:SetText(("+ %d more (the List tab has them all)"):format(#t.lines - MAX_LINES))
+			UI.SetTextRole(l.text, "textMuted")
+			l:SetHeight(LINE_H)
+			ly = ly + LINE_H
+		end
+		for j = shown + 1, #b.lines do
+			b.lines[j]:Hide()
+		end
+		b:SetHeight(ly)
+		b:Show()
+		y = y + ly + 8
+	end
+	for i = #todos + 1, #blocks do
+		blocks[i]:Hide()
+	end
+	if #todos == 0 then
+		y = y + 18
+	end
+	-- "Get" lines without Syndicator may be on another character.
+	if ns.AltsList_PartialCounts(todos) then
+		f.note:ClearAllPoints()
+		f.note:SetPoint("TOPLEFT", 10, -y)
+		f.note:SetText(PARTIAL_NOTE)
+		f.note:Show()
+		y = y + math.ceil(f.note:GetStringHeight()) + 6
+	else
+		f.note:Hide()
+	end
+	f:SetHeight(y + 4)
+end
+
 local function Build()
 	frame = CreateFrame("Frame", nil, UIParent)
-	frame:SetSize(WIDTH, 60)
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetClampedToScreen(true)
 	frame:SetMovable(true)
 	frame:Hide()
-	UI.Panel(frame, { alpha = 0.55, subtle = true })
-	frame.title = UI.Text(frame, 10, "textMuted")
-	frame.title:SetPoint("TOPLEFT", 10, -6)
-	frame.title:SetText(ns.Spaced and ns.Spaced("Crafting list") or "CRAFTING LIST")
-	frame.note = UI.Text(frame, 10, "textMuted")
-	frame.note:SetWidth(WIDTH - 20)
-	frame.note:SetJustifyH("LEFT")
-	frame.note:SetWordWrap(true)
+	Dress(frame)
 	local mover = CreateFrame("Frame", nil, frame)
 	mover:SetAllPoints()
 	mover:SetFrameLevel(frame:GetFrameLevel() + 10)
@@ -536,7 +649,7 @@ function ns.AltsList_Refresh()
 	frame:SetScale(db.tracker.scale or 1)
 	frame.mover:SetShown(not db.tracker.locked and not ns.EditMode_Active())
 	if db.tracker.collapsed then
-		for _, b in ipairs(blocks) do
+		for _, b in ipairs(frame.blocks) do
 			b:Hide()
 		end
 		frame.note:Hide()
@@ -544,79 +657,25 @@ function ns.AltsList_Refresh()
 		frame:Show()
 		return
 	end
-	local y = TITLE_H
-	for i, t in ipairs(todos) do
-		local b = Block(i)
-		b.todo = t
-		b:ClearAllPoints()
-		b:SetPoint("TOPLEFT", 10, -y)
-		b:SetPoint("RIGHT", -10, 0)
-		b.title:SetText(("%s  %s"):format(ns.Alts_RecipeLabel(t.entry.recipeID, 15, t.entry.quality),
-			UI.Wrap("x" .. t.entry.crafts, "textMuted")))
-		local c = t.crafter and ns.altsDB.chars[t.crafter]
-		local color = c and c.class and C_ClassColor.GetClassColor(c.class)
-		b.crafter:SetText(c and c.name or "nobody")
-		if color then
-			b.crafter:SetTextColor(color.r, color.g, color.b)
-		else
-			UI.SetTextRole(b.crafter, "textMuted")
-		end
-		b.fill:SetWidth(math.max((WIDTH - 20) * ns.Alts_CraftProgress(t), 1))
-		local ly = HEAD_H
-		local shown = 0
-		for _, line in ipairs(t.lines) do
-			if shown >= MAX_LINES then
-				break
-			end
-			shown = shown + 1
-			local l = Line(b, shown)
-			l.line = line
-			l:ClearAllPoints()
-			l:SetPoint("TOPLEFT", 0, -ly)
-			l:SetPoint("RIGHT")
-			l.text:SetText(line.text)
-			UI.SetTextRole(l.text, line.mine and (LINE_COLORS[line.kind] or "text") or "textMuted")
-			local h = math.max(LINE_H, math.ceil(l.text:GetStringHeight()) + 3)
-			l:SetHeight(h)
-			ly = ly + h
-		end
-		if #t.lines > MAX_LINES then
-			shown = shown + 1
-			local l = Line(b, shown)
-			l.line = {}
-			l:ClearAllPoints()
-			l:SetPoint("TOPLEFT", 0, -ly)
-			l:SetPoint("RIGHT")
-			l.text:SetText(("+ %d more (the List tab has them all)"):format(#t.lines - MAX_LINES))
-			UI.SetTextRole(l.text, "textMuted")
-			l:SetHeight(LINE_H)
-			ly = ly + LINE_H
-		end
-		for j = shown + 1, #b.lines do
-			b.lines[j]:Hide()
-		end
-		b:SetHeight(ly)
-		b:Show()
-		y = y + ly + 8
-	end
-	for i = #todos + 1, #blocks do
-		blocks[i]:Hide()
-	end
-	if #todos == 0 then
-		y = y + 18
-	end
-	-- "Get" lines without Syndicator may be on another character.
-	if ns.AltsList_PartialCounts(todos) then
-		frame.note:ClearAllPoints()
-		frame.note:SetPoint("TOPLEFT", 10, -y)
-		frame.note:SetText(PARTIAL_NOTE)
-		frame.note:Show()
-		y = y + math.ceil(frame.note:GetStringHeight()) + 6
-	else
-		frame.note:Hide()
-	end
-	frame:SetHeight(y + 4)
+	Fill(frame, todos)
 	frame:Show()
+end
+
+-- The settings preview (Panel/Preview.lua): the tracker with this character's to-do, or SAMPLE when nothing is
+-- tracked, at the scale under the mouse. Drawn by Dress and Fill like the real one.
+function ns.AltsList_DrawSample(host, get)
+	local f = host.tracker
+	if not f then
+		f = CreateFrame("Frame", nil, host)
+		f:SetPoint("TOPLEFT")
+		Dress(f)
+		host.tracker = f
+	end
+	local todos = ns.AltsList_Todos()
+	Fill(f, #todos > 0 and todos or SAMPLE)
+	local scale = get("tracker.scale") or 1
+	f:SetScale(scale)
+	return f:GetWidth() * scale, f:GetHeight() * scale
 end
 
 ns.EditMode_Register({

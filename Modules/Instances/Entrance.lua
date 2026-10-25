@@ -58,46 +58,49 @@ local function Place()
 	card:SetPoint(f.point, UIParent, f.relPoint, f.x, f.y)
 end
 
+-- The card's looks on f: the real card's and the settings preview's (InstancesEntrance_DrawSample below).
+local function Dress(f)
+	f:SetSize(W_MIN, 90)
+	UI.Panel(f, { size = "small" })
+	f.title = UI.Text(f, 14, "heading", "title")
+	f.title:SetPoint("TOPLEFT", PAD, -PAD)
+	f.kind = UI.Text(f, 11, "textMuted", "label")
+	f.kind:SetPoint("TOPLEFT", f.title, "BOTTOMLEFT", 0, -2)
+	f.seg = UI.Segmented(f)
+	f.seg:SetPoint("TOPLEFT", f.kind, "BOTTOMLEFT", 0, -8)
+	f.locks = {}
+	f.hint = UI.Text(f, 11, "textMuted")
+	f.hint:SetWordWrap(true)
+end
+
 local function Build()
 	card = CreateFrame("Frame", nil, UIParent)
-	card:SetSize(W_MIN, 90)
 	card:SetFrameStrata("MEDIUM")
 	card:SetMovable(true)
 	card:SetClampedToScreen(true)
 	card:Hide()
-	UI.Panel(card, { size = "small" })
-	card.title = UI.Text(card, 14, "heading", "title")
-	card.title:SetPoint("TOPLEFT", PAD, -PAD)
-	card.kind = UI.Text(card, 11, "textMuted", "label")
-	card.kind:SetPoint("TOPLEFT", card.title, "BOTTOMLEFT", 0, -2)
-	card.seg = UI.Segmented(card)
-	card.seg:SetPoint("TOPLEFT", card.kind, "BOTTOMLEFT", 0, -8)
-	card.locks = {}
-	card.hint = UI.Text(card, 11, "textMuted")
-	card.hint:SetWordWrap(true)
+	Dress(card)
 	Place()
 end
 
-local function Lock(i)
-	local fs = card.locks[i]
+local function Lock(f, i)
+	local fs = f.locks[i]
 	if not fs then
-		fs = UI.Text(card, 11, "textMuted", "number")
-		card.locks[i] = fs
+		fs = UI.Text(f, 11, "textMuted", "number")
+		f.locks[i] = fs
 	end
 	return fs
 end
 
-local function Draw(e)
-	if not card then
-		Build()
-	end
+-- Fills card f (Dress) for entrance e (PREVIEW: a sample whose choices do nothing) and sizes it.
+local function Fill(f, e)
 	local j = Journal(e)
 	local kind = j.isLegacy and "legacyFull" or j.isRaid and "raid" or "dungeon"
 	local canChoose, reason = ns.InstancesRead_CanChoose()
 	local saves = ns.InstancesRead_Saves(j.instanceID)
-	card.title:SetText(j.name)
-	card.kind:SetText(j.isLegacy and "Old raid: size and difficulty" or j.isRaid and "Raid" or "Dungeon")
-	local seg = card.seg
+	f.title:SetText(j.name)
+	f.kind:SetText(j.isLegacy and "Old raid: size and difficulty" or j.isRaid and "Raid" or "Dungeon")
+	local seg = f.seg
 	seg.choices = function()
 		return Choices(j)
 	end
@@ -121,7 +124,7 @@ local function Draw(e)
 	seg:SetAlpha(canChoose and 1 or 0.5)
 	local choices = Choices(j)
 	for i, choice in ipairs(choices) do
-		local fs = Lock(i)
+		local fs = Lock(f, i)
 		local text, role = ns.Instances_LockoutShort(ns.Instances_SaveFor(saves, choice.value))
 		fs:SetText(text)
 		UI.SetTextRole(fs, role)
@@ -129,24 +132,45 @@ local function Draw(e)
 		fs:SetPoint("TOP", seg.segments[i], "BOTTOM", 0, -4)
 		fs:Show()
 	end
-	for i = #choices + 1, #card.locks do
-		card.locks[i]:Hide()
+	for i = #choices + 1, #f.locks do
+		f.locks[i]:Hide()
 	end
-	local w = math.max(W_MIN, width + 2 * PAD, math.ceil(card.title:GetUnboundedStringWidth()) + 2 * PAD)
-	card:SetWidth(w)
-	local height = PAD + card.title:GetStringHeight() + 2 + card.kind:GetStringHeight() + 8 + seg:GetHeight() + 4 + 14
-	card.hint:ClearAllPoints()
+	local w = math.max(W_MIN, width + 2 * PAD, math.ceil(f.title:GetUnboundedStringWidth()) + 2 * PAD)
+	f:SetWidth(w)
+	local height = PAD + f.title:GetStringHeight() + 2 + f.kind:GetStringHeight() + 8 + seg:GetHeight() + 4 + 14
+	f.hint:ClearAllPoints()
 	if canChoose then
-		card.hint:Hide()
+		f.hint:Hide()
 	else
-		card.hint:SetWidth(w - 2 * PAD)
-		card.hint:SetText(reason)
-		card.hint:SetPoint("TOPLEFT", PAD, -(height + 6))
-		card.hint:Show()
-		height = height + 6 + card.hint:GetStringHeight()
+		f.hint:SetWidth(w - 2 * PAD)
+		f.hint:SetText(reason)
+		f.hint:SetPoint("TOPLEFT", PAD, -(height + 6))
+		f.hint:Show()
+		height = height + 6 + f.hint:GetStringHeight()
 	end
-	card:SetHeight(height + PAD)
+	f:SetHeight(height + PAD)
+end
+
+local function Draw(e)
+	if not card then
+		Build()
+	end
+	Fill(card, e)
 	card:Show()
+end
+
+-- The settings preview (Panel/Preview.lua): Edit Mode's sample portal card with your chosen difficulty and lockouts,
+-- drawn by Dress and Fill like the real one (its choices do nothing for the sample).
+function ns.InstancesEntrance_DrawSample(host)
+	local f = host.card
+	if not f then
+		f = CreateFrame("Frame", nil, host)
+		f:SetPoint("TOPLEFT")
+		Dress(f)
+		host.card = f
+	end
+	Fill(f, PREVIEW)
+	return f:GetWidth(), f:GetHeight()
 end
 
 local function Hide()

@@ -10,6 +10,11 @@ local OWNER = "tradingpost"
 local ICON = "Interface\\Icons\\INV_Misc_Treasurechest02b"
 local LOGIN_FALLBACK = 20 -- seconds to wait for the cache's answer before the login reminders go without it
 local CITY_DELAY = 2 -- seconds after a zone change before checking for a Trading Post city
+-- Made-up state for the sample toast and the settings previews: the monthly 500 Tender, a log milestone still open,
+-- two days and a bit left.
+local SAMPLE_STATE = { waiting = 500, earned = 850, nextOne = { required = 1000, tender = 100 },
+	secondsLeft = 2 * 86400 + 5 * 3600 }
+local SAMPLE_CITY = { name = "Dornogal" }
 
 local UI = ns.UI
 local module, db
@@ -29,25 +34,27 @@ end
 
 -- Toasts ---------------------------------------------------------------------------------------------------------
 
-local function Toast(spec)
+-- The parts every reminder shares. sample: a settings preview or the sample button (kept out of Recent).
+local function Spec(spec, sample)
 	spec.owner, spec.label = OWNER, spec.label or "Trading Post"
 	spec.accent = spec.accent or "accent"
 	spec.holdInCombat, spec.hold = true, spec.hold or 10
-	ns.Toast_Show(spec)
+	spec.test = sample or nil
+	return spec
 end
 
-local function WaitingToast(sample)
-	local waiting = sample and 500 or ns.TradingPost_State().waiting
-	Toast({
-		title = ("%s Tender waiting"):format(ns.Thousands(waiting)),
+-- Each reminder's spec takes the state it reads (ns.TradingPost_State() plus secondsLeft), so a preview can hand it
+-- SAMPLE_STATE instead.
+local function WaitingSpec(s, sample)
+	return Spec({
+		title = ("%s Tender waiting"):format(ns.Thousands(s.waiting)),
 		text = "Trader's Tender in the Collector's Cache at a Trading Post." .. (sample and "" or "\nClick for a waypoint."),
-		icon = TenderIcon(), accent = "success", mergeKey = "tradingpost:waiting", test = sample or nil,
+		icon = TenderIcon(), accent = "success", mergeKey = "tradingpost:waiting",
 		onClick = not sample and ns.TradingPost_Waypoint or nil,
-	})
+	}, sample)
 end
 
-local function NewMonthToast()
-	local s = ns.TradingPost_State()
+local function NewMonthSpec(s, sample)
 	local text = "New stock and a fresh Traveler's Log."
 	if s.waiting > 0 then
 		text = text .. ("\n%s Tender waiting in the Collector's Cache. Click for a waypoint."):format(
@@ -55,28 +62,61 @@ local function NewMonthToast()
 	else
 		text = text .. "\nClick for the Trading Post page."
 	end
-	Toast({
+	return Spec({
 		title = "A new month", text = text, icon = ICON, mergeKey = "tradingpost:month",
 		hold = 12, onClick = s.waiting > 0 and ns.TradingPost_Waypoint or OpenPage,
-	})
+	}, sample)
+end
+
+local function EndingSpec(s, sample)
+	return Spec({
+		title = ("Month ends in %s"):format(ns.TradingPost_TimeLeft(s.secondsLeft)),
+		text = ("Traveler's Log: %s.\nClick for the activities."):format(ns.TradingPost_NextText(s.earned, s.nextOne)
+			or "every milestone reached"),
+		icon = TenderIcon(), accent = "warning", mergeKey = "tradingpost:ending", onClick = OpenPage,
+	}, sample)
+end
+
+local function CitySpec(s, city, sample)
+	return Spec({
+		title = ("%s Tender waiting"):format(ns.Thousands(s.waiting)),
+		text = ("The Collector's Cache is here in %s. Click for a waypoint."):format(city.name),
+		icon = TenderIcon(), accent = "success", mergeKey = "tradingpost:waiting", onClick = ns.TradingPost_Waypoint,
+	}, sample)
+end
+
+local function WaitingToast(sample)
+	ns.Toast_Show(WaitingSpec(sample and SAMPLE_STATE or ns.TradingPost_State(), sample))
+end
+
+local function NewMonthToast()
+	ns.Toast_Show(NewMonthSpec(ns.TradingPost_State()))
 end
 
 local function EndingToast()
 	local s = ns.TradingPost_State()
-	Toast({
-		title = ("Month ends in %s"):format(ns.TradingPost_TimeLeft(ns.TradingPost_SecondsLeft())),
-		text = ("Traveler's Log: %s.\nClick for the activities."):format(ns.TradingPost_NextText(s.earned, s.nextOne)
-			or "every milestone reached"),
-		icon = TenderIcon(), accent = "warning", mergeKey = "tradingpost:ending", onClick = OpenPage,
-	})
+	ns.Toast_Show(EndingSpec({ earned = s.earned, nextOne = s.nextOne, secondsLeft = ns.TradingPost_SecondsLeft() }))
 end
 
 local function CityToast(city)
-	Toast({
-		title = ("%s Tender waiting"):format(ns.Thousands(ns.TradingPost_State().waiting)),
-		text = ("The Collector's Cache is here in %s. Click for a waypoint."):format(city.name),
-		icon = TenderIcon(), accent = "success", mergeKey = "tradingpost:waiting", onClick = ns.TradingPost_Waypoint,
-	})
+	ns.Toast_Show(CitySpec(ns.TradingPost_State(), city))
+end
+
+-- Settings previews (Panel/Preview.lua): each reminder from SAMPLE_STATE, built by the real reminders' spec code.
+local function WaitingPreview(host)
+	return ns.Toast_DrawSample(host, WaitingSpec(SAMPLE_STATE, true), 1)
+end
+
+local function CityPreview(host)
+	return ns.Toast_DrawSample(host, CitySpec(SAMPLE_STATE, SAMPLE_CITY, true), 1)
+end
+
+local function NewMonthPreview(host)
+	return ns.Toast_DrawSample(host, NewMonthSpec(SAMPLE_STATE, true), 1)
+end
+
+local function EndingPreview(host)
+	return ns.Toast_DrawSample(host, EndingSpec(SAMPLE_STATE, true), 1)
 end
 
 local LOGIN_TOASTS = { newMonth = NewMonthToast, waiting = WaitingToast, ending = EndingToast }
@@ -369,13 +409,17 @@ module = ns.RegisterModule({
 	options = {
 		{ type = "header", label = "Reminders" },
 		{ type = "checkbox", key = "toasts.waiting", label = "Tender waiting",
+			preview = ns.Preview_When("toasts.waiting", WaitingPreview),
 			tooltip = "At login, once a day, when Trader's Tender is waiting in the Collector's Cache. Every account "
 				.. "with game time gets 500 there each month." },
 		{ type = "checkbox", key = "toasts.city", label = "In a Trading Post city",
+			preview = ns.Preview_When("toasts.city", CityPreview),
 			tooltip = "Entering Stormwind, Orgrimmar or Dornogal while Tender is waiting in the cache." },
 		{ type = "checkbox", key = "toasts.newMonth", label = "New month",
+			preview = ns.Preview_When("toasts.newMonth", NewMonthPreview),
 			tooltip = "The first login of a new month: new stock in the shop and a fresh Traveler's Log." },
 		{ type = "checkbox", key = "toasts.ending", label = "Month ending",
+			preview = ns.Preview_When("toasts.ending", EndingPreview),
 			tooltip = "In the month's last three days, once a day, while a Traveler's Log milestone is still open." },
 		{ type = "button", label = "Sample toast", text = "Show", onClick = Sample },
 		{ type = "header", label = "Trading Post" },

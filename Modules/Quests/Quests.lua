@@ -73,6 +73,11 @@ local function TextSize(v)
 	return v .. " pt"
 end
 
+-- Settings preview (Panel/Preview.lua): the "Text only" subtitle with a sample line.
+local function TalkingHeadPreview(host, get, choosing)
+	return ns.QuestsTalkingHead_DrawSample(host, get, choosing)
+end
+
 module = ns.RegisterModule({
 	key = "quests",
 	name = "Quests",
@@ -191,7 +196,7 @@ module = ns.RegisterModule({
 			return TALKING_HEAD_CHOICES
 		end, onChange = function()
 			ns.QuestsTalkingHead_Apply()
-		end, tooltip = "Hide: you only hear the voice. Text only: the line shows as a plain subtitle instead of the portrait frame." },
+		end, preview = TalkingHeadPreview, tooltip = "Hide: you only hear the voice. Text only: the line shows as a plain subtitle instead of the portrait frame." },
 		{ type = "checkbox", key = "thChat", label = "Write hidden lines in chat", shown = function()
 			return TalkingHeadIs("hide", "text")
 		end },
@@ -202,7 +207,7 @@ module = ns.RegisterModule({
 			return TalkingHeadIs("text")
 		end, tooltip = "Lines that start while you're in a world quest's area, or right after taking or finishing one." },
 		{ type = "slider", key = "thSize", label = "Text size", min = 11, max = 20, step = 1, format = TextSize,
-			shown = function()
+			preview = TalkingHeadPreview, shown = function()
 				return TalkingHeadIs("text")
 			end },
 		{ type = "button", label = "Sample line", text = "Show", shown = function()

@@ -20,6 +20,8 @@ local INBOX_MAX = 50 -- letters the inbox shows at once (MAX_INBOX_SIZE in MailF
 local STUCK_TRIES = 5 -- the same take sent this often without the inbox changing: skip it
 local RECENT_MAX = 5 -- recipients remembered per character
 local ATTACH_MAX = 16 -- ATTACHMENTS_MAX_RECEIVE
+-- The summary card's settings preview: a made-up run (money in copper, letters by kind, as ns.Mail_Summary takes).
+local SAMPLE_RUN = { money = 48215000, opened = { sold = 9, won = 2, expired = 1 }, left = 0, cod = 0 }
 local UI = ns.UI
 
 local module, db
@@ -111,6 +113,22 @@ local function UpdateButton()
 	end
 end
 
+-- The summary card from ns.Mail_Summary's title, detail and note. sample: a settings preview (kept out of Recent).
+local function SummarySpec(title, detail, note, sample)
+	local text = detail
+	if note ~= "" then
+		text = (text ~= "" and (text .. "\n") or "") .. note
+	end
+	return { owner = OWNER, label = "Mail", title = title, text = text, icon = ICON,
+		mergeKey = "mail:summary", test = sample or nil }
+end
+
+-- Settings preview (Panel/Preview.lua): a made-up run, worded by the real summary code.
+local function SummaryPreview(host)
+	local title, detail, note = ns.Mail_Summary(SAMPLE_RUN, ns.Price)
+	return ns.Toast_DrawSample(host, SummarySpec(title, detail, note, true), 1)
+end
+
 local function Report(r, letters, stopped)
 	local counts = ns.Mail_Counts(letters, ModeOpts(r))
 	ns.Mail_Tally(r.opened, r.prev, counts)
@@ -143,13 +161,8 @@ local function Report(r, letters, stopped)
 	if not any then
 		return
 	end
-	local text = detail
-	if note ~= "" then
-		text = (text ~= "" and (text .. "\n") or "") .. note
-	end
 	if db.summary.toast then
-		ns.Toast_Show({ owner = OWNER, label = "Mail", title = title, text = text, icon = ICON,
-			mergeKey = "mail:summary" })
+		ns.Toast_Show(SummarySpec(title, detail, note))
 	end
 	local auction = false
 	for kind in pairs(r.opened) do
@@ -565,6 +578,7 @@ module = ns.RegisterModule({
 			tooltip = "Leave letters from players for you to open yourself." },
 		{ type = "checkbox", key = "summary.chat", label = "Summary in chat", parent = "inbox" },
 		{ type = "checkbox", key = "summary.toast", label = "Summary card", parent = "inbox",
+			preview = ns.Preview_When("summary.toast", SummaryPreview),
 			tooltip = "A card with the gold and the Auction House letters when Open all is done." },
 
 		{ type = "header", label = "Send" },

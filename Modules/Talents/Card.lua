@@ -18,39 +18,46 @@ local db, module
 local card
 local current -- the question on show (TalentsCard_Show's spec), so Edit Mode can put it back after its preview
 
+-- The card's looks on f: the real card's and the settings preview's (TalentsCard_DrawSample below).
+local function Dress(f)
+	f:SetSize(CARD_W, 90)
+	UI.Panel(f, { alpha = 0.95 })
+	f.title = UI.Text(f, 10, "textMuted", "label")
+	f.title:SetPoint("TOPLEFT", PAD, -PAD)
+	f.title:SetText(ns.Spaced("Talent check"))
+	-- Fixed widths, so the wrapped height is known right after SetText.
+	f.text = UI.Text(f, 13, "heading")
+	f.text:SetPoint("TOPLEFT", f.title, "BOTTOMLEFT", 0, -TEXT_GAP)
+	f.text:SetWidth(CARD_W - 2 * PAD)
+	f.text:SetJustifyH("LEFT")
+	f.text:SetWordWrap(true)
+	f.detail = UI.Text(f, 11, "textMuted")
+	f.detail:SetPoint("TOPLEFT", f.text, "BOTTOMLEFT", 0, -4)
+	f.detail:SetWidth(CARD_W - 2 * PAD)
+	f.detail:SetJustifyH("LEFT")
+	f.detail:SetWordWrap(true)
+	f.buttons = {}
+	for i = 1, MAX_BUTTONS do
+		local b = UI.Button(f, 80, "")
+		b:SetHeight(BUTTON_H)
+		f.buttons[i] = b
+	end
+end
+
 local function Build()
 	card = CreateFrame("Frame", nil, UIParent)
-	card:SetSize(CARD_W, 90)
 	card:SetFrameStrata("HIGH")
 	card:SetClampedToScreen(true)
 	card:SetMovable(true)
 	card:Hide()
-	UI.Panel(card, { alpha = 0.95 })
-	card.title = UI.Text(card, 10, "textMuted", "label")
-	card.title:SetPoint("TOPLEFT", PAD, -PAD)
-	card.title:SetText(ns.Spaced("Talent check"))
-	-- Fixed widths, so the wrapped height is known right after SetText.
-	card.text = UI.Text(card, 13, "heading")
-	card.text:SetPoint("TOPLEFT", card.title, "BOTTOMLEFT", 0, -TEXT_GAP)
-	card.text:SetWidth(CARD_W - 2 * PAD)
-	card.text:SetJustifyH("LEFT")
-	card.text:SetWordWrap(true)
-	card.detail = UI.Text(card, 11, "textMuted")
-	card.detail:SetPoint("TOPLEFT", card.text, "BOTTOMLEFT", 0, -4)
-	card.detail:SetWidth(CARD_W - 2 * PAD)
-	card.detail:SetJustifyH("LEFT")
-	card.detail:SetWordWrap(true)
-	card.buttons = {}
-	for i = 1, MAX_BUTTONS do
-		local b = UI.Button(card, 80, "")
-		b:SetHeight(BUTTON_H)
+	Dress(card)
+	for _, b in ipairs(card.buttons) do
 		b:SetScript("OnClick", function(self)
 			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
 			if self.onClick then
 				self.onClick() -- a mouse click: a hardware event, as switching talents wants
 			end
 		end)
-		card.buttons[i] = b
 	end
 end
 
@@ -61,14 +68,14 @@ local function Place()
 end
 
 -- spec = { text, detail (optional), buttons = { { text, onClick }, ... } (at most three, left to right) }. A click
--- hides the card before its onClick runs.
-local function Draw(spec)
-	card.text:SetText(spec.text)
-	card.detail:SetText(spec.detail or "")
-	card.detail:SetShown(spec.detail ~= nil)
-	local textH = card.text:GetStringHeight() + (spec.detail and 4 + card.detail:GetStringHeight() or 0)
+-- hides the card before its onClick runs. f: the card (Dress) to draw on.
+local function Draw(f, spec)
+	f.text:SetText(spec.text)
+	f.detail:SetText(spec.detail or "")
+	f.detail:SetShown(spec.detail ~= nil)
+	local textH = f.text:GetStringHeight() + (spec.detail and 4 + f.detail:GetStringHeight() or 0)
 	local x = PAD
-	for i, b in ipairs(card.buttons) do
+	for i, b in ipairs(f.buttons) do
 		local info = spec.buttons and spec.buttons[i]
 		if info then
 			b.label:SetText(info.text)
@@ -87,9 +94,9 @@ local function Draw(spec)
 			b:Hide()
 		end
 	end
-	card:SetWidth(math.max(CARD_W, x - BUTTON_GAP + PAD)) -- long loadout or instance names widen the button row
-	local titleH = card.title:GetStringHeight()
-	card:SetHeight(PAD + titleH + TEXT_GAP + textH + 10 + BUTTON_H + PAD)
+	f:SetWidth(math.max(CARD_W, x - BUTTON_GAP + PAD)) -- long loadout or instance names widen the button row
+	local titleH = f.title:GetStringHeight()
+	f:SetHeight(PAD + titleH + TEXT_GAP + textH + 10 + BUTTON_H + PAD)
 end
 
 -- What Edit Mode shows while there's no question.
@@ -108,14 +115,28 @@ local function Refresh()
 		return
 	end
 	if preview then
-		Draw(PREVIEW)
+		Draw(card, PREVIEW)
 		card:Show()
 	elseif current then
-		Draw(current)
+		Draw(card, current)
 		card:Show()
 	else
 		card:Hide()
 	end
+end
+
+-- The settings preview (Panel/Preview.lua): the card with spec (TalentsCard_Show's shape, no onClicks), else Edit
+-- Mode's sample question. Drawn by Dress and Draw like the real one.
+function ns.TalentsCard_DrawSample(host, spec)
+	local f = host.card
+	if not f then
+		f = CreateFrame("Frame", nil, host)
+		f:SetPoint("TOPLEFT")
+		Dress(f)
+		host.card = f
+	end
+	Draw(f, spec or PREVIEW)
+	return f:GetWidth(), f:GetHeight()
 end
 
 function ns.TalentsCard_Init(moduleDB, owner)

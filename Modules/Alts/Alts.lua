@@ -326,6 +326,11 @@ local function Forget(name)
 	ns.Alts_ForgetByName(name, "alts")
 end
 
+-- Settings preview (Panel/Preview.lua): the craft tracker, drawn in List.lua.
+local function TrackerPreview(host, get)
+	return ns.AltsList_DrawSample(host, get)
+end
+
 module = ns.RegisterModule({
 	key = "alts",
 	name = "Alts",
@@ -465,7 +470,8 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Crafting list" },
 		{ type = "checkbox", key = "tracker.shown", label = "Craft tracker on screen", onChange = function()
 			ns.AltsList_Refresh()
-		end, tooltip = "The tracked crafts with what this character has to do for them: grab, mail, take from the Warband bank, buy, craft." },
+		end, preview = ns.Preview_When("tracker.shown", TrackerPreview),
+			tooltip = "The tracked crafts with what this character has to do for them: grab, mail, take from the Warband bank, buy, craft." },
 		{ type = "dropdown", key = "tracker.mode", label = "Show the tracker", onChange = function()
 			ns.AltsList_Refresh()
 		end, parent = "tracker.shown", choices = function()
@@ -482,7 +488,7 @@ module = ns.RegisterModule({
 				return ("%d%%"):format(v * 100 + 0.5)
 			end, onChange = function()
 				ns.AltsList_Refresh()
-			end },
+			end, preview = ns.Preview_When("tracker.shown", TrackerPreview) },
 		{ type = "button", label = "Tracker position", text = "Reset", onClick = function()
 			ns.AltsList_ResetPosition()
 		end, parent = "tracker.shown" },

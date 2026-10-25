@@ -272,82 +272,96 @@ local function CreateNextButton(parent)
 	return b
 end
 
+-- The helper's looks on f: the real helper's and the settings preview's (PetsBattle_DrawSample below). The Next move
+-- button isn't part of it: it has a global name for its key binding, so only the real helper makes one (Build).
+local function Dress(f)
+	f:SetSize(WIDTH, 100)
+	UI.Panel(f, { alpha = 0.8, subtle = true })
+
+	f.title = UI.Text(f, 12, "textMuted", "label")
+	f.title:SetPoint("TOPLEFT", 10, -6)
+	f.title:SetText(ns.Spaced("Pet battle"))
+	f.foe = UI.Text(f, 14, "heading")
+	f.foe:SetPoint("LEFT", f.title, "RIGHT", 10, 0)
+	f.foe:SetPoint("RIGHT", f, "RIGHT", -86, 0)
+	f.foe:SetWordWrap(false)
+	f.guide = UI.Button(f, 60, "Guide")
+	f.guide:SetHeight(20)
+	f.guide:SetPoint("TOPRIGHT", -26, -3)
+
+	f.enemyLabel = UI.Text(f, 12, "textMuted", "label")
+	f.enemyLabel:SetPoint("TOPLEFT", 10, -CELLS_Y - 12)
+	f.enemyLabel:SetText("Enemy")
+	f.enemy = {}
+	for i = 1, 3 do
+		f.enemy[i] = Cell(f)
+		f.enemy[i]:SetPoint("TOPLEFT", 72 + (i - 1) * (CELL + 10), -CELLS_Y)
+	end
+	f.allyLabel = UI.Text(f, 12, "textMuted", "label")
+	f.allyLabel:SetPoint("TOPLEFT", 252, -CELLS_Y - 12)
+	f.allyLabel:SetText("You")
+	f.ally = {}
+	for i = 1, 3 do
+		f.ally[i] = Cell(f)
+		f.ally[i]:SetPoint("TOPLEFT", 296 + (i - 1) * (CELL + 10), -CELLS_Y)
+	end
+
+	f.lines = {}
+	for i = 1, 3 do
+		local fs = UI.Text(f, 14, "text")
+		fs:SetPoint("TOPLEFT", 10, -CELLS_Y - CELL - 16 - (i - 1) * LINE_H)
+		fs:SetPoint("RIGHT", -10, 0)
+		fs:SetWordWrap(false)
+		f.lines[i] = fs
+	end
+
+	f.script = CreateFrame("Frame", nil, f)
+	f.script:SetHeight(44)
+	f.script:SetPoint("LEFT", 0, 0)
+	f.script:SetPoint("RIGHT", 0, 0)
+	f.script:Hide()
+
+	f.steps = CreateFrame("Frame", nil, f)
+	f.steps:SetHeight(STEPS_H)
+	f.steps:SetPoint("LEFT", 0, 0)
+	f.steps:SetPoint("RIGHT", 0, 0)
+	f.steps.head = UI.Text(f.steps, 12, "textMuted", "label")
+	f.steps.head:SetPoint("TOPLEFT", 10, -2)
+	f.steps.scroll = UI.Scroll(f.steps)
+	f.steps.scroll:SetPoint("TOPLEFT", 10, -20)
+	f.steps.scroll:SetPoint("BOTTOMRIGHT", -16, 6)
+	f.steps.text = UI.Text(f.steps.scroll.content, 13, "text", "chat")
+	f.steps.text:SetPoint("TOPLEFT")
+	f.steps.text:SetPoint("RIGHT")
+	f.steps.text:SetJustifyV("TOP")
+	f.steps.text:SetSpacing(2)
+	f.steps.scroll.onWidthChanged = function(width)
+		f.steps.text:SetWidth(width)
+		f.steps.scroll:SetContentHeight(f.steps.text:GetStringHeight() + 4)
+	end
+
+	f.collapse = UI.CollapseButton(f, function()
+		return db.advisor.collapsed
+	end, function()
+		db.advisor.collapsed = not db.advisor.collapsed
+		ns.PetsBattle_Refresh()
+	end)
+end
+
 local function Build()
 	frame = CreateFrame("Frame", "TomtePetBattleHelper", UIParent)
-	frame:SetSize(WIDTH, 100)
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetClampedToScreen(true)
 	frame:SetMovable(true)
 	frame:Hide()
-	UI.Panel(frame, { alpha = 0.8, subtle = true })
-
-	frame.title = UI.Text(frame, 12, "textMuted", "label")
-	frame.title:SetPoint("TOPLEFT", 10, -6)
-	frame.title:SetText(ns.Spaced("Pet battle"))
-	frame.foe = UI.Text(frame, 14, "heading")
-	frame.foe:SetPoint("LEFT", frame.title, "RIGHT", 10, 0)
-	frame.foe:SetPoint("RIGHT", frame, "RIGHT", -86, 0)
-	frame.foe:SetWordWrap(false)
-	frame.guide = UI.Button(frame, 60, "Guide")
-	frame.guide:SetHeight(20)
-	frame.guide:SetPoint("TOPRIGHT", -26, -3)
+	Dress(frame)
 	frame.guide:SetScript("OnClick", function()
 		if ctx and ctx.npc then
 			ns.PetsGuides_ShowNPC(ctx.npc)
 		end
 	end)
-
-	frame.enemyLabel = UI.Text(frame, 12, "textMuted", "label")
-	frame.enemyLabel:SetPoint("TOPLEFT", 10, -CELLS_Y - 12)
-	frame.enemyLabel:SetText("Enemy")
-	frame.enemy = {}
-	for i = 1, 3 do
-		frame.enemy[i] = Cell(frame)
-		frame.enemy[i]:SetPoint("TOPLEFT", 72 + (i - 1) * (CELL + 10), -CELLS_Y)
-	end
-	frame.allyLabel = UI.Text(frame, 12, "textMuted", "label")
-	frame.allyLabel:SetPoint("TOPLEFT", 252, -CELLS_Y - 12)
-	frame.allyLabel:SetText("You")
-	frame.ally = {}
-	for i = 1, 3 do
-		frame.ally[i] = Cell(frame)
-		frame.ally[i]:SetPoint("TOPLEFT", 296 + (i - 1) * (CELL + 10), -CELLS_Y)
-	end
-
-	frame.lines = {}
-	for i = 1, 3 do
-		local fs = UI.Text(frame, 14, "text")
-		fs:SetPoint("TOPLEFT", 10, -CELLS_Y - CELL - 16 - (i - 1) * LINE_H)
-		fs:SetPoint("RIGHT", -10, 0)
-		fs:SetWordWrap(false)
-		frame.lines[i] = fs
-	end
-
-	frame.script = CreateFrame("Frame", nil, frame)
-	frame.script:SetHeight(44)
-	frame.script:SetPoint("LEFT", 0, 0)
-	frame.script:SetPoint("RIGHT", 0, 0)
 	nextButton = CreateNextButton(frame.script)
 	nextButton:SetPoint("TOPLEFT", 10, -4)
-
-	frame.steps = CreateFrame("Frame", nil, frame)
-	frame.steps:SetHeight(STEPS_H)
-	frame.steps:SetPoint("LEFT", 0, 0)
-	frame.steps:SetPoint("RIGHT", 0, 0)
-	frame.steps.head = UI.Text(frame.steps, 12, "textMuted", "label")
-	frame.steps.head:SetPoint("TOPLEFT", 10, -2)
-	frame.steps.scroll = UI.Scroll(frame.steps)
-	frame.steps.scroll:SetPoint("TOPLEFT", 10, -20)
-	frame.steps.scroll:SetPoint("BOTTOMRIGHT", -16, 6)
-	frame.steps.text = UI.Text(frame.steps.scroll.content, 13, "text", "chat")
-	frame.steps.text:SetPoint("TOPLEFT")
-	frame.steps.text:SetPoint("RIGHT")
-	frame.steps.text:SetJustifyV("TOP")
-	frame.steps.text:SetSpacing(2)
-	frame.steps.scroll.onWidthChanged = function(width)
-		frame.steps.text:SetWidth(width)
-		frame.steps.scroll:SetContentHeight(frame.steps.text:GetStringHeight() + 4)
-	end
 
 	-- Drag by the title strip when the helper isn't locked (Edit Mode moves it too).
 	frame:EnableMouse(true)
@@ -361,26 +375,19 @@ local function Build()
 		self:StopMovingOrSizing()
 		SavePoint()
 	end)
-
-	frame.collapse = UI.CollapseButton(frame, function()
-		return db.advisor.collapsed
-	end, function()
-		db.advisor.collapsed = not db.advisor.collapsed
-		ns.PetsBattle_Refresh()
-	end)
 	Place()
 end
 
-local function SetLine(i, text, role)
-	local fs = frame.lines[i]
+local function SetLine(f, i, text, role)
+	local fs = f.lines[i]
 	fs:SetText(text or "")
 	UI.SetTextRole(fs, role or "text")
 	fs:SetShown(text ~= nil)
 	return text ~= nil
 end
 
--- Lines of advice for the active enemy. Returns how many lines were used.
-local function Advice(enemy, allies)
+-- Lines of advice for the active enemy, on helper f. Returns how many lines were used.
+local function Advice(f, enemy, allies)
 	local foe = enemy.pets[enemy.active]
 	if not foe then
 		return 0
@@ -388,7 +395,7 @@ local function Advice(enemy, allies)
 	local n = 0
 	local c = ns.Pets_Chart()
 	n = n + 1
-	SetLine(n, "Hit it with:  " .. Families(ns.Pets_Strong(c, foe.type)), "text")
+	SetLine(f, n, "Hit it with:  " .. Families(ns.Pets_Strong(c, foe.type)), "text")
 	-- Its attacks (unknown against players).
 	local types, seen = {}, {}
 	for _, a in ipairs(foe.abilities) do
@@ -399,7 +406,7 @@ local function Advice(enemy, allies)
 	end
 	if #types > 0 then
 		n = n + 1
-		SetLine(n, "Its attacks:  " .. Families(types), "textMuted")
+		SetLine(f, n, "Its attacks:  " .. Families(types), "textMuted")
 	end
 	-- Swap advice, leveling pet, catch hint (one line, most useful first).
 	local leveling = db.leveling.on and db.leveling.slot or nil
@@ -430,7 +437,7 @@ local function Advice(enemy, allies)
 	end
 	if line then
 		n = n + 1
-		SetLine(n, line, role)
+		SetLine(f, n, line, role)
 	end
 	return n
 end
@@ -444,20 +451,8 @@ local PREVIEW_SIDE = {
 	},
 }
 
--- Shows, hides and fills the helper.
-function ns.PetsBattle_Refresh()
-	local editMode = ns.EditMode_Active()
-	local battle = InBattle()
-	local want = module.active and db.advisor.shown and (battle or editMode)
-	if not want then
-		if frame then
-			frame:Hide()
-		end
-		return
-	end
-	if not frame then
-		Build()
-	end
+-- Fills helper f (Dress): the battle on now, or with PREVIEW_SIDE and sampleTitle outside one. Sets its height.
+local function Fill(f, battle, collapsed, sampleTitle)
 	local enemy, allies
 	if battle then
 		enemy, allies = ReadSide(ENEMY), ReadSide(ALLY)
@@ -465,56 +460,54 @@ function ns.PetsBattle_Refresh()
 		enemy, allies = PREVIEW_SIDE, PREVIEW_SIDE
 	end
 	local team = ctx and ctx.team
-	frame.foe:SetText(battle and ((ctx and ctx.npc and ns.PetsStore_NPCName(ctx.npc))
-		or (ctx and ctx.wild and "Wild pets") or (ctx and ctx.pvp and "PvP") or "") or "Edit Mode preview")
-	frame.guide:SetShown(battle and ctx and ctx.npc ~= nil)
+	f.foe:SetText(battle and ((ctx and ctx.npc and ns.PetsStore_NPCName(ctx.npc))
+		or (ctx and ctx.wild and "Wild pets") or (ctx and ctx.pvp and "PvP") or "") or sampleTitle)
+	f.guide:SetShown(battle and ctx and ctx.npc ~= nil)
 
-	local collapsed = db.advisor.collapsed
 	local y = 26
 	if collapsed then
 		for i = 1, 3 do
-			frame.enemy[i]:Hide()
-			frame.ally[i]:Hide()
-			frame.lines[i]:Hide()
+			f.enemy[i]:Hide()
+			f.ally[i]:Hide()
+			f.lines[i]:Hide()
 		end
-		frame.enemyLabel:Hide()
-		frame.allyLabel:Hide()
-		frame.script:Hide()
-		frame.steps:Hide()
-		frame:SetHeight(y)
-		frame:Show()
+		f.enemyLabel:Hide()
+		f.allyLabel:Hide()
+		f.script:Hide()
+		f.steps:Hide()
+		f:SetHeight(y)
 		return
 	end
-	frame.enemyLabel:Show()
-	frame.allyLabel:Show()
+	f.enemyLabel:Show()
+	f.allyLabel:Show()
 
 	local c = ns.Pets_Chart()
 	local foe = enemy.pets[enemy.active]
 	local best = foe and ns.Pets_Best(c, allies.pets, foe, {
 		active = allies.active, leveling = db.leveling.on and db.leveling.slot or nil })
 	for i = 1, 3 do
-		SetCell(frame.enemy[i], enemy.pets[i], i == enemy.active)
-		SetCell(frame.ally[i], battle and allies.pets[i] or nil, i == allies.active, i == best and "best" or nil)
+		SetCell(f.enemy[i], enemy.pets[i], i == enemy.active)
+		SetCell(f.ally[i], battle and allies.pets[i] or nil, i == allies.active, i == best and "best" or nil)
 	end
 	y = CELLS_Y + CELL + 16
 	for i = 1, 3 do
-		frame.lines[i]:Hide()
+		f.lines[i]:Hide()
 	end
-	local used = foe and Advice(enemy, allies) or 0
+	local used = foe and Advice(f, enemy, allies) or 0
 	for i = 1, used do
-		frame.lines[i]:ClearAllPoints()
-		frame.lines[i]:SetPoint("TOPLEFT", 10, -y - (i - 1) * LINE_H)
-		frame.lines[i]:SetPoint("RIGHT", -10, 0)
+		f.lines[i]:ClearAllPoints()
+		f.lines[i]:SetPoint("TOPLEFT", 10, -y - (i - 1) * LINE_H)
+		f.lines[i]:SetPoint("RIGHT", -10, 0)
 	end
 	y = y + used * LINE_H + 4
 
-	-- Strategy: the Next move button and the steps.
+	-- Strategy: the Next move button and the steps (in a battle only, so never on the preview, which has no button).
 	local hasScript = battle and ctx and ctx.script and db.runner.on
-	frame.script:SetShown(hasScript or (battle and ctx and ctx.scriptErr ~= nil) or false)
-	if frame.script:IsShown() then
-		frame.script:ClearAllPoints()
-		frame.script:SetPoint("TOPLEFT", 0, -y)
-		frame.script:SetPoint("RIGHT")
+	f.script:SetShown(hasScript or (battle and ctx and ctx.scriptErr ~= nil) or false)
+	if f.script:IsShown() then
+		f.script:ClearAllPoints()
+		f.script:SetPoint("TOPLEFT", 0, -y)
+		f.script:SetPoint("RIGHT")
 		if hasScript then
 			local icon, label = ActionLabel(ScriptAction())
 			nextButton.icon:SetTexture(icon)
@@ -530,25 +523,58 @@ function ns.PetsBattle_Refresh()
 		y = y + 46
 	end
 	local notes = battle and team and team.notes ~= "" and team.notes or nil
-	frame.steps:SetShown(db.advisor.steps and notes ~= nil)
-	if frame.steps:IsShown() then
-		frame.steps:ClearAllPoints()
-		frame.steps:SetPoint("TOPLEFT", 0, -y)
-		frame.steps:SetPoint("RIGHT")
+	f.steps:SetShown(db.advisor.steps and notes ~= nil)
+	if f.steps:IsShown() then
+		f.steps:ClearAllPoints()
+		f.steps:SetPoint("TOPLEFT", 0, -y)
+		f.steps:SetPoint("RIGHT")
 		local author = ns.Pets_ParseAuthor(notes)
-		frame.steps.head:SetText(ns.Spaced("Round " .. math.max(api:Round(nil), 1)) .. "   "
+		f.steps.head:SetText(ns.Spaced("Round " .. math.max(api:Round(nil), 1)) .. "   "
 			.. UI.Wrap(author and ("Strategy by " .. author .. ", Xu-Fu's Pet Guides") or team.name, "textFaint"))
 		local text = ns.Pets_CleanNotes(notes)
-		if frame.steps.shownNotes ~= text then
-			frame.steps.shownNotes = text
-			frame.steps.text:SetText(text)
-			frame.steps.scroll:SetScroll(0)
+		if f.steps.shownNotes ~= text then
+			f.steps.shownNotes = text
+			f.steps.text:SetText(text)
+			f.steps.scroll:SetScroll(0)
 		end
-		frame.steps.scroll:SetContentHeight(frame.steps.text:GetStringHeight() + 4)
+		f.steps.scroll:SetContentHeight(f.steps.text:GetStringHeight() + 4)
 		y = y + STEPS_H
 	end
-	frame:SetHeight(y + 4)
+	f:SetHeight(y + 4)
+end
+
+-- Shows, hides and fills the helper.
+function ns.PetsBattle_Refresh()
+	local editMode = ns.EditMode_Active()
+	local battle = InBattle()
+	local want = module.active and db.advisor.shown and (battle or editMode)
+	if not want then
+		if frame then
+			frame:Hide()
+		end
+		return
+	end
+	if not frame then
+		Build()
+	end
+	Fill(frame, battle, db.advisor.collapsed, "Edit Mode preview")
 	frame:Show()
+end
+
+-- The settings preview (Panel/Preview.lua): the helper open, with Edit Mode's sample enemy team, at the size get
+-- answers. Drawn by Dress and Fill like the real one, outside a battle (no Next move button, no steps).
+function ns.PetsBattle_DrawSample(host, get)
+	local f = host.helper
+	if not f then
+		f = CreateFrame("Frame", nil, host)
+		f:SetPoint("TOPLEFT")
+		Dress(f)
+		host.helper = f
+	end
+	Fill(f, false, false, "Sample")
+	local scale = get("advisor.scale") or 1
+	f:SetScale(scale)
+	return WIDTH * scale, f:GetHeight() * scale
 end
 
 -- The battle -------------------------------------------------------------------------------------------------

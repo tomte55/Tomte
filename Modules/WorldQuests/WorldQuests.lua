@@ -13,6 +13,12 @@ local LOGIN_DELAY = 8
 local RETRY_DELAY = 5 -- rewards may still be loading
 local RETRIES = 2
 local TOAST_REASONS = { collectible = true, upgrade = true }
+-- Made-up quests for the test command and the settings preview.
+local SAMPLE_ZONE = "Hallowfall"
+local SAMPLE_QUESTS = {
+	{ title = "Sample Quest", what = "Mount: Sample Drake" },
+	{ title = "Another Quest", what = "ilvl 619 · Upgrade +3.2%" },
+}
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "QUEST_LOG_UPDATE", "GET_ITEM_INFO_RECEIVED", "QUEST_TURNED_IN",
 	"WORLD_QUEST_COMPLETED_BY_SPELL", "SUPER_TRACKING_CHANGED", "PLAYER_EQUIPMENT_CHANGED",
@@ -42,13 +48,18 @@ end
 
 -- Toast ---------------------------------------------------------------------------------------------------------
 
-local function ShowToast(zoneName, list, icon)
+-- sample: a settings preview (kept out of Recent).
+local function ToastSpec(zoneName, list, icon, sample)
 	local title, text = ns.WQ_ToastText(zoneName, list)
-	ns.Toast_Show({
+	return {
 		owner = OWNER, label = "World quests", accent = ACCENT, title = title, text = text, icon = icon or ICON,
 		mergeKey = "wq:zone", holdInCombat = true, hold = 10, onClick = ns.WQTab_Open,
-		opensMap = true,
-	})
+		opensMap = true, test = sample or nil,
+	}
+end
+
+local function ShowToast(zoneName, list, icon)
+	ns.Toast_Show(ToastSpec(zoneName, list, icon))
 end
 
 -- The quests in your zone worth a toast that haven't had one: { { title, what, id, icon } }, plus how many still load.
@@ -165,8 +176,12 @@ local function Test()
 	if not ns.Module_RequireOn(module) then
 		return
 	end
-	ShowToast("Hallowfall", { { title = "Sample Quest", what = "Mount: Sample Drake" },
-		{ title = "Another Quest", what = "ilvl 619 · Upgrade +3.2%" } })
+	ShowToast(SAMPLE_ZONE, SAMPLE_QUESTS)
+end
+
+-- Settings preview (Panel/Preview.lua): the test command's toast, built by the real toast's spec code.
+local function ToastPreview(host)
+	return ns.Toast_DrawSample(host, ToastSpec(SAMPLE_ZONE, SAMPLE_QUESTS, nil, true), 1)
 end
 
 local function Changed()
@@ -332,6 +347,7 @@ module = ns.RegisterModule({
 			end },
 		{ type = "header", label = "Toast" },
 		{ type = "checkbox", key = "toast", label = "Arriving in a zone with a quest worth doing",
+			preview = ns.Preview_When("toast", ToastPreview),
 			tooltip = "A missing mount, pet or toy, or a clean Gear Check upgrade. Once per quest per session." },
 		{ type = "button", label = "Sample toast", text = "Show", onClick = Test },
 	},

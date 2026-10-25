@@ -84,30 +84,61 @@ local function Place()
 	frame:SetPoint(p[1], UIParent, p[2], p[3], p[4])
 end
 
-local function Line(role, font)
-	local fs = UI.Text(frame, 11, role or "text", font)
+local function Line(f, role, font)
+	local fs = UI.Text(f, 11, role or "text", font)
 	fs:SetWordWrap(false)
 	fs:SetJustifyH("LEFT")
 	return fs
 end
 
+-- The tracker's looks on f: the real one's and the settings preview's (GatherTracker_DrawSample below).
+local function Dress(f)
+	f:SetSize(WIDTH, 60)
+	UI.Panel(f, { alpha = 0.55, subtle = true })
+
+	f.icon = f:CreateTexture(nil, "ARTWORK")
+	f.icon:SetSize(16, 16)
+	f.icon:SetPoint("TOPLEFT", PAD, -7)
+	f.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
+	f.endButton = UI.Button(f, 38, "End")
+	f.endButton:SetHeight(16)
+	f.endButton:SetPoint("TOPRIGHT", -26, -6)
+
+	f.time = UI.Text(f, 12, "text", "number")
+	f.time:SetJustifyH("RIGHT")
+	f.time:SetPoint("RIGHT", f.endButton, "LEFT", -8, 0)
+	f.title = UI.Text(f, 12, "heading", "title")
+	f.title:SetWordWrap(false)
+	f.title:SetPoint("LEFT", f.icon, "RIGHT", 6, 0)
+	f.title:SetPoint("RIGHT", f.time, "LEFT", -6, 0)
+
+	f.nodes = Line(f, "text", "number")
+	f.value = Line(f, "text", "number")
+	f.value:SetJustifyH("RIGHT")
+	f.items = {}
+	for i = 1, ITEM_ROWS do
+		f.items[i] = Line(f, "text")
+	end
+	f.finds = Line(f, "accent")
+	f.progress = Line(f, "textMuted")
+
+	f.collapse = UI.CollapseButton(f, function()
+		return db.tracker.collapsed
+	end, function()
+		db.tracker.collapsed = not db.tracker.collapsed
+		ns.GatherTracker_Refresh()
+	end)
+end
+
 local function Build()
 	frame = CreateFrame("Frame", nil, UIParent)
-	frame:SetSize(WIDTH, 60)
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetClampedToScreen(true)
 	frame:SetMovable(true)
 	frame:Hide()
-	UI.Panel(frame, { alpha = 0.55, subtle = true })
+	Dress(frame)
 
-	frame.icon = frame:CreateTexture(nil, "ARTWORK")
-	frame.icon:SetSize(16, 16)
-	frame.icon:SetPoint("TOPLEFT", PAD, -7)
-	frame.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-
-	frame.endButton = UI.Button(frame, 38, "End")
-	frame.endButton:SetHeight(16)
-	frame.endButton:SetPoint("TOPRIGHT", -26, -6)
 	frame.endButton:SetScript("OnClick", function()
 		ns.Gather_End("manual")
 	end)
@@ -118,31 +149,6 @@ local function Build()
 	end)
 	frame.endButton:HookScript("OnLeave", function()
 		GameTooltip:Hide()
-	end)
-
-	frame.time = UI.Text(frame, 12, "text", "number")
-	frame.time:SetJustifyH("RIGHT")
-	frame.time:SetPoint("RIGHT", frame.endButton, "LEFT", -8, 0)
-	frame.title = UI.Text(frame, 12, "heading", "title")
-	frame.title:SetWordWrap(false)
-	frame.title:SetPoint("LEFT", frame.icon, "RIGHT", 6, 0)
-	frame.title:SetPoint("RIGHT", frame.time, "LEFT", -6, 0)
-
-	frame.nodes = Line("text", "number")
-	frame.value = Line("text", "number")
-	frame.value:SetJustifyH("RIGHT")
-	frame.items = {}
-	for i = 1, ITEM_ROWS do
-		frame.items[i] = Line("text")
-	end
-	frame.finds = Line("accent")
-	frame.progress = Line("textMuted")
-
-	frame.collapse = UI.CollapseButton(frame, function()
-		return db.tracker.collapsed
-	end, function()
-		db.tracker.collapsed = not db.tracker.collapsed
-		ns.GatherTracker_Refresh()
 	end)
 
 	frame:SetScript("OnUpdate", function(_, dt)
@@ -171,6 +177,7 @@ local function SampleRun()
 	run.knowledge[2881] = { last = 4, gained = 2 }
 	return run
 end
+ns.GatherTracker_SampleRun = SampleRun -- also the run-done toast's settings preview (Gather.lua)
 
 local function TopItems(run, n)
 	local list = {}
@@ -264,18 +271,79 @@ end
 
 local current, currentSample
 
+-- The clock (and the one line of a collapsed tracker) on f.
+local function Clock(f, run, sample, collapsed)
+	local n = ns.Gather_Numbers(run, GetServerTime(), not sample)
+	local clock = ns.Gather_DurationText(n.duration)
+	if collapsed then
+		local perHour = n.valuePerHour and (ns.Gather_Money(n.valuePerHour) .. "/h") or (ns.Thousands(n.nodesPerHour) .. "/h")
+		f.title:SetText(("%s nodes · %s"):format(ns.Thousands(n.nodes), perHour))
+	end
+	f.time:SetText(clock)
+end
+
+-- Fills f (Dress) with run; sample: a made-up run (no End button, numbers not ticking on). Sets f's height.
+local function Fill(f, run, sample, collapsed)
+	local n = ns.Gather_Numbers(run, GetServerTime(), not sample)
+	f.icon:SetTexture(ns.Gather_RunIcon(n))
+	f.endButton:SetShown(not sample)
+
+	for _, fs in ipairs({ f.nodes, f.value, f.finds, f.progress }) do
+		fs:Hide()
+	end
+	for _, fs in ipairs(f.items) do
+		fs:Hide()
+	end
+
+	if collapsed then
+		f:SetHeight(30)
+		Clock(f, run, sample, collapsed)
+		return
+	end
+	f.title:SetText(ns.Gather_RunTitle(n.mainKind, n.kinds))
+	local y = 28
+	f.nodes:ClearAllPoints()
+	f.nodes:SetPoint("TOPLEFT", PAD, -y)
+	f.nodes:SetText(("%s %s · %s/h"):format(ns.Thousands(n.nodes), n.nodes == 1 and "node" or "nodes",
+		ns.Thousands(n.nodesPerHour)))
+	f.nodes:Show()
+	f.value:ClearAllPoints()
+	f.value:SetPoint("TOPRIGHT", -PAD, -y)
+	if n.value then
+		f.value:SetText(("%s · %s/h"):format(ns.Gather_Money(n.value), ns.Gather_Money(n.valuePerHour)))
+		UI.SetTextRole(f.value, "text")
+	else
+		f.value:SetText("no prices")
+		UI.SetTextRole(f.value, "textMuted")
+	end
+	f.value:Show()
+	y = y + LINE_H + 2
+	for i, item in ipairs(TopItems(run, ITEM_ROWS)) do
+		local e, itemID = item.e, type(item.key) == "number" and item.key or nil
+		local fs = f.items[i]
+		fs:SetText(("%s%s %s  %s"):format(ns.Gather_ItemIcon(itemID, 14), ns.Gather_ItemName(itemID, e.link),
+			ns.Gather_RankMarkup(itemID, e.rank, 14), UI.Wrap("x" .. e.n, "textMuted")))
+		y = PlaceLine(fs, y)
+	end
+	local finds = FindsText(run)
+	if finds then
+		f.finds:SetText(finds)
+		y = PlaceLine(f.finds, y)
+	end
+	local progress = ns.Gather_ProgressText(run, sample)
+	if progress then
+		f.progress:SetText(progress)
+		y = PlaceLine(f.progress, y)
+	end
+	f:SetHeight(y + 6)
+	Clock(f, run, sample, collapsed)
+end
+
 function ns.GatherTracker_Tick()
 	if not (frame and current) then
 		return
 	end
-	local live = not currentSample
-	local n = ns.Gather_Numbers(current, GetServerTime(), live)
-	local clock = ns.Gather_DurationText(n.duration)
-	if db.tracker.collapsed then
-		local perHour = n.valuePerHour and (ns.Gather_Money(n.valuePerHour) .. "/h") or (ns.Thousands(n.nodesPerHour) .. "/h")
-		frame.title:SetText(("%s nodes · %s"):format(ns.Thousands(n.nodes), perHour))
-	end
-	frame.time:SetText(clock)
+	Clock(frame, current, currentSample, db.tracker.collapsed)
 end
 
 function ns.GatherTracker_Refresh()
@@ -295,61 +363,23 @@ function ns.GatherTracker_Refresh()
 		run, sample = SampleRun(), true
 	end
 	current, currentSample = run, sample
-	local n = ns.Gather_Numbers(run, GetServerTime(), not sample)
-	frame.icon:SetTexture(ns.Gather_RunIcon(n))
-	frame.endButton:SetShown(not sample)
-
-	for _, fs in ipairs({ frame.nodes, frame.value, frame.finds, frame.progress }) do
-		fs:Hide()
-	end
-	for _, fs in ipairs(frame.items) do
-		fs:Hide()
-	end
-
-	if db.tracker.collapsed then
-		frame:SetHeight(30)
-		ns.GatherTracker_Tick()
-		frame:Show()
-		return
-	end
-	frame.title:SetText(ns.Gather_RunTitle(n.mainKind, n.kinds))
-	local y = 28
-	frame.nodes:ClearAllPoints()
-	frame.nodes:SetPoint("TOPLEFT", PAD, -y)
-	frame.nodes:SetText(("%s %s · %s/h"):format(ns.Thousands(n.nodes), n.nodes == 1 and "node" or "nodes",
-		ns.Thousands(n.nodesPerHour)))
-	frame.nodes:Show()
-	frame.value:ClearAllPoints()
-	frame.value:SetPoint("TOPRIGHT", -PAD, -y)
-	if n.value then
-		frame.value:SetText(("%s · %s/h"):format(ns.Gather_Money(n.value), ns.Gather_Money(n.valuePerHour)))
-		UI.SetTextRole(frame.value, "text")
-	else
-		frame.value:SetText("no prices")
-		UI.SetTextRole(frame.value, "textMuted")
-	end
-	frame.value:Show()
-	y = y + LINE_H + 2
-	for i, item in ipairs(TopItems(run, ITEM_ROWS)) do
-		local e, itemID = item.e, type(item.key) == "number" and item.key or nil
-		local fs = frame.items[i]
-		fs:SetText(("%s%s %s  %s"):format(ns.Gather_ItemIcon(itemID, 14), ns.Gather_ItemName(itemID, e.link),
-			ns.Gather_RankMarkup(itemID, e.rank, 14), UI.Wrap("x" .. e.n, "textMuted")))
-		y = PlaceLine(fs, y)
-	end
-	local finds = FindsText(run)
-	if finds then
-		frame.finds:SetText(finds)
-		y = PlaceLine(frame.finds, y)
-	end
-	local progress = ns.Gather_ProgressText(run, sample)
-	if progress then
-		frame.progress:SetText(progress)
-		y = PlaceLine(frame.progress, y)
-	end
-	frame:SetHeight(y + 6)
-	ns.GatherTracker_Tick()
+	Fill(frame, run, sample, db.tracker.collapsed)
 	frame:Show()
+end
+
+-- The settings preview (Panel/Preview.lua): the tracker open, with the run going on now or the made-up one. Drawn by
+-- Dress and Fill like the real one; still (no clock ticking).
+function ns.GatherTracker_DrawSample(host)
+	local f = host.tracker
+	if not f then
+		f = CreateFrame("Frame", nil, host)
+		f:SetPoint("TOPLEFT")
+		Dress(f)
+		host.tracker = f
+	end
+	local run = db.run
+	Fill(f, run or SampleRun(), not run, false)
+	return WIDTH, f:GetHeight()
 end
 
 function ns.GatherTracker_ResetPosition()

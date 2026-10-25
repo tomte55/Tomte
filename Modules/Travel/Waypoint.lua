@@ -371,6 +371,40 @@ local function Times(v)
 	return ("%.2f"):format(v)
 end
 
+-- Settings previews (Panel/Preview.lua): a sample marker drawn by Marker.lua. A hovered Style choice (choosing) shows
+-- its preset, what picking it would set; the row itself shows the settings as they are.
+local LOOK_KEYS = { "style", "scale", "alpha", "beam", "beamAlpha", "footer", "card", "arrowScale", "metric",
+	"countdown" }
+
+local function Look(get, choosing)
+	local s = {}
+	for _, key in ipairs(LOOK_KEYS) do
+		s[key] = get(key)
+	end
+	if choosing then
+		ns.Way_ApplyStyle(s, s.style)
+	end
+	return s
+end
+
+local function MarkerPreview(host, get)
+	return ns.WayMarker_DrawSample(host, Look(get), "far")
+end
+
+local function BothPreview(host, get, choosing)
+	local s = Look(get, choosing)
+	return ns.WayMarker_DrawSample(host, s, s.card and "both" or "far")
+end
+
+local function CardPreview(host, get)
+	local s = Look(get)
+	return ns.WayMarker_DrawSample(host, s, s.card and "card" or "far")
+end
+
+local function ArrowPreview(host, get)
+	return ns.WayMarker_DrawSample(host, Look(get), "arrow")
+end
+
 -- "Use meters", for other modules' distances (Flight's Around rows).
 function ns.Way_Metric()
 	if not db then
@@ -493,16 +527,16 @@ module = ns.RegisterModule({
 			end, onChange = function(value)
 				ns.Way_ApplyStyle(db, value)
 				Refresh()
-			end },
+			end, preview = BothPreview },
 		{ type = "slider", key = "scale", label = "Marker size", min = 0.6, max = 1.6, step = 0.05, format = Times,
-			onChange = ApplyLook },
+			onChange = ApplyLook, preview = BothPreview },
 		{ type = "slider", key = "alpha", label = "Opacity", min = 0.3, max = 1, step = 0.05, format = Percent,
-			onChange = ApplyLook },
-		{ type = "checkbox", key = "beam", label = "Beam", onChange = ApplyLook,
+			onChange = ApplyLook, preview = MarkerPreview },
+		{ type = "checkbox", key = "beam", label = "Beam", onChange = ApplyLook, preview = MarkerPreview,
 			tooltip = "A light rising from the marker, easy to spot from far away." },
 		{ type = "slider", key = "beamAlpha", label = "Beam opacity", min = 0.1, max = 1, step = 0.05, format = Percent,
-			onChange = ApplyLook, parent = "beam" },
-		{ type = "dropdown", key = "footer", label = "Text under the marker",
+			onChange = ApplyLook, parent = "beam", preview = MarkerPreview },
+		{ type = "dropdown", key = "footer", label = "Text under the marker", preview = MarkerPreview,
 			choices = function()
 				local list = {}
 				for i, key in ipairs(ns.WAY_FOOTERS) do
@@ -512,7 +546,7 @@ module = ns.RegisterModule({
 			end },
 
 		{ type = "header", label = "Close up" },
-		{ type = "checkbox", key = "card", label = "Close-up card", onChange = ApplyLook,
+		{ type = "checkbox", key = "card", label = "Close-up card", onChange = ApplyLook, preview = CardPreview,
 			tooltip = "Near the target, show a card with its name, objectives and distance instead of the marker." },
 		{ type = "slider", key = "cardDistance", label = "Card within", min = 50, max = 500, step = 5,
 			format = DistanceFormat, parent = "card" },
@@ -521,13 +555,13 @@ module = ns.RegisterModule({
 				.. "tracked quest's area." },
 
 		{ type = "header", label = "Edge arrow" },
-		{ type = "checkbox", key = "arrow", label = "Edge arrow",
+		{ type = "checkbox", key = "arrow", label = "Edge arrow", preview = ns.Preview_When("arrow", ArrowPreview),
 			tooltip = "When the target is off-screen, an arrow near the screen edge points toward it." },
 		{ type = "slider", key = "arrowScale", label = "Arrow size", min = 0.6, max = 1.6, step = 0.05, format = Times,
-			onChange = ApplyLook, parent = "arrow" },
+			onChange = ApplyLook, parent = "arrow", preview = ns.Preview_When("arrow", ArrowPreview) },
 
 		{ type = "header", label = "General" },
-		{ type = "checkbox", key = "metric", label = "Use meters", onChange = Refresh },
+		{ type = "checkbox", key = "metric", label = "Use meters", onChange = Refresh, preview = MarkerPreview },
 		{ type = "checkbox", key = "autoTrack", label = "Track map pins when placed",
 			tooltip = "Placing a pin on the world map tracks it right away." },
 		{ type = "checkbox", key = "portals", label = "Route to other continents",
@@ -549,6 +583,7 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "showWhenHidden", label = "Show when the UI is hidden", onChange = ApplyLook,
 			tooltip = "Keep the marker visible after Alt+Z." },
 		{ type = "checkbox", key = "countdown", label = "Countdown on timed waypoints", onChange = ApplyLook,
+			preview = BothPreview,
 			tooltip = "World quests and events that end soon show the time left under the marker and on the card." },
 		{ type = "checkbox", key = "mapPing", label = "Ping your arrow when the map opens",
 			onChange = function()

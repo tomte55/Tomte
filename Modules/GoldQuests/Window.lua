@@ -26,9 +26,35 @@ local SECTIONS = {
 	caches = "Weekly caches",
 }
 
+-- The settings preview: a short window at the smallest width, so most scales show at real size (Panel/Preview.lua
+-- shrinks anything past 420 x 340).
+local PREVIEW_W, PREVIEW_H = MIN_W, 250
+-- The preview's quests when the window hasn't scanned any yet (made-up quests, money in copper).
+local SAMPLE = {
+	pending = 0,
+	group = { count = 3, total = 4250000, zones = {
+		{ name = "Hallowfall", total = 3000000, quests = {
+			{ id = -1, title = "Spores in the Shallows", money = 1750000, seconds = 5400 },
+			{ id = -2, title = "Candles for the Deep", money = 1250000, seconds = 30 * 3600 },
+		} },
+		{ name = "The Ringing Deeps", total = 1250000, quests = {
+			{ id = -3, title = "Flooded Tunnels", money = 1250000, seconds = 2 * 86400 },
+		} },
+	} },
+	assignments = {
+		{ title = "A Lost Patrol", zone = "Hallowfall", state = "locked", have = 2, need = 3 },
+	},
+	caches = {
+		{ label = "Weekly gold cache", done = true },
+		{ label = "Delver's weekly cache", done = false },
+	},
+}
+
 local db
 local frame
-local rows, used = {}, 0
+-- Where Row draws: content (the frame the rows go on), rows (made so far) and used (taken in this draw). One for the
+-- window (set up in Build), one for the settings preview.
+local main = { rows = {}, used = 0 }
 local expanded = {} -- [guid] = true: characters unfolded in the Characters view (this session)
 local tick, clock = 0, 0
 local Draw
@@ -199,8 +225,8 @@ local function OnRowClick(self, button)
 	end
 end
 
-local function NewRow()
-	local row = CreateFrame("Button", nil, frame.scroll.content)
+local function NewRow(c)
+	local row = CreateFrame("Button", nil, c.content)
 	row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	row.hover = row:CreateTexture(nil, "BACKGROUND")
 	row.hover:SetAllPoints()
@@ -231,11 +257,11 @@ local function NewRow()
 	return row
 end
 
--- A row at y with the given height and indent. left: text in the fixed column (nil hides the column).
-local function Row(y, height, indent, data)
-	used = used + 1
-	local row = rows[used] or NewRow()
-	rows[used] = row
+-- A row on canvas c at y with the given height and indent. left: text in the fixed column (nil hides the column).
+local function Row(c, y, height, indent, data)
+	c.used = c.used + 1
+	local row = c.rows[c.used] or NewRow(c)
+	c.rows[c.used] = row
 	row:SetHeight(height)
 	row:ClearAllPoints()
 	row:SetPoint("TOPLEFT", 0, -y)
@@ -273,9 +299,9 @@ end
 
 -- Layout ----------------------------------------------------------------------------------------------------------
 
-local function Header(y, key, title, right)
-	local collapsed = db.collapsed[key]
-	local row = Row(y, HEAD_H, 0, { kind = "header", key = key })
+local function Header(c, y, key, title, right)
+	local collapsed = not c.expandAll and db.collapsed[key]
+	local row = Row(c, y, HEAD_H, 0, { kind = "header", key = key })
 	UI.SetFont(row.name, "title", 13)
 	UI.SetTextRole(row.name, "heading")
 	row.name:SetText((collapsed and "+ " or "- ") .. title)
@@ -285,13 +311,13 @@ local function Header(y, key, title, right)
 end
 
 -- A muted line that wraps (the row grows to fit it).
-local function Note(y, text, indent)
+local function Note(c, y, text, indent)
 	indent = indent or 8
-	local row = Row(y, LINE_H, indent, nil)
+	local row = Row(c, y, LINE_H, indent, nil)
 	UI.SetTextRole(row.name, "textMuted")
 	row.name:ClearAllPoints()
 	row.name:SetPoint("TOPLEFT", 8 + indent, -2)
-	row.name:SetWidth(math.max(frame.scroll.content:GetWidth() - indent - 16, 50))
+	row.name:SetWidth(math.max(c.content:GetWidth() - indent - 16, 50))
 	row.name:SetWordWrap(true)
 	row.name:SetText(text)
 	local height = math.max(LINE_H, math.ceil(row.name:GetStringHeight()) + 4)
@@ -299,31 +325,31 @@ local function Note(y, text, indent)
 	return y + height
 end
 
-local function DrawQuests(y, model)
+local function DrawQuests(c, y, model)
 	local group = model.group
 	local collapsed
 	local right = group.count > 0 and ("%d  ·  %s"):format(group.count, ns.Gold(group.total)) or ""
 	if model.pending > 0 and group.count > 0 then
 		right = UI.Wrap("loading…  ", "textFaint") .. right
 	end
-	y, collapsed = Header(y, "quests", SECTIONS.quests, right)
+	y, collapsed = Header(c, y, "quests", SECTIONS.quests, right)
 	if collapsed then
 		return y + 4
 	end
 	if group.count == 0 then
-		y = Note(y, model.pending > 0 and "Loading rewards…" or "None up right now.")
+		y = Note(c, y, model.pending > 0 and "Loading rewards…" or "None up right now.")
 		if model.pending == 0 and model.expansion ~= ns.ContentExpansion() then
-			y = Note(y, "An older expansion's world quests show once this character has unlocked them.")
+			y = Note(c, y, "An older expansion's world quests show once this character has unlocked them.")
 		end
 	end
 	for _, zone in ipairs(group.zones) do
-		local zoneRow = Row(y, ZONE_H, 4, nil)
+		local zoneRow = Row(c, y, ZONE_H, 4, nil)
 		UI.SetTextRole(zoneRow.name, "heading")
 		zoneRow.name:SetText(zone.name)
 		zoneRow.right:SetText(("%d  ·  %s"):format(#zone.quests, ns.Gold(zone.total)))
 		y = y + ZONE_H
 		for _, q in ipairs(zone.quests) do
-			local row = Row(y, ROW_H, 4, { kind = "quest", q = q })
+			local row = Row(c, y, ROW_H, 4, { kind = "quest", q = q })
 			SetLeft(row, ns.WQ_FormatGold(q.money), "heading", 4)
 			local stop = ns.WQRoute_Index(q.id)
 			row.name:SetText(stop and (UI.Wrap(stop .. ".", "accent") .. " " .. q.title) or q.title)
@@ -337,17 +363,17 @@ local function DrawQuests(y, model)
 	return y + 6
 end
 
-local function DrawAssignments(y, model)
+local function DrawAssignments(c, y, model)
 	if #model.assignments == 0 then
 		return y
 	end
 	local collapsed
-	y, collapsed = Header(y, "assignments", SECTIONS.assignments)
+	y, collapsed = Header(c, y, "assignments", SECTIONS.assignments)
 	if collapsed then
 		return y + 4
 	end
 	for _, a in ipairs(model.assignments) do
-		local row = Row(y, ROW_H, 4, { kind = "assignment", a = a })
+		local row = Row(c, y, ROW_H, 4, { kind = "assignment", a = a })
 		SetLeft(row, STATE_TEXT[a.state], STATE_ROLES[a.state], 4)
 		UI.SetFont(row.left, "body", 12)
 		row.name:SetText(a.title .. "  " .. UI.Wrap(a.zone, "textFaint"))
@@ -364,7 +390,7 @@ local function DrawAssignments(y, model)
 	return y + 6
 end
 
-local function DrawCaches(y, model)
+local function DrawCaches(canvas, y, model)
 	if #model.caches == 0 then
 		return y
 	end
@@ -375,12 +401,12 @@ local function DrawCaches(y, model)
 		end
 	end
 	local collapsed
-	y, collapsed = Header(y, "caches", SECTIONS.caches, ("%d/%d"):format(done, #model.caches))
+	y, collapsed = Header(canvas, y, "caches", SECTIONS.caches, ("%d/%d"):format(done, #model.caches))
 	if collapsed then
 		return y + 4
 	end
 	for _, c in ipairs(model.caches) do
-		local row = Row(y, ROW_H, 4, { kind = "cache", c = c })
+		local row = Row(canvas, y, ROW_H, 4, { kind = "cache", c = c })
 		SetLeft(row, c.done and "Done" or "Not done", c.done and "success" or "danger", 4)
 		UI.SetFont(row.left, "body", 12)
 		row.name:SetText(c.label)
@@ -390,26 +416,27 @@ local function DrawCaches(y, model)
 	return y + 6
 end
 
-local function DrawGold(model)
+local function DrawGold(c, model)
 	if not model then
-		return Note(0, "Tomte has no gold world quest data for " .. ns.ExpansionName(ns.ContentExpansion()) .. ".", 0)
+		return Note(c, 0, "Tomte has no gold world quest data for " .. ns.ExpansionName(ns.ContentExpansion()) .. ".",
+			0)
 	end
-	local y = DrawQuests(0, model)
-	y = DrawAssignments(y, model)
-	return DrawCaches(y, model)
+	local y = DrawQuests(c, 0, model)
+	y = DrawAssignments(c, y, model)
+	return DrawCaches(c, y, model)
 end
 
-local function DrawChars()
+local function DrawChars(c)
 	local now = GetServerTime()
 	local list = ns.Gold_Characters(now)
 	local y = 0
 	if #list == 0 then
-		return Note(0, "No characters yet. Each character shows up once it logs in at max level.", 0)
+		return Note(c, 0, "No characters yet. Each character shows up once it logs in at max level.", 0)
 	end
 	for _, entry in ipairs(list) do
 		local char = entry.char
 		local week, caches = ns.Gold_CharWeek(char, now)
-		local row = Row(y, HEAD_H, 0, { kind = "char", guid = entry.guid })
+		local row = Row(c, y, HEAD_H, 0, { kind = "char", guid = entry.guid })
 		row.name:SetText((expanded[entry.guid] and "- " or "+ ") .. UI.ClassColored(char.name or "?", char.class)
 			.. UI.Wrap("  " .. (char.realm or ""), "textFaint"))
 		row.right:SetText(ns.Gold(week) .. " this week")
@@ -417,11 +444,11 @@ local function DrawChars()
 		row.line:Show()
 		y = y + HEAD_H + 2
 		if expanded[entry.guid] then
-			y = Note(y, ("Level %s  ·  %s from world quests in all"):format(char.level or "?",
+			y = Note(c, y, ("Level %s  ·  %s from world quests in all"):format(char.level or "?",
 				ns.Gold(char.totalCopper or 0)), 12)
 			for _, cache in ipairs(ns.Content_Get(char.expansion, "caches") or {}) do
 				local done = caches[cache.key] == true
-				local line = Row(y, LINE_H, 12, nil)
+				local line = Row(c, y, LINE_H, 12, nil)
 				SetLeft(line, done and "Done" or "Not done", done and "success" or "danger", 12)
 				UI.SetFont(line.left, "body", 11)
 				line.name:SetText(ns.Gold_CacheLabel(cache))
@@ -434,34 +461,46 @@ local function DrawChars()
 	return y
 end
 
+-- Takes back every row of canvas c for a new draw.
+local function Clear(c)
+	for i = 1, c.used do
+		c.rows[i]:Hide()
+		c.rows[i].data = nil
+	end
+	c.used = 0
+end
+
+-- The header of window f (built by Dress) for the Characters view (chars) or the Gold view.
+local function Head(f, chars)
+	f.sub:SetShown(chars)
+	f.expansion:SetShown(not chars)
+	if chars then
+		f.sub:SetText("World quest gold this week")
+		f.charsButton.label:SetText("Quests")
+	else
+		f.expansion:Refresh()
+		f.charsButton.label:SetText("Characters")
+	end
+	f.routeButton.label:SetText(ns.WQRoute_ButtonText())
+	UI.FitButton(f.routeButton, 56, 16)
+	UI.FitButton(f.charsButton, 56, 16)
+end
+
 function Draw()
 	if not (frame and frame:IsShown()) or db.window.collapsed then
 		return
 	end
 	local owner = GameTooltip:GetOwner()
 	local ours = owner and owner.data ~= nil and owner:GetParent() == frame.scroll.content
-	for i = 1, used do
-		rows[i]:Hide()
-		rows[i].data = nil
-	end
-	used = 0
-	local model = ns.Gold_LastModel()
-	local height
+	Clear(main)
 	local chars = db.view == "chars"
-	frame.sub:SetShown(chars)
-	frame.expansion:SetShown(not chars)
+	Head(frame, chars)
+	local height
 	if chars then
-		frame.sub:SetText("World quest gold this week")
-		frame.charsButton.label:SetText("Quests")
-		height = DrawChars()
+		height = DrawChars(main)
 	else
-		frame.expansion:Refresh()
-		frame.charsButton.label:SetText("Characters")
-		height = DrawGold(model)
+		height = DrawGold(main, ns.Gold_LastModel())
 	end
-	frame.routeButton.label:SetText(ns.WQRoute_ButtonText())
-	UI.FitButton(frame.routeButton, 56, 16)
-	UI.FitButton(frame.charsButton, 56, 16)
 	frame.scroll:SetContentHeight(height)
 	if ours then
 		GameTooltip:Hide()
@@ -471,7 +510,8 @@ function Draw()
 	if frame.sizing or not frame.scroll:IsMouseOver() then
 		return
 	end
-	for i = 1, used do
+	local rows = main.rows
+	for i = 1, main.used do
 		if rows[i].data and rows[i]:IsMouseOver() then
 			OnRowEnter(rows[i])
 		end
@@ -519,6 +559,43 @@ local function ApplyLook()
 	frame:SetSize(db.window.w or DEFAULT_W, folded and FOLDED_H or (db.window.h or DEFAULT_H))
 end
 
+-- The window's look on f: the panel, the title, the header buttons, the expansion menu and the rule under them.
+-- Shared by the real window and the settings preview; Build adds what they do.
+local function Dress(f)
+	UI.Panel(f, { alpha = db.opacity, subtle = true })
+	local title = UI.Text(f, 10, "textMuted", "label")
+	title:SetPoint("TOPLEFT", 10, -8)
+	title:SetText(ns.Spaced("Gold world quests"))
+	f.close = UI.Button(f, 20, "x")
+	f.close:SetPoint("TOPRIGHT", -4, -3)
+	f.fold = UI.Button(f, 20, "-")
+	f.fold:SetPoint("RIGHT", f.close, "LEFT", -4, 0)
+	local settings = CreateFrame("Button", nil, f)
+	settings:SetSize(16, 16)
+	settings:SetPoint("RIGHT", f.fold, "LEFT", -6, 0)
+	settings.icon = settings:CreateTexture(nil, "ARTWORK")
+	settings.icon:SetAllPoints()
+	settings.icon:SetTexture(UI.GEAR)
+	settings.icon:SetTexCoord(0, 0.5, 0, 0.5)
+	settings.icon:SetVertexColor(UI.RGB("textMuted"))
+	f.settings = settings
+	f.sub = UI.Text(f, 11, "textMuted")
+	f.sub:SetPoint("TOPLEFT", 10, -28)
+	f.sub:SetWordWrap(false)
+	f.charsButton = UI.Button(f, 80, "Characters")
+	f.charsButton:SetPoint("TOPRIGHT", -4, -24)
+	f.routeButton = UI.Button(f, 60, "Route")
+	f.routeButton:SetPoint("RIGHT", f.charsButton, "LEFT", -4, 0)
+	f.sub:SetPoint("RIGHT", f.routeButton, "LEFT", -6, 0)
+	f.expansion = UI.Dropdown(f, 140)
+	f.expansion:SetPoint("TOPLEFT", 6, -24)
+	f.expansion.choices = ns.Gold_ExpansionChoices
+	f.expansion.getValue = ns.Gold_ViewExpansion
+	f.line = UI.Hairline(f, DEFAULT_W - 40, 0.5)
+	f.line:SetPoint("TOPLEFT", 10, -TITLE_H)
+	f.line:SetPoint("TOPRIGHT", -10, -TITLE_H)
+end
+
 local function Build()
 	frame = CreateFrame("Frame", "TomteGoldWindow", UIParent)
 	frame:SetFrameStrata("MEDIUM")
@@ -533,18 +610,11 @@ local function Build()
 		SavePlace()
 	end)
 	frame:Hide()
-	UI.Panel(frame, { alpha = db.opacity, subtle = true })
+	Dress(frame)
 
-	local title = UI.Text(frame, 10, "textMuted", "label")
-	title:SetPoint("TOPLEFT", 10, -8)
-	title:SetText(ns.Spaced("Gold world quests"))
-	local close = UI.Button(frame, 20, "x")
-	close:SetPoint("TOPRIGHT", -4, -3)
-	close:SetScript("OnClick", function()
+	frame.close:SetScript("OnClick", function()
 		ns.GoldWindow_Hide()
 	end)
-	frame.fold = UI.Button(frame, 20, "-")
-	frame.fold:SetPoint("RIGHT", close, "LEFT", -4, 0)
 	frame.fold:SetScript("OnClick", function()
 		if not db.window.collapsed then
 			SavePlace()
@@ -554,14 +624,7 @@ local function Build()
 		SavePlace()
 		Draw()
 	end)
-	local settings = CreateFrame("Button", nil, frame)
-	settings:SetSize(16, 16)
-	settings:SetPoint("RIGHT", frame.fold, "LEFT", -6, 0)
-	settings.icon = settings:CreateTexture(nil, "ARTWORK")
-	settings.icon:SetAllPoints()
-	settings.icon:SetTexture(UI.GEAR)
-	settings.icon:SetTexCoord(0, 0.5, 0, 0.5)
-	settings.icon:SetVertexColor(UI.RGB("textMuted"))
+	local settings = frame.settings
 	settings:SetScript("OnEnter", function(self)
 		self.icon:SetVertexColor(UI.RGB("accent"))
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -576,18 +639,11 @@ local function Build()
 		ns.Panel_OpenModule("wgq")
 	end)
 
-	frame.sub = UI.Text(frame, 11, "textMuted")
-	frame.sub:SetPoint("TOPLEFT", 10, -28)
-	frame.sub:SetWordWrap(false)
-	frame.charsButton = UI.Button(frame, 80, "Characters")
-	frame.charsButton:SetPoint("TOPRIGHT", -4, -24)
 	frame.charsButton:SetScript("OnClick", function()
 		db.view = db.view == "chars" and "gold" or "chars"
 		frame.scroll:SetScroll(0)
 		Draw()
 	end)
-	frame.routeButton = UI.Button(frame, 60, "Route")
-	frame.routeButton:SetPoint("RIGHT", frame.charsButton, "LEFT", -4, 0)
 	frame.routeButton:SetScript("OnClick", function()
 		ns.WQRoute_Click(ns.Gold_StartRoute)
 		Draw()
@@ -614,23 +670,16 @@ local function Build()
 	frame.routeButton:HookScript("OnLeave", function()
 		GameTooltip:Hide()
 	end)
-	frame.sub:SetPoint("RIGHT", frame.routeButton, "LEFT", -6, 0)
-	frame.expansion = UI.Dropdown(frame, 140)
-	frame.expansion:SetPoint("TOPLEFT", 6, -24)
-	frame.expansion.choices = ns.Gold_ExpansionChoices
-	frame.expansion.getValue = ns.Gold_ViewExpansion
 	frame.expansion.setValue = function(value)
 		ns.Gold_SetViewExpansion(value)
 		frame.scroll:SetScroll(0)
 		ns.GoldWindow_Refresh()
 	end
-	frame.line = UI.Hairline(frame, DEFAULT_W - 40, 0.5)
-	frame.line:SetPoint("TOPLEFT", 10, -TITLE_H)
-	frame.line:SetPoint("TOPRIGHT", -10, -TITLE_H)
 
 	frame.scroll = UI.Scroll(frame)
 	frame.scroll:SetPoint("TOPLEFT", 6, -TITLE_H - 4)
 	frame.scroll:SetPoint("BOTTOMRIGHT", -14, 14)
+	main.content = frame.scroll.content
 	frame.scroll.onWidthChanged = function()
 		Draw() -- notes wrap to the width
 	end
@@ -734,6 +783,39 @@ end
 
 function ns.GoldWindow_IsShown()
 	return frame ~= nil and frame:IsShown()
+end
+
+-- The settings preview (Panel/Preview.lua): the top of the window in the Gold view, PREVIEW_W x PREVIEW_H, with the
+-- last scan's quests (SAMPLE before there are any) at the scale and opacity under the mouse. Drawn by Dress, Head and
+-- DrawGold like the real window; the rows go on a clipped plain frame instead of the scroll area.
+function ns.GoldWindow_DrawSample(host, get)
+	local f = host.window
+	if not f then
+		f = CreateFrame("Frame", nil, host)
+		f:SetPoint("TOPLEFT")
+		f:SetSize(PREVIEW_W, PREVIEW_H)
+		Dress(f)
+		local content = CreateFrame("Frame", nil, f)
+		content:SetPoint("TOPLEFT", 6, -TITLE_H - 4)
+		content:SetSize(PREVIEW_W - 20, PREVIEW_H - TITLE_H - 18) -- the scroll area's insets
+		content:SetClipsChildren(true)
+		-- expandAll: the preview shows every section open, whatever the real window has folded.
+		f.canvas = { content = content, rows = {}, used = 0, expandAll = true }
+		host.window = f
+	end
+	local model = ns.Gold_LastModel()
+	if not (model and model.group.count > 0) then
+		model = SAMPLE
+	end
+	Clear(f.canvas)
+	Head(f, false)
+	DrawGold(f.canvas, model)
+	if f.themePanel then
+		f.themePanel:SetAlpha(get("opacity") or 0.55)
+	end
+	local scale = get("scale") or 1
+	f:SetScale(scale)
+	return PREVIEW_W * scale, PREVIEW_H * scale
 end
 
 -- Scale and opacity settings.

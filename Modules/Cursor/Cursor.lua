@@ -45,7 +45,42 @@ local function ReadPalette()
 	palette.custom = db.customColor
 end
 
+local function ClassColor()
+	local _, classFile = UnitClass("player")
+	local color = classFile and C_ClassColor.GetClassColor(classFile)
+	return color and { color:GetRGB() } or nil
+end
+
 -- Drawing ------------------------------------------------------------------------------------------------------
+
+-- The ring and its glow on parent (the screen holder, or a settings preview's frame). Returns ring, halo.
+local function CreateRing(parent)
+	local h = parent:CreateTexture(nil, "ARTWORK")
+	h:SetTexture(ns.Theme.MEDIA .. "Theme\\Glow")
+	h:SetBlendMode("ADD")
+	local r = parent:CreateTexture(nil, "OVERLAY")
+	r:SetBlendMode("ADD")
+	return r, h
+end
+
+local function ShapeRing(r, h, key)
+	local shape = ns.Cursor_Find(ns.CURSOR_RING_SHAPES, key)
+	r:SetTexture(ART .. shape.art)
+	h:SetShown(shape.halo)
+	return shape
+end
+
+-- Size (UI units across), opacity and color of a ring centered at x, y from anchor's bottom-left.
+local function PaintRing(r, h, anchor, x, y, size, alpha, cr, cg, cb)
+	r:SetVertexColor(cr, cg, cb)
+	h:SetVertexColor(cr, cg, cb)
+	r:SetSize(size, size)
+	r:SetPoint("CENTER", anchor, "BOTTOMLEFT", x, y)
+	r:SetAlpha(alpha)
+	h:SetSize(size * HALO_SCALE, size * HALO_SCALE)
+	h:SetPoint("CENTER", anchor, "BOTTOMLEFT", x, y)
+	h:SetAlpha(alpha * HALO_ALPHA)
+end
 
 local function CreateHolder()
 	-- Covers the screen so the ring can be placed by cursor position; never takes the mouse, so clicks go through
@@ -56,19 +91,11 @@ local function CreateHolder()
 	holder:SetFrameLevel(RING_LEVEL)
 	holder:EnableMouse(false)
 	holder:Hide()
-
-	halo = holder:CreateTexture(nil, "ARTWORK")
-	halo:SetTexture(ns.Theme.MEDIA .. "Theme\\Glow")
-	halo:SetBlendMode("ADD")
-
-	ring = holder:CreateTexture(nil, "OVERLAY")
-	ring:SetBlendMode("ADD")
+	ring, halo = CreateRing(holder)
 end
 
 local function ApplyShape()
-	local shape = ns.Cursor_Find(ns.CURSOR_RING_SHAPES, db.shape)
-	ring:SetTexture(ART .. shape.art)
-	halo:SetShown(shape.halo)
+	ShapeRing(ring, halo, db.shape)
 end
 
 local function HideRing()
@@ -96,16 +123,7 @@ local function DrawRing(now, x, y, scale, alpha)
 		scale, alpha = scale * s, alpha * a
 	end
 	local r, g, b = ns.Cursor_Color(db.color, palette, now)
-	ring:SetVertexColor(r, g, b)
-	halo:SetVertexColor(r, g, b)
-	alpha = alpha * db.opacity
-	local size = db.size * scale
-	ring:SetSize(size, size)
-	ring:SetPoint("CENTER", holder, "BOTTOMLEFT", x, y)
-	ring:SetAlpha(alpha)
-	halo:SetSize(size * HALO_SCALE, size * HALO_SCALE)
-	halo:SetPoint("CENTER", holder, "BOTTOMLEFT", x, y)
-	halo:SetAlpha(alpha * HALO_ALPHA)
+	PaintRing(ring, halo, holder, x, y, db.size * scale, alpha * db.opacity, r, g, b)
 end
 
 -- Driver -------------------------------------------------------------------------------------------------------
@@ -224,9 +242,7 @@ local function Start()
 	events:RegisterEvent("PLAYER_REGEN_DISABLED")
 	events:RegisterEvent("PLAYER_REGEN_ENABLED")
 	inCombat = InCombatLockdown()
-	local _, classFile = UnitClass("player")
-	local color = classFile and C_ClassColor.GetClassColor(classFile)
-	palette.class = color and { color:GetRGB() } or nil
+	palette.class = ClassColor()
 	ReadPalette()
 	if not driver then
 		driver = CreateFrame("Frame", nil, UIParent)
@@ -266,6 +282,39 @@ end
 
 local function FlatTrail()
 	return db.trailStyle ~= "effect"
+end
+
+-- Settings previews (Panel/Preview.lua): a still ring, or a still flat trail (Trail.lua), drawn by the same code
+-- as the real ones. The colors are read now, so a theme switch reaches them.
+local TRAIL_KEYS = { "color", "trailShape", "trailSize", "trailOpacity", "trailLife", "trailGap", "trailTaper" }
+
+local function PreviewPalette()
+	return { accent = { UI.RGB("accent") }, class = palette.class or ClassColor(), custom = db.customColor }
+end
+
+local function RingPreview(host, get)
+	if not host.ring then
+		host.ring, host.halo = CreateRing(host)
+	end
+	local shape = ShapeRing(host.ring, host.halo, get("shape"))
+	local size = get("size")
+	local box = math.ceil(size * (shape.halo and HALO_SCALE or 1)) + 4
+	local r, g, b = ns.Cursor_Color(get("color"), PreviewPalette(), GetTime())
+	PaintRing(host.ring, host.halo, host, box / 2, box / 2, size, get("opacity"), r, g, b)
+	return box, box
+end
+
+-- Also while the trail is off (the preview answers its switch as on). The spell effect is a model placed by screen
+-- fractions (Trail.lua), so it has no still sample: nothing shows for it.
+local function TrailPreview(host, get)
+	if get("trailStyle") == "effect" then
+		return nil
+	end
+	local s = {}
+	for _, key in ipairs(TRAIL_KEYS) do
+		s[key] = get(key)
+	end
+	return ns.Cursor_TrailSample(host, s, PreviewPalette())
 end
 
 module = ns.RegisterModule({
@@ -323,20 +372,20 @@ module = ns.RegisterModule({
 			tooltip = "Show the ring around the cursor for a few seconds." },
 
 		{ type = "header", label = "Ring" },
-		{ type = "dropdown", key = "shape", label = "Shape", onChange = Refresh,
+		{ type = "dropdown", key = "shape", label = "Shape", onChange = Refresh, preview = RingPreview,
 			choices = function()
 				return ns.Cursor_Choices(ns.CURSOR_RING_SHAPES)
 			end,
 			tooltip = "If the ring shows as a green square, restart the game once: new art only loads on a full restart, not a reload." },
 		{ type = "slider", key = "size", label = "Size", min = 32, max = 160, step = 8, format = Pixels,
-			onChange = Refresh },
+			onChange = Refresh, preview = RingPreview },
 		{ type = "slider", key = "opacity", label = "Opacity", min = 0.2, max = 1, step = 0.05, format = Percent,
-			onChange = Refresh },
+			onChange = Refresh, preview = RingPreview },
 		{ type = "checkbox", key = "pulse", label = "Pulse", onChange = Refresh,
 			tooltip = "The ring gently grows and dims while it's shown." },
 
 		{ type = "header", label = "Color" },
-		{ type = "dropdown", key = "color", label = "Color", onChange = Refresh,
+		{ type = "dropdown", key = "color", label = "Color", onChange = Refresh, preview = RingPreview,
 			choices = function()
 				return { { value = "theme", text = "Theme" }, { value = "class", text = "Class color" },
 					{ value = "custom", text = "Your own" }, { value = "rainbow", text = "Rainbow" } }
@@ -350,6 +399,7 @@ module = ns.RegisterModule({
 
 		{ type = "header", label = "Trail" },
 		{ type = "checkbox", key = "trail", label = "Trail", onChange = Refresh,
+			preview = ns.Preview_When("trail", TrailPreview),
 			tooltip = "Shapes or a spell effect following the cursor. It fades out as soon as the mouse is still." },
 		{ type = "dropdown", key = "trailWhen", label = "Show it", parent = "trail", onChange = Refresh,
 			choices = function()
@@ -358,6 +408,7 @@ module = ns.RegisterModule({
 			end,
 			tooltip = "With the ring: only while the ring is shown. Always and In combat: whenever the mouse moves." },
 		{ type = "dropdown", key = "trailStyle", label = "Kind", parent = "trail", onChange = Refresh,
+			preview = ns.Preview_When("trail", TrailPreview),
 			choices = function()
 				return { { value = "shapes", text = "Shapes" }, { value = "effect", text = "Spell effect" } }
 			end },
@@ -365,7 +416,7 @@ module = ns.RegisterModule({
 			choices = function()
 				return ns.Cursor_Choices(ns.CURSOR_TRAIL_SHAPES)
 			end,
-			shown = FlatTrail },
+			shown = FlatTrail, preview = ns.Preview_When("trail", TrailPreview) },
 		{ type = "dropdown", key = "trailEffect", label = "Effect", parent = "trail", onChange = Refresh,
 			choices = function()
 				return ns.Cursor_Choices(ns.CURSOR_EFFECTS)
@@ -375,17 +426,18 @@ module = ns.RegisterModule({
 			end,
 			tooltip = "A Blizzard spell effect sits on the cursor and leaves its sparks behind as you move." },
 		{ type = "slider", key = "trailSize", label = "Size", parent = "trail", min = 6, max = 40, step = 1,
-			format = Pixels, onChange = Refresh, tooltip = "The size of the newest point, or of the spell effect." },
+			format = Pixels, onChange = Refresh, preview = ns.Preview_When("trail", TrailPreview),
+			tooltip = "The size of the newest point, or of the spell effect." },
 		{ type = "slider", key = "trailOpacity", label = "Opacity", parent = "trail", min = 0.1, max = 1, step = 0.05,
-			format = Percent, onChange = Refresh },
+			format = Percent, onChange = Refresh, preview = ns.Preview_When("trail", TrailPreview) },
 		{ type = "slider", key = "trailLife", label = "Length", parent = "trail", min = 0.15, max = 1.2, step = 0.05,
-			format = Seconds, onChange = Refresh, shown = FlatTrail,
+			format = Seconds, onChange = Refresh, shown = FlatTrail, preview = ns.Preview_When("trail", TrailPreview),
 			tooltip = "How long each point stays before it's gone: a longer trail." },
 		{ type = "slider", key = "trailGap", label = "Spacing", parent = "trail", min = 3, max = 30, step = 1,
-			format = Pixels, onChange = Refresh, shown = FlatTrail,
+			format = Pixels, onChange = Refresh, shown = FlatTrail, preview = ns.Preview_When("trail", TrailPreview),
 			tooltip = "How far the cursor moves before the next point: lower is a denser trail. The ribbon looks smoothest low." },
 		{ type = "slider", key = "trailTaper", label = "Taper", parent = "trail", min = 0, max = 1, step = 0.05,
-			format = Percent, onChange = Refresh, shown = FlatTrail,
+			format = Percent, onChange = Refresh, shown = FlatTrail, preview = ns.Preview_When("trail", TrailPreview),
 			tooltip = "How much the trail shrinks toward its tail." },
 	},
 })

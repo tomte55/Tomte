@@ -39,6 +39,25 @@ local function Directions()
 	return choices
 end
 
+-- Settings previews (Panel/Preview.lua): drawer i opened. One function per drawer, so each keeps its own picture.
+local previews = {}
+for i = 1, COUNT do
+	previews[i] = function(host, get)
+		return ns.Drawers_DrawSample(host, get, i)
+	end
+end
+
+-- The settings for every drawer show the first one that's on and has something in it (else drawer 1).
+local function SharedPreview(host, get)
+	for i = 1, COUNT do
+		local saved, entries = ns.Drawers_Saved(db, i)
+		if saved.enabled and #entries > 0 then
+			return ns.Drawers_DrawSample(host, get, i)
+		end
+	end
+	return ns.Drawers_DrawSample(host, get, 1)
+end
+
 local defaults = {
 	scale = 1,
 	closeOnUse = true,
@@ -60,17 +79,20 @@ local options = {
 	{ type = "header", label = "Drawers" },
 	{ type = "checkbox", key = "closeOnUse", label = "Close after use", onChange = Refresh,
 		tooltip = "A drawer closes once you've used something from it. Off: it stays open until you click its button again." },
-	{ type = "checkbox", key = "showNames", label = "Names under the buttons", onChange = Refresh },
+	{ type = "checkbox", key = "showNames", label = "Names under the buttons", onChange = Refresh,
+		preview = SharedPreview },
 	{ type = "slider", key = "scale", label = "Size", min = 0.6, max = 1.6, step = 0.1, format = Scale,
-		onChange = Refresh },
+		onChange = Refresh, preview = SharedPreview },
 }
 
 for i = 1, COUNT do
 	local key = "d" .. i
+	-- The drawer opened; while it's off, the card shows it turned on.
+	local preview = ns.Preview_When(key .. ".enabled", previews[i])
 	local rows = {
 		{ type = "header", label = "Drawer " .. i },
 		{ type = "checkbox", key = key .. ".enabled", label = "Show this drawer", onChange = Refresh,
-			tooltip = "Its button shows once it has something in it. Key Bindings > Tomte opens it with a key." },
+			preview = preview, tooltip = "Its button shows once it has something in it. Key Bindings > Tomte opens it with a key." },
 		{ type = "button", label = function()
 			local _, entries = ns.Drawers_Saved(db, i)
 			return #entries == 1 and "1 entry" or (#entries .. " entries")
@@ -80,9 +102,9 @@ for i = 1, COUNT do
 		{ type = "input", key = key .. ".name", label = "Name", placeholder = "Drawer " .. i, onChange = Refresh,
 			parent = key .. ".enabled" },
 		{ type = "dropdown", key = key .. ".direction", label = "Opens", choices = Directions, onChange = Refresh,
-			parent = key .. ".enabled" },
+			parent = key .. ".enabled", preview = preview },
 		{ type = "slider", key = key .. ".perLine", label = "Buttons per line", min = 1, max = 12, step = 1,
-			onChange = Refresh, parent = key .. ".enabled",
+			onChange = Refresh, parent = key .. ".enabled", preview = preview,
 			tooltip = "More than this and the drawer starts another line beside the first." },
 		{ type = "button", label = "Position", text = "Reset", onClick = function()
 			ResetPosition(i)

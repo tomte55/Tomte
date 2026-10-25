@@ -33,21 +33,37 @@ local conversationIsWorldQuest = false
 
 -- Subtitle ------------------------------------------------------------------------------------------------------
 
+-- The subtitle's look, in parent: the real one on UIParent, or a settings preview's host.
+local function BuildSubtitle(parent, size)
+	local f = CreateFrame("Frame", nil, parent)
+	f:SetSize(WIDTH, 60)
+	UI.Panel(f, { subtle = true, alpha = BACKGROUND_ALPHA })
+	f.name = UI.Text(f, 13, "heading", "title")
+	f.name:SetPoint("TOP", f, "TOP", 0, -PAD)
+	f.name:SetJustifyH("CENTER")
+	f.text = UI.Text(f, size, "text")
+	f.text:SetPoint("TOP", f.name, "BOTTOM", 0, -4)
+	f.text:SetWidth(WIDTH - 2 * PAD)
+	f.text:SetJustifyH("CENTER")
+	return f
+end
+
+-- Fills a subtitle with a line at text size `size` and fits its height. Returns the height.
+local function FillSubtitle(f, name, text, size)
+	f.name:SetText(name or "")
+	UI.SetFont(f.text, "body", size)
+	f.text:SetText(text or "")
+	local height = f.name:GetStringHeight() + 4 + f.text:GetStringHeight() + 2 * PAD
+	f:SetHeight(height)
+	return height
+end
+
 local function Build()
-	frame = CreateFrame("Frame", nil, UIParent)
-	frame:SetSize(WIDTH, 60)
+	frame = BuildSubtitle(UIParent, db.thSize)
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetClampedToScreen(true)
 	frame:SetMovable(true)
 	frame:Hide()
-	UI.Panel(frame, { subtle = true, alpha = BACKGROUND_ALPHA })
-	frame.name = UI.Text(frame, 13, "heading", "title")
-	frame.name:SetPoint("TOP", frame, "TOP", 0, -PAD)
-	frame.name:SetJustifyH("CENTER")
-	frame.text = UI.Text(frame, db.thSize, "text")
-	frame.text:SetPoint("TOP", frame.name, "BOTTOM", 0, -4)
-	frame.text:SetWidth(WIDTH - 2 * PAD)
-	frame.text:SetJustifyH("CENTER")
 
 	frame.fadeIn = frame:CreateAnimationGroup()
 	local a = frame.fadeIn:CreateAnimation("Alpha")
@@ -97,10 +113,7 @@ local function HideNow()
 end
 
 local function SetLine(name, text)
-	frame.name:SetText(name or "")
-	UI.SetFont(frame.text, "body", db.thSize)
-	frame.text:SetText(text or "")
-	frame:SetHeight(frame.name:GetStringHeight() + 4 + frame.text:GetStringHeight() + 2 * PAD)
+	FillSubtitle(frame, name, text, db.thSize)
 end
 
 local function ShowLine(name, text, duration)
@@ -310,4 +323,17 @@ function ns.QuestsTalkingHead_Test()
 		return
 	end
 	ShowLine(PREVIEW_NAME, PREVIEW_TEXT, MIN_HOLD)
+end
+
+-- Settings preview (Panel/Preview.lua): the sample line in a subtitle of host's own, for "Text only". choosing: get
+-- answers the choice under the mouse in the open list; without one (the mouse on the row itself) the row shows its
+-- "Text only" look whatever is saved, so it explains itself, while a hovered "Blizzard's" or "Hide" shows nothing.
+function ns.QuestsTalkingHead_DrawSample(host, get, choosing)
+	if choosing and get("talkingHead") ~= "text" then
+		return nil
+	end
+	local size = get("thSize")
+	host.subtitle = host.subtitle or BuildSubtitle(host, size)
+	host.subtitle:SetPoint("TOPLEFT")
+	return WIDTH, FillSubtitle(host.subtitle, PREVIEW_NAME, PREVIEW_TEXT, size)
 end

@@ -46,13 +46,21 @@ local function Border(button)
 		edges[i] = t
 	end
 	button[GLOW_KEY] = edges
-	painted[button] = true
 	return edges
 end
 
 local function HideBorder(button)
 	for _, t in ipairs(button[GLOW_KEY] or {}) do
 		t:Hide()
+	end
+end
+
+-- The border in quality's color: on a bag's item button, or on the settings preview's sample buttons.
+local function ShowBorder(button, quality, alpha)
+	local r, g, b = C_Item.GetItemQualityColor(quality)
+	for _, t in ipairs(Border(button)) do
+		t:SetColorTexture(r, g, b, alpha)
+		t:Show()
 	end
 end
 
@@ -63,12 +71,8 @@ local function Paint(button)
 		HideBorder(button)
 		return
 	end
-	local r, g, b = C_Item.GetItemQualityColor(quality)
-	local alpha = info.isFiltered and DIMMED or 1
-	for _, t in ipairs(Border(button)) do
-		t:SetColorTexture(r, g, b, alpha)
-		t:Show()
-	end
+	painted[button] = true
+	ShowBorder(button, quality, info.isFiltered and DIMMED or 1)
 end
 
 -- Hook body: runs after Blizzard redrew a bag's items. Does nothing while the setting or the module is off (the hook
@@ -159,6 +163,40 @@ function ns.GearBags_Stop()
 	events:UnwatchAll("bags")
 	RepaintAll()
 	ApplySort()
+end
+
+-- Settings preview ---------------------------------------------------------------------------------------------------
+
+local SAMPLE_SIZE = 37 -- an item button in Blizzard's bags
+local SAMPLE_GAP = 5
+-- Uncommon to legendary, so the preview also shows where the stronger border starts. Icons: module icons elsewhere
+-- in Tomte, so known to exist.
+local SAMPLES = {
+	{ quality = 2, icon = 133071 }, { quality = 3, icon = 132624 }, { quality = 4, icon = 135030 },
+	{ quality = 5, icon = 237429 },
+}
+
+-- A row of sample bag slots (Panel/Preview.lua): Blizzard's own item button with its quality border, plus ours when
+-- the setting is on. Our own buttons, never Blizzard's bag buttons, so nothing goes into `painted`.
+function ns.GearBags_DrawSample(host, get)
+	host.slots = host.slots or {}
+	for i, s in ipairs(SAMPLES) do
+		local b = host.slots[i]
+		if not b then
+			b = CreateFrame("ItemButton", nil, host)
+			b:SetSize(SAMPLE_SIZE, SAMPLE_SIZE)
+			b:SetPoint("TOPLEFT", (i - 1) * (SAMPLE_SIZE + SAMPLE_GAP), 0)
+			host.slots[i] = b
+		end
+		b:SetItemButtonTexture(s.icon)
+		b:SetItemButtonQuality(s.quality)
+		if get("qualityGlow") and Glows(s.quality) then
+			ShowBorder(b, s.quality, 1)
+		else
+			HideBorder(b)
+		end
+	end
+	return #SAMPLES * (SAMPLE_SIZE + SAMPLE_GAP) - SAMPLE_GAP, SAMPLE_SIZE
 end
 
 -- Settings changed.

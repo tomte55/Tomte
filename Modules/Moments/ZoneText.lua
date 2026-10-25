@@ -16,17 +16,8 @@ local SETTLE = 0.4 -- seconds a new place must hold before the card shows it
 local frame, block, swap
 local enabled, hooked = false, false
 
-local function Build()
-	frame = CreateFrame("Frame", nil, UIParent)
-	frame:SetSize(CARD_WIDTH, 100)
-	frame:SetPoint("TOP", UIParent, "TOP", 0, -FROM_TOP)
-	frame:SetFrameStrata("LOW")
-	frame:EnableMouse(false)
-	frame:Hide()
-	block = CreateFrame("Frame", nil, frame) -- fades on its own for a change of place; frame follows Blizzard
-	block:SetAllPoints()
-	swap = ns.NewSwap(block)
-
+-- The card's text lines on block: the real card's and the settings preview's (DrawSample below).
+local function BuildLines(block)
 	block.title = block:CreateFontString(nil, "OVERLAY")
 	ns.Theme.SetFont(block.title, "title", 26)
 	block.title:SetTextColor(ns.Theme.Color("heading"))
@@ -57,6 +48,19 @@ local function Build()
 	block.status:SetShadowColor(0, 0, 0, 0.9)
 end
 
+local function Build()
+	frame = CreateFrame("Frame", nil, UIParent)
+	frame:SetSize(CARD_WIDTH, 100)
+	frame:SetPoint("TOP", UIParent, "TOP", 0, -FROM_TOP)
+	frame:SetFrameStrata("LOW")
+	frame:EnableMouse(false)
+	frame:Hide()
+	block = CreateFrame("Frame", nil, frame) -- fades on its own for a change of place; frame follows Blizzard
+	block:SetAllPoints()
+	swap = ns.NewSwap(block)
+	BuildLines(block)
+end
+
 local function Text(fs)
 	local text = fs and fs:GetText()
 	return text ~= "" and text or nil
@@ -77,15 +81,20 @@ local function Read()
 	return name, subName, ns.Moments_ZoneStatus(status or nil)
 end
 
-local function Layout(name, subName, status)
-	block.title:SetText(name)
-	block.subtitle:SetText(subName or "")
-	block.status:ClearAllPoints()
-	block.status:SetPoint("TOP", subName and block.subtitle or block.title, "BOTTOM", 0, subName and -6 or -14)
-	block.status:SetText(status and ns.Spaced(status) or "")
+-- Fills b's lines. pvpType: the status line's kind (C_PvP.GetZonePVPInfo's first return), else the current zone's.
+local function Fill(b, name, subName, status, pvpType)
+	b.title:SetText(name)
+	b.subtitle:SetText(subName or "")
+	b.status:ClearAllPoints()
+	b.status:SetPoint("TOP", subName and b.subtitle or b.title, "BOTTOM", 0, subName and -6 or -14)
+	b.status:SetText(status and ns.Spaced(status) or "")
 	if status then
-		block.status:SetTextColor(ns.UI.RGBA(ns.Moments_ZonePvPRole((C_PvP.GetZonePVPInfo())), 1))
+		b.status:SetTextColor(ns.UI.RGBA(ns.Moments_ZonePvPRole(pvpType or (C_PvP.GetZonePVPInfo())), 1))
 	end
+end
+
+local function Layout(name, subName, status)
+	Fill(block, name, subName, status)
 end
 
 -- Blizzard's fading frame (FadingFrame.lua) is over by itself, not hidden early by a discovery card.
@@ -185,6 +194,31 @@ local function SetBlizzardVisible(visible)
 			fs:SetAlpha(visible and 1 or 0)
 		end
 	end
+end
+
+-- The settings preview (Panel/Preview.lua): the card as it shows for where you are, with a sample status line. Also
+-- while the option is off (the preview answers its switch as on), so the row shows what turning it on gives.
+function ns.Moments_ZoneTextSample(host, get)
+	local b = host.zoneText
+	if not b then
+		b = CreateFrame("Frame", nil, host)
+		b:SetPoint("TOPLEFT")
+		b:SetSize(CARD_WIDTH, 1)
+		BuildLines(b)
+		host.zoneText = b
+	end
+	local name, subName = GetZoneText(), GetSubZoneText()
+	if not name or name == "" then
+		name, subName = "Aldric's Rest", nil
+	elseif subName == "" or subName == name then
+		subName = nil
+	end
+	Fill(b, name, subName, ns.Moments_ZoneStatus(SANCTUARY_TERRITORY), "sanctuary")
+	local height = b.title:GetStringHeight() + 14 + b.status:GetStringHeight() -- the offsets Fill places them at
+	if subName then
+		height = height + b.subtitle:GetStringHeight() + 6
+	end
+	return CARD_WIDTH, math.ceil(height)
 end
 
 -- On while Moments is on and its "Zone text" option is; called from Moments' toggle and the option.

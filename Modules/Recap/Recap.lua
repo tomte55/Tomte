@@ -226,10 +226,8 @@ local SAMPLE_LOG = {
 	{ kind = "loot", title = "Sample Cloak", icon = "Interface\\Icons\\INV_Misc_Cape_01", quality = 4, ago = 600 },
 }
 
-local function Preview()
-	if IsOff() then
-		return
-	end
+-- A made-up session (2 h 14 min, gold, SAMPLE_LOG) for the preview card and the login toast's settings preview.
+local function SampleSession()
 	local now = GetServerTime()
 	local session = ns.Session_New("preview", now - 8040, { money = 10000000, level = UnitLevel("player"), xpFraction = XPFraction() })
 	session.moneyNow = session.money + 34200000
@@ -243,7 +241,14 @@ local function Preview()
 		entry.at, entry.ago = now - sample.ago, nil
 		ns.Recap_AddNote(session.log, entry, PREVIEW_ENTRIES)
 	end
-	PlayOrSay({ summary = Summarize(session, "Session recap", false), left = CARD_TIME })
+	return session
+end
+
+local function Preview()
+	if IsOff() then
+		return
+	end
+	PlayOrSay({ summary = Summarize(SampleSession(), "Session recap", false), left = CARD_TIME })
 end
 
 -- The AFK screen's extra stats page (nil when there's nothing to show).
@@ -301,6 +306,21 @@ events:On("recap", "LOGOUT_CANCEL", function()
 	end
 end)
 
+-- The login toast for a session's summary. sample: a settings preview (kept out of Recent).
+local function LoginSpec(summary, sample)
+	return {
+		owner = "recap",
+		label = "Last session",
+		accent = "accent",
+		title = UnitName("player"),
+		text = ns.Recap_SummaryLine(summary, ns.Recap_Coins) .. "\nClick for the recap.",
+		icon = ns.ICON,
+		hold = TOAST_HOLD,
+		onClick = ShowLast,
+		test = sample or nil,
+	}
+end
+
 local function LoginToast()
 	if not (module.active and db.loginToast) then
 		return
@@ -317,16 +337,12 @@ local function LoginToast()
 	if not ns.Recap_Worth(summary) then
 		return
 	end
-	ns.Toast_Show({
-		owner = "recap",
-		label = "Last session",
-		accent = "accent",
-		title = UnitName("player"),
-		text = ns.Recap_SummaryLine(summary, ns.Recap_Coins) .. "\nClick for the recap.",
-		icon = ns.ICON,
-		hold = TOAST_HOLD,
-		onClick = ShowLast,
-	})
+	ns.Toast_Show(LoginSpec(summary))
+end
+
+-- Settings preview (Panel/Preview.lua): the login toast for the preview card's made-up session.
+local function LoginPreview(host)
+	return ns.Toast_DrawSample(host, LoginSpec(Summarize(SampleSession(), "Last session", false), true), 1)
 end
 
 events:On("recap", "PLAYER_ENTERING_WORLD", function(_, isInitialLogin)
@@ -345,6 +361,20 @@ local function BreakBlocked()
 		or (C_PetBattles and C_PetBattles.IsInBattle())
 end
 
+-- The reminder after elapsed seconds played. sample: a settings preview (kept out of Recent).
+local function BreakSpec(elapsed, sample)
+	return {
+		owner = "recap",
+		label = "Break",
+		accent = "accent",
+		title = "Time for a break?",
+		text = ("You've played for %s. Stand up, stretch, drink some water."):format(ns.Recap_Duration(elapsed)),
+		icon = ns.ICON,
+		hold = TOAST_HOLD,
+		test = sample or nil,
+	}
+end
+
 -- The step reminded is kept on the session, so a /reload doesn't remind again.
 local function CheckBreak()
 	if not (module.active and db.breakReminder) or BreakBlocked() then
@@ -357,15 +387,12 @@ local function CheckBreak()
 		return
 	end
 	session.breakStep = step
-	ns.Toast_Show({
-		owner = "recap",
-		label = "Break",
-		accent = "accent",
-		title = "Time for a break?",
-		text = ("You've played for %s. Stand up, stretch, drink some water."):format(ns.Recap_Duration(elapsed)),
-		icon = ns.ICON,
-		hold = TOAST_HOLD,
-	})
+	ns.Toast_Show(BreakSpec(elapsed))
+end
+
+-- Settings preview: the first reminder, after the chosen minutes (the db holds the previewed value while it draws).
+local function BreakPreview(host)
+	return ns.Toast_DrawSample(host, BreakSpec(db.breakMinutes * 60, true), 1)
 end
 
 local function ApplyBreak()
@@ -473,6 +500,7 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "logoutCard", label = "While logging out",
 			tooltip = "During the logout countdown (/camp or Log Out), show this session's recap with the time left. Esc cancels the logout (like on Blizzard's popup); any other key or click just closes the card. An instant logout in an inn or city has no countdown: you get the login toast instead." },
 		{ type = "checkbox", key = "loginToast", label = "Last session at login",
+			preview = ns.Preview_When("loginToast", LoginPreview),
 			tooltip = "A few seconds after logging in, a toast with your last session on this character (when it was at least 10 minutes and something happened). Click it for the recap." },
 		{ type = "checkbox", key = "afkPage", label = "On the AFK screen",
 			tooltip = "Add a highlights page to the AFK screen's rotating session stats." },
@@ -482,6 +510,7 @@ module = ns.RegisterModule({
 			tooltip = "Show the recap card with sample data. Any key or click closes it." },
 		{ type = "header", label = "Break reminder" },
 		{ type = "checkbox", key = "breakReminder", label = "Remind me to take a break", onChange = ApplyBreak,
+			preview = ns.Preview_When("breakReminder", BreakPreview),
 			tooltip = "A toast after every so many minutes played in one sitting. Never in combat, an instance or a cutscene: then it waits until you're out." },
 		{ type = "slider", key = "breakMinutes", label = "Every", min = 30, max = 180, step = 15,
 			parent = "breakReminder", format = function(value)

@@ -9,6 +9,9 @@ local OWNER = "tradefilter"
 local TOAST_GAP = 300 -- seconds between toasts for the same sender
 local SEEN_LIMIT = 500
 local PROF_RECHECK = 5 -- seconds after the first loading screen before looking at the professions again
+-- The sample toast's and the settings preview's made-up match.
+local SAMPLE_SENDER = "Aldric"
+local SAMPLE_TEXT = "LF blacksmith for a crafting order, paying well"
 
 local UI = ns.UI
 local module
@@ -54,10 +57,10 @@ local function SenderClass(guid)
 	end
 end
 
-local function ShowToast(label, sender, guid, text, channelIndex, preview)
+local function ToastSpec(label, sender, guid, text, channelIndex, preview)
 	local short = Ambiguate(sender, "short")
 	local title = UI.ClassColored(short, SenderClass(guid))
-	ns.Toast_Show({
+	return {
 		owner = OWNER,
 		label = label,
 		accent = ns.Toast_ChatColor(channelIndex and ("CHANNEL" .. channelIndex) or "CHANNEL"),
@@ -72,7 +75,18 @@ local function ShowToast(label, sender, guid, text, channelIndex, preview)
 				ChatFrameUtil.SendTell(sender)
 			end
 		end,
-	})
+	}
+end
+
+local function ShowToast(label, sender, guid, text, channelIndex, preview)
+	ns.Toast_Show(ToastSpec(label, sender, guid, text, channelIndex, preview))
+end
+
+-- Settings preview (Panel/Preview.lua): a made-up Trade match, built by the real toast's spec code.
+local function ToastPreview(host)
+	local spec = ToastSpec("Trade", SAMPLE_SENDER, nil, SAMPLE_TEXT, nil, true)
+	spec.test = true
+	return ns.Toast_DrawSample(host, spec, 1)
 end
 
 -- First time this message is seen (by any chat frame): count it, maybe toast.
@@ -249,7 +263,7 @@ local function Preview()
 	if not ns.Module_RequireOn(module) then
 		return
 	end
-	ShowToast("Trade", "Thrall", nil, "LF blacksmith for a crafting order, paying well", nil, true)
+	ShowToast("Trade", SAMPLE_SENDER, nil, SAMPLE_TEXT, nil, true)
 end
 
 local WHERE_CHOICES = {
@@ -287,6 +301,7 @@ options[#options + 1] = { type = "header", label = "Matches" }
 options[#options + 1] = { type = "checkbox", key = "highlight", label = "Highlight matched words",
 	tooltip = "Matched words in the theme's accent color." }
 options[#options + 1] = { type = "checkbox", key = "toast", label = "Toast on match",
+	preview = ns.Preview_When("toast", ToastPreview),
 	tooltip = "A toast for a match, at most one per player every 5 minutes. Click it to whisper them." }
 options[#options + 1] = { type = "checkbox", key = "holdInCombat", label = "Hold toasts during combat",
 	parent = "toast" }

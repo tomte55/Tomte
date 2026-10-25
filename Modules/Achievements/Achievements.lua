@@ -13,6 +13,10 @@ local HOLIDAY_TTL = 300 -- seconds the calendar's holiday list is reused
 local HOLIDAY_SOON = 1440 -- minutes (a day): an event starting this soon already counts as running
 local ACCENTS = { almost = "warning", lastStep = "success", pinned = "accent" } -- toast accent roles
 local LABELS = { almost = "Almost done", lastStep = "One step left", pinned = "Pinned" }
+-- The sample toasts' achievement before the first scan (the test command's and the previews' fallback): What a Long,
+-- Strange Trip It's Been, with its name, icon, reward and last step from the game and made-up progress.
+local SAMPLE_ID = 2144
+local SAMPLE_LEFT = 1 -- steps the sample has left
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "CRITERIA_UPDATE", "CRITERIA_EARNED", "ACHIEVEMENT_EARNED", "NEW_MOUNT_ADDED",
 	"NEW_PET_ADDED", "NEW_TOY_ADDED", "TRANSMOG_COLLECTION_UPDATED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
@@ -217,22 +221,26 @@ local function ToastText(kind, record)
 		return record.last and ("Left: " .. record.last) or ns.Ach_ProgressText(record)
 	end
 	local text = ns.Ach_ProgressText(record)
-	if kind == "almost" and record.reward ~= "" then
+	if kind == "almost" and record.reward and record.reward ~= "" then
 		text = text .. "\n" .. record.reward
 	end
 	return text
 end
 
--- sample: a test toast (no click action, kept out of Recent).
-local function ShowToast(kind, record, sample)
+-- sample: a test toast or a settings preview (no click action, kept out of Recent).
+local function ToastSpec(kind, record, sample)
 	local accent = ACCENTS[kind]
-	ns.Toast_Show({
+	return {
 		owner = OWNER, label = LABELS[kind], accent = accent, title = record.name, text = ToastText(kind, record),
 		icon = record.icon, mergeKey = "ach:" .. record.id, holdInCombat = true, hold = 8, test = sample or nil,
 		onClick = not sample and function()
 			ns.Ach_Open(record.id)
 		end or nil,
-	})
+	}
+end
+
+local function ShowToast(kind, record, sample)
+	ns.Toast_Show(ToastSpec(kind, record, sample))
 end
 
 local function OnChanged(changed, milestones)
@@ -327,16 +335,50 @@ local function Rescan()
 	end
 end
 
+local function SampleRecord()
+	local _, name, _, _, _, _, _, _, _, icon, rewardText = GetAchievementInfo(SAMPLE_ID)
+	local total = GetAchievementNumCriteria(SAMPLE_ID) or 0
+	local done = math.max(total - SAMPLE_LEFT, 0)
+	return { id = SAMPLE_ID, name = name or "Achievement", icon = icon, done = done, total = total,
+		percent = total > 0 and math.floor(done / total * 100) or 0,
+		last = total > 0 and GetAchievementCriteriaInfo(SAMPLE_ID, total) or nil, reward = rewardText or "" }
+end
+
 local function Test()
 	if not ns.Module_RequireOn(module) then
 		return
 	end
 	local list = ns.Ach_List("")
-	local record = list[1] or { id = 6, name = "Level 10", icon = 236376, percent = 85, done = 4, total = 5,
-		last = "Reach level 10", reward = "Title Reward: the Patient" }
+	local record = list[1] or SampleRecord()
 	ShowToast("almost", record, true)
 	ShowToast("lastStep", setmetatable({ id = -1 }, { __index = record }), true)
 	ShowToast("pinned", setmetatable({ id = -2 }, { __index = record }), true)
+end
+
+-- The achievement a toast preview shows: one of yours the toast could really be about, from the tracker's top rows
+-- (pins first, then the closest): a pinned one for "pinned", one with a single step left for "lastStep", the closest
+-- unpinned one for "almost". SampleRecord before the first scan.
+local function PreviewRecord(kind)
+	local rows = next(ns.Ach_Records()) and ns.Ach_Top(10) or {}
+	for _, row in ipairs(rows) do
+		if (kind == "pinned" and row.pinned) or (kind == "lastStep" and row.total and row.done == row.total - 1)
+			or (kind == "almost" and not row.pinned) then
+			return row
+		end
+	end
+	return rows[1] or SampleRecord()
+end
+
+-- Settings previews (Panel/Preview.lua): each kind's toast, built by the real toasts' spec code.
+local function ToastPreview(kind)
+	return function(host)
+		return ns.Toast_DrawSample(host, ToastSpec(kind, PreviewRecord(kind), true), 1)
+	end
+end
+
+-- Settings preview (Panel/Preview.lua): the Top 5 tracker, drawn in Tracker.lua.
+local function TrackerPreview(host, get)
+	return ns.AchTracker_DrawSample(host, get)
 end
 
 local function ThresholdChanged()
@@ -491,7 +533,8 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Tracker" },
 		{ type = "checkbox", key = "tracker.shown", label = "Show the Top 5 tracker", onChange = function()
 			ns.AchTracker_Apply()
-		end, tooltip = "Pinned achievements first, then the closest ones." },
+		end,
+		preview = ns.Preview_When("tracker.shown", TrackerPreview), tooltip = "Pinned achievements first, then the closest ones." },
 		{ type = "checkbox", key = "tracker.locked", label = "Locked", parent = "tracker.shown", onChange = function()
 			ns.AchTracker_Apply()
 		end, tooltip = "Unlock to drag the tracker. Blizzard's Edit Mode moves it too." },
@@ -504,15 +547,17 @@ module = ns.RegisterModule({
 				return ("%.2f"):format(v)
 			end, onChange = function()
 				ns.AchTracker_Apply()
-			end },
+			end, preview = ns.Preview_When("tracker.shown", TrackerPreview) },
 
 		{ type = "header", label = "Toasts" },
 		{ type = "checkbox", key = "toasts.almost", label = "Almost done",
+			preview = ns.Preview_When("toasts.almost", ToastPreview("almost")),
 			tooltip = "When an achievement reaches the threshold." },
 		{ type = "checkbox", key = "toasts.lastStep", label = "One step left",
+			preview = ns.Preview_When("toasts.lastStep", ToastPreview("lastStep")),
 			tooltip = "When only one criterion is left." },
 		{ type = "checkbox", key = "toasts.pinned", label = "Progress on pinned achievements",
-			tooltip = "Every step on an achievement you pinned." },
+			preview = ns.Preview_When("toasts.pinned", ToastPreview("pinned")), tooltip = "Every step on an achievement you pinned." },
 		{ type = "button", label = "Sample toasts", text = "Show", onClick = Test },
 
 		{ type = "header", label = "Data" },

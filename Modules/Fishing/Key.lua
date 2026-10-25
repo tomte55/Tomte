@@ -14,6 +14,7 @@ local BUTTON_NAME, BAR_NAME = "TomteFishing", "TomteFishingBar"
 local BINDING = "CLICK " .. BUTTON_NAME .. ":LeftButton" -- also in Bindings.xml
 ns.FISHING_BINDING = BINDING -- Fishing.lua (loads after this file) reads the key from it
 local SIZE = 40
+local LABEL_H = 16 -- the label under the button: its 3 px gap and a 10 pt line
 local WAIT_STEP, WAIT_LIMIT = 0.05, 10 -- seconds between key checks, and when to give up waiting for a release
 local TICK = 1 -- the visible button's refresh
 local RESTRICTIONS = { "Combat", "Encounter", "ChallengeMode", "PvPMatch" }
@@ -279,6 +280,16 @@ local function ButtonOnEnter(self)
 	GameTooltip:Show()
 end
 
+-- The button's looks (icon, border, label under it): on the secure button, or on a settings preview's plain frame.
+local function Decorate(b)
+	b.icon = b:CreateTexture(nil, "ARTWORK")
+	b.icon:SetAllPoints()
+	b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	UI.Border(b, "frame", 0.8)
+	b.label = UI.Text(b, 10, "textMuted", "label")
+	b.label:SetPoint("TOP", b, "BOTTOM", 0, -3)
+end
+
 local function ApplyLayout()
 	local f = db.button.frame
 	holder:ClearAllPoints()
@@ -303,23 +314,15 @@ local function Create()
 	button:RegisterForClicks("AnyDown")
 	button:SetAttribute("useOnKeyDown", true)
 	button:SetScript("PreClick", PreClick)
-	button.icon = button:CreateTexture(nil, "ARTWORK")
-	button.icon:SetAllPoints()
-	button.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-	UI.Border(button, "frame", 0.8)
+	Decorate(button)
 	button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-	button.label = UI.Text(button, 10, "textMuted", "label")
-	button.label:SetPoint("TOP", button, "BOTTOM", 0, -3)
 	button:SetScript("OnEnter", ButtonOnEnter)
 	button:SetScript("OnLeave", GameTooltip_Hide)
 	ApplyLayout()
 end
 
--- The label and icon: what a press does now. Not protected, so it may run in combat too.
-local function UpdateLook()
-	if not (holder and holder:IsShown()) then
-		return
-	end
+-- What a press does now: the icon, the label and its color role.
+local function CurrentLook()
 	local icon = C_Spell.GetSpellTexture(ns.FISHING_SPELL)
 	local key = KeyText()
 	local text, role
@@ -349,10 +352,45 @@ local function UpdateLook()
 		end
 		role = action.kind == "none" and "textMuted" or "text"
 	end
-	button.icon:SetTexture(icon)
-	button.icon:SetDesaturated(role == "textMuted" and not fishing)
-	button.label:SetText(text)
-	UI.SetTextRole(button.label, role)
+	return icon, text, role
+end
+
+local function Paint(b, icon, text, role)
+	b.icon:SetTexture(icon)
+	b.icon:SetDesaturated(role == "textMuted" and not fishing)
+	b.label:SetText(text)
+	UI.SetTextRole(b.label, role)
+end
+
+-- The label and icon. Not protected, so it may run in combat too.
+local function UpdateLook()
+	if not (holder and holder:IsShown()) then
+		return
+	end
+	Paint(button, CurrentLook())
+end
+
+-- Settings preview (Panel/Preview.lua): the button as it would look now, at this scale, on a plain frame (the real
+-- one is secure). Returns its size in host units, the label under it included.
+function ns.FishingKey_DrawSample(host, scale)
+	local root = host.fishing
+	if not root then
+		root = CreateFrame("Frame", nil, host)
+		root:SetPoint("TOPLEFT")
+		root.button = CreateFrame("Frame", nil, root)
+		root.button:SetSize(SIZE, SIZE)
+		Decorate(root.button)
+		host.fishing = root
+	end
+	root:SetScale(scale)
+	local b = root.button
+	Paint(b, CurrentLook())
+	local width = math.max(SIZE, math.ceil(b.label:GetUnboundedStringWidth()))
+	local height = SIZE + LABEL_H
+	root:SetSize(width, height)
+	b:ClearAllPoints()
+	b:SetPoint("TOP")
+	return width * scale, height * scale
 end
 
 local function Tick()

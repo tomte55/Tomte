@@ -386,6 +386,24 @@ local function Scale(v)
 	return ("%.1f"):format(v)
 end
 
+-- Settings preview (Panel/Preview.lua): the bar at the chosen size, a little above the warning line, with this
+-- character's pet spells under it.
+local PREVIEW_ABOVE = 0.15 -- fake health this far above the threshold: the healthy colors, the tick in view
+local function BarPreview(host, get)
+	if not profile then
+		return nil
+	end
+	local threshold = get("threshold") / 100
+	return ns.UnitBar_DrawSample(host, {
+		scale = get("scale"),
+		threshold = threshold,
+		showPercent = get("showPercent"),
+		spells = KnownSpells(),
+		name = petName or "Pet",
+		fraction = math.min(1, threshold + PREVIEW_ABOVE),
+	})
+end
+
 local function Command(fn)
 	return function()
 		if not ns.Module_RequireOn(module) then
@@ -451,11 +469,12 @@ module = ns.RegisterModule({
 		end, onChange = Update,
 			tooltip = "A dead pet, or no pet in combat, always shows." },
 		{ type = "slider", key = "threshold", label = "Warning below", min = 20, max = 70, step = 5,
-			format = Percent, onChange = Relayout,
+			format = Percent, onChange = Relayout, preview = BarPreview,
 			tooltip = "Below this the bar turns red and glows. The tick on the bar marks it." },
 		{ type = "slider", key = "scale", label = "Size", min = 0.6, max = 1.6, step = 0.1, format = Scale,
-			onChange = Relayout },
-		{ type = "checkbox", key = "showPercent", label = "Show percent", onChange = Relayout },
+			onChange = Relayout, preview = BarPreview },
+		{ type = "checkbox", key = "showPercent", label = "Show percent", onChange = Relayout,
+			preview = BarPreview },
 		{ type = "button", label = "Position", text = "Reset", onClick = Command(ResetPosition),
 			tooltip = "Move the bar back under your character." },
 
