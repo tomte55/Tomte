@@ -12,6 +12,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+## v1.23.0 - 2026-10-25
+
 ### New
 
 - **Settings:** point at a setting that changes how something looks or turns something on, and a live preview shows
@@ -45,7 +47,6 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Nameplates:** with "Also for characters" on, the name under the Interact icon now shows for NPCs too (it
   stayed hidden, waiting for a name on Blizzard's plate that never showed).
-
 - **Casino:** after a blackjack round with a split, switching to another game and back no longer replays the whole
   round and its payout on the table.
 - **Casino:** the slots pay table's jackpot no longer runs under its icons at the biggest bet.
