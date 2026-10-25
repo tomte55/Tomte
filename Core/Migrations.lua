@@ -156,4 +156,11 @@ ns.MIGRATIONS = {
 		end
 		loot.style = nil
 	end,
+	-- 15: Material uses no longer shows unspent profession knowledge on the Professions book (Knowledge.lua removed):
+	-- its switch goes.
+	function(db)
+		if type(db.materials) == "table" then
+			db.materials.knowledge = nil
+		end
+	end,
 }

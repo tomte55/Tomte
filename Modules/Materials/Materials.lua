@@ -2,15 +2,14 @@ local addonName, ns = ...
 
 -- Material uses: item tooltips on crafting materials say which of your characters craft with them (from Alts'
 -- recipes, ns.Alts_UsedBy), which other professions use them (Generated.lua, made by tools/materials.py) or that
--- nothing uses them. Holding Shift lists the recipes. Wording and rules in Data.lua. Unspent profession knowledge on
--- the Professions book is Knowledge.lua.
+-- nothing uses them. Holding Shift lists the recipes. Wording and rules in Data.lua.
 
 local UI = ns.UI
 
 local module, db
 local tagged -- the tooltip that last got our lines, refreshed when Shift changes
 
-local events = ns.Materials_Events -- the module's bus (Knowledge.lua makes it)
+local events = ns.NewEvents()
 local OWNER = "materials"
 
 local profNames = {} -- [skill line] = localized profession name, or false when the client has none
@@ -102,21 +101,15 @@ module = ns.RegisterModule({
 	summary = "Material tooltips say who crafts with them, so you know what to keep.",
 	description = "Crafting materials say on their tooltip what they're for, so you know what to bank and what to "
 		.. "sell: which of your characters craft with them, which other professions use them, or that nothing does. "
-		.. "Hold Shift for the recipes. Your characters' recipes come from Alts, read when a profession window opens. "
-		.. "The Professions book also shows how much profession knowledge you have left to spend.",
+		.. "Hold Shift for the recipes. Your characters' recipes come from Alts, read when a profession window opens.",
 	enabledByDefault = true,
 	defaults = {
 		tooltip = true,
 		notUsed = true, -- "Not used in crafting" on trade goods and reagents no recipe uses
-		knowledge = true, -- unspent specialization knowledge on the Professions book (Knowledge.lua)
-	},
-	replaces = {
-		{ addon = "Plumber", why = "unspent profession knowledge on the Professions book" },
 	},
 	init = function(saved)
 		db = saved
 		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, OnItem)
-		ns.MaterialsKnowledge_Init(db)
 	end,
 	toggle = function(active)
 		if active then
@@ -125,7 +118,6 @@ module = ns.RegisterModule({
 			events:UnwatchAll(OWNER)
 			tagged = nil
 		end
-		ns.MaterialsKnowledge_Toggle(active)
 	end,
 	options = {
 		{ type = "header", label = "Tooltips" },
@@ -134,11 +126,6 @@ module = ns.RegisterModule({
 				.. "profession window opened once). \"Also\" lists the other professions that use it." },
 		{ type = "checkbox", key = "notUsed", label = "Say when nothing uses a material", parent = "tooltip",
 			tooltip = "Trade goods and reagents that no recipe in Tomte's list uses get \"Not used in crafting\". Items newer than the list get no line." },
-
-		{ type = "header", label = "Professions book" },
-		{ type = "checkbox", key = "knowledge", label = "Show knowledge left to spend", onChange = function()
-			ns.MaterialsKnowledge_Refresh()
-		end, tooltip = "Under each profession in the Professions book (and on its buttons' tooltips): how much specialization knowledge you can still spend." },
 	},
 	commands = {
 		{ "why", "what both sources know about an item: /tomte materials why <item link or ID>", function(arg)

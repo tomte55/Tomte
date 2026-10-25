@@ -27,6 +27,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
   large and prices in rows) or Tiles (big icons in a grid, like a bag, with Gear Check's upgrade arrow). Looted items
   leave the window and slide into the feed (turn off with "Show hand-looted items in the feed"). List and Feed
   become Strips, Card becomes Panel.
+- **Material uses:** the Professions book no longer shows how much profession knowledge you have left to spend.
 
 ### Fixed
 

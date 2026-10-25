@@ -167,4 +167,14 @@ test("Loot: nothing to move without saved loot settings", function()
 	eq(unset.loot.look, nil, "no style saved: the default applies")
 end)
 
+test("Material uses: the Professions book switch goes, the rest stays", function()
+	local db = { schema = 14, materials = { knowledge = false, notUsed = false } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.materials.knowledge, nil)
+	eq(db.materials.notUsed, false, "other settings stay")
+	local none = { schema = 14 }
+	ns.RunMigrations(none, ns.MIGRATIONS)
+	eq(none.materials, nil, "no Material uses settings: nothing made")
+end)
+
 H.done()

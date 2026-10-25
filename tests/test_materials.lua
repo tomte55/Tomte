@@ -126,35 +126,4 @@ test("not used in crafting: never for an item the table can't know", function()
 	eq(lines[1].text, "Also: Leatherworking", "what the table does say still shows")
 end)
 
-test("knowledge: the named expansion skill line wins", function()
-	local candidates = {
-		{ id = 2822, name = "Khaz Algar Blacksmithing", parent = BS, spec = true },
-		{ id = 2907, name = "Midnight Blacksmithing", parent = BS, spec = true },
-		{ id = 2915, name = "Midnight Leatherworking", parent = LW, spec = true },
-	}
-	eq(ns.Materials_PickSkillLine(candidates, BS, "Khaz Algar Blacksmithing"), 2822)
-	eq(ns.Materials_PickSkillLine(candidates, BS, "Unknown"), 2907, "no name match: newest with specializations")
-	eq(ns.Materials_PickSkillLine(candidates, BS, nil), 2907)
-	eq(ns.Materials_PickSkillLine(candidates, ALCH, "Midnight Alchemy"), nil, "nothing under Alchemy")
-	eq(ns.Materials_PickSkillLine({ { id = 1, name = "Midnight Leatherworking", parent = LW } }, BS,
-		"Midnight Leatherworking"), nil, "a name under another profession doesn't count")
-end)
-
-test("knowledge: a shared currency counts once", function()
-	eq(ns.Materials_KnowledgeSum({
-		{ currency = 7, quantities = { [7] = 12, [9] = 3 } },
-		{ currency = 7, quantities = { [7] = 12 } },
-		{ currency = 9, quantities = { [9] = 3 } },
-	}), 15)
-	eq(ns.Materials_KnowledgeSum({ { currency = 7, quantities = {} } }), nil, "no amount")
-	eq(ns.Materials_KnowledgeSum({}), nil)
-	eq(ns.Materials_KnowledgeSum({ { currency = 7, quantities = { [7] = 0 } } }), 0)
-end)
-
-test("knowledge: text only when there's some to spend", function()
-	eq(ns.Materials_KnowledgeText(4), "4 knowledge to spend")
-	eq(ns.Materials_KnowledgeText(0), nil)
-	eq(ns.Materials_KnowledgeText(nil), nil)
-end)
-
 H.done()
