@@ -341,6 +341,8 @@ local function FillSection(frame, rows)
 		OpenPage()
 	end)
 	local n = math.min(#list, rows)
+	-- [event key] = true while its counts are read; an event whose counts just arrived fades them in.
+	local reading, wasReading = {}, frame.reading or {}
 	for i = 1, n do
 		local ev = list[i]
 		local row = Kit.PoolRow(frame.rows, i, frame)
@@ -349,6 +351,9 @@ local function FillSection(frame, rows)
 		row:Set(ev.texture or ICON, text, ev.active and "text" or "textMuted", right, rightColor)
 		if ev.active and ev.def and not Counts(ev) then
 			Kit.RowProgress(row, ns.EventsCatalog_Progress)
+			reading[ev.key] = true
+		elseif wasReading[ev.key] then
+			UI.FadeIn(row.right)
 		end
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", 0, -(HEAD_H + (i - 1) * Kit.ROW_H))
@@ -361,6 +366,7 @@ local function FillSection(frame, rows)
 		end
 	end
 	Kit.HideFrom(frame.rows, n + 1)
+	frame.reading = reading
 	return HEAD_H + n * Kit.ROW_H
 end
 

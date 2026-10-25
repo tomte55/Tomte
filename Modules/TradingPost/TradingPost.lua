@@ -10,6 +10,7 @@ local OWNER = "tradingpost"
 local ICON = "Interface\\Icons\\INV_Misc_Treasurechest02b"
 local LOGIN_FALLBACK = 20 -- seconds to wait for the cache's answer before the login reminders go without it
 local CITY_DELAY = 2 -- seconds after a zone change before checking for a Trading Post city
+local PAGE_HINT = "Click: open the Trading Post page" -- Home rows that open the page
 -- Made-up state for the sample toast and the settings previews: the monthly 500 Tender, a log milestone still open,
 -- two days and a bit left.
 local SAMPLE_STATE = { waiting = 500, earned = 850, nextOne = { required = 1000, tender = 100 },
@@ -259,10 +260,11 @@ local AROUND = { kind = "around", key = "tradingpostaround", order = 7, name = "
 		end
 		local shop = ns.TradingPost_Shop()
 		local shopText = shop and ns.TradingPost_ShopText(ns.TradingPost_ShopSummary(shop.items, s.tender))
-		rows[#rows + 1] = { icon = ICON, text = shopText or "Shop: not seen this month", onClick = OpenPage }
+		rows[#rows + 1] = { icon = ICON, text = shopText or "Shop: not seen this month", onClick = OpenPage,
+			hint = PAGE_HINT }
 		local left = MonthLeftText()
 		if left then
-			rows[#rows + 1] = { icon = ICON, text = left, color = "textMuted", onClick = OpenPage }
+			rows[#rows + 1] = { icon = ICON, text = left, color = "textMuted", onClick = OpenPage, hint = PAGE_HINT }
 		end
 		while #rows > limit do
 			table.remove(rows)

@@ -173,6 +173,7 @@ local function FactEnter(self)
 	if FactClickable(fact) then
 		TipLine(GameTooltip, fact.clickText, "accent")
 	end
+	ns.MapTabs_CombatTip(self)
 	GameTooltip:Show()
 end
 
@@ -262,7 +263,7 @@ function ns.PanelHome_CreateHero(parent, onOpen)
 		local b = CreateFrame("Button", nil, hero, "InsecureActionButtonTemplate")
 		ns.MapTabs_Opener(b, function(self)
 			return self.fact.opensMap == true
-		end)
+		end, true)
 		b:SetHeight(21)
 		b.fact = fact
 		b.bg = b:CreateTexture(nil, "BACKGROUND")

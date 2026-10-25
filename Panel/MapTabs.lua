@@ -10,7 +10,7 @@ local addonName, ns = ...
 --
 -- ns.MapTabs_Add({ key, icon, tooltip, title, onShow(panel), onHide(panel), onMapChanged(panel) }) -> tab, panel
 -- ns.MapTabs_SetShown(key, shown), ns.MapTabs_Select(key), ns.MapTabs_IsActive(key), ns.MapTabs_Open(key)
--- ns.MapTabs_Opener(button, opensMap): a Home button that opens the world map first.
+-- ns.MapTabs_Opener(button, opensMap, dims): a Home button that opens the world map first (dimmed in combat).
 -- ns.MapTabs_ResolveMap(mapID): which map a tab lists for the viewed map (shared by Collect here and World quests).
 
 local UI = ns.UI
@@ -20,6 +20,10 @@ local tabs = {} -- in the order they were added: { key, spec, tab, panel, shown 
 local byKey = {}
 local activeKey
 local hooked = false
+local COMBAT_ALPHA = 0.45 -- an opener button in combat, when its click can't open the map
+local dimmed = setmetatable({}, { __mode = "k" }) -- [opener button] = its opensMap, for buttons that dim in combat
+local combatWatch, inCombat
+local WatchCombat
 
 local function Layout()
 	local anchor = QuestMapFrame.MapLegendTab
@@ -103,12 +107,61 @@ function ns.MapTabs_Open(key)
 	return true
 end
 
+-- Combat dimming of opener buttons --------------------------------------------------------------------------------
+
+-- The opener does nothing in combat (the template's click is refused): buttons that would open the map dim, and
+-- their tooltips say why (ns.MapTabs_CombatTip).
+local function WouldOpen(button)
+	local opensMap = dimmed[button]
+	return opensMap ~= nil and inCombat and opensMap(button, "LeftButton") and true or false
+end
+
+function ns.MapTabs_OpenerSync(button)
+	if dimmed[button] then
+		button:SetAlpha(WouldOpen(button) and COMBAT_ALPHA or 1)
+	end
+end
+
+-- Adds the combat line to GameTooltip (the caller shows it) when button's click can't open the map right now.
+function ns.MapTabs_CombatTip(button)
+	if WouldOpen(button) then
+		UI.TipLine("Can't open the map in combat", "warning")
+	end
+end
+
+function WatchCombat()
+	if combatWatch then
+		return
+	end
+	-- Never unregistered: it only re-dims the opener buttons that are shown, and the Tomte window is core.
+	combatWatch = CreateFrame("Frame")
+	combatWatch:RegisterEvent("PLAYER_REGEN_DISABLED")
+	combatWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
+	combatWatch:SetScript("OnEvent", function(_, event)
+		-- PLAYER_REGEN_DISABLED fires just before the lockdown starts, so the event says it, not InCombatLockdown.
+		inCombat = event == "PLAYER_REGEN_DISABLED"
+		for button in pairs(dimmed) do
+			if button:IsShown() then
+				ns.MapTabs_OpenerSync(button)
+			end
+		end
+	end)
+	inCombat = InCombatLockdown()
+end
+
 -- Makes a button (created from InsecureActionButtonTemplate) open the world map with its side panel through
 -- Blizzard's own code, so the map isn't tainted (see ns.MapTabs_Open): the click is passed to the quest log micro
 -- button, whose OnClick runs ToggleQuestLog. Only out of combat (the template does nothing in combat).
 -- opensMap(button, mouseButton) says whether this click should open the map. The button's own action goes in PostClick,
 -- which runs after the map is open.
-function ns.MapTabs_Opener(button, opensMap)
+-- dims: the button dims in combat while its click would open the map (Home's blocks, rows, facts and the rail; not
+-- toasts, which fade by their own alpha). After changing what decides opensMap, call ns.MapTabs_OpenerSync(button).
+function ns.MapTabs_Opener(button, opensMap, dims)
+	if dims then
+		dimmed[button] = opensMap
+		button:HookScript("OnShow", ns.MapTabs_OpenerSync)
+		WatchCombat()
+	end
 	button:RegisterForClicks("LeftButtonUp")
 	-- Else, with the ActionButtonUseKeyDown CVar on, the template acts on the down press, which this button never gets.
 	button:SetAttribute("useOnKeyDown", false)

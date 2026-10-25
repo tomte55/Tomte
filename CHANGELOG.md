@@ -19,6 +19,12 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
   Decor and Events pages, the Collect here map tab) and sweeps while waiting on the game (Delves keys and Great
   Vault, Gear Check's panel on the character sheet, World quests rewards, an alt's item levels in the craft list).
 - **Home:** the Decor vendors block shows while the housing catalog is read, then stays only where vendors are.
+- **Home:** what arrives after the reading fades in from the top down, and what's below slides down instead of
+  jumping; the same on the Collect here map tab and the Events and Decor pages.
+- **Home:** buttons that open the world map dim in combat, and their tooltips say why.
+- **Home:** every row under Around you has a tooltip saying what a click does.
+- **Alts:** a craft's tooltip updates by itself once the item levels it waited for have loaded.
+- **Delves:** when no delves are found yet, the page keeps looking by itself instead of asking you to open the map.
 
 ### Fixed
 

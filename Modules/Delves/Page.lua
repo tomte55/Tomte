@@ -11,10 +11,12 @@ local PAD = 8
 local SLOT_W, SLOT_H, SLOT_GAP = 96, 40, 10
 local PORTRAIT = 48
 local JOURNEY_BAR_GAP = 11 -- the season bar's height plus the space below it
+local RETRY_SECONDS = 61 -- just after Scan.lua's cache for an empty find runs out (60 s)
 
 ns.DELVES_ICON = "Interface\\Icons\\INV_Misc_Key_03"
 
 local page, scroll, c -- c: the scroll content
+local retry -- timer for the next look while no delves are found
 local rows = {}
 
 local QUALITY = {} -- Enum.CurioRarity -> item quality (Blizzard_DelvesCompanionConfiguration's own mapping)
@@ -70,6 +72,7 @@ local function Build()
 	c.stash = Text(12, "textMuted")
 	c.today = Kit.Heading(c)
 	c.empty = Text(13, "textMuted")
+	c.emptyWait = UI.ProgressLine(c)
 	c.vaultHead = Kit.Heading(c)
 	c.slots, c.slotTiers = {}, {}
 	for i = 1, 3 do
@@ -111,10 +114,14 @@ local function Place(fs, y, text, gap)
 end
 
 -- A busy line under fs while its text says it waits on the game; Render runs again when the data arrives.
+-- When the wait is over, the text that replaced it fades in.
 local function Waiting(line, fs, waiting)
 	if waiting then
 		line:Below(fs):Track(UI.ProgressBusy)
 	else
+		if line:IsShown() and fs:IsShown() then
+			UI.FadeIn(fs)
+		end
 		line:Stop()
 	end
 end
@@ -136,18 +143,26 @@ local function RenderToday(y, list, minLevel)
 	end
 	c.today:Set("Today", #list > 0 and (bountiful .. " bountiful") or nil)
 	y = PlaceFrame(c.today, y, 30) + 4
-	local empty
+	local empty, searching
 	if minLevel then
 		empty = ("Delves open at level %d."):format(minLevel)
 	elseif not ns.Content_Get(ns.ContentExpansion(), "delves") then
 		empty = ("Tomte has no delves for %s."):format(ns.ExpansionName(ns.ContentExpansion()))
 	elseif #list == 0 then
-		empty = ("No delves found for %s. Open the world map once if this looks wrong."):format(
-			ns.ExpansionName(ns.ContentExpansion()))
+		searching = true
+		empty = ("No delves found for %s yet. Tomte keeps looking."):format(ns.ExpansionName(ns.ContentExpansion()))
 	elseif bountiful == 0 then
-		empty = "No bountiful delves found. Open the map once if this looks wrong."
+		empty = "No bountiful delves found today."
 	end
 	y = Place(c.empty, y, empty, 8)
+	Waiting(c.emptyWait, c.empty, searching)
+	-- The zones' delves may not be loaded yet: the scan looks again after a minute (AREA_POIS_UPDATED redraws sooner).
+	if searching and not retry then
+		retry = C_Timer.NewTimer(RETRY_SECONDS, function()
+			retry = nil
+			ns.DelvesPage_Refresh()
+		end)
+	end
 	for i, e in ipairs(list) do
 		local row = Kit.PoolRow(rows, i, c)
 		row:Set(ns.DELVES_ICON, e.name, e.bountiful and "accent" or "text", ns.DelvesScan_ZoneName(e.map))

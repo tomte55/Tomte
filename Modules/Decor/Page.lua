@@ -390,10 +390,16 @@ local function Layout()
 		end
 	end
 	page.status:SetText(StatusText(info, counts, vendors))
-	if page.progress:Track(ns.DecorCatalog_Progress) then
+	local reading = page.progress:Track(ns.DecorCatalog_Progress)
+	if reading then
 		page.progress:SetWidth(page.status:GetStringWidth())
 	end
 	Render(items)
+	-- The catalog was just read: the list fades in from the top.
+	if page.wasReading and not reading then
+		UI.FadeInRows(page.list.rows, 1, page.list.used, UI.FADE_SPREAD)
+	end
+	page.wasReading = reading
 	if db.preview then
 		ns.DecorDetail_Show(page.pane, selectedID and info.usable and ns.DecorCatalog_ByID(selectedID) or nil)
 	end

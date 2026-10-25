@@ -8,7 +8,6 @@ local UI = ns.UI
 local KEY = "collect"
 local TAB_ICON = "Interface\\Icons\\Ability_Mount_RidingHorse"
 local ROW_H, HEADER_H, ICON = 34, 24, 26
-local LOADING_TICK = 1 -- seconds between refreshes while the journals are read
 local function UpNow() -- built when used: the theme is chosen on ADDON_LOADED
 	return UI.Wrap("Up now", "success")
 end
@@ -16,7 +15,6 @@ end
 local db
 local panel
 local rows, used = {}, 0
-local tick = 0
 local Refresh
 
 -- The progress line's read: how far the journals are read, nil once they all are.
@@ -157,6 +155,14 @@ local function Row()
 	return row
 end
 
+-- A row's key for UI.ListArrivals.
+local function RowKey(row)
+	if row.section then
+		return "section:" .. row.section
+	end
+	return row.entry and (row.entry.kind .. ":" .. tostring(row.entry.id)) or nil
+end
+
 local function SetHeader(row, section)
 	row.entry, row.section = nil, section.key
 	row.icon:Hide()
@@ -254,6 +260,7 @@ function Refresh()
 	for _, section in ipairs(sections) do
 		local header = Row()
 		header:SetHeight(HEADER_H)
+		header.space = HEADER_H + 8 -- with the gap under it and after the section
 		header:SetPoint("TOPLEFT", 0, -y)
 		header:SetPoint("RIGHT")
 		SetHeader(header, section)
@@ -262,6 +269,7 @@ function Refresh()
 			for _, e in ipairs(section.entries) do
 				local row = Row()
 				row:SetHeight(ROW_H)
+				row.space = nil
 				row:SetPoint("TOPLEFT", 0, -y)
 				row:SetPoint("RIGHT")
 				SetEntry(row, e)
@@ -274,6 +282,10 @@ function Refresh()
 		or "Nothing left here that the journals know about. Only mounts and pets whose source names a zone, and achievements that name it, can be listed.")
 	panel.empty:SetShown(#sections == 0)
 	panel.scroll:SetContentHeight(y)
+	-- While the journals are read and on the redraw after: what a catalog just added fades in, the rest slides.
+	local seen = (loading or panel.wasLoading) and panel.seenMap == mapID and panel.seen or nil
+	panel.seen = (loading or panel.wasLoading) and UI.ListArrivals(rows, used, seen, RowKey) or nil
+	panel.seenMap, panel.wasLoading = mapID, loading
 	local hovered
 	-- IsMouseOver ignores the scroll clipping: rows scrolled out of view lie over the map.
 	local inView = panel.scroll:IsMouseOver()
@@ -289,18 +301,6 @@ function Refresh()
 	end
 	if ours and not hovered then
 		HidePreview()
-	end
-end
-
-local function OnUpdate(_, elapsed)
-	tick = tick + elapsed
-	if tick < LOADING_TICK then
-		return
-	end
-	tick = 0
-	local state = ns.Collect_State()
-	if not (state.mounts and state.pets and state.achievements) then
-		Refresh()
 	end
 end
 
@@ -332,7 +332,6 @@ local function Build()
 	panel.empty = UI.Text(panel, 12, "textMuted")
 	panel.empty:SetPoint("TOPLEFT", panel.scroll, "TOPLEFT", 6, -4)
 	panel.empty:SetPoint("RIGHT", -10, 0)
-	panel:SetScript("OnUpdate", OnUpdate)
 	panel.preview = ns.ModelPreview_Create(panel)
 	-- The tab stays selected while the map is closed, and reopening it on the same map isn't a map change.
 	panel:HookScript("OnShow", function()

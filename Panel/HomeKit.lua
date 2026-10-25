@@ -88,7 +88,7 @@ function Kit.Row(parent, opensMap)
 	if opensMap then
 		ns.MapTabs_Opener(row, function(self, mouseButton)
 			return mouseButton == "LeftButton" and opensMap(self)
-		end)
+		end, true)
 	end
 	row:SetHeight(ROW_H)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")

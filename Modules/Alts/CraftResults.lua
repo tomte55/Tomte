@@ -139,6 +139,10 @@ local function SetResultRow(row, r)
 		row.name:SetTextColor(UI.RGBA(quality, 0.3))
 	end
 	row.bg:SetShown(r.id == S.db.selected)
+	-- Redrawn under the mouse (item levels that were loading arrived): the open tooltip follows.
+	if GameTooltip:IsOwned(row) then
+		row:GetScript("OnEnter")(row)
+	end
 end
 
 -- An expansion skill line's name ("Dragon Isles Blacksmithing"), for recipes read before names were stored.

@@ -1,8 +1,8 @@
 local addonName, ns = ...
 
--- More ns.UI controls: an on/off switch, segmented buttons, a resize grip, a progress line and Esc handling for
--- Tomte's windows. The rest of the widget kit is in Widgets.lua; menus and the list a UI.Dropdown opens are in
--- Menu.lua.
+-- More ns.UI controls: an on/off switch, segmented buttons, a resize grip, a progress line with the fade and slide
+-- for what arrives after it, and Esc handling for Tomte's windows. The rest of the widget kit is in Widgets.lua;
+-- menus and the list a UI.Dropdown opens are in Menu.lua.
 
 local UI = ns.UI
 local SWITCH_W, SWITCH_H = 34, 16
@@ -16,6 +16,12 @@ local PROGRESS_POLL = 0.25 -- seconds between reads of a progress line's read()
 local PROGRESS_EASE = 6 -- how fast a progress line catches up with the read value (per second)
 local BUSY_SECONDS = 1.6 -- one sweep of a busy line's segment
 local BUSY_SPAN = 0.25 -- the busy segment's share of the line's width
+local FADE_SECONDS = 0.45 -- one region's fade in UI.FadeIn (0.25 s with an ease-out read as no fade at all in game)
+local STAGGER_STEP = 0.06 -- most seconds between two rows' fades in UI.FadeInRows
+local STAGGER_ROWS = 10 -- about a screenful of list rows: UI.FadeInRows spreads only these
+local MIN_ANIM_SECONDS = 0.001 -- the alpha-0 hold's length without a delay, and UI.SlideDown's jump up (above 0)
+local SLIDE_DOWN_SECONDS = 0.4 -- UI.SlideDown, and the spread of rows fading in after a read (UI.FADE_SPREAD)
+UI.FADE_SPREAD = SLIDE_DOWN_SECONDS
 
 -- Switch: same API as UI.Checkbox (SetChecked, .checked, .onChange, Enable/Disable dims it). Square, like the rest
 -- of the kit: a knob slides across and the accent gradient (as in UI.Bar) fills the track behind it. Only a click
@@ -341,6 +347,98 @@ end
 -- what it waited for arrives and it redraws).
 function UI.ProgressBusy()
 	return true
+end
+
+-- Fades a frame or region in from nothing to the alpha it has (a dimmed button stays dimmed), for content that just
+-- arrived after a progress line. Callers fade only on the change from reading to done, not on every redraw.
+-- delay (seconds) holds it at nothing first, for rows that fade in one after another (UI.FadeInRows).
+function UI.FadeIn(region, delay)
+	local group = region.fadeIn
+	if not group then
+		group = region:CreateAnimationGroup()
+		-- A start delay alone would show the region at full alpha until its fade begins: an alpha-0 hold goes first.
+		group.hold = group:CreateAnimation("Alpha")
+		group.hold:SetOrder(1)
+		group.hold:SetFromAlpha(0)
+		group.hold:SetToAlpha(0)
+		group.alpha = group:CreateAnimation("Alpha")
+		group.alpha:SetOrder(2)
+		group.alpha:SetFromAlpha(0)
+		group.alpha:SetSmoothing("IN_OUT")
+		region.fadeIn = group
+	end
+	group:Stop()
+	group.hold:SetDuration(math.max(delay or 0, MIN_ANIM_SECONDS))
+	group.alpha:SetDuration(FADE_SECONDS)
+	group.alpha:SetToAlpha(region:GetAlpha())
+	group:Play()
+end
+
+-- Fades rows[first..last] in from the top down, spread over spread seconds (at most STAGGER_STEP apart). Only the
+-- first STAGGER_ROWS are spread out; the rest start with the last of them, so a long list doesn't trickle in.
+function UI.FadeInRows(rows, first, last, spread)
+	local n = last - first + 1
+	if n <= 0 then
+		return
+	end
+	spread = spread or 0
+	local step = math.min(STAGGER_STEP, spread / math.min(n, STAGGER_ROWS))
+	for i = first, last do
+		UI.FadeIn(rows[i], math.min((i - first) * step, spread))
+	end
+end
+
+-- For a list redrawn while (or just after) its data was read: rows whose key wasn't in seen fade in top down, and
+-- the rows below the first new one slide down by the new rows' height (row.space when set, else its height), so the
+-- list opens instead of jumping. keyOf(row) names a row (nil: not tracked). seen nil (a first draw, another map)
+-- animates nothing. gone: the height of rows that left in their place (the new rows replace them). Returns the keys
+-- shown now, to pass as seen next time.
+function UI.ListArrivals(rows, n, seen, keyOf, gone)
+	local keys, news, below, height = {}, {}, {}, 0
+	for i = 1, n do
+		local row = rows[i]
+		local key = keyOf(row)
+		if key ~= nil then
+			keys[key] = true
+		end
+		if seen and key ~= nil and not seen[key] then
+			news[#news + 1] = row
+			height = height + (row.space or row:GetHeight())
+		elseif #news > 0 then
+			below[#below + 1] = row
+		end
+	end
+	UI.FadeInRows(news, 1, #news, SLIDE_DOWN_SECONDS)
+	UI.SlideDown(below, 1, #below, height - (gone or 0))
+	return keys
+end
+
+-- Slides frames[first..last] down into their places from height higher, for what sits below rows that just
+-- arrived (the space opens instead of jumping). Moves only how they're drawn: their anchors are already final.
+function UI.SlideDown(frames, first, last, height)
+	if height <= 0 then
+		return
+	end
+	for i = first, last do
+		local frame = frames[i]
+		local group = frame.slideDown
+		if not group then
+			group = frame:CreateAnimationGroup()
+			-- Within a group, a finished translation stays applied until the group ends: up at once, then down.
+			group.up = group:CreateAnimation("Translation")
+			group.up:SetOrder(1)
+			group.up:SetDuration(MIN_ANIM_SECONDS)
+			group.down = group:CreateAnimation("Translation")
+			group.down:SetOrder(2)
+			group.down:SetDuration(SLIDE_DOWN_SECONDS)
+			group.down:SetSmoothing("IN_OUT")
+			frame.slideDown = group
+		end
+		group:Stop()
+		group.up:SetOffset(0, height)
+		group.down:SetOffset(0, -height)
+		group:Play()
+	end
 end
 
 -- Escape --------------------------------------------------------------------------------------------------------------

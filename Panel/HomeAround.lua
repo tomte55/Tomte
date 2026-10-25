@@ -15,8 +15,26 @@ local function RowOpensMap(row)
 	return row.opensMap == true
 end
 
+-- The tooltip of a row whose entry gives no onEnter: its text, and what a click does (the item's hint, else the
+-- block's click).
+local function RowTooltip(row, item, entry)
+	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+	GameTooltip:SetText(item.text or entry.name, UI.Color("heading"))
+	local hint = item.hint
+	if not hint and not item.onClick then
+		hint = "Click: " .. (entry.openText or "Opens the world map on this tab"):gsub("^Opens", "open")
+	end
+	if hint then
+		UI.TipLine(hint, "accent")
+	end
+	ns.MapTabs_CombatTip(row)
+	GameTooltip:Show()
+end
+
 -- One read function per entry, so the line keeps its fill across Home's redraws.
 local progressReads = setmetatable({}, { __mode = "k" })
+local wasReading = setmetatable({}, { __mode = "k" }) -- [entry] = true while its line showed on the last redraw
+local lastRows = setmetatable({}, { __mode = "k" }) -- [entry] = rows it showed on the last redraw
 
 local function ProgressRead(entry)
 	if not entry.progress then
@@ -41,6 +59,14 @@ function ns.PanelHome_CreateAround(parent, onOpen)
 	around.blocks = {}
 	around.rows = {}
 
+	local placed = {} -- blocks and rows in layout order, from the last Refresh
+	local function Place(frame, y)
+		frame:ClearAllPoints()
+		frame:SetPoint("TOPLEFT", 0, -y)
+		frame:SetPoint("RIGHT")
+		placed[#placed + 1] = frame
+	end
+
 	local function Block(b)
 		local block = around.blocks[b]
 		if not block then
@@ -49,8 +75,8 @@ function ns.PanelHome_CreateAround(parent, onOpen)
 			-- PostClick.
 			block = CreateFrame("Button", nil, around, "InsecureActionButtonTemplate")
 			ns.MapTabs_Opener(block, function(btn)
-				return btn.entry.opensMap == true
-			end)
+				return btn.entry ~= nil and btn.entry.opensMap == true
+			end, true)
 			block:SetHeight(24)
 			block.bg = block:CreateTexture(nil, "BACKGROUND")
 			block.bg:SetAllPoints()
@@ -77,6 +103,7 @@ function ns.PanelHome_CreateAround(parent, onOpen)
 				btn.bg:SetColorTexture(UI.RGBA("accent", 0.16))
 				GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
 				GameTooltip:SetText(btn.entry.openText or "Opens the world map on this tab", UI.Color("text"))
+				ns.MapTabs_CombatTip(btn)
 				GameTooltip:Show()
 			end)
 			block:SetScript("OnLeave", function(btn)
@@ -120,6 +147,8 @@ function ns.PanelHome_CreateAround(parent, onOpen)
 			end
 		end
 		local y, used, shown = 40, 0, 0
+		wipe(placed)
+		local opens, opensFrom = 0, nil -- a block that just finished: its rows' height, and what slides below it
 		for b, bl in ipairs(blocks) do
 			if y + 30 + (bl.rows > 0 and ROW_H or 0) > height then
 				if b > 1 then
@@ -132,22 +161,30 @@ function ns.PanelHome_CreateAround(parent, onOpen)
 			shown = b
 			local block = Block(b)
 			block.entry = bl.entry
+			ns.MapTabs_OpenerSync(block)
 			-- "Collect here: 5 mounts, 7 pets left" -> name in the band, counts on its right.
 			local title = ns.HomeCall(bl.entry.title) or bl.entry.name
 			local name, rest = title:match("^(.-):%s*(.+)$")
 			block.text:SetText(name or title)
 			block.text:SetWidth(block.text:GetUnboundedStringWidth() + 2)
 			block.meta:SetText(rest or "")
-			block:ClearAllPoints()
-			block:SetPoint("TOPLEFT", 0, -y)
-			block:SetPoint("RIGHT")
+			Place(block, y)
 			block:Show()
 			local read = ProgressRead(bl.entry)
-			if read then
-				block.progress:Track(read)
-			else
+			local reading = read ~= nil and block.progress:Track(read)
+			if not read then
 				block.progress:Stop()
 			end
+			-- Done reading since the last redraw: the counts and the new rows fade in (the name stays), and the rows'
+			-- space opens smoothly.
+			local arrived = wasReading[bl.entry] and not reading
+			wasReading[bl.entry] = reading or nil
+			if arrived then
+				UI.FadeIn(block.meta)
+			end
+			local grows = arrived and (bl.rows - (lastRows[bl.entry] or 0)) * ROW_H or 0
+			lastRows[bl.entry] = bl.rows
+			local firstRow = used + 1
 			y = y + 30
 			for i = 1, bl.rows do
 				local item = bl.items[i]
@@ -157,16 +194,30 @@ function ns.PanelHome_CreateAround(parent, onOpen)
 				row.onEnter = item.onEnter
 				local entry = bl.entry
 				row.opensMap = item.onClick == nil and entry.opensMap == true
+				ns.MapTabs_OpenerSync(row)
+				if not item.onEnter then
+					row.onEnter = function(r)
+						RowTooltip(r, item, entry)
+					end
+				end
 				-- An item's own click (a waypoint, a summon), else the block's.
 				row.onClick = item.onClick or function()
 					onOpen(entry)
 				end
-				row:ClearAllPoints()
-				row:SetPoint("TOPLEFT", 0, -y)
-				row:SetPoint("RIGHT")
+				Place(row, y)
 				y = y + ROW_H
 			end
+			if arrived then
+				UI.FadeInRows(self.rows, firstRow, used, UI.FADE_SPREAD)
+			end
+			if grows > 0 and not opensFrom then
+				opens, opensFrom = grows, #placed + 1
+			end
 			y = y + 18
+		end
+		-- Everything below the block that opened slides down into place.
+		if opensFrom then
+			UI.SlideDown(placed, opensFrom, #placed, opens)
 		end
 		for b = shown + 1, #self.blocks do
 			self.blocks[b]:Hide()

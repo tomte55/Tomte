@@ -221,6 +221,11 @@ local function Layout()
 	for i = usedWaits + 1, #waits do
 		waits[i]:Stop()
 	end
+	-- What it waited for just arrived: the panel's content fades in.
+	if panel.wasWaiting and usedWaits == 0 then
+		UI.FadeIn(panel.content)
+	end
+	panel.wasWaiting = usedWaits > 0
 	panel.scroll:SetContentHeight(y + 8)
 end
 

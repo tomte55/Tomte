@@ -10,6 +10,7 @@ local ROW_H, HEADER_H, SECTION_H, LIST_H = 22, 30, 30, 22
 local ICON, HEADER_ICON = 18, 22
 local INDENT = 28
 local FOOT_H = 30
+local READING_NOTE = "Reading your collections..."
 local KINDS = {
 	{ key = "mounts", title = "Mounts" },
 	{ key = "pets", title = "Battle pets" },
@@ -104,6 +105,31 @@ local function NewRow()
 end
 
 -- kind: "section" | "header" | "list" | "item" | "note"
+-- The event whose rows are being laid out (part of each row's key for UI.ListArrivals).
+local rowContext
+
+local function RowKey(row)
+	return row.key
+end
+
+-- The height of the "Reading your collections..." lines that were shown (in seen) and are gone now.
+local function GoneNotes(seen)
+	if not seen then
+		return 0
+	end
+	local now = {}
+	for i = 1, used do
+		now[rows[i].key] = true
+	end
+	local gone = 0
+	for key in pairs(seen) do
+		if not now[key] and key:find(READING_NOTE, 1, true) then
+			gone = gone + ROW_H
+		end
+	end
+	return gone
+end
+
 local function Row(y, height, indent, icon, text, textRole, right, rightRole, kind)
 	used = used + 1
 	local row = rows[used] or NewRow()
@@ -113,6 +139,7 @@ local function Row(y, height, indent, icon, text, textRole, right, rightRole, ki
 	row:SetPoint("TOPLEFT", indent, -y)
 	row:SetPoint("RIGHT")
 	row.onClick, row.tip = nil, nil
+	row.key = ("%s|%s|%s"):format(rowContext or "", kind or "", text or "")
 	if row.progress then
 		row.progress:Stop()
 	end
@@ -224,7 +251,7 @@ local function Lists(ev, y)
 	end
 	local missing = ns.Events_Missing(ev)
 	if not missing then
-		local row = Row(y, ROW_H, INDENT, nil, "Reading your collections...", "textMuted", nil, nil, "note")
+		local row = Row(y, ROW_H, INDENT, nil, READING_NOTE, "textMuted", nil, nil, "note")
 		if not row.progress then
 			row.progress = UI.ProgressLine(row)
 			row.progress:SetPoint("TOPLEFT", row.left, "BOTTOMLEFT", 0, -2)
@@ -306,6 +333,7 @@ local function Layout()
 		Row(y, SECTION_H, 0, nil, "On now", "heading", nil, nil, "section")
 		y = y + SECTION_H
 		for _, ev in ipairs(active) do
+			rowContext = ev.key
 			if ev.key == pendingKey then
 				scrollTo = y
 			end
@@ -320,6 +348,7 @@ local function Layout()
 		Row(y, SECTION_H, 0, nil, "Soon", "heading", nil, nil, "section")
 		y = y + SECTION_H
 		for _, ev in ipairs(soon) do
+			rowContext = ev.key
 			if ev.key == pendingKey then
 				scrollTo = y
 			end
@@ -328,7 +357,14 @@ local function Layout()
 			y = y + ROW_H + 8
 		end
 	end
+	rowContext = nil
 	page.scroll:SetContentHeight(y)
+	-- While the journals are read and on the redraw after: lists that just arrived fade in and what's below slides
+	-- down (each list replaces its event's "Reading your collections..." line).
+	local reading = ns.EventsCatalog_Progress() ~= nil
+	local watch = reading or page.wasReading
+	page.seen = watch and UI.ListArrivals(rows, used, page.seen, RowKey, GoneNotes(page.seen)) or nil
+	page.wasReading = reading
 	if pendingKey then
 		page.scroll:SetScroll(scrollTo or 0)
 		pendingKey = nil

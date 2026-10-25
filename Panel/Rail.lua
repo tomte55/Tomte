@@ -26,7 +26,7 @@ local function CreateRailRow(parent, onSelect)
 	local row = CreateFrame("Button", nil, parent, "InsecureActionButtonTemplate")
 	ns.MapTabs_Opener(row, function(self)
 		return self.entry ~= nil and self.entry.kind == "map"
-	end)
+	end, true)
 	row:SetHeight(RAIL_ROW_H)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
@@ -87,6 +87,7 @@ local function CreateRailRow(parent, onSelect)
 			if entry.kind == "map" then
 				TipLine(GameTooltip, "Opens the world map on this tab", "accent")
 			end
+			ns.MapTabs_CombatTip(self)
 			GameTooltip:Show()
 		end
 	end)
@@ -136,6 +137,7 @@ function ns.PanelRail_Create(parent, onSelect)
 
 	local function Place(row, entry, y, selected)
 		row.entry = entry
+		ns.MapTabs_OpenerSync(row)
 		row.selected = selected
 		if entry then
 			SetIcon(row.icon, entry)

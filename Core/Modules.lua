@@ -120,7 +120,8 @@ end
 --   "map"      a rail row that opens a world map tab: name, icon or atlas, summary(), open()
 --   "quick"    an action button under the hero: name, count() -> n (shown above 0), open()
 --   "around"   a block in Home's "Around you" column: name, icon, title() ("Name: counts"), items(limit) -> rows
---              { icon, text, color, right, rightColor, onEnter, onClick }, maxRows, keepEmpty, open(), openText
+--              { icon, text, color, right, rightColor, onEnter, onClick, hint (the default tooltip's click line, when
+--              there's no onEnter) }, maxRows, keepEmpty, open(), openText
 --              (the heading's tooltip), opensMap (the heading and rows without their own click open the world map
 --              before open() runs), progress() (0..1 while something is still being read, a thin line under the
 --              heading; nil when done); the user can untick it in the Tomte window settings
