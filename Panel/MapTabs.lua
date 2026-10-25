@@ -113,8 +113,10 @@ function ns.MapTabs_Opener(button, opensMap)
 	-- Else, with the ActionButtonUseKeyDown CVar on, the template acts on the down press, which this button never gets.
 	button:SetAttribute("useOnKeyDown", false)
 	button:SetScript("PreClick", function(self, mouseButton)
-		-- Already open: ToggleQuestLog would close it.
-		local open = QuestLogMicroButton ~= nil and not InCombatLockdown() and opensMap(self, mouseButton)
+		-- Already open: ToggleQuestLog would close it. No QuestMapFrame (Forever): the micro button opens a quest log
+		-- without the map, so the button only does its own action.
+		local open = QuestLogMicroButton ~= nil and QuestMapFrame ~= nil and not InCombatLockdown()
+			and opensMap(self, mouseButton)
 			and not (WorldMapFrame:IsShown() and QuestMapFrame:IsShown())
 		self:SetAttribute("type", open and "click" or nil)
 		self:SetAttribute("clickbutton", open and QuestLogMicroButton or nil)

@@ -5,6 +5,8 @@ local addonName, ns = ...
 -- the variants by ID came from Angleur. Toy and aura IDs checked on wowhead.
 
 ns.FISHING_SPELL = 131474 -- the Fishing spell you cast (spellbook); its channel is 131476
+-- Forever (Classic-style) has ranked Fishing spells instead: Apprentice, Journeyman, Expert, Artisan.
+ns.FISHING_SPELL_RANKS = { 7620, 7731, 7732, 18248 }
 ns.FISHING_RAFT_RENEW = 60 -- renew a raft with less than this many seconds left
 ns.FISHING_LOOT_TIMEOUT = 3 -- loot protection never blocks longer than this
 ns.FISHING_CHANNELS = {}

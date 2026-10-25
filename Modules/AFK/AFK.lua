@@ -48,7 +48,7 @@ end
 
 local function SceneBlocked()
 	return IsInInstance() or UnitOnTaxi("player") or InCombatLockdown()
-		or C_PetBattles.IsInBattle()
+		or (C_PetBattles and C_PetBattles.IsInBattle())
 		or (InCinematic and InCinematic()) or (IsInCinematicScene and IsInCinematicScene())
 		or (MovieFrame and MovieFrame:IsShown())
 		or ns.Cinematic.IsActive()
@@ -135,7 +135,7 @@ function Dismiss()
 	StayClosed()
 	-- The AFK "channel" toggles: only send it while the flag reads as set.
 	if not preview and ns.afkDB.clearAFK and IsAFK() and not InChatLockdown() then
-		C_ChatInfo.SendChatMessage("", "AFK")
+		ns.Chat_Send("", "AFK")
 	end
 end
 
@@ -191,7 +191,7 @@ end
 -- player left minutes before it appeared. The flag can't tell setting from clearing here: the hook runs after the
 -- call, and the game has already flipped UnitIsAFK locally (measured 12.1.5). A clearing /afk does no harm: only a
 -- flag set within AFK_AwaySince's few seconds counts, and the idle timer needs minutes.
-hooksecurefunc(C_ChatInfo, "SendChatMessage", function(_, chatType)
+ns.Chat_HookSend(function(_, chatType)
 	if module and module.active and chatType == "AFK" then
 		manualAt = GetTime()
 	end
@@ -244,7 +244,7 @@ end
 
 -- One handler per popup event; an event this client doesn't know is skipped (RegisterEvent would error).
 for event in pairs(ns.AFK_INTERRUPTS) do
-	if C_EventUtils.IsEventValid(event) then
+	if ns.EventValid(event) then
 		AWAY_EVENTS[#AWAY_EVENTS + 1] = event
 		events[event] = function(_, ...)
 			if (select("#", ...) == 0 or ns.Readable(...)) and ns.AFK_Interrupts(event, ...) then

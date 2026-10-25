@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Trade Filter module: Trade and the other chosen channels show only messages with one of your keywords (your
 -- professions' names and their usual abbreviations, plus your own words), minus the ones with an ignore word.
--- A Blizzard chat message filter (ChatFrameUtil.AddMessageEventFilter). In chat lockdown (instances, encounters,
+-- A Blizzard chat message filter (ns.Chat_AddFilter). In chat lockdown (instances, encounters,
 -- M+, PvP) the game skips addon filters, so everything shows there.
 
 local OWNER = "tradefilter"
@@ -25,7 +25,24 @@ end)
 
 local Readable = ns.Readable
 
+-- Forever: names only, from the skills list (no skill line IDs, so no abbreviations).
+local function ReadSkillLineProfessions()
+	local lines = {}
+	for i = 1, GetNumSkillLines() do
+		local name, isHeader = GetSkillLineInfo(i)
+		lines[i] = { name = name, isHeader = isHeader }
+	end
+	local profs = {}
+	for _, name in ipairs(ns.Chat_ProfessionNames(lines, TRADE_SKILLS)) do
+		profs[#profs + 1] = { name = name }
+	end
+	return profs
+end
+
 local function ReadProfessions()
+	if not GetProfessions then
+		return ReadSkillLineProfessions()
+	end
 	local profs = {}
 	local first, second = GetProfessions()
 	for _, index in pairs({ first, second }) do
@@ -69,7 +86,7 @@ local function ShowToast(label, sender, guid, text, channelIndex, preview)
 		holdInCombat = module.db.holdInCombat,
 		onClick = function()
 			if not preview then
-				ChatFrameUtil.SendTell(sender)
+				ns.Chat_SendTell(sender)
 			end
 		end,
 	})
@@ -140,11 +157,11 @@ local function Filter(chatFrame, event, text, ...)
 end
 
 local function AddFilter()
-	ChatFrameUtil.AddMessageEventFilter("CHAT_MSG_CHANNEL", Filter)
+	ns.Chat_AddFilter("CHAT_MSG_CHANNEL", Filter)
 end
 
 local function RemoveFilter()
-	ChatFrameUtil.RemoveMessageEventFilter("CHAT_MSG_CHANNEL", Filter)
+	ns.Chat_RemoveFilter("CHAT_MSG_CHANNEL", Filter)
 end
 
 local warned
@@ -277,7 +294,8 @@ local options = {
 -- notices, which no keyword would match, so filtering it would only hide them. Chat Tabs can still move it.
 for _, channel in ipairs(ns.CHAT_CHANNELS) do
 	if channel.key ~= "defense" then
-		options[#options + 1] = { type = "checkbox", key = "channels." .. channel.key, label = channel.label }
+		options[#options + 1] = { type = "checkbox", key = "channels." .. channel.key, label = channel.label,
+			shown = channel.retail and ns.NotForever or nil }
 	end
 end
 options[#options + 1] = { type = "dropdown", key = "where", label = "Filter in", choices = function()

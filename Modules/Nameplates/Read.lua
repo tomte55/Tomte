@@ -66,6 +66,9 @@ end
 
 -- True/false when the game says whether the unit is tied to one of your quests, nil when that's secret.
 function ns.Plates_IsQuestUnit(unit)
+	if not C_QuestLog.UnitIsRelatedToActiveQuest then -- may be missing on Forever
+		return nil
+	end
 	local related = C_QuestLog.UnitIsRelatedToActiveQuest(unit)
 	if IsSecret(related) then
 		return nil
@@ -75,7 +78,7 @@ end
 
 -- The unit's widget set ID, nil when it has none or it's secret.
 function ns.Plates_WidgetSet(unit)
-	local id = UnitWidgetSet(unit)
+	local id = UnitWidgetSet and UnitWidgetSet(unit)
 	if IsSecret(id) or type(id) ~= "number" or id == 0 then
 		return nil
 	end

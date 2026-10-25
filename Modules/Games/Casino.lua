@@ -123,12 +123,13 @@ end
 -- queued: waiting in a dungeon, raid, scenario or battleground queue; popped: one of them is ready to enter.
 local function QueueState()
 	local queued, popped = false, false
-	for _, category in ipairs(LFG_CATEGORIES) do
+	-- No group finder on Forever: LFG_CATEGORIES is empty there, and GetLFGMode may be missing.
+	for _, category in ipairs(GetLFGMode and LFG_CATEGORIES or {}) do
 		local mode = GetLFGMode(category)
 		queued = queued or mode == "queued"
 		popped = popped or mode == "proposal"
 	end
-	for i = 1, GetMaxBattlefieldID() do
+	for i = 1, GetMaxBattlefieldID and GetMaxBattlefieldID() or 0 do
 		local status = GetBattlefieldStatus(i)
 		queued = queued or status == "queued"
 		popped = popped or status == "confirm"
@@ -213,11 +214,16 @@ local EVENTS = {
 }
 
 local function Start()
+	-- ns.EventValid: Forever has no group finder events (RegisterEvent errors on an unknown event).
 	for _, event in ipairs(EVENTS) do
-		events:RegisterEvent(event)
+		if ns.EventValid(event) then
+			events:RegisterEvent(event)
+		end
 	end
 	for _, event in ipairs(ns.CASINO_EARN_EVENTS) do
-		events:RegisterEvent(event)
+		if ns.EventValid(event) then
+			events:RegisterEvent(event)
+		end
 	end
 	wasQueued = QueueState()
 	if ns.inWorld then

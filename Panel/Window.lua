@@ -14,12 +14,33 @@ local SHARE = {
 			ns.SetupUI_Show()
 		end,
 		tooltip = "Turns modules on or off to fit how you play. Settings inside modules stay." },
+	{ type = "button", label = "Move Tomte's on-screen widgets", text = "Unlock",
+		shown = function()
+			return not ns.EditMode_Unlocked()
+		end,
+		onClick = function()
+			ns.EditMode_Unlock(true)
+		end,
+		tooltip = "Shows a box on each widget to drag. Edit Mode does the same." },
+	{ type = "button", label = "Move Tomte's on-screen widgets", text = "Lock",
+		shown = function()
+			return ns.EditMode_Unlocked()
+		end,
+		onClick = function()
+			ns.EditMode_Unlock(false)
+		end },
 	{ type = "button", label = "Your settings as a string for a friend", text = "Export",
+		shown = function()
+			return ns.ShareUI_Available()
+		end,
 		onClick = function()
 			ns.ShareUI_Export()
 		end,
 		tooltip = "Settings only: no characters, history, flight times or lists." },
 	{ type = "button", label = "Use a friend's settings", text = "Import",
+		shown = function()
+			return ns.ShareUI_Available()
+		end,
 		onClick = function()
 			ns.ShareUI_Import()
 		end,

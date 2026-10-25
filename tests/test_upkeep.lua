@@ -47,6 +47,29 @@ test("junk: greys only, counts stacks, skips excluded and valueless", function()
 	eq(n, 2, "stacks")
 end)
 
+test("junk slots: the greys that sell, skipping locked ones", function()
+	local slots = ns.Upkeep_JunkSlots({
+		{ bag = 0, slot = 1, quality = 0, count = 1, price = 10 },
+		{ bag = 0, slot = 2, quality = 1, count = 1, price = 10 },
+		{ bag = 0, slot = 3, quality = 0, count = 1, price = 10, noValue = true },
+		{ bag = 1, slot = 1, quality = 0, count = 1, price = 10, locked = true },
+		{ bag = 1, slot = 2, quality = 0, count = 1, price = 10, excluded = true },
+		{ bag = 1, slot = 3, quality = 0, count = 2, price = 5 },
+	}, 12)
+	eq(#slots, 2, "count")
+	eq(slots[1].bag .. ":" .. slots[1].slot, "0:1", "first")
+	eq(slots[2].bag .. ":" .. slots[2].slot, "1:3", "second")
+	eq((ns.Upkeep_JunkValue(slots)), 20, "value of what sells")
+end)
+
+test("junk slots: stop at the buyback page size", function()
+	local items = {}
+	for slot = 1, 15 do
+		items[slot] = { bag = 0, slot = slot, quality = 0, count = 1, price = 1 }
+	end
+	eq(#ns.Upkeep_JunkSlots(items, 12), 12, "capped")
+end)
+
 test("durability summary: lowest, slot and broken count", function()
 	local lowest, slot, broken = ns.Durability_Summary({
 		{ slot = 1, cur = 80, max = 100 },

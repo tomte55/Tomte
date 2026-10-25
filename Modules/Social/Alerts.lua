@@ -56,7 +56,8 @@ local ALERTS = {
 		return ReadyCheckFrame ~= nil and ReadyCheckFrame:IsShown()
 	end },
 	{ key = "summon", name = "Summon", flash = true, pending = function()
-		return C_SummonInfo.GetSummonConfirmTimeLeft() > 0
+		local left = C_SummonInfo and C_SummonInfo.GetSummonConfirmTimeLeft or GetSummonConfirmTimeLeft
+		return left ~= nil and left() > 0
 	end },
 }
 local byKey = {}
@@ -387,7 +388,9 @@ module = ns.RegisterModule({
 	toggle = function(on)
 		if on then
 			for _, event in ipairs(EVENTS) do
-				events:RegisterEvent(event)
+				if ns.EventValid(event) then -- Forever has no group finder: no LFG_PROPOSAL_SHOW there
+					events:RegisterEvent(event)
+				end
 			end
 		else
 			events:UnregisterAllEvents()

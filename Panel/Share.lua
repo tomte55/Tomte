@@ -31,12 +31,28 @@ function ns.ShareUI_ExportText()
 	return ns.Profile_Encode(ns.Profile_Collect(ns.db, ns.modules, ns.VERSION), codec)
 end
 
+-- False on a client without C_EncodingUtil (Forever may not have it): no export or import there.
+function ns.ShareUI_Available()
+	return C_EncodingUtil ~= nil
+end
+
+local function Unavailable()
+	if ns.ShareUI_Available() then
+		return false
+	end
+	ns.Print("sharing settings isn't available in this game.")
+	return true
+end
+
 function ns.ShareUI_HasBackup()
 	local backup = ns.db and ns.db.profileBackup
 	return type(backup) == "table" and type(backup.text) == "string"
 end
 
 function ns.ShareUI_Export()
+	if Unavailable() then
+		return
+	end
 	local text, err = ns.ShareUI_ExportText()
 	if not text then
 		ns.Print("couldn't build the string: " .. tostring(err))
@@ -212,6 +228,9 @@ local function Check(text)
 end
 
 function ns.ShareUI_Import()
+	if Unavailable() then
+		return
+	end
 	if InCombatLockdown() then
 		ns.Print_Combat("import settings")
 		return

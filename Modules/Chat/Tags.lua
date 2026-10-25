@@ -15,7 +15,7 @@ local function Readable(value)
 end
 
 local function ChannelInfo(number)
-	local info = C_ChatInfo.GetChannelInfoFromIdentifier(number)
+	local info = C_ChatInfo.GetChannelInfoFromIdentifier and C_ChatInfo.GetChannelInfoFromIdentifier(number)
 	if info then
 		return info.shortcut, info.zoneChannelID
 	end

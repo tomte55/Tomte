@@ -103,7 +103,7 @@ local function LayoutGear()
 			r, g, b = C_Item.GetItemQualityColor(quality)
 		end
 		f.border:SetColorTexture(r, g, b, 1)
-		local level = C_Item.GetCurrentItemLevel(location)
+		local level = C_Item.GetCurrentItemLevel and C_Item.GetCurrentItemLevel(location)
 		f.level:SetText((level and level > 1) and level or "")
 		f:Show()
 	end
@@ -245,8 +245,8 @@ function ns.Showcase_Show(enabled)
 		panel.name:SetTextColor(ns.Theme.Color("heading"))
 	end
 	panel.name:SetText(UnitPVPName("player") or UnitName("player"))
-	local _, equipped = GetAverageItemLevel()
-	panel.ilvl:SetText(("-  item level %d  -"):format(math.floor(equipped or 0)))
+	local equipped = GetAverageItemLevel and select(2, GetAverageItemLevel())
+	panel.ilvl:SetText(equipped and ("-  item level %d  -"):format(math.floor(equipped)) or "")
 	LayoutGear()
 
 	panel:Show()

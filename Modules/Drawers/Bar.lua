@@ -369,7 +369,7 @@ local WATCH = {
 
 function ns.Drawers_BarStart()
 	for _, event in ipairs(WATCH) do
-		events:Watch(owner, event)
+		events:TryWatch(owner, event) -- Forever has no toy box: no TOYS_UPDATED there
 	end
 	Refresh()
 end

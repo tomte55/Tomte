@@ -123,7 +123,7 @@ local function PushValuable(itemID, itemLink, quantity, playerName, className)
 		classID = classID,
 		subclassID = subclassID,
 		quality = C_Item.GetItemQualityByID(itemID),
-		toy = C_ToyBox.GetToyInfo(itemID) ~= nil,
+		toy = C_ToyBox ~= nil and C_ToyBox.GetToyInfo(itemID) ~= nil,
 	})
 	if not valuable then
 		return

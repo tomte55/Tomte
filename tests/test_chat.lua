@@ -252,4 +252,36 @@ test("LeaveEntries lists the joined channels by number", function()
 	eq(#ns.Chat_LeaveEntries({ "", 4 }, joined), 0)
 end)
 
+test("ProfessionNames: the skill lines under the professions header", function()
+	local lines = {
+		{ name = "Class Skills", isHeader = true }, { name = "Defense" },
+		{ name = "Professions", isHeader = true }, { name = "Mining" }, { name = "Blacksmithing" },
+		{ name = "Secondary Skills", isHeader = true }, { name = "Fishing" },
+	}
+	local names = ns.Chat_ProfessionNames(lines, "Professions")
+	eq(#names, 2, "count")
+	eq(names[1], "Mining", "first")
+	eq(names[2], "Blacksmithing", "second")
+end)
+
+test("ProfessionNames: the block may come last", function()
+	local names = ns.Chat_ProfessionNames({
+		{ name = "Weapon Skills", isHeader = true }, { name = "Swords" },
+		{ name = "Professions", isHeader = true }, { name = "Tailoring" },
+	}, "Professions")
+	eq(#names, 1, "count")
+	eq(names[1], "Tailoring", "name")
+end)
+
+test("ProfessionNames: no professions header", function()
+	eq(#ns.Chat_ProfessionNames({ { name = "Weapon Skills", isHeader = true }, { name = "Swords" } }, "Professions"),
+		0, "none")
+	eq(#ns.Chat_ProfessionNames({}, nil), 0, "no header name")
+end)
+
+test("the Trade (Services) channel is marked retail-only", function()
+	eq(ns.CHAT_CHANNEL_BY_ID[42].retail, true, "services")
+	eq(ns.CHAT_CHANNEL_BY_ID[2].retail, nil, "trade")
+end)
+
 H.done()

@@ -19,6 +19,9 @@ local IsGear = ns.Loot_IsGear
 
 -- An appearance you haven't collected from any source, and can collect on this character.
 local function NewLook(link)
+	if not C_TransmogCollection then -- no transmog on Forever
+		return false
+	end
 	local _, sourceID = C_TransmogCollection.GetItemInfo(link)
 	if not sourceID then
 		return false
@@ -162,6 +165,9 @@ end
 
 -- A currency from its link (loot pop-ups) or ID (currency gains), as an entry for the feed.
 function ns.Loot_ReadCurrency(currencyID, link, quantity)
+	if not (C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfoFromLink) then
+		return nil
+	end
 	local info
 	if link then
 		info = C_CurrencyInfo.GetCurrencyInfoFromLink(link)

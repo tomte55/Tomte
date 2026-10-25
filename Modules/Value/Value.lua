@@ -120,7 +120,7 @@ function ns.Value_Text(copper, stale)
 	if not copper then
 		return "?"
 	end
-	return ns.Alts_Gold(copper) .. (stale and ns.UI.Wrap("?", "textMuted") or "")
+	return ns.Gold(copper) .. (stale and ns.UI.Wrap("?", "textMuted") or "")
 end
 
 -- Session loot.
@@ -160,9 +160,9 @@ function ns.Value_SessionLootText(session)
 	if not total or total <= 0 then
 		return nil
 	end
-	local text = "loot worth " .. ns.Alts_Gold(total)
+	local text = "loot worth " .. ns.Gold(total)
 	if by.gathered > 0 and by.gathered < total then
-		text = text .. (" (gathered %s)"):format(ns.Alts_Gold(by.gathered))
+		text = text .. (" (gathered %s)"):format(ns.Gold(by.gathered))
 	end
 	return text
 end
@@ -431,22 +431,23 @@ module = ns.RegisterModule({
 		end, tooltip = "When looted: each item keeps the price it had the day you looted it. At today's price: past "
 			.. "sessions are priced again with today's prices (an item with no price today keeps its old one)." },
 		{ type = "header", label = "Alts and crafting" },
-		{ type = "checkbox", key = "alts", label = "Carried value in Alts",
+		{ type = "checkbox", key = "alts", label = "Carried value in Alts", shown = ns.NotForever,
 			tooltip = "What each character's bags and bank are worth (the bank is read when you open it), and the Warband bank." },
-		{ type = "dropdown", key = "owned", label = "Materials you have", choices = function()
+		{ type = "dropdown", key = "owned", label = "Materials you have", shown = ns.NotForever, choices = function()
 			return { { value = "market", text = "Count at market price" }, { value = "free", text = "Count as free" } }
 		end, tooltip = "In the Crafting tab's cost: what the materials you already have are worth." },
 		{ type = "header", label = "Bags" },
 		{ type = "checkbox", key = "backpack.shown", label = "Items on the bag's currency bar", onChange = BackpackChanged,
+			shown = ns.NotForever,
 			tooltip = "Items you track, holiday tokens and upgrade crests, with your count, next to the currencies "
 				.. "the game tracks at the bottom of your bags. Ones you have none of are left out." },
-		{ type = "checkbox", key = "backpack.holidays", label = "Holiday tokens", parent = "backpack.shown",
+		{ type = "checkbox", key = "backpack.holidays", label = "Holiday tokens", parent = "backpack.shown", shown = ns.NotForever,
 			onChange = ns.ValueBackpack_Refresh,
 			tooltip = "During a holiday, its token (Brewfest Prize Tokens, Tricky Treats, Darkmoon tickets ...). Needs "
 				.. "Holidays & events on." },
-		{ type = "checkbox", key = "backpack.crests", label = "Upgrade crests", parent = "backpack.shown",
+		{ type = "checkbox", key = "backpack.crests", label = "Upgrade crests", parent = "backpack.shown", shown = ns.NotForever,
 			onChange = ns.ValueBackpack_Refresh, tooltip = "This season's crests for upgrading gear." },
-		{ type = "input", key = "backpack.items", label = "Tracked items", parent = "backpack.shown",
+		{ type = "input", key = "backpack.items", label = "Tracked items", parent = "backpack.shown", shown = ns.NotForever,
 			placeholder = "item IDs: 224025, 210796", onChange = ns.ValueBackpack_Refresh,
 			tooltip = "Item IDs, separated by commas. Easier: /tomte value track and shift-click the item. Right-click "
 				.. "one on the bar to take it off." },

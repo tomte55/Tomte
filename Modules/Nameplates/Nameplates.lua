@@ -85,6 +85,7 @@ module = ns.RegisterModule({
 
 		{ type = "header", label = "Hallowfall" },
 		{ type = "checkbox", key = "keyflame", label = "Radiant Remnants on Keyflames", onChange = Refresh,
+			shown = ns.NotForever,
 			tooltip = "Under a Keyflame's nameplate, how many Radiant Remnants you carry to light it." },
 
 		{ type = "header", label = "Look" },

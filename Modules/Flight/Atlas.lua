@@ -46,6 +46,9 @@ local function BuildZones()
 end
 
 local function ForPlayer(info, faction)
+	if not Enum.FlightPathFaction then -- may be missing on Forever: count every flight master
+		return true
+	end
 	if info.faction == Enum.FlightPathFaction.Horde then
 		return faction == "Horde"
 	elseif info.faction == Enum.FlightPathFaction.Alliance then
@@ -71,7 +74,8 @@ function ns.Atlas_Build()
 	local faction = UnitFactionGroup("player")
 	local claimed, byContinent, list = {}, {}, {}
 	for _, zone in ipairs(zones) do
-		if C_TaxiMap.ShouldMapShowTaxiNodes(zone.mapID) then
+		if C_TaxiMap.ShouldMapShowTaxiNodes and C_TaxiMap.GetTaxiNodesForMap
+			and C_TaxiMap.ShouldMapShowTaxiNodes(zone.mapID) then
 			local nodes = {}
 			for _, info in ipairs(C_TaxiMap.GetTaxiNodesForMap(zone.mapID) or {}) do
 				-- Off-map nodes belong to a neighbor: a city mustn't claim the flight masters of the zone around it.
@@ -102,6 +106,9 @@ end
 function ns.Atlas_MapNodes(mapID)
 	local faction = UnitFactionGroup("player")
 	local nodes, seen = {}, {}
+	if not C_TaxiMap.GetTaxiNodesForMap then
+		return nodes
+	end
 	for _, info in ipairs(C_TaxiMap.GetTaxiNodesForMap(mapID) or {}) do
 		if not seen[info.nodeID] and ForPlayer(info, faction) and ns.Coverage_OnMap(info.position) then
 			seen[info.nodeID] = true

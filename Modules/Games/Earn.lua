@@ -70,8 +70,9 @@ function handlers.QUEST_TURNED_IN(questID, xp, money)
 	if not On("quest") then
 		return
 	end
-	if noted or (xp or 0) > 0 or (money or 0) > 0 or C_QuestLog.IsWorldQuest(questID)
-		or C_QuestLog.IsQuestTask(questID) then
+	-- No world quests or bonus objectives on Forever.
+	if noted or (xp or 0) > 0 or (money or 0) > 0 or (C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(questID))
+		or (C_QuestLog.IsQuestTask and C_QuestLog.IsQuestTask(questID)) then
 		Pay("quest", ns.Chips_QuestPay(db.earned, Day(), noted ~= "normal" and noted or nil))
 	end
 end

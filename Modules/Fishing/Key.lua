@@ -71,7 +71,8 @@ end
 
 -- Owned and its data loaded (a toy whose info isn't loaded yet counts as not owned for this press).
 local function OwnsToy(item)
-	return PlayerHasToy(item) and C_ToyBox.GetToyInfo(item) ~= nil
+	-- No toy box on Forever: no rafts or bobber.
+	return C_ToyBox ~= nil and PlayerHasToy(item) and C_ToyBox.GetToyInfo(item) ~= nil
 end
 
 function ns.Fishing_OwnedRafts()
@@ -116,15 +117,23 @@ local function AuraLeft(spellID)
 end
 
 local function ToyIcon(item)
-	local _, _, icon = C_ToyBox.GetToyInfo(item)
+	local _, _, icon = C_ToyBox and C_ToyBox.GetToyInfo(item)
 	return icon or C_Item.GetItemIconByID(item)
 end
 
 -- The next press ------------------------------------------------------------------------------------------------
 
 local function Known()
-	if C_SpellBook.IsSpellKnown(ns.FISHING_SPELL) then
+	if ns.SpellKnown(ns.FISHING_SPELL) then
 		return true
+	end
+	if not GetProfessions then -- Forever: the ranked spells
+		for _, id in ipairs(ns.FISHING_SPELL_RANKS) do
+			if ns.SpellKnown(id) then
+				return true
+			end
+		end
+		return false
 	end
 	local _, _, _, fishingIndex = GetProfessions()
 	return fishingIndex ~= nil
@@ -134,7 +143,7 @@ local function Situation()
 	local s = {
 		known = Known(),
 		dead = UnitIsDeadOrGhost("player"),
-		blocked = UnitInVehicle("player") or UnitOnTaxi("player") or C_PetBattles.IsInBattle(),
+		blocked = UnitInVehicle("player") or UnitOnTaxi("player") or (C_PetBattles and C_PetBattles.IsInBattle()),
 		mounted = IsMounted(),
 		flying = IsFlying(),
 		swimming = IsSwimming(),

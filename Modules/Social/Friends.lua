@@ -130,9 +130,9 @@ local function Announce(entry)
 		digestName = entry.names[1],
 		onClick = function()
 			if entry.bnToken then
-				ChatFrameUtil.SendBNetTell(entry.bnToken)
+				ns.Chat_SendBNetTell(entry.bnToken)
 			elseif entry.tell then
-				ChatFrameUtil.SendTell(entry.tell)
+				ns.Chat_SendTell(entry.tell)
 			end
 		end,
 	})

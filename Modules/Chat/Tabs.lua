@@ -50,8 +50,11 @@ local function MaxWindows()
 end
 ns.Chat_MaxWindows = MaxWindows
 
+local RESERVED_WINDOWS = 2 -- General and Combat Log, where the client can't say (Forever)
+
 local function FirstFreeIndex()
-	return C_ChatInfo.GetNumReservedChatWindows() + 1
+	local reserved = C_ChatInfo.GetNumReservedChatWindows
+	return (reserved and reserved() or RESERVED_WINDOWS) + 1
 end
 
 local function WindowName(index)
@@ -141,7 +144,7 @@ local function Apply()
 	local remove = module.db.mainWindow == "remove"
 	for _, channel in ipairs(ns.CHAT_CHANNELS) do
 		local id = channel.id
-		local shortcut = C_ChatInfo.GetChannelShortcutForChannelID(id)
+		local shortcut = C_ChatInfo.GetChannelShortcutForChannelID and C_ChatInfo.GetChannelShortcutForChannelID(id)
 		local wanted = module.db.channels[channel.key]
 		local inTab = ChannelName(frame, id, shortcut)
 		if wanted and not inTab and shortcut and shortcut ~= "" then
@@ -257,7 +260,7 @@ end
 
 local function Activate()
 	restored = false
-	if not menuHooked then
+	if not menuHooked and Menu and Menu.ModifyMenu then -- Forever may have the older dropdown menus
 		menuHooked = true
 		Menu.ModifyMenu(TAB_MENU, AddLeaveEntries)
 	end
@@ -285,10 +288,14 @@ local options = {
 	{ type = "header", label = "Channels in the tab" },
 }
 for _, channel in ipairs(ns.CHAT_CHANNELS) do
-	options[#options + 1] = { type = "checkbox", key = "channels." .. channel.key, label = channel.label, onChange = OnChange }
+	options[#options + 1] = { type = "checkbox", key = "channels." .. channel.key, label = channel.label, onChange = OnChange,
+		shown = channel.retail and ns.NotForever or nil }
 end
 options[#options + 1] = { type = "header", label = "Tab menu" }
 options[#options + 1] = { type = "checkbox", key = "leaveMenu", label = "\"Leave\" in the tab menu",
+	shown = function()
+		return Menu ~= nil and Menu.ModifyMenu ~= nil
+	end,
 	tooltip = "Right-clicking any chat tab offers to leave each channel that tab shows." }
 options[#options + 1] = { type = "header", label = "Main window" }
 options[#options + 1] = { type = "dropdown", key = "mainWindow", label = "These channels in the main window",

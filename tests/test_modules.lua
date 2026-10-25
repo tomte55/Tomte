@@ -292,6 +292,21 @@ test("HomeEntries lists visible entries of a kind in registration order", functi
 	eq(#ns.ModulePages(ns.modulesByKey.b), 2, "module pages ignore shown()")
 end)
 
+test("HomeEntries has no map entries on Forever (no world map side panel there)", function()
+	reset()
+	newModule("a", { enabledByDefault = true, home = {
+		{ kind = "page", key = "pa" },
+		{ kind = "map", key = "ma" },
+	} })
+	ns.InitModules({})
+	ns.FOREVER = true
+	local maps, pages = #ns.HomeEntries("map"), #ns.HomeEntries("page")
+	ns.FOREVER = nil
+	eq(maps, 0, "maps")
+	eq(pages, 1, "pages still listed")
+	eq(#ns.HomeEntries("map"), 1, "retail")
+end)
+
 test("HomeEntries hides an entry whose shown() errors", function()
 	reset()
 	newModule("a", { enabledByDefault = true, home = {

@@ -42,7 +42,8 @@ local function State(questID)
 		onQuest = C_QuestLog.IsOnQuest(questID),
 		ready = C_QuestLog.ReadyForTurnIn(questID),
 		done = C_QuestLog.IsQuestFlaggedCompleted(questID),
-		doneOnAccount = C_QuestLog.IsQuestFlaggedCompletedOnAccount(questID),
+		doneOnAccount = C_QuestLog.IsQuestFlaggedCompletedOnAccount ~= nil -- no warband on Forever
+			and C_QuestLog.IsQuestFlaggedCompletedOnAccount(questID),
 	})
 end
 

@@ -65,7 +65,7 @@ local function BagItems()
 		local excluded
 		if bag == BACKPACK_CONTAINER then
 			excluded = C_Container.GetBackpackSellJunkDisabled and C_Container.GetBackpackSellJunkDisabled()
-		else
+		elseif C_Container.GetBagSlotFlag and Enum.BagSlotFlags then -- bag flags: not on Forever
 			excluded = C_Container.GetBagSlotFlag(bag, Enum.BagSlotFlags.ExcludeJunkSell)
 		end
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
@@ -73,8 +73,8 @@ local function BagItems()
 			if info then
 				local price = select(11, C_Item.GetItemInfo(info.hyperlink or info.itemID))
 				items[#items + 1] = {
-					quality = info.quality, count = info.stackCount, price = price,
-					noValue = info.hasNoValue, excluded = excluded,
+					bag = bag, slot = slot, quality = info.quality, count = info.stackCount, price = price,
+					noValue = info.hasNoValue, excluded = excluded, locked = info.isLocked,
 				}
 			end
 		end
@@ -145,8 +145,28 @@ local function Repair(visit)
 	end
 end
 
+local BUYBACK_SLOTS = 12 -- the merchant's buyback page: sell no more greys than it holds
+
+-- Forever has no "sell all junk": greys go one by one, like the Classic vendor addons do.
+local function SellJunkOneByOne(visit)
+	local slots = ns.Upkeep_JunkSlots(BagItems(), BUYBACK_SLOTS)
+	for _, item in ipairs(slots) do
+		C_Container.UseContainerItem(item.bag, item.slot)
+	end
+	if #slots > 0 then
+		visit.sold, visit.junkValue = #slots, (ns.Upkeep_JunkValue(slots))
+	end
+end
+
 local function SellJunk(visit)
-	if not db.junk or not C_MerchantFrame.IsSellAllJunkEnabled() or C_MerchantFrame.GetNumJunkItems() == 0 then
+	if not db.junk then
+		return
+	end
+	if not (C_MerchantFrame and C_MerchantFrame.SellAllJunkItems) then
+		SellJunkOneByOne(visit)
+		return
+	end
+	if not C_MerchantFrame.IsSellAllJunkEnabled() or C_MerchantFrame.GetNumJunkItems() == 0 then
 		return
 	end
 	local value, n = ns.Upkeep_JunkValue(BagItems())

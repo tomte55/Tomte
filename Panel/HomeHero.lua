@@ -52,6 +52,9 @@ local FACTS = {
 	{
 		label = "Item level",
 		tooltip = function(tip)
+			if not GetAverageItemLevel then -- may be missing on Forever
+				return
+			end
 			local overall, equipped = GetAverageItemLevel()
 			TipPair(tip, "Equipped", ("%.1f"):format(equipped or 0))
 			TipPair(tip, "Overall", ("%.1f"):format(overall or 0))
@@ -361,17 +364,13 @@ function ns.PanelHome_CreateHero(parent, onOpen)
 		else
 			SetColor(self.name, "heading")
 		end
-		local spec
-		local index = C_SpecializationInfo.GetSpecialization()
-		if index and index > 0 then
-			spec = select(2, C_SpecializationInfo.GetSpecializationInfo(index))
-		end
+		local spec = ns.SpecName()
 		self.who:SetText(("Level %d %s%s"):format(UnitLevel("player"), UnitRace("player") or "", spec and (", " .. spec) or ""))
-		local _, equipped = GetAverageItemLevel()
+		local equipped = GetAverageItemLevel and select(2, GetAverageItemLevel())
 		local dura = Durability()
 		local values = {
 			equipped and tostring(math.floor(equipped)) or "?",
-			ns.Alts_Gold(GetMoney()),
+			ns.Gold(GetMoney()),
 			(dura or 100) .. "%",
 			GetSubZoneText() ~= "" and GetSubZoneText() or GetZoneText(),
 		}

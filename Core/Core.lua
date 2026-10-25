@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Tomte core: saved variables, module start-up and /tomte. Modules register themselves at file load
 -- (Modules.lua); everything is started here on ADDON_LOADED.
 
-ns.VERSION = C_AddOns.GetAddOnMetadata(addonName, "Version") or "?" -- the TOC's ## Version
+ns.VERSION = ns.AddOnMetadata(addonName, "Version") or "?" -- the TOC's ## Version
 -- Tomte's logo, wherever Tomte shows its own icon (panel title bar, minimap button, Home, toasts, feed rows without
 -- one). The TOC's IconTexture is set separately (it can't read this).
 ns.ICON = "Interface\\AddOns\\Tomte\\Media\\Logo" -- Media/Logo.svg is the source
@@ -123,9 +123,15 @@ end
 -- Returns true when placed now, false when it waits for the end of combat. The caller checks
 -- C_Map.CanSetUserWaypointOnMap first.
 function ns.TrackPin(mapID, x, y)
+	if not C_Map.SetUserWaypoint then
+		return false
+	end
 	return ns.SafeTrack(function()
 		C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x, y))
-		C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+		-- Forever has map pins but may have no super-tracking: the pin alone then.
+		if C_SuperTrack then
+			C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+		end
 	end)
 end
 
@@ -191,6 +197,7 @@ local function PrintHelp()
 	PrintCommand("/tomte bug", "a bug report to copy: versions, modules and Tomte's last errors ('full' adds error "
 		.. "details and your settings, 'clear' empties Tomte's saved errors)")
 	PrintCommand("/tomte profile", "share settings with a friend: export, import, undo")
+	PrintCommand("/tomte unlock", "move Tomte's on-screen widgets (/tomte lock when done)")
 	for _, module in ipairs(ns.modules) do
 		PrintModuleCommands(module)
 	end
@@ -276,6 +283,8 @@ SlashCmdList.TOMTE = function(msg)
 		else
 			ns.BugUI_Show(rest == "full" and "full" or nil)
 		end
+	elseif word == "unlock" or word == "lock" then
+		ns.EditMode_Unlock(word == "unlock")
 	elseif word == "profile" then
 		if rest == "export" then
 			ns.ShareUI_Export()

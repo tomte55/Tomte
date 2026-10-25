@@ -10,7 +10,7 @@ ns.DRAWERS_EMPTY_ICON = EMPTY_ICON
 
 -- An item you have as a toy is used from the toy box (works with none in the bags); any other item by item ID.
 local function ItemEntry(itemID)
-	if PlayerHasToy(itemID) then
+	if PlayerHasToy and PlayerHasToy(itemID) then -- no toy box on Forever
 		return { kind = "toy", id = itemID }
 	end
 	return { kind = "item", id = itemID }
@@ -18,7 +18,7 @@ end
 
 -- A spell that summons a mount is kept as that mount: mounts are cast by name (see Bar.lua).
 local function SpellEntry(spellID)
-	local mountID = C_MountJournal.GetMountFromSpell(spellID)
+	local mountID = C_MountJournal and C_MountJournal.GetMountFromSpell(spellID) -- Forever: mounts are items
 	if mountID then
 		return { kind = "mount", id = mountID }
 	end
@@ -42,7 +42,7 @@ function ns.Drawers_FromCursor()
 		return ItemEntry(id)
 	elseif kind == "spell" then
 		return SpellEntry(id)
-	elseif kind == "mount" and C_MountJournal.GetMountInfoByID(id) then
+	elseif kind == "mount" and C_MountJournal and C_MountJournal.GetMountInfoByID(id) then
 		return { kind = "mount", id = id }
 	end
 	return nil
@@ -66,7 +66,7 @@ function ns.Drawers_FromName(text)
 			or nil
 	end
 	local wanted = text:lower()
-	for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
+	for _, mountID in ipairs(C_MountJournal and C_MountJournal.GetMountIDs() or {}) do
 		local name = C_MountJournal.GetMountInfoByID(mountID)
 		if name and name:lower() == wanted then
 			return { kind = "mount", id = mountID }
@@ -90,13 +90,13 @@ function ns.Drawers_Info(entry)
 		local count = C_Item.GetItemCount(id, false, true)
 		return C_Item.GetItemNameByID(id), C_Item.GetItemIconByID(id) or EMPTY_ICON,
 			IsSecret(count) or (count or 0) > 0
-	elseif kind == "toy" then
+	elseif kind == "toy" and C_ToyBox then
 		local _, name, icon = C_ToyBox.GetToyInfo(id)
 		return name or C_Item.GetItemNameByID(id), icon or C_Item.GetItemIconByID(id) or EMPTY_ICON, PlayerHasToy(id)
 	elseif kind == "spell" then
 		return C_Spell.GetSpellName(id), C_Spell.GetSpellTexture(id) or EMPTY_ICON,
-			C_SpellBook.IsSpellKnown(id) and true or false
-	elseif kind == "mount" then
+			ns.SpellKnown(id)
+	elseif kind == "mount" and C_MountJournal then
 		local name, spellID, icon, _, _, _, _, _, _, _, isCollected = C_MountJournal.GetMountInfoByID(id)
 		return name, icon or EMPTY_ICON, isCollected and true or false, spellID
 	end

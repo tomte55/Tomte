@@ -79,7 +79,7 @@ end
 -- Puts a link into the open chat edit box (shift-click). Does nothing for a nil link.
 function UI.InsertLink(link)
 	if link then
-		ChatFrameUtil.InsertLink(link)
+		ns.Chat_InsertLink(link)
 	end
 end
 

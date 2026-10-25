@@ -74,7 +74,7 @@ local function ShowMention(label, sender, class, text, slash, preview, community
 				return
 			end
 			if slash then
-				ChatFrameUtil.OpenChat(slash)
+				ns.Chat_Open(slash)
 			elseif community then
 				-- Blizzard's Communities window isn't opened from addon code (taint): say where to answer instead.
 				ns.Print("Mentions: that community channel isn't in any chat window, so there's no chat line to open. "

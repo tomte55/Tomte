@@ -19,7 +19,7 @@ local function Loaded(name)
 end
 
 local function Version(name)
-	local v = C_AddOns.GetAddOnMetadata(name, "Version")
+	local v = ns.AddOnMetadata(name, "Version")
 	if type(v) == "string" and v ~= "" then
 		return v
 	end
@@ -125,11 +125,7 @@ local function Info(full)
 			info.level = level
 		end
 		info.class = UnitClass("player")
-		local index = C_SpecializationInfo.GetSpecialization()
-		if index then
-			local specID, name = C_SpecializationInfo.GetSpecializationInfo(index)
-			info.spec, info.specID = name, specID
-		end
+		info.spec, info.specID = ns.SpecName(), ns.SpecID()
 		info.content = ns.ExpansionName(ns.ContentExpansion())
 	end)
 	Part(info, { "on", "off", "blocked" }, function()

@@ -366,7 +366,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte weekly popup` / `board`, `/tomte weekly quests` (learned weekly quests), `/tomte weekly forget <name>`, `/tomte weekly ids` (check crest and knowledge quest IDs)
 - `/tomte chatcopy` (copy the chat window you last used)
 - `/tomte showcase` (open or close), `/tomte showcase view` (which camera view it borrows)
-- `/tomte setup` (the module picker), `/tomte bug` (`full`, `clear`), `/tomte profile export` / `import` / `undo`
+- `/tomte setup` (the module picker), `/tomte bug` (`full`, `clear`), `/tomte profile export` / `import` / `undo`, `/tomte unlock` / `lock` (move Tomte's on-screen widgets without Edit Mode)
 - `/tomte gather` (the Gathering page), `/tomte gather start` / `end`, `/tomte gather why` (how the last loot window was counted), `/tomte gather nodes` (node spots remembered here and everywhere), `/tomte gather follow` (follow the zone's gathering route, or stop), `/tomte gather skip` (skip the route's next spot), `/tomte gather route` (the route in your zone), `/tomte gather soil` (the object you last pointed at and the Rich Soil spots Tomte knows)
 - `/tomte fishing` (options), `/tomte fishing status` (key, reel state and settings waiting to be put back)
 - `/tomte wgq` (the Gold world quests window), `/tomte wgq list` / `report` (in chat), `/tomte wgq route` / `stop`, `/tomte wgq reset` (window position)

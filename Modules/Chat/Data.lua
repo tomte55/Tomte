@@ -8,7 +8,7 @@ local addonName, ns = ...
 -- short: the tag in Channel Tags' short styles.
 ns.CHAT_CHANNELS = {
 	{ key = "trade", id = 2, label = "Trade", short = "T" },
-	{ key = "services", id = 42, label = "Trade (Services)", short = "S" },
+	{ key = "services", id = 42, label = "Trade (Services)", short = "S", retail = true }, -- not on Forever
 	{ key = "general", id = 1, label = "General", short = "Gen" },
 	{ key = "lfg", id = 26, label = "LookingForGroup", short = "LFG" },
 	{ key = "defense", id = 22, label = "LocalDefense", short = "LD" },
@@ -36,6 +36,20 @@ local PROF_ABBREVIATIONS = {
 
 -- Keywords, lower case and without duplicates. profs: { { name = localized name, skillLine = base ID } };
 -- extraText: the user's comma-separated keywords.
+-- Forever has no GetProfessions: the professions are the skill lines under the "Professions" header of the skills
+-- list. lines: { { name, isHeader } } in GetSkillLineInfo order; header: the localized header name (TRADE_SKILLS).
+function ns.Chat_ProfessionNames(lines, header)
+	local names, inside = {}, false
+	for _, line in ipairs(lines) do
+		if line.isHeader then
+			inside = header ~= nil and line.name == header
+		elseif inside then
+			names[#names + 1] = line.name
+		end
+	end
+	return names
+end
+
 function ns.Chat_BuildKeywords(profs, useProfs, extraText)
 	local list, seen = {}, {}
 	local function Add(word)

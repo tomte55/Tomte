@@ -53,8 +53,14 @@ local function PaintRow(slot, index, money)
 			end
 		end
 	end
-	local info = C_MerchantFrame.GetItemInfo(index)
-	local price = info and info.price or 0
+	local price
+	if C_MerchantFrame and C_MerchantFrame.GetItemInfo then
+		local info = C_MerchantFrame.GetItemInfo(index)
+		price = info and info.price
+	else -- Forever: the older API, price is the third return
+		price = select(3, GetMerchantItemInfo(index))
+	end
+	price = price or 0
 	local short = ns.Upkeep_PriceShort(price, money, costs)
 	for i, button in ipairs(buttons) do
 		if short[i] then

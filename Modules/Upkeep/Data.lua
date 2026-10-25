@@ -27,15 +27,34 @@ end
 
 -- items: { { quality, count, price, noValue, excluded } }. Grey items (quality 0) that sell, outside bags
 -- excluded from junk selling. Returns copper, item count (stacks).
+local function Sells(item)
+	return item.quality == 0 and not item.noValue and not item.excluded and (item.price or 0) > 0
+end
+
 function ns.Upkeep_JunkValue(items)
 	local value, n = 0, 0
 	for _, item in ipairs(items) do
-		if item.quality == 0 and not item.noValue and not item.excluded and (item.price or 0) > 0 then
+		if Sells(item) then
 			value = value + item.price * (item.count or 1)
 			n = n + 1
 		end
 	end
 	return value, n
+end
+
+-- For clients without Blizzard's "sell all junk" (Forever): the items (with bag, slot) to sell one by one, at most
+-- max of them (the buyback page holds 12, so selling more would lose the chance to buy one back). Skips locked items.
+function ns.Upkeep_JunkSlots(items, max)
+	local list = {}
+	for _, item in ipairs(items) do
+		if #list >= max then
+			break
+		end
+		if Sells(item) and not item.locked then
+			list[#list + 1] = item
+		end
+	end
+	return list
 end
 
 -- slots: { { slot, cur, max } } for equipped items with durability. Returns the lowest fraction (0..1), its slot,

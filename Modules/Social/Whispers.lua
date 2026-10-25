@@ -210,7 +210,7 @@ ns.Whispers_BNetFriend = FindBNetFriend -- the inbox header reads who they are f
 function ns.Whispers_Reply(key)
 	if key == RESTRICTED then
 		-- Names are secret here: Blizzard keeps the last tell target itself.
-		local ok = pcall(ChatFrameUtil.ReplyTell)
+		local ok = pcall(ns.Chat_ReplyTell)
 		if not ok then
 			ns.Print("can't reply from here during instance chat restrictions; press R in chat instead.")
 		end
@@ -232,13 +232,13 @@ function ns.Whispers_Reply(key)
 			token = friend and friend.accountName
 		end
 		if token then
-			ChatFrameUtil.SendBNetTell(token)
+			ns.Chat_SendBNetTell(token)
 		else
 			ns.Print(convo.name .. " isn't online on Battle.net.")
 		end
 		return
 	end
-	ChatFrameUtil.SendTell(target)
+	ns.Chat_SendTell(target)
 end
 
 local function CanSend(key)
@@ -283,7 +283,7 @@ function ns.Whispers_Send(key, text)
 			ok, err = false, "Battle.net refused the whisper"
 		end
 	else
-		ok, err = pcall(C_ChatInfo.SendChatMessage, text, "WHISPER", nil, target)
+		ok, err = pcall(ns.Chat_Send, text, "WHISPER", nil, target)
 	end
 	if not ok then
 		ns.Print("couldn't send: " .. tostring(err))
@@ -301,7 +301,7 @@ local function ReplyNewest()
 		ns.Whispers_MarkRead(convos[1].key)
 		ns.Whispers_Reply(convos[1].key)
 	else
-		ChatFrameUtil.ReplyTell()
+		ns.Chat_ReplyTell()
 	end
 end
 

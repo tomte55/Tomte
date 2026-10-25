@@ -36,8 +36,8 @@ ticker:Hide()
 -- Resolves the hop path to a destination slot. Only valid while the taxi map is open. Returns { mapID, path
 -- (node IDs), points (stops between), origin, dest, originName, destName, cost }, or nil. Tooltip.lua uses it too.
 function ns.Flight_BuildRoute(destSlot)
-	local mapID = GetTaxiMapID()
-	if not mapID then
+	local mapID = GetTaxiMapID and GetTaxiMapID()
+	if not (mapID and C_TaxiMap.GetAllTaxiNodes) then
 		return nil
 	end
 	local bySlot = {}
@@ -433,7 +433,7 @@ end
 
 -- Map pin + super-track (Waypoints and Blizzard's arrow pick it up), as Weekly's knowledge waypoints.
 local function Waypoint(node, mapID)
-	if not (node.x and C_Map.CanSetUserWaypointOnMap(mapID)) then
+	if not (node.x and C_Map.CanSetUserWaypointOnMap and C_Map.CanSetUserWaypointOnMap(mapID)) then
 		ns.Print("can't place a map pin there.")
 		return
 	end
@@ -443,6 +443,10 @@ end
 
 -- Travel loads after Flight: both are looked up at call time.
 local function DistanceText(yards)
+	-- Waypoints isn't loaded on Forever: the row then has no distance.
+	if not (ns.Way_FormatDistance and ns.Way_Metric) then
+		return nil
+	end
 	return ns.Way_FormatDistance(yards, ns.Way_Metric())
 end
 

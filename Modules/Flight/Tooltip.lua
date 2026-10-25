@@ -24,7 +24,7 @@ local function OnPinEnter(pin)
 	if not data then
 		return
 	end
-	if data.state == Enum.FlightPathState.Reachable then
+	if Enum.FlightPathState and data.state == Enum.FlightPathState.Reachable then
 		AddTimeLine(data.slotIndex)
 	end
 	if ns.flightModule.active and not data.isMapLayerTransition and not ns.MapCoverage_IsTimed(data.nodeID) then

@@ -59,7 +59,7 @@ function ns.FishingAngler_Toggle(on)
 		if perks and ArtifactFrame:IsShown() then
 			Fix(perks)
 		end
-	elseif not waiting then
+	elseif not waiting and EventUtil and EventUtil.ContinueOnAddOnLoaded then -- Forever: no artifact window
 		waiting = true
 		EventUtil.ContinueOnAddOnLoaded("Blizzard_ArtifactUI", Hook)
 	end

@@ -45,7 +45,9 @@ function ns.QuestsRead_DoneElsewhere(questID)
 	if not questID or C_QuestLog.IsQuestFlaggedCompleted(questID) then
 		return false
 	end
-	return C_QuestLog.IsQuestFlaggedCompletedOnAccount(questID) and true or false
+	-- No warband on Forever: nothing is done elsewhere.
+	local onAccount = C_QuestLog.IsQuestFlaggedCompletedOnAccount
+	return onAccount ~= nil and onAccount(questID) and true or false
 end
 
 local function Title(questID, fallback)

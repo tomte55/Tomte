@@ -404,6 +404,9 @@ local function CreateSettingsStub()
 		end
 		ns.Panel_Open()
 	end)
+	if not (Settings and Settings.RegisterCanvasLayoutCategory) then
+		return
+	end
 	local category = Settings.RegisterCanvasLayoutCategory(holder, "Tomte")
 	Settings.RegisterAddOnCategory(category)
 end

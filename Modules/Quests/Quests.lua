@@ -18,9 +18,14 @@ local module, db
 local function Start()
 	ns.QuestsAuto_Start(db)
 	ns.QuestsMenu_Start()
-	ns.QuestsMedals_Start(db)
+	-- Race medals and the Talking Head are retail-only (skyriding races, TalkingHeadFrame).
+	if not ns.FOREVER then
+		ns.QuestsMedals_Start(db)
+	end
 	ns.QuestsCinematics_Start(db)
-	ns.QuestsTalkingHead_Start(db)
+	if not ns.FOREVER then
+		ns.QuestsTalkingHead_Start(db)
+	end
 	ns.QuestsItems_Start(db)
 end
 
@@ -61,6 +66,9 @@ local function IgnoreCommand(arg)
 end
 
 local function TalkingHeadIs(...)
+	if ns.FOREVER then
+		return false
+	end
 	for i = 1, select("#", ...) do
 		if db.talkingHead == select(i, ...) then
 			return true
@@ -164,7 +172,7 @@ module = ns.RegisterModule({
 			tooltip = "When an NPC offers just one thing to say, say it (once per conversation)." },
 		{ type = "checkbox", key = "gossipEvents", label = "Sign up for events", parent = "auto",
 			tooltip = "Join events like the Theater Troupe and Time Rifts when you talk to their NPC." },
-		{ type = "checkbox", key = "raceMedals", label = "Race medals at timekeepers",
+		{ type = "checkbox", key = "raceMedals", label = "Race medals at timekeepers", shown = ns.NotForever,
 			tooltip = "At a skyriding race start, each course in the timekeeper's list shows the medal you've earned on it." },
 
 		{ type = "header", label = "Cinematics" },
@@ -187,7 +195,7 @@ module = ns.RegisterModule({
 			end },
 
 		{ type = "header", label = "Talking Head" },
-		{ type = "dropdown", key = "talkingHead", label = "Talking Head", choices = function()
+		{ type = "dropdown", key = "talkingHead", label = "Talking Head", shown = ns.NotForever, choices = function()
 			return TALKING_HEAD_CHOICES
 		end, onChange = function()
 			ns.QuestsTalkingHead_Apply()
