@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Settings rows: one factory per option row type (checkbox, slider, dropdown, button, input, status), pooled and
 -- shared by everything that draws a module's options schema: the module page's cards (Options.lua) and the Edit Mode
 -- settings dialog (EditModeDialog.lua). Schema extras read here: label (text or function), tooltip (a faint "?"
--- after the label). After a row changes a setting it tells the listeners (ns.OptionRows_OnChange), so whoever drew
+-- after the label), preview (a card drawn while the mouse is on the row, Preview.lua; only where the drawer sets
+-- row.allowPreview). After a row changes a setting it tells the listeners (ns.OptionRows_OnChange), so whoever drew
 -- it can rebuild rows that hang on it.
 
 local UI = ns.UI
@@ -52,6 +53,7 @@ local function Changed(module, key)
 	for _, fn in ipairs(listeners) do
 		fn(module, key)
 	end
+	ns.Preview_Refresh(module)
 end
 
 local function SetOption(module, spec, value)
@@ -85,6 +87,26 @@ local function RowTooltip(row)
 	GameTooltip:Show()
 end
 
+-- The mouse is on row (or one of its controls): its tooltip and, on the module pages, its preview (Preview.lua). has:
+-- value is the choice under the mouse, label its text; anchor: the dropdown list's item it's on.
+local function RowEnter(row, value, has, label, anchor)
+	if not anchor then
+		RowTooltip(row)
+	end
+	if row.allowPreview then
+		ns.Preview_Show(row, value, has, label, anchor)
+	end
+end
+
+-- A slider being dragged keeps both until the drag ends.
+local function RowLeave(row)
+	if row.dragging then
+		return
+	end
+	HideTooltip()
+	ns.Preview_Hide(row)
+end
+
 -- The label, with a faint "?" when the row has a tooltip.
 local function SetLabel(row, spec)
 	local text = LabelText(spec) or ""
@@ -101,8 +123,13 @@ local function NewRow(kind, parent)
 	row.kind = kind
 	row:SetHeight(OPT_H)
 	row:EnableMouse(true)
-	row:SetScript("OnEnter", RowTooltip)
-	row:SetScript("OnLeave", HideTooltip)
+	row:SetScript("OnEnter", RowEnter)
+	row:SetScript("OnLeave", RowLeave)
+	-- Released, or the page closed under the mouse (a drag cut short this way never gets its mouse-up).
+	row:SetScript("OnHide", function(self)
+		self.dragging = false
+		ns.Preview_Hide(self)
+	end)
 	row.label = UI.Text(row, 13, "text")
 	row.label:SetPoint("LEFT", 8, 0)
 	row.label:SetWordWrap(false)
@@ -122,9 +149,11 @@ end
 
 local function ForwardHover(row, control)
 	control:HookScript("OnEnter", function()
-		RowTooltip(row)
+		RowEnter(row)
 	end)
-	control:HookScript("OnLeave", HideTooltip)
+	control:HookScript("OnLeave", function()
+		RowLeave(row)
+	end)
 end
 
 function Factory.checkbox(parent)
@@ -165,6 +194,15 @@ function Factory.slider(parent)
 		SetOption(row.module, row.spec, value)
 	end
 	ForwardHover(row, row.slider)
+	row.slider:HookScript("OnMouseDown", function()
+		row.dragging = true
+	end)
+	row.slider:HookScript("OnMouseUp", function()
+		row.dragging = false
+		if not row:IsMouseOver() then
+			RowLeave(row)
+		end
+	end)
 	return row
 end
 
@@ -198,13 +236,23 @@ function Factory.dropdown(parent)
 	d.getValue, d.setValue, d.choices = getValue, setValue, choices
 	row.dropdown = d
 	ForwardHover(row, d)
+	-- An item under the mouse in the open list: its preview beside the list (nil when the mouse leaves the list).
+	d.onHover = function(value, text, item)
+		if item then
+			RowEnter(row, value, true, text, item)
+		else
+			ns.Preview_Hide(row)
+		end
+	end
 	local seg = UI.Segmented(row)
 	seg:SetPoint("RIGHT", -8, 0)
 	seg.getValue, seg.setValue, seg.choices = getValue, setValue, choices
-	seg.onEnter = function()
-		RowTooltip(row)
+	seg.onEnter = function(value, text)
+		RowEnter(row, value, true, text)
 	end
-	seg.onLeave = HideTooltip
+	seg.onLeave = function()
+		RowLeave(row)
+	end
 	row.segments = seg
 	return row
 end
@@ -334,6 +382,7 @@ function ns.OptionRows_Release(row)
 	row:Hide()
 	row:ClearAllPoints()
 	row:SetAlpha(1)
+	row.allowPreview, row.dragging = nil, false
 	local pool = pools[row.kind]
 	pool[#pool + 1] = row
 end
@@ -347,4 +396,9 @@ end
 -- The saved value of module's options key ("frame.locked").
 function ns.OptionRows_Get(module, key)
 	return GetOption(module, key)
+end
+
+-- The table that holds module's options key and the field in it ("frame.locked" -> db.frame, "locked").
+function ns.OptionRows_Resolve(module, key)
+	return Resolve(module.db, key)
 end

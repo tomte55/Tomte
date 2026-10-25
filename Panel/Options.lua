@@ -264,6 +264,7 @@ function Build(scroll, module)
 		for i, spec in ipairs(sec.specs) do
 			local row = ns.OptionRows_Acquire(spec.type, card)
 			used[#used + 1] = row
+			row.allowPreview = true
 			local indent = spec.parent and INDENT or 0
 			row:SetPoint("TOPLEFT", card, "TOPLEFT", CARD_INSET + indent, -y)
 			row:SetPoint("RIGHT", card, "RIGHT", -CARD_INSET, 0)

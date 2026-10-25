@@ -66,6 +66,7 @@ Panel/Controls.lua
 Panel/Menu.lua
 Panel/Dialog.lua
 Panel/Confirm.lua
+Panel/Preview.lua
 Panel/OptionRows.lua
 Panel/Options.lua
 Panel/EditModeDialog.lua

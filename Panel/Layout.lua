@@ -129,3 +129,53 @@ function ns.PanelLayout_Visibility(options)
 	end
 	return table.concat(marks)
 end
+
+-- Setting previews (Preview.lua) ------------------------------------------------------------------------------
+
+-- The scale a preview of w x h is drawn at in a box of at most maxW x maxH: real size when it fits, shrunk evenly when
+-- it doesn't, never enlarged.
+function ns.PanelLayout_PreviewScale(w, h, maxW, maxH)
+	if not (w and h and w > 0 and h > 0) then
+		return 1
+	end
+	return math.min(1, maxW / w, maxH / h)
+end
+
+-- The settings a preview draws with, other than the saved ones: { [key] = { value = v } } (wrapped, so false and nil
+-- count as values). The row's own key takes the choice under the mouse (has: there is one). forceOn: the second try,
+-- after the saved settings showed nothing because what the row is about is off: then the switch the preview needs
+-- (needs, Preview_When), the switches the row hangs on (parentOf(key) -> its parent key, up the chain) and the row's
+-- own switch (kind "checkbox") count as on, so a player deciding whether to turn something on sees what it gives.
+function ns.PanelLayout_PreviewOverrides(key, kind, value, has, parentOf, forceOn, needs)
+	local overrides = {}
+	if forceOn then
+		local seen = {}
+		local function On(k)
+			while k and not seen[k] do
+				seen[k] = true
+				overrides[k] = { value = true }
+				k = parentOf(k)
+			end
+		end
+		On(needs)
+		On(key and parentOf(key))
+		if key and kind == "checkbox" and not has then
+			overrides[key] = { value = true }
+		end
+	end
+	if key and has then
+		overrides[key] = { value = value }
+	end
+	return overrides
+end
+
+-- get(key) for a preview: the override for key (PreviewOverrides), else read(key) (the saved setting).
+function ns.PanelLayout_PreviewGetter(read, overrides)
+	return function(key)
+		local o = overrides[key]
+		if o then
+			return o.value
+		end
+		return read(key)
+	end
+end

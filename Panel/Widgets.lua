@@ -680,7 +680,8 @@ function UI.Slider(parent, width)
 	return s
 end
 
--- Button showing the current choice; a click opens the themed choice list (UI.OpenChoiceList, Controls.lua).
+-- Button showing the current choice; a click opens the themed choice list (UI.OpenChoiceList, Menu.lua). Set
+-- getValue, setValue and choices; optional onHover(value, text, item) follows the mouse over the open list.
 function UI.Dropdown(parent, width)
 	local b = UI.Button(parent, width, "")
 	b.label:ClearAllPoints()
@@ -717,7 +718,7 @@ function UI.Dropdown(parent, width)
 		if UI.ChoiceListOwner() == self then
 			UI.CloseChoiceList()
 		else
-			UI.OpenChoiceList(self, self.choices(), IsSelected, SetSelected)
+			UI.OpenChoiceList(self, self.choices(), IsSelected, SetSelected, self.onHover)
 		end
 	end)
 	b:HookScript("OnHide", function(self)

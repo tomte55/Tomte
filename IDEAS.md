@@ -7,7 +7,8 @@ Feature ideas captured for later. Newest first. Status: New, Discussing, Planned
 ## Live previews for visual settings
 
 **Date:** 2026-10-25
-**Status:** Planned (next up after the loot window looks, `docs/superpowers/specs/2026-10-25-tomte-loot-window-looks-design.md`)
+**Status:** In Progress (built 2026-10-25, waiting for the in-game check; design in
+`docs/superpowers/specs/2026-10-25-tomte-setting-previews-design.md`)
 
 **Description:**
 When a player changes a setting that changes how something looks (the loot window's look, font size, opacity, grow

@@ -112,7 +112,8 @@ end
 
 -- Segmented buttons: one segment per choice, the current one lit. Set getValue, setValue and choices like
 -- UI.Dropdown, then call Refresh (lays the segments out and sizes the frame to them). For toggles that can each be
--- on (several at once), set isOn(value) -> bool and toggle(value) instead of getValue and setValue.
+-- on (several at once), set isOn(value) -> bool and toggle(value) instead of getValue and setValue. Optional
+-- onEnter(value, text) and onLeave() follow the mouse over the segments.
 function UI.Segmented(parent)
 	local f = CreateFrame("Frame", nil, parent)
 	f:SetHeight(SEGMENT_H)
@@ -160,7 +161,7 @@ function UI.Segmented(parent)
 		seg:SetScript("OnEnter", function(self)
 			Paint(self, Selected(self.value))
 			if f.onEnter then
-				f.onEnter()
+				f.onEnter(self.value, self.label:GetText())
 			end
 		end)
 		seg:SetScript("OnLeave", function(self)

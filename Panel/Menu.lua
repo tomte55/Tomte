@@ -127,6 +127,10 @@ local function CreateRow(level)
 		if Interactive(d) then
 			self.bg:Show()
 		end
+		local hover = levels[1].root.onHover
+		if hover and d.kind == "radio" then
+			hover(d.data, d.text, self)
+		end
 		if d.kind == "button" and #d.children > 0 then
 			Render(level.depth + 1, d, self)
 		else
@@ -135,6 +139,10 @@ local function CreateRow(level)
 	end)
 	row:SetScript("OnLeave", function(self)
 		self.bg:Hide()
+		local hover = levels[1].root.onHover
+		if hover then
+			hover(nil)
+		end
 	end)
 	row:SetScript("OnClick", function(self)
 		local d = self.desc
@@ -202,7 +210,10 @@ local function Level(depth)
 				CloseAll()
 			end
 		end)
-		level:SetScript("OnHide", function()
+		level:SetScript("OnHide", function(self)
+			if self.root.onHover then
+				self.root.onHover(nil)
+			end
 			CloseFrom(2)
 			catcher:Hide()
 			if ownerArrow then
@@ -293,6 +304,7 @@ local function Open(by, root, anchor, minWidth, arrow)
 	if #root.children == 0 then
 		return
 	end
+	Level(1).root = root -- before Render: its rows ask for root.onHover
 	Render(1, root, anchor, minWidth)
 	owner, ownerArrow = by, arrow
 	if arrow then
@@ -318,9 +330,11 @@ function UI.ContextMenu(by, generator)
 end
 
 -- A dropdown's list under its button. choices: { { text, value } }; isSelected(value) marks the current one;
--- onPick(value) runs after the list closes.
-function UI.OpenChoiceList(by, choices, isSelected, onPick)
+-- onPick(value) runs after the list closes. onHover(value, text, item), optional: the mouse is on a choice's item in
+-- the list; onHover(nil) when it leaves or the list closes.
+function UI.OpenChoiceList(by, choices, isSelected, onPick, onHover)
 	local root = NewDesc("root")
+	root.onHover = onHover
 	for _, choice in ipairs(choices) do
 		root:CreateRadio(choice.text, isSelected, onPick, choice.value)
 	end
