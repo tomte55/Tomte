@@ -506,6 +506,7 @@ function Draw(animate)
 		shown.hands = { #(hands[1] and hands[1].cards or {}), #(hands[2] and hands[2].cards or {}) }
 		shown.dealer = round and #round.dealer or 0
 		shown.hole = round and round.phase == "done" or false
+		shown.handCount = math.max(#hands, 1) -- a split round redrawn isn't a split happening now
 	end
 	if #hands > shown.handCount then
 		-- Just split: the two cards of the pair are already on the table, one per hand.
