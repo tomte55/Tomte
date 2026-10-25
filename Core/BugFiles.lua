@@ -60,6 +60,7 @@ ns.BUG_FILES = {
 	"Panel/Menu.lua",
 	"Panel/Dialog.lua",
 	"Panel/Confirm.lua",
+	"Panel/OptionRows.lua",
 	"Panel/Options.lua",
 	"Panel/HomeKit.lua",
 	"Panel/HomeHero.lua",
