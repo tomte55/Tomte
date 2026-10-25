@@ -33,6 +33,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Casino:** after a blackjack round with a split, switching to another game and back no longer replays the whole
   round and its payout on the table.
+- **Casino:** the slots pay table's jackpot no longer runs under its icons at the biggest bet.
 - **Collect & World quests:** clicking a zone toast opens the world map on its tab again, instead of asking you to
   open the map first.
 - **Delves:** picking delve powers for you works now, and the choice window closes after the pick instead of
