@@ -212,5 +212,32 @@ test("CountText", function()
 	eq(ns.Tips_CountText("Radiant Echo", 1234), "Radiant Echo: 1,234")
 	eq(ns.Tips_CountText(nil, nil), "?: 0")
 end)
+test("PreviewItems picks samples per line kind, the first source first, each once", function()
+	local mine = {
+		keys = { [30] = true, [10] = true },
+		samples = { rep = 500 },
+		reagentQuantity = { [2] = { [41] = 1, [40] = 2 }, [1] = { [42] = 1 } },
+		vendors = { [60] = { named = true, map = 1 }, [61] = { map = 1 } },
+		choices = { [7] = { currency = 3000 }, [8] = { item = 70 } },
+	}
+	local older = {
+		keys = { [10] = true, [5] = true },
+		samples = { rep = 501 },
+		vendors = { [62] = { places = { { map = 2 }, { named = true, map = 3 } } } },
+		choices = { [9] = { currency = 3000 } },
+	}
+	local sources = { mine, older }
+	eq(table.concat(ns.Tips_PreviewItems(sources, "keys"), ","), "10,30,5", "sorted, a repeat once")
+	eq(table.concat(ns.Tips_PreviewItems(sources, "rep"), ","), "500,501")
+	eq(table.concat(ns.Tips_PreviewItems(sources, "reagents"), ","), "42,40,41", "by recipe, then item")
+	eq(table.concat(ns.Tips_PreviewItems(sources, "vendors"), ","), "61,60,62",
+		"a vendor not in the item's text first, per source")
+	local choice = ns.Tips_PreviewItems(sources, "choice")
+	eq(#choice, 2, "the same currency once")
+	eq(choice[1].kind, "currency")
+	eq(choice[1].id, 3000)
+	eq(choice[2].kind, "item")
+	eq(ns.Tips_PreviewItems({ {} }, "rep")[1], nil, "a source without samples")
+end)
 
 H.done()

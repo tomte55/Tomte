@@ -188,3 +188,74 @@ end
 function ns.Tips_CountText(name, have)
 	return (name or "?") .. ": " .. ns.Thousands(have or 0)
 end
+
+-- Setting previews --------------------------------------------------------------------------------------------------
+
+local function SortedKeys(tbl)
+	local ids = {}
+	for id in pairs(tbl or {}) do
+		ids[#ids + 1] = id
+	end
+	table.sort(ids)
+	return ids
+end
+
+local function NamesVendor(value)
+	for _, place in ipairs(ns.Tips_VendorPlaces(value)) do
+		if not place.named then
+			return false
+		end
+	end
+	return true
+end
+
+-- The sample items a settings preview tries for a line kind, best first. sources: tips tables, the player's
+-- expansion first. kind: "keys" (chest-named items), "rep" (samples.rep: repSpells is keyed by spell, not item),
+-- "reagents" (the combine items reagentQuantity names), "vendors" (tokens whose vendor isn't in the item's own text
+-- first, so the "Spend at" line shows), "choice" (the tokens choice windows take: { kind, id }, each once).
+function ns.Tips_PreviewItems(sources, kind)
+	local list, seen = {}, {}
+	local function add(id, value)
+		if not seen[id] then
+			seen[id] = true
+			list[#list + 1] = value or id
+		end
+	end
+	for _, tips in ipairs(sources) do
+		if kind == "rep" then
+			if tips.samples and tips.samples.rep then
+				add(tips.samples.rep)
+			end
+		elseif kind == "reagents" then
+			for _, recipeID in ipairs(SortedKeys(tips.reagentQuantity)) do
+				for _, itemID in ipairs(SortedKeys(tips.reagentQuantity[recipeID])) do
+					add(itemID)
+				end
+			end
+		elseif kind == "vendors" then
+			local named = {}
+			for _, itemID in ipairs(SortedKeys(tips.vendors)) do
+				if NamesVendor(tips.vendors[itemID]) then
+					named[#named + 1] = itemID
+				else
+					add(itemID)
+				end
+			end
+			for _, itemID in ipairs(named) do
+				add(itemID)
+			end
+		elseif kind == "choice" then
+			for _, choiceID in ipairs(SortedKeys(tips.choices)) do
+				local token = tips.choices[choiceID]
+				local entryKind = token.item and "item" or "currency"
+				local id = token.item or token.currency
+				add(entryKind .. id, { kind = entryKind, id = id })
+			end
+		else
+			for _, itemID in ipairs(SortedKeys(tips[kind])) do
+				add(itemID)
+			end
+		end
+	end
+	return list
+end

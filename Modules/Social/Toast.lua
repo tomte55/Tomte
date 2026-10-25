@@ -23,6 +23,7 @@ local addonName, ns = ...
 --   For Recent (ns.Recent_Note): recentTitle = a saveable title when title isn't one (a |K account name),
 --   test = a preview (not noted); a pin's recentCount = Recent hears of it again only when this rises.
 -- ns.Toast_Pin(key, spec) / ns.Toast_Unpin(key), ns.Toast_Clear(owner), ns.Toast_SetDigest(owner, fn(held))
+-- ns.Toast_DrawSample(host, spec, i): a still card drawn into a settings preview, not shown as a toast.
 
 local WIDTH = 300
 local PAD = 10
@@ -171,25 +172,10 @@ local function OnCardClick(card, button)
 	end
 end
 
-local function NewCard()
-	-- Cards with opensMap open the world map first on a left-click (ns.MapTabs_Opener); the card's own click is its
-	-- PostClick.
-	local card = CreateFrame("Button", nil, anchor, "InsecureActionButtonTemplate")
+-- What a card looks like: panel, hover and flash layers, accent bar and line, icon, texts (filled by Fill). Shared by
+-- the real cards (NewCard adds the clicks) and the still samples in settings previews (ns.Toast_DrawSample).
+local function Dress(card)
 	card:SetWidth(WIDTH)
-	ns.MapTabs_Opener(card, function(self, mouseButton)
-		return mouseButton == "LeftButton" and self.spec ~= nil and self.spec.opensMap == true
-	end)
-	card:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	card:SetScript("PostClick", OnCardClick)
-	card:SetScript("OnEnter", function(self)
-		self.hovered = true
-		self.glow:Show()
-	end)
-	card:SetScript("OnLeave", function(self)
-		self.hovered = false
-		self.glow:Hide()
-	end)
-
 	UI.Panel(card, { alpha = 0.92, subtle = true })
 	card.glow = card:CreateTexture(nil, "BORDER")
 	card.glow:SetAllPoints()
@@ -226,6 +212,26 @@ local function NewCard()
 	card.text:SetJustifyV("TOP")
 	card.text:SetWordWrap(true)
 	card.text:SetMaxLines(3)
+end
+
+local function NewCard()
+	-- Cards with opensMap open the world map first on a left-click (ns.MapTabs_Opener); the card's own click is its
+	-- PostClick.
+	local card = CreateFrame("Button", nil, anchor, "InsecureActionButtonTemplate")
+	ns.MapTabs_Opener(card, function(self, mouseButton)
+		return mouseButton == "LeftButton" and self.spec ~= nil and self.spec.opensMap == true
+	end)
+	card:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	card:SetScript("PostClick", OnCardClick)
+	card:SetScript("OnEnter", function(self)
+		self.hovered = true
+		self.glow:Show()
+	end)
+	card:SetScript("OnLeave", function(self)
+		self.hovered = false
+		self.glow:Hide()
+	end)
+	Dress(card)
 	return card
 end
 
@@ -300,6 +306,41 @@ local function Acquire()
 	card.glow:Hide()
 	card.flash:SetAlpha(0)
 	return card
+end
+
+-- A still card for a settings preview (Panel/Preview.lua): a plain frame dressed and filled like a real card, the
+-- i-th from the top of host (cards below i are hidden, so drawing 1 then 2 stacks two). Nothing on it moves or times
+-- out: Fill's life and age are never counted. Returns the stack's width and height so far.
+function ns.Toast_DrawSample(host, spec, i)
+	i = i or 1
+	host.toastSamples = host.toastSamples or {}
+	local cards = host.toastSamples
+	for n = 1, i do
+		if not cards[n] then
+			local card = CreateFrame("Frame", nil, host)
+			Dress(card)
+			card.glow:Hide()
+			card.flash:SetAlpha(0)
+			cards[n] = card
+		end
+	end
+	for n = i + 1, #cards do
+		cards[n]:Hide()
+	end
+	local card = cards[i]
+	Fill(card, spec)
+	card:ClearAllPoints()
+	if i == 1 then
+		card:SetPoint("TOPLEFT", host, "TOPLEFT")
+	else
+		card:SetPoint("TOPLEFT", cards[i - 1], "BOTTOMLEFT", 0, -GAP)
+	end
+	card:Show()
+	local h = 0
+	for n = 1, i do
+		h = h + cards[n]:GetHeight() + (n > 1 and GAP or 0)
+	end
+	return WIDTH, h
 end
 
 -- New card nearest the spot, under any pinned cards (a pinned card goes nearest of all).

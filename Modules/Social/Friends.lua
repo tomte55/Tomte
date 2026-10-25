@@ -15,6 +15,9 @@ local SUMMARY_DELAY = 8 -- seconds after login: friend and guild lists have arri
 local BN_DELAY = 2 -- seconds: a Battle.net friend's game info fills in just after the online event
 local REPEAT = 60 -- seconds: the same person isn't announced twice within this
 local EVENTS = { "PLAYER_ENTERING_WORLD", "FRIENDLIST_UPDATE", "BN_FRIEND_ACCOUNT_ONLINE" }
+-- The made-up friend of the sample toast (Announce's entry shape; test: not noted in Recent).
+local SAMPLE_FRIEND = { name = "Jaina", names = { "Jaina" }, class = "MAGE", text = "Level 90 - Silvermoon City",
+	test = true }
 
 local module
 local settleUntil = 0
@@ -104,7 +107,29 @@ local function Settled()
 end
 
 -- entry = { name (shown), names (for the watch list and repeats), class, text, guild, idle, bnToken, tell,
--- recentTitle }. Guildmates and Battle.net friends only in the launcher or app (idle) need the watch list.
+-- recentTitle, test (a sample) }.
+local function AnnounceSpec(entry)
+	return {
+		owner = OWNER,
+		label = entry.guild and "Guildmate online" or "Friend online",
+		accent = ns.Toast_ChatColor(entry.guild and GUILD_CHAT_TYPE or CHAT_TYPE),
+		title = ClassColored(entry.name, entry.class),
+		recentTitle = entry.recentTitle,
+		text = entry.text,
+		hold = 8,
+		digestName = entry.names[1],
+		test = entry.test,
+		onClick = function()
+			if entry.bnToken then
+				ChatFrameUtil.SendBNetTell(entry.bnToken)
+			elseif entry.tell then
+				ChatFrameUtil.SendTell(entry.tell)
+			end
+		end,
+	}
+end
+
+-- Guildmates and Battle.net friends only in the launcher or app (idle) need the watch list.
 local function Announce(entry)
 	local db = ns.friendsDB
 	if db.notify == "off" or not Settled() then
@@ -119,23 +144,7 @@ local function Announce(entry)
 		return
 	end
 	announced[key] = GetTime()
-	ns.Toast_Show({
-		owner = OWNER,
-		label = entry.guild and "Guildmate online" or "Friend online",
-		accent = ns.Toast_ChatColor(entry.guild and GUILD_CHAT_TYPE or CHAT_TYPE),
-		title = ClassColored(entry.name, entry.class),
-		recentTitle = entry.recentTitle,
-		text = entry.text,
-		hold = 8,
-		digestName = entry.names[1],
-		onClick = function()
-			if entry.bnToken then
-				ChatFrameUtil.SendBNetTell(entry.bnToken)
-			elseif entry.tell then
-				ChatFrameUtil.SendTell(entry.tell)
-			end
-		end,
-	})
+	ns.Toast_Show(AnnounceSpec(entry))
 	ns.Social_PlaySound(db.sound)
 	if db.flash and watched then
 		FlashClientIcon()
@@ -148,7 +157,8 @@ local function Count(n, one, many)
 	return CreateColor(c[1], c[2], c[3]):WrapTextInColorCode(tostring(n)) .. " " .. (n == 1 and one or many)
 end
 
-local function Summary(preview)
+-- The login card's spec from who's online now; nil when nobody is, unless preview (a sample says so instead).
+local function SummarySpec(preview)
 	local wow, other, idle, seen = {}, 0, 0, {}
 	for _, friend in ipairs(OnlineBNet()) do
 		if friend.inWoW then
@@ -173,7 +183,7 @@ local function Summary(preview)
 		guild = math.max((online or 0) - 1, 0) -- you're online too
 	end
 	if #wow == 0 and other == 0 and idle == 0 and guild == 0 and not preview then
-		return
+		return nil
 	end
 	-- "3 friends online" on top; below, friends in game with their names, then other games and guildmates.
 	-- Friends only in the launcher count as online and get no line of their own.
@@ -191,7 +201,7 @@ local function Summary(preview)
 		lines[#lines + 1] = table.concat(extra, "  -  ")
 	end
 	local friends = #wow + other + idle
-	ns.Toast_Show({
+	return {
 		owner = OWNER,
 		label = "Online now",
 		accent = ns.Toast_ChatColor(CHAT_TYPE),
@@ -202,7 +212,14 @@ local function Summary(preview)
 		onClick = function()
 			ToggleFriendsFrame(FRIEND_TAB_FRIENDS)
 		end,
-	})
+	}
+end
+
+local function Summary(preview)
+	local spec = SummarySpec(preview)
+	if spec then
+		ns.Toast_Show(spec)
+	end
 end
 
 local function RebuildWatch()
@@ -313,8 +330,19 @@ local function Preview()
 		return
 	end
 	Summary(true)
-	ns.Toast_Show({ owner = OWNER, label = "Friend online", accent = ns.Toast_ChatColor(CHAT_TYPE), title = ClassColored("Jaina", "MAGE"),
-		text = "Level 90 - Silvermoon City", hold = 8, test = true })
+	ns.Toast_Show(AnnounceSpec(SAMPLE_FRIEND))
+end
+
+-- Settings previews (Panel/Preview.lua): the login card with who's online now, a sample friend toast.
+local function SummaryPreview(host)
+	return ns.Toast_DrawSample(host, SummarySpec(true), 1)
+end
+
+local function NotifyPreview(host, get)
+	if get("notify") == "off" then
+		return nil
+	end
+	return ns.Toast_DrawSample(host, AnnounceSpec(SAMPLE_FRIEND), 1)
 end
 
 local function Activate()
@@ -343,10 +371,10 @@ local NOTIFY_CHOICES = {
 
 local options = {
 	{ type = "header", label = "At login" },
-	{ type = "checkbox", key = "summary", label = "Who's online",
+	{ type = "checkbox", key = "summary", label = "Who's online", preview = ns.Preview_When("summary", SummaryPreview),
 		tooltip = "A card a few seconds after login: how many friends are online, who's in WoW (with their character), friends in other games and how many guildmates are on. Click it for the friends list." },
 	{ type = "header", label = "Coming online" },
-	{ type = "dropdown", key = "notify", label = "Toast when", choices = function()
+	{ type = "dropdown", key = "notify", label = "Toast when", preview = NotifyPreview, choices = function()
 		return NOTIFY_CHOICES
 	end, tooltip = "All friends: every character friend, and Battle.net friends who come online in a game (only in the Battle.net app: watch list only). Watch list only: just the people below. Guildmates only ever come from the watch list." },
 	{ type = "input", key = "watch", label = "Watch list", placeholder = "Anna, Thrall, Bjorn#2345", onChange = RebuildWatch,

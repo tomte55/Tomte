@@ -2,7 +2,8 @@ local addonName, ns = ...
 
 -- Tooltip extras: the lines on item, currency and world object tooltips (reputation tokens, reagents of combine
 -- items, token vendors, the key a chest needs) and Ctrl-click on a token in the bags to set a waypoint to its vendor.
--- Text from Data.lua, game reads in Read.lua; started and stopped from Tips.lua.
+-- Text from Data.lua, game reads in Read.lua; started and stopped from Tips.lua. Also the settings previews' example
+-- tooltips (Panel/Preview.lua), drawn by the same post-call.
 
 local UI = ns.UI
 local IsSecret = ns.IsSecret
@@ -191,28 +192,48 @@ local function ValidID(id)
 	return id and not IsSecret(id) and type(id) == "number"
 end
 
-local function OnItem(tooltip, data)
-	if not (enabled and tooltip.AddLine and data and ValidID(data.id)) then
-		return
-	end
-	local itemID = data.id
-	if db.rep then
+local ITEM_KINDS = { "rep", "reagents", "vendors" } -- the order the lines go on an item tooltip
+
+-- One kind's lines for an item (nothing when it gets none). inBags: the tooltip is a bag item's (Ctrl-click hint).
+local function AddItemKind(tooltip, itemID, kind, inBags)
+	if kind == "rep" then
 		local factions = ns.Tips_ItemFactions(itemID)
 		if factions then
 			AddRep(tooltip, factions)
 		end
-	end
-	if db.reagents then
+	elseif kind == "reagents" then
 		local recipe = ns.Tips_ItemRecipe(itemID)
 		if recipe then
 			AddReagents(tooltip, recipe)
 		end
-	end
-	if db.vendors then
+	elseif kind == "vendors" then
 		local places = ns.Tips_VendorPlaces(ns.Tips_Data("vendors")[itemID])
 		if #places > 0 then
-			local info = tooltip.processingInfo
-			AddVendor(tooltip, places, info and info.getterName == "GetBagItem")
+			AddVendor(tooltip, places, inBags)
+		end
+	end
+end
+
+local previews = setmetatable({}, { __mode = "k" }) -- [settings preview tooltip] = the one line kind it shows
+
+local function OnItem(tooltip, data)
+	if not (tooltip.AddLine and data and ValidID(data.id)) then
+		return
+	end
+	local only = previews[tooltip]
+	if only then
+		-- A settings preview: its row's line whatever the module and switches say, drawn as in the bags.
+		AddItemKind(tooltip, data.id, only, true)
+		return
+	end
+	if not enabled then
+		return
+	end
+	local info = tooltip.processingInfo
+	local inBags = info and info.getterName == "GetBagItem"
+	for _, kind in ipairs(ITEM_KINDS) do
+		if db[kind] then
+			AddItemKind(tooltip, data.id, kind, inBags)
 		end
 	end
 end
@@ -243,19 +264,123 @@ end
 
 -- Start and stop --------------------------------------------------------------------------------------------------
 
+-- Also from a settings preview while the module is off: harmless, every handler checks enabled (or previews).
+local function Hook()
+	if hooked then
+		return
+	end
+	hooked = true -- post-calls and hooks can't be removed
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, OnItem)
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Currency, OnCurrency)
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Object, OnObject)
+	hooksecurefunc("DressUpItemLocation", OnDressUpItemLocation)
+end
+
 function ns.TipsTooltip_Start(moduleDB)
 	db = moduleDB
 	enabled = true
 	KeysByName() -- asks for the chest names now, so the first hover finds them
-	if not hooked then
-		hooked = true -- post-calls and hooks can't be removed; each handler checks enabled
-		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, OnItem)
-		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Currency, OnCurrency)
-		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Object, OnObject)
-		hooksecurefunc("DressUpItemLocation", OnDressUpItemLocation)
-	end
+	Hook()
 end
 
 function ns.TipsTooltip_Stop()
 	enabled = false
+end
+
+-- Setting previews --------------------------------------------------------------------------------------------------
+
+local loading = {} -- [itemID] = true while a preview waits for it
+
+-- True when the item's data is here; else asks for it once and redraws module's preview card when it comes.
+function ns.Tips_PreviewLoaded(itemID, module)
+	if C_Item.IsItemDataCachedByID(itemID) then
+		return true
+	end
+	-- An ID this client doesn't know never loads (and ContinueOnItemLoad errors on it).
+	if not C_Item.DoesItemExistByID(itemID) then
+		return false
+	end
+	if not loading[itemID] then
+		Item:CreateFromItemID(itemID):ContinueOnItemLoad(function()
+			loading[itemID] = nil
+			ns.Preview_Refresh(module)
+		end)
+		loading[itemID] = not C_Item.IsItemDataCachedByID(itemID) or nil -- the callback may have run already
+	end
+	return false
+end
+
+-- The tips tables, the player's expansion first, then newest to oldest.
+function ns.Tips_PreviewSources()
+	local mine = ns.ContentExpansion()
+	local sources = { ns.Content_Get(mine, "tips") }
+	local all = ns.Content_Expansions()
+	for i = #all, 1, -1 do
+		if all[i] ~= mine then
+			sources[#sources + 1] = ns.Content_Get(all[i], "tips")
+		end
+	end
+	return sources
+end
+
+-- Whether itemID (loaded) gets kind's line for this character: "yes", "no" (try the next sample) or "wait" (data is
+-- on its way; the card redraws when it comes).
+local function Usable(kind, itemID, module)
+	if kind == "keys" then
+		local entry = ns.Tips_Data("keys")[itemID]
+		if entry.item and not ns.Tips_PreviewLoaded(entry.item, module) then
+			return "wait"
+		end
+		local name = entry.currency and ns.Tips_Currency(entry.currency) or (entry.item and true)
+		return name and "yes" or "no"
+	elseif kind == "rep" then
+		for _, factionID in ipairs(ns.Tips_ItemFactions(itemID) or {}) do
+			if ns.Tips_FactionRecord(factionID) then
+				return "yes"
+			end
+		end
+		return "no"
+	elseif kind == "reagents" then
+		local recipe = ns.Tips_ItemRecipe(itemID)
+		if not recipe then
+			return "no"
+		end
+		local ready = true
+		for _, r in ipairs(recipe.reagents) do
+			if r.itemID and not ns.Tips_PreviewLoaded(r.itemID, module) then
+				ready = false
+			end
+		end
+		return ready and "yes" or "wait"
+	end
+	return #ns.Tips_VendorPlaces(ns.Tips_Data("vendors")[itemID]) > 0 and "yes" or "no"
+end
+
+-- Draws an example tooltip with kind's line ("keys", "rep", "reagents", "vendors") into host, on a real item from the
+-- data (the player's expansion first). Returns its size, or nil while nothing is ready.
+function ns.TipsTooltip_Preview(host, kind, module)
+	for _, itemID in ipairs(ns.Tips_PreviewItems(ns.Tips_PreviewSources(), kind)) do
+		if C_Item.DoesItemExistByID(itemID) then
+			if not ns.Tips_PreviewLoaded(itemID, module) then
+				return nil
+			end
+			local usable = Usable(kind, itemID, module)
+			if usable == "wait" then
+				return nil
+			elseif usable == "yes" then
+				local tip = ns.Preview_Tooltip(host)
+				if kind == "keys" then
+					-- The key line sits on the chest's world object tooltip, which only shows its name above it.
+					tip:SetText(C_Item.GetItemNameByID(itemID))
+					AddKey(tip, ns.Tips_Data("keys")[itemID])
+				else
+					previews[tip] = kind
+					Hook() -- the line comes from the post-call, so a tooltip refresh keeps it
+					tip:SetItemByID(itemID)
+				end
+				return ns.Preview_TooltipSize(tip)
+			end
+		end
+	end
+	return nil
 end

@@ -13,6 +13,13 @@ local function RefreshChoice()
 	end
 end
 
+-- A switch row's preview: an example tooltip with that line kind on a real item (Tooltip.lua).
+local function PreviewLine(kind)
+	return function(host)
+		return ns.TipsTooltip_Preview(host, kind, module)
+	end
+end
+
 -- /tomte tips why <item link or ID>: what each line kind knows about an item.
 local function Why(arg)
 	local itemID = tonumber(arg) or tonumber((arg or ""):match("item:(%d+)"))
@@ -70,16 +77,23 @@ module = ns.RegisterModule({
 	options = {
 		{ type = "header", label = "Tooltip lines" },
 		{ type = "checkbox", key = "keys", label = "Keys for chests",
+			preview = ns.Preview_When("keys", PreviewLine("keys")),
 			tooltip = "On a delve's Bountiful Coffer: the key it needs and how many you have." },
 		{ type = "checkbox", key = "rep", label = "Reputation tokens",
+			preview = ns.Preview_When("rep", PreviewLine("rep")),
 			tooltip = "On an item or currency that gives reputation: the faction, your standing, and a warning when you're already maxed." },
 		{ type = "checkbox", key = "reagents", label = "Reagents of combine items",
+			preview = ns.Preview_When("reagents", PreviewLine("reagents")),
 			tooltip = "On an item you combine or craft into something else: what it takes, how many you own, and how many you can make." },
 		{ type = "checkbox", key = "vendors", label = "Where to spend tokens",
+			preview = ns.Preview_When("vendors", PreviewLine("vendors")),
 			tooltip = "On a token traded at a particular vendor: who and where. Ctrl-click it in your bags to set a waypoint there." },
 
 		{ type = "header", label = "Choice windows" },
 		{ type = "checkbox", key = "choice", label = "Show what you own", onChange = RefreshChoice,
+			preview = ns.Preview_When("choice", function(host)
+				return ns.TipsChoice_Preview(host, module)
+			end),
 			tooltip = "Under a choice window: how many you own of the token it takes and of each reward on offer." },
 	},
 })

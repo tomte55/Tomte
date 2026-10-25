@@ -103,6 +103,24 @@ local function UnreadTotal(since)
 	return total + restrictedCount, convos, restrictedCount
 end
 
+-- The unread recap card: total whispers from names (colored, as shown).
+local function RecapSpec(total, names)
+	return {
+		owner = OWNER,
+		label = "While you were away",
+		accent = ns.Toast_ChatColor(WHISPER),
+		title = total == 1 and "1 whisper" or (total .. " whispers"),
+		text = "From " .. ns.Social_NameList(names, 3) .. ". Click to read, right-click to clear.",
+		recentCount = total, -- Recent hears of it again only when this rises
+		onClick = function()
+			ns.Inbox_Toggle()
+		end,
+		onDismiss = function()
+			ns.Whispers_MarkAllRead()
+		end,
+	}
+end
+
 -- The unread card only comes up when you're back from AFK, for whispers that came in while you were away; after
 -- that it follows their unread count until they're read (answered, opened in the inbox, or right-clicked).
 local function UpdateRecap(show)
@@ -123,20 +141,7 @@ local function UpdateRecap(show)
 	if restrictedCount > 0 then
 		names[#names + 1] = "in instance"
 	end
-	ns.Toast_Pin(RECAP, {
-		owner = OWNER,
-		label = "While you were away",
-		accent = ns.Toast_ChatColor(WHISPER),
-		title = total == 1 and "1 whisper" or (total .. " whispers"),
-		text = "From " .. ns.Social_NameList(names, 3) .. ". Click to read, right-click to clear.",
-		recentCount = total, -- Recent hears of it again only when this rises
-		onClick = function()
-			ns.Inbox_Toggle()
-		end,
-		onDismiss = function()
-			ns.Whispers_MarkAllRead()
-		end,
-	})
+	ns.Toast_Pin(RECAP, RecapSpec(total, names))
 end
 
 local function Changed()
@@ -310,11 +315,8 @@ local function PlayWhisperSound()
 end
 
 -- info = { key, name (display, may be secret), digestName, class, bn, gm, text (may be secret), secret, entry (the
--- saved message; none for a preview) }
-local function Toast(info)
-	if not ns.whispersDB.toasts then
-		return
-	end
+-- saved message; none for a preview), preview, count (for a still sample: how many it stands for) }
+local function ToastSpec(info)
 	local accent = info.gm and GM_ACCENT or ns.Toast_ChatColor(info.bn and BN_WHISPER or WHISPER)
 	local title = info.name
 	local icon
@@ -322,7 +324,7 @@ local function Toast(info)
 		title = ns.UI.ClassColored(info.name, info.class)
 		icon = GetClassAtlas(info.class:lower())
 	end
-	ns.Toast_Show({
+	return {
 		owner = OWNER,
 		label = info.gm and "Game Master" or (info.bn and "Battle.net whisper" or "Whisper"),
 		accent = accent,
@@ -335,6 +337,7 @@ local function Toast(info)
 		secret = info.secret,
 		iconAtlas = icon and C_Texture.GetAtlasInfo(icon) and icon or nil,
 		mergeKey = not info.secret and info.key or nil,
+		count = info.count,
 		digestName = info.digestName,
 		holdInCombat = ns.whispersDB.holdInCombat,
 		-- Answered (from anywhere) or read in the inbox while the toast was held back: not news anymore.
@@ -353,7 +356,13 @@ local function Toast(info)
 				ns.Whispers_MarkRead(info.key)
 			end
 		end,
-	})
+	}
+end
+
+local function Toast(info)
+	if ns.whispersDB.toasts then
+		ns.Toast_Show(ToastSpec(info))
+	end
 end
 
 local function Digest(held)
@@ -572,13 +581,47 @@ end)
 BINDING_NAME_TOMTE_WHISPER_REPLY = "Reply to newest unread whisper"
 BINDING_NAME_TOMTE_WHISPER_INBOX = "Open whisper inbox"
 
+-- Settings previews (Panel/Preview.lua): still cards from the made-up conversations (ns.Social_SampleConvos), built by
+-- the same spec code as the real ones. The preview's own copy: the inbox's sample and the saved store aren't touched.
+local function UnreadSamples()
+	local list = {}
+	for _, convo in ipairs(ns.Social_SampleConvos(time())) do
+		if convo.unread > 0 then
+			list[#list + 1] = convo
+		end
+	end
+	return list
+end
+
+local function ToastPreview(host)
+	local w, h
+	for i, convo in ipairs(UnreadSamples()) do
+		local last = convo.messages[#convo.messages]
+		w, h = ns.Toast_DrawSample(host, ToastSpec({ key = "preview:" .. convo.name, name = convo.name,
+			digestName = convo.name, class = convo.class, text = last.text, preview = true, count = convo.unread }), i)
+	end
+	return w, h
+end
+
+local function RecapPreview(host)
+	local total, names = 0, {}
+	for _, convo in ipairs(UnreadSamples()) do
+		total = total + convo.unread
+		names[#names + 1] = ns.Inbox_ColoredName(convo)
+	end
+	local spec = RecapSpec(total, names)
+	spec.test = true
+	return ns.Toast_DrawSample(host, spec, 1)
+end
+
 local options = {
 	{ type = "header", label = "Whispers" },
-	{ type = "checkbox", key = "toasts", label = "Toasts",
+	{ type = "checkbox", key = "toasts", label = "Toasts", preview = ns.Preview_When("toasts", ToastPreview),
 		tooltip = "A toast for every whisper. Left-click replies, right-click dismisses. More whispers from the same person while the toast is up go into it." },
 	{ type = "checkbox", key = "holdInCombat", label = "Hold toasts during combat", parent = "toasts",
 		tooltip = "Whispers that arrive in combat show after it, as one card when there are several. Toasts always wait while a cinematic (AFK screen, flight, moment) hides the UI." },
-	{ type = "checkbox", key = "badge", label = "Unread recap after AFK", onChange = function()
+	{ type = "checkbox", key = "badge", label = "Unread recap after AFK",
+		preview = ns.Preview_When("badge", RecapPreview), onChange = function()
 		UpdateRecap()
 	end,
 		tooltip = "Back from AFK with unread whispers: one card with who wrote, in place of their toasts. It stays on top until you answer, open the inbox or right-click it." },

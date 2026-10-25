@@ -208,12 +208,25 @@ local function LineOnUpdate(self, elapsed)
 	end
 end
 
+-- The line's look, shared by the real line and the settings preview's still one.
+local function DressLine(frame)
+	UI.Panel(frame, { subtle = true })
+	frame.text = UI.Text(frame, 12, "text")
+	frame.text:SetPoint("CENTER")
+end
+
+-- Puts text in and sizes frame to it; returns the size.
+local function FillLine(frame, text)
+	frame.text:SetText(text)
+	local w, h = frame.text:GetStringWidth() + 2 * LINE_PAD, frame.text:GetStringHeight() + LINE_PAD
+	frame:SetSize(w, h)
+	return w, h
+end
+
 local function CreateLine()
 	line = CreateFrame("Frame", nil, UIParent)
 	line:SetFrameStrata("DIALOG")
-	UI.Panel(line, { subtle = true })
-	line.text = UI.Text(line, 12, "text")
-	line.text:SetPoint("CENTER")
+	DressLine(line)
 	line:SetScript("OnUpdate", LineOnUpdate)
 	line:Hide()
 end
@@ -225,8 +238,7 @@ local function ShowLine(popup, text, which, above)
 		CreateLine()
 	end
 	line.popup, line.which = popup, which
-	line.text:SetText(text)
-	line:SetSize(line.text:GetStringWidth() + 2 * LINE_PAD, line.text:GetStringHeight() + LINE_PAD)
+	FillLine(line, text)
 	line:SetFrameLevel(popup:GetFrameLevel() + 5)
 	line:ClearAllPoints()
 	if above then
@@ -306,6 +318,22 @@ function events:CONFIRM_SUMMON()
 	TriggerSoon("summon")
 end
 
+-- Settings preview (Panel/Preview.lua): the line as it shows under an invite from a made-up inviter.
+local SAMPLE_CLASS_ID = 8 -- Mage: the class name comes from the game, in the player's language
+local SAMPLE_GUILD = "Order of the Lantern"
+
+local function InviterPreview(host)
+	if not host.line then
+		host.line = CreateFrame("Frame", nil, host)
+		host.line:SetPoint("TOPLEFT")
+		DressLine(host.line)
+	end
+	local class = C_CreatureInfo.GetClassInfo(SAMPLE_CLASS_ID)
+	local text = ns.Social_InviterText({ level = 90, className = class and class.className,
+		classFile = class and class.classFile, guild = SAMPLE_GUILD }, PaintClass)
+	return FillLine(host.line, text)
+end
+
 local function SoundInBackground()
 	if C_CVar.GetCVarBool("Sound_EnableSoundWhenGameIsInBG") then
 		ns.Print("'Sound in Background' is already on.")
@@ -331,6 +359,7 @@ for _, alert in ipairs(ALERTS) do
 		tooltip = alert.flash and "Also flashes the taskbar icon (Blizzard doesn't for this one)." or nil }
 end
 options[#options + 1] = { type = "checkbox", key = "inviter", label = "Who's inviting",
+	preview = ns.Preview_When("inviter", InviterPreview),
 	onChange = function(on)
 		if not on then
 			HideLine()

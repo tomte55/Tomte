@@ -57,9 +57,9 @@ local function RegisterEvents()
 	end
 end
 
-local function ShowMention(label, sender, class, text, slash, preview, community)
+local function MentionSpec(label, sender, class, text, slash, preview, community)
 	local title = ns.UI.ClassColored(sender, class)
-	ns.Toast_Show({
+	return {
 		owner = OWNER,
 		label = "Mention - " .. label,
 		accent = ns.Toast_ChatColor(CHAT_TYPE),
@@ -69,6 +69,7 @@ local function ShowMention(label, sender, class, text, slash, preview, community
 		mergeKey = label .. ":" .. sender,
 		digestName = sender,
 		holdInCombat = ns.mentionsDB.holdInCombat,
+		test = preview or nil,
 		onClick = function()
 			if preview then
 				return
@@ -81,7 +82,11 @@ local function ShowMention(label, sender, class, text, slash, preview, community
 					.. "Answer in the Communities window.")
 			end
 		end,
-	})
+	}
+end
+
+local function ShowMention(spec, preview)
+	ns.Toast_Show(spec)
 	ns.Social_PlaySound(ns.mentionsDB.sound)
 	if ns.mentionsDB.flash and not preview then
 		FlashClientIcon()
@@ -113,7 +118,8 @@ function events:OnChat(event, text, sender, _, _, _, _, _, channelIndex, channel
 		local _, englishClass = GetPlayerInfoByGUID(guid)
 		class = englishClass
 	end
-	ShowMention(label, Ambiguate(sender, "short"), class, text, slash, nil, event == "CHAT_MSG_COMMUNITIES_CHANNEL")
+	ShowMention(MentionSpec(label, Ambiguate(sender, "short"), class, text, slash, nil,
+		event == "CHAT_MSG_COMMUNITIES_CHANNEL"))
 end
 
 local function Digest(held)
@@ -127,12 +133,24 @@ local function Digest(held)
 	}
 end
 
+-- Sample mentions by where they're said: { label, sender, class, text with %s for your name }.
+local SAMPLES = {
+	guild = { "Guild", "Thrall", "SHAMAN", "Anyone seen %s? Need help with the Sunwell weekly." },
+	group = { "Party", "Valeera", "ROGUE", "%s, can you mark the pull?" },
+	say = { "Say", "Anduin", "PRIEST", "Thanks for the heal, %s!" },
+	channels = { "Trade", "Jaina", "MAGE", "WTB flasks, %s said you'd have some?" },
+}
+
+local function SampleSpec(where)
+	local s = SAMPLES[where]
+	return MentionSpec(s[1], s[2], s[3], s[4]:format(UnitName("player") or "you"), nil, true)
+end
+
 local function Preview()
 	if not ns.Module_RequireOn(module) then
 		return
 	end
-	local me = UnitName("player") or "you"
-	ShowMention("Guild", "Thrall", "SHAMAN", ("Anyone seen %s? Need help with the Sunwell weekly."):format(me), nil, true)
+	ShowMention(SampleSpec("guild"), true)
 end
 
 local function Activate()

@@ -302,4 +302,8 @@ ns.Content_Register(9, "tips", {
 	reagentSkip = {
 		[254267] = true, -- Fragmented Memento of Epoch Challenges
 	},
+	-- Item via wago.tools ItemEffect and ItemXItemEffect (spell 63836), build 12.1.5, 2026-10-25.
+	samples = {
+		rep = 45718, -- Stormwind Commendation Badge
+	},
 })
