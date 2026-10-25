@@ -339,16 +339,62 @@ end
 
 -- Edit Mode -------------------------------------------------------------------------------------------------------
 
+local function SampleSpec(p)
+	local text = p.text
+	if not text then
+		text = ns.Loot_NameText({ kind = "item", name = p.name, quality = p.quality, quantity = p.count })
+	end
+	return { icon = p.icon, text = text, detail = p.detail and ns.Loot_PartsText(p.detail), quality = p.quality,
+		role = p.role }
+end
+
 -- Sample lines, kept until Edit Mode closes (also /tomte loot test, where they fade like real ones).
 function ns.LootFeed_Preview(static)
 	for _, p in ipairs(PREVIEW) do
-		local text = p.text
-		if not text then
-			text = ns.Loot_NameText({ kind = "item", name = p.name, quality = p.quality, quantity = p.count })
-		end
-		ns.LootFeed_Push({ icon = p.icon, text = text, detail = p.detail and ns.Loot_PartsText(p.detail),
-			quality = p.quality, role = p.role, static = static })
+		local spec = SampleSpec(p)
+		spec.static = static
+		ns.LootFeed_Push(spec)
 	end
+end
+
+-- Sample line i of a settings preview, drawn still into host. Returns its width.
+local function DrawSampleLine(host, i, p, size, h, growUp, bgAlpha)
+	local f = host.feedLines[i]
+	if not f then
+		f = CreateFrame("Frame", nil, host)
+		ns.LootParts_Strip(f)
+		host.feedLines[i] = f
+	end
+	local w = ns.LootParts_FillStrip(f, SampleSpec(p), size, bgAlpha, LINE_W * size / BASE_FONT)
+	f:SetSize(w, h)
+	f:ClearAllPoints()
+	if growUp then
+		f:SetPoint("BOTTOMLEFT", 0, (i - 1) * (h + GAP))
+	else
+		f:SetPoint("TOPLEFT", 0, -(i - 1) * (h + GAP))
+	end
+	f:Show()
+	return w
+end
+
+-- The sample lines drawn still into host for a settings preview (Preview.lua), with the settings get(key) answers:
+-- the oldest at the top, or at the bottom when the feed grows upward; the reputation line only while those lines are
+-- on. Returns their width and height.
+function ns.LootFeed_DrawSample(host, get)
+	host.feedLines = host.feedLines or {}
+	local size, growUp = get("fontSize"), get("growUp")
+	local h = size + LINE_EXTRA
+	local width, i = 0, 0
+	for _, p in ipairs(PREVIEW) do
+		if not p.text or get("extras.repCurrency") then
+			i = i + 1
+			width = math.max(width, DrawSampleLine(host, i, p, size, h, growUp, get("bgAlpha")))
+		end
+	end
+	for n = i + 1, #host.feedLines do
+		host.feedLines[n]:Hide()
+	end
+	return width, i * (h + GAP) - GAP
 end
 
 local function RefreshPreview()

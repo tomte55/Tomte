@@ -46,6 +46,11 @@ local function Turn(delta)
 	end
 end
 
+-- The settings preview's pieces do nothing (Preview.lua keeps the mouse off them anyway).
+local function Nothing()
+end
+local SAMPLE_ACTIONS = { Loot = Nothing, TakeAll = Nothing, Close = Nothing, Turn = Nothing }
+
 -- What the pieces do when clicked.
 local ACTIONS = {
 	Loot = function(entries)
@@ -316,6 +321,37 @@ ns.EditMode_Register({
 		ns.LootWindow_ResetPosition()
 	end,
 })
+
+-- The sample window drawn into host for a settings preview (Preview.lua), in the look and settings get(key) answers.
+-- Each look is built into host once. Returns its width and height.
+function ns.LootWindow_DrawSample(host, get)
+	host.lootViews = host.lootViews or {}
+	local key = ns.LootLooks[get("look")] and get("look") or DEFAULT_LOOK
+	if not host.lootViews[key] then
+		local view = ns.LootLooks[key].Build(host)
+		view.root:SetAllPoints(host)
+		host.lootViews[key] = view
+	end
+	for k, view in pairs(host.lootViews) do
+		view.root:SetShown(k == key)
+	end
+	local ctx = {
+		entries = PREVIEW,
+		title = get("extras.source") and "Sample corpse" or "Loot",
+		size = get("fontSize"),
+		bgAlpha = get("bgAlpha"),
+		perPage = get("perPage"),
+		foldJunk = get("extras.foldJunk"),
+		extras = db.extras,
+		page = 1,
+		live = false,
+		preview = true,
+		keyText = ns.LootParts_TakeKeyText(get("lootKey")),
+		canTake = true,
+		actions = SAMPLE_ACTIONS,
+	}
+	return ns.LootLooks[key].Draw(host.lootViews[key], ctx)
+end
 
 function ns.LootWindow_Init(moduleDB, lootModule)
 	db, module = moduleDB, lootModule

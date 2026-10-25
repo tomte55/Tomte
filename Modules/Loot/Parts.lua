@@ -304,8 +304,10 @@ function ns.LootParts_Keycap(parent)
 end
 
 -- The key shown on Take all: the key that takes all while looting, else the key binding; nil without either.
-function ns.LootParts_TakeKeyText()
-	local key = db.lootKey ~= "off" and db.lootKey or GetBindingKey(BINDING)
+-- lootKey: that setting as a preview shows it (default: the saved one).
+function ns.LootParts_TakeKeyText(lootKey)
+	lootKey = lootKey or db.lootKey
+	local key = lootKey ~= "off" and lootKey or GetBindingKey(BINDING)
 	return key and GetBindingText(key) or nil
 end
 

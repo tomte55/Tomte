@@ -478,6 +478,15 @@ local function Seconds(v)
 	return v .. " s"
 end
 
+-- Settings previews (Panel/Preview.lua): the sample window, or the sample feed lines.
+local function WindowPreview(host, get)
+	return ns.LootWindow_DrawSample(host, get)
+end
+
+local function FeedPreview(host, get)
+	return ns.LootFeed_DrawSample(host, get)
+end
+
 local function KeyStatus()
 	local key = GetBindingKey(BINDING)
 	if key then
@@ -551,13 +560,15 @@ module = ns.RegisterModule({
 	},
 	options = {
 		{ type = "header", label = "Loot window" },
-		{ type = "dropdown", key = "look", label = "Look", onChange = Relayout, choices = function()
-			return {
-				{ value = "strips", text = "Strips" },
-				{ value = "panel", text = "Panel" },
-				{ value = "tiles", text = "Tiles" },
-			}
-		end, tooltip = "The window that opens when you loot by hand (auto loot uses the feed). Strips: lines like the feed's that stay until you take them. Panel: a framed window, an upgrade or something rare shown large, the rest in rows with their prices. Tiles: big icons in a grid, like a bag; point at one to see its name." },
+		{ type = "dropdown", key = "look", label = "Look", onChange = Relayout, preview = WindowPreview,
+			choices = function()
+				return {
+					{ value = "strips", text = "Strips" },
+					{ value = "panel", text = "Panel" },
+					{ value = "tiles", text = "Tiles" },
+				}
+			end,
+			tooltip = "The window that opens when you loot by hand (auto loot uses the feed). Strips: lines like the feed's that stay until you take them. Panel: a framed window, an upgrade or something rare shown large, the rest in rows with their prices. Tiles: big icons in a grid, like a bag; point at one to see its name." },
 		{ type = "checkbox", key = "feedManual", label = "Show hand-looted items in the feed",
 			tooltip = "What you take from the loot window also slides into the feed, so you see it was looted. Auto loot always uses the feed." },
 		{ type = "checkbox", key = "fastLoot", label = "Fast loot",
@@ -588,29 +599,33 @@ module = ns.RegisterModule({
 			tooltip = "The loot part of Blizzard's banner after a boss. Hide solo: not when you're on your own. Valuable: only mounts, pets, toys, legendaries and set tokens, as feed lines." },
 
 		{ type = "header", label = "Extras" },
-		{ type = "checkbox", key = "extras.foldJunk", label = "Fold junk into one line", onChange = Relayout },
+		{ type = "checkbox", key = "extras.foldJunk", label = "Fold junk into one line", onChange = Relayout,
+			preview = WindowPreview },
 		{ type = "checkbox", key = "extras.owned", label = "How many you own", onChange = Relayout,
-			tooltip = "In your bags, bank and warband bank. Not shown for gear." },
+			preview = WindowPreview, tooltip = "In your bags, bank and warband bank. Not shown for gear." },
 		{ type = "checkbox", key = "extras.newLook", label = "New appearance tag", onChange = Relayout,
-			tooltip = "Gear with an appearance you haven't collected and can collect." },
+			preview = WindowPreview, tooltip = "Gear with an appearance you haven't collected and can collect." },
 		{ type = "checkbox", key = "extras.verdict", label = "Gear Check verdict", onChange = Relayout,
-			tooltip = "Whether gear is an upgrade for you. Needs Gear Check on." },
+			preview = WindowPreview, tooltip = "Whether gear is an upgrade for you. Needs Gear Check on." },
 		{ type = "checkbox", key = "extras.value", label = "Auction value", onChange = Relayout,
-			tooltip = "What the stack is worth, from Gold & value (auction or vendor price). Without Gold & value: the vendor price." },
+			preview = WindowPreview, tooltip = "What the stack is worth, from Gold & value (auction or vendor price). Without Gold & value: the vendor price." },
 		{ type = "checkbox", key = "extras.source", label = "Where it came from", onChange = Relayout,
-			tooltip = "The corpse's or object's name as the loot window's title, instead of \"Loot\"." },
+			preview = WindowPreview, tooltip = "The corpse's or object's name as the loot window's title, instead of \"Loot\"." },
 		{ type = "checkbox", key = "extras.repCurrency", label = "Reputation and currency lines",
-			onChange = ns.LootToasts_Apply, tooltip = "Feed lines for reputation and currency you gain." },
+			onChange = ns.LootToasts_Apply, preview = FeedPreview,
+			tooltip = "Feed lines for reputation and currency you gain." },
 
 		{ type = "header", label = "Look" },
-		{ type = "slider", key = "fontSize", label = "Font size", min = 10, max = 18, step = 1, onChange = Relayout },
+		{ type = "slider", key = "fontSize", label = "Font size", min = 10, max = 18, step = 1, onChange = Relayout,
+			preview = WindowPreview },
 		{ type = "slider", key = "bgAlpha", label = "Background opacity", min = 0, max = 1, step = 0.05, format = Pct,
-			onChange = Relayout },
-		{ type = "slider", key = "perPage", label = "Items per page", min = 3, max = 12, step = 1, onChange = Relayout },
+			onChange = Relayout, preview = WindowPreview },
+		{ type = "slider", key = "perPage", label = "Items per page", min = 3, max = 12, step = 1, onChange = Relayout,
+			preview = WindowPreview },
 		{ type = "slider", key = "fadeDelay", label = "Fade after", min = 1, max = 15, step = 1, format = Seconds,
 			onChange = Relayout,
 			tooltip = "How long a feed line stays before it fades." },
-		{ type = "checkbox", key = "growUp", label = "Grow upward", onChange = Relayout,
+		{ type = "checkbox", key = "growUp", label = "Grow upward", onChange = Relayout, preview = FeedPreview,
 			tooltip = "The window and the feed grow up from where they are instead of down." },
 		{ type = "checkbox", key = "atMouse", label = "Open at the mouse", onChange = Relayout,
 			tooltip = "Off: the window opens where Blizzard's Edit Mode put it." },
