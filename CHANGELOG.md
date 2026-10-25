@@ -20,6 +20,13 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
   settings that matter while placing it (size, font size, opacity, grow direction, what it shows), plus Reset
   position, Hide (until Edit Mode closes) and All settings. The arrow keys nudge the selected widget (Shift: 10 at a
   time).
+- **Loot:** auto loot always shows up in the feed now: no window, unless something can't be looted by itself (full
+  bags, rolls, locked loot). The window that stayed after auto loot with greyed-out items is gone.
+- **Loot:** looting by hand opens the loot window in one of three new looks (Loot > Look): Strips (lines like the
+  feed's that stay until you take them, the default), Panel (a framed window with an upgrade or something rare shown
+  large and prices in rows) or Tiles (big icons in a grid, like a bag, with Gear Check's upgrade arrow). Looted items
+  leave the window and slide into the feed (turn off with "Show hand-looted items in the feed"). List and Feed
+  become Strips, Card becomes Panel.
 
 ### Fixed
 
@@ -28,6 +35,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Delves:** picking delve powers for you works now, and the choice window closes after the pick instead of
   staying open.
 - **Instances:** shows the right delve tier in delves where the game reported tier 0 (seen in labyrinths).
+- **Loot:** a currency from a loot window (like Resonance Crystals) no longer shows twice.
 
 ## v1.22.0 - 2026-10-24
 

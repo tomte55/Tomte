@@ -372,8 +372,12 @@ Modules/Share/Share.lua
 
 Modules/Loot/Data.lua
 Modules/Loot/Read.lua
+Modules/Loot/Parts.lua
 Modules/Loot/Window.lua
 Modules/Loot/Feed.lua
+Modules/Loot/LookStrips.lua
+Modules/Loot/LookPanel.lua
+Modules/Loot/LookTiles.lua
 Modules/Loot/Toasts.lua
 Modules/Loot/Loot.lua
 Modules/Quests/Data.lua

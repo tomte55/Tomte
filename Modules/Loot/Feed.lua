@@ -1,19 +1,15 @@
 local addonName, ns = ...
 
--- Loot: the feed, lines that slide in beside your character and fade after the fade delay: what you looted (Feed
--- style), and in every style the lines that stand in for Blizzard's loot pop-ups, valuable boss loot, reputation and
--- currency (Toasts.lua). Not clickable, so it never takes a click meant for the world. Placed where Edit Mode put it;
--- grows down or up. Text helpers are in Window.lua.
+-- Loot: the feed, lines that slide in beside your character and fade after the fade delay: what auto loot took (and
+-- what you take by hand, while that setting is on), and the lines that stand in for Blizzard's loot pop-ups,
+-- valuable boss loot, reputation and currency (Toasts.lua). Not clickable, so it never takes a click meant for the world. Placed where Edit Mode put it;
+-- grows down or up. Text helpers and the strip each line is drawn as are in Parts.lua.
 -- A line: a thin bar in the item's quality color, the icon, the name, the extras smaller after it, on a dark strip
 -- that fades out to the right, so it reads over the world without a box around it.
 
 local FEED_MAX = 8 -- lines at once; a new one past this sends the oldest away
 local BASE_FONT = 12
 local LINE_W = 400 -- the widest a line gets; each line fits its text up to this
-local BAR_W = 2 -- the quality bar on the left edge
-local ICON_GAP, DETAIL_GAP = 6, 8 -- after the bar and the icon; between the name and the extras
-local TAIL = 48 -- the strip runs on past the text this far while it fades out
-local STRIP_ALPHA = 0.85 -- the strip's darkest point, times the Background opacity
 local LINE_EXTRA = 10 -- line height over the font size
 local GAP = 3
 local SLIDE = 16 -- pixels a line slides in from
@@ -90,21 +86,7 @@ end
 local function CreateLine()
 	local f = CreateFrame("Frame", nil, holder)
 	f:EnableMouse(false)
-	f.bg = f:CreateTexture(nil, "BACKGROUND")
-	f.bg:SetAllPoints()
-	f.bg:SetColorTexture(1, 1, 1, 1) -- colored by the gradient (Fill)
-	f.bar = f:CreateTexture(nil, "ARTWORK")
-	f.bar:SetPoint("TOPLEFT")
-	f.bar:SetPoint("BOTTOMLEFT")
-	f.bar:SetWidth(BAR_W)
-	f.icon = f:CreateTexture(nil, "ARTWORK")
-	f.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-	f.icon:SetPoint("LEFT", BAR_W + ICON_GAP - 2, 0)
-	f.text = UI.Text(f, BASE_FONT, "text")
-	f.text:SetWordWrap(false)
-	f.detail = UI.Text(f, BASE_FONT - 1, "textMuted")
-	f.detail:SetWordWrap(false)
-	f.detail:SetPoint("LEFT", f.text, "RIGHT", DETAIL_GAP, 0)
+	ns.LootParts_Strip(f)
 	-- Merged: the line flashes in the accent, as a merged whisper toast does.
 	f.flash = f:CreateTexture(nil, "BORDER")
 	f.flash:SetAllPoints()
@@ -145,44 +127,11 @@ local function CreateLine()
 	return f
 end
 
--- The bar's color: the item's quality, else the spec's role (reputation, honor), else the accent.
-local function SetBarColor(f, spec)
-	local q = spec.quality and ITEM_QUALITY_COLORS[spec.quality]
-	if q then
-		f.bar:SetColorTexture(q.r, q.g, q.b, 1)
-	else
-		f.bar:SetColorTexture(UI.Color(spec.role or "accent"))
-	end
-end
-
 local function Fill(f, spec)
 	local size = db.fontSize
-	local iconSize = size + 6
 	f.static = spec.static
 	f:SetAlpha(1)
-	f.bg:SetGradient("HORIZONTAL", UI.ColorObject("bg", db.bgAlpha * STRIP_ALPHA), UI.ColorObject("bg", 0))
-	SetBarColor(f, spec)
-	f.icon:SetSize(iconSize, iconSize)
-	f.icon:SetTexture(spec.icon)
-	f.icon:SetShown(spec.icon ~= nil)
-	f.text:ClearAllPoints()
-	if spec.icon then
-		f.text:SetPoint("LEFT", f.icon, "RIGHT", ICON_GAP, 0)
-	else
-		f.text:SetPoint("LEFT", BAR_W + ICON_GAP, 0)
-	end
-	UI.SetFont(f.text, "body", size)
-	UI.SetFont(f.detail, "body", size - 1)
-	f.text:SetText(spec.text or "")
-	f.detail:SetText(spec.detail or "")
-	local left = BAR_W + ICON_GAP + (spec.icon and iconSize + ICON_GAP or 0)
-	local detailW = (spec.detail and spec.detail ~= "") and DETAIL_GAP + math.ceil(f.detail:GetUnboundedStringWidth())
-		or 0
-	-- A long name gives way first, so the extras stay readable within LINE_W.
-	local maxW = LINE_W * size / BASE_FONT
-	local nameW = math.min(math.ceil(f.text:GetUnboundedStringWidth()), maxW - TAIL - left - detailW)
-	f.text:SetWidth(math.max(nameW, 1))
-	f.width = left + nameW + detailW + TAIL
+	f.width = ns.LootParts_FillStrip(f, spec, size, db.bgAlpha, LINE_W * size / BASE_FONT)
 end
 
 local function Build()

@@ -67,7 +67,7 @@ test("junk folds into one line at the end, from two items up", function()
 		"grey quest items are not junk")
 end)
 
-test("lines leave out the Card's best item", function()
+test("lines leave out the Panel's featured item", function()
 	local best = item(2, 4)
 	eq(names(ns.Loot_Lines({ item(1, 2), best }, { skip = best })), "1")
 end)
@@ -257,6 +257,42 @@ test("recently shown", function()
 	eq(ns.Loot_RecentHas(recent, "i:1", 12, 3), true, "within the window")
 	eq(ns.Loot_RecentHas(recent, "i:1", 14, 3), false, "after it")
 	eq(ns.Loot_RecentHas(recent, "i:2", 12, 3), false, "another key")
+end)
+
+test("featured item: an upgrade, else something valuable, else none", function()
+	local reagents = { item(1, 2, { value = 9000 }), item(2, 1, { sell = 50 }) }
+	eq(ns.Loot_FeaturedIndex(reagents), nil, "plain reagents: nothing featured")
+	local mount = item(3, 4, { classID = 15, subclassID = 5 })
+	eq(ns.Loot_FeaturedIndex({ reagents[1], reagents[2], mount }), 3, "a mount")
+	eq(ns.Loot_FeaturedIndex({ item(1, 3, { toy = true }) }), 1, "a toy")
+	local entries = { mount, item(2, 3, { verdict = { upgrade = true } }) }
+	eq(ns.Loot_FeaturedIndex(entries), 2, "an upgrade beats a mount")
+	eq(ns.Loot_FeaturedIndex({ item(1, 3, { verdict = { maybe = true } }) }), nil, "a maybe upgrade isn't featured")
+	eq(ns.Loot_FeaturedIndex({ item(1, 3, { verdict = { upgrade = true }, taken = true }) }), nil, "taken")
+	eq(ns.Loot_FeaturedIndex({ { slot = 1, kind = "money" } }), nil, "coin")
+end)
+
+test("lines: taken entries and coin can be left out", function()
+	local entries = { { slot = 1, kind = "money" }, item(2, 2, { taken = true }), item(3, 1) }
+	eq(names(ns.Loot_Lines(entries, { hideTaken = true })), "1 3", "taken item gone")
+	eq(names(ns.Loot_Lines(entries, { skipMoney = true })), "2 3", "coin gone")
+	local junk = { item(1, 0, { taken = true }), item(2, 0, { taken = true }), item(3, 0), item(4, 0) }
+	eq(names(ns.Loot_Lines(junk, { foldJunk = true, hideTaken = true })), "junk2", "fold of what's left")
+	junk[3].taken, junk[4].taken = true, true
+	eq(names(ns.Loot_Lines(junk, { foldJunk = true, hideTaken = true })), "", "all junk taken: no fold")
+end)
+
+test("feed lines for taken loot: always with auto loot, by setting by hand", function()
+	eq(ns.Loot_FeedsTaken(true, false), true)
+	eq(ns.Loot_FeedsTaken(true, true), true)
+	eq(ns.Loot_FeedsTaken(false, true), true)
+	eq(ns.Loot_FeedsTaken(false, false), false)
+end)
+
+test("worth text", function()
+	eq(ns.Loot_WorthText(item(1, 1, { sell = 0 })), nil, "no worth")
+	eq(ns.Loot_WorthText(item(1, 1, { sell = 5, quantity = 2 })), ns.Price(10), "vendor price for the stack")
+	eq(ns.Loot_WorthText(item(1, 1, { value = 7, stale = true })), ns.Price(7) .. "?", "stale price")
 end)
 
 H.done()

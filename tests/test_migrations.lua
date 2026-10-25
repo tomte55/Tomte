@@ -149,4 +149,22 @@ test("Casino: nothing to move on an install without Blackjack", function()
 	eq(db.enabled, nil)
 end)
 
+test("Loot: the style becomes the window's look", function()
+	for style, look in pairs({ list = "strips", feed = "strips", card = "panel" }) do
+		local db = { schema = 13, loot = { style = style, fontSize = 14 } }
+		ns.RunMigrations(db, ns.MIGRATIONS)
+		eq(db.loot.look, look, style)
+		eq(db.loot.style, nil, style .. " removed")
+		eq(db.loot.fontSize, 14, "other settings stay")
+	end
+end)
+test("Loot: nothing to move without saved loot settings", function()
+	local db = { schema = 13 }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.loot, nil)
+	local unset = { schema = 13, loot = { fastLoot = false } }
+	ns.RunMigrations(unset, ns.MIGRATIONS)
+	eq(unset.loot.look, nil, "no style saved: the default applies")
+end)
+
 H.done()

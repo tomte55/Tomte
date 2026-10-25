@@ -66,11 +66,13 @@ local function ItemExtras(e, opts)
 		return
 	end
 	e.itemID, e.classID, e.subclassID = itemID, classID, subclassID
-	local name, _, quality, _, _, _, _, _, _, icon, sell = C_Item.GetItemInfo(e.link)
+	local name, _, quality, _, _, _, subType, _, _, icon, sell = C_Item.GetItemInfo(e.link)
 	e.name = e.name or name
 	e.quality = e.quality or quality or C_Item.GetItemQualityByID(e.link) -- known before the full item data
 	e.icon = e.icon or icon
 	e.sell = sell
+	e.subType = subType
+	e.toy = C_ToyBox.GetToyInfo(itemID) ~= nil
 	if opts.owned then
 		e.owned = C_Item.GetItemCount(itemID, true, false, true, true)
 	end

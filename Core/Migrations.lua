@@ -143,4 +143,17 @@ ns.MIGRATIONS = {
 			end
 		end
 	end,
+	-- 14: Loot's style (list, card, feed) became the loot window's look (1.23): auto loot always uses the feed now,
+	-- and the window that opens by hand is Strips, Panel or Tiles. Card was the Panel's start; List and Feed take
+	-- the new default.
+	function(db)
+		local loot = type(db.loot) == "table" and db.loot
+		if not loot or loot.style == nil then
+			return
+		end
+		if loot.look == nil then
+			loot.look = loot.style == "card" and "panel" or "strips"
+		end
+		loot.style = nil
+	end,
 }

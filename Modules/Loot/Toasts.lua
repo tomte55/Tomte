@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Loot: the lines that don't come from a loot window, shown in the feed (Feed.lua) in every style.
+-- Loot: the lines that don't come from a loot window, shown in the feed (Feed.lua) however you loot.
 --  * Replace loot pop-ups: Blizzard's alert frame stops listening to its loot toast events (boss loot, bonus rolls,
 --    containers, rolls won) and the same loot shows as feed lines. Only events this file took are given back, on
 --    Stop or when the switch goes off. Unregistering (rather than hooking or replacing Blizzard's functions) keeps
@@ -33,7 +33,8 @@ local db, module
 local taken = {} -- [event] = true: toast events this file took from AlertFrame
 local bannerTaken = false
 -- [key] = GetTime() of the last line for it: "i:<itemID>", or "c:<currencyID>:<amount>" (a currency's pop-up and its
--- currency event are one gain; two different gains rarely share the amount).
+-- currency event are one gain; two different gains rarely share the amount), or "lc:<currencyID>" (taken from a loot
+-- window, whatever the amount: a pile of a currency counts differently in the slot and in the event).
 local recent = {}
 local repPatterns
 
@@ -78,9 +79,44 @@ local function PushItem(link, quantity, suffix, key)
 	ns.LootFeed_PushEntry(ns.Loot_ReadLink(link, quantity, ReadOptions()), suffix)
 end
 
+local function CurrencyKey(currencyID, quantity)
+	return "c:" .. currencyID .. ":" .. tostring(quantity)
+end
+
 local function PushCurrency(currencyID, link, quantity)
 	local e = ns.Loot_ReadCurrency(currencyID, link, quantity)
-	if e and Fresh(e.currencyID and ("c:" .. e.currencyID .. ":" .. tostring(quantity))) then
+	if not e then
+		return
+	end
+	local id = e.currencyID
+	if id and ns.Loot_RecentHas(recent, "lc:" .. id, GetTime(), SAME_GAIN) then
+		return -- taken from a loot window: Loot.lua showed it (or left it out on purpose)
+	end
+	if Fresh(id and CurrencyKey(id, quantity)) then
+		ns.LootFeed_PushEntry(e)
+	end
+end
+
+-- A currency taken from a loot window (Loot.lua): one line, from whichever of the two reports comes first. show:
+-- whether taken loot goes to the feed; off, the currency event stays quiet too.
+function ns.LootToasts_LootCurrency(e, show)
+	local id = e.currencyID
+	if not id then
+		if show then
+			ns.LootFeed_PushEntry(e)
+		end
+		return
+	end
+	local now = GetTime()
+	-- Its currency event came first and showed it (with any amount: a pile counts differently in the slot).
+	local prefix = "c:" .. id .. ":"
+	for key in pairs(recent) do
+		if key:sub(1, #prefix) == prefix and ns.Loot_RecentHas(recent, key, now, SAME_GAIN) then
+			return
+		end
+	end
+	ns.Loot_RecentNote(recent, "lc:" .. id, now)
+	if show then
 		ns.LootFeed_PushEntry(e)
 	end
 end

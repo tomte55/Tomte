@@ -1,10 +1,11 @@
 local addonName, ns = ...
 
--- Loot: one loot window in three styles (List, Card, Feed), fast loot, Take all, Blizzard's loot pop-ups replaced
--- and the boss loot banner trimmed. This file holds the loot session (the loot events, fast loot, when the window
--- opens and what goes to the feed), the hand-over of Blizzard's loot window, the settings and the module. Pure rules
--- in Data.lua, slots read in Read.lua, the window in Window.lua, the feed in Feed.lua, pop-ups, boss banner,
--- reputation and currency lines in Toasts.lua.
+-- Loot: auto loot shows up in the feed, looting by hand opens a loot window in one of three looks (Strips, Panel,
+-- Tiles); fast loot, Take all, Blizzard's loot pop-ups replaced and the boss loot banner trimmed. This file holds the
+-- loot session (the loot events, fast loot, when the window opens and what goes to the feed), the hand-over of
+-- Blizzard's loot window, the settings and the module. Pure rules in Data.lua, slots read in Read.lua, shared
+-- drawing in Parts.lua, the window in Window.lua and its looks in Look*.lua, the feed in Feed.lua, pop-ups, boss
+-- banner, reputation and currency lines in Toasts.lua.
 --
 -- Blizzard's loot window (LootFrame) opens on LOOT_OPENED and closes on LOOT_CLOSED (Blizzard_UIPanels_Game
 -- LootFrame.lua). While Loot is on, LootFrame stops listening to those two events, so it never opens; Stop gives
@@ -90,7 +91,7 @@ local function NewSession(payload)
 		junk = {},
 	}
 	last = { payload = payload, cvar = cvar, modifier = modifier, auto = session.auto, fast = db.fastLoot,
-		style = db.style, other = session.other }
+		look = db.look, other = session.other }
 	for _, event in ipairs(SESSION_EVENTS) do
 		events:Watch(OWNER, event)
 	end
@@ -123,8 +124,7 @@ local function ShowWindow()
 	for _, e in ipairs(session.entries) do
 		last.items = last.items + (e.kind ~= "none" and 1 or 0)
 	end
-	ns.LootWindow_Show({ entries = session.entries, title = session.title,
-		style = db.style == "card" and "card" or "list", place = true })
+	ns.LootWindow_Show({ entries = session.entries, title = session.title, place = true })
 end
 
 local function Redraw()
@@ -147,7 +147,7 @@ local function FastPass()
 	end
 end
 
--- Feed style with auto-loot: what auto-loot couldn't take (bags full, a roll, locked loot) opens the window.
+-- Auto loot: what it couldn't take (bags full, a roll, locked loot) opens the window.
 local function CheckStuck(id)
 	if not (session and session.id == id and session.open) or session.windowShown then
 		return
@@ -159,14 +159,24 @@ local function CheckStuck(id)
 	end
 end
 
--- Feed style: a taken slot becomes a feed line. Money comes from PLAYER_MONEY (the amount), currency from the
--- currency line when that extra is on (Toasts.lua), junk as one line when the window closes.
-local function FeedTaken(e)
-	if e.kind == "money" or (e.kind == "currency" and db.extras.repCurrency) then
+-- Whether this loot's taken slots go to the feed: always with auto loot, by hand while that setting is on.
+local function Feeds(s)
+	return ns.Loot_FeedsTaken(s.auto, db.feedManual)
+end
+
+-- A taken slot becomes a feed line. Money comes from PLAYER_MONEY (the amount), junk as one line when the loot
+-- closes. A currency always goes through Toasts.lua, so its currency event doesn't show it a second time (nor at all
+-- while hand-looted items stay out of the feed).
+local function FeedTaken(s, e)
+	if e.kind == "currency" then
+		ns.LootToasts_LootCurrency(e, Feeds(s))
+		return
+	end
+	if e.kind == "money" or not Feeds(s) then
 		return
 	end
 	if db.extras.foldJunk and ns.Loot_IsJunk(e) then
-		session.junk[#session.junk + 1] = e
+		s.junk[#s.junk + 1] = e
 		return
 	end
 	ns.LootFeed_PushEntry(e)
@@ -197,11 +207,11 @@ end
 
 -- Events ----------------------------------------------------------------------------------------------------------
 
--- Opens the window (or, in the Feed style with auto-loot, waits to see what's stuck) once per loot.
+-- Opens the window when looting by hand; with auto loot, waits to see what's stuck. Once per loot.
 local function Display(isFromItem)
 	session.displayed = true
 	OpenSound(isFromItem)
-	if db.style == "feed" and session.auto then
+	if session.auto then
 		local id = session.id
 		C_Timer.After(STUCK_DELAY, function()
 			CheckStuck(id)
@@ -254,12 +264,10 @@ events:On(OWNER, "LOOT_OPENED", function(_, autoLoot, isFromItem)
 	Display(Readable(isFromItem) and isFromItem)
 end)
 
-local function Taken(e)
+local function Taken(s, e)
 	e.taken = true
 	ns.LootToasts_Note(e)
-	if db.style == "feed" then
-		FeedTaken(e)
-	end
+	FeedTaken(s, e)
 end
 
 events:On(OWNER, "LOOT_SLOT_CLEARED", function(_, slot)
@@ -267,7 +275,7 @@ events:On(OWNER, "LOOT_SLOT_CLEARED", function(_, slot)
 	if not e or e.taken or e.kind == "none" then
 		return
 	end
-	Taken(e)
+	Taken(session, e)
 	Redraw()
 end)
 
@@ -280,7 +288,7 @@ local function SweepTaken(s)
 		if s.auto and not s.stuck then
 			for _, e in ipairs(s.entries) do
 				if e.kind ~= "none" and not e.taken and not e.locked then
-					Taken(e)
+					Taken(s, e)
 				end
 			end
 		end
@@ -292,7 +300,7 @@ local function SweepTaken(s)
 			local hasItem = LootSlotHasItem(slot)
 			if Readable(slotType, hasItem) and (slotType == Enum.LootSlotType.None
 				or (e.kind ~= "money" and not hasItem)) then
-				Taken(e)
+				Taken(s, e)
 			end
 		end
 	end
@@ -331,16 +339,9 @@ events:On(OWNER, "LOOT_CLOSED", function()
 	end
 	s.open = false
 	SweepTaken(s)
-	if db.style == "feed" then
-		FlushJunk(s)
-	end
+	FlushJunk(s)
 	if s.windowShown then
-		local anyTaken = false
-		for _, e in ipairs(s.entries) do
-			anyTaken = anyTaken or e.taken == true
-		end
-		last.lingered = s.auto and anyTaken and not s.stuck
-		ns.LootWindow_Closed(last.lingered)
+		ns.LootWindow_Closed()
 	end
 	C_Timer.After(MONEY_GRACE, function()
 		if session == s then
@@ -368,7 +369,7 @@ events:On(OWNER, "PLAYER_MONEY", function()
 	local now = GetMoney()
 	local delta = now - session.money
 	session.money = now
-	if delta > 0 and db.style == "feed" then
+	if delta > 0 and Feeds(session) then
 		ns.LootFeed_PushMoney(delta)
 	end
 end)
@@ -449,19 +450,20 @@ local function Preview()
 end
 
 local function Why()
-	if not last.style then
-		ns.Print("Loot: no loot window opened since you logged in.")
+	if not last.look then
+		ns.Print("Loot: nothing looted since you logged in.")
 		return
 	end
 	local function onOff(v)
 		return v and "on" or "off"
 	end
 	local said = last.payload == nil and "unreadable" or onOff(last.payload)
-	local window = last.shown and (("shown with %d items"):format(last.items)
-		.. (last.lingered and ", stayed after the loot closed" or "")) or "not shown"
-	ns.Print(("Loot: last window: auto-loot %s (game said %s; setting %s, auto-loot key %s); fast loot %s; style %s; "
+	local shown = last.shown and ("shown (%s) with %d items"):format(last.look, last.items) or "not shown"
+	local feed = last.auto and "the feed (auto loot)" or (db.feedManual and "the window and the feed"
+		or "the window only")
+	ns.Print(("Loot: last loot: auto-loot %s (game said %s; setting %s, auto-loot key %s); fast loot %s; shown in %s; "
 		.. "window %s%s%s."):format(onOff(last.auto), said, onOff(last.cvar), last.modifier and "held" or "not held",
-		onOff(last.fast), last.style, window, last.stuck and "; something was left, so the window opened" or "",
+		onOff(last.fast), feed, shown, last.stuck and "; something was left, so the window opened" or "",
 		last.other and "; another addon (Plumber, ElvUI, XLoot ...) owns the loot window, so Tomte showed none and"
 			.. " left the looting to it" or ""))
 end
@@ -489,8 +491,8 @@ module = ns.RegisterModule({
 	name = "Loot",
 	category = "gear",
 	icon = 133639, -- inv_misc_bag_10
-	summary = "One loot window in three styles, with fast loot and a Take all key.",
-	description = "Replaces the game's loot window: a compact list, a card with the best item and its upgrade verdict, or a feed of lines beside your character that only opens a window when something can't be looted by itself. Fast loot, a Take all key, owned counts, new appearances, prices, and Blizzard's loot pop-ups shown the same way.",
+	summary = "Auto loot slides into a feed; looting by hand opens a loot window in the look you pick.",
+	description = "Replaces the game's loot window. With auto loot, what you get slides in as lines beside your character and fades; a window only opens when something can't be looted by itself (full bags, rolls, locked loot). Looting by hand opens a loot window in one of three looks: Strips (feed lines that stay until you take them), Panel (a framed window with an upgrade shown large) or Tiles (big icons, like a bag). Fast loot, a Take all key, owned counts, new appearances, prices, and Blizzard's loot pop-ups shown in the feed too.",
 	enabledByDefault = true,
 	replaces = {
 		{ addon = "Plumber", why = "the loot window, fast loot and the boss loot banner" },
@@ -503,7 +505,8 @@ module = ns.RegisterModule({
 		{ addon = "XLoot", why = "XLoot's window shows the loot, so Tomte shows none (fast loot still works)." },
 	},
 	defaults = {
-		style = "list", -- "list" | "card" | "feed"
+		look = "strips", -- the loot window when looting by hand: "strips" | "panel" | "tiles" (Look*.lua)
+		feedManual = true, -- what you take by hand from the window also goes to the feed
 		fastLoot = true,
 		lootKey = "E", -- takes all while a loot window is open, out of combat: "E" | "SPACE" | "F" | "off"
 		popups = true, -- replace Blizzard's loot pop-ups with feed lines
@@ -521,7 +524,7 @@ module = ns.RegisterModule({
 		bgAlpha = 0.55, -- as Almost Done's
 		perPage = 6,
 		growUp = false,
-		fadeDelay = 5, -- seconds a feed line (and the window after auto-loot) stays before it fades
+		fadeDelay = 5, -- seconds a feed line stays before it fades
 		atMouse = false,
 		-- Where Edit Mode put the window: its left edge, top and bottom in UIParent's coordinates (from its
 		-- bottom-left corner). set = false: the default spot (Window.lua).
@@ -530,6 +533,7 @@ module = ns.RegisterModule({
 	},
 	init = function(moduleDB)
 		db = moduleDB
+		ns.LootParts_Init(db)
 		ns.LootWindow_Init(db, module)
 		ns.LootFeed_Init(db, module)
 		ns.LootToasts_Init(db, module)
@@ -543,17 +547,19 @@ module = ns.RegisterModule({
 	end,
 	commands = {
 		{ "test", "show a sample loot window and feed lines", Preview },
-		{ "why", "explain the last loot window: auto-loot, fast loot, style", Why },
+		{ "why", "explain the last loot: auto loot, fast loot, feed or window", Why },
 	},
 	options = {
 		{ type = "header", label = "Loot window" },
-		{ type = "dropdown", key = "style", label = "Style", choices = function()
+		{ type = "dropdown", key = "look", label = "Look", onChange = Relayout, choices = function()
 			return {
-				{ value = "list", text = "List" },
-				{ value = "card", text = "Card" },
-				{ value = "feed", text = "Feed" },
+				{ value = "strips", text = "Strips" },
+				{ value = "panel", text = "Panel" },
+				{ value = "tiles", text = "Tiles" },
 			}
-		end, tooltip = "List: a compact window. Card: where the loot came from, the best item on top with Gear Check's verdict, then the rest. Feed: no window, lines slide in beside your character and fade; a window only opens for loot that can't be taken by itself (full bags, rolls, locked loot)." },
+		end, tooltip = "The window that opens when you loot by hand (auto loot uses the feed). Strips: lines like the feed's that stay until you take them. Panel: a framed window, an upgrade or something rare shown large, the rest in rows with their prices. Tiles: big icons in a grid, like a bag; point at one to see its name." },
+		{ type = "checkbox", key = "feedManual", label = "Show hand-looted items in the feed",
+			tooltip = "What you take from the loot window also slides into the feed, so you see it was looted. Auto loot always uses the feed." },
 		{ type = "checkbox", key = "fastLoot", label = "Fast loot",
 			tooltip = "With auto loot on, take everything the moment the loot opens. Follows the game's auto loot setting and its auto loot key (hold it to loot by hand). Whatever can't be taken stays in the window." },
 		{ type = "dropdown", key = "lootKey", label = "Take all key while looting", choices = function()
@@ -603,7 +609,7 @@ module = ns.RegisterModule({
 		{ type = "slider", key = "perPage", label = "Items per page", min = 3, max = 12, step = 1, onChange = Relayout },
 		{ type = "slider", key = "fadeDelay", label = "Fade after", min = 1, max = 15, step = 1, format = Seconds,
 			onChange = Relayout,
-			tooltip = "How long a feed line stays, and the window after auto loot, before it fades." },
+			tooltip = "How long a feed line stays before it fades." },
 		{ type = "checkbox", key = "growUp", label = "Grow upward", onChange = Relayout,
 			tooltip = "The window and the feed grow up from where they are instead of down." },
 		{ type = "checkbox", key = "atMouse", label = "Open at the mouse", onChange = Relayout,

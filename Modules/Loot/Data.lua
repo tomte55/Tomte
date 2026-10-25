@@ -1,15 +1,15 @@
 local addonName, ns = ...
 
 -- Loot: pure logic (no WoW API calls; unit-tested in tests/test_loot.lua). Turns the loot slots Read.lua reads into
--- the lines the window (Window.lua) and the feed (Feed.lua) show: sorting, folding junk, paging, the best item for
--- the Card style, the small text after each line, whether the game auto-loots (fast loot), which boss loot counts as
--- valuable, which currency gains are worth a line, the loot source's title and reputation gains read from the game's
--- chat text.
+-- the lines the window's looks (Look*.lua) and the feed (Feed.lua) show: sorting, folding junk, paging, the Panel
+-- look's featured item, the small text after each line, whether the game auto-loots (fast loot) and whether taken
+-- loot goes to the feed, which boss loot counts as valuable, which currency gains are worth a line, the loot
+-- source's title and reputation gains read from the game's chat text.
 --
 -- An entry (one loot slot, Read.lua): { slot, kind = "item" | "money" | "currency" | "none", name, icon, quantity,
 --   quality, locked, quest = "starts" | "item" | nil, link, itemID, currencyID, classID, subclassID,
---   sell (vendor copper each), value and stale (Gold & value's copper each), owned, newLook,
---   verdict = { text, role, upgrade, maybe } (Gear Check), taken }
+--   subType (the item's localized subtype: "Cloth", "Cooking"), toy, sell (vendor copper each), value and stale
+--   (Gold & value's copper each), owned, newLook, verdict = { text, role, upgrade, maybe } (Gear Check), taken }
 
 local QUALITY_POOR = 0 -- Enum.ItemQuality
 local QUALITY_COMMON = 1
@@ -32,6 +32,12 @@ function ns.Loot_ShouldAutoLoot(payload, cvar, modifier)
 		return payload
 	end
 	return (cvar == true) ~= (modifier == true)
+end
+
+-- Whether what's taken from a loot window goes to the feed: always with auto loot (the feed is how auto loot shows
+-- up, stuck loot taken from the window included), by hand only while "Show hand-looted items in the feed" is on.
+function ns.Loot_FeedsTaken(auto, feedManual)
+	return auto == true or feedManual == true
 end
 
 -- Entries ---------------------------------------------------------------------------------------------------------
@@ -87,12 +93,12 @@ local function VerdictRank(e)
 	return 0
 end
 
--- The Card style's best item, as an index into entries: an upgrade (Gear Check) first, then the most valuable, then
--- the best quality. Only items count; nil when there are none.
-function ns.Loot_BestIndex(entries)
+-- The best item, as an index into entries: an upgrade (Gear Check) first, then the most valuable, then the best
+-- quality. Only items count, and only those `allow` accepts (default: all); nil when there are none.
+function ns.Loot_BestIndex(entries, allow)
 	local best, bestKey
 	for i, e in ipairs(entries) do
-		if e.kind == "item" and not ns.Loot_IsJunk(e) then
+		if e.kind == "item" and not ns.Loot_IsJunk(e) and (not allow or allow(e)) then
 			local key = { VerdictRank(e), ns.Loot_Worth(e) or 0, e.quality or QUALITY_COMMON }
 			local better = not bestKey
 			if bestKey then
@@ -111,16 +117,36 @@ function ns.Loot_BestIndex(entries)
 	return best
 end
 
+-- What deserves the Panel look's big spot: a Gear Check upgrade or a valuable item (Loot_IsValuable), still there.
+local function Featurable(e)
+	if e.taken then
+		return false
+	end
+	if e.verdict and e.verdict.upgrade then
+		return true
+	end
+	return ns.Loot_IsValuable({ classID = e.classID, subclassID = e.subclassID, quality = e.quality, toy = e.toy })
+end
+
+-- The item for the Panel look's big spot, as an index into entries; nil when nothing deserves it (then every item
+-- is a row). The best of them by Loot_BestIndex's order.
+function ns.Loot_FeaturedIndex(entries)
+	return ns.Loot_BestIndex(entries, Featurable)
+end
+
 -- Lines -------------------------------------------------------------------------------------------------------------
 -- A line is { entry = e } or, for folded junk, { junk = { entries }, quantity, worth, icon, taken }.
 
--- opts.foldJunk: two or more junk items become one line at the end. opts.skip: an entry to leave out (the Card's best
--- item, shown on its own). Entries of kind "none" (an emptied slot) never make a line.
+-- opts.foldJunk: two or more junk items become one line at the end. opts.skip: an entry to leave out (the Panel's
+-- featured item, shown on its own). opts.hideTaken: what's been taken makes no line (the window shows only what's
+-- left). opts.skipMoney: coin makes no line (the Panel shows it in its footer). Entries of kind "none" (an emptied
+-- slot) never make a line.
 function ns.Loot_Lines(entries, opts)
 	opts = opts or {}
 	local list, junk = {}, {}
 	for _, e in ipairs(entries) do
-		if e.kind ~= "none" and e ~= opts.skip then
+		if e.kind ~= "none" and e ~= opts.skip and not (opts.hideTaken and e.taken)
+			and not (opts.skipMoney and e.kind == "money") then
 			if opts.foldJunk and ns.Loot_IsJunk(e) then
 				junk[#junk + 1] = e
 			else
@@ -205,6 +231,12 @@ local function PriceText(copper, stale)
 	return ns.Price(copper) .. (stale and "?" or "")
 end
 
+-- The stack's price as text (a "?" after a stale auction price); nil when it has no worth.
+function ns.Loot_WorthText(e)
+	local worth = ns.Loot_Worth(e)
+	return worth and PriceText(worth, HasValue(e) and e.stale) or nil
+end
+
 -- The small parts after an entry's name as { text, role } (theme color roles), each only when its extra is on.
 -- opts: { newLook, owned, value, verdict = "tag" (a short Upgrade tag, List) | "full" (Gear Check's headline) }.
 -- Locked and quest items say so first.
@@ -239,9 +271,9 @@ function ns.Loot_Details(e, opts)
 		add(ns.Thousands(e.owned) .. " owned", "textMuted")
 	end
 	if opts.value then
-		local worth = ns.Loot_Worth(e)
+		local worth = ns.Loot_WorthText(e)
 		if worth then
-			add(PriceText(worth, HasValue(e) and e.stale), "textMuted")
+			add(worth, "textMuted")
 		end
 	end
 	return out
