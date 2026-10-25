@@ -4,6 +4,79 @@ Feature ideas captured for later. Newest first. Status: New, Discussing, Planned
 
 ---
 
+## Rares: a module to replace RareScanner
+
+**Date:** 2026-10-25
+**Status:** Parked (researched, decision later)
+
+**Description:**
+A Tomte module that does what RareScanner does: alert when a rare NPC, treasure or event shows up, show where it is,
+whether you've already done it and what it drops. RareScanner was kept on purpose on 2026-10-22 because its value is
+maintained data, so the question is how much of that data we can build ourselves.
+
+**Use Cases:**
+- Anyone out in the world who wants to know a rare or treasure is nearby and go get it.
+- Collectors hunting rares that drop mounts, pets, toys or transmog they're missing.
+
+**Benefits:**
+- One fewer third-party addon ("we only need Tomte").
+- Shares data with Collect, Waypoints, Recent and Toasts instead of living apart.
+
+**Complexity:** Low for the alert part, High (and never finished) for a full RareScanner database.
+
+Three tiers:
+
+| Tier | What | Effort | Data |
+| --- | --- | --- | --- |
+| 1. Live alerts | A vignette appears: toast/banner with name, model, sound; buttons for waypoint, map ping, secure "target it" | Small to medium (Rogue-sized) | None, all live |
+| 2. Memory | Remember seen/killed, where and when; learn drops on loot; "seen nearby" map tab | Medium | Only what we see ourselves |
+| 3. Full RareScanner | Pins for every rare/treasure per zone before you've been there, "drops a mount you lack", respawn timers | Large, ongoing per patch | Hand-collected; see below |
+
+Already in Tomte to reuse: `ns.Toast_Show` / `ns.Banner_Show`, Waypoints and `MapPing` (Modules/Travel),
+`ns.ModelPreview_*`, `ns.MapTabs_Add`, `ns.EditMode_Register`, Collect's vignette reading
+(`ns.Collect_ApplyVignettes` in `Modules/Collect/Catalog.lua`) and its "missing" checks, Gather's map pins as a pin
+template. A secure target button follows the secure-button rules (create out of combat, macrotext, no anchoring to
+normal frames). Check on warcraft.wiki.gg first: `C_VignetteInfo` in 12.x, and whether `/target <name>` macrotext
+still works.
+
+**How RareScanner gets its data** (read from its 12.1.5 install, 2026-10-24):
+- **Shipped tables** (`Tables/`, about 3 MB, updated each release): NPC ID, zone, display ID, quest ID that marks it
+  done (`NpcInfoTables.lua`); item IDs per rare/container (`NpcLootTables.lua`, `ContainerLootTables.lua`); respawn
+  min/max/exact (`NpcSpawnInfoTables.lua`); achievements, Drakewatcher, mounts, pets, missing transmog sources.
+  Internal names like `[DNT]` and `<Vignette Placeholder>` show the NPC info is datamined from client files. Loot
+  and respawn times can't be datamined, so they're collected by hand or from players.
+- **Learned by each client** (saved in `RareScannerDB`): positions when a vignette appears
+  (`RSGeneralDB.AddAlreadyFoundEntity`), or the player's position for rares found by nameplate, mouseover, target
+  or soft-interact; drops on `LOOT_OPENED` (`GetLootSlotLink` + `GetLootSourceInfo`); a completed-quest cache. Its
+  unit reads use `issecretvalue` guards, so this works on 12.1.5.
+- **Shared live** (Telemetry plugin, AceComm to guild and group): kill and spawn times with shard IDs, so respawn
+  timers work for rares you haven't seen yourself. Asks for recent samples on login or joining a group.
+- RareScanner has no license file: its tables can't be copied (single game IDs are facts and fine).
+
+**What datamining can give us** (checked against wago.tools DB2 CSVs, 2026-10-24; `tools/wago.py` already loads
+these):
+- `Vignette` (7,250 rows): name, type, `VisibleTrackingQuestID` (4,134 have one, so "already done" comes free via
+  `C_QuestLog.IsQuestFlaggedCompleted`), `RewardQuestID`. The most useful table.
+- `Creature`: name, `Classification` (2 = rare elite, 4 = rare), display IDs for the model. Sparse: about 23k of
+  278k creature IDs, only 333 rares; 216 vignette names match a rare in it.
+- `QuestPOIPoint` / `AreaPOI`: positions for quests and fixed POIs, not rares.
+- Not in the client at all: spawn positions, loot and respawn times (all server-side).
+
+Ways to fill the gaps:
+1. Learn them ourselves (tier 2). Clean and free, but starts empty: a zone only gets pins once someone has been there.
+2. Scrape Wowhead or similar. Ruled out: that's a curated database (CLAUDE.md Sharing rule) and against their terms.
+3. Share between Tomte users (profile export or addon messages). Grows faster, but a sync protocol to build and test.
+
+**Notes:**
+- Realistic shape: tier 1 + tier 2 + a generated `Data/<Expansion>/Rares` from a `tools/rares.py` (Vignette table:
+  names and done-quests), regenerated per patch like the other generated files. Optional small hand-kept list of the
+  current season's mount/pet rares (20-40 per expansion) for the most valuable bit of tier 3.
+- What it can't match: RareScanner's "here are all 40 rares in this zone, and this one drops a mount" before you've
+  explored. If that's the main reason to use RareScanner, keep it.
+- Open question: is the pre-filled zone map why RareScanner is used, or are alerts plus done-tracking enough?
+
+---
+
 ## Delves: alert when a Mislaid Curiosity spawns
 
 **Date:** 2026-10-15
