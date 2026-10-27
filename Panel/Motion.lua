@@ -101,18 +101,32 @@ local tweens = {} -- [owner] = { [key] = { clock, seconds, delay, step, done, ea
 local running = 0
 local driver = CreateFrame("Frame")
 
+local walkOwner, walkKey, walkTween = {}, {}, {} -- Drive's copy of what runs this frame, reused
+
 local function Drive(_, elapsed)
-	-- Done callbacks run after the walk: one may start a new tween, and a table can't take new keys mid-walk.
+	-- The walk goes over a copy of who and what is running: a step may start another tween (a scroll's step fades its
+	-- edges), and Lua leaves pairs undefined when a table takes new keys mid-walk. A tween started or replaced during
+	-- the walk runs from the next frame. Done callbacks run after the walk, the same way.
 	local finished
+	local n = 0
 	for owner, list in pairs(tweens) do
 		for key, t in pairs(list) do
+			n = n + 1
+			walkOwner[n], walkKey[n], walkTween[n] = owner, key, t
+		end
+	end
+	for i = 1, n do
+		local owner, key, t = walkOwner[i], walkKey[i], walkTween[i]
+		walkOwner[i], walkKey[i], walkTween[i] = nil, nil, nil -- nothing kept alive past this frame
+		local list = tweens[owner]
+		if list and list[key] == t then -- not replaced or stopped by an earlier step this frame
 			if t.delay > 0 then
 				t.delay = t.delay - elapsed
 			else
 				t.clock = t.clock + elapsed
 				local p = math.min(t.clock / t.seconds, 1)
 				t.step(t.ease(p), p)
-				if p >= 1 then
+				if p >= 1 and list[key] == t then -- its own step may have replaced it
 					list[key] = nil
 					running = running - 1
 					if t.done then

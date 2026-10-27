@@ -892,25 +892,31 @@ local function BackdropColor(scroll, y)
 end
 
 -- Soft fades at a scroll's top and bottom edges, in the color behind it, while there's more beyond that edge: a
--- ScrollFrame can't fade its own content (no alpha masks), so they're overlays above it that take no mouse.
+-- ScrollFrame can't fade its own content (no alpha masks), so they're overlays above it that take no mouse. Each fade
+-- is a frame holding its gradient (edges.top.tex): it's faded in and out by the frame's alpha, as a texture's own
+-- alpha didn't hide a gradient (both fades always showed, measured in game).
+local function EdgeFade(edges)
+	local fade = CreateFrame("Frame", nil, edges)
+	fade:SetHeight(EDGE_FADE)
+	fade.tex = fade:CreateTexture(nil, "OVERLAY")
+	fade.tex:SetAllPoints()
+	fade.tex:SetColorTexture(1, 1, 1, 1)
+	fade:SetAlpha(0)
+	return fade
+end
+
 local function EdgeFades(scroll)
 	local edges = CreateFrame("Frame", nil, scroll)
 	edges:SetAllPoints()
 	edges:SetFrameLevel(scroll:GetFrameLevel() + EDGE_LEVEL)
-	edges.top = edges:CreateTexture(nil, "OVERLAY")
-	edges.top:SetPoint("TOPLEFT")
-	edges.top:SetPoint("TOPRIGHT")
-	edges.top:SetHeight(EDGE_FADE)
-	edges.top:SetColorTexture(1, 1, 1, 1)
-	edges.top:SetAlpha(0)
-	edges.bottom = edges:CreateTexture(nil, "OVERLAY")
-	-- One screen pixel lower than the scroll's edge: its last pixel row of content showed under the fade (seen in
-	-- game).
+	-- Each one screen pixel past the scroll's edge: the first and last pixel row of content showed beyond the fades
+	-- (seen in game).
+	edges.top = EdgeFade(edges)
+	PixelUtil.SetPoint(edges.top, "TOPLEFT", edges, "TOPLEFT", 0, 1)
+	PixelUtil.SetPoint(edges.top, "TOPRIGHT", edges, "TOPRIGHT", 0, 1)
+	edges.bottom = EdgeFade(edges)
 	PixelUtil.SetPoint(edges.bottom, "BOTTOMLEFT", edges, "BOTTOMLEFT", 0, -1)
 	PixelUtil.SetPoint(edges.bottom, "BOTTOMRIGHT", edges, "BOTTOMRIGHT", 0, -1)
-	edges.bottom:SetHeight(EDGE_FADE)
-	edges.bottom:SetColorTexture(1, 1, 1, 1)
-	edges.bottom:SetAlpha(0)
 	return edges
 end
 
@@ -931,8 +937,8 @@ local function PaintEdges(scroll)
 	scroll.edgePainted = tr ~= nil
 	if tr then
 		local edges = scroll.edges
-		edges.top:SetGradient("VERTICAL", CreateColor(tr, tg, tb, 0), CreateColor(tr, tg, tb, ta))
-		edges.bottom:SetGradient("VERTICAL", CreateColor(br, bg, bb, ba), CreateColor(br, bg, bb, 0))
+		edges.top.tex:SetGradient("VERTICAL", CreateColor(tr, tg, tb, 0), CreateColor(tr, tg, tb, ta))
+		edges.bottom.tex:SetGradient("VERTICAL", CreateColor(br, bg, bb, ba), CreateColor(br, bg, bb, 0))
 	end
 	return scroll.edgePainted
 end
