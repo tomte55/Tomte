@@ -6,9 +6,8 @@ local addonName, ns = ...
 -- it links it instead (the chat link modifier is Shift too). Rows from Data.lua's Bags_CurrencyRows; the window is in Window.lua.
 
 local WIDTH = 260
-local PAD = 10
-local TITLE_H = 30
-local SEARCH_H = 20
+local PAD = 8
+local BAND_H = 34 -- the header band, as the bag window's
 local ROW_H = 20
 local ICON = 14
 local INDENT = 12 -- per level of the list's depth
@@ -157,39 +156,30 @@ local function Build()
 	panel:SetWidth(WIDTH)
 	panel:EnableMouse(true)
 	UI.Panel(panel)
-	local title = UI.Text(panel, 14, "heading", "title")
-	title:SetPoint("TOPLEFT", PAD, -9)
+	-- Header band: the title and a close button; the list below in a tray. Docked flush to the bag window's left edge.
+	local band = ns.BagsKit_Band(panel)
+	band:SetPoint("TOPLEFT", 1, -1)
+	band:SetPoint("TOPRIGHT", -1, -1)
+	band:SetHeight(BAND_H)
+	local title = UI.Text(band, 14, "heading", "title")
+	title:SetPoint("LEFT", PAD, 0)
 	title:SetText("Currencies")
-	local close = UI.Button(panel, 20, "x")
-	close:SetPoint("TOPRIGHT", -6, -5)
-	close:SetScript("OnClick", function()
+	local close = ns.BagsKit_Cluster(band, { { text = "x", tip = "Close", onClick = function()
 		panel:Hide()
-	end)
+	end } })
+	close:SetPoint("RIGHT", -PAD, 0)
+	local tray = ns.BagsKit_Tray(panel)
+	tray:SetPoint("TOPLEFT", band, "BOTTOMLEFT", PAD - 1, -PAD)
+	tray:SetPoint("BOTTOMRIGHT", -PAD, PAD)
+	search = ns.BagsKit_Search(band, "Search currencies", Draw)
+	search:SetPoint("LEFT", title, "RIGHT", 10, 0)
+	search:SetPoint("RIGHT", close, "LEFT", -8, 0)
+	search.help:Hide()
+	search:SetTextInsets(8, 8, 0, 0)
 
-	search = CreateFrame("EditBox", nil, panel)
-	search:SetHeight(SEARCH_H)
-	search:SetPoint("TOPLEFT", PAD, -TITLE_H)
-	search:SetPoint("RIGHT", -PAD, 0)
-	search:SetAutoFocus(false)
-	UI.SearchBoxClear(search)
-	UI.SetFont(search, "body", 12)
-	UI.SetTextRole(search, "text")
-	search:SetTextInsets(6, 6, 0, 0)
-	UI.Surface(search, 0.35)
-	local placeholder = UI.Text(search, 12, "textFaint")
-	placeholder:SetPoint("LEFT", 6, 0)
-	placeholder:SetText("Search currencies")
-	local refresh = UI.Debounce(UI.SEARCH_DELAY, Draw)
-	search:SetScript("OnTextChanged", function(self)
-		placeholder:SetShown(self:GetText() == "")
-		refresh()
-	end)
-	search:SetScript("OnEscapePressed", search.ClearFocus)
-	search:SetScript("OnEnterPressed", search.ClearFocus)
-
-	scroll = UI.Scroll(panel)
-	scroll:SetPoint("TOPLEFT", PAD, -(TITLE_H + SEARCH_H + 8))
-	scroll:SetPoint("BOTTOMRIGHT", -PAD - 6, PAD)
+	scroll = UI.Scroll(tray)
+	scroll:SetPoint("TOPLEFT", 6, -6)
+	scroll:SetPoint("BOTTOMRIGHT", -12, 6)
 	panel:SetScript("OnShow", Draw)
 	panel:SetScript("OnHide", function()
 		search:ClearFocus()
@@ -197,33 +187,30 @@ local function Build()
 	panel:Hide()
 end
 
--- The button for the bag window's bottom left: opens and closes the panel beside window.
+-- The button for the bag window's footer (a one-button cluster): opens and closes the panel docked to window's
+-- left edge. One side panel at a time: Find on all characters closes.
 function ns.BagsCurrencies_Button(parent, window)
 	anchor = window
-	local b = CreateFrame("Button", nil, parent)
-	b:SetSize(16, 16)
-	b.icon = b:CreateTexture(nil, "ARTWORK")
-	b.icon:SetAllPoints()
-	b.icon:SetTexture(BUTTON_ICON)
-	UI.Border(b, "frame", 0.8)
-	b:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_TOP")
-		GameTooltip:SetText("Currencies")
-		GameTooltip:Show()
-	end)
-	b:SetScript("OnLeave", function()
-		GameTooltip:Hide()
-	end)
-	b:SetScript("OnClick", function()
+	return ns.BagsKit_Cluster(parent, { { icon = BUTTON_ICON, tip = "Currencies", onClick = function()
 		if not panel then
 			Build()
 		end
 		panel:ClearAllPoints()
-		panel:SetPoint("TOPRIGHT", anchor, "TOPLEFT", -4, 0)
-		panel:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMLEFT", -4, 0)
-		panel:SetShown(not panel:IsShown())
-	end)
-	return b
+		panel:SetPoint("TOPRIGHT", anchor, "TOPLEFT", 1, 0)
+		panel:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMLEFT", 1, 0)
+		if panel:IsShown() then
+			panel:Hide()
+		else
+			ns.BagsFind_Hide()
+			panel:Show()
+		end
+	end } })
+end
+
+function ns.BagsCurrencies_Hide()
+	if panel then
+		panel:Hide()
+	end
 end
 
 -- CURRENCY_DISPLAY_UPDATE and after a change from the panel itself.

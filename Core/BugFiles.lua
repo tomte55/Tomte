@@ -205,6 +205,7 @@ ns.BUG_FILES = {
 	"Modules/Bags/Layout.lua",
 	"Modules/Bags/Read.lua",
 	"Modules/Bags/Buttons.lua",
+	"Modules/Bags/Kit.lua",
 	"Modules/Bags/View.lua",
 	"Modules/Bags/Currencies.lua",
 	"Modules/Bags/Find.lua",

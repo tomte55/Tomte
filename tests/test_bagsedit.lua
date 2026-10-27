@@ -71,6 +71,76 @@ test("a category moves into a section and back out after it", function()
 	eq(ns.BagsEdit_SetSection(layout, "s", nil), false, "sections stay at the top level")
 end)
 
+local function count(layout)
+	local n = 0
+	local function walk(nodes)
+		for _, node in ipairs(nodes) do
+			n = n + 1
+			walk(node.children or {})
+		end
+	end
+	walk(layout)
+	return n
+end
+
+test("move to: before and after in the same list", function()
+	local layout = small()
+	local before = count(layout)
+	eq(ns.BagsEdit_MoveTo(layout, "other", "a", "before"), true)
+	eq(layout[1].key, "other")
+	eq(ns.BagsEdit_MoveTo(layout, "other", "a", "after"), true)
+	eq(layout[2].key, "other")
+	eq(count(layout), before)
+end)
+
+test("move to: next to a category inside a section joins the section", function()
+	local layout = small()
+	eq(ns.BagsEdit_MoveTo(layout, "a", "b", "after"), true)
+	local _, _, _, section = ns.BagsEdit_Find(layout, "a")
+	eq(section.key, "s")
+	eq(keys(section.children), "b,a")
+end)
+
+test("move to: into a section goes to its end; into a category is refused", function()
+	local layout = small()
+	eq(ns.BagsEdit_MoveTo(layout, "a", "s", "into"), true)
+	eq(keys(layout[1].children), "b,a")
+	eq(ns.BagsEdit_MoveTo(layout, "other", "b", "into"), false)
+end)
+
+test("move to: sections and dividers stay at the top level", function()
+	local layout = small()
+	ns.BagsEdit_AddSection(layout, "T") -- a second section on top
+	local t = layout[1]
+	eq(ns.BagsEdit_MoveTo(layout, t.key, "b", "after"), true)
+	-- it lands after b's section, not inside it
+	local _, _, _, section = ns.BagsEdit_Find(layout, t.key)
+	eq(section, nil)
+	local _, si = ns.BagsEdit_Find(layout, "s")
+	local _, ti = ns.BagsEdit_Find(layout, t.key)
+	eq(ti, si + 1)
+	local divider
+	for _, node in ipairs(layout) do
+		if node.kind == "divider" then
+			divider = node
+		end
+	end
+	eq(ns.BagsEdit_MoveTo(layout, divider.key, "b", "before"), true)
+	local _, _, _, dsection = ns.BagsEdit_Find(layout, divider.key)
+	eq(dsection, nil)
+	eq(ns.BagsEdit_MoveTo(layout, "s", "s", "into"), false)
+	eq(ns.BagsEdit_MoveTo(layout, "s", "b", "after"), false, "a section next to its own child")
+end)
+
+test("move to: onto itself or unknown keys changes nothing", function()
+	local layout = small()
+	local before = keys(layout)
+	eq(ns.BagsEdit_MoveTo(layout, "a", "a", "after"), false)
+	eq(ns.BagsEdit_MoveTo(layout, "nope", "a", "after"), false)
+	eq(ns.BagsEdit_MoveTo(layout, "a", "nope", "after"), false)
+	eq(keys(layout), before)
+end)
+
 test("adding puts new nodes on top (or at a section's end) with fresh keys", function()
 	local layout = small()
 	local c = ns.BagsEdit_AddCategory(layout, "Mine", "is:upgrade")

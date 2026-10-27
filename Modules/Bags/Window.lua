@@ -1,22 +1,22 @@
 local addonName, ns = ...
 
--- Bags: the bag window. Top bar (bag slots, other characters, title, search with saved searches, sort, settings,
--- close), the items (View.lua draws them in categories or as one bag) and a footer (free slots, tracked currencies
--- and Gold & value's items, gold). Another character's bags can be looked at (Item counts' record, display only).
+-- Bags: the bag window, built from Kit.lua as one case: a header band (bag slots and characters, the title, the search
+-- sunk into the band with its "?", saved searches, sort, settings, close), the items in a tray (View.lua draws them
+-- in categories or as one bag) and a footer band (currencies, free slots with a fill meter, tracked currencies and
+-- Gold & value's items, gold). The equipped bags stand as tabs on the top edge. Another character's bags can be looked at (Item counts' record, display only).
 -- Opened and closed by Takeover.lua following Blizzard's bag state; registered in Bags.lua.
 
-local PAD = 10 -- window edge to content
-local MIN_W = 430 -- the top bar's buttons, title, search box and its star fit at any column count
-local TOP_H = 30 -- the top bar
-local SEARCH_W = 170
-local SEARCH_H = 20
-local NOTE_H = 14 -- the line under the search box for a bad search
-local SLOT_SIZE = 30 -- an equipped bag's button in the row above the window
-local SLOT_GAP = 3
-local SLOTS_PAD = 6 -- the bag slots row's panel around its buttons
-local HOVER_POLL = 0.1 -- seconds between mouse checks while the top bar's buttons show only on hover
-local FOOT_H = 22 -- the footer
-local FOOT_LEFT = 24 -- the currencies button and its gap, before the free slots
+local PAD = 8 -- window edge to the tray, and the tray to the bands
+local TRAY_PAD = 8 -- tray edge to the items
+local MIN_W = 460 -- the header band's clusters, title and a usable search box fit at any column count
+local BAND_H = 34 -- the header band
+local FOOT_H = 30 -- the footer band
+local SLOT_SIZE = 32 -- an equipped bag's tab on the top edge
+local SLOT_GAP = 2
+local SLOTS_LEFT = 12 -- the first bag tab from the window's left edge
+local METER_W = 60
+local TITLE_MAX_W = 150 -- the title ("Bags: <name>") never squeezes the search box
+local HOVER_POLL = 0.1 -- seconds between mouse checks while the clusters show only on hover
 local ICON_SIZE = 12 -- footer currency icons
 -- The equipped bag slots: bags 1-4 and the reagent bag (Enum.BagIndex), shown in the bag slots row.
 local EQUIPPED = { 1, 2, 3, 4, 5 }
@@ -27,20 +27,20 @@ local COIN_ICONS = {
 }
 local SORT_ICON = "Interface\\Icons\\INV_Pet_Broom"
 local CHARS_ICON = 236448 -- achievement_character_human_male, the Alts page's icon
-local STAR = "|A:auctionhouse-icon-favorite:12:12|a" -- Blizzard's favorite star, the saved searches button
+local STAR_ATLAS = "auctionhouse-icon-favorite" -- Blizzard's favorite star, the saved searches button
 local BAGS_ICON = "Interface\\Icons\\INV_Misc_Bag_08"
 
 local UI = ns.UI
 
 local db
-local frame, body, search, note, slotsRow, footer, title, view
+local frame, header, tray, body, search, footer, title, view, leftCluster, rightCluster
 local viewChar -- another character's GUID while looking at their bags (Item counts' record), nil for yours
 local matcher -- the compiled search, nil for none
 local matcherText = false -- the search has words, which also look in the tooltip text
 local queued, footerQueued = false, false
 local showSlots = false
 local holding = false -- a window that takes items is open: items keep their places (ns.BagsWindow_SetHolding)
-local slotButtons, coins = {}, {}
+local slotTabs, coins = {}, {}
 local DrawSlots -- the bag slots row (below), redrawn with the window
 
 -- Pools ------------------------------------------------------------------------------------------------------------
@@ -128,10 +128,8 @@ local function Draw()
 		end or nil,
 	})
 	DrawSlots()
-	local top = TOP_H + (note:IsShown() and NOTE_H or 0)
-	body:ClearAllPoints()
-	body:SetPoint("TOPLEFT", PAD, -top)
-	frame:SetSize(math.max(width + 2 * PAD, MIN_W), top + height + PAD + FOOT_H + PAD / 2)
+	local w = math.max(width + 2 * (PAD + TRAY_PAD), MIN_W)
+	frame:SetSize(w, BAND_H + PAD + 2 * TRAY_PAD + height + PAD + FOOT_H)
 	if pending or viewChar then
 		-- Some items' data is still on its way (another character's often is): GET_ITEM_INFO_RECEIVED redraws
 		-- (Bags.lua).
@@ -183,12 +181,14 @@ local function FooterEntries()
 	return entries
 end
 
+-- Free slots and all slots of the backpack, bags 1-4 and the reagent bag.
 local function FreeSlots()
-	local free = 0
+	local free, total = 0, 0
 	for bag = 0, 5 do
 		free = free + (C_Container.GetContainerNumFreeSlots(bag) or 0)
+		total = total + (C_Container.GetContainerNumSlots(bag) or 0)
 	end
-	return free
+	return free, total
 end
 
 local function DrawFooter()
@@ -196,10 +196,12 @@ local function DrawFooter()
 	if not (frame and frame:IsShown()) then
 		return
 	end
-	local free = FreeSlots()
+	local free, total = FreeSlots()
 	footer.free:SetText(free == 1 and "1 free slot" or ("%s free slots"):format(ns.Thousands(free)))
-	footer.gold:SetText(ns.Coins(GetMoney(), true, COIN_ICONS))
-	local x, shown = FOOT_LEFT + footer.free:GetStringWidth() + 14, 0
+	footer.meter:SetValue(total > 0 and (total - free) / total or 0)
+	footer.gold:SetText(ns.Coins(GetMoney(), "exact", COIN_ICONS))
+	local meterRight, footerLeft = footer.meter:GetRight(), footer:GetLeft()
+	local x, shown = (meterRight and footerLeft) and (meterRight - footerLeft + 14) or 180, 0 -- before the first layout
 	local right = footer:GetWidth() - footer.gold:GetStringWidth() - 14
 	for _, entry in ipairs(FooterEntries()) do
 		local b = Coin(shown + 1)
@@ -232,28 +234,29 @@ end
 
 -- Bag slots row ----------------------------------------------------------------------------------------------------
 
-local function SlotButton(i)
-	return Pooled(slotButtons, i, function()
-		local b = CreateFrame("Button", nil, slotsRow)
-		b:SetSize(SLOT_SIZE, SLOT_SIZE)
+local function SlotTab(i)
+	return Pooled(slotTabs, i, function()
+		local b = ns.BagsKit_Tab(frame, SLOT_SIZE, "top")
 		b:RegisterForDrag("LeftButton")
-		b.icon = b:CreateTexture(nil, "ARTWORK")
-		b.icon:SetAllPoints()
-		UI.Border(b, "frame", 0.8)
 		b.free = b:CreateFontString(nil, "OVERLAY")
-		UI.SetFont(b.free, "number", 12, "OUTLINE")
-		b.free:SetPoint("BOTTOMRIGHT", -2, 2)
+		UI.SetFont(b.free, "number", 11, "OUTLINE")
+		b.free:SetPoint("BOTTOMRIGHT", -3, 3)
 		b:SetScript("OnEnter", function(self)
+			UI.WashTo(self.hoverWash, true)
 			GameTooltip:SetOwner(self, "ANCHOR_TOP")
 			if not GameTooltip:SetInventoryItem("player", self.invID) then
 				GameTooltip:SetText(self.bag == 5 and "Reagent bag slot" or "Bag slot")
 			end
 			GameTooltip:Show()
 		end)
-		b:SetScript("OnLeave", function()
+		b:SetScript("OnLeave", function(self)
+			UI.WashTo(self.hoverWash, false)
 			GameTooltip:Hide()
 		end)
-		local function Take(self)
+		local function Take(self, button)
+			if button and button ~= "LeftButton" then
+				return -- right-click does nothing here (it would pick the bag up)
+			end
 			if CursorHasItem() then
 				PutItemInBag(self.invID)
 			else
@@ -267,36 +270,37 @@ local function SlotButton(i)
 	end)
 end
 
--- The equipped bags in a row on top of the window's top-left edge, each with its free slots.
+-- The equipped bags as tabs standing on the window's top edge, each with its free slots.
 function DrawSlots()
-	slotsRow:SetShown(showSlots)
-	if not showSlots then
-		return
-	end
 	for i, bag in ipairs(EQUIPPED) do
-		local b = SlotButton(i)
-		b.bag = bag
-		b.invID = C_Container.ContainerIDToInventoryID(bag)
-		local texture = GetInventoryItemTexture("player", b.invID)
-		b.icon:SetTexture(texture or "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag")
-		b.free:SetText(texture and C_Container.GetContainerNumFreeSlots(bag) or "")
-		UI.SetTextRole(b.free, "text")
-		b:ClearAllPoints()
-		b:SetPoint("BOTTOMLEFT", slotsRow, "BOTTOMLEFT", SLOTS_PAD + (i - 1) * (SLOT_SIZE + SLOT_GAP), SLOTS_PAD)
-		b:Show()
+		local b = SlotTab(i)
+		b:SetShown(showSlots)
+		if showSlots then
+			b.bag = bag
+			b.invID = C_Container.ContainerIDToInventoryID(bag)
+			local texture = GetInventoryItemTexture("player", b.invID)
+			b.icon:SetTexture(texture or "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag")
+			b.icon:SetDesaturated(texture == nil)
+			b.free:SetText(texture and C_Container.GetContainerNumFreeSlots(bag) or "")
+			UI.SetTextRole(b.free, "text")
+			b:ClearAllPoints()
+			b:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", SLOTS_LEFT + (i - 1) * (SLOT_SIZE + SLOT_GAP), -1)
+		end
 	end
-	slotsRow:SetSize(#EQUIPPED * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP + 2 * SLOTS_PAD, SLOT_SIZE + 2 * SLOTS_PAD)
+	leftCluster:SetLit(1, showSlots)
 end
 
 -- Top bar buttons ---------------------------------------------------------------------------------------------------
 
-local topButtons = {} -- the top bar's icon buttons, shown only on hover when that setting is on
 local hoverTicker
 
+-- The two clusters, shown only while the mouse is over the window when that setting is on (the band stays).
 local function ShowTopButtons(shown)
-	for _, b in ipairs(topButtons) do
-		b:SetAlpha(shown and 1 or 0)
+	if not leftCluster then
+		return -- not built yet (a settings change before the bags were ever opened)
 	end
+	leftCluster:SetAlpha(shown and 1 or 0)
+	rightCluster:SetAlpha(shown and 1 or 0)
 end
 
 -- While "buttons on hover" is on and the window is open: a light poll of the mouse (the window's children take the
@@ -363,37 +367,16 @@ end
 
 -- Building ---------------------------------------------------------------------------------------------------------
 
-local function IconButton(parent, texture, tip, onClick)
-	local b = CreateFrame("Button", nil, parent)
-	b:SetSize(18, 18)
-	b.icon = b:CreateTexture(nil, "ARTWORK")
-	b.icon:SetAllPoints()
-	b.icon:SetTexture(texture)
-	b:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-		GameTooltip:SetText(tip)
-		GameTooltip:Show()
-	end)
-	b:SetScript("OnLeave", function()
-		GameTooltip:Hide()
-	end)
-	b:SetScript("OnClick", onClick)
-	return b
-end
-
 local function OnSearchChanged()
 	local text = search:GetText()
 	local m, err, usesText = ns.BagsSearch_Compile(text)
 	if err then
-		note:SetText(err)
-		note:Show()
-		-- keep the last good filter while a search is half typed
+		search:SetError(err) -- keep the last good filter while a search is half typed
 	else
 		matcher, matcherText = m, usesText == true
-		note:Hide()
+		search:SetError(nil)
 	end
 	ns.BagsWindow_Refresh()
-	ns.BagsBank_Refresh() -- the bank follows the same search
 end
 
 -- Characters and saved searches ---------------------------------------------------------------------------------
@@ -403,6 +386,7 @@ local function ViewCharacter(guid)
 	viewChar = guid
 	local name = guid and ns.Counts_CharName and ns.Counts_CharName(guid)
 	title:SetText(name and ("Bags: " .. name) or "Bags")
+	title:SetWidth(math.min(title:GetUnboundedStringWidth(), TITLE_MAX_W)) -- the search box keeps its room
 	view:Release()
 	ns.BagsWindow_Refresh()
 end
@@ -494,6 +478,7 @@ local function SearchMenu(owner)
 	end)
 end
 
+-- The search box's "?" tooltip (the bank's search uses it too).
 local function KeywordHelp(owner)
 	GameTooltip:SetOwner(owner, "ANCHOR_BOTTOM")
 	GameTooltip:SetText("Search")
@@ -506,10 +491,11 @@ local function KeywordHelp(owner)
 	UI.TipLine("is: " .. table.concat(words, ", "), "text", true)
 	GameTooltip:Show()
 end
+ns.BagsWindow_KeywordHelp = KeywordHelp
 
 local function Build()
 	frame = CreateFrame("Frame", "TomteBagsWindow", UIParent)
-	frame:SetSize(MIN_W, TOP_H + FOOT_H + 2 * PAD) -- Draw sizes it; until then it can still be seen
+	frame:SetSize(MIN_W, BAND_H + FOOT_H + 4 * PAD) -- Draw sizes it; until then it can still be seen
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetToplevel(true)
 	frame:EnableMouse(true)
@@ -529,110 +515,73 @@ local function Build()
 	frame:Hide()
 	UI.Panel(frame)
 
-	-- Top left: the bag slots button, under the row it opens (the character and bank buttons join it later).
-	local bags = IconButton(frame, BAGS_ICON, "Show your bag slots", function()
-		showSlots = not showSlots
-		DrawSlots()
-	end)
-	bags:SetPoint("TOPLEFT", PAD - 2, -7)
-	local chars = IconButton(frame, CHARS_ICON, "Look at another character's bags", function(self)
-		CharacterMenu(self)
-	end)
-	chars:SetPoint("LEFT", bags, "RIGHT", 4, 0)
-	title = UI.Text(frame, 14, "heading", "title")
-	title:SetPoint("LEFT", chars, "RIGHT", 6, 0)
+	-- Header band: bag slots and characters, the title, the search, then saved searches, sort, settings and close.
+	header = ns.BagsKit_Band(frame)
+	header:SetPoint("TOPLEFT", 1, -1)
+	header:SetPoint("TOPRIGHT", -1, -1)
+	header:SetHeight(BAND_H)
+	leftCluster = ns.BagsKit_Cluster(header, {
+		{ icon = BAGS_ICON, tip = "Bag slots", tipLine = "Show your equipped bags on top of the window.", onClick = function()
+			showSlots = not showSlots
+			DrawSlots()
+		end },
+		{ icon = CHARS_ICON, tip = "Other characters", tipLine = "Look at another character's bags.",
+			onClick = function(self)
+				CharacterMenu(self)
+			end },
+	})
+	leftCluster:SetPoint("LEFT", PAD, 0)
+	title = UI.Text(header, 14, "heading", "title")
+	title:SetPoint("LEFT", leftCluster, "RIGHT", 10, 0)
+	title:SetWordWrap(false)
 	title:SetText("Bags")
+	rightCluster = ns.BagsKit_Cluster(header, {
+		{ icon = STAR_ATLAS, tip = "Saved searches",
+			tipLine = "Save the search in the box, use a saved one, or make a category of it.", onClick = SearchMenu },
+		{ icon = SORT_ICON, tip = "Clean up bags", onClick = function()
+			if InCombatLockdown() then
+				ns.Print_Combat("sort your bags")
+				return
+			end
+			C_Container.SortBags()
+		end },
+		{ icon = UI.GEAR, tip = "Bags settings", onClick = function()
+			ns.Panel_OpenModule("bags")
+		end },
+		{ text = "x", tip = "Close", onClick = function()
+			ns.BagsTakeover_Close() -- Blizzard's bags close too, so the bag key opens them again
+		end },
+	})
+	rightCluster.buttons[3].icon:SetTexCoord(0, 0.5, 0, 0.5)
+	rightCluster.buttons[3].icon:SetVertexColor(UI.RGB("textMuted"))
+	rightCluster:SetPoint("RIGHT", -PAD, 0)
+	search = ns.BagsKit_Search(header, "Search, try is:upgrade", OnSearchChanged)
+	search:SetPoint("LEFT", title, "RIGHT", 12, 0)
+	search:SetPoint("RIGHT", rightCluster, "LEFT", -10, 0)
+	search.help:SetScript("OnEnter", KeywordHelp)
 
-	local close = UI.Button(frame, 20, "x")
-	close:SetPoint("TOPRIGHT", -6, -5)
-	close:SetScript("OnClick", function()
-		ns.BagsTakeover_Close() -- Blizzard's bags close too, so the bag key opens them again
-	end)
-	local settings = IconButton(frame, UI.GEAR, "Bags settings", function()
-		ns.Panel_OpenModule("bags")
-	end)
-	settings.icon:SetTexCoord(0, 0.5, 0, 0.5)
-	settings.icon:SetVertexColor(UI.RGB("textMuted"))
-	settings:SetPoint("RIGHT", close, "LEFT", -6, 0)
-	local sort = IconButton(frame, SORT_ICON, "Clean up bags", function()
-		if InCombatLockdown() then
-			ns.Print_Combat("sort your bags")
-			return
-		end
-		C_Container.SortBags()
-	end)
-	sort:SetPoint("RIGHT", settings, "LEFT", -6, 0)
-	topButtons = { close, settings, sort, bags, chars }
-
-	search = CreateFrame("EditBox", nil, frame)
-	search:SetSize(SEARCH_W, SEARCH_H)
-	search:SetAutoFocus(false)
-	UI.SearchBoxClear(search)
-	UI.SetFont(search, "body", 12)
-	UI.SetTextRole(search, "text")
-	search:SetTextInsets(6, 6, 0, 0)
-	UI.Surface(search, 0.35)
-	search:SetPoint("RIGHT", sort, "LEFT", -24, 0)
-	local placeholder = UI.Text(search, 12, "textFaint")
-	placeholder:SetPoint("LEFT", 6, 0)
-	placeholder:SetText("Search, try is:upgrade")
-	local refresh = UI.Debounce(UI.SEARCH_DELAY, OnSearchChanged)
-	search:SetScript("OnTextChanged", function(self)
-		placeholder:SetShown(self:GetText() == "")
-		refresh()
-	end)
-	search:SetScript("OnEscapePressed", search.ClearFocus)
-	search:SetScript("OnEnterPressed", search.ClearFocus)
-	local star = CreateFrame("Button", nil, frame)
-	star:SetSize(16, 16)
-	star:SetPoint("RIGHT", search, "LEFT", -2, 0)
-	star.text = UI.Text(star, 12, "textMuted")
-	star.text:SetPoint("CENTER")
-	star.text:SetText(STAR)
-	star:SetScript("OnClick", SearchMenu)
-	star:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-		GameTooltip:SetText("Saved searches")
-		UI.TipLine("Save the search in the box, use a saved one, or make a category of it.", "textMuted", true)
-		GameTooltip:Show()
-	end)
-	star:SetScript("OnLeave", function()
-		GameTooltip:Hide()
-	end)
-	local help = CreateFrame("Button", nil, frame)
-	help:SetSize(16, 16)
-	help:SetPoint("LEFT", search, "RIGHT", 4, 0)
-	help.text = UI.Text(help, 12, "textMuted")
-	help.text:SetPoint("CENTER")
-	help.text:SetText("?")
-	help:SetScript("OnEnter", KeywordHelp)
-	help:SetScript("OnLeave", function()
-		GameTooltip:Hide()
-	end)
-
-	note = UI.Text(frame, 10, "warning")
-	note:SetPoint("TOPRIGHT", search, "BOTTOMRIGHT", 0, -1)
-	note:Hide()
-
-	slotsRow = CreateFrame("Frame", nil, frame)
-	slotsRow:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", 0, 3)
-	slotsRow:EnableMouse(true)
-	UI.Panel(slotsRow, { size = "small" })
-	slotsRow:Hide()
-
-	body = CreateFrame("Frame", nil, frame)
+	-- The items in a tray.
+	tray = ns.BagsKit_Tray(frame)
+	tray:SetPoint("TOPLEFT", header, "BOTTOMLEFT", PAD - 1, -PAD)
+	tray:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD, FOOT_H + PAD)
+	body = CreateFrame("Frame", nil, tray)
+	body:SetPoint("TOPLEFT", TRAY_PAD, -TRAY_PAD)
 	view = ns.BagsView_New(body, db, db.folded)
 
-	footer = CreateFrame("Frame", nil, frame)
+	-- Footer band: currencies, free slots and the meter, tracked currencies, gold.
+	footer = ns.BagsKit_Band(frame)
+	footer:SetRuleTop(true)
+	footer:SetPoint("BOTTOMLEFT", 1, 1)
+	footer:SetPoint("BOTTOMRIGHT", -1, 1)
 	footer:SetHeight(FOOT_H)
-	footer:SetPoint("BOTTOMLEFT", PAD, PAD / 2)
-	footer:SetPoint("BOTTOMRIGHT", -PAD, PAD / 2)
 	local currencies = ns.BagsCurrencies_Button(footer, frame)
-	currencies:SetPoint("LEFT")
+	currencies:SetPoint("LEFT", PAD, 0)
 	footer.free = UI.Text(footer, 11, "textMuted")
-	footer.free:SetPoint("LEFT", currencies, "RIGHT", 8, 0)
+	footer.free:SetPoint("LEFT", currencies, "RIGHT", 10, 0)
+	footer.meter = ns.BagsKit_Meter(footer, METER_W)
+	footer.meter:SetPoint("LEFT", footer.free, "RIGHT", 8, 0)
 	footer.gold = UI.Text(footer, 12, "text", "number")
-	footer.gold:SetPoint("RIGHT")
+	footer.gold:SetPoint("RIGHT", -PAD - 2, 0)
 
 	frame:SetScript("OnReceiveDrag", DropInFree)
 	frame:SetScript("OnMouseUp", function(_, button)
@@ -692,22 +641,26 @@ function ns.BagsWindow_Show()
 	if not frame then
 		Build()
 	end
-	if not frame:IsShown() then
+	if not frame:IsShown() or frame.disappearing then
 		Place()
 		frame:Show()
+		UI.Appear(frame)
 	end
+end
+
+-- Opens the bags with a search for an item name (the crafting list's "find it"); the bank searches too while open.
+function ns.BagsWindow_Find(name)
+	ns.BagsWindow_Show()
+	local text = '"' .. name:gsub('"', "") .. '"'
+	search:SetText(text)
+	search:SetCursorPosition(0)
+	ns.BagsBank_Search(text)
 end
 
 function ns.BagsWindow_Hide()
-	if frame then
-		frame:Hide()
+	if frame and frame:IsShown() then
+		UI.Disappear(frame)
 	end
-end
-
--- The search in the bag window's box, which the bank window follows too: matcher (nil for none) and whether it reads
--- tooltip text.
-function ns.BagsWindow_Matcher()
-	return matcher, matcherText
 end
 
 -- Back to your own bags (another character was forgotten, or Item counts turned off).
@@ -718,7 +671,7 @@ function ns.BagsWindow_ViewOwn()
 end
 
 function ns.BagsWindow_IsShown()
-	return frame ~= nil and frame:IsShown()
+	return frame ~= nil and frame:IsShown() and not frame.disappearing -- fading out counts as closed
 end
 
 -- After a layout setting changed (view, columns, size, marks, sorting, buttons on hover).

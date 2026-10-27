@@ -45,16 +45,31 @@ ns.BAGS_LAYOUT = {
 	{ kind = "category", key = "empty", name = "Empty", auto = "empty", priority = 20 },
 }
 
--- Rule texts compiled once: [text] = matcher, or false when the text doesn't compile.
-local compiled = {}
+-- Rule texts compiled once: [text] = matcher, or false when the text doesn't compile; [text] = true in withText when
+-- the rule has words (they also look in the tooltip text, item.text).
+local compiled, withText = {}, {}
 
 local function Matcher(rule)
 	local m = compiled[rule]
 	if m == nil then
-		m = ns.BagsSearch_Compile(rule) or false
+		local _, usesText
+		m, _, usesText = ns.BagsSearch_Compile(rule)
+		m = m or false
 		compiled[rule] = m
+		withText[rule] = m and usesText == true or nil
 	end
 	return m
+end
+
+-- Whether any of the categories' rules has words: the items' tooltip text has to be read before they're sorted
+-- (Read.lua's BagsRead_LoadText), or "artifact" only finds names.
+function ns.Bags_RulesUseText(categories)
+	for _, category in ipairs(categories) do
+		if category.rule and Matcher(category.rule) and withText[category.rule] then
+			return true
+		end
+	end
+	return false
 end
 
 -- The layout's categories in order: each node gets .order (its place) and .section (its section's key).
@@ -225,7 +240,7 @@ function ns.Bags_SortItems(list, method, reverse)
 end
 
 -- The marks an item can carry, in the order they win a shared corner: junk coin, Gear Check's arrow, the crafting
--- list's count, the transmog diamond, the equipment set mark, a battle pet's level, the item level.
+-- list's count, the transmog X, the equipment set mark, a battle pet's level, the item level.
 ns.BAGS_MARKS = { "junk", "upgrade", "crafting", "transmog", "set", "petlevel", "ilvl" }
 
 -- Which mark each corner shows: has[mark] is true (or a value) when the item carries it, corners[mark] is the corner

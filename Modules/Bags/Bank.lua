@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
--- Bags: the bank window. The character bank or the Warband bank in the same categories and marks as the bags
--- (View.lua), the bank's tabs in a column outside its right edge (click: only that tab; right-click: rename it; "+"
+-- Bags: the bank window, built from Kit.lua like the bag window (header band, tray, footer band). The character bank
+-- or the Warband bank in the same categories and marks as the bags (View.lua), the bank's tabs attached to its right
+-- edge (click: only that tab; right-click: rename it; "+"
 -- buys the next tab when one can be bought), Clean Up, deposit everything that can go in, and the Warband bank's gold.
 --
 -- Blizzard's BankFrame stays open the whole visit, invisible and off screen (alpha 0, moved off): it runs the bank
@@ -13,12 +14,18 @@ local addonName, ns = ...
 -- from addon code taints). Blizzard's bank source: Blizzard_UIPanels_Game/Mainline/BankFrame.lua. Registered in
 -- Bags.lua.
 
-local PAD = 10
-local MIN_W = 360
-local TOP_H = 30
-local FOOT_H = 26
-local TAB_SIZE = 28 -- a bank tab's icon in the side column
-local TAB_GAP = 4
+local PAD = 8 -- window edge to the tray, and the tray to the bands
+local TRAY_PAD = 8
+local MIN_W = 520 -- the switch, the title, a usable search box and the right cluster fit
+local BAND_H = 34
+local FOOT_H = 32
+local TAB_SIZE = 32 -- a bank tab on the right edge
+local TAB_GAP = 2
+local EVERYTHING_GAP = 6 -- extra room under the "Everything" tab, apart from the bank's own tabs
+local EVERYTHING_ICON = "Interface\\Icons\\Achievement_GuildPerk_MobileBanking"
+local DRAWER_H = 34 -- the gold drawer under the footer
+local TITLE_W = 110 -- "Character bank" at 14; the search box takes the rest
+local DRAWER_SLIDE = 0.15 -- seconds
 local OFF_SCREEN = -10000 -- where Blizzard's bank frame waits while Tomte's shows the bank
 local CHARACTER, ACCOUNT = Enum.BankType.Character, Enum.BankType.Account
 local DEPOSIT_REAGENTS_CVAR = "bankAutoDepositReagents" -- the game's "Include reagents" choice (BankFrame.lua)
@@ -33,7 +40,9 @@ local UI = ns.UI
 
 local db
 local active = false -- the Bags module is on
-local frame, body, view, title, tabColumn, typeButtons, deposit, reagents, money, moneyIn, moneyOut, buyTab
+local frame, header, tray, footer, body, view, title, typeSwitch, deposit, reagents, money, moneyCluster, buyTab
+local everyTab, search, altsCluster
+local matcher, matcherText -- the bank's own compiled search (nil for none) and whether it reads tooltip text
 local tabButtons = {}
 local Place -- the window at its saved top-left corner (below)
 local RenameTab -- below
@@ -113,20 +122,17 @@ local function TabButton(i)
 	if b then
 		return b
 	end
-	b = CreateFrame("Button", nil, tabColumn)
-	b:SetSize(TAB_SIZE, TAB_SIZE)
-	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	b.icon = b:CreateTexture(nil, "ARTWORK")
-	b.icon:SetAllPoints()
-	UI.Border(b, "frame", 0.8)
+	b = ns.BagsKit_Tab(frame, TAB_SIZE, "right")
 	b:SetScript("OnEnter", function(self)
+		UI.WashTo(self.hoverWash, true)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		GameTooltip:SetText(self.tabName ~= "" and self.tabName or "Bank tab")
-		UI.TipLine(tabFilter == self.containerID and "Click: show every tab" or "Click: show only this tab", "textMuted")
+		UI.TipLine("Click: show only this tab", "textMuted")
 		UI.TipLine("Right-click: rename it", "textMuted")
 		GameTooltip:Show()
 	end)
-	b:SetScript("OnLeave", function()
+	b:SetScript("OnLeave", function(self)
+		UI.WashTo(self.hoverWash, false)
 		GameTooltip:Hide()
 	end)
 	b:SetScript("OnClick", function(self, button)
@@ -134,7 +140,10 @@ local function TabButton(i)
 			RenameTab(self.tab)
 			return
 		end
-		tabFilter = tabFilter ~= self.containerID and self.containerID or nil
+		if tabFilter == self.containerID then
+			return
+		end
+		tabFilter = self.containerID
 		view:Release()
 		ns.BagsBank_Refresh()
 	end)
@@ -142,15 +151,28 @@ local function TabButton(i)
 	return b
 end
 
+-- The tabs hang off the right edge below the header band: "Everything" first (i = 0), then the bank's tabs and "+".
+-- The one shown is framed in the accent.
+local function TabOffset(i)
+	return BAND_H + PAD + i * (TAB_SIZE + TAB_GAP) + (i > 0 and EVERYTHING_GAP or 0)
+end
+
+local function TabPoint(b, i)
+	b:ClearAllPoints()
+	b:SetPoint("TOPLEFT", frame, "TOPRIGHT", -1, -TabOffset(i))
+end
+
 local function DrawTabs(tabs)
+	everyTab:SetSelected(tabFilter == nil)
+	everyTab.icon:SetDesaturated(tabFilter ~= nil)
+	TabPoint(everyTab, 0)
 	for i, tab in ipairs(tabs) do
 		local b = TabButton(i)
 		b.containerID, b.tabName, b.tab = tab.ID, tab.name, tab
 		b.icon:SetTexture(tab.icon)
 		b.icon:SetDesaturated(tabFilter ~= nil and tabFilter ~= tab.ID)
-		UI.SetBorderColor(b, tabFilter == tab.ID and "accent" or "frame", tabFilter == tab.ID and 1 or 0.8)
-		b:ClearAllPoints()
-		b:SetPoint("TOPLEFT", tabColumn, "TOPLEFT", 0, -(i - 1) * (TAB_SIZE + TAB_GAP))
+		b:SetSelected(tabFilter == tab.ID)
+		TabPoint(b, i)
 		b:Show()
 	end
 	for i = #tabs + 1, #tabButtons do
@@ -158,25 +180,62 @@ local function DrawTabs(tabs)
 	end
 	local bankType = tabs[1] and tabs[1].bankType or ns.BagsBank_ActiveType()
 	local canBuy = bankType and C_Bank.CanPurchaseBankTab and C_Bank.CanPurchaseBankTab(bankType)
-	buyTab:ClearAllPoints()
-	buyTab:SetPoint("TOPLEFT", tabColumn, "TOPLEFT", 0, -#tabs * (TAB_SIZE + TAB_GAP))
+	TabPoint(buyTab, #tabs + 1)
 	buyTab:SetShown(canBuy == true)
+	if bankType then
+		buyTab.buy:SetAttribute("overrideBankType", bankType)
+	end
 end
 
 local function DrawFooter(bankType)
 	local auto = C_Bank.DoesBankTypeSupportAutoDeposit and C_Bank.DoesBankTypeSupportAutoDeposit(bankType)
 	deposit:SetShown(auto == true)
-	deposit.label:SetText(bankType == ACCOUNT and "Deposit warbound items" or "Deposit all")
-	UI.FitButton(deposit, 80)
+	deposit.buttons[1].label:SetText(bankType == ACCOUNT and "Deposit warbound items" or "Deposit all")
+	deposit:Layout()
 	reagents:SetShown(auto == true and bankType == ACCOUNT)
 	reagents:SetChecked(C_CVar.GetCVarBool(DEPOSIT_REAGENTS_CVAR))
 	local transfer = C_Bank.DoesBankTypeSupportMoneyTransfer and C_Bank.DoesBankTypeSupportMoneyTransfer(bankType)
 	money:SetShown(transfer == true)
-	moneyIn:SetShown(transfer == true)
-	moneyOut:SetShown(transfer == true)
+	moneyCluster:SetShown(transfer == true)
 	if transfer then
-		money:SetText(ns.Coins(C_Bank.FetchDepositedMoney(bankType) or 0, false, COIN_ICONS))
+		money:SetText(ns.Coins(C_Bank.FetchDepositedMoney(bankType) or 0, "exact", COIN_ICONS))
 	end
+	-- Alts' crafting help (Alts/Deposit.lua), each shown while it has something to move.
+	local forAlts = ns.AltsBank_DepositCount and ns.AltsBank_DepositCount() or 0
+	local forCrafts = ns.AltsBank_TakeCount and ns.AltsBank_TakeCount() or 0
+	local b1, b2 = altsCluster.buttons[1], altsCluster.buttons[2]
+	b1.label:SetText(("For alts (%d)"):format(forAlts))
+	b1:SetShown(forAlts > 0)
+	b2.label:SetText(("Take for crafts (%d)"):format(forCrafts))
+	b2:SetShown(forCrafts > 0)
+	altsCluster:Layout()
+	altsCluster:SetShown(forAlts > 0 or forCrafts > 0)
+	altsCluster:ClearAllPoints()
+	if reagents:IsShown() then
+		altsCluster:SetPoint("LEFT", reagents.text, "RIGHT", 12, 0)
+	elseif deposit:IsShown() then
+		altsCluster:SetPoint("LEFT", deposit, "RIGHT", 10, 0)
+	else
+		altsCluster:SetPoint("LEFT", PAD, 0)
+	end
+end
+
+-- The footer's width with everything in it shown (the window grows to fit it).
+local function FooterWidth()
+	local w = 2 * PAD
+	if deposit:IsShown() then
+		w = w + deposit:GetWidth() + 10
+	end
+	if reagents:IsShown() then
+		w = w + reagents:GetWidth() + 4 + reagents.text:GetStringWidth() + 12
+	end
+	if altsCluster:IsShown() then
+		w = w + altsCluster:GetWidth() + 10
+	end
+	if moneyCluster:IsShown() then
+		w = w + money:GetStringWidth() + 10 + moneyCluster:GetWidth()
+	end
+	return math.ceil(w)
 end
 
 local function Draw()
@@ -196,8 +255,7 @@ local function Draw()
 		end
 	end
 	local items = ns.BagsRead_Bags(containers)
-	local matcher, usesText = ns.BagsWindow_Matcher()
-	if matcher and usesText then
+	if matcher and matcherText then
 		ns.BagsRead_LoadText(items)
 	end
 	local width, height = view:Draw(items, {
@@ -208,13 +266,15 @@ local function Draw()
 		end,
 	})
 	title:SetText(bankType == ACCOUNT and "Warband bank" or "Character bank")
-	for t, b in pairs(typeButtons) do
-		UI.SetBorderColor(b, t == bankType and "accent" or "frame", t == bankType and 1 or 0.6)
-		b:SetShown(C_Bank.CanViewBank(t) == true) -- some bankers serve only one of the two
+	for i, t in ipairs({ CHARACTER, ACCOUNT }) do
+		typeSwitch.buttons[i]:SetShown(C_Bank.CanViewBank(t) == true) -- some bankers serve only one of the two
+		typeSwitch:SetLit(i, t == bankType)
 	end
+	typeSwitch:Layout()
 	DrawTabs(tabs)
 	DrawFooter(bankType)
-	frame:SetSize(math.max(width + 2 * PAD, MIN_W), TOP_H + height + PAD + FOOT_H + PAD / 2)
+	frame:SetSize(math.max(width + 2 * (PAD + TRAY_PAD), MIN_W, FooterWidth()),
+		math.max(BAND_H + PAD + 2 * TRAY_PAD + height + PAD + FOOT_H, TabOffset(#tabs + 2)))
 end
 
 function ns.BagsBank_Refresh()
@@ -326,16 +386,16 @@ end
 
 local function BuildMoneyBox()
 	moneyBox = CreateFrame("Frame", nil, frame)
-	moneyBox:SetSize(MONEY_W, 32)
-	moneyBox:SetFrameLevel(frame:GetFrameLevel() + 20)
+	moneyBox:SetSize(MONEY_W, DRAWER_H)
+	moneyBox:SetFrameLevel(math.max(frame:GetFrameLevel() - 1, 1)) -- slides out from behind the window
 	moneyBox:EnableMouse(true)
 	UI.Panel(moneyBox, { subtle = true })
+	ns.BagsKit_Band(moneyBox):SetAllPoints()
 	moneyBox.gold = CoinBox(70, nil, "Interface\\MoneyFrame\\UI-GoldIcon")
 	moneyBox.silver = CoinBox(30, moneyBox.gold, "Interface\\MoneyFrame\\UI-SilverIcon")
 	moneyBox.copper = CoinBox(30, moneyBox.silver, "Interface\\MoneyFrame\\UI-CopperIcon")
-	moneyBox.go = UI.Button(moneyBox, 70, "Deposit")
+	moneyBox.go = ns.BagsKit_Cluster(moneyBox, { { text = "Deposit", onClick = MoveNow } })
 	moneyBox.go:SetPoint("RIGHT", -6, 0)
-	moneyBox.go:SetScript("OnClick", MoveNow)
 	moneyBox:Hide()
 end
 
@@ -349,31 +409,18 @@ local function MoveMoney(depositing)
 		return
 	end
 	moneyBox.depositing = depositing
-	moneyBox.go.label:SetText(depositing and "Deposit" or "Withdraw")
+	moneyBox.go.buttons[1].label:SetText(depositing and "Deposit" or "Withdraw")
+	moneyBox.go:Layout()
 	for _, box in ipairs({ moneyBox.gold, moneyBox.silver, moneyBox.copper }) do
 		box:SetText("")
 	end
-	moneyBox:ClearAllPoints()
-	moneyBox:SetPoint("TOPRIGHT", moneyOut, "BOTTOMRIGHT", 0, -4)
 	moneyBox:Show()
+	-- Slides down from behind the footer.
+	UI.Tween(moneyBox, "slide", DRAWER_SLIDE, function(t)
+		moneyBox:ClearAllPoints()
+		moneyBox:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", -PAD, math.floor((1 - t) * DRAWER_H + 0.5) + 1)
+	end, nil, UI.EaseOut)
 	moneyBox.gold:SetFocus()
-end
-
--- Buys the next tab of the bank type shown, after asking (the cost from the game; a real click buys it).
-local function BuyTab()
-	local bankType = ActiveType()
-	local data = bankType and C_Bank.FetchNextPurchasableBankTabData(bankType)
-	if not data then
-		return
-	end
-	if not data.canAfford then
-		ns.Print(("The next bank tab costs %s: you don't have that much."):format(ns.Coins(data.tabCost, false, COIN_ICONS)))
-		return
-	end
-	ns.Confirm_Show(("Buy a new %s tab for %s?"):format(bankType == ACCOUNT and "Warband bank" or "bank",
-		ns.Coins(data.tabCost, false, COIN_ICONS)), function()
-		C_Bank.PurchaseBankTab(bankType)
-	end, { yes = "Buy" })
 end
 
 -- The Character / Warband switch: the bank panel's own call (see the top of the file).
@@ -415,54 +462,95 @@ local function Build()
 	frame:Hide()
 	UI.Panel(frame)
 
-	typeButtons = {}
-	typeButtons[CHARACTER] = UI.Button(frame, 70, "Character")
-	typeButtons[CHARACTER]:SetPoint("TOPLEFT", PAD - 2, -6)
-	typeButtons[ACCOUNT] = UI.Button(frame, 70, "Warband")
-	typeButtons[ACCOUNT]:SetPoint("LEFT", typeButtons[CHARACTER], "RIGHT", 4, 0)
-	for bankType, button in pairs(typeButtons) do
-		button:SetScript("OnClick", function()
-			SwitchTo(bankType)
-		end)
-	end
-	title = UI.Text(frame, 14, "heading", "title")
-	title:SetPoint("LEFT", typeButtons[ACCOUNT], "RIGHT", 10, 0)
-
-	local close = UI.Button(frame, 20, "x")
-	close:SetPoint("TOPRIGHT", -6, -5)
-	close:SetScript("OnClick", function()
-		C_Bank.CloseBankFrame()
-	end)
-	local sort = CreateFrame("Button", nil, frame)
-	sort:SetSize(18, 18)
-	sort:SetPoint("RIGHT", close, "LEFT", -8, 0)
-	sort.icon = sort:CreateTexture(nil, "ARTWORK")
-	sort.icon:SetAllPoints()
-	sort.icon:SetTexture(SORT_ICON)
-	sort:SetScript("OnClick", function()
-		local bankType = ActiveType()
-		if bankType and not InCombatLockdown() then
-			C_Container.SortBank(bankType)
+	-- Header band: the Character / Warband switch, the title, Clean Up and close.
+	header = ns.BagsKit_Band(frame)
+	header:SetPoint("TOPLEFT", 1, -1)
+	header:SetPoint("TOPRIGHT", -1, -1)
+	header:SetHeight(BAND_H)
+	typeSwitch = ns.BagsKit_Cluster(header, {
+		{ text = "Character", onClick = function()
+			SwitchTo(CHARACTER)
+		end },
+		{ text = "Warband", onClick = function()
+			SwitchTo(ACCOUNT)
+		end },
+	})
+	typeSwitch:SetPoint("LEFT", PAD, 0)
+	title = UI.Text(header, 14, "heading", "title")
+	title:SetPoint("LEFT", typeSwitch, "RIGHT", 12, 0)
+	title:SetWordWrap(false)
+	title:SetWidth(TITLE_W)
+	local right = ns.BagsKit_Cluster(header, {
+		{ icon = SORT_ICON, tip = "Clean up this bank", onClick = function()
+			local bankType = ActiveType()
+			if bankType and not InCombatLockdown() then
+				C_Container.SortBank(bankType)
+			end
+		end },
+		{ text = "x", tip = "Close the bank", onClick = function()
+			C_Bank.CloseBankFrame()
+		end },
+	})
+	right:SetPoint("RIGHT", -PAD, 0)
+	-- The bank's own search (the bags keep theirs), the same words and keywords.
+	search = ns.BagsKit_Search(header, "Search the bank", function()
+		local m, err, usesText = ns.BagsSearch_Compile(search:GetText())
+		if err then
+			search:SetError(err) -- keep the last good filter while a search is half typed
+		else
+			matcher, matcherText = m, usesText == true
+			search:SetError(nil)
 		end
+		ns.BagsBank_Refresh()
 	end)
-	sort:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-		GameTooltip:SetText("Clean up this bank")
+	search:SetPoint("LEFT", title, "RIGHT", 10, 0)
+	search:SetPoint("RIGHT", right, "LEFT", -10, 0)
+	search.help:SetScript("OnEnter", ns.BagsWindow_KeywordHelp)
+
+	-- The items in a tray.
+	tray = ns.BagsKit_Tray(frame)
+	tray:SetPoint("TOPLEFT", header, "BOTTOMLEFT", PAD - 1, -PAD)
+	tray:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD, FOOT_H + PAD)
+	body = CreateFrame("Frame", nil, tray)
+	body:SetPoint("TOPLEFT", TRAY_PAD, -TRAY_PAD)
+	view = ns.BagsView_New(body, db, db.bankFolded)
+
+	-- "Everything": every tab at once (the default; clicking a tab shows only that one).
+	everyTab = ns.BagsKit_Tab(frame, TAB_SIZE, "right")
+	everyTab.icon:SetTexture(EVERYTHING_ICON)
+	everyTab:SetScript("OnEnter", function(self)
+		UI.WashTo(self.hoverWash, true)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Everything")
+		UI.TipLine("Click: show every tab", "textMuted")
 		GameTooltip:Show()
 	end)
-	sort:SetScript("OnLeave", function()
+	everyTab:SetScript("OnLeave", function(self)
+		UI.WashTo(self.hoverWash, false)
 		GameTooltip:Hide()
 	end)
+	everyTab:SetScript("OnClick", function(_, button)
+		if button ~= "LeftButton" or tabFilter == nil then
+			return
+		end
+		tabFilter = nil
+		view:Release()
+		ns.BagsBank_Refresh()
+	end)
 
-	-- The tabs hang outside the window's right edge.
-	tabColumn = CreateFrame("Frame", nil, frame)
-	tabColumn:SetPoint("TOPLEFT", frame, "TOPRIGHT", 4, -TOP_H)
-	tabColumn:SetSize(TAB_SIZE, 1)
-	buyTab = UI.Button(tabColumn, TAB_SIZE, "+")
-	buyTab:SetHeight(TAB_SIZE)
-	buyTab:SetScript("OnClick", BuyTab)
-	buyTab:HookScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+	-- "+": buy the next tab, the last tab on the right edge. C_Bank.PurchaseBankTab is protected (measured in 12.1:
+	-- ADDON_ACTION_FORBIDDEN from our own confirm), so the click goes to Blizzard's button template made for addons,
+	-- which asks with the game's confirm; DrawTabs tells it the bank type through its "overrideBankType" attribute.
+	buyTab = ns.BagsKit_Tab(frame, TAB_SIZE, "right")
+	buyTab.icon:Hide()
+	buyTab.label = UI.Text(buyTab, 16, "heading", "number")
+	buyTab.label:SetPoint("CENTER")
+	buyTab.label:SetText("+")
+	buyTab.buy = CreateFrame("Button", nil, buyTab, "BankPanelPurchaseButtonScriptTemplate")
+	buyTab.buy:SetAllPoints()
+	buyTab.buy:SetScript("OnEnter", function()
+		UI.WashTo(buyTab.hoverWash, true)
+		GameTooltip:SetOwner(buyTab, "ANCHOR_RIGHT")
 		GameTooltip:SetText("Buy a bank tab")
 		local bankType = ActiveType()
 		local data = bankType and C_Bank.FetchNextPurchasableBankTabData(bankType)
@@ -471,21 +559,41 @@ local function Build()
 		end
 		GameTooltip:Show()
 	end)
-	buyTab:HookScript("OnLeave", function()
+	buyTab.buy:SetScript("OnLeave", function()
+		UI.WashTo(buyTab.hoverWash, false)
 		GameTooltip:Hide()
 	end)
-	body = CreateFrame("Frame", nil, frame)
-	body:SetPoint("TOPLEFT", PAD, -TOP_H)
-	view = ns.BagsView_New(body, db, db.bankFolded)
 
-	deposit = UI.Button(frame, 120, "Deposit all")
-	deposit:SetPoint("BOTTOMLEFT", PAD, PAD / 2 + 2)
-	deposit:SetScript("OnClick", DepositAll)
-	reagents = UI.Checkbox(frame)
-	reagents:SetPoint("LEFT", deposit, "RIGHT", 8, 0)
-	reagents.text = UI.Text(frame, 11, "textMuted")
+	-- Footer band: deposit and its reagents choice left, the Warband gold right.
+	footer = ns.BagsKit_Band(frame)
+	footer:SetRuleTop(true)
+	footer:SetPoint("BOTTOMLEFT", 1, 1)
+	footer:SetPoint("BOTTOMRIGHT", -1, 1)
+	footer:SetHeight(FOOT_H)
+	deposit = ns.BagsKit_Cluster(footer, { { text = "Deposit all", onClick = DepositAll } })
+	deposit:SetPoint("LEFT", PAD, 0)
+	reagents = UI.Checkbox(footer)
+	reagents:SetPoint("LEFT", deposit, "RIGHT", 10, 0)
+	reagents.text = UI.Text(footer, 11, "textMuted")
 	reagents.text:SetPoint("LEFT", reagents, "RIGHT", 4, 0)
 	reagents.text:SetText("Include reagents")
+	altsCluster = ns.BagsKit_Cluster(footer, {
+		{ text = "For alts", onClick = function()
+			ns.AltsBank_Deposit()
+		end },
+		{ text = "Take for crafts", onClick = function()
+			ns.AltsBank_Take()
+		end },
+	})
+	for i, tip in ipairs({ "AltsBank_DepositTip", "AltsBank_TakeTip" }) do
+		altsCluster.buttons[i]:SetScript("OnEnter", function(self)
+			UI.WashTo(self.hoverWash, true)
+			GameTooltip:SetOwner(self, "ANCHOR_TOP")
+			ns[tip]()
+			GameTooltip:Show()
+		end)
+	end
+	altsCluster:Hide()
 	reagents:HookScript("OnClick", function(self)
 		C_CVar.SetCVar(DEPOSIT_REAGENTS_CVAR, self.checked and "1" or "0")
 	end)
@@ -495,24 +603,25 @@ local function Build()
 	reagents:HookScript("OnHide", function()
 		reagents.text:Hide()
 	end)
-	moneyOut = UI.Button(frame, 70, "Withdraw")
-	moneyOut:SetPoint("BOTTOMRIGHT", -PAD, PAD / 2 + 2)
-	moneyOut:SetScript("OnClick", function()
-		MoveMoney(false)
-	end)
-	moneyIn = UI.Button(frame, 60, "Deposit")
-	moneyIn:SetPoint("RIGHT", moneyOut, "LEFT", -4, 0)
-	moneyIn:SetScript("OnClick", function()
-		MoveMoney(true)
-	end)
-	money = UI.Text(frame, 12, "text", "number")
-	money:SetPoint("RIGHT", moneyIn, "LEFT", -8, 0)
+	moneyCluster = ns.BagsKit_Cluster(footer, {
+		{ text = "Deposit", onClick = function()
+			MoveMoney(true)
+		end },
+		{ text = "Withdraw", onClick = function()
+			MoveMoney(false)
+		end },
+	})
+	moneyCluster:SetPoint("RIGHT", -PAD, 0)
+	money = UI.Text(footer, 12, "text", "number")
+	money:SetPoint("RIGHT", moneyCluster, "LEFT", -10, 0)
 	frame:SetScript("OnShow", function()
 		Draw()
 	end)
 	frame:SetScript("OnHide", function()
 		view:Release()
 		tabFilter = nil
+		search:SetText("") -- each visit starts unfiltered
+		search:ClearFocus()
 		if moneyBox then
 			moneyBox:Hide()
 		end
@@ -541,6 +650,7 @@ local function Opened()
 	end
 	Place()
 	frame:Show()
+	UI.Appear(frame)
 	-- The bank opens on the one the player picked (Blizzard picks the character bank first) when this banker has it.
 	SwitchTo(db.bankStart == "character" and CHARACTER or ACCOUNT)
 end
@@ -586,6 +696,14 @@ local function Hook()
 end
 
 -- API ----------------------------------------------------------------------------------------------------------------
+
+-- Puts text in the bank's search box while the bank window is open.
+function ns.BagsBank_Search(text)
+	if search and frame:IsShown() then
+		search:SetText(text)
+		search:SetCursorPosition(0)
+	end
+end
 
 function ns.BagsBank_Init(moduleDB)
 	db = moduleDB

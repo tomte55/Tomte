@@ -9,10 +9,21 @@ local addonName, ns = ...
 
 local TEMPLATE = "ContainerFrameItemButtonTemplate"
 local BUTTON = 37 -- the template's own size; ours are scaled from it (its art doesn't resize)
--- The transmog badge (on a 37 px button; the button's scale shrinks it with the icon): a dark ring, a filled disc,
--- a white diamond in the middle.
-local BADGE, BADGE_RING, BADGE_GEM = 16, 2, 5
-local SET_MARK = 6 -- the equipment set square's side
+-- Every mark has Gear Check's arrow look (ns.Gear_Arrow): the plain glyph in its color, no plate or outline, over a
+-- black copy of itself SHADOW_X, SHADOW_Y away.
+local SHADOW_X, SHADOW_Y, SHADOW_ALPHA = 1.5, -1.5, 0.9
+-- The transmog mark (on a 37 px button; the button's scale shrinks it with the icon): an X of two CROSS_LEN by
+-- CROSS_W bars in a BADGE square.
+local BADGE, CROSS_LEN, CROSS_W = 16, 16, 4
+local SET_MARK = 7 -- the equipment set square's side
+local CRAFT_DOT = 9 -- the crafting list's dot (how many is on the item's tooltip: Alts/List.lua)
+-- Hairline slots (docs/superpowers/specs/2026-10-27-tomte-bags-ui-design.md): Blizzard's slot art and thick quality
+-- border hidden; a dark fill, the icon inset, a 1-pixel frame in the theme's rule color or the item's quality color
+-- (uncommon and better), the accent under the mouse.
+local ICON_INSET = 2
+local FILL, EMPTY_FILL = 0.35, 0.03 -- black behind an item, white over an empty slot
+local EMPTY_EDGE = 0.6 -- an empty slot's frame, dimmer
+local QUALITY_FRAME = 2 -- Enum.ItemQuality.Uncommon: from here up the frame takes the quality color
 local REAGENT_ATLAS = "bags-icon-reagents" -- Blizzard's reagent bag filter icon, on empty reagent slots
 local LEAF, LEAF_ALPHA = 20, 0.5
 local ARROW_SCALE = 0.85 -- Gear Check's arrow on a full-size button; the button's own scale shrinks it further
@@ -44,53 +55,75 @@ local function Holder(bag, host)
 	return holder
 end
 
--- Number overlays (item level, pet level, free slots) at the chosen size, outlined so they read on any icon.
+local function Shadow(text)
+	text:SetShadowOffset(SHADOW_X, SHADOW_Y)
+	text:SetShadowColor(0, 0, 0, SHADOW_ALPHA)
+end
+
+-- Number overlays (item level, pet level, free slots) at the chosen size: outlined (the shadow alone didn't read on
+-- bright icons, measured in game) with the marks' shadow too.
 local function SetNumberFont(e, size)
 	if e.fontSize ~= size then
 		e.fontSize = size
-		UI.SetFont(e.ilvl, "number", size, "OUTLINE")
-		UI.SetFont(e.pet, "number", size, "OUTLINE")
-		UI.SetFont(e.craft.count, "number", size - 1, "OUTLINE")
-		UI.SetFont(e.free, "number", size + 1, "OUTLINE")
+		for text, s in pairs({ [e.ilvl] = size, [e.pet] = size, [e.free] = size + 1 }) do
+			UI.SetFont(text, "number", s, "OUTLINE")
+			Shadow(text)
+		end
 	end
 end
 
--- The crafting list's mark: its count on a dark plate with an accent edge (as Alts/List.lua draws it in Baganator).
-local function CraftMark(button)
-	local f = CreateFrame("Frame", nil, button)
-	f:SetSize(22, 14)
-	local bg = f:CreateTexture(nil, "ARTWORK")
-	bg:SetAllPoints()
-	bg:SetColorTexture(0, 0, 0, 0.75)
-	local edge = f:CreateTexture(nil, "OVERLAY")
-	edge:SetColorTexture(UI.Color("accent"))
-	edge:SetPoint("BOTTOMLEFT")
-	edge:SetPoint("BOTTOMRIGHT")
-	edge:SetHeight(1)
-	f.count = f:CreateFontString(nil, "OVERLAY")
-	f.count:SetPoint("CENTER")
-	return f
+-- A mark drawn by draw(texture) twice: the glyph, and its black shadow under it. mark:SetColor(role) colors the glyph.
+local function Mark(button, w, h, draw)
+	local mark = CreateFrame("Frame", nil, button)
+	mark:SetSize(w, h)
+	mark:SetFrameLevel(button:GetFrameLevel() + 3)
+	local glyphs = {}
+	for _, shadow in ipairs({ true, false }) do
+		local holder = CreateFrame("Frame", nil, mark)
+		holder:SetSize(w, h)
+		holder:SetPoint("CENTER", shadow and SHADOW_X or 0, shadow and SHADOW_Y or 0)
+		for _, t in ipairs(draw(holder, shadow and 1 or 2)) do
+			if shadow then
+				t:SetColorTexture(0, 0, 0, SHADOW_ALPHA)
+			else
+				glyphs[#glyphs + 1] = t
+			end
+		end
+	end
+	function mark:SetColor(role)
+		for _, t in ipairs(glyphs) do
+			t:SetColorTexture(UI.Color(role))
+		end
+	end
+	return mark
 end
 
--- The transmog badge: its disc (badge.fill) takes the color.
-local function Badge(button)
-	local badge = CreateFrame("Frame", nil, button)
-	badge:SetSize(BADGE, BADGE)
-	badge:SetFrameLevel(button:GetFrameLevel() + 3)
-	local ring = badge:CreateTexture(nil, "ARTWORK", nil, 1)
-	ring:SetAllPoints()
-	ring:SetColorTexture(0, 0, 0, 0.9)
-	UI.CircleMask(ring, badge)
-	badge.fill = badge:CreateTexture(nil, "ARTWORK", nil, 2)
-	badge.fill:SetPoint("TOPLEFT", BADGE_RING, -BADGE_RING)
-	badge.fill:SetPoint("BOTTOMRIGHT", -BADGE_RING, BADGE_RING)
-	UI.CircleMask(badge.fill, badge)
-	local gem = badge:CreateTexture(nil, "ARTWORK", nil, 3)
-	gem:SetSize(BADGE_GEM, BADGE_GEM)
-	gem:SetPoint("CENTER")
-	gem:SetColorTexture(1, 1, 1, 1)
-	gem:SetRotation(math.pi / 4)
-	return badge
+-- The transmog mark: an X of two crossed bars.
+local function Cross(holder, sub)
+	local bars = {}
+	for i, angle in ipairs({ math.pi / 4, -math.pi / 4 }) do
+		local bar = holder:CreateTexture(nil, "ARTWORK", nil, sub)
+		bar:SetSize(CROSS_LEN, CROSS_W)
+		bar:SetPoint("CENTER")
+		bar:SetRotation(angle)
+		bars[i] = bar
+	end
+	return bars
+end
+
+-- The crafting list's mark: a dot (a number there read as a stack count, measured in game).
+local function Dot(holder, sub)
+	local t = holder:CreateTexture(nil, "ARTWORK", nil, sub)
+	t:SetAllPoints()
+	UI.CircleMask(t, holder)
+	return { t }
+end
+
+-- The equipment set mark: a square.
+local function Square(holder, sub)
+	local t = holder:CreateTexture(nil, "ARTWORK", nil, sub)
+	t:SetAllPoints()
+	return { t }
 end
 
 local function Extras(button)
@@ -99,12 +132,40 @@ local function Extras(button)
 		return e
 	end
 	e = { arrows = {} }
+	local normal = button:GetNormalTexture()
+	if normal then
+		normal:SetAlpha(0)
+	end
+	e.fill = button:CreateTexture(nil, "BACKGROUND", nil, -1)
+	e.fill:SetAllPoints()
+	local icon = button.icon or button.Icon
+	if icon then
+		icon:ClearAllPoints()
+		icon:SetPoint("TOPLEFT", ICON_INSET, -ICON_INSET)
+		icon:SetPoint("BOTTOMRIGHT", -ICON_INSET, ICON_INSET)
+	end
+	UI.Border(button, "rule")
+	button:HookScript("OnEnter", function(self)
+		UI.BorderTo(self, "accent")
+	end)
+	button:HookScript("OnLeave", function(self)
+		local ex = extras[self]
+		UI.BorderTo(self, ex.edge or "rule", ex.edgeAlpha)
+	end)
 	e.ilvl = button:CreateFontString(nil, "OVERLAY")
 	e.pet = button:CreateFontString(nil, "OVERLAY")
-	e.mark = Badge(button)
-	e.set = button:CreateTexture(nil, "OVERLAY", nil, 2)
-	e.set:SetSize(SET_MARK, SET_MARK)
-	e.craft = CraftMark(button)
+	e.mark = Mark(button, BADGE, BADGE, Cross)
+	e.set = Mark(button, SET_MARK, SET_MARK, Square)
+	e.craft = Mark(button, CRAFT_DOT, CRAFT_DOT, Dot)
+	if button.JunkIcon then
+		-- Blizzard's junk coin gets the marks' shadow: a black copy of its atlas under it.
+		e.junkShadow = button:CreateTexture(nil, "ARTWORK", nil, 7)
+		e.junkShadow:SetAtlas(button.JunkIcon:GetAtlas())
+		e.junkShadow:SetVertexColor(0, 0, 0, SHADOW_ALPHA)
+		e.junkShadow:SetPoint("TOPLEFT", button.JunkIcon, "TOPLEFT", SHADOW_X, SHADOW_Y)
+		e.junkShadow:SetPoint("BOTTOMRIGHT", button.JunkIcon, "BOTTOMRIGHT", SHADOW_X, SHADOW_Y)
+		e.junkShadow:Hide()
+	end
 	e.free = button:CreateFontString(nil, "OVERLAY")
 	e.free:SetPoint("BOTTOMRIGHT", -3, 3)
 	e.leaf = button:CreateTexture(nil, "OVERLAY", nil, 1)
@@ -166,6 +227,9 @@ local function HideMarks(button, e)
 	if button.JunkIcon then
 		button.JunkIcon:Hide()
 	end
+	if e.junkShadow then
+		e.junkShadow:Hide()
+	end
 end
 
 -- The marks an item carries (Data.lua's BAGS_MARKS keys), placed in their corners: the first of each corner wins.
@@ -180,21 +244,23 @@ local function PlaceMarks(button, e, item, opts)
 		if mark == "junk" and button.JunkIcon then
 			Corner(button.JunkIcon, corner, -1)
 			button.JunkIcon:Show()
+			if e.junkShadow then
+				e.junkShadow:Show()
+			end
 		elseif mark == "upgrade" then
 			local widget = Arrow(button, e, item.upgrade)
 			Corner(widget, corner, -INSET)
 			widget:Show()
 		elseif mark == "crafting" then
-			e.craft.count:SetText(crafting)
-			UI.SetTextRole(e.craft.count, "accent")
-			Corner(e.craft, corner, -1)
+			e.craft:SetColor("accent")
+			Corner(e.craft, corner, 1)
 			e.craft:Show()
 		elseif mark == "transmog" then
-			e.mark.fill:SetColorTexture(UI.Color(item.look == "you" and "accent" or "textMuted"))
-			Corner(e.mark, corner, -1)
+			e.mark:SetColor(item.look == "you" and "accent" or "textMuted")
+			Corner(e.mark, corner)
 			e.mark:Show()
 		elseif mark == "set" then
-			e.set:SetColorTexture(UI.Color("info"))
+			e.set:SetColor("info")
 			Corner(e.set, corner, 1)
 			e.set:Show()
 		elseif mark == "petlevel" then
@@ -257,11 +323,37 @@ function ns.BagsButtons_Place(button, host, x, y, size)
 	button:SetPoint("TOPLEFT", host, "TOPLEFT", x / scale, -y / scale)
 end
 
+-- The hairline frame and fill for an item (nil: an empty slot), kept for the hover to come back to.
+local function Frame(button, e, item)
+	if item then
+		e.fill:SetColorTexture(0, 0, 0, FILL)
+		local q = item.quality
+		if q and q >= QUALITY_FRAME then
+			local r, g, b = C_Item.GetItemQualityColor(q)
+			e.edge, e.edgeAlpha = { r, g, b }, 1
+		else
+			e.edge, e.edgeAlpha = "rule", nil
+		end
+	else
+		e.fill:SetColorTexture(1, 1, 1, EMPTY_FILL)
+		e.edge, e.edgeAlpha = "rule", EMPTY_EDGE
+	end
+	if button.IconBorder then
+		button.IconBorder:Hide()
+	end
+	if button:IsMouseOver() and button:IsVisible() then
+		UI.SetBorderColor(button, "accent")
+	else
+		UI.SetBorderColor(button, e.edge, e.edgeAlpha)
+	end
+end
+
 -- A display-only button's look: icon, count, quality, the marks. Blizzard's bag button calls aren't on it.
 local function PaintView(button, e, item, opts)
 	button.link = item.link
 	button:SetItemButtonTexture(item.icon)
 	SetItemButtonQuality(button, item.quality, item.link)
+	Frame(button, e, item)
 	SetItemButtonCount(button, item.count)
 	SetItemButtonDesaturated(button, opts.greyJunk and item.junk)
 	PlaceMarks(button, e, item, opts)
@@ -287,6 +379,7 @@ function ns.BagsButtons_Paint(button, item, opts)
 		button:SetHasItem(nil)
 		button:SetItemButtonTexture(nil)
 		SetItemButtonQuality(button, nil)
+		Frame(button, e, nil)
 		SetItemButtonCount(button, 0)
 		SetItemButtonDesaturated(button, false)
 		SetItemButtonTextureVertexColor(button, 1, 1, 1)
@@ -303,6 +396,7 @@ function ns.BagsButtons_Paint(button, item, opts)
 		button:SetHasItem(item.icon)
 		button:SetItemButtonTexture(item.icon)
 		SetItemButtonQuality(button, item.quality, item.link, false, item.bind == "soulbound")
+		Frame(button, e, item)
 		SetItemButtonCount(button, item.count)
 		SetItemButtonDesaturated(button, item.locked or (opts.greyJunk and item.junk))
 		if opts.redUnusable and item.unusable then

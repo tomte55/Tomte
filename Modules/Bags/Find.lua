@@ -5,8 +5,8 @@ local addonName, ns = ...
 -- The search language is Search.lua's; tooltip words aren't searched here (other characters' items aren't in reach).
 
 local WIDTH = 300
-local PAD = 10
-local TITLE_H = 30
+local PAD = 8
+local BAND_H = 34 -- the header band, as the bag window's
 local ROW_H = 34
 local ICON = 26
 local MAX_ROWS = 200 -- matches listed at most
@@ -123,20 +123,27 @@ local function Build()
 	panel:SetWidth(WIDTH)
 	panel:EnableMouse(true)
 	UI.Panel(panel)
-	local title = UI.Text(panel, 14, "heading", "title")
-	title:SetPoint("TOPLEFT", PAD, -9)
+	-- Header band: the title and a close button; the list below in a tray. Docked flush to the bag window's left edge.
+	local band = ns.BagsKit_Band(panel)
+	band:SetPoint("TOPLEFT", 1, -1)
+	band:SetPoint("TOPRIGHT", -1, -1)
+	band:SetHeight(BAND_H)
+	local title = UI.Text(band, 14, "heading", "title")
+	title:SetPoint("LEFT", PAD, 0)
 	title:SetText("On all characters")
-	local close = UI.Button(panel, 20, "x")
-	close:SetPoint("TOPRIGHT", -6, -5)
-	close:SetScript("OnClick", function()
+	local close = ns.BagsKit_Cluster(band, { { text = "x", tip = "Close", onClick = function()
 		panel:Hide()
-	end)
-	note = UI.Text(panel, 11, "textMuted")
-	note:SetPoint("TOPLEFT", PAD, -TITLE_H)
-	note:SetPoint("RIGHT", -PAD, 0)
-	scroll = UI.Scroll(panel)
-	scroll:SetPoint("TOPLEFT", PAD, -(TITLE_H + 18))
-	scroll:SetPoint("BOTTOMRIGHT", -PAD - 6, PAD)
+	end } })
+	close:SetPoint("RIGHT", -PAD, 0)
+	local tray = ns.BagsKit_Tray(panel)
+	tray:SetPoint("TOPLEFT", band, "BOTTOMLEFT", PAD - 1, -PAD)
+	tray:SetPoint("BOTTOMRIGHT", -PAD, PAD)
+	note = UI.Text(tray, 11, "textMuted")
+	note:SetPoint("TOPLEFT", 8, -7)
+	note:SetPoint("RIGHT", -8, 0)
+	scroll = UI.Scroll(tray)
+	scroll:SetPoint("TOPLEFT", 6, -24)
+	scroll:SetPoint("BOTTOMRIGHT", -12, 6)
 	panel:Hide()
 end
 
@@ -147,8 +154,15 @@ function ns.BagsFind_Show(window, text)
 		Build()
 	end
 	panel:ClearAllPoints()
-	panel:SetPoint("TOPRIGHT", anchor, "TOPLEFT", -4, 0)
-	panel:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMLEFT", -4, 0)
+	panel:SetPoint("TOPRIGHT", anchor, "TOPLEFT", 1, 0)
+	panel:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMLEFT", 1, 0)
+	ns.BagsCurrencies_Hide() -- one side panel at a time
 	panel:Show()
 	Draw(text)
+end
+
+function ns.BagsFind_Hide()
+	if panel then
+		panel:Hide()
+	end
 end

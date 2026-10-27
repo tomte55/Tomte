@@ -8,6 +8,15 @@ local test, eq = H.test, H.eq
 
 local categories = ns.Bags_Flatten(ns.BAGS_LAYOUT)
 
+test("rules with words need the tooltip text read first", function()
+	eq(ns.Bags_RulesUseText({ { rule = "is:junk" }, { rule = "ilvl>600" } }), false, "keywords only")
+	eq(ns.Bags_RulesUseText({ { rule = "is:junk" }, { rule = "artifact" } }), true, "a word")
+	eq(ns.Bags_RulesUseText({ { auto = "empty" }, { rule = "is:" } }), false, "auto and broken rules")
+	local byKey = ns.Bags_Assign({ { name = "Clay Jar", text = "dragon isles artifacts\nsoulbound", readable = true } },
+		{ { key = "art", rule = "artifact" } })
+	eq(byKey.art and #byKey.art, 1, "found through the tooltip text")
+end)
+
 local function where(item)
 	local byKey = ns.Bags_Assign({ item }, categories)
 	for key, list in pairs(byKey) do
@@ -199,6 +208,20 @@ test("keeping places: a sold item leaves its slot empty where it was, new items 
 	eq(out.potion[3], c)
 	eq(out.potion[4], d)
 	eq(#out.empty, 0, "B's empty slot is kept in Potion, so Empty can't use it")
+end)
+
+test("keeping places: an item that arrived and left again leaves its slot empty (the view snapshots every draw)", function()
+	local a = { bag = 0, slot = 1, name = "A" }
+	local snapshot = ns.Bags_Snapshot({ potion = { a } })
+	-- D taken from the bank into bag 2 slot 5: it joins at the end, and that place is kept from now on
+	local d = { bag = 2, slot = 5, name = "D" }
+	local out = ns.Bags_KeepPlaces(snapshot, { potion = { a, d } }, { [1] = a, [2005] = d })
+	snapshot = ns.Bags_Snapshot(out)
+	-- D put back in the bank
+	local emptyD = { empty = true, kind = "normal", bag = 2, slot = 5 }
+	out = ns.Bags_KeepPlaces(snapshot, { potion = { a }, empty = { emptyD } }, { [1] = a, [2005] = emptyD })
+	eq(#out.potion, 2)
+	eq(out.potion[2], emptyD, "D's place stays, empty")
 end)
 
 test("keeping places: Empty uses another free slot when its slot is kept in place", function()

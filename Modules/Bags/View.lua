@@ -62,7 +62,11 @@ end
 -- many are free). Hidden categories are left out with their items.
 function View:CategoryBlocks(items, layout, place)
 	local db = self.db
-	local byKey = ns.Bags_Assign(items, ns.Bags_Flatten(layout), place)
+	local categories = ns.Bags_Flatten(layout)
+	if ns.Bags_RulesUseText(categories) then
+		ns.BagsRead_LoadText(items)
+	end
+	local byKey = ns.Bags_Assign(items, categories, place)
 	local blocks, contents = {}, {}
 	local function Add(node, section)
 		if node.hidden then
@@ -157,9 +161,10 @@ function View:Draw(items, opts)
 					block.count = #(contents[block.key] or {})
 				end
 			end
-		else
-			self.snapshot = ns.Bags_Snapshot(contents)
 		end
+		-- Places that joined while holding (an item taken from the bank) are kept too: putting it back leaves its slot
+		-- empty where it was, instead of closing up.
+		self.snapshot = ns.Bags_Snapshot(contents)
 	else
 		self.snapshot = nil
 	end

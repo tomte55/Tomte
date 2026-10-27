@@ -37,8 +37,8 @@ function ns.SignedGold(copper)
 	return (copper < 0 and "-" or "+") .. ns.Gold(abs(copper))
 end
 
--- "50,000g": only gold once there is any (detailed keeps the silver: "1,234g 56s"), else silver and copper.
--- icons = { gold, silver, copper } format strings that take the amount.
+-- "50,000g": only gold once there is any (detailed keeps the silver: "1,234g 56s"; "exact" the copper too:
+-- "1,234g 56s 78c"), else silver and copper. icons = { gold, silver, copper } format strings that take the amount.
 function ns.Coins(copper, detailed, icons)
 	local g = floor(copper / 10000)
 	local s = floor(copper / 100) % 100
@@ -47,7 +47,10 @@ function ns.Coins(copper, detailed, icons)
 	if g > 0 then
 		parts[1] = icons.gold:format(ns.Thousands(g))
 		if detailed and s > 0 then
-			parts[2] = icons.silver:format(s)
+			parts[#parts + 1] = icons.silver:format(s)
+		end
+		if detailed == "exact" and c > 0 then
+			parts[#parts + 1] = icons.copper:format(c)
 		end
 	else
 		if s > 0 then

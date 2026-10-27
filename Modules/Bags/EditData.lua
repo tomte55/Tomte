@@ -91,6 +91,37 @@ function ns.BagsEdit_Move(layout, key, delta)
 	return true
 end
 
+-- Moves a node (dragged on the categories page) before or after targetKey's node, or "into" a section (at its end).
+-- Sections and dividers stay at the top level: dropped next to a node inside a section, they land next to that
+-- section. Returns true when it moved; false (nothing changed) for a missing key, the node itself, or "into"
+-- anything but a section (or with anything but a category).
+function ns.BagsEdit_MoveTo(layout, key, targetKey, where)
+	local list, i, node = ns.BagsEdit_Find(layout, key)
+	local _, _, target, targetSection = ns.BagsEdit_Find(layout, targetKey)
+	if not (node and target) then
+		return false
+	end
+	if where == "into" then
+		if target.kind ~= "section" or node.kind ~= "category" then
+			return false
+		end
+	elseif node.kind ~= "category" and targetSection then
+		target = targetSection
+	end
+	if target == node then
+		return false
+	end
+	table.remove(list, i)
+	if where == "into" then
+		target.children = target.children or {}
+		table.insert(target.children, node)
+		return true
+	end
+	local targetList, targetIndex = ns.BagsEdit_Find(layout, target.key)
+	table.insert(targetList, where == "after" and targetIndex + 1 or targetIndex, node)
+	return true
+end
+
 -- Moves a category into a section (at its end), or out of it to the top level right after the section (sectionKey
 -- nil). Sections and dividers stay at the top level. Returns true when it moved.
 function ns.BagsEdit_SetSection(layout, key, sectionKey)
