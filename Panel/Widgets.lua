@@ -136,6 +136,12 @@ function UI.PlaceDialog(frame)
 		frame:SetParent(UIParent)
 		frame:SetScale(1)
 		frame:SetFrameStrata("DIALOG")
+	elseif HouseEditorFrame and HouseEditorFrame:IsVisible() then
+		-- Blizzard's house editor hides UIParent; on WorldFrame the dialog would draw under the editor's frames
+		-- (the Decorating panel's Export, Import and questions).
+		frame:SetParent(HouseEditorFrame)
+		frame:SetScale(UIParent:GetEffectiveScale() / HouseEditorFrame:GetEffectiveScale())
+		frame:SetFrameStrata("FULLSCREEN_DIALOG")
 	else
 		frame:SetParent(WorldFrame)
 		frame:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())

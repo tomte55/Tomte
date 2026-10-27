@@ -174,7 +174,8 @@ just restates the code. Fix comments that point at moved or renamed code in the 
 - Settings are a module's `options` schema, rendered by `Panel/Options.lua` as cards (each `header` starts one,
   dealt into two columns on a wide window). Row types: `header`, `checkbox` (drawn as a switch),
   `slider` (`min`, `max`, `step`, `format`), `dropdown` (segmented buttons when ≤ 3 short choices),
-  `button` (`text`, `onClick`, optional `confirm`), `input`. `key` is a dotted path into the module's db
+  `button` (`text`, `onClick`, optional `confirm`), `input`, `key` (click and press a key combination; saved as a
+  binding string like `"CTRL-C"`, `""` for none). `key` is a dotted path into the module's db
   (`"check.onEnter"`), `onChange` applies it live, `shown()` hides a row, `parent = "<checkbox key>"` indents and
   dims a row while that checkbox is off, `tooltip` explains anything not obvious. No settings UI built by hand.
 - Each module names its settings group in `category`: `tomte`, `week`, `quests`, `gear` (gear & loot),

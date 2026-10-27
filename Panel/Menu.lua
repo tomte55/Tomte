@@ -17,6 +17,9 @@ local SCROLL_W = 10
 local levels = {} -- [depth] = menu frame; 1 is the menu, 2 a submenu
 local catcher
 local owner, ownerArrow -- what opened the menu; a dropdown's arrow flips while it's open
+-- What the menus sit on: UIParent, or while UIParent is hidden (Blizzard's house editor hides it) the top frame of what
+-- opened them, so they draw over it.
+local host = UIParent
 
 -- Descriptions ------------------------------------------------------------------------------------------------
 
@@ -184,8 +187,9 @@ local function Level(depth)
 	if not catcher then
 		BuildCatcher()
 	end
-	level = CreateFrame("Frame", nil, UIParent)
+	level = CreateFrame("Frame", nil, host)
 	level.depth = depth
+	ns.ownFrames[level] = host == WorldFrame or nil
 	level.rows = {}
 	level:SetFrameStrata("FULLSCREEN_DIALOG")
 	level:SetFrameLevel(catcher:GetFrameLevel() + 10 * depth)
@@ -282,7 +286,7 @@ function Render(depth, desc, anchor, minWidth)
 		level:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 2, 1)
 	elseif anchor then
 		local o = anchor.owner
-		level:SetScale(o:GetEffectiveScale() / UIParent:GetEffectiveScale())
+		level:SetScale(o:GetEffectiveScale() / host:GetEffectiveScale())
 		-- Below the button, unless that runs off the bottom of the screen (both in screen pixels).
 		local room = (o:GetBottom() or 0) * o:GetEffectiveScale() - (height + 2) * level:GetEffectiveScale()
 		if room >= 0 then
@@ -291,10 +295,10 @@ function Render(depth, desc, anchor, minWidth)
 			level:SetPoint("BOTTOMLEFT", o, "TOPLEFT", 0, 2)
 		end
 	else
-		level:SetScale(1)
+		level:SetScale(UIParent:GetEffectiveScale() / host:GetEffectiveScale()) -- UIParent's size on either host
 		local x, cy = GetCursorPosition()
 		local scale = level:GetEffectiveScale()
-		level:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale + 2, cy / scale - 2)
+		level:SetPoint("TOPLEFT", host, "BOTTOMLEFT", x / scale + 2, cy / scale - 2)
 	end
 	-- Opening (not a submenu redrawn for another row): a quick fade and grow in.
 	if not level:IsShown() then
@@ -303,11 +307,48 @@ function Render(depth, desc, anchor, minWidth)
 	end
 end
 
+-- The frame under UIParent or WorldFrame (or with no parent) that frame sits in: Blizzard's HouseEditorFrame for the
+-- Decorating panel. Frames drawn on WorldFrame stay under it whatever their strata (measured in game).
+local function TopOf(frame)
+	local parent = frame and frame:GetParent()
+	while parent and parent ~= UIParent and parent ~= WorldFrame do
+		frame, parent = parent, parent:GetParent()
+	end
+	return frame
+end
+
+-- UIParent, or while UIParent is hidden (the house editor, a dialogue addon) the top frame of what opened the menu
+-- (WorldFrame when nothing did).
+local function SetHost(by)
+	local want = UIParent
+	if not (UIParent:IsShown() and UIParent:GetAlpha() >= 0.99) then
+		local top = TopOf(by)
+		want = top and top ~= UIParent and top:IsShown() and top or WorldFrame
+	end
+	if want == host then
+		return
+	end
+	host = want
+	catcher:SetParent(host)
+	catcher:ClearAllPoints()
+	catcher:SetAllPoints(host)
+	catcher:SetFrameStrata("FULLSCREEN_DIALOG")
+	for depth, level in ipairs(levels) do
+		level:SetParent(host)
+		level:SetFrameStrata("FULLSCREEN_DIALOG")
+		level:SetFrameLevel(catcher:GetFrameLevel() + 10 * depth)
+		ns.ownFrames[level] = host == WorldFrame or nil
+	end
+	ns.ownFrames[catcher] = host == WorldFrame or nil
+end
+
 local function Open(by, root, anchor, minWidth, arrow)
 	CloseAll()
 	if #root.children == 0 then
 		return
 	end
+	Level(1)
+	SetHost(by)
 	Level(1).root = root -- before Render: its rows ask for root.onHover
 	Render(1, root, anchor, minWidth)
 	owner, ownerArrow = by, arrow

@@ -108,4 +108,22 @@ test("FormatToPattern: grammar tokens match either word and are cut from the cap
 	eq(ns.FormatToPattern("Got |3-6(%s)"), "^Got (.+)$", "declension")
 end)
 
+test("KeyChord puts modifiers in the game's order and waits on a lone modifier", function()
+	eq(ns.KeyChord("C", false, true, false), "CTRL-C")
+	eq(ns.KeyChord("S", true, true, true), "ALT-CTRL-SHIFT-S")
+	eq(ns.KeyChord("F1"), "F1")
+	eq(ns.KeyChord("LSHIFT", false, false, true), nil)
+	eq(ns.KeyChord(""), nil)
+end)
+
+test("KeyText reads a binding string for people", function()
+	eq(ns.KeyText("CTRL-SHIFT-S"), "Ctrl+Shift+S")
+	eq(ns.KeyText("T"), "T")
+	eq(ns.KeyText("ALT-F4"), "Alt+F4")
+	eq(ns.KeyText(""), "")
+	eq(ns.KeyText(nil), "")
+	eq(ns.KeyText("CTRL--"), "Ctrl+-", "the minus key")
+	eq(ns.KeyText("-"), "-")
+end)
+
 H.done()

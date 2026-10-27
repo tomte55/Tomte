@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Settings rows: one factory per option row type (checkbox, slider, dropdown, button, input, status), pooled and
+-- Settings rows: one factory per option row type (checkbox, slider, dropdown, button, input, key, status), pooled and
 -- shared by everything that draws a module's options schema: the module page's cards (Options.lua) and the Edit Mode
 -- settings dialog (EditModeDialog.lua). Schema extras read here: label (text or function), tooltip (a faint "?"
 -- after the label), preview (a card drawn while the mouse is on the row, Preview.lua; only where the drawer sets
@@ -347,6 +347,84 @@ function Setup.input(row, module, spec)
 	row.box:SetText(GetOption(module, spec.key) or "")
 	row.box.placeholder:SetText(spec.placeholder or "")
 	row.box:SetCursorPosition(0)
+end
+
+-- A key: click, then press a key combination to set it (saved as a binding string like "CTRL-C"); Esc cancels and a
+-- right-click clears it (saved as ""). The row only listens while it waits for the key, and never in combat (keyboard
+-- propagation can't be changed then).
+local function KeyText(value)
+	if type(value) ~= "string" or value == "" then
+		return UI.Wrap("Not set", "textFaint")
+	end
+	return ns.KeyText(value)
+end
+
+local function StopListening(row)
+	local button = row.keyButton
+	if not (button.listening and row.module) then
+		return
+	end
+	button.listening = false
+	button:EnableKeyboard(false)
+	UI.BorderTo(button, "frame", 0.35)
+	button.label:SetText(KeyText(GetOption(row.module, row.spec.key)))
+end
+
+function Factory.key(parent)
+	local row = NewRow("key", parent)
+	local button = UI.Button(row, 110, "")
+	button:SetPoint("RIGHT", -8, 0)
+	button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	button:EnableKeyboard(false)
+	row.keyButton = button
+	LabelUpTo(row, button)
+	button:SetScript("OnClick", function(self, mouse)
+		if mouse == "RightButton" then
+			StopListening(row)
+			SetOption(row.module, row.spec, "")
+			self.label:SetText(KeyText(""))
+			return
+		end
+		if self.listening then
+			StopListening(row)
+			return
+		end
+		if InCombatLockdown() then
+			return
+		end
+		self.listening = true
+		self:EnableKeyboard(true)
+		UI.BorderTo(self, "accent", 0.8)
+		self.label:SetText(UI.Wrap("Press a key...", "accent"))
+	end)
+	button:SetScript("OnKeyDown", function(self, key)
+		if InCombatLockdown() then
+			StopListening(row)
+			return
+		end
+		self:SetPropagateKeyboardInput(false)
+		if key == "ESCAPE" then
+			StopListening(row)
+			return
+		end
+		local chord = ns.KeyChord(key, IsAltKeyDown(), IsControlKeyDown(), IsShiftKeyDown())
+		if chord then
+			SetOption(row.module, row.spec, chord)
+			StopListening(row)
+		end
+	end)
+	button:SetScript("OnHide", function()
+		StopListening(row)
+	end)
+	ForwardHover(row, button)
+	return row
+end
+
+function Setup.key(row, module, spec)
+	SetLabel(row, spec)
+	row.keyButton.listening = false
+	row.keyButton:EnableKeyboard(false)
+	row.keyButton.label:SetText(KeyText(GetOption(module, spec.key)))
 end
 
 -- Read-only: the label and, on the right, spec.status() -> text, color role (asked on every build).

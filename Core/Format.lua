@@ -168,3 +168,34 @@ function ns.FormatMatch(text, pattern, spec)
 	end
 	return out
 end
+
+-- Keys --------------------------------------------------------------------------------------------------------------
+
+local MODIFIER_KEYS = {
+	LSHIFT = true, RSHIFT = true, LCTRL = true, RCTRL = true, LALT = true, RALT = true, LMETA = true, RMETA = true,
+}
+
+-- A key press as a binding string in the game's modifier order: ("C", false, true, false) -> "CTRL-C". nil for a
+-- modifier key on its own (the chord isn't finished yet).
+function ns.KeyChord(key, alt, ctrl, shift)
+	if type(key) ~= "string" or key == "" or MODIFIER_KEYS[key] then
+		return nil
+	end
+	return (alt and "ALT-" or "") .. (ctrl and "CTRL-" or "") .. (shift and "SHIFT-" or "") .. key
+end
+
+-- A binding string for people: "CTRL-SHIFT-S" -> "Ctrl+Shift+S". "" or nil -> "".
+function ns.KeyText(chord)
+	if type(chord) ~= "string" or chord == "" then
+		return ""
+	end
+	local parts, rest = {}, chord
+	for _, mod in ipairs({ "ALT", "CTRL", "SHIFT", "META" }) do
+		if rest:sub(1, #mod + 1) == mod .. "-" and #rest > #mod + 1 then
+			parts[#parts + 1] = mod:sub(1, 1) .. mod:sub(2):lower()
+			rest = rest:sub(#mod + 2)
+		end
+	end
+	parts[#parts + 1] = rest
+	return table.concat(parts, "+")
+end

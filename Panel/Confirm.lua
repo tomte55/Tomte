@@ -46,7 +46,11 @@ local function Build()
 	dialog.no:SetPoint("BOTTOMRIGHT", -PAD, 14)
 	dialog.no:SetScript("OnClick", function()
 		UI.Sound("off")
+		local onNo = dialog.onNo
 		Close()
+		if onNo then
+			onNo()
+		end
 	end)
 	dialog.yes = UI.Button(dialog, 80, "Yes")
 	dialog.yes:SetHeight(22)
@@ -76,13 +80,15 @@ local function Build()
 end
 
 -- text: the question; onAccept() runs on Yes. opts.yes / opts.no: other button labels. opts.noEnter: Enter isn't Yes
--- (a question that comes up without a click, where Enter may be meant for the chat box).
+-- (a question that comes up without a click, where Enter may be meant for the chat box). opts.onNo: runs on the No
+-- button only (Esc just closes), for a question with two answers that both do something.
 function ns.Confirm_Show(text, onAccept, opts)
 	if not dialog then
 		Build()
 	end
 	opts = opts or {}
 	dialog.noEnter = opts.noEnter
+	dialog.onNo = opts.onNo
 	UI.PlaceDialog(dialog) -- WorldFrame while a dialogue addon hides UIParent (Waypoints asks at guards)
 	dialog.onAccept = onAccept
 	local question, detail = text:match("^(.-)\n\n(.+)$")

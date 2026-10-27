@@ -505,6 +505,7 @@ module = ns.RegisterModule({
 		hover = true, -- house editor: storage count and budget cost on hovered decor (Editor.lua)
 		dupe = false, -- house editor: Alt places another of the hovered decor
 		dyeCopy = false, -- house editor: right-click copies dyes, Paste dyes previews them
+		dyePresets = {}, -- saved dye sets (Editor.lua): { { name, colors = { dye color ID or 0 } } }, newest first
 		clock = true, -- house editor: the clock above the mode bar
 		editorSeconds = 0, -- seconds spent in the house editor, all sessions
 		sizeLine = true, -- the preview's "about 1.5 people tall" line (Detail.lua)
@@ -576,7 +577,7 @@ module = ns.RegisterModule({
 				ns.DecorEditor_Apply()
 			end },
 		{ type = "checkbox", key = "dyeCopy", label = "Copy dyes",
-			tooltip = "In customize mode, right-click a dyed decor to copy its dyes. Select another decor and press Paste dyes under the dye pane to try them on; Blizzard's Apply saves them.",
+			tooltip = "In customize mode, right-click a dyed decor to copy its dyes. Select another decor and press Paste dyes under the dye pane to try them on; Blizzard's Apply saves them. Presets saves a set of dyes to put on decor later.",
 			onChange = function()
 				ns.DecorEditor_Apply()
 			end },
