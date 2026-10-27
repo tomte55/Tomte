@@ -10,6 +10,17 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.24.1", date = "2026-10-27",
+		fixed = {
+			{ module = "bags", text = "Everything from a bag or cache you open shows in New and stays there until you "
+				.. "close your bags." },
+			{ module = "bags", text = "Items you can't use, profession gear included, are tinted red, and lose the red "
+				.. "when a level-up makes them usable." },
+			{ module = "events", text = "Holidays and weekly bonus events show a proper icon instead of a blank sliver "
+				.. "of calendar art." },
+		},
+	},
+	{
 		version = "1.24.0", date = "2026-10-27",
 		new = {
 			{ module = "bags", text = "Tomte's own bag and bank windows: items sorted into categories, upgrade and "

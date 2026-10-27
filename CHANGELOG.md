@@ -12,6 +12,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+## v1.24.1 - 2026-10-27
+
 ### Fixed
 
 - **Events:** holidays and weekly bonus events (Delves, Timewalking, PvP Brawl, pet battles and more) show a proper
