@@ -12,12 +12,15 @@ local ROW_H = 20
 local ICON = 14
 local INDENT = 12 -- per level of the list's depth
 local MAX_LIST = 400 -- a bound for reading the game's currency list
+-- Seconds after a search folded the list back in which the game's CURRENCY_DISPLAY_UPDATE doesn't redraw.
+local QUIET_SECONDS = 0.5
 
 local UI = ns.UI
 
 local panel, scroll, search
 local rows = {}
 local anchor -- the bag window the panel sits beside
+local quietUntil = 0
 
 -- The game's currency list, each entry with its index.
 local function List()
@@ -28,6 +31,45 @@ local function List()
 			info.index = i
 			list[#list + 1] = info
 		end
+	end
+	return list
+end
+
+-- The whole currency list for a search: the game only lists what's under unfolded headers, so the folded ones are
+-- unfolded for the read and folded again after (a parent can hide folded children: a few passes). The game's
+-- currency tab shares the folds, so they're put back exactly.
+local function HeaderKey(info)
+	return (info.currencyListDepth or 0) .. ":" .. (info.name or "")
+end
+
+local function FullList()
+	local unfolded = {} -- [depth:name] = true for the headers opened here
+	-- Unfolding may send CURRENCY_DISPLAY_UPDATE at once: no redraw (and no second unfold) while this reads.
+	quietUntil = GetTime() + QUIET_SECONDS
+	for _ = 1, 4 do
+		local opened = false
+		for i = math.min(C_CurrencyInfo.GetCurrencyListSize(), MAX_LIST), 1, -1 do
+			local info = C_CurrencyInfo.GetCurrencyListInfo(i)
+			if info and info.isHeader and not info.isHeaderExpanded then
+				unfolded[HeaderKey(info)] = true
+				C_CurrencyInfo.ExpandCurrencyList(i, true)
+				opened = true
+			end
+		end
+		if not opened then
+			break
+		end
+	end
+	local list = List()
+	if next(unfolded) then
+		for i = math.min(C_CurrencyInfo.GetCurrencyListSize(), MAX_LIST), 1, -1 do
+			local info = C_CurrencyInfo.GetCurrencyListInfo(i)
+			if info and info.isHeader and info.isHeaderExpanded and unfolded[HeaderKey(info)] then
+				C_CurrencyInfo.ExpandCurrencyList(i, false)
+			end
+		end
+		-- Folding sends CURRENCY_DISPLAY_UPDATE, which would redraw and unfold again.
+		quietUntil = GetTime() + QUIET_SECONDS
 	end
 	return list
 end
@@ -94,6 +136,7 @@ local function Row(i)
 			UI.InsertLink(C_CurrencyInfo.GetCurrencyLink(data.info.currencyID))
 		elseif IsShiftKeyDown() and data.info.currencyID then
 			C_CurrencyInfo.SetCurrencyBackpackByID(data.info.currencyID, not data.info.isShowInBackpack)
+			quietUntil = 0 -- a change from the panel always redraws
 			ns.BagsCurrencies_Refresh()
 			ns.BagsWindow_RefreshFooter()
 		end
@@ -107,11 +150,15 @@ local function Draw()
 		return
 	end
 	local text = search:GetText()
-	local list = ns.Bags_CurrencyRows(List(), text ~= "" and text:lower() or nil, Tracked())
+	local searching = text ~= ""
+	local list = ns.Bags_CurrencyRows(searching and FullList() or List(), searching and text:lower() or nil, Tracked())
 	local y = 0
 	local width = scroll:GetWidth()
 	for i, data in ipairs(list) do
 		local row = Row(i)
+		if searching and data.kind == "header" then
+			data.index, data.expanded = nil, true -- read unfolded and folded back: its index is stale
+		end
 		row.data = data
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", scroll.content, "TOPLEFT", 0, -y)
@@ -214,5 +261,8 @@ end
 
 -- CURRENCY_DISPLAY_UPDATE and after a change from the panel itself.
 function ns.BagsCurrencies_Refresh()
+	if GetTime() < quietUntil then
+		return
+	end
 	Draw()
 end
