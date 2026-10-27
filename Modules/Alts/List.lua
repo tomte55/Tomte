@@ -364,6 +364,7 @@ function ns.AltsList_Changed()
 			end
 			if tomteBags then
 				ns.BagsWindow_Refresh()
+				ns.BagsBank_Refresh()
 			end
 		end
 	end)
@@ -395,15 +396,30 @@ end
 
 local SEARCHABLE = { grab = true, take = true, collect = true, fetch = true, mail = true, deposit = true }
 
--- Baganator has no search API; its slash command is the public way in ("/bgr search <text>", lower case). It opens
--- the bags too, and an open bank view highlights the matches.
+-- Where a click on a material line finds it: Tomte's bags, else Baganator's, else nil.
+local function SearchTarget()
+	if ns.Bags_Active and ns.Bags_Active() then
+		return "your bags"
+	elseif SlashCmdList and SlashCmdList["Baganator"] and db.listBaganator then
+		return "Baganator"
+	end
+	return nil
+end
+
+-- Tomte's bags (Modules/Bags) search for it by name, and its bank too while it's open. Baganator has no search API;
+-- its slash command is the public way in ("/bgr search <text>", lower case). It opens the bags too, and an open bank
+-- view highlights the matches.
 function ns.AltsList_Search(itemID)
 	local name = itemID and C_Item.GetItemNameByID(itemID)
-	local slash = SlashCmdList and SlashCmdList["Baganator"]
-	if not (name and slash and db.listBaganator) then
+	local target = SearchTarget()
+	if not (name and target) then
 		return false
 	end
-	local ok = pcall(slash, "search " .. name:lower())
+	if target == "your bags" then
+		ns.BagsWindow_Find(name)
+		return true
+	end
+	local ok = pcall(SlashCmdList["Baganator"], "search " .. name:lower())
 	return ok
 end
 
@@ -413,10 +429,11 @@ local function LineTooltip(owner, line)
 	end
 	GameTooltip:SetOwner(owner, "ANCHOR_LEFT")
 	GameTooltip:SetItemByID(line.itemID)
-	if SEARCHABLE[line.kind] and SlashCmdList and SlashCmdList["Baganator"] then
+	local target = SEARCHABLE[line.kind] and SearchTarget()
+	if target then
 		GameTooltip:AddLine(" ")
 		local r, g, b = UI.Color("accent")
-		GameTooltip:AddLine("Click: find it in Baganator", r, g, b)
+		GameTooltip:AddLine("Click: find it in " .. target, r, g, b)
 	end
 	GameTooltip:Show()
 end

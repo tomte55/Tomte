@@ -224,6 +224,11 @@ local function OnItem(tooltip, data)
 		OnRecipeItem(tooltip, data, itemID)
 		return
 	end
+	-- The bags mark these with a dot (Modules/Bags/Buttons.lua); the amount is here.
+	local wanted = ns.AltsList_Marked and ns.AltsList_Marked(itemID)
+	if wanted then
+		tooltip:AddLine(Label() .. ("Crafting list: %d to move"):format(wanted), 1, 1, 1)
+	end
 	producers = producers or ns.Alts_Producers(db.recipes)
 	local ids = producers[itemID]
 	if not ids then
@@ -343,7 +348,10 @@ module = ns.RegisterModule({
 		.. "opens its profession window.",
 	enabledByDefault = true,
 	uses = { { addon = "Syndicator", why = "item counts on every character, when Tomte's Item counts is off",
-		without = "Tomte's Item counts does it (or only this character's bags, bank and the Warband bank)" },
+		without = "only this character's bags, bank and the Warband bank are counted: turn on Tomte's Item counts",
+		unneeded = function()
+			return ns.Counts_Active and ns.Counts_Active()
+		end },
 		{ addon = "Auctionator", why = "shopping lists for missing materials" } },
 	keep = { "sendRules" }, -- typed by the user: a settings reset keeps it
 	noShare = { "filterChar", "filterFor" }, -- character GUIDs: not in settings strings (Core/Profile.lua)

@@ -19,9 +19,12 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
   levels, junk and the crafting list, each in the corner you pick; a currencies panel; items keep their places
   while you sell or mail; choose which windows open the bags; and a search that looks in tooltips and understands
   `is:upgrade`, `ilvl>=600` and more. Off by default.
-- **Bags:** a bank window for the character bank and the Warband bank, in the same categories: bank tabs, Clean Up,
-  deposit all, the Warband bank's gold, and items in your bags that can't go in fade while it's open.
-- **Bags:** your own categories on a Bag categories page: add, rename, reorder, sections, rules with a preview,
+- **Bags:** a bank window for the character bank and the Warband bank, in the same categories: bank tabs with an
+  Everything tab on top, buying new tabs, its own search, Clean Up, deposit all, the Warband bank's gold (with silver
+  and copper), and items in your bags that can't go in fade while it's open.
+- **Alts:** in Tomte's bank, "For alts" puts what your other characters craft with into the Warband bank, and "Take
+  for crafts" takes out exactly what your tracked crafts need, from your bank and the Warband bank.
+- **Bags:** your own categories on a Bag categories page: add, rename, drag to reorder, sections, rules with a preview,
   priority, items that always go in, where each shows, share and import. Save a search, or turn it into a category.
 - **Bags:** look at another character's bags, and find an item on all your characters.
 - **Item counts (new module):** item tooltips say how many each of your characters has and where (bags, bank, mail,
@@ -59,6 +62,9 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Home:** buttons that open the world map dim in combat, and their tooltips say why.
 - **Home:** every row under Around you has a tooltip saying what a click does.
 - **Alts:** a craft's tooltip updates by itself once the item levels it waited for have loaded.
+- **Alts:** clicking a material in the crafting list finds it in Tomte's bags (and the bank while it's open), and an
+  item's tooltip says how many the crafting list wants moved.
+- **Alts:** the page no longer warns that Syndicator isn't loaded while Tomte's Item counts does its job.
 - **Delves:** when no delves are found yet, the page keeps looking by itself instead of asking you to open the map.
 
 ### Fixed
@@ -67,6 +73,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
   Flight masters) opens the world map on its tab, instead of asking you to open the map first.
 - **Home:** Collect here updates on its own once your collections are read, instead of staying on "reading your
   collections" until you reopen the Tomte window.
+- **Alts:** the crafting list no longer says nobody knows a recipe after a login where the game was slow to load your
+  professions.
 
 ## v1.23.0 - 2026-10-25
 

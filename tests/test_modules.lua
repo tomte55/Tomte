@@ -332,6 +332,18 @@ test("ModuleDependencies says whether used addons are loaded and conflicting one
 	eq(#ns.ModuleDependencies(newModule("b"), function() return true end), 0, "none")
 end)
 
+test("ModuleDependencies leaves out a missing used addon whose job Tomte does now", function()
+	reset()
+	local done = true
+	local m = newModule("a", { uses = { { addon = "Syndicator", why = "item counts", unneeded = function()
+		return done
+	end } } })
+	eq(#ns.ModuleDependencies(m, function() return false end), 0, "not loaded and not needed: no line")
+	eq(#ns.ModuleDependencies(m, function() return true end), 1, "loaded: still said")
+	done = false
+	eq(ns.ModuleDependencies(m, function() return false end)[1].ok, false, "needed again: the warning is back")
+end)
+
 test("ModuleDependencies flags a loaded addon the module does the job of", function()
 	reset()
 	local m = newModule("a", { replaces = { { addon = "Pawn", why = "upgrade verdicts" } } })

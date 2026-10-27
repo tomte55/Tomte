@@ -9,6 +9,7 @@ local addonName, ns = ...
 -- APIs: Blizzard UI source 12.1.0 (69933) + warcraft.wiki.gg (docs/superpowers/specs/2026-10-05-tomte-alts-design.md).
 
 local DEBOUNCE = 1
+local PROF_RETRIES = 5 -- reads again while the professions aren't loaded yet (ReadProfs), this many times
 local GEAR_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 } -- worn gear without shirt (4) and tabard
 local PRIMARY_KEYS = { [1] = "STR", [2] = "AGI", [4] = "INT" } -- LE_UNIT_STAT_*, GetSpecializationInfo's primaryStat
 local BATCH = 30 -- recipes read per frame
@@ -170,6 +171,17 @@ local function ReadProfs(c)
 	local profs = {}
 	-- Every profession: the two main ones, then archaeology, fishing and cooking (only cooking has recipes).
 	local first, second, archaeology, fishing, cooking = GetProfessions()
+	-- Right after login the game can answer with no professions, or with professions it can't describe yet. Reading
+	-- that would drop every known recipe (the crafting list then said nobody knows them until the profession window
+	-- was opened, measured in game): keep what was read before until the answer is complete.
+	if not (first or second or archaeology or fishing or cooking) and next(old) then
+		return false
+	end
+	for _, index in pairs({ first, second, archaeology, fishing, cooking }) do
+		if not select(7, GetProfessionInfo(index)) then
+			return false
+		end
+	end
 	for _, index in pairs({ first, second, archaeology, fishing, cooking }) do
 		local name, icon, skill, maxSkill, _, _, base = GetProfessionInfo(index)
 		if base then
@@ -187,7 +199,21 @@ local function ReadProfs(c)
 		end
 	end
 	c.profs = profs
+	return true
 end
+
+-- The professions read, as one string: a change (learned, unlearned, or read for the first time) redraws the
+-- crafting list, whose plans need to know who crafts what.
+local function ProfsKey(c)
+	local bases = {}
+	for base, p in pairs(c.profs or {}) do
+		bases[#bases + 1] = base .. ":" .. (p.known and next(p.known) and "k" or "")
+	end
+	table.sort(bases)
+	return table.concat(bases, ",")
+end
+
+local profRetries = 0
 
 local function Refresh()
 	pending = false
@@ -204,7 +230,15 @@ local function Refresh()
 	Try(ReadGear, c)
 	Try(ReadProfGear, c)
 	Try(ReadRest, c)
-	Try(ReadProfs, c)
+	local profsBefore = ProfsKey(c)
+	local ok, read = Try(ReadProfs, c)
+	if ok and read == false and profRetries < PROF_RETRIES then
+		profRetries = profRetries + 1
+		C_Timer.After(DEBOUNCE, ns.AltsCollect_Request)
+	end
+	if ProfsKey(c) ~= profsBefore and ns.AltsList_Changed then
+		ns.AltsList_Changed()
+	end
 	ns.Alts_Changed()
 end
 

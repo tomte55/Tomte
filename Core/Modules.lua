@@ -222,16 +222,19 @@ end
 
 -- Lines for the settings header from module.uses / module.conflicts / module.replaces ({ addon, why }).
 -- isLoaded(addon) -> bool. ok: a used addon is loaded, or a conflicting or replaced one isn't. addon: its name;
--- conflict: from module.conflicts; overlap: from module.replaces (an addon doing the module's job).
+-- conflict: from module.conflicts; overlap: from module.replaces (an addon doing the module's job). A used addon's
+-- optional `unneeded()` returning true leaves its line out (something in Tomte does its job now).
 function ns.ModuleDependencies(module, isLoaded)
 	local lines = {}
 	for _, dep in ipairs(module.uses or {}) do
 		local loaded = isLoaded(dep.addon)
-		lines[#lines + 1] = {
-			ok = loaded,
-			addon = dep.addon,
-			text = ("Uses %s: %s"):format(dep.addon, loaded and dep.why or ("not loaded, " .. (dep.without or dep.why))),
-		}
+		if loaded or not (dep.unneeded and dep.unneeded()) then
+			lines[#lines + 1] = {
+				ok = loaded,
+				addon = dep.addon,
+				text = ("Uses %s: %s"):format(dep.addon, loaded and dep.why or ("not loaded, " .. (dep.without or dep.why))),
+			}
+		end
 	end
 	for _, dep in ipairs(module.conflicts or {}) do
 		local loaded = isLoaded(dep.addon)
