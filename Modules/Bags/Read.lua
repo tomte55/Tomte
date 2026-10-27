@@ -18,8 +18,14 @@ local HEARTHS = { [6948] = true, [110560] = true, [140192] = true }
 
 local IsSecret = ns.IsSecret
 local BindState = ns.Bags_BindState
+local Counts, MarkGained = ns.Bags_Counts, ns.Bags_MarkGained
 
 local cache = {} -- [bag * 1000 + slot] = item record
+-- Slots the game flagged new since the bags last closed: [bag * 1000 + slot] = link. Blizzard's item button clears
+-- the game's flag whenever the mouse is on it (ContainerFrameItemButtonMixin:OnUpdate, run by the tooltip), and New
+-- then redraws another item under the mouse, so with the flag alone New emptied itself while you looked at it.
+local seenNew = {}
+local countsAtClose -- Bags_Counts of the bags when they last closed, or at the session's first read
 
 local function Key(bag, slot)
 	return bag * 1000 + slot
@@ -141,11 +147,20 @@ function ns.BagsRead_Bags(containers)
 				-- Checked on every read, not cached: they change without the link changing.
 				item.locked = info.isLocked
 				item.isReadable = info.isReadable -- a book or letter (the inspect cursor), not "data loaded"
-				item.new = C_NewItems.IsNewItem(bag, slot)
+				if C_NewItems.IsNewItem(bag, slot) then
+					seenNew[key] = info.hyperlink
+				end
+				item.new = info.hyperlink ~= nil and seenNew[key] == info.hyperlink
 				item.set = sets[key]
 				items[#items + 1] = item
 			end
 		end
+	end
+	if not containers then
+		-- The first read of the session counts what you have, so loot is caught before the bags first close: the
+		-- game's flag alone can be gone before this read (the slot was under the mouse, as when opening a container).
+		countsAtClose = countsAtClose or Counts(items)
+		MarkGained(items, countsAtClose)
 	end
 	return items, pending
 end
@@ -214,15 +229,23 @@ function ns.BagsRead_LoadText(items)
 end
 
 -- Clears the "new" flag of every item in the bags: Blizzard does it when its bag frames hide (UpdateNewItemList in
--- ContainerFrame_OnHide), which never runs while they sit under Takeover.lua's hidden parent.
+-- ContainerFrame_OnHide), which never runs while they sit under Takeover.lua's hidden parent. Also forgets what
+-- Tomte saw as new, and counts what the bags hold now, so what comes in on top of a stack is new next time.
 function ns.BagsRead_ClearNew()
+	wipe(seenNew)
+	local held = {}
 	for _, bag in ipairs(BAGS) do
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
 			if C_NewItems.IsNewItem(bag, slot) then
 				C_NewItems.RemoveNewItem(bag, slot)
 			end
+			local info = C_Container.GetContainerItemInfo(bag, slot)
+			if info then
+				held[#held + 1] = { itemID = info.itemID, count = info.stackCount or 1 }
+			end
 		end
 	end
+	countsAtClose = Counts(held)
 end
 
 -- Drops cached records: one bag's, or every bag's (nil). Gear Check's verdicts and transmog changes need all.

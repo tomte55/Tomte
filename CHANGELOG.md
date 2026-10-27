@@ -16,6 +16,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Events:** holidays and weekly bonus events (Delves, Timewalking, PvP Brawl, pet battles and more) show a proper
   icon in Next up, on Home, on the Events page and in toasts, instead of a blank sliver of calendar art.
+- **Bags:** everything you get from opening a bag or cache now shows in New, including items that landed under your
+  mouse or went onto a stack you already had, and it stays there until you close your bags.
 
 ## v1.24.0 - 2026-10-27
 

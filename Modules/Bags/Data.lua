@@ -454,6 +454,30 @@ function ns.Bags_Group(items)
 	return out
 end
 
+-- How many of each item the records hold: [itemID] = count. Empty slots and records without an itemID are skipped.
+function ns.Bags_Counts(items)
+	local counts = {}
+	for _, item in ipairs(items) do
+		local id = not item.empty and item.itemID
+		if id then
+			counts[id] = (counts[id] or 0) + (item.count or 1)
+		end
+	end
+	return counts
+end
+
+-- Marks item.new on every stack of an item there's more of than in before (Bags_Counts of an earlier read): the
+-- game flags only slots that were empty, so loot that lands on a stack you had wouldn't count as new otherwise.
+function ns.Bags_MarkGained(items, before)
+	local now = ns.Bags_Counts(items)
+	for _, item in ipairs(items) do
+		local id = not item.empty and item.itemID
+		if id and now[id] > (before[id] or 0) then
+			item.new = true
+		end
+	end
+end
+
 -- Enum.ItemBind values (warcraft.wiki.gg/wiki/Enum.ItemBind).
 local BIND_ON_EQUIP, BIND_ON_USE = 2, 3
 local BIND_TO_ACCOUNT, BIND_TO_BNET, BIND_TO_BNET_UNTIL_EQUIPPED = 7, 8, 9

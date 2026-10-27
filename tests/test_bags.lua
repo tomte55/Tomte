@@ -336,6 +336,31 @@ test("grouping merges stacks of the same item, keeping the first stack's slot", 
 	eq(out[4].readable, false)
 end)
 
+test("counts add up stacks per item and skip empty slots", function()
+	local counts = ns.Bags_Counts({
+		{ itemID = 10, count = 20 }, { itemID = 10, count = 5 }, { itemID = 11 }, { empty = true }, { count = 3 },
+	})
+	eq(counts[10], 25)
+	eq(counts[11], 1)
+end)
+
+test("items there's more of than before are new, every stack of them", function()
+	local items = {
+		{ itemID = 10, count = 20 }, { itemID = 10, count = 7 }, -- had 25, got 2 more on top
+		{ itemID = 11, count = 4 }, -- had 4: unchanged
+		{ itemID = 12, count = 1 }, -- didn't have it
+		{ itemID = 13, count = 1 }, -- had 3, used some
+		{ empty = true },
+	}
+	ns.Bags_MarkGained(items, { [10] = 25, [11] = 4, [13] = 3 })
+	eq(items[1].new, true)
+	eq(items[2].new, true)
+	eq(items[3].new, nil)
+	eq(items[4].new, true)
+	eq(items[5].new, nil)
+	eq(items[6].new, nil)
+end)
+
 test("bind state from the bind type and whether this copy is bound", function()
 	eq(ns.Bags_BindState(1, true), "soulbound")
 	eq(ns.Bags_BindState(2, false), "boe")
