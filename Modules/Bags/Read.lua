@@ -21,6 +21,9 @@ local BindState = ns.Bags_BindState
 local Counts, MarkGained = ns.Bags_Counts, ns.Bags_MarkGained
 
 local cache = {} -- [bag * 1000 + slot] = item record
+-- Bumped when whether you can use things may have changed (combat ended, spec, skill, recipes): a cached record whose
+-- usableAt is older checks its red tint again on its next read, and nothing else about it.
+local usableGen = 0
 -- Slots the game flagged new since the bags last closed: [bag * 1000 + slot] = link. Blizzard's item button clears
 -- the game's flag whenever the mouse is on it (ContainerFrameItemButtonMixin:OnUpdate, run by the tooltip), and New
 -- then redraws another item under the mouse, so with the flag alone New emptied itself while you looked at it.
@@ -56,16 +59,51 @@ local function IsDecor(itemID)
 	return C_Item.IsDecorItem ~= nil and C_Item.IsDecorItem(itemID) == true
 end
 
--- True when the item's tooltip has a red line: wrong armor type, class, skill or level.
-local function Unusable(bag, slot)
+-- Red tooltip lines that don't mean "you can't use this": the game adds them in combat ("can't change equipment in
+-- combat"), in places you can't use it now, or for what can't be scrapped or disenchanted (the game's own words, so
+-- every client language). The same lines Baganator skips.
+local function NotUnusable(text)
+	return text == CANNOT_UNEQUIP_COMBAT or text == SPELL_FAILED_NOT_HERE or text == ITEM_SCRAPABLE_NOT
+		or text == ITEM_DISENCHANT_NOT_DISENCHANTABLE or text == ERR_NOT_IN_COMBAT
+end
+
+-- The item's tooltip lines in red: wrong armor type, class, skill or level. { line } (empty when it's usable).
+local function RedLines(bag, slot)
+	local red = {}
 	local data = C_TooltipInfo.GetBagItem(bag, slot)
 	for _, line in ipairs(data and data.lines or {}) do
 		local color = line.leftColor
-		if color and not IsSecret(color.r) and color.r >= RED_MIN and color.g <= OTHER_MAX and color.b <= OTHER_MAX then
-			return true
+		if color and not IsSecret(color.r) and color.r >= RED_MIN and color.g <= OTHER_MAX and color.b <= OTHER_MAX
+			and not (IsSecret(line.leftText) or NotUnusable(line.leftText)) then
+			red[#red + 1] = line
 		end
 	end
-	return false
+	return red
+end
+
+local function Unusable(bag, slot)
+	return #RedLines(bag, slot) > 0
+end
+
+-- /tomte bags red: each bag item tinted red and the tooltip lines that did it (type and text).
+function ns.BagsRead_PrintRed()
+	local found = false
+	for _, bag in ipairs(BAGS) do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) do
+			local info = C_Container.GetContainerItemInfo(bag, slot)
+			local _, _, _, _, _, _, _, _, _, _, _, classID = info and info.hyperlink and C_Item.GetItemInfo(info.hyperlink)
+			if classID and CAN_BE_UNUSABLE[classID] then
+				for _, line in ipairs(RedLines(bag, slot)) do
+					found = true
+					print(("  %s: line type %s, \"%s\""):format(info.hyperlink, tostring(line.type),
+						tostring(line.leftText)))
+				end
+			end
+		end
+	end
+	if not found then
+		print("  No item in your bags is red.")
+	end
 end
 
 -- A caged battle pet: its link isn't an item link, so the item info calls know nothing about it.
@@ -111,6 +149,7 @@ local function Record(bag, slot, info)
 	item.questID, item.questActive = quest and quest.questID, quest and quest.isActive
 	if CAN_BE_UNUSABLE[classID] then
 		item.unusable = Unusable(bag, slot)
+		item.usableAt = usableGen
 	end
 	if classID == WEAPON or classID == ARMOR then
 		item.ilvl = C_Item.GetCurrentItemLevel(location)
@@ -143,6 +182,9 @@ function ns.BagsRead_Bags(containers)
 					item, waiting = Record(bag, slot, info)
 					pending = pending or waiting == true
 					cache[key] = item.readable and item or nil
+				elseif item.usableAt and item.usableAt ~= usableGen then
+					item.unusable = Unusable(bag, slot)
+					item.usableAt = usableGen
 				end
 				-- Checked on every read, not cached: they change without the link changing.
 				item.locked = info.isLocked
@@ -246,6 +288,12 @@ function ns.BagsRead_ClearNew()
 		end
 	end
 	countsAtClose = Counts(held)
+end
+
+-- Whether you can use gear and recipes may have changed: each cached one checks its red tint again when next read
+-- (cheap: only those items, only once, only when a window draws).
+function ns.BagsRead_UsableChanged()
+	usableGen = usableGen + 1
 end
 
 -- Drops cached records: one bag's, or every bag's (nil). Gear Check's verdicts and transmog changes need all.
