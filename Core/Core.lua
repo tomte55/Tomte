@@ -94,6 +94,21 @@ function ns.Readable(...)
 	return not canaccessallvalues or canaccessallvalues(...)
 end
 
+-- An item's appearance the account hasn't collected from any source: "you" when this character can collect it,
+-- "other" when only another class or armor type can; nil when it's collected or the item has no appearance.
+function ns.NewAppearance(link)
+	local _, sourceID = C_TransmogCollection.GetItemInfo(link)
+	if not sourceID then
+		return nil
+	end
+	local info = C_TransmogCollection.GetAppearanceInfoBySource(sourceID)
+	if not info or info.appearanceIsCollected then
+		return nil
+	end
+	local _, canCollect = C_TransmogCollection.PlayerCanCollectSource(sourceID)
+	return canCollect == true and "you" or "other"
+end
+
 local events = ns.NewEvents()
 ns.Core_Events = events
 events:Watch("core", "ADDON_LOADED")

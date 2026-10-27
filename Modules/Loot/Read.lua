@@ -19,16 +19,7 @@ local IsGear = ns.Loot_IsGear
 
 -- An appearance you haven't collected from any source, and can collect on this character.
 local function NewLook(link)
-	local _, sourceID = C_TransmogCollection.GetItemInfo(link)
-	if not sourceID then
-		return false
-	end
-	local info = C_TransmogCollection.GetAppearanceInfoBySource(sourceID)
-	if not info or info.appearanceIsCollected then
-		return false
-	end
-	local _, canCollect = C_TransmogCollection.PlayerCanCollectSource(sourceID)
-	return canCollect == true
+	return ns.NewAppearance(link) == "you"
 end
 
 local function Verdict(link, ctx)

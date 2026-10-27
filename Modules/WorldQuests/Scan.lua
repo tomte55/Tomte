@@ -221,16 +221,7 @@ end
 
 -- An appearance this character can collect and the account doesn't have.
 local function MissingAppearance(link)
-	local _, sourceID = C_TransmogCollection.GetItemInfo(link)
-	if not sourceID then
-		return false
-	end
-	local info = C_TransmogCollection.GetAppearanceInfoBySource(sourceID)
-	if not info or info.appearanceIsCollected then
-		return false
-	end
-	local _, canCollect = C_TransmogCollection.PlayerCanCollectSource(sourceID)
-	return canCollect == true
+	return ns.NewAppearance(link) == "you"
 end
 
 local function Capped(currencyID)
