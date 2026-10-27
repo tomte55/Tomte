@@ -80,6 +80,19 @@ function ns.Counts_CharItems(guid, place)
 	return char and char.places and char.places[place] or {}
 end
 
+-- What the record has of a bank (Bags' remembered bank): { { id, link, count } } and when it was read (server time,
+-- nil if never). guid: a character's bank; nil: the Warband bank.
+function ns.Counts_Bank(guid)
+	if not (db and ns.Counts_Active()) then
+		return {}, nil
+	end
+	if guid == nil then
+		return db.warband and db.warband.items or {}, db.warband and db.warband.at
+	end
+	local char = db.chars[guid]
+	return char and char.places and char.places.bank or {}, char and char.bankAt
+end
+
 -- /tomte counts forget <name>
 local function Forget(_, rawArg)
 	local name = rawArg and rawArg:match("^%s*(.-)%s*$")

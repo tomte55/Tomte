@@ -13,6 +13,9 @@ local addonName, ns = ...
 -- to a real click, which Tomte's buttons are. Closing is C_Bank.CloseBankFrame, not HideUIPanel (the panel manager
 -- from addon code taints). Blizzard's bank source: Blizzard_UIPanels_Game/Mainline/BankFrame.lua. Registered in
 -- Bags.lua.
+--
+-- Away from a banker the same window shows the bank as Item counts last read it (ns.BagsBank_ShowRemembered, the bag
+-- window's Bank button): display-only items, no tabs, nothing to deposit, "Seen 2h ago" in the footer.
 
 local PAD = 8 -- window edge to the tray, and the tray to the bands
 local TRAY_PAD = 8
@@ -29,7 +32,6 @@ local DRAWER_SLIDE = 0.15 -- seconds
 local OFF_SCREEN = -10000 -- where Blizzard's bank frame waits while Tomte's shows the bank
 local CHARACTER, ACCOUNT = Enum.BankType.Character, Enum.BankType.Account
 local DEPOSIT_REAGENTS_CVAR = "bankAutoDepositReagents" -- the game's "Include reagents" choice (BankFrame.lua)
-local SORT_ICON = "Interface\\Icons\\INV_Pet_Broom"
 local COIN_ICONS = {
 	gold = "%s|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t",
 	silver = "%s|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t",
@@ -41,12 +43,13 @@ local UI = ns.UI
 local db
 local active = false -- the Bags module is on
 local frame, header, tray, footer, body, view, title, typeSwitch, deposit, reagents, money, moneyCluster, buyTab
-local everyTab, search, altsCluster
+local everyTab, search, altsCluster, right, seen
 local matcher, matcherText -- the bank's own compiled search (nil for none) and whether it reads tooltip text
 local tabButtons = {}
 local Place -- the window at its saved top-left corner (below)
 local RenameTab -- below
 local tabFilter -- a tab's container ID: only that tab shows; nil for all
+local remembered -- { guid (nil: the Warband bank's owner, the account), bankType } while showing the remembered bank
 local hooked = false
 local queued = false
 local blizzardPoints -- where Blizzard put its bank frame, to put it back
@@ -238,11 +241,74 @@ local function FooterWidth()
 	return math.ceil(w)
 end
 
+-- The remembered bank (see the top of the file).
+local function DrawRemembered()
+	local bankType = remembered.bankType
+	local owner = remembered.guid
+	if bankType == ACCOUNT then
+		owner = nil -- the Warband bank's record
+	end
+	local list, at = ns.Counts_Bank(owner)
+	local items = ns.BagsRead_FromList(list)
+	if matcher and matcherText then
+		ns.BagsRead_LoadText(items)
+	end
+	local n = 0
+	local width, height = view:Draw(items, {
+		layout = ns.Bags_Layout(), place = bankType == ACCOUNT and "warband" or "bank",
+		columns = db.bankWidth, paint = ns.BagsWindow_PaintOptions(),
+		matches = function(item)
+			return item.empty or not matcher or (item.readable ~= false and matcher(item) == true)
+		end,
+		button = function()
+			n = n + 1
+			return ns.BagsButtons_GetView(body, n)
+		end,
+	})
+	local name = remembered.guid ~= UnitGUID("player") and ns.Counts_CharName(remembered.guid)
+	title:SetText(bankType == ACCOUNT and "Warband bank" or name and (name .. "'s bank") or "Character bank")
+	for i, t in ipairs({ CHARACTER, ACCOUNT }) do
+		typeSwitch.buttons[i]:Show()
+		typeSwitch:SetLit(i, t == bankType)
+	end
+	typeSwitch:Layout()
+	everyTab:Hide()
+	buyTab:Hide()
+	for _, b in ipairs(tabButtons) do
+		b:Hide()
+	end
+	for _, f in ipairs({ deposit, reagents, altsCluster, moneyCluster }) do
+		f:Hide()
+	end
+	seen:Show()
+	-- bankAt is newer than the character banks Item counts already holds: those say "last visit" without a time.
+	seen:SetText(at and ("Seen %s ago, at your last visit"):format(ns.Ago(GetServerTime() - at))
+		or #list > 0 and "As of your last visit"
+		or "Not seen yet: open the bank once with Item counts on")
+	-- The Warband bank's gold can be read anywhere (Blizzard's money frame does, on ACCOUNT_MONEY).
+	local gold = bankType == ACCOUNT and C_Bank.FetchDepositedMoney(ACCOUNT)
+	local hasGold = type(gold) == "number" and not ns.IsSecret(gold)
+	money:SetShown(hasGold)
+	if hasGold then
+		money:SetText(ns.Coins(gold, "exact", COIN_ICONS))
+	end
+	frame:SetSize(math.max(width + 2 * (PAD + TRAY_PAD), MIN_W),
+		BAND_H + PAD + 2 * TRAY_PAD + height + PAD + FOOT_H) -- items whose data arrives later: Bags.lua redraws
+end
+
 local function Draw()
 	queued = false
 	if not (frame and frame:IsShown()) then
 		return
 	end
+	right.buttons[1]:SetShown(remembered == nil) -- Clean Up: only at a banker
+	right:Layout()
+	if remembered then
+		DrawRemembered()
+		return
+	end
+	everyTab:Show()
+	seen:Hide()
 	local bankType = ActiveType()
 	if not bankType then
 		return
@@ -467,12 +533,24 @@ local function Build()
 	header:SetPoint("TOPLEFT", 1, -1)
 	header:SetPoint("TOPRIGHT", -1, -1)
 	header:SetHeight(BAND_H)
+	-- At a banker it switches the bank; for the remembered bank, which one is shown.
+	local function Pick(bankType)
+		if remembered then
+			if remembered.bankType ~= bankType then
+				remembered.bankType = bankType
+				view:Release()
+				ns.BagsBank_Refresh()
+			end
+		else
+			SwitchTo(bankType)
+		end
+	end
 	typeSwitch = ns.BagsKit_Cluster(header, {
 		{ text = "Character", onClick = function()
-			SwitchTo(CHARACTER)
+			Pick(CHARACTER)
 		end },
 		{ text = "Warband", onClick = function()
-			SwitchTo(ACCOUNT)
+			Pick(ACCOUNT)
 		end },
 	})
 	typeSwitch:SetPoint("LEFT", PAD, 0)
@@ -480,15 +558,19 @@ local function Build()
 	title:SetPoint("LEFT", typeSwitch, "RIGHT", 12, 0)
 	title:SetWordWrap(false)
 	title:SetWidth(TITLE_W)
-	local right = ns.BagsKit_Cluster(header, {
-		{ icon = SORT_ICON, tip = "Clean up this bank", onClick = function()
+	right = ns.BagsKit_Cluster(header, {
+		{ glyph = "Broom", tip = "Clean up this bank", onClick = function()
 			local bankType = ActiveType()
 			if bankType and not InCombatLockdown() then
 				C_Container.SortBank(bankType)
 			end
 		end },
-		{ text = "x", tip = "Close the bank", onClick = function()
-			C_Bank.CloseBankFrame()
+		{ glyph = "Close", tip = "Close the bank", onClick = function()
+			if remembered then
+				frame:Hide()
+			else
+				C_Bank.CloseBankFrame()
+			end
 		end },
 	})
 	right:SetPoint("RIGHT", -PAD, 0)
@@ -614,12 +696,22 @@ local function Build()
 	moneyCluster:SetPoint("RIGHT", -PAD, 0)
 	money = UI.Text(footer, 12, "text", "number")
 	money:SetPoint("RIGHT", moneyCluster, "LEFT", -10, 0)
+	seen = UI.Text(footer, 11, "textMuted")
+	seen:SetPoint("LEFT", PAD, 0)
+	seen:Hide()
+	-- Esc closes the bank window like the game's windows (the remembered bank has nothing else that would close it).
+	table.insert(UISpecialFrames, frame:GetName())
 	frame:SetScript("OnShow", function()
 		Draw()
 	end)
 	frame:SetScript("OnHide", function()
 		view:Release()
 		tabFilter = nil
+		if not remembered and BankFrame and BankFrame:IsShown() then
+			-- Esc hid the window first: the visit ends with it, or the bank would stay open unseen.
+			C_Bank.CloseBankFrame()
+		end
+		remembered = nil
 		search:SetText("") -- each visit starts unfiltered
 		search:ClearFocus()
 		if moneyBox then
@@ -647,6 +739,11 @@ local function Opened()
 	HideGameBank()
 	if not frame then
 		Build()
+	end
+	if remembered then
+		-- The remembered bank was open: the real one takes the window over.
+		remembered = nil
+		view:Release()
 	end
 	Place()
 	frame:Show()
@@ -696,6 +793,35 @@ local function Hook()
 end
 
 -- API ----------------------------------------------------------------------------------------------------------------
+
+-- The bank as Item counts last read it, away from a banker (the bag window's Bank button): guid's character bank (nil:
+-- yours). At a banker the real bank is already showing; it comes to the front.
+function ns.BagsBank_ShowRemembered(guid)
+	if not active then
+		return
+	end
+	if not frame then
+		Build()
+	end
+	if frame:IsShown() and not remembered then
+		frame:Raise()
+		return
+	end
+	if frame:IsShown() and remembered and remembered.guid == (guid or UnitGUID("player")) then
+		frame:Hide() -- the button closes it again
+		return
+	end
+	remembered = { guid = guid or UnitGUID("player"), bankType = remembered and remembered.bankType
+		or (db.bankStart == "character" and CHARACTER or ACCOUNT) }
+	view:Release()
+	if not frame:IsShown() then
+		Place()
+		frame:Show()
+		UI.Appear(frame)
+	else
+		ns.BagsBank_Refresh()
+	end
+end
 
 -- Puts text in the bank's search box while the bank window is open.
 function ns.BagsBank_Search(text)

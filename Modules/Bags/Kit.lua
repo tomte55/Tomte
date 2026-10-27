@@ -12,11 +12,15 @@ local SHADOW_H = 4 -- the inner shadow along a tray's or a search box's top edge
 local SHADOW = 0.6
 local LIGHT_EDGE = 0.04 -- the faint light line under a tray (its lower lip catching light)
 local BUTTON_H = 22
-local ICON = 14
-local ICON_BUTTON_W = 24
+local ICON = 18 -- an icon button's glyph (14 was too small to tell apart, measured in game)
+local ICON_BUTTON_W = 26
 local TEXT_PAD = 16 -- a text button's width beyond its label
 local SEARCH_SHADE = 0.45
 local LIT = 0.18 -- the accent wash on a lit cluster button
+local GLYPHS = "Interface\\AddOns\\Tomte\\Media\\Bags\\" -- tools/bags_art.py's icons
+local GLYPH_ROLE, GLYPH_HOVER = "textMuted", "text" -- white shapes, tinted by the theme: a step brighter under the mouse
+local TOOLBAR_GAP = 2 -- between the buttons of an icon-only cluster (no frame, no dividers)
+local CLUSTER_EDGE = 0.6 -- a text cluster's faint outline (the theme's rule color)
 
 local UI = ns.UI
 
@@ -86,12 +90,25 @@ local function ClusterButton(cluster, spec)
 	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	UI.HoverWash(b)
 	b.lit = Fill(b, "BACKGROUND", 3, 0)
-	if spec.icon then
+	if spec.glyph then
+		b.icon = b:CreateTexture(nil, "ARTWORK")
+		b.icon:SetSize(ICON, ICON)
+		b.icon:SetPoint("CENTER")
+		b.icon:SetTexture(GLYPHS .. spec.glyph)
+		b.icon:SetVertexColor(UI.RGB(GLYPH_ROLE))
+		b:SetWidth(ICON_BUTTON_W)
+	elseif spec.icon then
 		b.icon = b:CreateTexture(nil, "ARTWORK")
 		b.icon:SetSize(ICON, ICON)
 		b.icon:SetPoint("CENTER")
 		if type(spec.icon) == "string" and not spec.icon:find("\\") then
 			b.icon:SetAtlas(spec.icon)
+			-- Kept to its own shape inside the square (a tall bag, a wide group silhouette).
+			local info = C_Texture.GetAtlasInfo(spec.icon)
+			if info and info.width > 0 and info.height > 0 then
+				local scale = ICON / math.max(info.width, info.height)
+				b.icon:SetSize(info.width * scale, info.height * scale)
+			end
 		else
 			b.icon:SetTexture(spec.icon)
 		end
@@ -104,6 +121,9 @@ local function ClusterButton(cluster, spec)
 	end
 	b:SetScript("OnEnter", function(self)
 		UI.WashTo(self.hoverWash, true)
+		if spec.glyph then
+			self.icon:SetVertexColor(UI.RGB(GLYPH_HOVER))
+		end
 		if spec.tip then
 			GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
 			GameTooltip:SetText(spec.tip)
@@ -115,20 +135,31 @@ local function ClusterButton(cluster, spec)
 	end)
 	b:SetScript("OnLeave", function(self)
 		UI.WashTo(self.hoverWash, false)
+		if spec.glyph then
+			self.icon:SetVertexColor(UI.RGB(GLYPH_ROLE))
+		end
 		GameTooltip:Hide()
 	end)
 	b:SetScript("OnClick", spec.onClick)
 	return b
 end
 
--- Buttons joined in one frame, divided by rules. specs: { { icon | text, tip, tipLine, onClick } }. The cluster sizes
--- itself; cluster.buttons[i]; cluster:SetLit(i, on) lights one (a switch's chosen part); cluster:Layout() after
--- showing or hiding buttons or changing a label.
+-- Buttons in a row. specs: { { glyph | icon | text, tip, tipLine, onClick } } (glyph: one of tools/bags_art.py's icons
+-- by name, "Bag"; icon: a texture, or an atlas when it has no backslash). Icon-only clusters are a plain toolbar (no
+-- frame: the icons and the hover say they're buttons); a cluster with text is joined in a faint frame, divided by
+-- rules. The cluster sizes itself; cluster.buttons[i]; cluster:SetLit(i, on) lights one (a switch's chosen part);
+-- cluster:Layout() after showing or hiding buttons or changing a label.
 function ns.BagsKit_Cluster(parent, specs)
 	local cluster = CreateFrame("Frame", nil, parent)
 	cluster:SetHeight(BUTTON_H + 2)
-	Fill(cluster, "BACKGROUND", 1, 0.15)
-	UI.Border(cluster, "frame")
+	local toolbar = true
+	for _, spec in ipairs(specs) do
+		toolbar = toolbar and (spec.glyph or spec.icon) ~= nil
+	end
+	if not toolbar then
+		Fill(cluster, "BACKGROUND", 1, 0.15)
+		UI.Border(cluster, "rule", CLUSTER_EDGE)
+	end
 	cluster.buttons, cluster.dividers = {}, {}
 	for i, spec in ipairs(specs) do
 		cluster.buttons[i] = ClusterButton(cluster, spec)
@@ -144,7 +175,9 @@ function ns.BagsKit_Cluster(parent, specs)
 				if b.label then
 					b:SetWidth(math.ceil(b.label:GetStringWidth()) + TEXT_PAD)
 				end
-				if shown > 0 then
+				if shown > 0 and toolbar then
+					x = x + TOOLBAR_GAP
+				elseif shown > 0 then
 					local d = self.dividers[shown]
 					if not d then
 						d = self:CreateTexture(nil, "ARTWORK")

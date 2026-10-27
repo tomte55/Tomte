@@ -26,7 +26,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
   for crafts" takes out exactly what your tracked crafts need, from your bank and the Warband bank.
 - **Bags:** your own categories on a Bag categories page: add, rename, drag to reorder, sections, rules with a preview,
   priority, items that always go in, where each shows, share and import. Save a search, or turn it into a category.
-- **Bags:** look at another character's bags, and find an item on all your characters.
+- **Bags:** look at another character's bags (and their bank, or yours, as you last saw it, from anywhere), and find
+  an item on all your characters.
 - **Item counts (new module):** item tooltips say how many each of your characters has and where (bags, bank, mail,
   worn), plus the Warband bank and guild banks. The crafting list counts materials on every character with it.
 - **Dressing room:** gear tooltips say whether you have the item's look: not collected (or only for another class),

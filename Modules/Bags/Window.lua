@@ -25,10 +25,6 @@ local COIN_ICONS = {
 	silver = "%s|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t",
 	copper = "%s|TInterface\\MoneyFrame\\UI-CopperIcon:0:0:2:0|t",
 }
-local SORT_ICON = "Interface\\Icons\\INV_Pet_Broom"
-local CHARS_ICON = 236448 -- achievement_character_human_male, the Alts page's icon
-local STAR_ATLAS = "auctionhouse-icon-favorite" -- Blizzard's favorite star, the saved searches button
-local BAGS_ICON = "Interface\\Icons\\INV_Misc_Bag_08"
 
 local UI = ns.UI
 
@@ -521,13 +517,18 @@ local function Build()
 	header:SetPoint("TOPRIGHT", -1, -1)
 	header:SetHeight(BAND_H)
 	leftCluster = ns.BagsKit_Cluster(header, {
-		{ icon = BAGS_ICON, tip = "Bag slots", tipLine = "Show your equipped bags on top of the window.", onClick = function()
+		{ glyph = "Bag", tip = "Bag slots", tipLine = "Show your equipped bags on top of the window.", onClick = function()
 			showSlots = not showSlots
 			DrawSlots()
 		end },
-		{ icon = CHARS_ICON, tip = "Other characters", tipLine = "Look at another character's bags.",
+		{ glyph = "People", tip = "Other characters", tipLine = "Look at another character's bags.",
 			onClick = function(self)
 				CharacterMenu(self)
+			end },
+		{ glyph = "Bank", tip = "Bank",
+			tipLine = "Your bank as you last saw it (or the character's whose bags you're looking at). Needs Item counts.",
+			onClick = function()
+				ns.BagsBank_ShowRemembered(viewChar)
 			end },
 	})
 	leftCluster:SetPoint("LEFT", PAD, 0)
@@ -536,24 +537,22 @@ local function Build()
 	title:SetWordWrap(false)
 	title:SetText("Bags")
 	rightCluster = ns.BagsKit_Cluster(header, {
-		{ icon = STAR_ATLAS, tip = "Saved searches",
+		{ glyph = "Star", tip = "Saved searches",
 			tipLine = "Save the search in the box, use a saved one, or make a category of it.", onClick = SearchMenu },
-		{ icon = SORT_ICON, tip = "Clean up bags", onClick = function()
+		{ glyph = "Broom", tip = "Clean up bags", onClick = function()
 			if InCombatLockdown() then
 				ns.Print_Combat("sort your bags")
 				return
 			end
 			C_Container.SortBags()
 		end },
-		{ icon = UI.GEAR, tip = "Bags settings", onClick = function()
+		{ glyph = "Gear", tip = "Bags settings", onClick = function()
 			ns.Panel_OpenModule("bags")
 		end },
-		{ text = "x", tip = "Close", onClick = function()
+		{ glyph = "Close", tip = "Close", onClick = function()
 			ns.BagsTakeover_Close() -- Blizzard's bags close too, so the bag key opens them again
 		end },
 	})
-	rightCluster.buttons[3].icon:SetTexCoord(0, 0.5, 0, 0.5)
-	rightCluster.buttons[3].icon:SetVertexColor(UI.RGB("textMuted"))
 	rightCluster:SetPoint("RIGHT", -PAD, 0)
 	search = ns.BagsKit_Search(header, "Search, try is:upgrade", OnSearchChanged)
 	search:SetPoint("LEFT", title, "RIGHT", 12, 0)
@@ -602,6 +601,12 @@ local function Build()
 		UpdateHover()
 		view:Release()
 		ns.BagsRead_ClearNew() -- what Blizzard's bags do when they close
+		if viewChar then
+			-- Opening the bags again shows yours, not the character you were looking at.
+			viewChar = nil
+			title:SetText("Bags")
+			title:SetWidth(math.min(title:GetUnboundedStringWidth(), TITLE_MAX_W))
+		end
 	end)
 end
 

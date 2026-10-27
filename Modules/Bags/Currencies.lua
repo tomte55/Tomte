@@ -12,7 +12,6 @@ local ROW_H = 20
 local ICON = 14
 local INDENT = 12 -- per level of the list's depth
 local MAX_LIST = 400 -- a bound for reading the game's currency list
-local BUTTON_ICON = "Interface\\Icons\\INV_Misc_Coin_02"
 
 local UI = ns.UI
 
@@ -164,7 +163,7 @@ local function Build()
 	local title = UI.Text(band, 14, "heading", "title")
 	title:SetPoint("LEFT", PAD, 0)
 	title:SetText("Currencies")
-	local close = ns.BagsKit_Cluster(band, { { text = "x", tip = "Close", onClick = function()
+	local close = ns.BagsKit_Cluster(band, { { glyph = "Close", tip = "Close", onClick = function()
 		panel:Hide()
 	end } })
 	close:SetPoint("RIGHT", -PAD, 0)
@@ -191,7 +190,7 @@ end
 -- left edge. One side panel at a time: Find on all characters closes.
 function ns.BagsCurrencies_Button(parent, window)
 	anchor = window
-	return ns.BagsKit_Cluster(parent, { { icon = BUTTON_ICON, tip = "Currencies", onClick = function()
+	return ns.BagsKit_Cluster(parent, { { glyph = "Coin", tip = "Currencies", onClick = function()
 		if not panel then
 			Build()
 		end

@@ -78,6 +78,7 @@ local function ReadBank()
 	end
 	if C_Bank.CanViewBank(Enum.BankType.Character) then
 		Me().places.bank = ReadContainers(TabIDs(Enum.BankType.Character))
+		Me().bankAt = GetServerTime()
 	end
 	if C_Bank.CanViewBank(Enum.BankType.Account) then
 		db.warband.items = ReadContainers(TabIDs(Enum.BankType.Account))

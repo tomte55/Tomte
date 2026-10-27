@@ -5,7 +5,8 @@ local addonName, ns = ...
 -- Counts.lua registers the module; Alts and Bags ask through ns.Counts_* functions.
 --
 -- The record (TomteDB.counts):
---   chars[guid] = { name, realm, class, money, at, places = { [place] = { { id, link, count } ... } } }
+--   chars[guid] = { name, realm, class, money, at, bankAt (when the bank was read), places = { [place] =
+--                   { { id, link, count } ... } } }
 --     place: "bags", "bank", "mail", "equipped"
 --   warband = { at, items = { { id, link, count } ... } }
 --   guilds[key] = { name, at, tabs = { [tab] = { { id, link, count } ... } } }   key: "Guild-Realm"
