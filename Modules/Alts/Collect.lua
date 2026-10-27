@@ -427,12 +427,20 @@ local function SyndicatorAPI()
 	return nil
 end
 
+-- Item counts (Tomte's own record) is on: every character's items are counted.
+local function TomteCounts()
+	return ns.Counts_Active ~= nil and ns.Counts_Active()
+end
+
+-- Items on every character are counted (Item counts, or else Syndicator); false: this character and the Warband
+-- bank only.
 function ns.Alts_HasSyndicator()
-	return SyndicatorAPI() ~= nil
+	return TomteCounts() or SyndicatorAPI() ~= nil
 end
 
 -- How many of these items (quality ranks of one reagent) the account has, and where: total, { { name, n, class } }
--- sorted most first. Without Syndicator: this character's bags, bank, reagents and Warband bank.
+-- sorted most first. From Item counts, else Syndicator; without either: this character's bags, bank, reagents and
+-- Warband bank.
 function ns.Alts_Have(items)
 	local total, byWhere, classOf = 0, {}, {}
 	local function Add(where, n, class)
@@ -443,7 +451,24 @@ function ns.Alts_Have(items)
 		end
 	end
 	local api = SyndicatorAPI()
-	if api then
+	if TomteCounts() then
+		-- Other characters from the record; this one and the Warband bank live from the game (the record has the bank
+		-- only once it was opened with Item counts on). Worn gear isn't material.
+		local me = UnitGUID("player")
+		for _, itemID in ipairs(items) do
+			for _, w in ipairs(ns.Counts_Where(ns.Counts_Entry(itemID))) do
+				if w.guid and w.guid ~= me and w.where ~= "equipped" then
+					local name = ns.Counts_CharName(w.guid) or "?"
+					local char = ns.altsDB and ns.altsDB.chars[w.guid]
+					Add(name, w.n, char and char.class)
+				end
+			end
+			local mine = C_Item.GetItemCount(itemID, true, false, true, false)
+			local all = C_Item.GetItemCount(itemID, true, false, true, true)
+			Add(UnitName("player"), mine, select(2, UnitClass("player")))
+			Add("Warband bank", (all or 0) - (mine or 0))
+		end
+	elseif api then
 		for _, itemID in ipairs(items) do
 			local info = api.GetInventoryInfoByItemID(itemID, false, false)
 			for _, c in ipairs(info and info.characters or {}) do

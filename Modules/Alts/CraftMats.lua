@@ -35,6 +35,9 @@ local function WatchMaterials()
 			pcall(Syndicator.CallbackRegistry.RegisterCallback, Syndicator.CallbackRegistry, name, ClearMaterials, matsOwner)
 		end
 	end
+	if ns.Counts_OnChange then
+		ns.Counts_OnChange(ClearMaterials) -- Item counts' record changed
+	end
 end
 
 local function HaveMaterials(list)
@@ -81,7 +84,8 @@ function ns.AltsCraft_Why(text)
 		ns.Print("no recipe matches \"" .. text .. "\".")
 		return
 	end
-	ns.Print(("Syndicator %s."):format(ns.Alts_HasSyndicator() and "is counting" or "isn't loaded or ready: only this character and the Warband bank"))
+	ns.Print(ns.Alts_HasSyndicator() and "Counting every character's materials."
+		or "Item counts is off: only this character and the Warband bank are counted.")
 	for _, r in ipairs(found) do
 		local ok, plan = pcall(ns.Alts_Plan, r.id, 1, {
 			recipes = S.db.recipes, chars = S.db.chars, producers = S.producers,

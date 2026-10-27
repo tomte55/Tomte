@@ -21,8 +21,8 @@ local BAGANATOR_ID = "tomte_craftlist"
 -- Seconds the to-do is kept. AltsList_Changed drops it on bag, bank, mail, craft and recipe changes; this only
 -- catches what has no event (item names and prices arriving). The rail polls the pill every second.
 local CACHE = 15
--- Under the to-do without Syndicator (List tab and tracker).
-local PARTIAL_NOTE = "Materials on your other characters aren't counted without Syndicator."
+-- Under the to-do without Item counts or Syndicator (List tab and tracker).
+local PARTIAL_NOTE = "Materials on your other characters aren't counted: turn on Item counts."
 ns.ALTS_PARTIAL_NOTE = PARTIAL_NOTE
 local LINE_COLORS = {
 	grab = "text", collect = "text", take = "text", mail = "text", deposit = "text", fetch = "text", missing = "danger",
@@ -53,7 +53,7 @@ local inCombat = false
 local refreshTimer
 
 local events = ns.Alts_Events
-local baganatorRegistered, syndicatorRegistered
+local baganatorRegistered, syndicatorRegistered, countsRegistered
 -- Syndicator's callback registry stores callbacks per owner: its own table, not shared with CraftMats.lua.
 local listOwner = {}
 
@@ -85,9 +85,38 @@ local function GuidOf(character)
 	return guidByName[plain] or guidByName[character:match("^([^%-]+)") or character]
 end
 
--- { { guid, where, n } } for one item: every character's bags, bank and mail, and the Warband bank.
+-- { { guid, where, n } } for one item: every character's bags, bank and mail, and the Warband bank. From Item counts
+-- (Tomte's own record, by GUID like ours), else Syndicator, else this character only.
 local function Where(itemID)
 	local list = {}
+	local me = UnitGUID("player")
+	-- This character and the Warband bank, live from the game.
+	local function Mine()
+		local bags = C_Item.GetItemCount(itemID, false, false, true, false) or 0
+		local withBank = C_Item.GetItemCount(itemID, true, false, true, false) or 0
+		local all = C_Item.GetItemCount(itemID, true, false, true, true) or 0
+		if bags > 0 then
+			list[#list + 1] = { guid = me, where = "bags", n = bags }
+		end
+		if withBank > bags then
+			list[#list + 1] = { guid = me, where = "bank", n = withBank - bags }
+		end
+		if all > withBank then
+			list[#list + 1] = { where = "warband", n = all - withBank }
+		end
+	end
+	-- Item counts: other characters from its record (it has this one's bank only once it was opened).
+	if ns.Counts_Active and ns.Counts_Active() then
+		for _, w in ipairs(ns.Counts_Where(ns.Counts_Entry(itemID))) do
+			if w.guid and w.guid ~= me and w.where ~= "equipped" then
+				list[#list + 1] = w
+			elseif w.guid == me and w.where == "mail" then
+				list[#list + 1] = w
+			end
+		end
+		Mine()
+		return list
+	end
 	local api = SyndicatorAPI()
 	if api then
 		local info = api.GetInventoryInfoByItemID(itemID, false, false)
@@ -129,7 +158,7 @@ end
 -- Without Syndicator only this character and the Warband bank are counted: a material "to get" may be on another
 -- character. True when that can be so (another character known, something missing).
 function ns.AltsList_PartialCounts(todos)
-	if SyndicatorAPI() or not ns.altsDB then
+	if ns.Alts_HasSyndicator() or not ns.altsDB then
 		return false
 	end
 	local me, others = UnitGUID("player"), false
@@ -911,6 +940,14 @@ function ns.AltsList_Start(moduleDB)
 		end
 	end
 	RegisterBaganator()
+	if ns.Counts_OnChange and not countsRegistered then
+		countsRegistered = true -- once per session; the listener checks that Alts is on
+		ns.Counts_OnChange(function()
+			if ns.altsModule.active then
+				ns.AltsList_Changed()
+			end
+		end)
+	end
 	if _G.Syndicator and Syndicator.CallbackRegistry and not syndicatorRegistered then
 		syndicatorRegistered = true
 		for _, name in ipairs({ "BagCacheUpdate", "MailCacheUpdate", "WarbandBankCacheUpdate" }) do

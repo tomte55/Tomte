@@ -342,8 +342,8 @@ module = ns.RegisterModule({
 		.. "materials and where they are, and who crafts what in which order. A character's recipes are read when it "
 		.. "opens its profession window.",
 	enabledByDefault = true,
-	uses = { { addon = "Syndicator", why = "item counts on every character and the Warband bank",
-		without = "only this character's bags, bank and the Warband bank are counted" },
+	uses = { { addon = "Syndicator", why = "item counts on every character, when Tomte's Item counts is off",
+		without = "Tomte's Item counts does it (or only this character's bags, bank and the Warband bank)" },
 		{ addon = "Auctionator", why = "shopping lists for missing materials" } },
 	keep = { "sendRules" }, -- typed by the user: a settings reset keeps it
 	noShare = { "filterChar", "filterFor" }, -- character GUIDs: not in settings strings (Core/Profile.lua)

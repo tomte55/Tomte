@@ -316,7 +316,7 @@ function LayoutDetail()
 		y = y + STEP_H
 	end
 	if not ns.Alts_HasSyndicator() then
-		y = Header(H_SYNDICATOR, "Syndicator isn't loaded: only this character's bags, bank and the Warband bank are counted.", y + 4)
+		y = Header(H_SYNDICATOR, "Item counts is off: only this character's bags, bank and the Warband bank are counted.", y + 4)
 	end
 	d.scroll:SetContentHeight(y + 8)
 end
