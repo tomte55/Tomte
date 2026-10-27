@@ -327,6 +327,7 @@ module = ns.RegisterModule({
 		opacity = 0.96,
 		resume = 5,
 		pills = true, -- counts on the rail
+		whatsNew = true, -- after an update, the first login shows what's new (Panel/Changes.lua)
 		motion = "full", -- "full" | "subtle" | "off": how much Tomte animates (Panel/Motion.lua)
 		sounds = "all", -- "all" | "important" | "off": which interface sounds play (UI.Sound)
 		around = {}, -- [home entry key] = false hides that "Around you" block (one true per block, set in AddRows)
@@ -368,6 +369,12 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "pills", label = "Counts on the rail", onChange = Redraw,
 			tooltip = "A small count beside a page in the list on the left when it has something for you: crafting "
 				.. "list steps for this character (Alts), vault rewards and full Concentration (Weekly board)." },
+		{ type = "checkbox", key = "whatsNew", label = "What's new after an update",
+			tooltip = "The first time you log in after updating Tomte, a small window says what's new and what's "
+				.. "fixed. /tomte changes shows it any time." },
+		{ type = "button", label = "This version's changes", text = "Show", onClick = function()
+			ns.ChangesUI_Show()
+		end, tooltip = "The window with what's new in this Tomte version." },
 		{ type = "header", label = "Motion and sound" },
 		{ type = "dropdown", key = "motion", label = "Motion", choices = MotionChoices,
 			tooltip = "Full: windows fade, lists glide, finished things sparkle. Subtle: only soft fades and glides. "
@@ -379,6 +386,17 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Around you shows" },
 	},
 })
+
+-- Whether what's new shows after an update, and the window's "Don't show this after updates" (Panel/Changes.lua).
+function ns.Window_WhatsNew()
+	return not (module.db and module.db.whatsNew == false)
+end
+
+function ns.Window_SetWhatsNew(on)
+	if module.db then
+		module.db.whatsNew = on and true or false
+	end
+end
 
 function ns.Window_Motion()
 	return ns.ChoiceOrDefault(module.db and module.db.motion, MotionChoices(), "full")

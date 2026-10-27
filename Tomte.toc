@@ -23,6 +23,7 @@ Core/Events.lua
 Core/Core.lua
 Core/Modules.lua
 Core/Setup.lua
+Core/ChangesData.lua
 Core/Profile.lua
 Core/BugReport.lua
 Core/BugFiles.lua
@@ -85,6 +86,7 @@ Panel/Addons.lua
 Panel/Share.lua
 Panel/Bug.lua
 Panel/Setup.lua
+Panel/Changes.lua
 Panel/MapTabs.lua
 Panel/ModelPreview.lua
 Panel/Entries.lua

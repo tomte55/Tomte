@@ -32,6 +32,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
   worn), plus the Warband bank and guild banks. The crafting list counts materials on every character with it.
 - **Dressing room:** gear tooltips say whether you have the item's look: not collected (or only for another class),
   collected from another item, or collected.
+- **Tomte window:** after an update, the first login shows a small "What's new" window with the release's
+  highlights; tick "Don't show this after updates" to stop it, or open it any time with `/tomte changes`.
 - **Tomte window:** a Motion and sound card in its settings. Motion: Full, Subtle (soft fades and glides only) or
   Off. Sounds: All, Only important (confirmations, errors, rewards) or Off.
 

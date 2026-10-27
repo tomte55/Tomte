@@ -280,10 +280,13 @@ just restates the code. Fix comments that point at moved or renamed code in the 
 
 1. In `CHANGELOG.md`, move the **Unreleased** lines, with their `###` groups, into a new `## vX.Y.Z - YYYY-MM-DD`
    section right below it (leave an empty **Unreleased** heading).
-2. Set `## Version: X.Y.Z` in `Tomte.toc`.
-3. Run the unit tests (see Tests), commit (`Tomte vX.Y.Z`), then `git tag -a vX.Y.Z -m "Tomte vX.Y.Z"`
+2. Add the release's highlights at the top of `ns.CHANGES` in `Core/ChangesData.lua` (the in-game "What's new"
+   window): 3 to 6 short lines drawn from that section, each naming its module by key, grouped new / improved /
+   fixed. Show the user the draft and get it approved in the same step.
+3. Set `## Version: X.Y.Z` in `Tomte.toc`.
+4. Run the unit tests (see Tests), commit (`Tomte vX.Y.Z`), then `git tag -a vX.Y.Z -m "Tomte vX.Y.Z"`
    and `git push origin main vX.Y.Z`.
-4. Watch the run (`gh run list --workflow release.yml`) and check the release has `Tomte-vX.Y.Z.zip`
+5. Watch the run (`gh run list --workflow release.yml`) and check the release has `Tomte-vX.Y.Z.zip`
    (`gh release view vX.Y.Z`) and the "Upload to CurseForge" step passed. Give the user the release link.
 
 `.github/workflows/release.yml` runs on `v*` tags. It runs the unit tests with Lua 5.1, fails if the tag doesn't

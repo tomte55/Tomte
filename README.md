@@ -372,7 +372,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte weekly popup` / `board`, `/tomte weekly quests` (learned weekly quests), `/tomte weekly forget <name>`, `/tomte weekly ids` (check crest and knowledge quest IDs)
 - `/tomte chatcopy` (copy the chat window you last used)
 - `/tomte showcase` (open or close), `/tomte showcase view` (which camera view it borrows)
-- `/tomte setup` (the module picker), `/tomte bug` (`full`, `clear`), `/tomte profile export` / `import` / `undo`
+- `/tomte setup` (the module picker), `/tomte changes` (what's new in this version), `/tomte bug` (`full`, `clear`), `/tomte profile export` / `import` / `undo`
 - `/tomte gather` (the Gathering page), `/tomte gather start` / `end`, `/tomte gather why` (how the last loot window was counted), `/tomte gather nodes` (node spots remembered here and everywhere), `/tomte gather follow` (follow the zone's gathering route, or stop), `/tomte gather skip` (skip the route's next spot), `/tomte gather route` (the route in your zone), `/tomte gather soil` (the object you last pointed at and the Rich Soil spots Tomte knows)
 - `/tomte fishing` (options), `/tomte fishing status` (key, reel state and settings waiting to be put back)
 - `/tomte wgq` (the Gold world quests window), `/tomte wgq list` / `report` (in chat), `/tomte wgq route` / `stop`, `/tomte wgq reset` (window position)
@@ -457,8 +457,10 @@ until it's done.
 
 1. Move the lines under **Unreleased** in `CHANGELOG.md` into a new `## vX.Y.Z - <date>` section, keeping their
    `### New` / `### Improved` / `### Fixed` groups.
-2. Set `## Version: X.Y.Z` in `Tomte.toc`.
-3. Run the unit tests (see Tests), commit (`Tomte vX.Y.Z`), then `git tag -a vX.Y.Z -m "Tomte vX.Y.Z"` and
+2. Add the release's few highlights at the top of `ns.CHANGES` in `Core/ChangesData.lua`: the in-game "What's new"
+   window shows them after the update.
+3. Set `## Version: X.Y.Z` in `Tomte.toc`.
+4. Run the unit tests (see Tests), commit (`Tomte vX.Y.Z`), then `git tag -a vX.Y.Z -m "Tomte vX.Y.Z"` and
    `git push origin main vX.Y.Z`.
 
 The GitHub Action checks that the tag matches the TOC and the changelog, runs the tests, zips the `Tomte` folder and
