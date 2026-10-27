@@ -12,6 +12,12 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+## v1.24.2 - 2026-10-27
+
+### Fixed
+
+- **Tomte window:** updating from 1.23 or older, What's new shows every release since, not only the newest one.
+
 ## v1.24.1 - 2026-10-27
 
 ### Fixed
