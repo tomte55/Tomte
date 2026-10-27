@@ -12,6 +12,11 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+### Fixed
+
+- **Events:** holidays show a proper icon in Next up, on Home, on the Events page and in toasts, instead of a blank
+  sliver of calendar art.
+
 ## v1.24.0 - 2026-10-27
 
 ### New

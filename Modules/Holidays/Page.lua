@@ -180,7 +180,7 @@ end
 
 local function EventHeader(ev, y)
 	local right = ns.Events_When(ev)
-	local row = Row(y, HEADER_H, 0, ev.texture, ev.name, ev.active and "heading" or "textMuted", right,
+	local row = Row(y, HEADER_H, 0, ev.icon, ev.name, ev.active and "heading" or "textMuted", right,
 		ev.active and "text" or "textFaint", "header")
 	row.tip = function(self)
 		ns.Events_Tooltip(self, ev)

@@ -112,7 +112,16 @@ test("lookup with the real table: Hallow's End by id and by texture", function()
 	eq(index.byLFG[285].key, "hallows")
 end)
 
-local hallows = { key = "hallows", ids = { 324 }, textures = {} }
+test("every holiday in the real table has its own square icon", function()
+	for _, def in ipairs(ns.EVENTS_DEFS) do
+		eq(type(def.icon), "number", def.key)
+		for _, tex in ipairs(def.textures) do
+			eq(def.icon ~= tex, true, def.key .. " icon isn't a calendar texture")
+		end
+	end
+end)
+
+local hallows = { key = "hallows", ids = { 324 }, textures = {}, icon = 236546 }
 local INDEX = ns.Events_Index({ hallows })
 local NOW = T(2026, 10, 20, 12, 0)
 
@@ -130,9 +139,11 @@ test("collect: dedupe, active vs soon, window and ended", function()
 	local list = ns.Events_Collect(rows, NOW, 7 * 1440, INDEX)
 	eq(#list, 2, "count")
 	eq(list[1].def, hallows, "first is the active holiday")
+	eq(list[1].icon, 236546, "the table's icon, not the calendar texture")
 	eq(list[1].active, true)
 	eq(list[1].endsIn, 11 * 1440 + 23 * 60, "ends in")
 	eq(list[2].name, "Soon Fest")
+	eq(list[2].icon, nil, "unknown event: no icon")
 	eq(list[2].active, false)
 	eq(list[2].startsIn, 4 * 1440 + 22 * 60, "starts in")
 end)

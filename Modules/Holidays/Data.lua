@@ -96,8 +96,8 @@ function ns.Events_Sort(list)
 end
 
 -- rows: { { eventID, texture, name, description, startTime?, endTime?, day } } (day: the CalendarTime of the day the
--- row was read on). One event per occurrence: { key, def, name, description, texture, active, startsIn, endsIn,
--- startTime, endTime }, minutes from now. Ended ones and ones starting after the window are left out.
+-- row was read on). One event per occurrence: { key, def, name, description, texture, icon, active, startsIn, endsIn,
+-- startTime, endTime }, minutes from now; icon is the table entry's (nil for unknown events). Ended ones and ones starting after the window are left out.
 function ns.Events_Collect(rows, now, soonMinutes, index)
 	local nowM = ns.Events_Minutes(now)
 	local out, seen = {}, {}
@@ -110,7 +110,7 @@ function ns.Events_Collect(rows, now, soonMinutes, index)
 		if not seen[key] and endM > nowM and startM - nowM <= soonMinutes then
 			seen[key] = true
 			out[#out + 1] = { key = key, def = def, name = r.name, description = r.description, texture = r.texture,
-				active = startM <= nowM, startsIn = startM - nowM, endsIn = endM - nowM, startTime = r.startTime,
+				icon = def and def.icon, active = startM <= nowM, startsIn = startM - nowM, endsIn = endM - nowM, startTime = r.startTime,
 				endTime = r.endTime }
 		end
 	end

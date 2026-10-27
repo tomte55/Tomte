@@ -15,7 +15,7 @@ local HEAD_H = 40
 local ICON = "Interface\\Icons\\INV_Misc_Toy_10"
 -- The test command's and the settings previews' holiday (endsIn in minutes, as the calendar reader's) and what's
 -- missing from it.
-local SAMPLE_EVENT = { key = "sample", name = "Hallow's End", texture = 235461, endsIn = 6 * 1440 }
+local SAMPLE_EVENT = { key = "sample", name = "Hallow's End", icon = 236546, endsIn = 6 * 1440 }
 local SAMPLE_COUNTS = { mounts = 1, pets = 2, toys = 3, achievements = 5 }
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "CALENDAR_UPDATE_EVENT_LIST", "LFG_UPDATE_RANDOM_INFO", "LFG_COMPLETION_REWARD",
@@ -77,7 +77,7 @@ local function StartSpec(ev, counts, sample)
 	return {
 		owner = OWNER, label = "Holiday", accent = "accent", title = ev.name .. " has started",
 		text = (ns.Events_CountsText(counts) or "") .. " · ends " .. EndDate(ev),
-		icon = ev.texture or ICON, mergeKey = "events:" .. ev.key, holdInCombat = true, hold = 12,
+		icon = ev.icon or ICON, mergeKey = "events:" .. ev.key, holdInCombat = true, hold = 12,
 		test = sample or nil,
 		onClick = not sample and function()
 			OpenPage(ev.key)
@@ -93,7 +93,7 @@ end
 local function HeadsUpSpec(ev, counts, sample)
 	return {
 		owner = OWNER, label = "Holiday tomorrow", accent = "accent", title = ev.name .. " " .. ns.Events_When(ev),
-		text = ns.Events_CountsText(counts) or "", icon = ev.texture or ICON, mergeKey = "events:pre:" .. ev.key,
+		text = ns.Events_CountsText(counts) or "", icon = ev.icon or ICON, mergeKey = "events:pre:" .. ev.key,
 		holdInCombat = true, hold = 10, test = sample or nil,
 		onClick = function()
 			OpenPage(ev.key)
@@ -112,7 +112,7 @@ local function StartPreview(host)
 end
 
 local function HeadsUpPreview(host)
-	local ev = { key = SAMPLE_EVENT.key, name = SAMPLE_EVENT.name, texture = SAMPLE_EVENT.texture,
+	local ev = { key = SAMPLE_EVENT.key, name = SAMPLE_EVENT.name, icon = SAMPLE_EVENT.icon,
 		startsIn = 20 * 60 }
 	return ns.Toast_DrawSample(host, HeadsUpSpec(ev, SAMPLE_COUNTS, true), 1)
 end
@@ -348,7 +348,7 @@ local function FillSection(frame, rows)
 		local row = Kit.PoolRow(frame.rows, i, frame)
 		local right, rightColor = RightText(ev)
 		local text = ev.active and (ev.name .. "  " .. UI.Wrap(ns.Events_When(ev), "textMuted")) or ev.name
-		row:Set(ev.texture or ICON, text, ev.active and "text" or "textMuted", right, rightColor)
+		row:Set(ev.icon or ICON, text, ev.active and "text" or "textMuted", right, rightColor)
 		if ev.active and ev.def and not Counts(ev) then
 			Kit.RowProgress(row, ns.EventsCatalog_Progress)
 			reading[ev.key] = true
@@ -419,7 +419,7 @@ local function BossCandidates()
 			list[#list + 1] = {
 				key = "events:boss:" .. id, state = Today(), text = ("%s: not done today"):format(b.name),
 				why = ev and ("%s daily boss, %s"):format(ev.name, ns.Events_When(ev)) or "Holiday daily boss",
-				icon = ev and ev.texture or ICON,
+				icon = ev and ev.icon or ICON,
 				onClick = function()
 					ns.Events_OpenFinder(id)
 				end, hint = "Click to open the Dungeon Finder",
@@ -440,7 +440,7 @@ local function EndingCandidates()
 				list[#list + 1] = {
 					key = "events:end:" .. key, state = total,
 					text = ("%s ends in %s"):format(ev.name, ns.Events_Duration(ev.endsIn)),
-					why = ns.Events_CountsText(counts), icon = ev.texture or ICON,
+					why = ns.Events_CountsText(counts), icon = ev.icon or ICON,
 					onClick = function()
 						OpenPage(key)
 					end, hint = "Click for the list",
@@ -469,7 +469,7 @@ local function DarkmoonCandidates()
 	return { {
 		key = "events:dmf", state = #open,
 		text = #open == 1 and "1 Darkmoon Faire profession quest" or (#open .. " Darkmoon Faire profession quests"),
-		why = table.concat(open, ", "), icon = ev and ev.texture or ICON,
+		why = table.concat(open, ", "), icon = ev and ev.icon or ICON,
 		onClick = function()
 			OpenPage(ev and ev.key)
 		end, hint = "Click for the list",
