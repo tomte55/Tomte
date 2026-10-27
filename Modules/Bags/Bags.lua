@@ -9,6 +9,9 @@ local addonName, ns = ...
 -- Full bag replacements: Tomte's bags stay off while one is loaded.
 local OTHER_BAGS = { "Baganator", "Bagnon", "ArkInventory", "AdiBags", "BetterBags", "EnhanceQoLBags" }
 local ITEM_DATA_DELAY = 0.3 -- seconds to gather a burst of GET_ITEM_INFO_RECEIVED into one redraw
+local USABLE_DELAY = 0.5 -- seconds to gather a burst of spec, skill or recipe events into one red-tint check
+
+local UI = ns.UI
 
 local module, db
 local events = CreateFrame("Frame")
@@ -107,6 +110,20 @@ function events:PLAYER_LEVEL_UP()
 	C_Timer.After(2, ns.Bags_Reread)
 end
 
+-- What you can use may have changed: combat ended (the game adds red "not in combat" lines), a new spec, skill or
+-- recipe. Only the red tint is checked again, on the next draw; a hidden window checks when it opens.
+local usableChanged = UI.Debounce(USABLE_DELAY, function()
+	if ns.Bags_Active() then
+		ns.BagsRead_UsableChanged()
+		ns.BagsWindow_Refresh()
+		ns.BagsBank_Refresh()
+	end
+end)
+events.PLAYER_REGEN_ENABLED = usableChanged
+events.ACTIVE_PLAYER_SPECIALIZATION_CHANGED = usableChanged
+events.SKILL_LINES_CHANGED = usableChanged
+events.NEW_RECIPE_LEARNED = usableChanged
+
 function events:GET_ITEM_INFO_RECEIVED()
 	if itemDataTimer then
 		return
@@ -166,7 +183,8 @@ local EVENTS = {
 	"BAG_UPDATE_COOLDOWN", "EQUIPMENT_SETS_CHANGED", "TRANSMOG_COLLECTION_UPDATED", "GET_ITEM_INFO_RECEIVED",
 	"PLAYER_MONEY", "CURRENCY_DISPLAY_UPDATE", "CURSOR_CHANGED", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
 	"PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "SOCKET_INFO_UPDATE", "SOCKET_INFO_CLOSE", "BANK_TABS_CHANGED",
-	"BANK_TAB_SETTINGS_UPDATED", "ACCOUNT_MONEY", "PLAYER_LEVEL_UP",
+	"BANK_TAB_SETTINGS_UPDATED", "ACCOUNT_MONEY", "PLAYER_LEVEL_UP", "PLAYER_REGEN_ENABLED",
+	"ACTIVE_PLAYER_SPECIALIZATION_CHANGED", "SKILL_LINES_CHANGED", "NEW_RECIPE_LEARNED",
 }
 
 local function Start()
@@ -344,6 +362,10 @@ module = ns.RegisterModule({
 	},
 	commands = {
 		{ "why", "which category an item is in and why: /tomte bags why <item>", Why },
+		{ "red", "the items tinted red and the tooltip line that made them red", function()
+			ns.Print("red items in your bags:")
+			ns.BagsRead_PrintRed()
+		end },
 	},
 	options = AutoOpenRows({
 		{ type = "header", label = "Bag window" },
