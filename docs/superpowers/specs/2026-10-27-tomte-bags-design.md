@@ -269,6 +269,31 @@ The user's feedback on the first build, all in step 1:
   FRAME_THAT_OPENED_BAGS, read by Esc's CloseAllWindows): it shows its own window, and closes by hiding Blizzard's
   invisible bag frames.
 
+## Steps 2-4 as built (2026-10-27, one batch, the user's call)
+
+- **Bank** (Bank.lua, drawing shared with the bag window in View.lua): Blizzard's BankFrame stays shown at alpha 0
+  off screen (it runs the visit: OnShow picks the tab, OnHide ends it; hiding it under a hidden parent would skip
+  both). Character / Warband switch: BankFrame.BankPanel:SetBankType from addon code (the secure-click overlay
+  didn't work in game; right-click deposits with a bank type work from addon code, as Alts' Deposit for alts
+  measured; BankFrame:SetTab is avoided for its UI panel layout call). Close: C_Bank.CloseBankFrame. Tabs as an icon column (click: only that tab), Clean Up
+  (C_Container.SortBank), deposit all (C_Bank.AutoDepositItemsIntoBank, refund warning through ns.Confirm_Show,
+  "Include reagents" = CVar bankAutoDepositReagents), Warband gold (C_Bank.DepositMoney / WithdrawMoney, amount via
+  ns.Dialog_Show). Tabs hang in a column outside the window's right edge (user's wish); right-click renames
+  (C_Bank.UpdateBankTabSettings); a "+" shown only when a tab can be bought asks (ns.Confirm_Show, the cost from
+  C_Bank.FetchNextPurchasableBankTabData) and buys it with C_Bank.PurchaseBankTab on that click. The player never
+  needs Blizzard's bank window (user's requirement). The bank follows the bag
+  window's search. While the Warband bank is shown, bag items it won't take fade (C_Bank.IsItemAllowedInBankType).
+- **Categories editor** (EditPage.lua, rules in EditData.lua): a page with the list left, the picked node right.
+  Moving is Move up / Move down and a Section dropdown *(Claude's call, instead of drag and drop)*. The player's
+  layout is a copy of the defaults made on the first edit (`layout`, empty until then); Defaults empties it again.
+  Sharing: a text format with a version header (EditData.lua). Saved searches (`searches`) in a star menu by the
+  search box, with Save as category.
+- **Item counts** (Modules/Counts, on by default): the record per character GUID; bank and Warband bank read while
+  the bank is open, mail while the mailbox is open, guild bank tabs as you look at them. Tooltip lines; Alts reads
+  it first (then Syndicator, then this character). Bags: a character button shows another character's bags
+  (display-only buttons, no upgrade arrows) and "Find on all characters" lists matches with who has them. Auction
+  listings: not recorded.
+
 ## Left to the builder
 
 - Search keyword spelling and the exact default category list, names and order (within the coverage above).

@@ -7,7 +7,8 @@ local addonName, ns = ...
 
 -- The default layout: Tomte's own list, from the game's item classes. A node is
 --   { kind = "category", key, name, rule = "<search>" | auto = "new" | "set" | "empty" | "other", priority,
---     ownLine (a row of its own: nothing shares its line) }
+--     ownLine (a row of its own: nothing shares its line), hidden (its items aren't shown), shows ([place] = false
+--     for "bags" / "bank" / "warband" it stays out of), items ([itemID] = true: always in it, before any rule) }
 --   { kind = "section", key, name, children = { nodes } }
 --   { kind = "divider" }
 -- An item goes to the matching category with the highest priority (default 0); on a tie, the one higher in the list.
@@ -38,7 +39,7 @@ ns.BAGS_LAYOUT = {
 	{ kind = "category", key = "toy", name = "Toy", rule = "is:toy", priority = 1 },
 	{ kind = "category", key = "pet", name = "Pets and mounts", rule = "is:pet or is:mount", priority = 1 },
 	{ kind = "category", key = "misc", name = "Miscellaneous", rule = "is:misc" },
-	{ kind = "divider" },
+	{ kind = "divider", key = "tail" },
 	{ kind = "category", key = "other", name = "Other", auto = "other" },
 	{ kind = "category", key = "junk", name = "Junk", rule = "is:junk", priority = 8 },
 	{ kind = "category", key = "empty", name = "Empty", auto = "empty", priority = 20 },
@@ -102,10 +103,24 @@ local function Beats(a, b)
 	return a.order < b.order
 end
 
-local function Winner(item, categories)
+-- Whether a category takes part where the items are: place is "bags", "bank" or "warband"; category.shows
+-- ([place] = false to leave a place out) nil means everywhere.
+local function ShowsIn(category, place)
+	return not (category.shows and place and category.shows[place] == false)
+end
+
+local function Winner(item, categories, place)
+	-- An item the player put in a category by hand goes there, whatever the rules say (the first such category).
+	if not item.empty and item.itemID then
+		for _, category in ipairs(categories) do
+			if category.items and category.items[item.itemID] and ShowsIn(category, place) then
+				return category
+			end
+		end
+	end
 	local best
 	for _, category in ipairs(categories) do
-		if Takes(category, item) and (not best or Beats(category, best)) then
+		if ShowsIn(category, place) and Takes(category, item) and (not best or Beats(category, best)) then
 			best = category
 		end
 	end
@@ -121,11 +136,12 @@ local function Winner(item, categories)
 end
 
 -- Items to their categories: byKey[category key] = { items }. Every item lands in exactly one category (none when
--- the layout has no "other").
-function ns.Bags_Assign(items, categories)
+-- the layout has no "other"). place: "bags" (default), "bank" or "warband", for categories shown only in some.
+function ns.Bags_Assign(items, categories, place)
 	local byKey = {}
+	place = place or "bags"
 	for _, item in ipairs(items) do
-		local category = Winner(item, categories)
+		local category = Winner(item, categories, place)
 		if category then
 			local list = byKey[category.key]
 			if not list then
@@ -239,6 +255,8 @@ function ns.Bags_Fits(item, situation)
 		return item.bind ~= "soulbound"
 	elseif situation == "trade" or situation == "auction" then
 		return (item.bind == nil or item.bind == "boe") and not item.quest
+	elseif situation == "warband" then
+		return item.warbandOK ~= false -- the game's answer, read by the window (C_Bank.IsItemAllowedInBankType)
 	end
 	return true
 end
@@ -413,11 +431,15 @@ function ns.Bags_BindState(bindType, isBound)
 	return nil
 end
 
--- For /tomte bags why: the categories that take the item, the winner first, as lines.
-function ns.Bags_Why(item, categories)
+-- For /tomte bags why: the categories that take the item, the winner first, as lines. place as for Bags_Assign.
+function ns.Bags_Why(item, categories, place)
+	local winner = Winner(item, categories, place or "bags")
+	if winner and winner.items and item.itemID and winner.items[item.itemID] then
+		return { ("%s (you put this item in it)"):format(winner.name) }
+	end
 	local taking = {}
 	for _, category in ipairs(categories) do
-		if Takes(category, item) then
+		if ShowsIn(category, place or "bags") and Takes(category, item) then
 			taking[#taking + 1] = category
 		end
 	end

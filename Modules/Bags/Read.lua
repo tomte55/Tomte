@@ -116,12 +116,13 @@ local function Record(bag, slot, info)
 	return item
 end
 
--- Every slot of the bags: item records and one empty record per free slot; pending is true when some item's data
--- hasn't loaded yet (those aren't cached, and GET_ITEM_INFO_RECEIVED reads again).
-function ns.BagsRead_Bags()
+-- Every slot of the bags (or of containers: a list of bag IDs, such as the bank's tabs): item records and one empty
+-- record per free slot; pending is true when some item's data hasn't loaded yet (those aren't cached, and
+-- GET_ITEM_INFO_RECEIVED reads again).
+function ns.BagsRead_Bags(containers)
 	local items, pending = {}, false
 	local sets = SetSlots()
-	for _, bag in ipairs(BAGS) do
+	for _, bag in ipairs(containers or BAGS) do
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
 			local key = Key(bag, slot)
 			local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -149,10 +150,50 @@ function ns.BagsRead_Bags()
 	return items, pending
 end
 
+-- Item records for another character's items (Item counts' record: { { id, link, count } }), for looking only: no
+-- bag or slot of yours (bag is LIST_BAG, slot the index), no upgrade arrows (they'd judge them for the character
+-- you're on). Items whose data hasn't loaded show their icon and are read again on the next draw.
+local LIST_BAG = -100
+function ns.BagsRead_FromList(list)
+	local items = {}
+	for i, entry in ipairs(list) do
+		local link = entry.link
+		local item = { bag = LIST_BAG, slot = i, link = link, itemID = entry.id, count = entry.count or 1,
+			icon = entry.id and C_Item.GetItemIconByID(entry.id), readable = false }
+		local name, quality, typeName, subTypeName, equipLoc, price, classID, subclassID, bindType, expansion, _
+		if link then -- not "link and GetItemInfo(link)": that keeps only the first value
+			name, _, quality, _, _, typeName, subTypeName, _, equipLoc, _, price, classID, subclassID, bindType,
+				expansion = C_Item.GetItemInfo(link)
+		end
+		if link and link:find("|Hbattlepet:") then
+			item.classID, item.pet, item.petLevel, item.readable = BATTLEPET, true, ns.Bags_PetLevel(link), true
+			item.name = link:match("%[(.-)%]")
+		elseif name then
+			item.readable = true
+			item.name, item.typeName, item.subTypeName, item.equipLoc = name, typeName, subTypeName, equipLoc
+			item.quality, item.price, item.classID, item.subclassID = quality, price, classID, subclassID
+			item.expansion = expansion
+			item.bind = BindState(bindType, nil)
+			item.junk = ns.Bags_IsJunk(quality, price == 0, item.bind)
+			if classID == WEAPON or classID == ARMOR then
+				item.ilvl = C_Item.GetDetailedItemLevelInfo(link)
+				item.look = ns.NewAppearance(link)
+			end
+		end
+		items[#items + 1] = item
+	end
+	return items
+end
+
 -- The tooltip's lines, in lower case, for searches with words (Search.lua reads item.text). Read once per record:
 -- records are cached until their item changes. Secret lines are skipped.
 local function TooltipText(item)
-	local data = C_TooltipInfo.GetBagItem(item.bag, item.slot)
+	local data
+	if item.bag == LIST_BAG then
+		data = item.link and C_TooltipInfo.GetHyperlink(item.link)
+	else
+		data = C_TooltipInfo.GetBagItem(item.bag, item.slot)
+	end
 	local parts = {}
 	for _, line in ipairs(data and data.lines or {}) do
 		for _, text in ipairs({ line.leftText, line.rightText }) do

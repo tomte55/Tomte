@@ -207,11 +207,16 @@ Modules/Counts/Tooltip.lua
 Modules/Counts/Counts.lua
 Modules/Bags/Search.lua
 Modules/Bags/Data.lua
+Modules/Bags/EditData.lua
 Modules/Bags/Layout.lua
 Modules/Bags/Read.lua
 Modules/Bags/Buttons.lua
+Modules/Bags/View.lua
 Modules/Bags/Currencies.lua
+Modules/Bags/Find.lua
 Modules/Bags/Window.lua
+Modules/Bags/Bank.lua
+Modules/Bags/EditPage.lua
 Modules/Bags/Takeover.lua
 Modules/Bags/Bags.lua
 Modules/Showcase/Data.lua

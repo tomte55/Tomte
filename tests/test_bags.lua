@@ -171,6 +171,8 @@ test("what fits at a merchant, the mailbox, a trade or the Auction House", funct
 	eq(ns.Bags_Fits({}, "auction"), true)
 	eq(ns.Bags_Fits(soulbound, nil), true)
 	eq(ns.Bags_Fits({ empty = true }, "merchant"), true)
+	eq(ns.Bags_Fits({ warbandOK = false }, "warband"), false)
+	eq(ns.Bags_Fits({ warbandOK = true }, "warband"), true)
 end)
 
 test("junk is grey, sellable and not soulbound", function()

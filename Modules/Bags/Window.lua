@@ -1,12 +1,12 @@
 local addonName, ns = ...
 
--- Bags: the bag window. Top bar (title, search, bag slots, sort, settings, close), the items in categories
--- (Layout.lua packs them, Data.lua sorts them into categories) or as one bag, and a footer (free slots, tracked
--- currencies and Gold & value's items, gold). Opened and closed by Takeover.lua following Blizzard's bag state;
--- registered in Bags.lua.
+-- Bags: the bag window. Top bar (bag slots, other characters, title, search with saved searches, sort, settings,
+-- close), the items (View.lua draws them in categories or as one bag) and a footer (free slots, tracked currencies
+-- and Gold & value's items, gold). Another character's bags can be looked at (Item counts' record, display only).
+-- Opened and closed by Takeover.lua following Blizzard's bag state; registered in Bags.lua.
 
 local PAD = 10 -- window edge to content
-local MIN_W = 380 -- the top bar's title, search box and buttons fit at any column count
+local MIN_W = 430 -- the top bar's buttons, title, search box and its star fit at any column count
 local TOP_H = 30 -- the top bar
 local SEARCH_W = 170
 local SEARCH_H = 20
@@ -17,11 +17,6 @@ local SLOTS_PAD = 6 -- the bag slots row's panel around its buttons
 local HOVER_POLL = 0.1 -- seconds between mouse checks while the top bar's buttons show only on hover
 local FOOT_H = 22 -- the footer
 local FOOT_LEFT = 24 -- the currencies button and its gap, before the free slots
-local LABEL_H = 13 -- a category's label line
-local SECTION_H = 18 -- a section heading
-local LINE_GAP = 6 -- between lines
-local GAP = 2 -- between icons
-local FADED = 0.3 -- a category label whose items are all filtered out by the search
 local ICON_SIZE = 12 -- footer currency icons
 -- The equipped bag slots: bags 1-4 and the reagent bag (Enum.BagIndex), shown in the bag slots row.
 local EQUIPPED = { 1, 2, 3, 4, 5 }
@@ -31,20 +26,21 @@ local COIN_ICONS = {
 	copper = "%s|TInterface\\MoneyFrame\\UI-CopperIcon:0:0:2:0|t",
 }
 local SORT_ICON = "Interface\\Icons\\INV_Pet_Broom"
+local CHARS_ICON = 236448 -- achievement_character_human_male, the Alts page's icon
+local STAR = "|A:auctionhouse-icon-favorite:12:12|a" -- Blizzard's favorite star, the saved searches button
 local BAGS_ICON = "Interface\\Icons\\INV_Misc_Bag_08"
 
 local UI = ns.UI
 
 local db
-local frame, body, search, note, slotsRow, footer
-local categories -- the default layout flattened (Data.lua)
+local frame, body, search, note, slotsRow, footer, title, view
+local viewChar -- another character's GUID while looking at their bags (Item counts' record), nil for yours
 local matcher -- the compiled search, nil for none
 local matcherText = false -- the search has words, which also look in the tooltip text
 local queued, footerQueued = false, false
 local showSlots = false
 local holding = false -- a window that takes items is open: items keep their places (ns.BagsWindow_SetHolding)
-local snapshot -- the places kept while holding (Data.lua's Bags_Snapshot), taken on the first draw
-local labels, headings, rules, slotButtons, coins = {}, {}, {}, {}, {}
+local slotButtons, coins = {}, {}
 local DrawSlots -- the bag slots row (below), redrawn with the window
 
 -- Pools ------------------------------------------------------------------------------------------------------------
@@ -58,105 +54,14 @@ local function Pooled(pool, i, make)
 	return item
 end
 
-local function Label(i)
-	return Pooled(labels, i, function()
-		local fs = UI.Text(body, 10, "textMuted", "label")
-		fs:SetWordWrap(false)
-		return fs
-	end)
-end
-
-local function Heading(i)
-	return Pooled(headings, i, function()
-		local b = CreateFrame("Button", nil, body)
-		b:SetHeight(SECTION_H)
-		b.text = UI.Text(b, 12, "heading", "title")
-		b.text:SetPoint("LEFT")
-		b:SetScript("OnClick", function(self)
-			db.folded[self.key] = not db.folded[self.key] or nil
-			ns.BagsWindow_Refresh()
-		end)
-		return b
-	end)
-end
-
-local function Rule(i)
-	return Pooled(rules, i, function()
-		return UI.Hairline(body, 100, 0.5)
-	end)
-end
-
 -- Drawing ----------------------------------------------------------------------------------------------------------
-
--- The blocks Layout.lua packs, and the records each category shows (one Empty button per kind of slot, carrying how
--- many are free).
-local function CategoryBlocks(items)
-	categories = categories or ns.Bags_Flatten(ns.BAGS_LAYOUT)
-	local byKey = ns.Bags_Assign(items, categories)
-	local blocks, contents = {}, {}
-	local function Add(node, section)
-		local list = byKey[node.key] or {}
-		if node.auto == "empty" then
-			local firstOfKind, free = {}, {}
-			for _, slot in ipairs(list) do
-				free[slot.kind] = (free[slot.kind] or 0) + 1
-				if not firstOfKind[slot.kind] then
-					firstOfKind[slot.kind] = slot
-				end
-			end
-			list = {}
-			for _, kind in ipairs({ "normal", "reagent" }) do
-				if firstOfKind[kind] then
-					-- A copy: the slot's own record may also stand in its old place while places are kept, as a plain
-					-- empty slot without Empty's count and leaf.
-					list[#list + 1] = setmetatable({ free = free[kind] }, { __index = firstOfKind[kind] })
-				end
-			end
-		else
-			ns.Bags_SortItems(list, db.sortMethod, db.sortReverse)
-		end
-		blocks[#blocks + 1] = { kind = "category", key = node.key, label = node.name, count = #list, section = section,
-			ownLine = node.ownLine }
-		contents[node.key] = list
-	end
-	for _, node in ipairs(ns.BAGS_LAYOUT) do
-		if node.kind == "section" then
-			blocks[#blocks + 1] = { kind = "section", key = node.key, label = node.name, folded = db.folded[node.key] }
-			for _, child in ipairs(node.children or {}) do
-				if child.kind == "category" then
-					Add(child, node.key)
-				end
-			end
-		elseif node.kind == "divider" then
-			blocks[#blocks + 1] = { kind = "divider" }
-		elseif node.kind == "category" then
-			Add(node, nil)
-		end
-	end
-	return blocks, contents
-end
-
--- One bag: every item, sorted, then the empty slots.
-local function SingleBlocks(items)
-	local filled, empty = {}, {}
-	for _, item in ipairs(items) do
-		if item.empty then
-			empty[#empty + 1] = item
-		else
-			filled[#filled + 1] = item
-		end
-	end
-	ns.Bags_SortItems(filled, db.sortMethod, db.sortReverse)
-	for _, slot in ipairs(empty) do
-		filled[#filled + 1] = slot
-	end
-	return { { kind = "category", key = "all", count = #filled } }, { all = filled }
-end
 
 -- The open window that takes items from the bags, for Data.lua's Bags_Fits: the ones Blizzard's item context
 -- matching doesn't cover (it does the scrapper, sockets, upgrades and the catalyst itself).
 local function Situation()
-	if TradeFrame and TradeFrame:IsShown() then
+	if ns.BagsBank_ActiveType and ns.BagsBank_ActiveType() == Enum.BankType.Account then
+		return "warband"
+	elseif TradeFrame and TradeFrame:IsShown() then
 		return "trade"
 	elseif AuctionHouseFrame and AuctionHouseFrame:IsShown() then
 		return "auction"
@@ -173,6 +78,10 @@ local function Matches(item, situation)
 	if item.empty then
 		return true
 	end
+	if situation == "warband" and item.warbandOK == nil and item.bag then
+		item.warbandOK = C_Bank.IsItemAllowedInBankType(Enum.BankType.Account,
+			ItemLocation:CreateFromBagAndSlot(item.bag, item.slot)) == true
+	end
 	if not ns.Bags_Fits(item, situation) then
 		return false
 	end
@@ -182,114 +91,50 @@ local function Matches(item, situation)
 	return item.readable ~= false and matcher(item) == true
 end
 
+-- Button options for Buttons.lua's paint, from the settings.
+local function PaintOptions()
+	local looks = db.looks
+	return {
+		corners = db.corners, ilvlColor = db.ilvlColor, fontSize = looks.fontSize, newGlow = looks.newGlow,
+		greyJunk = looks.greyJunk, redUnusable = looks.redUnusable, context = looks.context,
+	}
+end
+ns.BagsWindow_PaintOptions = PaintOptions
+
 local function Draw()
 	queued = false
 	if not (frame and frame:IsShown()) then
 		return
 	end
-	local items, pending = ns.BagsRead_Bags()
+	local items, pending
+	if viewChar then
+		items = ns.BagsRead_FromList(ns.Counts_CharItems and ns.Counts_CharItems(viewChar, "bags") or {})
+	else
+		items, pending = ns.BagsRead_Bags()
+	end
 	if matcher and matcherText then
 		ns.BagsRead_LoadText(items)
 	end
-	if db.group then
-		items = ns.Bags_Group(items)
-	end
-	local blocks, contents
-	if db.view == "single" then
-		blocks, contents = SingleBlocks(items)
-	else
-		blocks, contents = CategoryBlocks(items)
-	end
-	if holding then
-		if snapshot then
-			local bySlot = {}
-			for _, item in ipairs(items) do
-				bySlot[item.bag * 1000 + item.slot] = item
-			end
-			contents = ns.Bags_KeepPlaces(snapshot, contents, bySlot)
-			for _, block in ipairs(blocks) do
-				if block.kind == "category" then
-					block.count = #(contents[block.key] or {})
-				end
-			end
-		else
-			snapshot = ns.Bags_Snapshot(contents)
-		end
-	end
-	local size = db.iconSize
-	local placed, height, width = ns.Bags_Pack(blocks, {
-		columns = db.columns, icon = size, gap = GAP, label = LABEL_H, section = SECTION_H, spacing = db.spacing,
-		lineGap = LINE_GAP,
+	local situation = not viewChar and db.looks.context and Situation() or nil
+	local n = 0
+	local width, height = view:Draw(items, {
+		layout = ns.Bags_Layout(), place = "bags", holding = holding and not viewChar, paint = PaintOptions(),
+		matches = function(item)
+			return Matches(item, situation)
+		end,
+		button = viewChar and function()
+			n = n + 1
+			return ns.BagsButtons_GetView(body, n)
+		end or nil,
 	})
-	local nLabels, nHeadings, nRules = 0, 0, 0
-	local looks = db.looks
-	local opts = {
-		corners = db.corners, ilvlColor = db.ilvlColor, fontSize = looks.fontSize, newGlow = looks.newGlow,
-		greyJunk = looks.greyJunk, redUnusable = looks.redUnusable, context = looks.context,
-	}
-	local situation = looks.context and Situation() or nil
-	local drawn = {} -- [button] = true
 	DrawSlots()
-	for _, p in ipairs(placed) do
-		local block = p.block
-		if block.kind == "section" then
-			nHeadings = nHeadings + 1
-			local h = Heading(nHeadings)
-			h.key = block.key
-			h.text:SetText((block.folded and "+ " or "- ") .. block.label)
-			h:SetWidth(p.width)
-			h:ClearAllPoints()
-			h:SetPoint("TOPLEFT", body, "TOPLEFT", p.x, -p.y)
-			h:Show()
-		elseif block.kind == "divider" then
-			nRules = nRules + 1
-			local r = Rule(nRules)
-			r:SetWidth(p.width)
-			r:ClearAllPoints()
-			r:SetPoint("TOPLEFT", body, "TOPLEFT", p.x, -(p.y + LINE_GAP / 2))
-			r:Show()
-		else
-			local list = contents[block.key]
-			local anyMatch = false
-			for i, cell in ipairs(p.cells) do
-				local item = list[i]
-				local button = ns.BagsButtons_Get(item.bag, item.slot)
-				opts.matches = Matches(item, situation)
-				opts.free = item.free
-				anyMatch = anyMatch or opts.matches
-				ns.BagsButtons_Place(button, cell.x, cell.y, size)
-				ns.BagsButtons_Paint(button, item, opts)
-				drawn[button] = true
-			end
-			if block.label then
-				nLabels = nLabels + 1
-				local fs = Label(nLabels)
-				fs:SetText(block.label)
-				fs:SetWidth(math.max(p.width, size))
-				fs:ClearAllPoints()
-				fs:SetPoint("TOPLEFT", body, "TOPLEFT", p.x, -p.y)
-				fs:SetAlpha(anyMatch and 1 or FADED)
-				fs:Show()
-			end
-		end
-	end
-	ns.BagsButtons_HideOthers(drawn)
-	for i = nLabels + 1, #labels do
-		labels[i]:Hide()
-	end
-	for i = nHeadings + 1, #headings do
-		headings[i]:Hide()
-	end
-	for i = nRules + 1, #rules do
-		rules[i]:Hide()
-	end
 	local top = TOP_H + (note:IsShown() and NOTE_H or 0)
 	body:ClearAllPoints()
 	body:SetPoint("TOPLEFT", PAD, -top)
-	body:SetSize(width, math.max(height, 1))
 	frame:SetSize(math.max(width + 2 * PAD, MIN_W), top + height + PAD + FOOT_H + PAD / 2)
-	if pending then
-		-- Some items' data is still on its way: GET_ITEM_INFO_RECEIVED redraws (Bags.lua).
+	if pending or viewChar then
+		-- Some items' data is still on its way (another character's often is): GET_ITEM_INFO_RECEIVED redraws
+		-- (Bags.lua).
 		frame.pending = true
 	end
 	ns.BagsWindow_RefreshFooter()
@@ -548,6 +393,105 @@ local function OnSearchChanged()
 		note:Hide()
 	end
 	ns.BagsWindow_Refresh()
+	ns.BagsBank_Refresh() -- the bank follows the same search
+end
+
+-- Characters and saved searches ---------------------------------------------------------------------------------
+
+-- Shows another character's bags (guid), or yours (nil).
+local function ViewCharacter(guid)
+	viewChar = guid
+	local name = guid and ns.Counts_CharName and ns.Counts_CharName(guid)
+	title:SetText(name and ("Bags: " .. name) or "Bags")
+	view:Release()
+	ns.BagsWindow_Refresh()
+end
+
+local function CharacterMenu(owner)
+	UI.ContextMenu(owner, function(_, root)
+		root:CreateTitle("Look at the bags of")
+		root:CreateButton("You", function()
+			ViewCharacter(nil)
+		end)
+		local chars = ns.Counts_Characters and ns.Counts_Characters() or {}
+		if #chars == 0 then
+			root:CreateTitle("Item counts is off, or it hasn't seen another character yet")
+		end
+		for _, c in ipairs(chars) do
+			if not c.me then
+				root:CreateButton(UI.ClassColored(c.name, c.class), function()
+					ViewCharacter(c.guid)
+				end)
+			end
+		end
+	end)
+end
+
+local function ApplySearch(text)
+	search:SetText(text)
+	search:SetCursorPosition(0)
+end
+
+local function SaveSearch()
+	local text = search:GetText()
+	if text == "" then
+		ns.Print("Type a search first, then save it.")
+		return
+	end
+	ns.Dialog_Show({
+		title = "Save this search", hint = "A name for it", text = text, height = 60, saveText = "Save",
+		onSave = function(name)
+			name = name:match("^%s*(.-)%s*$")
+			if name == "" then
+				return "It needs a name."
+			end
+			ns.BagsEdit_SaveSearch(db.searches, name, text)
+			return nil
+		end,
+	})
+end
+
+local function SearchMenu(owner)
+	UI.ContextMenu(owner, function(_, root)
+		root:CreateTitle("Saved searches")
+		for _, saved in ipairs(db.searches) do
+			local entry = root:CreateButton(saved.name, function()
+				ApplySearch(saved.text)
+			end)
+			entry:CreateButton("Search", function()
+				ApplySearch(saved.text)
+			end)
+			entry:CreateButton("Save as category", function()
+				ns.Bags_SearchToCategory(saved.name, saved.text)
+			end)
+			entry:CreateButton("Delete", function()
+				for i, s2 in ipairs(db.searches) do
+					if s2 == saved then
+						table.remove(db.searches, i)
+						break
+					end
+				end
+			end)
+		end
+		root:CreateDivider()
+		root:CreateButton("Find on all characters", function()
+			local text = search:GetText()
+			if text == "" then
+				ns.Print("Type a search first.")
+				return
+			end
+			ns.BagsFind_Show(frame, text)
+		end)
+		root:CreateButton("Save this search", SaveSearch)
+		root:CreateButton("Save this search as a category", function()
+			local text = search:GetText()
+			if text == "" then
+				ns.Print("Type a search first.")
+				return
+			end
+			ns.Bags_SearchToCategory(text, text)
+		end)
+	end)
 end
 
 local function KeywordHelp(owner)
@@ -591,8 +535,12 @@ local function Build()
 		DrawSlots()
 	end)
 	bags:SetPoint("TOPLEFT", PAD - 2, -7)
-	local title = UI.Text(frame, 14, "heading", "title")
-	title:SetPoint("LEFT", bags, "RIGHT", 6, 0)
+	local chars = IconButton(frame, CHARS_ICON, "Look at another character's bags", function(self)
+		CharacterMenu(self)
+	end)
+	chars:SetPoint("LEFT", bags, "RIGHT", 4, 0)
+	title = UI.Text(frame, 14, "heading", "title")
+	title:SetPoint("LEFT", chars, "RIGHT", 6, 0)
 	title:SetText("Bags")
 
 	local close = UI.Button(frame, 20, "x")
@@ -614,7 +562,7 @@ local function Build()
 		C_Container.SortBags()
 	end)
 	sort:SetPoint("RIGHT", settings, "LEFT", -6, 0)
-	topButtons = { close, settings, sort, bags }
+	topButtons = { close, settings, sort, bags, chars }
 
 	search = CreateFrame("EditBox", nil, frame)
 	search:SetSize(SEARCH_W, SEARCH_H)
@@ -635,6 +583,22 @@ local function Build()
 	end)
 	search:SetScript("OnEscapePressed", search.ClearFocus)
 	search:SetScript("OnEnterPressed", search.ClearFocus)
+	local star = CreateFrame("Button", nil, frame)
+	star:SetSize(16, 16)
+	star:SetPoint("RIGHT", search, "LEFT", -2, 0)
+	star.text = UI.Text(star, 12, "textMuted")
+	star.text:SetPoint("CENTER")
+	star.text:SetText(STAR)
+	star:SetScript("OnClick", SearchMenu)
+	star:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+		GameTooltip:SetText("Saved searches")
+		UI.TipLine("Save the search in the box, use a saved one, or make a category of it.", "textMuted", true)
+		GameTooltip:Show()
+	end)
+	star:SetScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
 	local help = CreateFrame("Button", nil, frame)
 	help:SetSize(16, 16)
 	help:SetPoint("LEFT", search, "RIGHT", 4, 0)
@@ -657,7 +621,7 @@ local function Build()
 	slotsRow:Hide()
 
 	body = CreateFrame("Frame", nil, frame)
-	ns.BagsButtons_SetHost(body)
+	view = ns.BagsView_New(body, db, db.folded)
 
 	footer = CreateFrame("Frame", nil, frame)
 	footer:SetHeight(FOOT_H)
@@ -687,7 +651,7 @@ local function Build()
 		search:ClearFocus()
 		GameTooltip:Hide()
 		UpdateHover()
-		snapshot = nil
+		view:Release()
 		ns.BagsRead_ClearNew() -- what Blizzard's bags do when they close
 	end)
 end
@@ -740,15 +704,33 @@ function ns.BagsWindow_Hide()
 	end
 end
 
+-- The search in the bag window's box, which the bank window follows too: matcher (nil for none) and whether it reads
+-- tooltip text.
+function ns.BagsWindow_Matcher()
+	return matcher, matcherText
+end
+
+-- Back to your own bags (another character was forgotten, or Item counts turned off).
+function ns.BagsWindow_ViewOwn()
+	if viewChar and frame then
+		ViewCharacter(nil)
+	end
+end
+
 function ns.BagsWindow_IsShown()
 	return frame ~= nil and frame:IsShown()
 end
 
 -- After a layout setting changed (view, columns, size, marks, sorting, buttons on hover).
 function ns.BagsWindow_Relayout()
-	snapshot = nil
+	if view then
+		view:Release()
+	end
 	UpdateHover()
 	ns.BagsWindow_Refresh()
+	if ns.BagsBank_Relayout then
+		ns.BagsBank_Relayout()
+	end
 end
 
 -- While a merchant, the mailbox, a trade or the like is open, items keep their places: what's sold or sent leaves an
@@ -758,7 +740,9 @@ function ns.BagsWindow_SetHolding(on)
 		return
 	end
 	holding = on
-	snapshot = nil
+	if view then
+		view:Release()
+	end
 	ns.BagsWindow_Refresh()
 end
 

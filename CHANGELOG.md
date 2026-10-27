@@ -19,6 +19,13 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
   levels, junk and the crafting list, each in the corner you pick; a currencies panel; items keep their places
   while you sell or mail; choose which windows open the bags; and a search that looks in tooltips and understands
   `is:upgrade`, `ilvl>=600` and more. Off by default.
+- **Bags:** a bank window for the character bank and the Warband bank, in the same categories: bank tabs, Clean Up,
+  deposit all, the Warband bank's gold, and items in your bags that can't go in fade while it's open.
+- **Bags:** your own categories on a Bag categories page: add, rename, reorder, sections, rules with a preview,
+  priority, items that always go in, where each shows, share and import. Save a search, or turn it into a category.
+- **Bags:** look at another character's bags, and find an item on all your characters.
+- **Item counts (new module):** item tooltips say how many each of your characters has and where (bags, bank, mail,
+  worn), plus the Warband bank and guild banks. The crafting list counts materials on every character with it.
 - **Dressing room:** gear tooltips say whether you have the item's look: not collected (or only for another class),
   collected from another item, or collected.
 - **Tomte window:** a Motion and sound card in its settings. Motion: Full, Subtle (soft fades and glides only) or

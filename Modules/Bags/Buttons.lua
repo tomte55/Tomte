@@ -24,13 +24,16 @@ local CORNER_DIRS = {
 
 local UI = ns.UI
 
-local host -- the window frame the buttons are placed on (ns.BagsButtons_SetHost)
-local holders = {} -- [bag] = holder frame
+local holders = {} -- [bag] = holder frame, a child of the window body that shows that bag
 local buttons = {} -- [bag * 1000 + slot] = button
+local views = {} -- [host] = { display-only buttons } (another character's items, Bags.lua's browsing)
 local extras = {} -- [button] = { ilvl, pet, mark, set, craft, free, fontSize, arrows = { [kind] = widget } }
-local mouseOn = true -- false while an item from outside the bags is on the cursor (ns.BagsButtons_SetMouse)
+-- false while an item from outside the bags is on the cursor (ns.BagsButtons_SetMouse); the bag window's buttons only
+-- (bags 0-5), the bank's keep taking clicks so a bank item can go back or move inside the bank.
+local mouseOn = true
+local BANK_FIRST = 6 -- the first bank tab's container ID (Enum.BagIndex.CharacterBankTab_1)
 
-local function Holder(bag)
+local function Holder(bag, host)
 	local holder = holders[bag]
 	if not holder then
 		holder = CreateFrame("Frame", nil, host)
@@ -113,18 +116,15 @@ local function Extras(button)
 	return e
 end
 
-function ns.BagsButtons_SetHost(frame)
-	host = frame
-end
-
--- The button for one bag slot, made on first use.
-function ns.BagsButtons_Get(bag, slot)
+-- The button for one bag slot, made on first use in host (the body of the window that shows that bag: the bag
+-- window for bags 0-5, the bank window for bank tabs).
+function ns.BagsButtons_Get(bag, slot, host)
 	local key = bag * 1000 + slot
 	local button = buttons[key]
 	if not button then
-		button = CreateFrame("ItemButton", nil, Holder(bag), TEMPLATE)
+		button = CreateFrame("ItemButton", nil, Holder(bag, host), TEMPLATE)
 		button:SetID(slot)
-		button:EnableMouse(mouseOn)
+		button:EnableMouse(mouseOn or bag >= BANK_FIRST)
 		buttons[key] = button
 	end
 	return button
@@ -216,12 +216,59 @@ local function PlaceMarks(button, e, item, opts)
 	end
 end
 
--- Puts a button at x, y (pixels from the host's top-left) at size pixels.
-function ns.BagsButtons_Place(button, x, y, size)
+local function ViewTooltip(self)
+	if self.link then
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetHyperlink(self.link)
+		GameTooltip:Show()
+	end
+end
+
+-- A display-only button (i) in host: another character's item, with its tooltip and nothing to click.
+function ns.BagsButtons_GetView(host, i)
+	local list = views[host]
+	if not list then
+		list = {}
+		views[host] = list
+	end
+	local button = list[i]
+	if not button then
+		button = CreateFrame("ItemButton", nil, host)
+		button.viewOnly = true
+		button:SetScript("OnEnter", ViewTooltip)
+		button:SetScript("OnLeave", function()
+			GameTooltip:Hide()
+		end)
+		button:SetScript("OnClick", function(self)
+			if self.link then
+				HandleModifiedItemClick(self.link)
+			end
+		end)
+		list[i] = button
+	end
+	return button
+end
+
+-- Puts a button at x, y (pixels from host's top-left) at size pixels.
+function ns.BagsButtons_Place(button, host, x, y, size)
 	local scale = size / BUTTON
 	button:SetScale(scale)
 	button:ClearAllPoints()
 	button:SetPoint("TOPLEFT", host, "TOPLEFT", x / scale, -y / scale)
+end
+
+-- A display-only button's look: icon, count, quality, the marks. Blizzard's bag button calls aren't on it.
+local function PaintView(button, e, item, opts)
+	button.link = item.link
+	button:SetItemButtonTexture(item.icon)
+	SetItemButtonQuality(button, item.quality, item.link)
+	SetItemButtonCount(button, item.count)
+	SetItemButtonDesaturated(button, opts.greyJunk and item.junk)
+	PlaceMarks(button, e, item, opts)
+	e.free:SetText("")
+	e.leaf:Hide()
+	button:SetMatchesSearch(opts.matches ~= false)
+	button:Show()
 end
 
 -- Paints a button for its record. opts: matches (false: faded by the search), free (the free-slot count an Empty
@@ -231,6 +278,10 @@ end
 function ns.BagsButtons_Paint(button, item, opts)
 	local e = Extras(button)
 	SetNumberFont(e, opts.fontSize)
+	if button.viewOnly then
+		PaintView(button, e, item, opts)
+		return
+	end
 	ClearItemButtonOverlay(button)
 	if item.empty then
 		button:SetHasItem(nil)
@@ -287,8 +338,13 @@ end
 -- Hides the buttons not in placed ([button] = true for the ones the window just drew). Only those: hiding a button
 -- under the mouse or with its stack split open would close the split and flicker the tooltip
 -- (ContainerFrameItemButtonMixin:OnHide).
-function ns.BagsButtons_HideOthers(placed)
+function ns.BagsButtons_HideOthers(placed, host)
 	for _, button in pairs(buttons) do
+		if not placed[button] and button:IsShown() and button:GetParent():GetParent() == host then
+			button:Hide()
+		end
+	end
+	for _, button in ipairs(views[host] or {}) do
 		if not placed[button] and button:IsShown() then
 			button:Hide()
 		end
@@ -302,8 +358,10 @@ function ns.BagsButtons_SetMouse(on)
 		return
 	end
 	mouseOn = on
-	for _, button in pairs(buttons) do
-		button:EnableMouse(on)
+	for key, button in pairs(buttons) do
+		if key < BANK_FIRST * 1000 then
+			button:EnableMouse(on)
+		end
 	end
 end
 

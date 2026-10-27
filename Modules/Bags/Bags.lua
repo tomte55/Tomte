@@ -1,9 +1,10 @@
 local addonName, ns = ...
 
--- Bags: Tomte's own bag window in place of Blizzard's bags: items sorted into categories (or one bag), Gear Check's
--- upgrade arrows, transmog marks, search. Step 1 of docs/superpowers/specs/2026-10-27-tomte-bags-design.md (the bank,
--- the categories editor and other characters come later). Pure rules in Search.lua, Data.lua and Layout.lua; the
--- reader in Read.lua, buttons in Buttons.lua, the window in Window.lua, the takeover in Takeover.lua.
+-- Bags: Tomte's own bag and bank windows in place of Blizzard's: items sorted into categories the player can edit
+-- (or one bag), marks for upgrades, transmog and more, search with saved searches, other characters' bags (from Item
+-- counts). docs/superpowers/specs/2026-10-27-tomte-bags-design.md. Pure rules in Search.lua, Data.lua, EditData.lua
+-- and Layout.lua; the reader in Read.lua, buttons in Buttons.lua, drawing in View.lua, the windows in Window.lua and
+-- Bank.lua, the categories page in EditPage.lua, the takeover in Takeover.lua.
 
 -- Full bag replacements: Tomte's bags stay off while one is loaded.
 local OTHER_BAGS = { "Baganator", "Bagnon", "ArkInventory", "AdiBags", "BetterBags", "EnhanceQoLBags" }
@@ -21,6 +22,37 @@ function ns.Bags_Active()
 	return module ~= nil and module.active == true
 end
 
+-- The categories in use: the player's edited copy, or the defaults (Data.lua) until the first edit.
+function ns.Bags_Layout()
+	if db and db.layout and #db.layout > 0 then
+		return db.layout
+	end
+	return ns.BAGS_LAYOUT
+end
+
+-- The player's own copy to edit (made from the defaults on the first edit).
+function ns.Bags_EditLayout()
+	if not (db.layout and #db.layout > 0) then
+		db.layout = ns.BagsEdit_Copy(ns.BAGS_LAYOUT)
+	end
+	return db.layout
+end
+
+-- After an edit: both windows redraw with the new categories.
+function ns.Bags_LayoutChanged()
+	ns.BagsWindow_Relayout()
+end
+
+-- A search becomes a category at the top (the saved searches menu), and the categories page opens on it.
+function ns.Bags_SearchToCategory(name, text)
+	local node = ns.BagsEdit_AddCategory(ns.Bags_EditLayout(), name, text)
+	ns.Bags_LayoutChanged()
+	ns.Print(("%s is a category now, at the top of your bags. Edit it on the Bag categories page."):format(name))
+	if ns.BagsEditPage_Select then
+		ns.BagsEditPage_Select(node.key)
+	end
+end
+
 -- Drops every cached item and redraws: Gear Check's verdicts or the transmog collection changed.
 function ns.Bags_Reread()
 	if ns.Bags_Active() then
@@ -33,6 +65,7 @@ end
 
 function events:BAG_UPDATE_DELAYED()
 	ns.BagsWindow_Refresh()
+	ns.BagsBank_Refresh()
 end
 
 function events:BAG_UPDATE(bag)
@@ -46,6 +79,17 @@ events.EQUIPMENT_SETS_CHANGED = events.BAG_UPDATE_DELAYED
 function events:BAG_CONTAINER_UPDATE()
 	ns.BagsRead_Invalidate(nil)
 	ns.BagsWindow_Refresh()
+end
+
+-- The bank: a tab bought or changed, the Warband bank's gold.
+function events:BANK_TABS_CHANGED()
+	ns.BagsBank_Relayout()
+end
+
+events.BANK_TAB_SETTINGS_UPDATED = events.BANK_TABS_CHANGED
+
+function events:ACCOUNT_MONEY()
+	ns.BagsBank_Refresh()
 end
 
 function events:BAG_UPDATE_COOLDOWN()
@@ -64,6 +108,7 @@ function events:GET_ITEM_INFO_RECEIVED()
 		itemDataTimer = nil
 		if ns.Bags_Active() then
 			ns.BagsWindow_ItemDataArrived()
+			ns.BagsBank_Refresh() -- cheap when the bank is closed; its items load the same way
 		end
 	end)
 end
@@ -113,7 +158,8 @@ local EVENTS = {
 	"BAG_UPDATE", "BAG_UPDATE_DELAYED", "ITEM_LOCK_CHANGED", "BAG_NEW_ITEMS_UPDATED", "BAG_CONTAINER_UPDATE",
 	"BAG_UPDATE_COOLDOWN", "EQUIPMENT_SETS_CHANGED", "TRANSMOG_COLLECTION_UPDATED", "GET_ITEM_INFO_RECEIVED",
 	"PLAYER_MONEY", "CURRENCY_DISPLAY_UPDATE", "CURSOR_CHANGED", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
-	"PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "SOCKET_INFO_UPDATE", "SOCKET_INFO_CLOSE",
+	"PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "SOCKET_INFO_UPDATE", "SOCKET_INFO_CLOSE", "BANK_TABS_CHANGED",
+	"BANK_TAB_SETTINGS_UPDATED", "ACCOUNT_MONEY",
 }
 
 local function Start()
@@ -122,6 +168,7 @@ local function Start()
 	end
 	ns.BagsRead_Invalidate(nil)
 	ns.BagsTakeover_Start()
+	ns.BagsBank_Start()
 end
 
 local function Stop()
@@ -131,6 +178,7 @@ local function Stop()
 		itemDataTimer = nil
 	end
 	ns.BagsTakeover_Stop()
+	ns.BagsBank_Stop()
 	ns.BagsButtons_SetMouse(true)
 	ns.BagsRead_Invalidate(nil)
 	wipe(holdingOpen)
@@ -158,7 +206,7 @@ local function Why(_, rawArg)
 		ns.Print("That item isn't in your bags.")
 		return
 	end
-	local categories = ns.Bags_Flatten(ns.BAGS_LAYOUT)
+	local categories = ns.Bags_Flatten(ns.Bags_Layout())
 	ns.Print(("%s:"):format(found.link or found.name or itemID))
 	for _, line in ipairs(ns.Bags_Why(found, categories)) do
 		ns.Print("  " .. line)
@@ -246,11 +294,21 @@ module = ns.RegisterModule({
 		},
 		folded = {}, -- [section key] = true while folded
 		position = {}, -- point, relPoint, x, y once dragged
+		bankPosition = {}, -- the bank window's, the same way
+		bankWidth = 22, -- icons per row in the bank window (wide rather than tall)
+		bankFolded = {}, -- the bank window's folded sections, apart from the bags' (folded)
+		bankStart = "warband", -- warband | character: which bank shows when you open the bank
+		-- The player's categories (Data.lua's node shape, every node keyed: EditData.lua); empty until the first edit,
+		-- and then the defaults stay as they were.
+		layout = {},
+		searches = {}, -- { { name, text } } saved searches, in the order saved
 	},
 	init = function(saved)
 		db = saved
 		ns.BagsWindow_Init(saved)
 		ns.BagsTakeover_Init(saved)
+		ns.BagsBank_Init(saved)
+		ns.BagsEditPage_Init(saved)
 	end,
 	blocked = function()
 		for _, addon in ipairs(OTHER_BAGS) do
@@ -266,6 +324,17 @@ module = ns.RegisterModule({
 			Stop()
 		end
 	end,
+	home = {
+		{ kind = "page", key = "bagcategories", order = 60, name = "Bag categories", icon = 133633,
+			page = { Create = function(f)
+				ns.BagsEditPage_Create(f)
+			end, Refresh = function(f)
+				ns.BagsEditPage_Refresh(f)
+			end },
+			summary = function()
+				return "Your bag categories: rules, order, sections, sharing."
+			end },
+	},
 	commands = {
 		{ "why", "which category an item is in and why: /tomte bags why <item>", Why },
 	},
@@ -278,6 +347,11 @@ module = ns.RegisterModule({
 			onChange = ns.BagsWindow_Relayout, tooltip = "How many icons fit in one row." },
 		{ type = "slider", key = "iconSize", label = "Icon size", min = 28, max = 44, step = 1, format = Pixels,
 			onChange = ns.BagsWindow_Relayout },
+		{ type = "dropdown", key = "bankStart", label = "Bank opens on", choices = function()
+			return { { value = "warband", text = "Warband bank" }, { value = "character", text = "Character bank" } }
+		end, tooltip = "Which bank shows first when you talk to a banker. A banker with only one of them opens that one." },
+		{ type = "slider", key = "bankWidth", label = "Bank width", min = 8, max = 36, step = 1, format = Columns,
+			onChange = ns.BagsWindow_Relayout, tooltip = "How many icons fit in one row of the bank window." },
 		{ type = "slider", key = "spacing", label = "Category spacing", min = 4, max = 30, step = 1, format = Pixels,
 			onChange = ns.BagsWindow_Relayout, tooltip = "The gap between categories that share a line." },
 		Check("group", "Group identical items",
@@ -287,6 +361,10 @@ module = ns.RegisterModule({
 		{ type = "button", label = "Position", text = "Reset", onClick = function()
 			ns.BagsWindow_ResetPosition()
 		end, tooltip = "Move the bag window back to the bottom right. Drag its top to move it." },
+
+		{ type = "button", label = "Categories", text = "Edit", onClick = function()
+			ns.Panel_OpenPage("bagcategories")
+		end, tooltip = "Add your own categories, change their rules and order, and share them." },
 
 		{ type = "header", label = "On items" },
 		CornerRow("ilvl", "Item level", "The item level on weapons and armor."),
