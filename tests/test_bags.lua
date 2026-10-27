@@ -224,6 +224,26 @@ test("keeping places: an item that arrived and left again leaves its slot empty 
 	eq(out.potion[2], emptyD, "D's place stays, empty")
 end)
 
+test("keeping places: an item put back in another free slot goes into the hole it left", function()
+	local a = { bag = 0, slot = 1, itemID = 10 }
+	local b = { bag = 0, slot = 2, itemID = 20 }
+	local c = { bag = 0, slot = 3, itemID = 30 }
+	local snapshot, was = ns.Bags_Snapshot({ potion = { a, b, c } })
+	-- B went to the bank, then came back into bag 1 slot 7 (the game's first free slot), not slot 2
+	local emptyB = { empty = true, kind = "normal", bag = 0, slot = 2 }
+	local back = { bag = 1, slot = 7, itemID = 20 }
+	local bySlot = { [1] = a, [2] = emptyB, [3] = c, [1007] = back }
+	local out = ns.Bags_KeepPlaces(snapshot, { potion = { a, c, back }, empty = { emptyB } }, bySlot, was)
+	eq(#out.potion, 3, "no new place")
+	eq(out.potion[2], back, "in B's old place")
+	eq(out.empty[1], emptyB, "the old slot is free for Empty again")
+	-- another item arriving takes a hole too when there is one, else the end
+	local d = { bag = 2, slot = 1, itemID = 40 }
+	local snap2, was2 = ns.Bags_Snapshot({ potion = { a, emptyB, c } })
+	out = ns.Bags_KeepPlaces(snap2, { potion = { a, c, d } }, { [1] = a, [2] = emptyB, [3] = c, [2001] = d }, was2)
+	eq(out.potion[2], d, "a hole in its category")
+end)
+
 test("keeping places: Empty uses another free slot when its slot is kept in place", function()
 	local a = { bag = 0, slot = 1 }
 	local snapshot = ns.Bags_Snapshot({ potion = { a } })

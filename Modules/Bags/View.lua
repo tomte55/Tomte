@@ -155,7 +155,7 @@ function View:Draw(items, opts)
 			for _, item in ipairs(items) do
 				bySlot[item.bag * 1000 + item.slot] = item
 			end
-			contents = ns.Bags_KeepPlaces(self.snapshot, contents, bySlot)
+			contents = ns.Bags_KeepPlaces(self.snapshot, contents, bySlot, self.was)
 			for _, block in ipairs(blocks) do
 				if block.kind == "category" then
 					block.count = #(contents[block.key] or {})
@@ -164,9 +164,9 @@ function View:Draw(items, opts)
 		end
 		-- Places that joined while holding (an item taken from the bank) are kept too: putting it back leaves its slot
 		-- empty where it was, instead of closing up.
-		self.snapshot = ns.Bags_Snapshot(contents)
+		self.snapshot, self.was = ns.Bags_Snapshot(contents)
 	else
-		self.snapshot = nil
+		self.snapshot, self.was = nil, nil
 	end
 	local size = db.iconSize
 	local placed, height, width = ns.Bags_Pack(blocks, {

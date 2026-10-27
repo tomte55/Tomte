@@ -48,28 +48,27 @@ def save(img, name):
 def bag():
     img, d = canvas()
     # The handle: a thick arc over the body.
-    d.arc(P(21, 6, 43, 30), 180, 360, fill=255, width=W(5))
-    d.line([P(21, 18), P(21, 24)], fill=255, width=W(5))
-    d.line([P(43, 18), P(43, 24)], fill=255, width=W(5))
-    # The body, and the flap's edge cut across it.
-    d.rounded_rectangle(P(10, 22, 54, 58), radius=W(8), fill=255)
-    d.line([P(10, 33), P(54, 33)], fill=0, width=W(CUT))
-    d.rounded_rectangle(P(28, 30, 36, 40), radius=W(2), fill=0)
-    d.rounded_rectangle(P(30, 32, 34, 38), radius=W(1), fill=255)
+    d.arc(P(20, 4, 44, 30), 180, 360, fill=255, width=W(5))
+    d.line([P(20, 16), P(20, 24)], fill=255, width=W(5))
+    d.line([P(44, 16), P(44, 24)], fill=255, width=W(5))
+    # The body (as wide as the other icons), and the flap's edge cut across it with a clasp.
+    d.rounded_rectangle(P(5, 22, 59, 60), radius=W(8), fill=255)
+    d.line([P(5, 34), P(59, 34)], fill=0, width=W(CUT))
+    d.rounded_rectangle(P(27, 30, 37, 42), radius=W(2), fill=0)
+    d.rounded_rectangle(P(29.5, 32.5, 34.5, 39.5), radius=W(1), fill=255)
     save(img, "Bag")
 
 
 def people():
     img, d = canvas()
     # The one behind, to the right.
-    d.ellipse(P(35, 12, 51, 28), fill=255)
-    d.pieslice(P(30, 31, 60, 71), 180, 360, fill=255)
-    # The one in front, with a cut around it so the two read apart.
-    d.ellipse(P(13 - CUT, 14 - CUT, 33 + CUT, 34 + CUT), fill=0)
-    d.pieslice(P(4 - CUT, 36 - CUT, 42 + CUT, 84 + CUT), 180, 360, fill=0)
-    d.ellipse(P(13, 14, 33, 34), fill=255)
-    d.pieslice(P(4, 36, 42, 84), 180, 360, fill=255)
-    d.rectangle(P(0, 60, 64, 64), fill=0)
+    d.ellipse(P(35, 4, 52, 21), fill=255)
+    d.pieslice(P(30, 25, 61, 79), 180, 360, fill=255)
+    # The one in front, with a cut around it so the two read apart; as tall as the other icons.
+    d.ellipse(P(12 - CUT, 5 - CUT, 34 + CUT, 27 + CUT), fill=0)
+    d.pieslice(P(3 - CUT, 30 - CUT, 43 + CUT, 92 + CUT), 180, 360, fill=0)
+    d.ellipse(P(12, 5, 34, 27), fill=255)
+    d.pieslice(P(3, 30, 43, 92), 180, 360, fill=255)
     save(img, "People")
 
 
@@ -115,12 +114,12 @@ def gear():
         ang = i * 2 * math.pi / teeth
         dx, dy = math.cos(ang), math.sin(ang)
         px, py = -dy, dx
-        half, r0, r1 = 5, 14, 28
+        half, r0, r1 = 4.5, 13, 25  # a little inside the square, so it weighs the same as the other icons
         pts = [(c + dx * r0 + px * half, c + dy * r0 + py * half), (c + dx * r1 + px * half, c + dy * r1 + py * half),
             (c + dx * r1 - px * half, c + dy * r1 - py * half), (c + dx * r0 - px * half, c + dy * r0 - py * half)]
         d.polygon([P(x, y) for x, y in pts], fill=255)
-    d.ellipse(P(c - 21, c - 21, c + 21, c + 21), fill=255)
-    d.ellipse(P(c - 8, c - 8, c + 8, c + 8), fill=0)
+    d.ellipse(P(c - 18.5, c - 18.5, c + 18.5, c + 18.5), fill=255)
+    d.ellipse(P(c - 7, c - 7, c + 7, c + 7), fill=0)
     save(img, "Gear")
 
 

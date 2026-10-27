@@ -289,25 +289,44 @@ local function SlotKey(record)
 end
 
 -- The places to keep: [category key] = { slot keys in order }, from what's on screen now. Empty is left out (its
--- buttons stand for every free slot of a kind).
+-- buttons stand for every free slot of a kind). Also returns was: [slot key] = the item ID shown there (for
+-- Bags_KeepPlaces to put an item back in the hole it left).
 function ns.Bags_Snapshot(contents)
-	local snapshot = {}
+	local snapshot, was = {}, {}
 	for key, list in pairs(contents) do
 		if key ~= "empty" then
 			local slots = {}
 			for i, record in ipairs(list) do
 				slots[i] = SlotKey(record)
+				was[slots[i]] = record.itemID
 			end
 			snapshot[key] = slots
 		end
 	end
-	return snapshot
+	return snapshot, was
+end
+
+-- An item that arrived in a slot not on screen goes into a hole (a kept place whose slot is empty now) in its
+-- category instead of the end: first the hole that last showed the same item (the game put it back in another free
+-- slot than the one it left), else the first hole. Returns the hole's index in list, or nil.
+local function Hole(list, record, was)
+	local first
+	for i, r in ipairs(list) do
+		if r.empty then
+			if record.itemID and was[SlotKey(r)] == record.itemID then
+				return i
+			end
+			first = first or i
+		end
+	end
+	return first
 end
 
 -- contents laid out by snapshot: each category keeps its slots in order, showing whatever is in each slot now (an
--- item, or the empty slot), then the items that weren't on screen yet in the category they belong to now.
--- bySlot: [slot key] = the record in that slot now (items and empty slots).
-function ns.Bags_KeepPlaces(snapshot, contents, bySlot)
+-- item, or the empty slot), then the items that weren't on screen yet in the category they belong to now (in a hole
+-- when there is one, see Hole). bySlot: [slot key] = the record in that slot now (items and empty slots); was: the
+-- snapshot's item IDs (Bags_Snapshot's second return; nil fills no holes).
+function ns.Bags_KeepPlaces(snapshot, contents, bySlot, was)
 	local out, kept = {}, {}
 	for key, slots in pairs(snapshot) do
 		local list = {}
@@ -320,34 +339,44 @@ function ns.Bags_KeepPlaces(snapshot, contents, bySlot)
 		end
 		out[key] = list
 	end
+	-- The categories first: an item filling a hole frees that empty slot for Empty below.
 	for key, list in pairs(contents) do
-		if key == "empty" then
-			-- Empty's button for a kind can't be a slot kept elsewhere (one button, one place): another free slot of
-			-- that kind stands in, with the same count; none left means none shown.
-			local empties = {}
-			for _, record in ipairs(list) do
-				local stand = record
-				if kept[SlotKey(record)] then
-					stand = nil
-					for slotKey, other in pairs(bySlot) do
-						if other.empty and other.kind == record.kind and not kept[slotKey] then
-							stand = setmetatable({ free = record.free }, { __index = other })
-							break
-						end
-					end
-				end
-				empties[#empties + 1] = stand
-			end
-			out[key] = empties
-		else
+		if key ~= "empty" then
 			local target = out[key] or {}
 			for _, record in ipairs(list) do
 				if not kept[SlotKey(record)] then
-					target[#target + 1] = record
+					local hole = was and Hole(target, record, was)
+					if hole then
+						kept[SlotKey(target[hole])] = nil
+						target[hole] = record
+					else
+						target[#target + 1] = record
+					end
+					kept[SlotKey(record)] = true
 				end
 			end
 			out[key] = target
 		end
+	end
+	local list = contents.empty
+	if list then
+		-- Empty's button for a kind can't be a slot kept elsewhere (one button, one place): another free slot of
+		-- that kind stands in, with the same count; none left means none shown.
+		local empties = {}
+		for _, record in ipairs(list) do
+			local stand = record
+			if kept[SlotKey(record)] then
+				stand = nil
+				for slotKey, other in pairs(bySlot) do
+					if other.empty and other.kind == record.kind and not kept[slotKey] then
+						stand = setmetatable({ free = record.free }, { __index = other })
+						break
+					end
+				end
+			end
+			empties[#empties + 1] = stand
+		end
+		out.empty = empties
 	end
 	return out
 end

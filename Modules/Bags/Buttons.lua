@@ -21,8 +21,11 @@ local CRAFT_DOT = 9 -- the crafting list's dot (how many is on the item's toolti
 -- border hidden; a dark fill, the icon inset, a 1-pixel frame in the theme's rule color or the item's quality color
 -- (uncommon and better), the accent under the mouse.
 local ICON_INSET = 2
-local FILL, EMPTY_FILL = 0.35, 0.03 -- black behind an item, white over an empty slot
-local EMPTY_EDGE = 0.6 -- an empty slot's frame, dimmer
+local FILL, EMPTY_FILL = 0.35, 0.12 -- black behind an item, and (lighter) inside an empty slot: a faint dent
+local EMPTY_EDGE = 0.12 -- an empty slot's frame: barely there, so the items stand out (0.6 and 0.3 still read as
+                        -- loud, measured in game)
+local PLAIN_EDGE = 0.7 -- the frame of an item below Uncommon (or without a quality): the theme's muted text color, a
+                       -- step brighter than the window's rules so it still reads as an item
 local QUALITY_FRAME = 2 -- Enum.ItemQuality.Uncommon: from here up the frame takes the quality color
 local REAGENT_ATLAS = "bags-icon-reagents" -- Blizzard's reagent bag filter icon, on empty reagent slots
 local LEAF, LEAF_ALPHA = 20, 0.5
@@ -332,10 +335,10 @@ local function Frame(button, e, item)
 			local r, g, b = C_Item.GetItemQualityColor(q)
 			e.edge, e.edgeAlpha = { r, g, b }, 1
 		else
-			e.edge, e.edgeAlpha = "rule", nil
+			e.edge, e.edgeAlpha = "textMuted", PLAIN_EDGE
 		end
 	else
-		e.fill:SetColorTexture(1, 1, 1, EMPTY_FILL)
+		e.fill:SetColorTexture(0, 0, 0, EMPTY_FILL)
 		e.edge, e.edgeAlpha = "rule", EMPTY_EDGE
 	end
 	if button.IconBorder then
@@ -378,6 +381,12 @@ function ns.BagsButtons_Paint(button, item, opts)
 	if item.empty then
 		button:SetHasItem(nil)
 		button:SetItemButtonTexture(nil)
+		-- An empty slot shows the template's slot picture (emptyBackgroundAtlas, ItemButtonTemplate.lua) in the icon;
+		-- ours is the faint square. Setting an item's texture shows the icon again.
+		local icon = button.icon or button.Icon
+		if icon then
+			icon:Hide()
+		end
 		SetItemButtonQuality(button, nil)
 		Frame(button, e, nil)
 		SetItemButtonCount(button, 0)
