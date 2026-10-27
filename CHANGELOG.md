@@ -14,6 +14,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### New
 
+- **Dressing room:** gear tooltips say whether you have the item's look: not collected (or only for another class),
+  collected from another item, or collected.
 - **Tomte window:** a Motion and sound card in its settings. Motion: Full, Subtle (soft fades and glides only) or
   Off. Sounds: All, Only important (confirmations, errors, rewards) or Off.
 

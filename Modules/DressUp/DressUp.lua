@@ -6,7 +6,8 @@ local addonName, ns = ...
 -- (Tools.lua: undress, target's outfit, item list). Everything is hooked (HookScript, hooksecurefunc) and talks only
 -- to the model's actor: no Blizzard function is replaced or called, so the window stays untainted.
 -- Around it: saved outfits (Outfits.lua), the Catalyst preview (Catalyst.lua), restoring transmog changes
--- (Restore.lua), ensemble tooltip counts (Ensemble.lua) and the title list's search (Titles.lua).
+-- (Restore.lua), ensemble tooltip counts (Ensemble.lua), appearance lines on gear tooltips (Appearance.lua) and the
+-- title list's search (Titles.lua).
 -- Design: docs/superpowers/specs/2026-10-12-tomte-showcase-gear-menu-design.md ("Dressing room"); the extras:
 -- docs/superpowers/plans/2026-10-23-tomte-takeover-phases-4-5.md (task 2).
 
@@ -101,12 +102,13 @@ local function UpdateExtras()
 	ns.DressUpTools.Update(on and db.tools)
 end
 
--- The pieces outside the dressing room (Catalyst.lua, Restore.lua, Ensemble.lua, Titles.lua): each reads
+-- The pieces outside the dressing room (Catalyst.lua, Restore.lua, Ensemble.lua, Appearance.lua, Titles.lua): each reads
 -- module.active and its own setting.
 local function UpdateOthers()
 	ns.DressUp_CatalystUpdate()
 	ns.DressUp_RestoreUpdate()
 	ns.DressUp_EnsembleUpdate()
+	ns.DressUp_AppearanceUpdate()
 	ns.DressUp_TitlesUpdate()
 end
 
@@ -187,7 +189,8 @@ module = ns.RegisterModule({
 	description = "The dressing room (Ctrl-click an item) opens bigger, with a slot bar under the model (click a "
 		.. "piece to hide it, Shift-click to link it) and buttons to undress, show your target's outfit, list the "
 		.. "outfit with where each piece comes from and try on your saved outfits. The Catalyst shows what you'd "
-		.. "get, the transmogrifier keeps changes you closed it on, ensembles show how many looks you have and the "
+		.. "get, the transmogrifier keeps changes you closed it on, ensembles show how many looks you have, gear "
+		.. "tooltips say whether you have the item's look and the "
 		.. "title list can be searched.",
 	enabledByDefault = true,
 	defaults = {
@@ -198,6 +201,7 @@ module = ns.RegisterModule({
 		catalyst = true, -- the Catalyst's result: a line under it, Ctrl-click to try on, Shift-click to link
 		restore = true, -- the transmogrifier offers back the changes it was closed on
 		ensemble = true, -- "N of M appearances collected" on ensemble tooltips
+		appearance = true, -- "Appearance not collected" and the like on gear tooltips
 		titles = true, -- search and filter on the character window's title list
 		titleFilter = "owned", -- "owned", "missing" or "all" (ns.DRESSUP_TITLE_FILTERS)
 		debug = false, -- chat lines when the dressing room's size is set (hidden /tomte dressup debug)
@@ -206,6 +210,7 @@ module = ns.RegisterModule({
 	replaces = {
 		{ addon = "Plumber", why = "the Catalyst preview, outfit picking, restoring transmog changes, ensemble "
 			.. "counts and the title search" },
+		{ addon = "CanIMogIt", why = "whether you have an item's look, on its tooltip" },
 	},
 	init = function(saved)
 		db = saved
@@ -213,6 +218,7 @@ module = ns.RegisterModule({
 		ns.DressUp_CatalystInit(module, saved)
 		ns.DressUp_RestoreInit(module, saved)
 		ns.DressUp_EnsembleInit(module, saved)
+		ns.DressUp_AppearanceInit(module, saved)
 		ns.DressUp_TitlesInit(module, saved)
 	end,
 	toggle = function(active)
@@ -255,6 +261,8 @@ module = ns.RegisterModule({
 			tooltip = "Closed the transmogrifier before applying? Next time, a button puts your changes back." },
 		{ type = "checkbox", key = "ensemble", label = "Ensemble counts", onChange = UpdateOthers,
 			tooltip = "Ensemble tooltips say how many of their appearances you have." },
+		{ type = "checkbox", key = "appearance", label = "Appearance on gear tooltips", onChange = UpdateOthers,
+			tooltip = "Gear tooltips say whether you have the item's look: not collected (or only for another class), collected from another item, or collected." },
 		{ type = "header", label = "Titles" },
 		{ type = "checkbox", key = "titles", label = "Title search", onChange = UpdateOthers,
 			tooltip = "The character window's title list gets a search box and an Owned / Missing / All filter." },

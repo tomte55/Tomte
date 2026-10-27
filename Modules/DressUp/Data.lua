@@ -115,6 +115,36 @@ function ns.DressUp_EnsembleLine(have, total)
 	return ("%d of %d appearances collected"):format(have, total), have == 0 and "warning" or "accent"
 end
 
+-- An item's appearance for the tooltip line, from C_TransmogCollection.GetAppearanceInfoBySource (info) and
+-- PlayerCanCollectSource (canCollect): "new" (not collected, this character can learn it), "other" (not collected,
+-- only another class or armor type can), "source" (the look is collected, from another item) or "known" (collected
+-- from this one). nil without info.
+function ns.DressUp_AppearanceState(info, canCollect)
+	if not info then
+		return nil
+	end
+	if not info.appearanceIsCollected then
+		return canCollect and "new" or "other"
+	end
+	return info.sourceIsCollected and "known" or "source"
+end
+
+local APPEARANCE_LINES = {
+	new = { "Appearance not collected", "accent" },
+	other = { "Appearance not collected (another class)", "textMuted" },
+	source = { "Appearance collected from another item", "textMuted" },
+	known = { "Appearance collected", "success" },
+}
+
+-- The tooltip line for a state: text, color role; nil for none.
+function ns.DressUp_AppearanceLine(state)
+	local line = APPEARANCE_LINES[state]
+	if line then
+		return line[1], line[2]
+	end
+	return nil
+end
+
 -- The Catalyst's line under its result: whether the piece's look is new. collected: nil when the item has no look
 -- (or isn't loaded yet). Returns text, color role, or nil.
 function ns.DressUp_LookText(collected)
