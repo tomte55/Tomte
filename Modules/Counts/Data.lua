@@ -58,6 +58,31 @@ function ns.Counts_Index(record)
 	return index
 end
 
+-- A saved link per item ID ({ [id] = link }), the first one found: other characters' items, for reading their
+-- tooltips (Bags' Find on all characters). Items saved without a link are left out.
+function ns.Counts_Links(record)
+	local links = {}
+	local function Add(items)
+		for _, item in ipairs(items or {}) do
+			if item.id and item.link and not links[item.id] then
+				links[item.id] = item.link
+			end
+		end
+	end
+	for _, char in pairs(record.chars or {}) do
+		for _, items in pairs(char.places or {}) do
+			Add(items)
+		end
+	end
+	Add(record.warband and record.warband.items)
+	for _, guild in pairs(record.guilds or {}) do
+		for _, items in pairs(guild.tabs or {}) do
+			Add(items)
+		end
+	end
+	return links
+end
+
 -- One item's counts as rows, most first (the current character, me, first among equals): { kind = "char", guid,
 -- name, class, total, places = { [place] = n } }, then { kind = "warband", total }, then { kind = "guild", name,
 -- total }. Also the grand total.

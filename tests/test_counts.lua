@@ -108,4 +108,18 @@ test("where, for Alts", function()
 	eq(#ns.Counts_Where(nil), 0)
 end)
 
+test("Links gives one saved link per item, from characters, the Warband bank and guild banks", function()
+	local rec = {
+		chars = { a = { places = { bags = { { id = 1, link = "L1", count = 2 }, { id = 2, count = 1 } } } } },
+		warband = { items = { { id = 3, link = "L3" } } },
+		guilds = { g = { tabs = { { { id = 4, link = "L4" }, { id = 1, link = "other" } } } } },
+	}
+	local links = ns.Counts_Links(rec)
+	eq(links[1], "L1")
+	eq(links[2], nil, "saved without a link")
+	eq(links[3], "L3")
+	eq(links[4], "L4")
+	eq(next(ns.Counts_Links({})), nil, "an empty record")
+end)
+
 H.done()

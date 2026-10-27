@@ -108,7 +108,7 @@ function RenameTab(tab)
 		return
 	end
 	ns.Dialog_Show({
-		title = "Rename the bank tab", hint = "A name for it", text = tab.name or "", height = 60, saveText = "Rename",
+		title = "Rename the bank tab", hint = "A name for it", text = tab.name or "", height = 130, saveText = "Rename",
 		onSave = function(name)
 			name = name:match("^%s*(.-)%s*$")
 			if name == "" then

@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Menus in the theme: right-click menus (UI.ContextMenu) and the list a UI.Dropdown opens (UI.OpenChoiceList).
 -- UI.ContextMenu takes the same generator as Blizzard's MenuUtil.CreateContextMenu, with the parts Tomte uses:
 -- CreateTitle, CreateButton (with children it opens a submenu), CreateRadio, CreateCheckbox, CreateDivider. A pick
--- closes the menu, a checkbox keeps it open; a click outside or Esc closes it.
+-- closes the menu, a checkbox keeps it open; a click outside or Esc closes it. A button can also do something on a
+-- right-click (desc:SetOnRightClick(fn)), such as opening a menu of its own.
 
 local UI = ns.UI
 local ROW_H = 22
@@ -45,6 +46,11 @@ function Desc:CreateButton(text, onClick, data)
 	local d = Add(self, "button", text)
 	d.onClick, d.data = onClick, data
 	return d
+end
+
+-- fn(data) on a right-click of this row (the menu closes first).
+function Desc:SetOnRightClick(fn)
+	self.onRightClick = fn
 end
 
 function Desc:CreateRadio(text, isSelected, onSelect, data)
@@ -95,6 +101,7 @@ end
 
 local function CreateRow(level)
 	local row = CreateFrame("Button", nil, level.scroll.content)
+	row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
 	row.bg:SetColorTexture(UI.Color("hover"))
@@ -144,8 +151,16 @@ local function CreateRow(level)
 			hover(nil)
 		end
 	end)
-	row:SetScript("OnClick", function(self)
+	row:SetScript("OnClick", function(self, button)
 		local d = self.desc
+		if button == "RightButton" then
+			if d.onRightClick then
+				UI.Sound("pick")
+				CloseAll()
+				d.onRightClick(d.data)
+			end
+			return
+		end
 		if d.kind == "checkbox" then
 			UI.Sound("pick")
 			d.onSelect(d.data)
