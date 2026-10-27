@@ -38,8 +38,20 @@ ns.EVENTS_DEFS = {
 }
 
 -- Timewalking gets new holiday IDs every season: it's found through the Dungeon Finder instead.
-ns.EVENTS_TIMEWALKING = { key = "timewalking", category = 15454, currencies = { 1166 },
+ns.EVENTS_TIMEWALKING = { key = "timewalking", category = 15454, currencies = { 1166 }, icon = 463446,
 	icons = { "interface\\icons\\pvecurrency-justice" } }
+
+-- Weekly bonus events have no entry above (nothing to collect): they only get an icon, by calendar texture
+-- (interface/calendar/holidays/calendar_<name>start/ongoing/end in the community listfile).
+ns.EVENTS_WEEKLY_ICONS = {
+	{ icon = 6025441, textures = { 6033780, 6033781 } }, -- Delves: ui_delves
+	{ icon = 236396, textures = { 1616334, 1617308, 4272905 } }, -- PvP Brawl: achievement_bg_winwsg
+	{ icon = 236396, textures = { 1129669, 1129670, 1129671 } }, -- Battlegrounds
+	{ icon = 236329, textures = { 1129678, 1129679, 1129680 } }, -- Arena skirmishes: achievement_arena_2v2_7
+	{ icon = 643856, textures = { 1129675, 1129676, 1129677 } }, -- Pet battles: inv_pet_battlepettraining
+	{ icon = 134269, textures = { 1467048, 1467049, 1467050 } }, -- World quests: inv_misc_map_01
+	{ icon = 133594, textures = { 1129666, 1129667, 1129668 } }, -- Apexis: inv_misc_apexis_crystal
+}
 
 -- Darkmoon Faire profession quests, [TradeSkillLineID] = questID, all checked against warcraft.wiki.gg's quest pages
 -- (/tomte events ids prints the names the game gives them).

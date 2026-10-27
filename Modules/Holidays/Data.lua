@@ -51,9 +51,15 @@ function ns.Events_DayList(today, count)
 	return out
 end
 
--- { byID, byTexture, byLFG }. A texture two entries share is left out (false).
-function ns.Events_Index(defs)
-	local byID, byTexture, byLFG = {}, {}, {}
+-- { byID, byTexture, byLFG, iconByTexture }. A texture two entries share is left out (false). iconGroups:
+-- { { icon, textures } } for events without an entry (weekly bonus events, the calendar's Timewalking).
+function ns.Events_Index(defs, iconGroups)
+	local byID, byTexture, byLFG, iconByTexture = {}, {}, {}, {}
+	for _, group in ipairs(iconGroups or {}) do
+		for _, tex in ipairs(group.textures) do
+			iconByTexture[tex] = group.icon
+		end
+	end
 	for _, def in ipairs(defs) do
 		for _, id in ipairs(def.ids or {}) do
 			byID[id] = def
@@ -69,7 +75,7 @@ function ns.Events_Index(defs)
 			byLFG[id] = def
 		end
 	end
-	return { byID = byID, byTexture = byTexture, byLFG = byLFG }
+	return { byID = byID, byTexture = byTexture, byLFG = byLFG, iconByTexture = iconByTexture }
 end
 
 function ns.Events_Lookup(index, eventID, texture)
@@ -97,7 +103,7 @@ end
 
 -- rows: { { eventID, texture, name, description, startTime?, endTime?, day } } (day: the CalendarTime of the day the
 -- row was read on). One event per occurrence: { key, def, name, description, texture, icon, active, startsIn, endsIn,
--- startTime, endTime }, minutes from now; icon is the table entry's (nil for unknown events). Ended ones and ones starting after the window are left out.
+-- startTime, endTime }, minutes from now; icon is the table entry's, else its icon group's (nil for unknown events). Ended ones and ones starting after the window are left out.
 function ns.Events_Collect(rows, now, soonMinutes, index)
 	local nowM = ns.Events_Minutes(now)
 	local out, seen = {}, {}
@@ -110,7 +116,7 @@ function ns.Events_Collect(rows, now, soonMinutes, index)
 		if not seen[key] and endM > nowM and startM - nowM <= soonMinutes then
 			seen[key] = true
 			out[#out + 1] = { key = key, def = def, name = r.name, description = r.description, texture = r.texture,
-				icon = def and def.icon, active = startM <= nowM, startsIn = startM - nowM, endsIn = endM - nowM, startTime = r.startTime,
+				icon = def and def.icon or r.texture and index.iconByTexture[r.texture], active = startM <= nowM, startsIn = startM - nowM, endsIn = endM - nowM, startTime = r.startTime,
 				endTime = r.endTime }
 		end
 	end
@@ -119,7 +125,8 @@ end
 
 -- The Dungeon Finder's Timewalking as an event: on now, until the weekly reset.
 function ns.Events_Timewalking(dungeon, secondsToReset, def)
-	return { key = "timewalking:" .. dungeon.id, def = def, name = dungeon.name, active = true, startsIn = 0,
+	return { key = "timewalking:" .. dungeon.id, def = def, icon = def and def.icon, name = dungeon.name,
+		active = true, startsIn = 0,
 		endsIn = math.floor((secondsToReset or 0) / 60), dungeonID = dungeon.id }
 end
 

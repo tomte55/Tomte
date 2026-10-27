@@ -148,6 +148,32 @@ test("collect: dedupe, active vs soon, window and ended", function()
 	eq(list[2].startsIn, 4 * 1440 + 22 * 60, "starts in")
 end)
 
+test("collect: an event without an entry gets its icon group's icon by texture", function()
+	local index = ns.Events_Index({ hallows }, { { icon = 6025441, textures = { 6033780, 6033781 } } })
+	local rows = {
+		{ name = "Delves Bonus Event", texture = 6033781, startTime = T(2026, 10, 20, 8, 0),
+			endTime = T(2026, 10, 21, 8, 0), day = T(2026, 10, 20) },
+		{ eventID = 324, name = "Hallow's End", texture = 6033781, startTime = T(2026, 10, 18, 10, 0),
+			endTime = T(2026, 11, 1, 11, 0), day = T(2026, 10, 20) },
+	}
+	local list = ns.Events_Collect(rows, NOW, 7 * 1440, index)
+	eq(#list, 2)
+	eq(list[1].icon, 6025441, "group icon")
+	eq(list[2].icon, 236546, "the entry's icon wins")
+end)
+
+test("weekly icon groups: real icons, no texture shared with a holiday", function()
+	local index = ns.Events_Index(ns.EVENTS_DEFS)
+	for _, group in ipairs(ns.EVENTS_WEEKLY_ICONS) do
+		eq(type(group.icon), "number")
+		for _, tex in ipairs(group.textures) do
+			eq(index.byTexture[tex], nil, tex .. " is no holiday's")
+		end
+	end
+	eq(type(ns.EVENTS_TIMEWALKING.icon), "number")
+	eq(ns.Events_Timewalking({ id = 1, name = "TW" }, 60, ns.EVENTS_TIMEWALKING).icon, ns.EVENTS_TIMEWALKING.icon)
+end)
+
 test("collect: two occurrences of one holiday stay apart; a row without times covers its day", function()
 	local rows = {
 		{ eventID = 324, name = "Hallow's End", startTime = T(2026, 10, 18), endTime = T(2026, 10, 21), day = T(2026, 10, 20) },
