@@ -16,6 +16,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Bags:** the currencies panel's search finds currencies under folded headers too.
 - **Bags:** gear no longer turns red after a fight: the game's "can't change equipment in combat" line doesn't count as "can't use", and the red tint on gear and recipes checks again by itself after combat, a spec change, a new skill or a learned recipe.
+- **Bags:** category names aren't cut off any more when the category has only an icon or two (Hearthstones, Upgrades).
 
 ## v1.24.2 - 2026-10-27
 

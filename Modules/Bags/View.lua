@@ -169,9 +169,15 @@ function View:Draw(items, opts)
 		self.snapshot, self.was = nil, nil
 	end
 	local size = db.iconSize
+	local measure = self:Label(0) -- never shown: measures category labels for Layout.lua
+	measure:Hide()
 	local placed, height, width = ns.Bags_Pack(blocks, {
 		columns = opts.columns or db.columns, icon = size, gap = GAP, label = LABEL_H, section = SECTION_H,
 		spacing = db.spacing, lineGap = LINE_GAP,
+		labelWidth = function(label)
+			measure:SetText(label)
+			return measure:GetUnboundedStringWidth()
+		end,
 	})
 	local nLabels, nHeadings, nRules = 0, 0, 0
 	local paint = opts.paint

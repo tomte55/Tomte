@@ -137,4 +137,21 @@ test("a divider starts a new line and takes a line gap", function()
 	eq(find(placed, "b").y, 14 + 30 + 6 + 6)
 end)
 
+test("a category is as wide as its label, up to the full width", function()
+	local blocks = {
+		{ kind = "category", key = "a", label = "Hearthstones", count = 1 },
+		{ kind = "category", key = "b", label = "Food", count = 1 },
+		{ kind = "category", key = "c", label = ("x"):rep(200), count = 1 },
+	}
+	local placed = ns.Bags_Pack(blocks, { columns = 4, icon = 30, gap = 2, label = 13, section = 18, spacing = 10,
+		lineGap = 6, labelWidth = function(label)
+			return #label * 6
+		end })
+	eq(placed[1].width, 72, "label wider than its one icon")
+	eq(placed[2].x, 82, "the next category starts after the label")
+	eq(placed[2].width, 30, "a short label keeps the icon width")
+	eq(placed[3].width, 126, "never wider than the window")
+	eq(placed[3].y > 0, true, "too wide to share the line")
+end)
+
 H.done()
