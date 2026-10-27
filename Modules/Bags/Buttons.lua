@@ -41,7 +41,7 @@ local UI = ns.UI
 local holders = {} -- [bag] = holder frame, a child of the window body that shows that bag
 local buttons = {} -- [bag * 1000 + slot] = button
 local views = {} -- [host] = { display-only buttons } (another character's items, Bags.lua's browsing)
-local extras = {} -- [button] = { ilvl, pet, mark, set, craft, free, fontSize, arrows = { [kind] = widget } }
+local extras = {} -- [button] = { ilvl, pet, mark, set, craft, free, fontSize, red, arrows = { [kind] = widget } }
 -- false while an item from outside the bags is on the cursor (ns.BagsButtons_SetMouse); the bag window's buttons only
 -- (bags 0-5), the bank's keep taking clicks so a bank item can go back or move inside the bank.
 local mouseOn = true
@@ -366,6 +366,16 @@ local function PaintView(button, e, item, opts)
 	button:Show()
 end
 
+-- Blizzard's UpdateCooldown colors the icon (white, or grey while the item can't be used yet), so the red of an item
+-- you can't use goes on after it. The game's red, not the theme's danger: a softer red tints the icon pink.
+local function UpdateCooldown(button, hasItem)
+	button:UpdateCooldown(hasItem)
+	local e = extras[button]
+	if hasItem and e and e.red then
+		SetItemButtonTextureVertexColor(button, RED_FONT_COLOR:GetRGB())
+	end
+end
+
 -- Paints a button for its record. opts: matches (false: faded by the search), free (the free-slot count an Empty
 -- slot shows, or nil), corners ([mark] = "TOPLEFT" | "TOPRIGHT" | "BOTTOMLEFT" | "BOTTOMRIGHT" | "off"), ilvlColor
 -- ("quality" | "plain"), fontSize, newGlow, greyJunk, redUnusable, context (fade items that don't fit the open
@@ -395,6 +405,7 @@ function ns.BagsButtons_Paint(button, item, opts)
 		button:UpdateNewItem(nil)
 		button:UpdateJunkItem(nil, true)
 		button:UpdateQuestItem(false, nil, nil)
+		e.red = false
 		button:UpdateCooldown(nil)
 		button:SetReadable(false)
 		HideMarks(button, e)
@@ -408,11 +419,7 @@ function ns.BagsButtons_Paint(button, item, opts)
 		Frame(button, e, item)
 		SetItemButtonCount(button, item.count)
 		SetItemButtonDesaturated(button, item.locked or (opts.greyJunk and item.junk))
-		if opts.redUnusable and item.unusable then
-			SetItemButtonTextureVertexColor(button, UI.Color("danger"))
-		else
-			SetItemButtonTextureVertexColor(button, 1, 1, 1)
-		end
+		e.red = opts.redUnusable and item.unusable or false -- painted by UpdateCooldown below
 		button:UpdateQuestItem(item.quest, item.questID, item.questActive)
 		button:UpdateNewItem(item.quality)
 		if not opts.newGlow then
@@ -427,7 +434,7 @@ function ns.BagsButtons_Paint(button, item, opts)
 			-- Read only for the overlay's look (ItemButtonMixin:GetItemContextOverlayMode); SetMatchesSearch redraws it.
 			button.itemContextMatchResult = ItemButtonUtil.ItemContextMatchResult.DoesNotApply
 		end
-		button:UpdateCooldown(item.icon)
+		UpdateCooldown(button, item.icon)
 		button:SetReadable(item.isReadable)
 		PlaceMarks(button, e, item, opts)
 		e.free:SetText("")
@@ -472,7 +479,7 @@ end
 function ns.BagsButtons_UpdateCooldowns()
 	for _, button in pairs(buttons) do
 		if button:IsShown() then
-			button:UpdateCooldown(C_Container.HasContainerItem(button:GetParent():GetID(), button:GetID()))
+			UpdateCooldown(button, C_Container.HasContainerItem(button:GetParent():GetID(), button:GetID()))
 		end
 	end
 end
