@@ -36,7 +36,8 @@ end)
 test("nothing new, or nothing seen yet", function()
 	eq(#ns.Changes_ToShow(LIST, "1.25.1", "1.25.1"), 0, "same version")
 	eq(#ns.Changes_ToShow(LIST, "1.26.0", "1.25.1"), 0, "a newer one seen (went back a version)")
-	eq(versions(ns.Changes_ToShow(LIST, nil, "1.25.1")), "1.25.1", "updating from before it remembered: only this one")
+	eq(versions(ns.Changes_ToShow(LIST, nil, "1.25.1")), "1.25.1 1.25.0 1.24.0",
+		"updating from before it remembered: every release up to this one")
 	eq(#ns.Changes_ToShow(LIST, nil, "1.23.0"), 0, "a version without highlights")
 end)
 

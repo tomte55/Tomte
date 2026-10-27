@@ -10,6 +10,13 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.24.2", date = "2026-10-27",
+		fixed = {
+			{ module = "window", text = "Updating from 1.23 or older, What's new shows every release since, not only "
+				.. "the newest one." },
+		},
+	},
+	{
 		version = "1.24.1", date = "2026-10-27",
 		fixed = {
 			{ module = "bags", text = "Everything from a bag or cache you open shows in New and stays there until you "
@@ -63,14 +70,14 @@ function ns.Changes_Compare(a, b)
 	return 0
 end
 
--- The releases to show after an update: newer than seen, up to current, newest first. seen nil (someone updating
--- from a Tomte that didn't remember it): only current's. Empty when there's nothing new.
+-- The releases to show after an update: newer than seen, up to current, newest first. seen nil: someone updating
+-- from a Tomte older than this list (a new user starts with seen set, Core.lua), so every release up to current.
+-- Empty when there's nothing new.
 function ns.Changes_ToShow(list, seen, current)
 	local out = {}
 	for _, entry in ipairs(list) do
 		local upToCurrent = ns.Changes_Compare(entry.version, current) <= 0
-		local newer = seen and ns.Changes_Compare(entry.version, seen) > 0 or (not seen and
-			ns.Changes_Compare(entry.version, current) == 0)
+		local newer = not seen or ns.Changes_Compare(entry.version, seen) > 0
 		if upToCurrent and newer then
 			out[#out + 1] = entry
 		end
