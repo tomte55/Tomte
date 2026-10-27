@@ -12,6 +12,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+## v1.24.3 - 2026-10-27
+
 ### Fixed
 
 - **Bags:** the currencies panel's search finds currencies under folded headers too.

@@ -10,6 +10,18 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.24.3", date = "2026-10-27",
+		fixed = {
+			{ module = "bags", text = "Find on all characters searches tooltip words too (\"Use:\", \"Equip:\")." },
+			{ module = "bags", text = "Gear no longer stays red after a fight; the red tint checks again by itself "
+				.. "after combat, a spec change or a new recipe." },
+			{ module = "bags", text = "Saved searches run with a click and have a right-click menu; the currencies "
+				.. "search finds folded currencies." },
+			{ module = "bags", text = "Category names aren't cut off, and naming a saved search has room to type "
+				.. "again." },
+		},
+	},
+	{
 		version = "1.24.2", date = "2026-10-27",
 		fixed = {
 			{ module = "window", text = "Updating from 1.23 or older, What's new shows every release since, not only "
