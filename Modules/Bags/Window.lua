@@ -419,7 +419,7 @@ local function SaveSearch()
 		return
 	end
 	ns.Dialog_Show({
-		title = "Save this search", hint = "A name for it", text = text, height = 60, saveText = "Save",
+		title = "Save this search", hint = "A name for it", text = text, height = 130, saveText = "Save",
 		onSave = function(name)
 			name = name:match("^%s*(.-)%s*$")
 			if name == "" then
@@ -431,26 +431,36 @@ local function SaveSearch()
 	})
 end
 
+-- A saved search's own menu (a right-click on it in the saved searches menu).
+local function SavedMenu(owner, saved)
+	UI.ContextMenu(owner, function(_, root)
+		root:CreateTitle(saved.name)
+		root:CreateButton("Search", function()
+			ApplySearch(saved.text)
+		end)
+		root:CreateButton("Save as category", function()
+			ns.Bags_SearchToCategory(saved.name, saved.text)
+		end)
+		root:CreateButton("Delete", function()
+			for i, s2 in ipairs(db.searches) do
+				if s2 == saved then
+					table.remove(db.searches, i)
+					break
+				end
+			end
+		end)
+	end)
+end
+
 local function SearchMenu(owner)
 	UI.ContextMenu(owner, function(_, root)
-		root:CreateTitle("Saved searches")
+		root:CreateTitle(#db.searches > 0 and "Saved searches (right-click for more)" or "Saved searches")
 		for _, saved in ipairs(db.searches) do
 			local entry = root:CreateButton(saved.name, function()
 				ApplySearch(saved.text)
 			end)
-			entry:CreateButton("Search", function()
-				ApplySearch(saved.text)
-			end)
-			entry:CreateButton("Save as category", function()
-				ns.Bags_SearchToCategory(saved.name, saved.text)
-			end)
-			entry:CreateButton("Delete", function()
-				for i, s2 in ipairs(db.searches) do
-					if s2 == saved then
-						table.remove(db.searches, i)
-						break
-					end
-				end
+			entry:SetOnRightClick(function()
+				SavedMenu(owner, saved)
 			end)
 		end
 		root:CreateDivider()

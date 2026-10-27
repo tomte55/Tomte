@@ -48,6 +48,14 @@ function ns.Counts_ItemIDs()
 	return ids
 end
 
+-- A saved link per item ID ({ [id] = link }) for reading other characters' items' tooltips.
+function ns.Counts_ItemLinks()
+	if not ns.Counts_Active() then
+		return {}
+	end
+	return ns.Counts_Links(db)
+end
+
 -- The characters in the record: { { guid, name, class, me } } by name.
 function ns.Counts_Characters()
 	local list = {}

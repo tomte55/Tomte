@@ -2,7 +2,9 @@ local addonName, ns = ...
 
 -- Bags: "Find on all characters": a panel beside the bag window listing every item any of your characters has (Item
 -- counts' record) that matches the search, with who has how many. Opened from the saved searches menu (Window.lua).
--- The search language is Search.lua's; tooltip words aren't searched here (other characters' items aren't in reach).
+-- The search language is Search.lua's. Words also look in the tooltip ("Use:"), read from the item's saved link
+-- (Item counts keeps one) a batch per frame and kept for the session. Items the game hasn't loaded have no name or
+-- tooltip yet: they're asked for, and the search runs again as they arrive.
 
 local WIDTH = 300
 local PAD = 8
@@ -10,12 +12,18 @@ local BAND_H = 34 -- the header band, as the bag window's
 local ROW_H = 34
 local ICON = 26
 local MAX_ROWS = 200 -- matches listed at most
+local LOAD_DELAY = 0.3 -- seconds of arriving item data gathered into one new search
+local TEXT_BATCH = 150 -- tooltips read per frame: a first search over every character doesn't stall the game
 
 local UI = ns.UI
 
 local panel, scroll, note
 local rows = {}
 local anchor -- the bag window
+local lastText -- the search shown, run again as item data arrives
+local loader -- watches GET_ITEM_INFO_RECEIVED while items are still loading and the panel is shown
+local texts = {} -- [link] = the tooltip's lines in lower case, this session
+local batchQueued = false
 
 -- A light record for the search language from an item ID (no bag slot behind it).
 local function Record(id)
@@ -77,17 +85,102 @@ local function WhereText(id)
 	return table.concat(parts, "  ")
 end
 
-local function Draw(text)
-	local matcher = ns.BagsSearch_Compile(text)
-	local found = {}
-	if matcher then
-		for _, id in ipairs(ns.Counts_ItemIDs and ns.Counts_ItemIDs() or {}) do
-			local record = Record(id)
-			if record and matcher(record) then
-				found[#found + 1] = record
+local Draw
+
+local redraw = UI.Debounce(LOAD_DELAY, function()
+	if panel and panel:IsShown() and lastText then
+		Draw(lastText)
+	end
+end)
+
+-- Watches for item data only while some is still on its way.
+local function WatchLoading(on)
+	if on and not loader then
+		loader = CreateFrame("Frame")
+		loader:SetScript("OnEvent", redraw)
+	end
+	if loader then
+		if on then
+			loader:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+		else
+			loader:UnregisterAllEvents()
+		end
+	end
+end
+
+-- The tooltip's lines in lower case (Search.lua's item.text), or nil while the item hasn't loaded. Secret lines are
+-- skipped.
+local function ReadText(link)
+	local data = C_TooltipInfo.GetHyperlink(link)
+	local lines = data and data.lines
+	if not (lines and #lines > 0) then
+		return nil
+	end
+	local parts = {}
+	for _, line in ipairs(lines) do
+		for _, part in ipairs({ line.leftText, line.rightText }) do
+			if part and part ~= "" and not ns.IsSecret(part) then
+				parts[#parts + 1] = part:lower()
 			end
 		end
 	end
+	return table.concat(parts, "\n")
+end
+
+-- The next batch of tooltips, a frame from now.
+local function QueueBatch()
+	if batchQueued then
+		return
+	end
+	batchQueued = true
+	C_Timer.After(0, function()
+		batchQueued = false
+		if panel and panel:IsShown() and lastText then
+			Draw(lastText)
+		end
+	end)
+end
+
+function Draw(text)
+	lastText = text
+	local matcher, _, usesText = ns.BagsSearch_Compile(text)
+	local found, loading, budget = {}, 0, TEXT_BATCH
+	local links = usesText and ns.Counts_ItemLinks and ns.Counts_ItemLinks() or {}
+	local waiting = false -- tooltips left for the next frame
+	if matcher then
+		for _, id in ipairs(ns.Counts_ItemIDs and ns.Counts_ItemIDs() or {}) do
+			local record = Record(id)
+			if record and not record.name then
+				loading = loading + 1
+				C_Item.RequestLoadItemDataByID(id)
+			elseif record then
+				if usesText then
+					local link = links[id] or ("item:" .. id)
+					if texts[link] == nil and budget > 0 then
+						budget = budget - 1
+						texts[link] = ReadText(link) or false
+					end
+					if texts[link] == nil then
+						waiting = true
+					elseif texts[link] == false then
+						texts[link] = nil -- not loaded: asked for, read again next time
+						loading = loading + 1
+						C_Item.RequestLoadItemDataByID(id)
+					else
+						record.text = texts[link]
+					end
+				end
+				if matcher(record) then
+					found[#found + 1] = record
+				end
+			end
+		end
+	end
+	if waiting then
+		QueueBatch()
+	end
+	loading = loading + (waiting and 1 or 0)
+	WatchLoading(loading > 0)
 	table.sort(found, function(a, b)
 		return (a.name or "") < (b.name or "")
 	end)
@@ -111,6 +204,8 @@ local function Draw(text)
 	scroll:SetContentHeight(y)
 	if not (ns.Counts_Active and ns.Counts_Active()) then
 		note:SetText("Turn on Item counts to search every character.")
+	elseif loading > 0 then
+		note:SetText(("%d items match \"%s\" so far (still reading)..."):format(#found, text))
 	elseif #found == 0 then
 		note:SetText(("Nothing on any character matches \"%s\"."):format(text))
 	else
@@ -144,6 +239,9 @@ local function Build()
 	scroll = UI.Scroll(tray)
 	scroll:SetPoint("TOPLEFT", 6, -24)
 	scroll:SetPoint("BOTTOMRIGHT", -12, 6)
+	panel:SetScript("OnHide", function()
+		WatchLoading(false)
+	end)
 	panel:Hide()
 end
 
