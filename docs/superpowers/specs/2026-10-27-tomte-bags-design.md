@@ -247,6 +247,28 @@ recorded when the game says they changed and on logout, budgeted like `ns.Journa
   (all unit-tested); readers for bags/bank/characters; UI files per window and the categories page; `Bags.lua`
   main file last. Files over ~900 lines get split.
 
+## Step 1 additions (after the first in-game check, 2026-10-27)
+
+The user's feedback on the first build, all in step 1:
+
+- Sections with no items hide; items from outside the bags (bank, equipped) dropped anywhere on the window go into
+  a free slot; search words also match tooltip text.
+- Marks: item level (quality color or plain, outlined numbers, a number size), Gear Check's arrow, the crafting
+  list's count, the transmog diamond, an equipment set mark, a battle pet's level, the junk coin. Each picks a
+  corner or Off; marks sharing a corner show the first that applies in a fixed order (Data.lua's BAGS_MARKS).
+  *(Claude's call: a fixed order instead of a per-corner ordered list, which the options schema can't draw.)*
+- Item looks: grey out junk, red tint on gear and recipes you can't use (a red tooltip line), the game's "fade
+  what doesn't fit" (item context matching), new item glow.
+- Bag slots open as a row of the equipped bags above the window's top-left, each with its free slots.
+- Layout: category spacing, group identical items (one icon, the total; clicks act on the first stack), top bar
+  buttons only on hover, lock the window.
+- Sorting: order inside a category (quality, item type, name, item level), reverse, Clean Up when the bags open.
+- Auto open: per window, on or off: the ones the game opens the bags for (vendor, mail, bank, Auction House,
+  scrapping, catalyst) can be turned off; item upgrade, guild bank, professions, character panel, socketing and
+  trade can be turned on. Tomte never calls Blizzard's bag open/close functions for this (taint on
+  FRAME_THAT_OPENED_BAGS, read by Esc's CloseAllWindows): it shows its own window, and closes by hiding Blizzard's
+  invisible bag frames.
+
 ## Left to the builder
 
 - Search keyword spelling and the exact default category list, names and order (within the coverage above).

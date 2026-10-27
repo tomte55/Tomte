@@ -326,9 +326,16 @@ function ns.AltsList_Changed()
 			ns.AltsSend_Refresh()
 		end
 		-- A full Baganator refresh runs every corner widget and upgrade plugin on every item: only when our marks moved.
-		if Baganator and Baganator.API and Baganator.API.RequestItemButtonsRefresh and db.listBaganator
-			and MarksChanged() then
-			Baganator.API.RequestItemButtonsRefresh()
+		-- Tomte's own bags (Modules/Bags) redraw their crafting-list marks the same way.
+		local baganator = Baganator and Baganator.API and Baganator.API.RequestItemButtonsRefresh and db.listBaganator
+		local tomteBags = ns.Bags_Active and ns.Bags_Active()
+		if (baganator or tomteBags) and MarksChanged() then
+			if baganator then
+				Baganator.API.RequestItemButtonsRefresh()
+			end
+			if tomteBags then
+				ns.BagsWindow_Refresh()
+			end
 		end
 	end)
 end
@@ -780,6 +787,14 @@ local function Marked()
 		marked, markedFor = ns.Alts_MarkedItems(todos), todos
 	end
 	return marked
+end
+
+-- How many of an item the crafting list wants moved (Tomte's own bags mark it), nil for none or while Alts is off.
+function ns.AltsList_Marked(itemID)
+	if not (ns.altsModule.active and itemID) then
+		return nil
+	end
+	return Marked()[itemID]
 end
 
 -- Whether the marks differ from the ones the item buttons last showed (and remembers the new ones).

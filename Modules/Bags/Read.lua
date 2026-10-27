@@ -1,0 +1,198 @@
+local addonName, ns = ...
+
+-- Bags: reads the backpack, the four bags and the reagent bag into plain item records for Data.lua's categories,
+-- Search.lua's rules and the window (the record's fields are listed at the top of Search.lua and Data.lua). Gear
+-- Check's arrows come through ns.Gear_BagArrow, looked up at call time (it may be off). Records are cached per slot
+-- until the slot's link or count changes or the cache is dropped (ns.BagsRead_Invalidate).
+
+-- The bags read, in the game's order: backpack, bags 1-4, reagent bag (Enum.BagIndex 0-5).
+local BAGS = { 0, 1, 2, 3, 4, 5 }
+local REAGENT_BAG = 5
+local WEAPON, ARMOR, RECIPE, BATTLEPET = 2, 4, 9, 17 -- Enum.ItemClass
+-- Classes whose tooltip can say in red that you can't use the item (armor type, class, skill, level).
+local CAN_BE_UNUSABLE = { [WEAPON] = true, [ARMOR] = true, [RECIPE] = true }
+-- A tooltip line in the game's red (RED_FONT_COLOR, 1 / 0.125 / 0.125) says the item can't be used.
+local RED_MIN, OTHER_MAX = 0.99, 0.2
+-- Hearthstones that are bag items, not toys: Hearthstone, Garrison Hearthstone, Dalaran Hearthstone.
+local HEARTHS = { [6948] = true, [110560] = true, [140192] = true }
+
+local IsSecret = ns.IsSecret
+local BindState = ns.Bags_BindState
+
+local cache = {} -- [bag * 1000 + slot] = item record
+
+local function Key(bag, slot)
+	return bag * 1000 + slot
+end
+
+-- The equipment sets each bag slot's item is in: [bag * 1000 + slot] = { set names }.
+local function SetSlots()
+	local slots = {}
+	if not (C_EquipmentSet and EquipmentManager_GetLocationData) then
+		return slots
+	end
+	for _, setID in ipairs(C_EquipmentSet.GetEquipmentSetIDs() or {}) do
+		local name = C_EquipmentSet.GetEquipmentSetInfo(setID)
+		for _, location in pairs(C_EquipmentSet.GetItemLocations(setID) or {}) do
+			local data = EquipmentManager_GetLocationData(location)
+			if name and data.isBags and not data.isBank and data.bag and data.slot then
+				local key = Key(data.bag, data.slot)
+				slots[key] = slots[key] or {}
+				table.insert(slots[key], name)
+			end
+		end
+	end
+	return slots
+end
+
+-- Housing decor (C_Item.IsDecorItem, as Blizzard's item buttons ask; missing on clients without housing).
+local function IsDecor(itemID)
+	return C_Item.IsDecorItem ~= nil and C_Item.IsDecorItem(itemID) == true
+end
+
+-- True when the item's tooltip has a red line: wrong armor type, class, skill or level.
+local function Unusable(bag, slot)
+	local data = C_TooltipInfo.GetBagItem(bag, slot)
+	for _, line in ipairs(data and data.lines or {}) do
+		local color = line.leftColor
+		if color and not IsSecret(color.r) and color.r >= RED_MIN and color.g <= OTHER_MAX and color.b <= OTHER_MAX then
+			return true
+		end
+	end
+	return false
+end
+
+-- A caged battle pet: its link isn't an item link, so the item info calls know nothing about it.
+local function PetRecord(bag, slot, info)
+	return {
+		bag = bag, slot = slot, link = info.hyperlink, itemID = info.itemID, icon = info.iconFileID, readable = true,
+		name = info.itemName, count = info.stackCount or 1, quality = info.quality, classID = BATTLEPET, pet = true,
+		petLevel = ns.Bags_PetLevel(info.hyperlink),
+	}
+end
+
+-- A record for a filled slot, or nil and true when the item's data hasn't loaded yet.
+local function Record(bag, slot, info)
+	local link, itemID = info.hyperlink, info.itemID
+	if IsSecret(link, itemID, info.stackCount) then
+		return { bag = bag, slot = slot, icon = info.iconFileID, count = 1, readable = false }
+	end
+	if link and link:find("|Hbattlepet:") then
+		return PetRecord(bag, slot, info)
+	end
+	local name, _, quality, _, _, typeName, subTypeName, _, equipLoc, _, price, classID, subclassID, bindType,
+		expansion = C_Item.GetItemInfo(link)
+	if not name then
+		return { bag = bag, slot = slot, link = link, itemID = itemID, icon = info.iconFileID,
+			count = info.stackCount or 1, quality = info.quality, readable = false }, true
+	end
+	local location = ItemLocation:CreateFromBagAndSlot(bag, slot)
+	local item = {
+		bag = bag, slot = slot, link = link, itemID = itemID, icon = info.iconFileID, readable = true,
+		name = name, typeName = typeName, subTypeName = subTypeName, equipLoc = equipLoc,
+		count = info.stackCount or 1, quality = info.quality or quality, price = price, noValue = info.hasNoValue,
+		classID = classID, subclassID = subclassID, expansion = expansion,
+		bind = BindState(bindType, info.isBound),
+		junk = ns.Bags_IsJunk(info.quality or quality, info.hasNoValue, BindState(bindType, info.isBound)),
+		hearth = HEARTHS[itemID] == true,
+		toy = C_ToyBox.GetToyInfo(itemID) ~= nil,
+		mount = C_MountJournal.GetMountFromItem(itemID) ~= nil,
+		pet = C_PetJournal.GetPetInfoByItemID(itemID) ~= nil,
+		decor = IsDecor(itemID),
+	}
+	local quest = C_Container.GetContainerItemQuestInfo(bag, slot)
+	item.quest = quest and (quest.isQuestItem or quest.questID ~= nil) or false
+	item.questID, item.questActive = quest and quest.questID, quest and quest.isActive
+	if CAN_BE_UNUSABLE[classID] then
+		item.unusable = Unusable(bag, slot)
+	end
+	if classID == WEAPON or classID == ARMOR then
+		item.ilvl = C_Item.GetCurrentItemLevel(location)
+		item.look = ns.NewAppearance(link)
+		if ns.Gear_BagArrow then
+			item.upgrade = ns.Gear_BagArrow(link, location, info.isBound)
+		end
+	end
+	return item
+end
+
+-- Every slot of the bags: item records and one empty record per free slot; pending is true when some item's data
+-- hasn't loaded yet (those aren't cached, and GET_ITEM_INFO_RECEIVED reads again).
+function ns.BagsRead_Bags()
+	local items, pending = {}, false
+	local sets = SetSlots()
+	for _, bag in ipairs(BAGS) do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) do
+			local key = Key(bag, slot)
+			local info = C_Container.GetContainerItemInfo(bag, slot)
+			if not info then
+				cache[key] = nil
+				items[#items + 1] = { empty = true, kind = bag == REAGENT_BAG and "reagent" or "normal",
+					bag = bag, slot = slot }
+			else
+				local item = cache[key]
+				if not (item and item.link == info.hyperlink and item.count == (info.stackCount or 1)) then
+					local waiting
+					item, waiting = Record(bag, slot, info)
+					pending = pending or waiting == true
+					cache[key] = item.readable and item or nil
+				end
+				-- Checked on every read, not cached: they change without the link changing.
+				item.locked = info.isLocked
+				item.isReadable = info.isReadable -- a book or letter (the inspect cursor), not "data loaded"
+				item.new = C_NewItems.IsNewItem(bag, slot)
+				item.set = sets[key]
+				items[#items + 1] = item
+			end
+		end
+	end
+	return items, pending
+end
+
+-- The tooltip's lines, in lower case, for searches with words (Search.lua reads item.text). Read once per record:
+-- records are cached until their item changes. Secret lines are skipped.
+local function TooltipText(item)
+	local data = C_TooltipInfo.GetBagItem(item.bag, item.slot)
+	local parts = {}
+	for _, line in ipairs(data and data.lines or {}) do
+		for _, text in ipairs({ line.leftText, line.rightText }) do
+			if text and text ~= "" and not IsSecret(text) then
+				parts[#parts + 1] = text:lower()
+			end
+		end
+	end
+	return table.concat(parts, "\n")
+end
+
+function ns.BagsRead_LoadText(items)
+	for _, item in ipairs(items) do
+		if not item.empty and item.readable and not item.text then
+			item.text = TooltipText(item)
+		end
+	end
+end
+
+-- Clears the "new" flag of every item in the bags: Blizzard does it when its bag frames hide (UpdateNewItemList in
+-- ContainerFrame_OnHide), which never runs while they sit under Takeover.lua's hidden parent.
+function ns.BagsRead_ClearNew()
+	for _, bag in ipairs(BAGS) do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) do
+			if C_NewItems.IsNewItem(bag, slot) then
+				C_NewItems.RemoveNewItem(bag, slot)
+			end
+		end
+	end
+end
+
+-- Drops cached records: one bag's, or every bag's (nil). Gear Check's verdicts and transmog changes need all.
+function ns.BagsRead_Invalidate(bag)
+	if bag == nil then
+		wipe(cache)
+		return
+	end
+	for key in pairs(cache) do
+		if math.floor(key / 1000) == bag then
+			cache[key] = nil
+		end
+	end
+end

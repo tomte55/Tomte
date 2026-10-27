@@ -123,12 +123,15 @@ local function Evaluate(link, ctx)
 	return verdict, cand, equipped
 end
 
--- Drops the cached contexts (ownCtx, specCtx) and has Baganator ask for every item's arrows again.
+-- Drops the cached contexts (ownCtx, specCtx) and has Baganator and Tomte's bags ask for every item's arrows again.
 local function InvalidateVerdicts()
 	ownCtx = nil
 	wipe(specCtx)
 	if Baganator and Baganator.API and Baganator.API.RequestItemButtonsRefresh then
 		Baganator.API.RequestItemButtonsRefresh()
+	end
+	if ns.Bags_Reread then
+		ns.Bags_Reread()
 	end
 end
 

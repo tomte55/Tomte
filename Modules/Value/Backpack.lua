@@ -5,7 +5,8 @@ local addonName, ns = ...
 -- currency bar next to the currencies Blizzard tracks there. Our own small buttons laid over the bar's free left side
 -- (Blizzard's token frame isn't resized or refilled); with no tracked currency the bar is hidden, so they go on the
 -- left of the gold line instead. Zero counts are left out. Choices in Data.lua; switched and refreshed from Value.lua
--- (ns.ValueBackpack_Toggle, ns.ValueBackpack_Refresh). Blizzard's bags only: Baganator and others replace them.
+-- (ns.ValueBackpack_Toggle, ns.ValueBackpack_Refresh). Blizzard's bags only: Baganator and others replace them. Tomte's own bags draw the same entries in their
+-- footer (ns.ValueBackpack_Entries).
 
 local ICON = 12 -- Blizzard's token icon size (BackpackTokenTemplate)
 local GAP = 2 -- between a count and its icon
@@ -150,6 +151,11 @@ local function OnClick(self, button)
 	end
 end
 
+-- A button showing one entry (self.entry): its tooltip, and its clicks (right-click stops tracking an item the player
+-- added, a chat link with the modifier). Tomte's bag window uses the same for its footer.
+ns.ValueBackpack_OnEnter = OnEnter
+ns.ValueBackpack_OnClick = OnClick
+
 local function Button(i)
 	local b = buttons[i]
 	if b then
@@ -177,6 +183,28 @@ local function HideAll()
 	end
 end
 
+-- What the bar shows, in order: { kind = "item" | "currency", id, count, icon, tracked (an item the player added) },
+-- leaving out the currencies Blizzard's own bar tracks; nil while Gold & value's tracker is off. Also drawn on Tomte's
+-- own bag window (Modules/Bags/Window.lua).
+function ns.ValueBackpack_Entries()
+	if not active then
+		return nil
+	end
+	local tracked = ns.Value_ParseItems(db.items)
+	local isTracked = {}
+	for _, id in ipairs(tracked) do
+		isTracked[id] = true
+	end
+	local entries = ns.Value_BackpackEntries({
+		items = tracked, holidays = ActiveHolidays(), crests = Crests(), watched = Watched(), count = Count,
+	})
+	for _, entry in ipairs(entries) do
+		entry.tracked = entry.kind == "item" and isTracked[entry.id] or nil
+		entry.icon = Icon(entry)
+	end
+	return entries
+end
+
 local function Layout()
 	queued = false
 	if not active then
@@ -188,14 +216,7 @@ local function Layout()
 		HideAll()
 		return
 	end
-	local tracked = ns.Value_ParseItems(db.items)
-	local isTracked = {}
-	for _, id in ipairs(tracked) do
-		isTracked[id] = true
-	end
-	local entries = ns.Value_BackpackEntries({
-		items = tracked, holidays = ActiveHolidays(), crests = Crests(), watched = Watched(), count = Count,
-	})
+	local entries = ns.ValueBackpack_Entries()
 	if not strip then
 		strip = CreateFrame("Frame")
 		strip:SetSize(1, ICON)
@@ -207,9 +228,8 @@ local function Layout()
 	local x, shown = 0, 0
 	for _, entry in ipairs(entries) do
 		local b = Button(shown + 1)
-		entry.tracked = entry.kind == "item" and isTracked[entry.id] or nil
 		b.entry = entry
-		b.icon:SetTexture(Icon(entry))
+		b.icon:SetTexture(entry.icon)
 		b.count:SetText(ns.Thousands(entry.count))
 		local width = b.count:GetStringWidth() + GAP + ICON
 		if x + width > free then
@@ -235,6 +255,9 @@ function ns.ValueBackpack_Refresh()
 	if active and not queued then
 		queued = true
 		C_Timer.After(0, Layout)
+	end
+	if ns.BagsWindow_RefreshFooter then
+		ns.BagsWindow_RefreshFooter()
 	end
 end
 
@@ -275,5 +298,8 @@ function ns.ValueBackpack_Toggle(on, saved)
 		ns.ValueBackpack_Refresh()
 	else
 		HideAll()
+		if ns.BagsWindow_RefreshFooter then
+			ns.BagsWindow_RefreshFooter()
+		end
 	end
 end

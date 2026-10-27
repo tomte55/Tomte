@@ -2,6 +2,7 @@ local addonName, ns = ...
 
 -- Gear Check, part 4: the upgrade plugin and the corner arrows in Baganator's bags (own upgrades, maybe-upgrades,
 -- upgrades for alts). Gear.lua calls GearBaganator_Register when the module starts; the verdicts are Context.lua's.
+-- The same arrows for Tomte's own bags: ns.Gear_Arrow and ns.Gear_BagArrow.
 
 local UI = ns.UI
 
@@ -17,6 +18,31 @@ local BAGANATOR_ALT_ID = "tomte_gear_alt"
 local BAGANATOR_MAYBE_ID = "tomte_gear_maybe"
 local ALT_ROLE = "accent" -- the color of Tomte's map markers, so it can't pass for your own arrow
 local MAYBE_ROLE = "warning" -- the tooltip's "Can't judge" color
+
+-- Bigger than Blizzard's bag arrow, with a dark copy behind it so it reads on bright icons. role: theme color to
+-- tint with (the arrow is desaturated first so the tint is the color), nil for the atlas's own. Also drawn in
+-- Tomte's own bags (Modules/Bags/Buttons.lua).
+function ns.Gear_Arrow(itemButton, role)
+	local widget = CreateFrame("Frame", nil, itemButton)
+	widget:SetSize(22, 24)
+	widget.padding = 0.5
+	local shadow = widget:CreateTexture(nil, "ARTWORK")
+	shadow:SetAtlas("bags-greenarrow")
+	shadow:SetVertexColor(0, 0, 0, 0.9)
+	shadow:SetPoint("TOPLEFT", 1.5, -1.5)
+	shadow:SetPoint("BOTTOMRIGHT", 1.5, -1.5)
+	local arrow = widget:CreateTexture(nil, "OVERLAY")
+	arrow:SetAtlas("bags-greenarrow")
+	arrow:SetAllPoints()
+	if role then
+		arrow:SetDesaturated(true)
+		arrow:SetVertexColor(UI.Color(role))
+	end
+	return widget
+end
+
+-- The tint of each ns.Gear_BagArrow kind (nil: the arrow's own green).
+ns.GEAR_ARROW_ROLES = { maybe = MAYBE_ROLE, alt = ALT_ROLE }
 
 local function RegisterBaganator()
 	local module = ns.gearModule
@@ -41,26 +67,7 @@ local function RegisterBaganator()
 	if not Baganator.API.RegisterCornerWidget then
 		return
 	end
-	-- Bigger than Blizzard's bag arrow, with a dark copy behind it so it reads on bright icons. role: theme color to
-	-- tint with (the arrow is desaturated first so the tint is the color), nil for the atlas's own.
-	local function Arrow(itemButton, role)
-		local widget = CreateFrame("Frame", nil, itemButton)
-		widget:SetSize(22, 24)
-		widget.padding = 0.5
-		local shadow = widget:CreateTexture(nil, "ARTWORK")
-		shadow:SetAtlas("bags-greenarrow")
-		shadow:SetVertexColor(0, 0, 0, 0.9)
-		shadow:SetPoint("TOPLEFT", 1.5, -1.5)
-		shadow:SetPoint("BOTTOMRIGHT", 1.5, -1.5)
-		local arrow = widget:CreateTexture(nil, "OVERLAY")
-		arrow:SetAtlas("bags-greenarrow")
-		arrow:SetAllPoints()
-		if role then
-			arrow:SetDesaturated(true)
-			arrow:SetVertexColor(UI.Color(role))
-		end
-		return widget
-	end
+	local Arrow = ns.Gear_Arrow
 	Baganator.API.RegisterCornerWidget("Tomte Gear Check", BAGANATOR_ID, function(_, details)
 		return IsUpgrade(details.itemLink)
 	end, function(itemButton)
@@ -99,3 +106,23 @@ local function RegisterBaganator()
 end
 
 ns.GearBaganator_Register = RegisterBaganator
+
+-- The arrow for an item in Tomte's own bags (Modules/Bags): "upgrade", "maybe" (stats say so, but there's an effect
+-- to sim or a warning), "alt" (an upgrade for another character) or nil; nil while Gear Check is off. Items still
+-- loading say nil, and GearItems_OnReady refreshes the bags once they've arrived.
+function ns.Gear_BagArrow(link, location, isBound)
+	if not (ns.gearModule.active and link) or not IsGearLink(link) then
+		return nil
+	end
+	local own = Evaluate(link)
+	if ns.Gear_IsCleanUpgrade(own) then
+		return "upgrade"
+	elseif ns.Gear_IsMaybeUpgrade(own) then
+		return "maybe"
+	end
+	if DB().altUpgrades ~= "off" and ns.GearAlts_Route(link, location, nil, isBound)
+		and #(ns.GearAlts_Upgrades(link)) > 0 then
+		return "alt"
+	end
+	return nil
+end

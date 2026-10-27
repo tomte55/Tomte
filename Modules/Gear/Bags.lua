@@ -16,8 +16,9 @@ local db
 local hooked = {} -- [container frame] = true once its UpdateItems is hooked
 local painted = {} -- [item button] = true once it has border textures
 
+-- Not while Tomte's own bags (Modules/Bags) hide the game's.
 local function GlowOn()
-	return ns.gearModule.active and db and db.qualityGlow
+	return ns.gearModule.active and db and db.qualityGlow and not (ns.Bags_Active and ns.Bags_Active())
 end
 
 -- Quality border ----------------------------------------------------------------------------------------------------

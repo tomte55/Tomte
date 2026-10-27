@@ -14,6 +14,11 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### New
 
+- **Bags (new module):** Tomte's own bag window in place of the game's bags: items sorted into categories (New and
+  Upgrades on top) or one big bag; marks for upgrades, uncollected appearances, item level, equipment sets, pet
+  levels, junk and the crafting list, each in the corner you pick; a currencies panel; items keep their places
+  while you sell or mail; choose which windows open the bags; and a search that looks in tooltips and understands
+  `is:upgrade`, `ilvl>=600` and more. Off by default.
 - **Dressing room:** gear tooltips say whether you have the item's look: not collected (or only for another class),
   collected from another item, or collected.
 - **Tomte window:** a Motion and sound card in its settings. Motion: Full, Subtle (soft fades and glides only) or
