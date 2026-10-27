@@ -12,6 +12,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+## v1.24.0 - 2026-10-27
+
 ### New
 
 - **Bags (new module):** Tomte's own bag window in place of the game's bags: items sorted into categories (New and
