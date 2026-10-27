@@ -9,9 +9,10 @@ local addonName, ns = ...
 --   { kind = "section", key, label, folded }             (its categories follow with section = its key)
 --   { kind = "divider" }
 -- opts: columns (icons per row), icon, gap (between icons), label (label line height), section (heading height),
--- spacing (between categories on one line), lineGap (between lines).
+-- spacing (between categories on one line), lineGap (between lines), labelWidth(label) -> pixels (optional: a category
+-- is at least as wide as its label, so a short row of icons doesn't cut its name off).
 -- Returns placed, height, width. placed[i] = { block, x, y, width, cells = { { x, y } ... } } in pixels from the
--- top-left. A category is min(count, columns) icons wide and goes on the current line when it fits; sections,
+-- top-left. A category is min(count, columns) icons wide (or its label's width, up to the full width) and goes on the current line when it fits; sections,
 -- dividers, the first category after a section's contents and an ownLine category start a new line. Empty
 -- categories, the categories of a folded section and sections whose categories are all empty are left out.
 function ns.Bags_Pack(blocks, opts)
@@ -56,6 +57,9 @@ function ns.Bags_Pack(blocks, opts)
 			end
 			local across = math.min(block.count, opts.columns)
 			local w = across * cell - opts.gap
+			if block.label and opts.labelWidth then
+				w = math.min(math.max(w, math.ceil(opts.labelWidth(block.label))), width)
+			end
 			if x > 0 and x + opts.spacing + w > width then
 				NewLine()
 			end
