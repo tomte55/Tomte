@@ -8,9 +8,9 @@ local addonName, ns = ...
 -- The bags read, in the game's order: backpack, bags 1-4, reagent bag (Enum.BagIndex 0-5).
 local BAGS = { 0, 1, 2, 3, 4, 5 }
 local REAGENT_BAG = 5
-local WEAPON, ARMOR, RECIPE, BATTLEPET = 2, 4, 9, 17 -- Enum.ItemClass
+local WEAPON, ARMOR, RECIPE, BATTLEPET, PROFESSION = 2, 4, 9, 17, 19 -- Enum.ItemClass
 -- Classes whose tooltip can say in red that you can't use the item (armor type, class, skill, level).
-local CAN_BE_UNUSABLE = { [WEAPON] = true, [ARMOR] = true, [RECIPE] = true }
+local CAN_BE_UNUSABLE = { [WEAPON] = true, [ARMOR] = true, [RECIPE] = true, [PROFESSION] = true }
 -- A tooltip line in the game's red (RED_FONT_COLOR, 1 / 0.125 / 0.125) says the item can't be used.
 local RED_MIN, OTHER_MAX = 0.99, 0.2
 -- Hearthstones that are bag items, not toys: Hearthstone, Garrison Hearthstone, Dalaran Hearthstone.

@@ -100,6 +100,13 @@ function events:TRANSMOG_COLLECTION_UPDATED()
 	ns.Bags_Reread()
 end
 
+-- Items you couldn't use may be fine now. UnitLevel (and so the red "Requires Level" lines) can lag behind the
+-- event, as Gear.lua found: read everything again once it's caught up.
+function events:PLAYER_LEVEL_UP()
+	ns.Bags_Reread()
+	C_Timer.After(2, ns.Bags_Reread)
+end
+
 function events:GET_ITEM_INFO_RECEIVED()
 	if itemDataTimer then
 		return
@@ -159,7 +166,7 @@ local EVENTS = {
 	"BAG_UPDATE_COOLDOWN", "EQUIPMENT_SETS_CHANGED", "TRANSMOG_COLLECTION_UPDATED", "GET_ITEM_INFO_RECEIVED",
 	"PLAYER_MONEY", "CURRENCY_DISPLAY_UPDATE", "CURSOR_CHANGED", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
 	"PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "SOCKET_INFO_UPDATE", "SOCKET_INFO_CLOSE", "BANK_TABS_CHANGED",
-	"BANK_TAB_SETTINGS_UPDATED", "ACCOUNT_MONEY",
+	"BANK_TAB_SETTINGS_UPDATED", "ACCOUNT_MONEY", "PLAYER_LEVEL_UP",
 }
 
 local function Start()

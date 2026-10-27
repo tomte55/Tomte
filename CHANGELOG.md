@@ -18,7 +18,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
   icon in Next up, on Home, on the Events page and in toasts, instead of a blank sliver of calendar art.
 - **Bags:** everything you get from opening a bag or cache now shows in New, including items that landed under your
   mouse or went onto a stack you already had, and it stays there until you close your bags.
-- **Bags:** items you can't use (wrong level, armor type or class) are now tinted red, in the game's own red.
+- **Bags:** items you can't use (wrong level, armor type or class) are now tinted red, in the game's own red,
+  profession tools and gear included. The red goes away by itself when a level-up makes the item usable.
 
 ## v1.24.0 - 2026-10-27
 
