@@ -76,6 +76,12 @@ function ns.Ago(seconds)
 	return floor(seconds / 86400) .. "d"
 end
 
+-- Ago for a sentence: "just now", "5m ago", "2h ago".
+function ns.AgoText(seconds)
+	local ago = ns.Ago(seconds)
+	return ago == "now" and "just now" or (ago .. " ago")
+end
+
 -- "45s", "12:34" or "1:23:45" for whole seconds.
 function ns.Clock(seconds)
 	if seconds >= 3600 then

@@ -48,7 +48,7 @@ local function Detail(f)
 		parts[#parts + 1] = "Tomte " .. f.version
 	end
 	if f.seen then
-		parts[#parts + 1] = "seen " .. ns.Ago(time() - f.seen) .. " ago"
+		parts[#parts + 1] = "seen " .. ns.AgoText(time() - f.seen)
 	end
 	parts[#parts + 1] = #f.gave > 0 and ("gave you " .. table.concat(f.gave, ", ")) or "nothing new from them yet"
 	return table.concat(parts, "  ·  ")

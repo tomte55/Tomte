@@ -460,7 +460,7 @@ local function List()
 	for _, f in ipairs(list) do
 		local parts = { f.character or "?", "Tomte " .. (f.version or "?") }
 		if f.seen then
-			parts[#parts + 1] = "seen " .. ns.Ago(time() - f.seen) .. " ago"
+			parts[#parts + 1] = "seen " .. ns.AgoText(time() - f.seen)
 		end
 		if #f.gave > 0 then
 			parts[#parts + 1] = "gave you " .. table.concat(f.gave, ", ")

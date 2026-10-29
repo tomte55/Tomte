@@ -135,7 +135,7 @@ local function List()
 		for _, items in pairs(char.places or {}) do
 			n = n + #items
 		end
-		ns.Print(("%s: %d stacks, last read %s"):format(c.name, n, char.at and ns.Ago(GetServerTime() - char.at) or "never"))
+		ns.Print(("%s: %d stacks, last read %s"):format(c.name, n, char.at and ns.AgoText(GetServerTime() - char.at) or "never"))
 	end
 end
 

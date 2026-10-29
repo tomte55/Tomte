@@ -109,7 +109,7 @@ local function Tooltip(row, e)
 		GameTooltip:AddLine(e.text, r, g, b, true)
 	end
 	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine(("%s, %s ago"):format(e.char or "?", ns.Recent_Ago(GetServerTime() - e.at)), UI.RGB("textMuted"))
+	GameTooltip:AddLine(("%s, %s"):format(e.char or "?", ns.AgoText(GetServerTime() - e.at)), UI.RGB("textMuted"))
 	if actions[e] then
 		GameTooltip:AddLine("Click: same as clicking the toast", UI.RGB("accent"))
 	end

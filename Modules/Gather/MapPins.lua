@@ -57,7 +57,7 @@ local function ShowTooltip(pin)
 	UI.TipLine(ns.GATHER_KIND_NAMES[spot.kind] .. " node", "textMuted")
 	local age = ns.Gather_SpotAge(WorldMapFrame:GetMapID(), spot.pos)
 	if age then
-		UI.TipLine(age < 60 and "Gathered just now" or ("Gathered %s ago"):format(ns.Ago(age)), "textMuted")
+		UI.TipLine("Gathered " .. ns.AgoText(age), "textMuted")
 	end
 	if pin.followed then
 		UI.TipLine("Next on your gathering route", "accent")
