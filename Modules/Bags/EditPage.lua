@@ -546,7 +546,7 @@ local function BuildBand()
 				editor.name:SetFocus()
 				editor.name:HighlightText()
 			end },
-		{ text = "+ Section", tip = "Add a section", tipLine = "A heading that folds; drop categories into it.",
+		{ text = "+ Section", tip = "Add a section", tipLine = "A heading; drop categories into it.",
 			onClick = function()
 				selected = ns.BagsEdit_AddSection(ns.Bags_EditLayout(), "New section").key
 				Changed()

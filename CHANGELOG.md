@@ -18,6 +18,11 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
 - **Tooltip extras:** items in your bags say when they have no use left: a book or letter with nothing else to it, or a toy, mount, pet or recipe you already know ("safe to delete", "sell it" or "sell or trade it"). Items an unfinished achievement still needs say so.
 
+### Improved
+
+- **Bags:** folding sections is now a setting, off by default (Fold sections), and only a click on the heading's name folds it, not the empty rest of its row.
+- **Bags:** stack counts follow the Number size setting and sit in the bottom-right corner like the item level does in the bottom-left.
+
 ## v1.25.0 - 2026-10-29
 
 ### New
