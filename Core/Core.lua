@@ -95,6 +95,24 @@ function ns.Readable(...)
 	return not canaccessallvalues or canaccessallvalues(...)
 end
 
+-- Whether the account has a source's look (from any item) and that source itself, for the info
+-- GetAppearanceInfoBySource gave. Its collected flags can say false for a look the account has (seen on armor this
+-- character can't wear, right after the game said "added to your appearance collection"), so the sources are
+-- asked one by one as well.
+function ns.AppearanceCollected(sourceID, info)
+	local has = C_TransmogCollection.PlayerHasTransmogItemModifiedAppearance
+	local source = info.sourceIsCollected or has(sourceID)
+	if info.appearanceIsCollected or source then
+		return true, source
+	end
+	for _, id in ipairs(info.appearanceID and C_TransmogCollection.GetAllAppearanceSources(info.appearanceID) or {}) do
+		if has(id) then
+			return true, false
+		end
+	end
+	return false, false
+end
+
 -- An item's appearance the account hasn't collected from any source: "you" when this character can collect it,
 -- "other" when only another class or armor type can; nil when it's collected or the item has no appearance.
 function ns.NewAppearance(link)
@@ -103,7 +121,7 @@ function ns.NewAppearance(link)
 		return nil
 	end
 	local info = C_TransmogCollection.GetAppearanceInfoBySource(sourceID)
-	if not info or info.appearanceIsCollected then
+	if not info or ns.AppearanceCollected(sourceID, info) then
 		return nil
 	end
 	local _, canCollect = C_TransmogCollection.PlayerCanCollectSource(sourceID)
