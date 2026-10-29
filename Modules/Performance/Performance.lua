@@ -180,7 +180,7 @@ module = ns.RegisterModule({
 			end },
 		{ type = "header", label = "Readout" },
 		{ type = "checkbox", key = "readout.shown", label = "Show a readout on screen", onChange = ApplyReadout,
-			tooltip = "Frame rate, latency and Tomte's share of the frame in a small line. Move it in Edit Mode." },
+			tooltip = "Frame rate, latency and Tomte's share of the frame in a small line. Hover it for more, click it for the Performance page, move it in Edit Mode." },
 		{ type = "button", label = "Position", text = "Reset", onClick = ns.PerfReadout_Reset, parent = "readout.shown" },
 	},
 	commands = {

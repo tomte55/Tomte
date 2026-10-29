@@ -94,3 +94,9 @@ function ns.PerfRead_Game(withAddons, forceMemory)
 	game.tomte.mem = memory[addonName]
 	return game
 end
+
+-- Tomte's memory in KB, read at most every MEMORY_SECONDS (the readout's tooltip; PerfRead_Game(false) skips it).
+function ns.PerfRead_TomteMemory()
+	ReadMemory(LoadedAddons())
+	return memory[addonName]
+end
