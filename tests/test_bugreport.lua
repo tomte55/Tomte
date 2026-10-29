@@ -34,6 +34,45 @@ test("IsTomte: full paths, backslashes and blocked calls", function()
 	eq(ns.Bug_IsTomte("AddOn 'TomteFoo' tried to call", nil, F), false, "blocked, other addon")
 end)
 
+test("IsTomte: Blizzard code tainted by Tomte", function()
+	local F = ns.BUG_FILES
+	local msg = "Interface/AddOns/Blizzard_SharedXML/LayoutFrame.lua:493: attempt to compare a secret number value "
+		.. "(execution tainted by 'Tomte')"
+	local isTomte, stackOnly, tainted = ns.Bug_IsTomte(msg, "[Interface/AddOns/Blizzard_UIWidgets/x.lua]:1: in f", F)
+	eq(isTomte, true, "caught")
+	eq(stackOnly, false, "not a stack match")
+	eq(tainted, true, "tainted")
+	eq(ns.Bug_IsTomte("x.lua:1: boom (execution tainted by 'TomteFoo')", nil, F), false, "another addon")
+	local errors = ns.Bug_Collect({ { ns.Bug_Normalize({ message = msg }) } }, F, 3)
+	local text = ns.Bug_ReportText({ catcher = "BugSack", errors = errors, total = 1 })
+	eq(text:find("tainted by Tomte earlier", 1, true) ~= nil, true, "labelled in the report")
+end)
+
+test("toast: one per distinct error, at most one per gap", function()
+	local s = {}
+	eq(ns.Bug_ToastNote(s, "a", 100, 60), "show", "first")
+	eq(ns.Bug_ToastTake(s, 100), 1, "one taken")
+	eq(ns.Bug_ToastNote(s, "a", 101, 60), nil, "same error again")
+	local what, wait = ns.Bug_ToastNote(s, "b", 110, 60)
+	eq(what, "wait", "inside the gap")
+	eq(wait, 50, "seconds left")
+	eq(ns.Bug_ToastNote(s, "c", 120, 60), "wait", "another inside the gap")
+	eq(ns.Bug_ToastTake(s, 160), 2, "both counted into the next toast")
+	eq(ns.Bug_ToastNote(s, "d", 300, 60), "show", "after the gap")
+end)
+
+test("toast text", function()
+	local title, text = ns.Bug_ToastText(1, "Interface\\AddOns\\Tomte\\Modules\\X.lua:5: boom\nstack line")
+	eq(title, "Tomte ran into an error", "one")
+	eq(text, "Modules/X.lua:5: boom\nClick for a bug report to copy and send.", "short path, first line")
+	title = ns.Bug_ToastText(3, "x")
+	eq(title, "Tomte ran into 3 errors", "several")
+	local _, long = ns.Bug_ToastText(1, string.rep("y", 200))
+	eq(#long:match("^[^\n]*"), ns.BUG_TOAST_MESSAGE, "shortened")
+	local _, none = ns.Bug_ToastText(1, nil)
+	eq(none, "Click for a bug report to copy and send.", "no message")
+end)
+
 test("IsTomte: shortened paths", function()
 	local F = ns.BUG_FILES
 	eq(ns.Bug_IsTomte("...ules/Achievements/Achievements.lua:12: boom", nil, F), true, "tail of a Tomte file")

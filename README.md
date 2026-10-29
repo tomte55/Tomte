@@ -255,7 +255,8 @@ open the journal in combat") rather than waiting.
 **Reporting a bug:** `/tomte bug` opens a report to copy: versions, which modules are on, related addons and Tomte's
 last errors. Nothing is sent anywhere; paste it in a [GitHub issue](../../issues) or a CurseForge comment. `/tomte bug full` adds error details and
 your settings string (read it before posting). Install BugSack to catch errors across sessions; without it Tomte
-keeps its own last 5. `/tomte bug clear` empties that list. `/tomte version` (also in the window's title bar) says
+keeps its own last 5. When one of Tomte's errors happens, a small toast says so; click it for the report (switch it
+off under the Tomte window's Setup and sharing). `/tomte bug clear` empties that list. `/tomte version` (also in the window's title bar) says
 which version you have.
 
 **Sharing settings:** Tomte window settings > Setup and sharing, or `/tomte profile export` / `import` / `undo`.

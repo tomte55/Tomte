@@ -16,9 +16,11 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
+- **Bug report:** a small toast when Tomte runs into a Lua error; click it for the report to copy and send. At most one a minute, held back until combat ends, and it can be switched off.
 
 ### Improved
 
+- **Bug report:** also lists errors in Blizzard's code that Tomte caused (the "tainted by 'Tomte'" ones), which it missed before.
 - **Alts:** recipe, pattern and plans tooltips say which of your characters can learn them even before their profession window was opened, and whether their skill is high enough yet ("Kesha: Leatherworking 41/50, not yet").
 
 ### Fixed
