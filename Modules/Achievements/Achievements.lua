@@ -269,7 +269,7 @@ local function StartUp()
 			ns.Events_Request()
 		end
 		if module.active then
-			ns.Ach_StartScan()
+			ns.Ach_StartLoginScan()
 		end
 	end)
 end
@@ -430,7 +430,9 @@ module = ns.RegisterModule({
 		professions = "mine", events = "running",
 		ignored = {}, -- [achievementID] = true, account-wide
 		pins = {}, -- [player GUID] = { achievementID, ... }
-		cache = {}, -- [player GUID] = { at, scope, records }
+		-- [player GUID] = { at, scope, records, floor (lowest percent the records hold), links ([child id] =
+		-- { meta id, ... }) }
+		cache = {},
 		dock = { open = true },
 		tracker = { shown = true, locked = false, hideInCombat = true, scale = 1, collapsed = false },
 		toasts = { almost = true, lastStep = true, pinned = true },
@@ -494,6 +496,13 @@ module = ns.RegisterModule({
 	end,
 	commands = {
 		{ "scan", "scan all achievements again", Rescan },
+		{ "cache", "what's saved for this character and how this login's scan ran", function()
+			if ns.Module_RequireOn(module) then
+				for _, line in ipairs(ns.Ach_CacheLines()) do
+					ns.Print(line)
+				end
+			end
+		end },
 		{ "tracker", "show or hide the Top 5 tracker", function()
 			if ns.Module_RequireOn(module) then
 				db.tracker.shown = not db.tracker.shown

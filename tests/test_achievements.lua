@@ -21,6 +21,18 @@ test("Percent counts completed criteria as 1 and partial ones by quantity", func
 	eq(last, nil, "two left")
 end)
 
+test("CacheUsable takes a saved list that covers the threshold, for the same scope", function()
+	local entry = { scope = "account", floor = 60, links = {} }
+	eq(ns.Ach_CacheUsable(entry, "account", 60), true)
+	eq(ns.Ach_CacheUsable(entry, "account", 70), true, "a higher threshold is inside what's saved")
+	eq(ns.Ach_CacheUsable(entry, "account", 50), false, "a lower threshold needs what wasn't saved")
+	eq(ns.Ach_CacheUsable(entry, "character", 60), false, "another scope")
+	eq(ns.Ach_CacheUsable({ scope = "account", at = 1000, records = {} }, "account", 60), false,
+		"a cache from before floors and links were saved")
+	eq(ns.Ach_CacheUsable(nil, "account", 60), false)
+	eq(select(2, ns.Ach_CacheUsable(nil, "account", 60)), "nothing saved for this character yet")
+end)
+
 test("Percent is nil without criteria", function()
 	eq(ns.Ach_Percent({}), nil)
 	eq(ns.Ach_Percent(nil), nil)
