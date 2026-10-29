@@ -120,7 +120,7 @@ local function CreateOverlay()
 	overlay:SetHighlightTexture(HIGHLIGHT, "ADD")
 	overlay:SetScript("OnEnter", OverlayOnEnter)
 	overlay:SetScript("OnLeave", OverlayOnLeave)
-	overlay:SetScript("OnUpdate", OverlayOnUpdate)
+	overlay:SetScript("OnUpdate", ns.Perf_Wrap(OverlayOnUpdate, "OnUpdate"))
 	overlay:Hide()
 end
 

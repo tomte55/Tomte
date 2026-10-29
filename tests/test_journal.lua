@@ -49,6 +49,9 @@ local ns = {
 	errorHandler = function(err)
 		reported[#reported + 1] = tostring(err)
 	end,
+	Perf_Wrap = function(fn)
+		return fn
+	end,
 }
 assert(loadfile("Tomte/Core/Journal.lua"))("Tomte", ns)
 

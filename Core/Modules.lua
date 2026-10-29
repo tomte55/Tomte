@@ -324,6 +324,23 @@ function ns.RefreshModule(module)
 	end
 end
 
+-- fn(module), with the time it took added to the module's startup time. The clock comes from Perf.lua (the tests
+-- have none), so this file still calls no WoW API itself.
+local function Timed(module, fn)
+	local clock = ns.Perf_Clock
+	if not clock then
+		fn(module)
+		return
+	end
+	local t0 = clock()
+	fn(module)
+	ns.Perf_Startup(module.key, clock() - t0)
+end
+
+local function InitOne(module)
+	Call(module.init, module.db)
+end
+
 -- Core.lua has already set ns.db and merged its defaults; the tests call this directly with a bare table, so it
 -- sets ns.db and db.enabled itself.
 function ns.InitModules(db)
@@ -338,11 +355,11 @@ function ns.InitModules(db)
 		end
 		module.db = db[module.key]
 		if module.init then
-			Call(module.init, module.db)
+			Timed(module, InitOne)
 		end
 	end
 	for _, module in ipairs(ns.modules) do
-		ns.RefreshModule(module)
+		Timed(module, ns.RefreshModule)
 	end
 end
 

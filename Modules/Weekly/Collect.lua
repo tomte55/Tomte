@@ -16,9 +16,9 @@ local pending, resetTimer -- pending: nil | "light" | "full", the read the waiti
 local turnedIn = {} -- [questID] = true, this session (the completed flag can lag behind the turn-in)
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 local function Completed(id)
 	return turnedIn[id] or C_QuestLog.IsQuestFlaggedCompleted(id)

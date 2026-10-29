@@ -150,13 +150,13 @@ local function Tick()
 end
 
 local sinceTick = 0
-ticker:SetScript("OnUpdate", function(self, elapsed)
+ticker:SetScript("OnUpdate", ns.Perf_Wrap(function(self, elapsed)
 	sinceTick = sinceTick + elapsed
 	if sinceTick >= TICK then
 		sinceTick = 0
 		Tick()
 	end
-end)
+end, "OnUpdate"))
 
 -- Commands and buttons while the module is off: says so and returns true.
 local function IsOff()

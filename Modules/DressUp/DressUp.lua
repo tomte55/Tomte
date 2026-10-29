@@ -85,7 +85,7 @@ local function Watch()
 	end
 	watcher = CreateFrame("Frame", nil, DressUpFrame)
 	local t = 0
-	watcher:SetScript("OnUpdate", function(_, elapsed)
+	watcher:SetScript("OnUpdate", ns.Perf_Wrap(function(_, elapsed)
 		t = t + elapsed
 		if t >= CHECK_EVERY then
 			t = 0
@@ -93,7 +93,7 @@ local function Watch()
 				Apply()
 			end
 		end
-	end)
+	end, "OnUpdate"))
 end
 
 local function UpdateExtras()

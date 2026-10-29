@@ -175,7 +175,7 @@ function ns.Banner_Show(spec)
 	end
 	if not frame then
 		Build()
-		frame:SetScript("OnUpdate", OnUpdate)
+		frame:SetScript("OnUpdate", ns.Perf_Wrap(OnUpdate, "OnUpdate"))
 	end
 	if #queue >= MAX_QUEUE then
 		table.remove(queue, 1)

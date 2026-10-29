@@ -66,6 +66,6 @@ end
 function ns.DressUp_AppearanceUpdate()
 	if On() and not hooked and TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall then
 		hooked = true -- post-calls can't be removed; OnItem checks On()
-		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, OnItem)
+		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, ns.Perf_Wrap(OnItem, "tooltip"))
 	end
 end

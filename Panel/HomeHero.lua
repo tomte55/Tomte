@@ -272,6 +272,7 @@ local function ModelTick(self, elapsed)
 		self:SetScript("OnUpdate", nil)
 	end
 end
+local ModelTickTimed = ns.Perf_Wrap(ModelTick, "OnUpdate")
 
 local function EmoteDone(model)
 	model:SetScript("OnAnimFinished", nil)
@@ -332,7 +333,7 @@ function ns.PanelHome_CreateHero(parent, onOpen)
 	model:SetScript("OnMouseDown", function(self)
 		local x, y = GetCursorPosition()
 		self.dragX, self.downX, self.downY = x, x, y
-		self:SetScript("OnUpdate", ModelTick)
+		self:SetScript("OnUpdate", ModelTickTimed)
 	end)
 	model:SetScript("OnMouseUp", function(self, button)
 		local x, y = GetCursorPosition()
@@ -363,7 +364,7 @@ function ns.PanelHome_CreateHero(parent, onOpen)
 		-- Loaded on show if it needs it (a model set while hidden may not render), whichever runs first, this or
 		-- Refresh.
 		self:Load()
-		self:SetScript("OnUpdate", ModelTick)
+		self:SetScript("OnUpdate", ModelTickTimed)
 	end)
 	model:SetScript("OnHide", function(self)
 		-- Back at rest and standing for the next open; nothing runs while it's hidden.
@@ -375,15 +376,15 @@ function ns.PanelHome_CreateHero(parent, onOpen)
 		end
 	end)
 	-- Set now too: the hero starts shown, so the first OnShow may never come. OnUpdate doesn't run while it's hidden.
-	model:SetScript("OnUpdate", ModelTick)
+	model:SetScript("OnUpdate", ModelTickTimed)
 	model:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 	model:RegisterUnitEvent("UNIT_MODEL_CHANGED", "player")
-	model:SetScript("OnEvent", function(self)
+	model:SetScript("OnEvent", ns.Perf_WrapEvents(function(self)
 		self.needsUnit = true
 		if self:IsVisible() then
 			self:Load()
 		end
-	end)
+	end))
 	hero.model = model
 	UI.FadeModel(model) -- fades with the window and with Home's arrival (Motion.lua)
 
@@ -548,11 +549,11 @@ function ns.PanelHome_CreateHero(parent, onOpen)
 	for _, event in ipairs(LIVE_EVENTS) do
 		hero:RegisterEvent(event)
 	end
-	hero:SetScript("OnEvent", function(self)
+	hero:SetScript("OnEvent", ns.Perf_WrapEvents(function(self)
 		if self:IsVisible() then
 			self:RefreshFacts()
 		end
-	end)
+	end))
 
 	hero:SetScript("OnSizeChanged", function(self, _, height)
 		self:Layout(height)

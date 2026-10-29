@@ -639,13 +639,13 @@ local function Update()
 	end
 end
 
-watcher:SetScript("OnUpdate", function()
+watcher:SetScript("OnUpdate", ns.Perf_Wrap(function()
 	local alt = IsAltKeyDown() and true or false
 	if alt ~= altShown then
 		altShown = alt
 		Update()
 	end
-end)
+end, "OnUpdate"))
 
 function CARD.Create(parent, gameTooltip)
 	tooltip = gameTooltip

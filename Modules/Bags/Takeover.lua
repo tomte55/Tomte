@@ -176,7 +176,7 @@ function ns.BagsTakeover_WindowHidden(key)
 	end
 end
 
-events:SetScript("OnEvent", function(_, event, kind)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(_, event, kind)
 	if event == "TRADE_SKILL_SHOW" then
 		ns.BagsTakeover_WindowShown("crafting")
 	elseif event == "TRADE_SKILL_CLOSE" then
@@ -194,7 +194,7 @@ events:SetScript("OnEvent", function(_, event, kind)
 	elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" and INTERACTIONS[kind] then
 		ns.BagsTakeover_WindowHidden(INTERACTIONS[kind])
 	end
-end)
+end))
 
 local WINDOW_EVENTS = {
 	"TRADE_SKILL_SHOW", "TRADE_SKILL_CLOSE", "SOCKET_INFO_UPDATE", "SOCKET_INFO_CLOSE", "TRADE_SHOW", "TRADE_CLOSED",

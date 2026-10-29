@@ -139,12 +139,12 @@ local function UpdatePopup()
 	end
 end
 
-popupEvents:SetScript("OnEvent", function()
+popupEvents:SetScript("OnEvent", ns.Perf_WrapEvents(function()
 	if live or finishing then
 		popupPending, popupSince = true, GetTime()
 		driver:Show()
 	end
-end)
+end))
 
 -- One easing step of a CVar toward target; returns the new value.
 local function Ease(name, now, target, elapsed)
@@ -190,7 +190,7 @@ local function UpdateEased(elapsed)
 	end
 end
 
-driver:SetScript("OnUpdate", function(self, elapsed)
+driver:SetScript("OnUpdate", ns.Perf_Wrap(function(self, elapsed)
 	if live and (phase == "swing" or phase == "turn") then
 		local down = IsMouseButtonDown() and true or false
 		if down and not mouseWasDown and not (isOverOwn and isOverOwn()) then
@@ -221,7 +221,7 @@ driver:SetScript("OnUpdate", function(self, elapsed)
 		popupEvents:UnregisterEvent("EXPERIMENTAL_CVAR_CONFIRMATION_NEEDED")
 		self:Hide()
 	end
-end)
+end, "OnUpdate"))
 
 -- opts: { toSide, turnSpeed (0 = no slow turn; 1 = 100%), isOverOwn = function }. state: the cinematic state (saved),
 -- (grabbed is kept on it).
@@ -317,6 +317,15 @@ local function MeasureDone(height)
 	end
 end
 
+local MeasureOnUpdate = ns.Perf_Wrap(function()
+	local bx, by, bz, tx, ty, tz = actor:GetActiveBoundingBox()
+	if bz and tz and tz - bz > 0.2 then
+		MeasureDone(tz - bz)
+	elseif GetTime() - measureStarted > MEASURE_TIMEOUT then
+		MeasureDone(nil)
+	end
+end, "OnUpdate")
+
 -- Measures the player's model (current race, form) and saves it. onDone(height or nil) runs when known.
 function Cam.MeasureHeight(onDone)
 	db = ns.charShowDB
@@ -338,14 +347,7 @@ function Cam.MeasureHeight(onDone)
 	measureStarted = GetTime()
 	actor:ClearModel()
 	actor:SetModelByUnit("player")
-	measurer:SetScript("OnUpdate", function()
-		local bx, by, bz, tx, ty, tz = actor:GetActiveBoundingBox()
-		if bz and tz and tz - bz > 0.2 then
-			MeasureDone(tz - bz)
-		elseif GetTime() - measureStarted > MEASURE_TIMEOUT then
-			MeasureDone(nil)
-		end
-	end)
+	measurer:SetScript("OnUpdate", MeasureOnUpdate)
 end
 
 -- The saved height of this character's model, nil before the first measurement.

@@ -37,9 +37,9 @@ local awaySince -- time() when you went AFK, nil while you're not
 local recapSince -- the recap counts only whispers from this time() on (when you went AFK)
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 local Readable = ns.Readable
 

@@ -25,9 +25,9 @@ local away -- AFK state while flagged AFK or previewing (same table as ns.afkDB.
 local manualAt -- GetTime() of the last /afk typed
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 local ticker = CreateFrame("Frame")
 ticker:Hide()
 
@@ -165,13 +165,13 @@ function Tick()
 end
 
 local sinceTick = 0
-ticker:SetScript("OnUpdate", function(self, elapsed)
+ticker:SetScript("OnUpdate", ns.Perf_Wrap(function(self, elapsed)
 	sinceTick = sinceTick + elapsed
 	if sinceTick >= TICK then
 		sinceTick = 0
 		Tick()
 	end
-end)
+end, "OnUpdate"))
 
 -- After /reload while AFK: GetTime() keeps counting across reloads, so "away since" stays right.
 local function ResumeOrCleanup()

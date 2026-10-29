@@ -106,6 +106,7 @@ local function CastOnUpdate(self)
 	end
 	self.bar:SetValue(f)
 end
+local CastOnUpdateTimed = ns.Perf_Wrap(CastOnUpdate, "OnUpdate")
 
 -- Cast bar: only out of combat, where a cast while the soft target is up is gathering, opening or using it.
 local function UpdateCast()
@@ -120,7 +121,7 @@ local function UpdateCast()
 	end
 	label.bar:SetColorRole(nil)
 	label.bar:Show()
-	label:SetScript("OnUpdate", CastOnUpdate)
+	label:SetScript("OnUpdate", CastOnUpdateTimed)
 	CastOnUpdate(label)
 end
 

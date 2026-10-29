@@ -107,6 +107,7 @@ function UI.Switch(parent)
 			self:SetScript("OnUpdate", nil)
 		end
 	end
+	local SlideTimed = ns.Perf_Wrap(Slide, "OnUpdate")
 
 	-- No OnHide snap: OnUpdate pauses while hidden, so a slide cut short by a page rebuild (rows hidden and shown
 	-- again) finishes when it shows.
@@ -124,7 +125,7 @@ function UI.Switch(parent)
 		if UI.MotionLevel() == "off" then
 			Show(self, self.checked and 1 or 0)
 		else
-			self:SetScript("OnUpdate", Slide)
+			self:SetScript("OnUpdate", SlideTimed)
 		end
 		if self.checked then
 			UI.Pop(self.knob, 0.25)
@@ -386,6 +387,7 @@ function UI.ProgressLine(parent)
 		self.shown = self.shown + (self.target - self.shown) * math.min(elapsed * PROGRESS_EASE, 1)
 		Draw(self)
 	end
+	local UpdateTimed = ns.Perf_Wrap(Update, "OnUpdate")
 
 	function line:Track(read)
 		local first = self.read ~= read
@@ -399,7 +401,7 @@ function UI.ProgressLine(parent)
 		self.poll = PROGRESS_POLL
 		self:Show()
 		Draw(self)
-		self:SetScript("OnUpdate", Update)
+		self:SetScript("OnUpdate", UpdateTimed)
 		return true
 	end
 
@@ -640,6 +642,7 @@ function UI.CardHover(card, opts)
 			h:Off()
 		end
 	end
+	local PollTimed = ns.Perf_Wrap(Poll, "OnUpdate")
 
 	function h:On()
 		if self.on or not Over() then
@@ -654,7 +657,7 @@ function UI.CardHover(card, opts)
 		UI.AlphaTo(self.wash, 1, CARD_HOVER_IN)
 		Lift(true)
 		since = 0
-		self.watch:SetScript("OnUpdate", Poll)
+		self.watch:SetScript("OnUpdate", PollTimed)
 	end
 
 	card:SetMouseMotionEnabled(true)

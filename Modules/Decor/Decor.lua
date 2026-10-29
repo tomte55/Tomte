@@ -280,7 +280,7 @@ local function Start()
 	events:Watch(OWNER, "MERCHANT_UPDATE")
 	if not hooked and TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall then
 		hooked = true -- post-calls can't be removed; OnItem checks module.active
-		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, OnItem)
+		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, ns.Perf_Wrap(OnItem, "tooltip"))
 	end
 	if ns.inWorld then
 		EnteredWorld()

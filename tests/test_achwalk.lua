@@ -41,6 +41,8 @@ local function Load()
 		return cat * 100 + i
 	end
 	local ns = {}
+	ns.Perf_Wrap = function(fn) return fn end
+	ns.Perf_WrapEvents = function(fn) return fn end
 	assert(loadfile("Tomte/Modules/Achievements/Walk.lua"))("Tomte", ns)
 	return ns
 end

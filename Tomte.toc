@@ -19,6 +19,8 @@ Themes/Emerald.lua
 Themes/Void.lua
 Core/Format.lua
 Core/Migrations.lua
+Core/PerfData.lua
+Core/Perf.lua
 Core/Events.lua
 Core/Core.lua
 Core/Modules.lua
@@ -342,6 +344,11 @@ Modules/NextUp/Data.lua
 Modules/NextUp/NextUp.lua
 Modules/Recent/Data.lua
 Modules/Recent/Recent.lua
+Modules/Performance/Data.lua
+Modules/Performance/Read.lua
+Modules/Performance/Page.lua
+Modules/Performance/Overlay.lua
+Modules/Performance/Performance.lua
 Modules/Value/Data.lua
 Modules/Value/Backpack.lua
 Modules/Value/Value.lua

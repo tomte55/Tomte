@@ -245,7 +245,7 @@ function ns.GatherMini_Refresh()
 	if not holder then
 		holder = CreateFrame("Frame", nil, Minimap)
 		holder:SetAllPoints(Minimap)
-		holder:SetScript("OnUpdate", OnUpdate)
+		holder:SetScript("OnUpdate", ns.Perf_Wrap(OnUpdate, "OnUpdate"))
 	end
 	holder:SetFrameLevel(Minimap:GetFrameLevel() + 3)
 	holder:Show()

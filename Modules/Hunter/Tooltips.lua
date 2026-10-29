@@ -95,6 +95,6 @@ function ns.HunterTooltips_Hook()
 		return
 	end
 	ns.hunterTooltipsHooked = true
-	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Spell, OnSpell)
-	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, OnUnit)
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Spell, ns.Perf_Wrap(OnSpell, "tooltip"))
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, ns.Perf_Wrap(OnUnit, "tooltip"))
 end

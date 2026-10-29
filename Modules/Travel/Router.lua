@@ -383,13 +383,13 @@ events:On(OWNER, "NAVIGATION_DESTINATION_REACHED", function()
 end)
 
 local elapsed = 0
-ticker:SetScript("OnUpdate", function(_, dt)
+ticker:SetScript("OnUpdate", ns.Perf_Wrap(function(_, dt)
 	elapsed = elapsed + dt
 	if elapsed >= TICK then
 		elapsed = 0
 		Check()
 	end
-end)
+end, "OnUpdate"))
 
 -- API ------------------------------------------------------------------------------------------------------
 

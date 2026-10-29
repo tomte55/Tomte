@@ -170,7 +170,7 @@ local function Start()
 	ns.GearItems_InvalidateBags()
 	if not module.tooltipHooked then
 		module.tooltipHooked = true -- post-calls can't be removed; OnItem checks module.active
-		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, OnItem)
+		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, ns.Perf_Wrap(OnItem, "tooltip"))
 	end
 	RegisterBaganator()
 	if not module.paneHooked then

@@ -197,17 +197,17 @@ end
 -- The unlocked preview sweeps the fake health so the colors, tick and glow can be seen.
 local previewDriver = CreateFrame("Frame")
 previewDriver:Hide()
-previewDriver:SetScript("OnUpdate", function(self, dt)
+previewDriver:SetScript("OnUpdate", ns.Perf_Wrap(function(self, dt)
 	previewTime = previewTime + dt
 	if bar and bar:IsShown() and not inCombat then
 		ShowPreview()
 	end
-end)
+end, "OnUpdate"))
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 local UNIT_EVENTS = { "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_FLAGS" }
 local EVENTS = {

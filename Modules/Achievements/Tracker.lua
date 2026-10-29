@@ -72,6 +72,7 @@ local function FlashUpdate(self, dt)
 		self.flash:SetAlpha(0.25 * self.flashLeft / FLASH)
 	end
 end
+local FlashUpdateTimed = ns.Perf_Wrap(FlashUpdate, "OnUpdate")
 
 local function CreateRow(parent, i)
 	local row = CreateFrame("Button", nil, parent)
@@ -241,7 +242,7 @@ function ns.AchTracker_Refresh(flashIDs)
 			FillRow(row, entry)
 			if flashIDs and flashIDs[entry.id] and old and old.id == entry.id and entry.percent > old.percent then
 				row.flashLeft = FLASH
-				row:SetScript("OnUpdate", FlashUpdate)
+				row:SetScript("OnUpdate", FlashUpdateTimed)
 				Celebrate(row, old.percent, entry.percent)
 			end
 		end

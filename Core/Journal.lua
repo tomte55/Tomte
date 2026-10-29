@@ -95,7 +95,7 @@ function ns.Journal_Scan(owner, callbacks)
 	if not frame then
 		frame = CreateFrame("Frame")
 		frame:Hide()
-		frame:SetScript("OnUpdate", OnUpdate)
+		frame:SetScript("OnUpdate", ns.Perf_Wrap(OnUpdate, "OnUpdate"))
 		scans[owner] = frame
 	end
 	frame.scan = { cb = callbacks, phase = "mounts", ids = C_MountJournal.GetMountIDs() or {}, i = 1 }

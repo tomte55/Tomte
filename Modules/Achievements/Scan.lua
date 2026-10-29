@@ -313,7 +313,7 @@ local queue = { ids = {}, queued = {}, changed = {}, milestones = {} }
 local recalculator = CreateFrame("Frame")
 recalculator:Hide()
 
-recalculator:SetScript("OnUpdate", function(self)
+recalculator:SetScript("OnUpdate", ns.Perf_Wrap(function(self)
 	local deadline = debugprofilestop() + BUDGET_MS
 	local pins = ns.Ach_PinSet()
 	while #queue.ids > 0 and debugprofilestop() < deadline do
@@ -337,7 +337,7 @@ recalculator:SetScript("OnUpdate", function(self)
 		ns.Ach_SaveCacheSoon()
 		onChanged(changed, milestones)
 	end
-end)
+end, "OnUpdate"))
 
 function ClearQueue()
 	wipe(queue.ids)

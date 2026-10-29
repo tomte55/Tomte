@@ -241,6 +241,7 @@ local function BuffTick(ticker, dt)
 	end
 	self.buffText:SetFormattedText("%s %ds", self.buffName, math.ceil(left))
 end
+local BuffTickTimed = ns.Perf_Wrap(BuffTick, "OnUpdate")
 
 function UnitBar:SetLocked(locked)
 	self:EnableMouse(not locked)
@@ -339,7 +340,7 @@ function ns.UnitBar_Create(onMoved, parent)
 	f.buffTicker = CreateFrame("Frame", nil, f)
 	f.buffTicker.owner = f
 	f.buffTicker.elapsed = 0
-	f.buffTicker:SetScript("OnUpdate", BuffTick)
+	f.buffTicker:SetScript("OnUpdate", BuffTickTimed)
 	f.buffTicker:Hide()
 
 	f.colorCurve = C_CurveUtil.CreateColorCurve()

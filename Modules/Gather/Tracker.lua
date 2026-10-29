@@ -152,13 +152,13 @@ local function Build()
 		GameTooltip:Hide()
 	end)
 
-	frame:SetScript("OnUpdate", function(_, dt)
+	frame:SetScript("OnUpdate", ns.Perf_Wrap(function(_, dt)
 		elapsed = elapsed + dt
 		if elapsed >= 1 then
 			elapsed = 0
 			ns.GatherTracker_Tick()
 		end
-	end)
+	end, "OnUpdate"))
 end
 
 ---------------------------------------------------------------------------------------------------------------

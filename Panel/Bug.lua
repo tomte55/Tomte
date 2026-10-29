@@ -341,9 +341,9 @@ Watch()
 
 -- Logout (also /reload): without BugGrabber, keep Tomte's errors of this session for a report later.
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 events:RegisterEvent("PLAYER_LOGOUT")
 events:RegisterEvent("PLAYER_LOGIN")
 

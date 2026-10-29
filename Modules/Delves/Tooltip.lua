@@ -72,8 +72,8 @@ function ns.DelvesTooltip_Start(saved)
 	kindsFor = nil
 	if not hooked then
 		hooked = true
-		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Currency, Handler("currency"))
-		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, Handler("item"))
+		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Currency, ns.Perf_Wrap(Handler("currency"), "tooltip"))
+		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, ns.Perf_Wrap(Handler("item"), "tooltip"))
 	end
 end
 

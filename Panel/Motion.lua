@@ -152,6 +152,7 @@ local function Drive(_, elapsed)
 		driver:SetScript("OnUpdate", nil)
 	end
 end
+local DriveTimed = ns.Perf_Wrap(Drive, "OnUpdate")
 
 -- Runs step(eased, raw) every frame for seconds (eased by ease, UI.EaseOut by default), then done(). A new tween with
 -- the same owner and key replaces the running one (its done doesn't run). delay holds it before it starts.
@@ -174,7 +175,7 @@ function UI.Tween(owner, key, seconds, step, done, ease, delay)
 	end
 	list[key] = { clock = 0, seconds = math.max(seconds, MIN_ANIM_SECONDS), delay = delay or 0, step = step,
 		done = done, ease = ease or UI.EaseOut }
-	driver:SetScript("OnUpdate", Drive)
+	driver:SetScript("OnUpdate", DriveTimed)
 end
 
 -- Stops a tween where it is (its done doesn't run).
@@ -246,6 +247,7 @@ local function WatchWashes()
 		washWatch:SetScript("OnUpdate", nil)
 	end
 end
+local WatchWashesTimed = ns.Perf_Wrap(WatchWashes, "OnUpdate")
 
 -- Hover in or out on a kit button: border to accent and the wash in, or back to role/alpha.
 function UI.HoverOn(frame)
@@ -253,7 +255,7 @@ function UI.HoverOn(frame)
 	if frame.hoverWash then
 		UI.AlphaTo(frame.hoverWash, 1)
 		washed[frame] = true
-		washWatch:SetScript("OnUpdate", WatchWashes)
+		washWatch:SetScript("OnUpdate", WatchWashesTimed)
 	end
 end
 

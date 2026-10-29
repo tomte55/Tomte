@@ -195,7 +195,7 @@ function ns.PanelRail_Create(parent, onSelect)
 	-- pills alone are re-read once a second while the rail shows.
 	local PILL_EVERY = 1
 	local since = 0
-	rail:SetScript("OnUpdate", function(_, elapsed)
+	rail:SetScript("OnUpdate", ns.Perf_Wrap(function(_, elapsed)
 		since = since + elapsed
 		if since < PILL_EVERY then
 			return
@@ -206,7 +206,7 @@ function ns.PanelRail_Create(parent, onSelect)
 				row:SetPill(Pill(row.entry))
 			end
 		end
-	end)
+	end, "OnUpdate"))
 
 	-- Pages that came or went since the rail last showed (a module turned on or off in Settings): a new row fades in
 	-- and the rows that moved glide from where they were, so the rail opens or closes instead of jumping. lastY is

@@ -678,9 +678,9 @@ local function AfterBattle()
 end
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 function events:GOSSIP_SHOW()
 	local npc = Remember("npc")

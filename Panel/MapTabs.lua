@@ -137,7 +137,7 @@ function WatchCombat()
 	combatWatch = CreateFrame("Frame")
 	combatWatch:RegisterEvent("PLAYER_REGEN_DISABLED")
 	combatWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
-	combatWatch:SetScript("OnEvent", function(_, event)
+	combatWatch:SetScript("OnEvent", ns.Perf_WrapEvents(function(_, event)
 		-- PLAYER_REGEN_DISABLED fires just before the lockdown starts, so the event says it, not InCombatLockdown.
 		inCombat = event == "PLAYER_REGEN_DISABLED"
 		for button in pairs(dimmed) do
@@ -145,7 +145,7 @@ function WatchCombat()
 				ns.MapTabs_OpenerSync(button)
 			end
 		end
-	end)
+	end))
 	inCombat = InCombatLockdown()
 end
 

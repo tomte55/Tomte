@@ -12,9 +12,9 @@ local EVENTS = { "WEEKLY_REWARDS_UPDATE", "CURRENCY_DISPLAY_UPDATE", "UPDATE_INS
 local UI = ns.UI
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function()
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function()
 	ns.SummaryPage_Refresh()
-end)
+end))
 
 local function Toggle()
 	if ns.SummaryPage_IsShown() then
