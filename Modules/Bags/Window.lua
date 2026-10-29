@@ -20,6 +20,12 @@ local HOVER_POLL = 0.1 -- seconds between mouse checks while the clusters show o
 local ICON_SIZE = 12 -- footer currency icons
 -- The equipped bag slots: bags 1-4 and the reagent bag (Enum.BagIndex), shown in the bag slots row.
 local EQUIPPED = { 1, 2, 3, 4, 5 }
+-- What a bag can be assigned to, in the order of Blizzard's bag menu (ContainerFrame.lua's bagGearFilters); their
+-- names are the game's BAG_FILTER_LABELS.
+local ASSIGN_FLAGS = {
+	Enum.BagSlotFlags.ClassEquipment, Enum.BagSlotFlags.ClassConsumables, Enum.BagSlotFlags.ClassProfessionGoods,
+	Enum.BagSlotFlags.ClassJunk, Enum.BagSlotFlags.ClassQuestItems, Enum.BagSlotFlags.ClassReagents,
+}
 local COIN_ICONS = {
 	gold = "%s|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t",
 	silver = "%s|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t",
@@ -69,8 +75,23 @@ local function Situation()
 	return nil
 end
 
+-- The items the open vendor takes as payment (Dark Particles and the like, not currencies): [itemID] = true.
+local function Pays()
+	local pays = {}
+	for index = 1, GetMerchantNumItems() do
+		for i = 1, GetMerchantItemCostInfo(index) or 0 do
+			local _, _, link = GetMerchantItemCostItem(index, i)
+			local itemID = link and C_Item.GetItemInfoInstant(link)
+			if itemID then
+				pays[itemID] = true
+			end
+		end
+	end
+	return pays
+end
+
 -- Bright, or faded by the search or because it can't go into the open window (situation, when that look is on).
-local function Matches(item, situation)
+local function Matches(item, situation, pays)
 	if item.empty then
 		return true
 	end
@@ -78,7 +99,7 @@ local function Matches(item, situation)
 		item.warbandOK = C_Bank.IsItemAllowedInBankType(Enum.BankType.Account,
 			ItemLocation:CreateFromBagAndSlot(item.bag, item.slot)) == true
 	end
-	if not ns.Bags_Fits(item, situation) then
+	if not ns.Bags_Fits(item, situation, pays) then
 		return false
 	end
 	if not matcher then
@@ -112,12 +133,16 @@ local function Draw()
 		ns.BagsRead_LoadText(items)
 	end
 	local situation = not viewChar and db.looks.context and Situation() or nil
+	local pays = not viewChar and MerchantFrame and MerchantFrame:IsShown() and Pays() or nil
 	local n = 0
 	local width, height = view:Draw(items, {
 		layout = ns.Bags_Layout(), place = "bags", holding = holding and not viewChar, paint = PaintOptions(),
 		matches = function(item)
-			return Matches(item, situation)
+			return Matches(item, situation, pays)
 		end,
+		pays = pays and function(item)
+			return not item.empty and pays[item.itemID] == true
+		end or nil,
 		button = viewChar and function()
 			n = n + 1
 			return ns.BagsButtons_GetView(body, n)
@@ -230,6 +255,35 @@ end
 
 -- Bag slots row ----------------------------------------------------------------------------------------------------
 
+-- A flag of the bag, set or cleared (C_Container.SetBagSlotFlag, as Blizzard's bag menu does in ContainerFrame.lua).
+-- The menu closes on a pick, as Blizzard's does: the game reads the new flag back only once the server has answered
+-- (BAG_SLOT_FLAGS_UPDATED), so an open menu went on showing the old state and a second click put it back.
+local function FlagBox(menu, bag, text, flag)
+	menu:CreateCheckbox(text, function()
+		return C_Container.GetBagSlotFlag(bag, flag)
+	end, function()
+		UI.CloseChoiceList()
+		C_Container.SetBagSlotFlag(bag, flag, not C_Container.GetBagSlotFlag(bag, flag))
+	end)
+end
+
+-- An equipped bag's right-click menu, Blizzard's own: what Clean Up puts in it (not on the reagent bag or a
+-- profession bag, as Blizzard's ContainerFrame_CanContainerUseFilterMenu), and what Clean Up and selling junk skip.
+local function BagMenu(owner, bag)
+	UI.ContextMenu(owner, function(_, root)
+		local invID = C_Container.ContainerIDToInventoryID(bag)
+		if bag ~= Enum.BagIndex.ReagentBag and not IsInventoryItemProfessionBag("player", invID) then
+			root:CreateTitle(BAG_FILTER_ASSIGN_TO)
+			for _, flag in ipairs(ASSIGN_FLAGS) do
+				FlagBox(root, bag, BAG_FILTER_LABELS[flag], flag)
+			end
+		end
+		root:CreateTitle(BAG_FILTER_IGNORE)
+		FlagBox(root, bag, BAG_FILTER_CLEANUP, Enum.BagSlotFlags.DisableAutoSort)
+		FlagBox(root, bag, SELL_ALL_JUNK_ITEMS_EXCLUDE_FLAG, Enum.BagSlotFlags.ExcludeJunkSell)
+	end)
+end
+
 local function SlotTab(i)
 	return Pooled(slotTabs, i, function()
 		local b = ns.BagsKit_Tab(frame, SLOT_SIZE, "top")
@@ -251,7 +305,11 @@ local function SlotTab(i)
 		end)
 		local function Take(self, button)
 			if button and button ~= "LeftButton" then
-				return -- right-click does nothing here (it would pick the bag up)
+				-- Right-click: the bag's menu, never the template's own (it would pick the bag up).
+				if button == "RightButton" and GetInventoryItemTexture("player", self.invID) then
+					BagMenu(self, self.bag)
+				end
+				return
 			end
 			if CursorHasItem() then
 				PutItemInBag(self.invID)

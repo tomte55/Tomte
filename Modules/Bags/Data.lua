@@ -258,14 +258,14 @@ function ns.Bags_CornerMarks(has, corners)
 end
 
 -- Whether an item can go where the open window wants it (the windows Blizzard's item context matching doesn't
--- cover): "merchant" (it sells for something), "mail" (not soulbound), "trade" and "auction" (not bound at all,
--- and not a quest item). Anything else, or no window: true.
-function ns.Bags_Fits(item, situation)
+-- cover): "merchant" (it sells for something, or the vendor takes it as payment: pays[itemID] = true), "mail" (not
+-- soulbound), "trade" and "auction" (not bound at all, and not a quest item). Anything else, or no window: true.
+function ns.Bags_Fits(item, situation, pays)
 	if item.empty or not situation then
 		return true
 	end
 	if situation == "merchant" then
-		return not item.noValue
+		return not item.noValue or (pays ~= nil and pays[item.itemID] == true)
 	elseif situation == "mail" then
 		return item.bind ~= "soulbound"
 	elseif situation == "trade" or situation == "auction" then

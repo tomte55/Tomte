@@ -175,6 +175,10 @@ function events:PLAYER_INTERACTION_MANAGER_FRAME_HIDE(kind)
 	ns.BagsWindow_SetHolding(next(holdingOpen) ~= nil)
 	ns.BagsWindow_Refresh()
 end
+-- The vendor's list came in or changed: what it takes as payment may have too (Window.lua's Pays).
+function events:MERCHANT_UPDATE()
+	ns.BagsWindow_Refresh()
+end
 events.SOCKET_INFO_UPDATE = events.BAG_UPDATE_DELAYED
 events.SOCKET_INFO_CLOSE = events.BAG_UPDATE_DELAYED
 
@@ -184,7 +188,7 @@ local EVENTS = {
 	"PLAYER_MONEY", "CURRENCY_DISPLAY_UPDATE", "CURSOR_CHANGED", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
 	"PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "SOCKET_INFO_UPDATE", "SOCKET_INFO_CLOSE", "BANK_TABS_CHANGED",
 	"BANK_TAB_SETTINGS_UPDATED", "ACCOUNT_MONEY", "PLAYER_LEVEL_UP", "PLAYER_REGEN_ENABLED",
-	"ACTIVE_PLAYER_SPECIALIZATION_CHANGED", "SKILL_LINES_CHANGED", "NEW_RECIPE_LEARNED",
+	"ACTIVE_PLAYER_SPECIALIZATION_CHANGED", "SKILL_LINES_CHANGED", "NEW_RECIPE_LEARNED", "MERCHANT_UPDATE",
 }
 
 local function Start()
@@ -372,7 +376,7 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Bag window" },
 		{ type = "dropdown", key = "view", label = "View", onChange = ns.BagsWindow_Relayout, choices = function()
 			return { { value = "categories", text = "Categories" }, { value = "single", text = "One bag" } }
-		end, tooltip = "Categories sorts your items into groups. One bag shows everything in one grid." },
+		end, tooltip = "Categories sorts your items into groups. One bag shows every slot where it really is, so you can move items around yourself." },
 		{ type = "slider", key = "columns", label = "Width", min = 8, max = 24, step = 1, format = Columns,
 			onChange = ns.BagsWindow_Relayout, tooltip = "How many icons fit in one row." },
 		{ type = "slider", key = "iconSize", label = "Icon size", min = 28, max = 44, step = 1, format = Pixels,
@@ -385,7 +389,7 @@ module = ns.RegisterModule({
 		{ type = "slider", key = "spacing", label = "Category spacing", min = 4, max = 30, step = 1, format = Pixels,
 			onChange = ns.BagsWindow_Relayout, tooltip = "The gap between categories that share a line." },
 		Check("group", "Group identical items",
-			"Stacks of the same item show as one icon with the total. Clicking it uses or picks up the first stack."),
+			"Stacks of the same item show as one icon with the total. Clicking it uses or picks up the first stack. Not in the one bag view."),
 		Check("foldSections", "Fold sections",
 			"Click a section's heading to fold or unfold it. The bag window grows and shrinks at the top, so headings move."),
 		Check("buttonsOnHover", "Buttons only on hover", "The buttons in the top bar show while the mouse is over the window."),
@@ -420,14 +424,14 @@ module = ns.RegisterModule({
 		Check("looks.redUnusable", "Red when you can't use it",
 			"Gear and recipes your character can't use (armor type, class, skill or level) get a red tint."),
 		Check("looks.context", "Fade what doesn't fit",
-			"Items that can't go into the open window fade: a merchant won't buy them, they can't be mailed, traded or auctioned, or they don't fit the scrapper, a socket, an upgrade or the catalyst."),
+			"Items that can't go into the open window fade: a merchant won't buy them (what the merchant takes as payment stays bright, framed in the accent color), they can't be mailed, traded or auctioned, or they don't fit the scrapper, a socket, an upgrade or the catalyst."),
 
 		{ type = "header", label = "Sorting" },
 		{ type = "dropdown", key = "sortMethod", label = "Order in a category", onChange = ns.BagsWindow_Relayout,
 			choices = function()
 				return { { value = "quality", text = "Quality" }, { value = "type", text = "Item type" },
 					{ value = "name", text = "Name" }, { value = "ilvl", text = "Item level" } }
-			end, tooltip = "How items line up inside each category (and in the one bag view)." },
+			end, tooltip = "How items line up inside each category. The one bag view keeps the order they have in your bags." },
 		Check("sortReverse", "Reverse the order"),
 		{ type = "checkbox", key = "sortOnOpen", label = "Clean up when the bags open",
 			tooltip = "Runs the game's Clean Up every time the bags open, out of combat. Gear Check sets its direction." },
