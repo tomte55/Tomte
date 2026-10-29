@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Tooltip extras: which unfinished achievements need an item, from the criteria that name one (acquire, eat or
 -- drink, fish up, own; ns.TIPS_ITEM_CRITERIA). Built once a session on the shared achievement walk
--- (Modules/Achievements/Walk.lua, a few milliseconds per frame); until it's done the "what's left to do" line
+-- (Modules/Achievements/Walk.lua, at its slow background speed); until it's done the "what's left to do" line
 -- (Tooltip.lua) stays off, so it never calls an item safe to delete unchecked. Started and stopped from Tips.lua.
 
 local WALK_KEY = "tips"
@@ -37,7 +37,8 @@ function ns.TipsScan_Start()
 	timer = C_Timer.NewTimer(SCAN_DELAY, function()
 		timer = nil
 		building = {}
-		ns.AchWalk_Join(WALK_KEY, { visit = Visit, finish = Finish })
+		-- background: the line waits for the index anyway, so the walk can go at its slow speed.
+		ns.AchWalk_Join(WALK_KEY, { visit = Visit, finish = Finish, background = true })
 	end)
 end
 

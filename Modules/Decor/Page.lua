@@ -521,6 +521,9 @@ ns.DecorPage = {
 		Place()
 	end,
 	Refresh = function()
+		if not ns.DecorCatalog_State().usable then
+			ns.DecorCatalog_Hurry() -- the page waits for it
+		end
 		ns.Decor_EnsureScan()
 		Layout()
 	end,

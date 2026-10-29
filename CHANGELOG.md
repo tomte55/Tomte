@@ -23,6 +23,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Bags:** folding sections is now a setting, off by default (Fold sections), and only a click on the heading's name folds it, not the empty rest of its row.
 - **Bags:** stack counts follow the Number size setting and sit in the bottom-right corner like the item level does in the bottom-left.
+- **Faster login:** Tomte's reads at login (achievements, mounts and pets, housing decor) take a much smaller slice of each frame, and Collect here and Holidays share one read of the mount and pet journals, so logging in no longer makes Tomte take a big share of the game's time for the first seconds.
 
 ## v1.25.0 - 2026-10-29
 
