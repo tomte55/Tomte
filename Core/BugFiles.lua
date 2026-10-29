@@ -425,6 +425,7 @@ ns.BUG_FILES = {
 	"Modules/Instances/Instances.lua",
 	"Modules/Tips/Data.lua",
 	"Modules/Tips/Read.lua",
+	"Modules/Tips/Scan.lua",
 	"Modules/Tips/Tooltip.lua",
 	"Modules/Tips/Choice.lua",
 	"Modules/Tips/Tips.lua",

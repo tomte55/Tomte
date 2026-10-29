@@ -16,6 +16,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
+- **Tooltip extras:** items in your bags say when they have no use left: a book or letter with nothing else to it, or a toy, mount, pet or recipe you already know ("safe to delete", "sell it" or "sell or trade it"). Items an unfinished achievement still needs say so.
 
 ## v1.25.0 - 2026-10-29
 

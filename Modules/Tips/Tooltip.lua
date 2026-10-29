@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 -- Tooltip extras: the lines on item, currency and world object tooltips (reputation tokens, reagents of combine
--- items, token vendors, the key a chest needs) and Ctrl-click on a token in the bags to set a waypoint to its vendor.
+-- items, token vendors, the key a chest needs, whether an item has any use left) and Ctrl-click on a token in the bags to set a waypoint to its vendor.
 -- Text from Data.lua, game reads in Read.lua; started and stopped from Tips.lua. Also the settings previews' example
 -- tooltips (Panel/Preview.lua), drawn by the same post-call.
 
@@ -186,6 +186,41 @@ local function AddKey(tooltip, entry)
 	tooltip:AddDoubleLine(left, right .. " " .. Icon(icon), r, g, b, r, g, b)
 end
 
+-- What's left to do -----------------------------------------------------------------------------------------------
+
+local lastUse -- { itemID, reason } of the last bag item's verdict, for /tomte tips why
+
+-- The line saying whether a bag item has any use left. Elsewhere (links, vendors) only an achievement that needs it.
+local function AddUse(tooltip, data)
+	local info = tooltip.processingInfo
+	local args = info and info.getterName == "GetBagItem" and info.getterArgs
+	local bag, slot = args and args[1], args and args[2]
+	local text, role, reason
+	if bag and slot and not IsSecret(bag, slot) then
+		local facts = ns.Tips_ItemUseFacts(data.id, bag, slot, data.lines)
+		if facts then
+			text, role, reason = ns.Tips_UseVerdict(facts)
+		else
+			reason = "the item's data is still loading"
+			SetRefresh(tooltip)
+		end
+		lastUse = { itemID = data.id, reason = reason }
+	else
+		local name = ns.Tips_AchievementFor(data.id)
+		if name then
+			text, role = ns.Tips_UseVerdict({ achievement = name })
+		end
+	end
+	if text then
+		tooltip:AddLine(" ")
+		AddRoleLine(tooltip, text, role)
+	end
+end
+
+function ns.TipsTooltip_LastUse()
+	return lastUse
+end
+
 -- Post-calls ------------------------------------------------------------------------------------------------------
 
 local function ValidID(id)
@@ -235,6 +270,9 @@ local function OnItem(tooltip, data)
 		if db[kind] then
 			AddItemKind(tooltip, data.id, kind, inBags)
 		end
+	end
+	if db.use then
+		AddUse(tooltip, data)
 	end
 end
 

@@ -2,7 +2,8 @@ local addonName, ns = ...
 
 -- Tooltip extras: pure logic (no WoW API calls; unit-tested in tests/test_tips.lua). Merging the per-expansion data
 -- (Data/<Expansion>/Tips.lua), and the text of each line: reputation standing, reagent counts, the key a chest
--- needs, vendor places and choice window counts. The game is read in Read.lua, lines are added in Tooltip.lua.
+-- needs, vendor places, choice window counts and whether an item has any use left. The game is read in Read.lua and
+-- Scan.lua, lines are added in Tooltip.lua.
 
 local floor = math.floor
 
@@ -187,6 +188,45 @@ end
 -- "Radiant Echo: 12" for the choice window strip.
 function ns.Tips_CountText(name, have)
 	return (name or "?") .. ": " .. ns.Thousands(have or 0)
+end
+
+-- What's left to do with an item --------------------------------------------------------------------------------
+
+-- Achievement criteria types whose asset is an item ID (GetAchievementCriteriaInfo): acquire, eat or drink, fish
+-- up, own.
+ns.TIPS_ITEM_CRITERIA = { [36] = true, [41] = true, [42] = true, [57] = true }
+
+-- Whether a bag item still has a use. A line only where the answer is certain; anything Tomte can't rule out (a
+-- token some NPC takes, say) gets none. facts (Read.lua): achievement (name of an unfinished achievement that needs
+-- it), scanned (the achievement index is complete), quest (starts or belongs to a quest), known (a toy, mount, pet,
+-- recipe or other learnable that's already learned), readable (a book or letter), hasUse (a Use: effect), token
+-- (a reputation, vendor or combine item in the tips data), reagent, bound, sells (a vendor pays for it).
+-- Returns text, color role (both nil for no line) and the reason, for /tomte tips why.
+function ns.Tips_UseVerdict(facts)
+	if facts.achievement then
+		return "Needed for " .. facts.achievement, "warning", "an unfinished achievement needs it"
+	end
+	if not facts.scanned then
+		return nil, nil, "the achievement check hasn't finished yet"
+	end
+	if facts.quest then
+		return nil, nil, "it starts or belongs to a quest"
+	end
+	if facts.known then
+		if not facts.bound then
+			return "Already learned: sell or trade it", "success", "already learned, and it isn't soulbound"
+		end
+		return facts.sells and "Already learned: sell it" or "Already learned: safe to delete", "success",
+			"already learned"
+	end
+	if not facts.readable then
+		return nil, nil, "not a book or letter, so a use can't be ruled out"
+	end
+	if facts.hasUse or facts.token or facts.reagent then
+		return nil, nil, "a book or letter, but it also has a use"
+	end
+	return facts.sells and "Lore: read it, then sell it" or "Lore: read it, then safe to delete", "success",
+		"a book or letter with no other use"
 end
 
 -- Setting previews --------------------------------------------------------------------------------------------------

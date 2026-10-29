@@ -1,15 +1,28 @@
 local addonName, ns = ...
 
 -- Tooltip extras: small lines on tooltips (which key opens a chest, reputation tokens, reagents of combine items,
--- where a token is spent with Ctrl-click for a waypoint) and item counts under choice windows. Registers the module.
--- Pure text in Data.lua, game reads in Read.lua, tooltip lines in Tooltip.lua, choice windows in Choice.lua, data per
--- expansion in Data/<Expansion>/Tips.lua.
+-- where a token is spent with Ctrl-click for a waypoint, whether an item has any use left) and item counts under
+-- choice windows. Registers the module. Pure text and rules in Data.lua, game reads in Read.lua, the achievement
+-- check in Scan.lua, tooltip lines in Tooltip.lua, choice windows in Choice.lua, data per expansion in
+-- Data/<Expansion>/Tips.lua.
 
 local module, db
 
 local function RefreshChoice()
 	if module.active then
 		ns.TipsChoice_Refresh()
+	end
+end
+
+-- The achievement check runs only while its line is on.
+local function ToggleUse(on)
+	if not module.active then
+		return
+	end
+	if on then
+		ns.TipsScan_Start()
+	else
+		ns.TipsScan_Stop()
 	end
 end
 
@@ -20,9 +33,24 @@ local function PreviewLine(kind)
 	end
 end
 
+-- /tomte tips why: why the last bag item you pointed at got its "what's left to do" line (or none).
+local function WhyUse()
+	local last = ns.TipsTooltip_LastUse()
+	if not last then
+		ns.Print("point at an item in your bags first, or use /tomte tips why <item link or ID>")
+		return
+	end
+	ns.Print(("%s (%d): %s."):format(C_Item.GetItemNameByID(last.itemID) or "item", last.itemID,
+		last.reason or "?"))
+end
+
 -- /tomte tips why <item link or ID>: what each line kind knows about an item.
 local function Why(arg)
-	local itemID = tonumber(arg) or tonumber((arg or ""):match("item:(%d+)"))
+	if not arg or arg == "" then
+		WhyUse()
+		return
+	end
+	local itemID = tonumber(arg) or tonumber(arg:match("item:(%d+)"))
 	if not itemID then
 		ns.Print("usage: /tomte tips why <item link or ID>")
 		return
@@ -36,6 +64,8 @@ local function Why(arg)
 		.. " reagents") or "none"))
 	local places = ns.Tips_VendorPlaces(ns.Tips_Data("vendors")[itemID])
 	print("  vendors: " .. #places)
+	local achievement = ns.Tips_AchievementFor(itemID)
+	print("  achievement: " .. (achievement or (ns.Tips_AchievementsScanned() and "none" or "still checking")))
 end
 
 module = ns.RegisterModule({
@@ -43,8 +73,8 @@ module = ns.RegisterModule({
 	name = "Tooltip extras",
 	category = "interface",
 	icon = 134332, -- inv_misc_note_06
-	summary = "Extra lines on tooltips: keys, reputation tokens, reagents and where to spend tokens.",
-	description = "Adds small lines to tooltips: which key opens a delve chest and how many you have, which faction a reputation token raises and whether you're already maxed, what a combine item needs and how many you own, and where a token is spent (Ctrl-click it in your bags for a waypoint). Choice windows show how many you own of what they take and give.",
+	summary = "Extra lines on tooltips: keys, reputation tokens, reagents, where to spend tokens and items with no use left.",
+	description = "Adds small lines to tooltips: which key opens a delve chest and how many you have, which faction a reputation token raises and whether you're already maxed, what a combine item needs and how many you own, and where a token is spent (Ctrl-click it in your bags for a waypoint). Items in your bags say when they have no use left (a book you've read, a toy you already know) and when an unfinished achievement needs them. Choice windows show how many you own of what they take and give.",
 	enabledByDefault = true,
 	replaces = {
 		{ addon = "Plumber",
@@ -55,6 +85,7 @@ module = ns.RegisterModule({
 		rep = true,
 		reagents = true,
 		vendors = true,
+		use = true,
 		choice = true,
 	},
 	init = function(moduleDB)
@@ -64,13 +95,18 @@ module = ns.RegisterModule({
 		if active then
 			ns.TipsTooltip_Start(db)
 			ns.TipsChoice_Start(db)
+			if db.use then
+				ns.TipsScan_Start()
+			end
 		else
 			ns.TipsTooltip_Stop()
 			ns.TipsChoice_Stop()
+			ns.TipsScan_Stop()
 		end
 	end,
 	commands = {
-		{ "why", "what Tooltip extras knows about an item (link or ID)", function(arg)
+		{ "why", "what Tooltip extras knows about an item (link or ID); alone: why the last bag item got its "
+			.. "\"use left\" line", function(arg)
 			Why(arg)
 		end },
 	},
@@ -88,6 +124,8 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "vendors", label = "Where to spend tokens",
 			preview = ns.Preview_When("vendors", PreviewLine("vendors")),
 			tooltip = "On a token traded at a particular vendor: who and where. Ctrl-click it in your bags to set a waypoint there." },
+		{ type = "checkbox", key = "use", label = "Items with no use left", onChange = ToggleUse,
+			tooltip = "On items in your bags: says when one is safe to delete or sell (a book with nothing else to it, a toy, mount, pet or recipe you already know), and when an unfinished achievement still needs it. Items it can't be sure about get no line." },
 
 		{ type = "header", label = "Choice windows" },
 		{ type = "checkbox", key = "choice", label = "Show what you own", onChange = RefreshChoice,

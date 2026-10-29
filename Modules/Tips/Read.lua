@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
 -- Tooltip extras: reads the game into plain tables for Data.lua and the tooltip lines (Tooltip.lua, Choice.lua):
--- the merged per-expansion data, a faction's standing, a combine item's reagents, counts, names and icons.
+-- the merged per-expansion data, a faction's standing, a combine item's reagents, counts, names and icons, and the
+-- facts about a bag item that decide whether it has any use left (achievements needing it come from Scan.lua).
 
 local IsSecret = ns.IsSecret
 
@@ -188,4 +189,65 @@ function ns.Tips_ReadReagents(recipe)
 		list[#list + 1] = { name = name, have = have or 0, need = r.need, icon = icon }
 	end
 	return list, missing
+end
+
+-- Item use --------------------------------------------------------------------------------------------------------
+
+local function HasLine(lines, text)
+	for _, line in ipairs(lines or {}) do
+		local left = line.leftText
+		if left and not IsSecret(left) and left == text then
+			return true
+		end
+	end
+	return false
+end
+
+-- Whether a toy, mount or pet item's journal entry is already learned (a pet: as many as you can have); nil when the
+-- item teaches none of those.
+local function JournalKnown(itemID)
+	if C_ToyBox.GetToyInfo(itemID) then
+		return PlayerHasToy(itemID) and true or false
+	end
+	local mountID = C_MountJournal.GetMountFromItem(itemID)
+	if mountID then
+		local isCollected = select(11, C_MountJournal.GetMountInfoByID(mountID))
+		return isCollected and true or false
+	end
+	local speciesID = select(13, C_PetJournal.GetPetInfoByItemID(itemID))
+	if speciesID then
+		local owned, limit = C_PetJournal.GetNumCollectedInfo(speciesID)
+		return (limit or 0) > 0 and (owned or 0) >= limit
+	end
+	return nil
+end
+
+-- The facts ns.Tips_UseVerdict decides on, for the item in a bag slot; lines: its tooltip data lines. nil while the
+-- item's data isn't loaded (the caller asks the tooltip to refresh).
+function ns.Tips_ItemUseFacts(itemID, bag, slot, lines)
+	local info = C_Container.GetContainerItemInfo(bag, slot)
+	if not info or info.itemID ~= itemID then
+		return nil
+	end
+	local sellPrice, _, _, _, _, _, isReagent = select(11, C_Item.GetItemInfo(itemID))
+	if sellPrice == nil then
+		return nil
+	end
+	local quest = C_Container.GetContainerItemQuestInfo(bag, slot)
+	local known = JournalKnown(itemID)
+	if known == nil then
+		known = HasLine(lines, ITEM_SPELL_KNOWN) -- recipes and other learnables: the game's "Already known"
+	end
+	return {
+		achievement = ns.Tips_AchievementFor(itemID),
+		scanned = ns.Tips_AchievementsScanned(),
+		quest = quest and (quest.isQuestItem or (quest.questID or 0) ~= 0) or false,
+		known = known,
+		readable = info.isReadable,
+		hasUse = C_Item.GetItemSpell(itemID) ~= nil,
+		token = (ns.Tips_ItemFactions(itemID) or ns.Tips_Data("vendors")[itemID] or ns.Tips_ItemRecipe(itemID)) ~= nil,
+		reagent = isReagent,
+		bound = info.isBound,
+		sells = not info.hasNoValue and sellPrice > 0,
+	}
 end
