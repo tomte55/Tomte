@@ -50,6 +50,11 @@ local function Price(link)
 	return copper, stale
 end
 
+-- How many of an item you own: bags, bank, reagent bank and warband bank.
+function ns.Loot_Owned(itemID)
+	return C_Item.GetItemCount(itemID, true, false, true, true)
+end
+
 -- The item fields and the extras that are switched on (opts from Loot_ReadOptions).
 local function ItemExtras(e, opts)
 	local itemID, _, _, _, _, classID, subclassID = C_Item.GetItemInfoInstant(e.link)
@@ -65,7 +70,7 @@ local function ItemExtras(e, opts)
 	e.subType = subType
 	e.toy = C_ToyBox.GetToyInfo(itemID) ~= nil
 	if opts.owned then
-		e.owned = C_Item.GetItemCount(itemID, true, false, true, true)
+		e.owned = ns.Loot_Owned(itemID) -- read as the loot opens: the feed reads it again once it's in the bags
 	end
 	if opts.newLook and IsGear(e) then
 		e.newLook = NewLook(e.link)

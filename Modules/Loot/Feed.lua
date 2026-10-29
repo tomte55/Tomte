@@ -72,7 +72,7 @@ local function Release(f)
 	f.pulse:Stop()
 	f:SetScript("OnUpdate", nil)
 	f:Hide()
-	f.mergeKey, f.entry, f.copper, f.counting, f.slide = nil, nil, nil, nil, nil
+	f.mergeKey, f.entry, f.copper, f.counting, f.slide, f.spec, f.suffix = nil, nil, nil, nil, nil, nil, nil
 	for i, shown in ipairs(lines) do
 		if shown == f then
 			table.remove(lines, i)
@@ -129,6 +129,7 @@ end
 
 local function Fill(f, spec)
 	local size = db.fontSize
+	f.spec = spec
 	f.static = spec.static
 	f:SetAlpha(1)
 	f.width = ns.LootParts_FillStrip(f, spec, size, db.bgAlpha, LINE_W * size / BASE_FONT)
@@ -257,6 +258,62 @@ local function EntryKey(e)
 	return nil
 end
 
+local function DetailText(e, suffix)
+	local detail = ns.Loot_PartsText(ns.Loot_Details(e, ns.Loot_DetailOpts("tag")))
+	if suffix then
+		detail = detail ~= "" and (detail .. "  " .. suffix) or suffix
+	end
+	return detail
+end
+
+-- Owned counts ----------------------------------------------------------------------------------------------------
+
+-- An entry's owned count is read as the loot opens, before the item is in the bags (looting fast, several in a row
+-- can be read before any of them lands). Once the bags have taken it, the lines still up read it again.
+local FEED_OWNER = "lootFeed"
+local eventsAttached = false
+local WatchBags
+
+local function RefreshOwned()
+	local any = false
+	for _, f in ipairs(lines) do
+		local e = f.entry
+		if e and e.owned and e.itemID then
+			any = true
+			local owned = ns.Loot_Owned(e.itemID)
+			if owned ~= e.owned then
+				e.owned = owned
+				local spec = {}
+				for k, v in pairs(f.spec) do
+					spec[k] = v
+				end
+				spec.detail = DetailText(e, f.suffix)
+				local alpha = f:GetAlpha() -- keeps a fading line where its fade is
+				Fill(f, spec) -- a line counting up gets its number back on the next frame (CountStep)
+				f:SetAlpha(alpha)
+			end
+		end
+	end
+	Layout()
+	if not any then
+		WatchBags(false)
+	end
+end
+
+-- Watches the bags while a line with an owned count is up. The Loot bus is made in Toasts.lua, later in the TOC.
+function WatchBags(on)
+	local events = ns.Loot_Events
+	if not eventsAttached then
+		eventsAttached = true
+		events:On(FEED_OWNER, "BAG_UPDATE_DELAYED", RefreshOwned)
+	end
+	if on then
+		events:Watch(FEED_OWNER, "BAG_UPDATE_DELAYED")
+	else
+		events:UnwatchAll(FEED_OWNER)
+	end
+end
+
 -- An entry (Read.lua) as a feed line, with the extras that are on; suffix: more colored text after it. The same
 -- item again while its line is up adds to that line's count (a suffix, a won roll, stays its own line).
 function ns.LootFeed_PushEntry(e, suffix)
@@ -280,14 +337,13 @@ function ns.LootFeed_PushEntry(e, suffix)
 			return ns.Loot_NameText(shown)
 		end }
 	end
-	local detail = ns.Loot_PartsText(ns.Loot_Details(e, ns.Loot_DetailOpts("tag")))
-	if suffix then
-		detail = detail ~= "" and (detail .. "  " .. suffix) or suffix
-	end
-	local f = ns.LootFeed_Push({ icon = e.icon, text = ns.Loot_NameText(e), detail = detail, quality = e.quality,
-		mergeKey = key, count = count })
+	local f = ns.LootFeed_Push({ icon = e.icon, text = ns.Loot_NameText(e), detail = DetailText(e, suffix),
+		quality = e.quality, mergeKey = key, count = count })
 	if f then
-		f.entry = e
+		f.entry, f.suffix = e, suffix
+		if e.owned then
+			WatchBags(true)
+		end
 	end
 end
 
@@ -319,6 +375,9 @@ function ns.LootFeed_Clear()
 	previewing = false
 	for i = #lines, 1, -1 do
 		Release(lines[i])
+	end
+	if eventsAttached then
+		WatchBags(false)
 	end
 end
 
