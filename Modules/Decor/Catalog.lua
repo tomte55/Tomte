@@ -6,7 +6,8 @@ local addonName, ns = ...
 -- catalog of thousands never freezes the client. Every housing call is guarded: the API may be missing, the housing
 -- service off, or an entry may error. Source text rules in Data.lua; started and stopped by Decor.lua.
 
-local BUDGET_MS = 3 -- reading time per frame
+local BUDGET_MS = 2 -- reading time per frame while someone waits for it (the Decor page, /tomte decor scan)
+local BACKGROUND_MS = 0.75 -- reading time per frame otherwise: at login, and after storage changes
 local RETRY = 10 -- seconds to wait for search results before running the search again
 local MAX_TRIES = 3 -- searches without results before giving up until the next rescan
 local DECOR_TYPE = 1 -- Enum.HousingCatalogEntryType.Decor, when the enum is missing
@@ -19,6 +20,7 @@ local searcher -- kept while the module is on; its results callback starts each 
 local reader -- hidden frame whose OnUpdate reads the entries, shown only while reading
 local job -- { ids, i, entries, byID, byItem }
 local tries, retryTimer = 0, nil
+local hurry = false -- someone waits for this read: the full budget until it's done
 local onChanged = function() end
 
 local function DecorType()
@@ -71,6 +73,7 @@ local function Finish()
 	job = nil
 	reader:Hide()
 	state = "ready"
+	hurry = false
 	onChanged()
 end
 
@@ -79,7 +82,7 @@ local function OnUpdate()
 		reader:Hide()
 		return
 	end
-	local deadline = debugprofilestop() + BUDGET_MS
+	local deadline = debugprofilestop() + (hurry and BUDGET_MS or BACKGROUND_MS)
 	while debugprofilestop() < deadline do
 		local id = job.ids[job.i]
 		if not id then
@@ -178,6 +181,12 @@ local function MakeSearcher()
 	return s
 end
 
+-- Someone waits for the catalog (the Decor page is open, or a command asked): a read that's running, or the next
+-- one, gets the full budget until it's done.
+function ns.DecorCatalog_Hurry()
+	hurry = true
+end
+
 -- Reads the catalog (again). Quietly does nothing where housing isn't available.
 function ns.DecorCatalog_Scan()
 	if not ns.DecorCatalog_Available() then
@@ -221,7 +230,7 @@ function ns.DecorCatalog_Stop()
 	if searcher and searcher.SetResultsUpdatedCallback then
 		pcall(searcher.SetResultsUpdatedCallback, searcher, function() end)
 	end
-	searcher, job = nil, nil
+	searcher, job, hurry = nil, nil, false
 	if reader then
 		reader:Hide()
 	end

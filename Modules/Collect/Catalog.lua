@@ -1,9 +1,9 @@
 local addonName, ns = ...
 
 -- Collect here: the data. Once per session the mount and pet catalogs are read by the shared journal reader
--- (Core/Journal.lua; only uncollected ones whose source names a zone are kept), then the achievement index rides the
--- shared achievement walk (Achievements/Walk.lua): lower-case "name\ndescription" of every achievement the account
--- hasn't completed. ns.Collect_ForMap answers for a map from those, cached per map until something changes. Parsing
+-- (Core/Journal.lua; only uncollected ones whose source names a zone are kept), and alongside it the achievement index
+-- rides the shared achievement walk (Achievements/Walk.lua): lower-case "name\ndescription" of every achievement the
+-- account hasn't completed. ns.Collect_ForMap answers for a map from those, cached per map until something changes. Parsing
 -- and matching are in Data.lua.
 
 local WALK_KEY = "collect"
@@ -59,7 +59,8 @@ end
 
 local function StartWalk()
 	pending = {}
-	ns.AchWalk_Join(WALK_KEY, { visit = VisitAchievement, finish = WalkFinished })
+	-- background: the achievements are the last part of Collect here to matter; mounts and pets come first.
+	ns.AchWalk_Join(WALK_KEY, { visit = VisitAchievement, finish = WalkFinished, background = true })
 end
 
 local scanCallbacks = {
@@ -72,7 +73,6 @@ local scanCallbacks = {
 	done = function()
 		ready.pets = true
 		Changed()
-		StartWalk()
 	end,
 }
 
@@ -86,6 +86,9 @@ function ns.Collect_Start()
 	wipe(achIndex)
 	ready.mounts, ready.pets, ready.achievements = false, false, false
 	ns.Journal_Scan(SCAN_KEY, scanCallbacks)
+	-- Alongside the journal read, not after it: Almost Done's scan is walking by now, and joining late made the walk
+	-- go round a second time for this index alone.
+	StartWalk()
 end
 
 function ns.Collect_Stop()

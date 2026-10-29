@@ -5,12 +5,15 @@ local addonName, ns = ...
 -- is running starts at the next category and stays until it has seen every category once (the walk wraps around
 -- for it). Categories the skip test rejects (Feats of Strength, Legacy) give no visits.
 --
--- ns.AchWalk_Join(key, { visit(id, categoryID), category(), finish() }) (joining again restarts that key),
+-- ns.AchWalk_Join(key, { visit(id, categoryID), category(), finish(), background }) (joining again restarts that
+-- key; background: it can wait, so while every subscriber is background the walk goes slower),
 -- ns.AchWalk_Leave(key), ns.AchWalk_Progress(key) -> 0..1 or nil, ns.AchWalk_SetSkipped(fn(categoryID) -> bool).
 
-local BUDGET_MS = 4
+local BUDGET_MS = 2 -- per frame; at 4 the walk took about 14% of every frame for the first 15 s after login
+local BACKGROUND_MS = 0.75 -- per frame while every subscriber can wait (a minute or two for a full walk)
 
 local subs = {} -- [key] = { handlers, active (gets the current category), left (categories to go, nil until started) }
+local budget = BUDGET_MS
 local categories -- the list of this walk; nil while idle
 -- Position: category index, achievement index in it, the category's achievement count, whether it was started.
 local categoryIndex, achIndex, count, started = 1, 1, 0, false
@@ -24,6 +27,15 @@ frame:Hide()
 local function Idle()
 	frame:Hide()
 	categories = nil
+end
+
+local function SetBudget()
+	budget = BACKGROUND_MS
+	for _, sub in pairs(subs) do
+		if not sub.handlers.background then
+			budget = BUDGET_MS
+		end
+	end
 end
 
 local function StartCategory()
@@ -55,6 +67,7 @@ local function EndCategory()
 		done[#done + 1] = subs[key]
 		subs[key] = nil
 	end
+	SetBudget()
 	categoryIndex, achIndex, started = categoryIndex + 1, 1, false
 	if categoryIndex > #categories then
 		categoryIndex = 1
@@ -67,7 +80,7 @@ local function EndCategory()
 end
 
 local function Step()
-	local deadline = debugprofilestop() + BUDGET_MS
+	local deadline = debugprofilestop() + budget
 	while debugprofilestop() < deadline do
 		if not next(subs) then
 			Idle()
@@ -114,11 +127,13 @@ function ns.AchWalk_Join(key, handlers)
 		return
 	end
 	subs[key] = { handlers = handlers, active = false, left = nil }
+	SetBudget()
 	frame:Show()
 end
 
 function ns.AchWalk_Leave(key)
 	subs[key] = nil
+	SetBudget()
 	if not next(subs) then
 		Idle()
 	end
@@ -133,6 +148,11 @@ function ns.AchWalk_Progress(key)
 		return 0
 	end
 	return math.min((#categories - sub.left) / #categories, 1)
+end
+
+-- Milliseconds per frame the walk gets now.
+function ns.AchWalk_Budget()
+	return budget
 end
 
 function ns.AchWalk_SetSkipped(fn)

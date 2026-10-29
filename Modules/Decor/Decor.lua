@@ -333,6 +333,7 @@ local function Scan()
 	end
 	printWhenRead = true
 	ns.Print("reading the housing catalog...")
+	ns.DecorCatalog_Hurry()
 	ns.DecorCatalog_Scan()
 end
 
