@@ -12,6 +12,25 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+## v1.25.0 - 2026-10-29
+
+### New
+
+- **Bug report:** a small toast when Tomte runs into a Lua error; click it for the report to copy and send. At most one a minute, held back until combat ends, and it can be switched off.
+
+### Improved
+
+- **Bug report:** also lists errors in Blizzard's code that Tomte caused (the "tainted by 'Tomte'" ones), which it missed before.
+- **Alts:** recipe, pattern and plans tooltips say which of your characters can learn them even before their profession window was opened, and whether their skill is high enough yet ("Kesha: Leatherworking 41/50, not yet").
+
+### Fixed
+
+- **Bags:** using an item from the bags (right-click) no longer fails with an error after a bank visit where you switched between Character and Warband.
+- **Appearances:** looks you already have no longer show as new (in tooltips, the bags, loot and world quests) on armor this character can't wear, or right after you collected them.
+- **Gear Check:** item levels no longer show up on the bag bar's buttons.
+- **Loot:** the "you own" count on loot lines updates once the item is in your bags, also when you loot several quickly.
+- **Model preview:** no more Lua errors from the preview next to world map tooltips.
+
 ## v1.24.3 - 2026-10-27
 
 ### Fixed

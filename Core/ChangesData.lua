@@ -10,6 +10,22 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.25.0", date = "2026-10-29",
+		new = {
+			{ module = "window", text = "A small toast when Tomte hits an error; click it for a bug report to send." },
+		},
+		improved = {
+			{ module = "alts", text = "Recipe tooltips say which of your characters can learn them, and whether their "
+				.. "skill is high enough yet." },
+		},
+		fixed = {
+			{ module = "bags", text = "Using items from the bags works again after switching Character / Warband at "
+				.. "the bank." },
+			{ label = "Appearances", text = "Looks you already have no longer show as new on armor you can't wear." },
+			{ module = "loot", text = "The \"you own\" count on loot lines updates once the item is in your bags." },
+		},
+	},
+	{
 		version = "1.24.3", date = "2026-10-27",
 		fixed = {
 			{ module = "bags", text = "Find on all characters searches tooltip words too (\"Use:\", \"Equip:\")." },
