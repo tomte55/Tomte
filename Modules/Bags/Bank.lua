@@ -9,7 +9,8 @@ local addonName, ns = ...
 -- (its OnShow picks the tab, its OnHide ends the visit), and Blizzard's item buttons read its bank panel's type when an
 -- item is right-clicked. The Character / Warband switch sets that type on the panel itself (BankPanel:SetBankType):
 -- right-click deposits from it work from addon code (Alts' Deposit for alts measured C_Container.UseContainerItem
--- with a bank type), and it skips BankFrame:SetTab's UI panel layout. Buying a tab and moving gold are restricted
+-- with a bank type), and it skips BankFrame:SetTab's UI panel layout. The type it writes is tainted, so the panel is
+-- hidden when that visit ends (BankFrame's OnHide hook). Buying a tab and moving gold are restricted
 -- to a real click, which Tomte's buttons are. Closing is C_Bank.CloseBankFrame, not HideUIPanel (the panel manager
 -- from addon code taints). Blizzard's bank source: Blizzard_UIPanels_Game/Mainline/BankFrame.lua. Registered in
 -- Bags.lua.
@@ -53,6 +54,7 @@ local remembered -- { guid (nil: the Warband bank's owner, the account), bankTyp
 local hooked = false
 local queued = false
 local blizzardPoints -- where Blizzard put its bank frame, to put it back
+local switched = false -- the Character / Warband switch wrote the bank panel's type this visit (SwitchTo)
 
 -- Blizzard's bank frame ----------------------------------------------------------------------------------------------
 
@@ -496,6 +498,7 @@ local function SwitchTo(bankType)
 		return
 	end
 	panel:SetBankType(bankType)
+	switched = true
 	view:Release()
 	tabFilter = nil
 	ns.BagsBank_Refresh()
@@ -770,6 +773,14 @@ local function Hook()
 		end
 	end)
 	BankFrame:HookScript("OnHide", function()
+		-- The type the switch wrote is Tomte's (tainted) until the next visit's SetTab writes it again, and Blizzard's
+		-- right-click on a bag item reads it through BankFrame:GetActiveBankType, which only checks the panel's own
+		-- IsShown (not the hidden bank frame's): using an item away from the bank was forbidden (UseContainerItem in
+		-- BugSack). Hidden, the panel's type isn't read; the next visit's SetTab shows it again.
+		if switched then
+			switched = false
+			BankFrame.BankPanel:Hide()
+		end
 		if active then
 			Closed()
 		end
