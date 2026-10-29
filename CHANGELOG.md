@@ -27,6 +27,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Appearances:** looks you already have no longer show as new (in tooltips, the bags, loot and world quests) on armor this character can't wear, or right after you collected them.
 - **Gear Check:** item levels no longer show up on the bag bar's buttons.
 - **Loot:** the "you own" count on loot lines updates once the item is in your bags, also when you loot several quickly.
+- **Model preview:** no more Lua errors from the preview next to world map tooltips.
 
 ## v1.24.3 - 2026-10-27
 

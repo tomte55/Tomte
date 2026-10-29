@@ -13,6 +13,10 @@ local addonName, ns = ...
 
 local UI = ns.UI
 local PREVIEW_W, PREVIEW_H = 240, 260
+local SCENE_INSET, SCENE_BOTTOM = 4, 40 -- the scenes' gaps to the card's edges; the name lines sit in the bottom one
+-- The scenes' size, known without asking the frame: anchored to GameTooltip, the card's sizes read back secret
+-- while the tooltip's are (a world map tooltip with a widget set).
+local SCENE_W, SCENE_H = PREVIEW_W - 2 * SCENE_INSET, PREVIEW_H - SCENE_INSET - SCENE_BOTTOM
 local TURN_SPEED = 0.35 -- radians per second
 local DRESS_UP_SCENE = 596 -- Blizzard's dress-up frame scene (DressUpFrames.lua)
 -- Creatures stand still at their journal's angle: the camera and actor angles of the mount's or pet's own scene. They
@@ -81,8 +85,11 @@ end
 local function Project(scene, x, y, z)
 	local px, py = scene:Project3DPointTo2D(x, y, z)
 	local s = scene:GetEffectiveScale()
-	local halfW, halfH = scene:GetWidth() * s / 2, scene:GetHeight() * s / 2
-	if not (px and py) or halfW <= 0 or halfH <= 0 then
+	if not (px and py) or ns.IsSecret(px, py, s) then
+		return nil
+	end
+	local halfW, halfH = SCENE_W * s / 2, SCENE_H * s / 2
+	if halfW <= 0 or halfH <= 0 then
 		return nil
 	end
 	return (px - halfW) / halfW, (py - halfH) / halfH
@@ -245,6 +252,9 @@ local function Place(p)
 	-- In screen pixels: the tooltip, the preview and UIParent can each have their own scale.
 	local tipScale = GameTooltip:GetEffectiveScale()
 	local bottom, top = GameTooltip:GetBottom(), GameTooltip:GetTop()
+	if ns.IsSecret(bottom, top, tipScale) then
+		bottom, top = nil, nil -- can't measure it: right of the tooltip
+	end
 	local screenH = UIParent:GetHeight() * UIParent:GetEffectiveScale()
 	local needed = (PREVIEW_H + 4) * p:GetEffectiveScale()
 	if bottom and bottom * tipScale - needed >= 0 then
@@ -290,11 +300,11 @@ function ns.ModelPreview_Create(parent)
 	p:Hide()
 	UI.Panel(p, { size = "medium" })
 	p.appearanceScene = CreateFrame("ModelScene", nil, p, "NoCameraControlModelSceneMixinTemplate")
-	p.appearanceScene:SetPoint("TOPLEFT", 4, -4)
-	p.appearanceScene:SetPoint("BOTTOMRIGHT", -4, 40)
+	p.appearanceScene:SetPoint("TOPLEFT", SCENE_INSET, -SCENE_INSET)
+	p.appearanceScene:SetPoint("BOTTOMRIGHT", -SCENE_INSET, SCENE_BOTTOM)
 	p.creatureScene = CreateFrame("ModelScene", nil, p)
-	p.creatureScene:SetPoint("TOPLEFT", 4, -4)
-	p.creatureScene:SetPoint("BOTTOMRIGHT", -4, 40)
+	p.creatureScene:SetPoint("TOPLEFT", SCENE_INSET, -SCENE_INSET)
+	p.creatureScene:SetPoint("BOTTOMRIGHT", -SCENE_INSET, SCENE_BOTTOM)
 	p.creatureScene:SetCameraFieldOfView(CAMERA_FOV)
 	p.creatureScene:Hide()
 	p.creatureActor = p.creatureScene:CreateActor()
