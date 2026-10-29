@@ -48,7 +48,7 @@ local function LookCollected(link)
 		return nil
 	end
 	local info = C_TransmogCollection.GetAppearanceInfoBySource(sourceID)
-	return info and info.appearanceIsCollected
+	return info and (ns.AppearanceCollected(sourceID, info))
 end
 
 local function Update()

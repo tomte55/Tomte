@@ -43,6 +43,10 @@ local function OnItem(tooltip, data)
 		return
 	end
 	local info = C_TransmogCollection.GetAppearanceInfoBySource(sourceID)
+	if info then
+		local look, source = ns.AppearanceCollected(sourceID, info)
+		info = { appearanceIsCollected = look, sourceIsCollected = source }
+	end
 	local _, canCollect = C_TransmogCollection.PlayerCanCollectSource(sourceID)
 	local state = State(info, canCollect)
 	if (state == "new" or state == "source") and GameSaysIt(data) then

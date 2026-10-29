@@ -25,7 +25,8 @@ local function SetPieces(itemID)
 	for _, item in ipairs(C_Transmog.GetAllSetAppearancesByID(setID) or {}) do
 		local info = C_TransmogCollection.GetAppearanceInfoBySource(item.itemModifiedAppearanceID)
 		if info then
-			pieces[#pieces + 1] = { appearanceID = info.appearanceID, collected = info.appearanceIsCollected }
+			local collected = ns.AppearanceCollected(item.itemModifiedAppearanceID, info)
+			pieces[#pieces + 1] = { appearanceID = info.appearanceID, collected = collected }
 		end
 	end
 	return pieces
