@@ -10,6 +10,21 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.26.0", date = "2026-10-29",
+		new = {
+			{ module = "perf", text = "Performance: see how much of the game's time Tomte takes, which module, and "
+				.. "what made the game hitch. Off by default." },
+			{ module = "tips", text = "Bag items say when they have no use left: safe to delete, or sell it." },
+			{ module = "bags", text = "Right-click a bag's tab to assign it to Equipment, Consumables and more." },
+		},
+		improved = {
+			{ label = "Faster login", text = "Tomte takes a much smaller share of the game's time right after you "
+				.. "log in." },
+			{ module = "bags", text = "One bag keeps items where they are, so you can move them yourself; vendor "
+				.. "payment items like Dark Particles stand out." },
+		},
+	},
+	{
 		version = "1.25.0", date = "2026-10-29",
 		new = {
 			{ module = "window", text = "A small toast when Tomte hits an error; click it for a bug report to send." },
