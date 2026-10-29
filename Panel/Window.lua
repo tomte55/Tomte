@@ -69,6 +69,9 @@ local SHARE = {
 			ns.BugUI_Show()
 		end,
 		tooltip = "Versions, modules, other addons and Tomte's last errors. Sent nowhere by itself." },
+	{ type = "checkbox", key = "bugToast", label = "Tell me when Tomte has an error",
+		tooltip = "A small toast when one of Tomte's Lua errors happens, at most one a minute, held back until combat ends. "
+			.. "Click it for the bug report to copy and send." },
 }
 
 -- Theme preview ---------------------------------------------------------------------------------------------------
@@ -321,6 +324,7 @@ module = ns.RegisterModule({
 	summary = "Pick a theme and choose what the rail and Home show.",
 	description = "How this window looks, where it opens, and what the rail and Home show.",
 	alwaysOn = true,
+	toasts = "Tomte errors", -- the bug toast (Panel/Bug.lua)
 	init = AddRows,
 	defaults = {
 		theme = ns.Theme.DEFAULT, -- read by Core.lua on ADDON_LOADED, before anything draws
@@ -328,6 +332,7 @@ module = ns.RegisterModule({
 		resume = 5,
 		pills = true, -- counts on the rail
 		whatsNew = true, -- after an update, the first login shows what's new (Panel/Changes.lua)
+		bugToast = true, -- a toast when one of Tomte's Lua errors happens (Panel/Bug.lua)
 		motion = "full", -- "full" | "subtle" | "off": how much Tomte animates (Panel/Motion.lua)
 		sounds = "all", -- "all" | "important" | "off": which interface sounds play (UI.Sound)
 		around = {}, -- [home entry key] = false hides that "Around you" block (one true per block, set in AddRows)
@@ -390,6 +395,11 @@ module = ns.RegisterModule({
 -- Whether what's new shows after an update, and the window's "Don't show this after updates" (Panel/Changes.lua).
 function ns.Window_WhatsNew()
 	return not (module.db and module.db.whatsNew == false)
+end
+
+-- Whether Tomte's Lua errors get a toast (Panel/Bug.lua).
+function ns.Window_BugToast()
+	return not (module.db and module.db.bugToast == false)
 end
 
 function ns.Window_SetWhatsNew(on)

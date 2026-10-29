@@ -7,9 +7,13 @@ local addonName, ns = ...
 --   BugGrabber (BugSack): its read-only BugGrabber:GetDB() list, oldest first, kept across sessions.
 --   Otherwise Blizzard's ScriptErrorsFrame.errorData (this session, kept even when the error window is off) plus
 --   TomteDB.bugs, which this file fills at logout so a report the day after still has them.
--- Tomte never installs an error handler of its own (it would sit in the path of Blizzard's secure code's errors).
+-- Tomte never installs an error handler of its own: seterrorhandler would replace BugGrabber's or Blizzard's (and sit
+-- in the path of Blizzard's secure code's errors), and AddLuaErrorHandler is for Blizzard's code only. The bug toast
+-- listens where errors land instead (see Bug toast below).
 
 local MAX_SCAN = 200
+local GRABBED_SCAN = 10 -- BugGrabber's newest entries searched for the one it just reported
+local LUA_ERROR = 0 -- ScriptErrorsFrame's message type for errors (1 is LUA_WARNING)
 -- Listed in every report besides each module's uses/conflicts/replaces: the error catchers, TomTom and the TOC's OptionalDeps.
 local WATCHED = { "BugSack", "!BugGrabber", "TomTom", "Baganator", "Syndicator", "Auctionator", "TradeSkillMaster",
 	"MountJournalEnhanced", "AlmostCompletedAchievements", "WaypointUI", "DialogueUI" }
@@ -240,12 +244,112 @@ function ns.BugUI_SelfTest()
 	error("Tomte bug report self-test (not a real error)")
 end
 
+-- Bug toast ----------------------------------------------------------------------------------------------------------
+
+-- A toast when one of Tomte's errors happens (the report's rules: Tomte's files in the message or stack, a blocked
+-- action, or Blizzard code tainted by Tomte); a click opens the report. Heard from BugGrabber's BugGrabbed event, or
+-- without BugGrabber from a hook on Blizzard's error window, which gets every error even while it's hidden. Both run
+-- inside the failing call, so the check waits a frame. Throttle rules in Core/BugReport.lua.
+
+local toastState = {}
+local latest -- the newest error's message waiting for its toast
+local due -- timer for a toast the gap held back
+local watching, broken
+
+local function ShowToast()
+	due = nil
+	local n = ns.Bug_ToastTake(toastState, GetTime())
+	if n == 0 or not ns.Window_BugToast() then
+		return
+	end
+	local title, text = ns.Bug_ToastText(n, latest)
+	ns.Toast_Show({
+		owner = "window", label = "Bug", accent = "danger", icon = ns.ICON, mergeKey = "tomte:bug", holdInCombat = true,
+		title = title, text = text,
+		onClick = function()
+			ns.BugUI_Show()
+		end,
+	})
+end
+
+local function Check(message, stack)
+	if not (ns.db and ns.Window_BugToast()) or not ns.Bug_IsTomte(message, stack, ns.BUG_FILES) then
+		return
+	end
+	latest = message
+	local what, wait = ns.Bug_ToastNote(toastState, message, GetTime(), ns.BUG_TOAST_GAP)
+	if what == "show" then
+		ShowToast()
+	elseif what == "wait" and not due then
+		due = C_Timer.NewTimer(wait, ShowToast)
+	end
+end
+
+-- An error in the check itself would land here again: it stops the watching instead of looping.
+local function Stop(err)
+	broken = true
+	return ns.errorHandler(err)
+end
+
+local function Heard(message, stack)
+	if broken or type(message) ~= "string" or ns.IsSecret(message) then
+		return -- a secret message can't be matched
+	end
+	if type(stack) ~= "string" or ns.IsSecret(stack) then
+		stack = nil
+	end
+	C_Timer.After(0, function()
+		xpcall(Check, Stop, message, stack)
+	end)
+end
+
+local function OnGrabbed(_, tableID)
+	local db = BugGrabber:GetDB()
+	if type(db) ~= "table" then
+		return
+	end
+	for i = #db, math.max(#db - GRABBED_SCAN + 1, 1), -1 do
+		local err = db[i]
+		if type(err) == "table" and tostring(err) == tableID then
+			Heard(err.message, err.stack)
+			return
+		end
+	end
+end
+
+local function OnBlizzardError(_, message, messageType, stack)
+	if messageType == LUA_ERROR then
+		Heard(message, stack)
+	end
+end
+
+-- Once, at file load (BugGrabber, "!BugGrabber", loads before Tomte) or at login if the error window wasn't there yet.
+local function Watch()
+	if watching then
+		return
+	end
+	if BugGrabberAddon() then
+		EventRegistry:RegisterCallback("BugGrabber.BugGrabbed", OnGrabbed, toastState)
+		watching = true
+	elseif type(ScriptErrorsFrame) == "table" and type(ScriptErrorsFrame.DisplayMessageInternal) == "function" then
+		hooksecurefunc(ScriptErrorsFrame, "DisplayMessageInternal", OnBlizzardError)
+		watching = true
+	end
+end
+
+Watch()
+
 -- Logout (also /reload): without BugGrabber, keep Tomte's errors of this session for a report later.
 local events = CreateFrame("Frame")
 events:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
 end)
 events:RegisterEvent("PLAYER_LOGOUT")
+events:RegisterEvent("PLAYER_LOGIN")
+
+function events:PLAYER_LOGIN()
+	Watch()
+end
 
 function events:PLAYER_LOGOUT()
 	if not ns.db or BugGrabberAddon() then
