@@ -174,4 +174,29 @@ test("the report names modules, parts, hitches, startup and addons", function()
 	assert(text:find("  Tomte: 0.1%, 0.2%, 45 ms, 53.6 MB", 1, true), text)
 end)
 
+test("ReadoutLines: the numbers, the three busiest modules now and the last hitch", function()
+	local rows = {
+		{ name = "Window", now = 2.5 }, { name = "Cursor", now = 0.8 }, { name = "Recap", now = 0.05 },
+		{ name = "Bags", now = 0.03 }, { name = "Mail", now = 0 },
+	}
+	local lines = ns.Perf_ReadoutLines({ fps = 59.6, home = 18, world = 20, now = 0.002, session = 0.05, peak = 39,
+		all = 0.01, mem = 54886 }, rows, { at = 880, group = "Core", sub = "Journal", what = "OnUpdate", ms = 39 }, 1000)
+	local function Find(left)
+		for _, l in ipairs(lines) do
+			if l.left == left then
+				return l
+			end
+		end
+	end
+	eq(Find("Frame rate").right, "60 fps")
+	eq(Find("Latency").right, "18 ms home, 20 ms world")
+	eq(Find("Tomte now").role, "success")
+	eq(Find("Window").right, "2.50 ms/s")
+	eq(Find("Recap") ~= nil, true)
+	eq(Find("Bags"), nil, "only three")
+	eq(Find("Core · Journal · OnUpdate").right, "39 ms, 2 min ago")
+	local quiet = ns.Perf_ReadoutLines({}, { { name = "Mail", now = 0 } }, nil, 0)
+	eq(quiet[#quiet].left, "Nothing busy right now")
+end)
+
 H.done()

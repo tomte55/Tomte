@@ -2,12 +2,13 @@ local addonName, ns = ...
 
 -- Performance: pure logic (no WoW API calls; unit-tested in tests/test_performance.lua). Blizzard's percentages,
 -- number text, the verdict, the module table's rows and live rates, the share of Tomte's time Tomte measured, the
--- hitch warning's throttle, the readout line and the copy-paste report. Measuring is in Core/Perf.lua.
+-- hitch warning's throttle, the readout line and its tooltip, and the copy-paste report. Measuring is in Core/Perf.lua.
 
 ns.PERF_LIGHT = 0.01 -- Tomte under 1% of the frame time: nothing to look at
 ns.PERF_HEAVY = 0.05 -- over 5%: something to fix
 local RATE_KEEP = 0.6 -- how much of the last rate a new sample keeps (smooths the 1 s samples)
 local PARTS_SHOWN = 8
+local READOUT_BUSIEST = 3 -- modules in the readout's tooltip
 
 -- An addon's share of the frame as Blizzard's addon list works it out (AddonList:GetAddonMetricPercent): its time
 -- against the game's own time plus its own, leaving the other addons out. 0..1, nil without numbers.
@@ -293,6 +294,41 @@ end
 function ns.Perf_ReadoutText(fps, latency, fraction)
 	return ("%d fps   %d ms   Tomte %s"):format(math.floor((fps or 0) + 0.5), latency or 0,
 		ns.Perf_PercentText(fraction))
+end
+
+-- The readout's tooltip below its title: { left, right, role } lines (right nil for a single line, left " " for a
+-- gap). g = { fps, home, world, now, session (fractions), peak (ms), all (all addons' fraction now), mem (KB) },
+-- rows = Perf_ModuleRows by "now", hitch = the newest hitch or nil, now = GetTime().
+function ns.Perf_ReadoutLines(g, rows, hitch, now)
+	local lines = {
+		{ left = "Frame rate", right = ("%d fps"):format(math.floor((g.fps or 0) + 0.5)) },
+		{ left = "Latency", right = ("%d ms home, %d ms world"):format(g.home or 0, g.world or 0) },
+		{ left = "Tomte now", right = ns.Perf_PercentText(g.now), role = (ns.Perf_Verdict(g.now)) },
+		{ left = "Tomte this session", right = ns.Perf_PercentText(g.session) },
+		{ left = "Longest Tomte frame", right = ns.Perf_MsText(g.peak) },
+		{ left = "All addons now", right = ns.Perf_PercentText(g.all) },
+		{ left = "Tomte memory", right = ns.Perf_KBText(g.mem) },
+		{ left = " " },
+		{ left = "Busiest now", role = "heading" },
+	}
+	local shown = 0
+	for _, row in ipairs(rows) do
+		if shown < READOUT_BUSIEST and (row.now or 0) >= 0.01 then
+			shown = shown + 1
+			lines[#lines + 1] = { left = row.name, right = ns.Perf_RateText(row.now) }
+		end
+	end
+	if shown == 0 then
+		lines[#lines + 1] = { left = "Nothing busy right now", role = "textMuted" }
+	end
+	if hitch then
+		lines[#lines + 1] = { left = " " }
+		lines[#lines + 1] = { left = "Last hitch", role = "heading" }
+		lines[#lines + 1] = { left = ns.Perf_GroupName(hitch.group) .. " · " .. ns.Perf_PartText(hitch.group, hitch.sub,
+			hitch.what), right = ("%s, %s ago"):format(ns.Perf_MsText(hitch.ms), ns.Perf_DurationText(now - hitch.at)),
+			role = "warning" }
+	end
+	return lines
 end
 
 -- The copy-paste report. r = { version, elapsed (s), fps, home, world, tomte = { recent, session, peak, mem,
