@@ -47,9 +47,15 @@ local function Show(button, level, quality)
 	fs:Show()
 end
 
+-- Gear slots only: the bag bar's buttons run PaperDollItemSlotButton_Update too (MainMenuBarBagButtons.lua), with
+-- their bag's inventory slot as ID.
+local function IsGearSlot(slot)
+	return slot >= INVSLOT_FIRST_EQUIPPED and slot <= INVSLOT_LAST_EQUIPPED and not SKIP[slot]
+end
+
 local function UpdatePlayer(button)
 	local slot = button:GetID()
-	if not Wanted() or SKIP[slot] then
+	if not Wanted() or not IsGearSlot(slot) then
 		return Show(button)
 	end
 	local location = ItemLocation:CreateFromEquipmentSlot(slot)

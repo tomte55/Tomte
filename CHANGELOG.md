@@ -25,6 +25,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Bags:** using an item from the bags (right-click) no longer fails with an error after a bank visit where you switched between Character and Warband.
 - **Appearances:** looks you already have no longer show as new (in tooltips, the bags, loot and world quests) on armor this character can't wear, or right after you collected them.
+- **Gear Check:** item levels no longer show up on the bag bar's buttons.
 
 ## v1.24.3 - 2026-10-27
 
