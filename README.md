@@ -362,7 +362,8 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte bags why <item>` (which category an item is in and why)
 - `/tomte counts list` (the characters Item counts knows), `/tomte counts forget <name>`
 - `/tomte way test` (pin ahead of you), `/tomte way clear`, `/tomte way route` (the portal route to a pin on another continent), `/tomte way next` / `prev` (focus the next or previous tracked quest), `/tomte way ping` (ping your arrow on the map), `/tomte way <x> <y> [name]` (also `/way <x> <y> [name]` when TomTom isn't loaded)
-- `/tomte ach scan`, `/tomte ach tracker`, `/tomte ach lock` / `unlock`, `/tomte ach test`
+- `/tomte ach scan`, `/tomte ach cache` (what's saved and how this login's scan ran), `/tomte ach tracker`,
+  `/tomte ach lock` / `unlock`, `/tomte ach test`
 - `/tomte vendor last`, `/tomte dura list`
 - `/tomte mount why` (context, pool and pick of the last press), `/tomte mount zone`
 - `/tomte tp open`, `/tomte tp scan` (what the Teleports tab found)

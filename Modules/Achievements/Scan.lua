@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Almost Done: finding near-complete achievements. A full scan rides the shared achievement walk (Walk.lua)
 -- and keeps a record for each incomplete achievement with progress. The watch set (records close to the
 -- threshold, and pins) is recalculated on criteria events, which is where milestones come from. The watch set
--- is cached per character, so the list shows right away after a login.
+-- and the meta links are saved per character, so the list shows right away after a login and live updates go on
+-- from it (the watched ones read again), while the full scan runs slowly behind it.
 
 local GetAchievementInfo = GetAchievementInfo
 local GetAchievementCategory = GetAchievementCategory
@@ -26,7 +27,10 @@ local fired = {} -- [id] = { almost = true, lastStep = true }, this session
 local metaLinks = {} -- [child id] = { meta id, ... }
 local catInfo = {} -- [categoryID] = { name, topID, top, expansion }
 local scan -- running scan state
-local ready = false -- a full scan finished this session; live updates wait for it (login bursts, stale cache)
+local ready = false -- a full scan finished, or a fresh saved list was taken up; live updates wait for it
+local cached -- the character's saved entry, as Ach_LoadCache found it
+local knownFloor = math.huge -- records hold every achievement at or above this percent: 0 after a full scan
+local loginScan -- how this session's login scan ran, for /tomte ach cache
 local onChanged = function() end
 local debounceTimer
 local saveTimer
@@ -180,6 +184,7 @@ local function Finish()
 	scan = nil
 	records, metaLinks = result.records, result.metaLinks
 	ready = true
+	knownFloor = 0
 	wipe(watch)
 	local pins = ns.Ach_PinSet()
 	local floor = WatchFloor()
@@ -223,14 +228,15 @@ local function CategoryDone()
 	ns.AchDock_ScanStatus()
 end
 
-function ns.Ach_StartScan()
+-- background: a slow scan behind a saved list that's already showing (Walk.lua's background budget).
+function ns.Ach_StartScan(background)
 	if saveTimer then -- the records about to be replaced may be for another scope; Finish saves the new ones
 		saveTimer:Cancel()
 		saveTimer = nil
 	end
 	ClearQueue()
 	scan = { records = {}, metaLinks = {}, pins = ns.Ach_PinSet() }
-	ns.AchWalk_Join("ach", { visit = Visit, category = CategoryDone, finish = Finish })
+	ns.AchWalk_Join("ach", { visit = Visit, category = CategoryDone, finish = Finish, background = background })
 	onChanged(nil, nil)
 end
 
@@ -279,6 +285,10 @@ local function Recalculate(id, pins)
 		return false
 	end
 	local record, criteria = BuildRecord(id, categoryID, pins[id], metaLinks)
+	-- A scan behind a saved list may have read this one already: its result gets the newer read too.
+	if scan then
+		scan.records[id] = record
+	end
 	if not record then
 		if old then
 			records[id], watch[id] = nil, nil
@@ -309,7 +319,8 @@ end
 
 -- Recalculation runs a few milliseconds per frame (a criteria burst can touch hundreds of watched achievements);
 -- the dock, tracker and toasts hear about it once the queue is empty.
-local queue = { ids = {}, queued = {}, changed = {}, milestones = {} }
+-- quiet: no milestones from this round (the first re-read of a saved list: progress made elsewhere isn't news).
+local queue = { ids = {}, queued = {}, changed = {}, milestones = {}, quiet = nil }
 local recalculator = CreateFrame("Frame")
 recalculator:Hide()
 
@@ -322,7 +333,7 @@ recalculator:SetScript("OnUpdate", ns.Perf_Wrap(function(self)
 		local didChange, kind = Recalculate(id, pins)
 		if didChange then
 			queue.changed[id] = true
-			if kind and records[id] then
+			if kind and records[id] and not queue.quiet then
 				queue.milestones[#queue.milestones + 1] = { kind = kind, record = records[id] }
 			end
 		end
@@ -332,7 +343,7 @@ recalculator:SetScript("OnUpdate", ns.Perf_Wrap(function(self)
 	end
 	self:Hide()
 	local changed, milestones = queue.changed, queue.milestones
-	queue.changed, queue.milestones = {}, {}
+	queue.changed, queue.milestones, queue.quiet = {}, {}, nil
 	if next(changed) then
 		ns.Ach_SaveCacheSoon()
 		onChanged(changed, milestones)
@@ -342,7 +353,7 @@ end, "OnUpdate"))
 function ClearQueue()
 	wipe(queue.ids)
 	wipe(queue.queued)
-	queue.changed, queue.milestones = {}, {}
+	queue.changed, queue.milestones, queue.quiet = {}, {}, nil
 	recalculator:Hide()
 end
 
@@ -382,7 +393,7 @@ function ns.Ach_OnCriteriaUpdate()
 			ns.Ach_OnCriteriaUpdate() -- after the fight
 			return
 		end
-		if ready and not scan then
+		if ready then
 			lastRecalc = GetTime()
 			RecalculateMany(WatchedIDs())
 		end
@@ -390,14 +401,14 @@ function ns.Ach_OnCriteriaUpdate()
 end
 
 function ns.Ach_OnCriteriaEarned(id)
-	if id and ready and not scan then
+	if id and ready then
 		RecalculateMany({ id })
 	end
 end
 
 -- The next step of a series shows up in the same category, and its metas move on.
 function ns.Ach_OnAchievementEarned(id)
-	if scan or not ready or not id then
+	if not ready or not id then
 		return
 	end
 	local ids = { id }
@@ -419,6 +430,11 @@ end
 -- Threshold changed: what's watched follows it. Newly watched records are re-read (a few per frame) for their
 -- criteria names, which search and the profession filter use.
 function ns.Ach_RebuildWatch()
+	-- Started from the saved list, which holds only what was watched: a lower threshold needs every achievement.
+	if ready and not scan and WatchFloor() < knownFloor then
+		ns.Ach_StartScan()
+		return
+	end
 	local pins = ns.Ach_PinSet()
 	local floor = WatchFloor()
 	local fresh = {}
@@ -459,7 +475,8 @@ function ns.Ach_SaveCache()
 			list[#list + 1] = copy
 		end
 	end
-	Settings().cache[guid] = { at = time(), scope = Settings().scope, records = list }
+	Settings().cache[guid] = { at = time(), scope = Settings().scope, records = list,
+		floor = math.max(knownFloor, WatchFloor()), links = metaLinks }
 	if saveTimer then
 		saveTimer:Cancel()
 		saveTimer = nil
@@ -485,16 +502,62 @@ end
 
 function ns.Ach_LoadCache()
 	local entry = Settings().cache[UnitGUID("player") or ""]
+	cached = nil
 	if not (entry and entry.scope == Settings().scope) then
 		return false
 	end
+	cached = entry
 	wipe(records)
 	wipe(watch)
 	for _, record in ipairs(entry.records or {}) do
 		records[record.id] = record
 		watch[record.id] = true
 	end
+	metaLinks = entry.links or {}
+	knownFloor = entry.floor or math.huge
 	PrunePins(false)
 	onChanged(nil, nil)
 	return true
+end
+
+-- The login scan. When the saved list can stand in (Ach_CacheUsable in Data.lua), live updates go on from it, its
+-- watched ones are read again a few per frame (without milestones) and every achievement is read slowly behind it;
+-- without one, the scan runs at full speed.
+function ns.Ach_StartLoginScan()
+	local saved, why = ns.Ach_CacheUsable(cached, Settings().scope, WatchFloor())
+	loginScan = saved and "started from the saved list, every achievement read slowly behind it"
+		or ("read every achievement at full speed: " .. why)
+	ns.Ach_StartScan(saved)
+	if saved then
+		ready = true
+		ns.Ach_FillMetaExpansions(records)
+		RecalculateMany(WatchedIDs())
+		queue.quiet = true
+	end
+end
+
+-- /tomte ach cache: what's saved for this character and how this login's scan ran.
+function ns.Ach_CacheLines()
+	local entry = Settings().cache[UnitGUID("player") or ""]
+	local lines = {}
+	if entry then
+		local links = 0
+		for _ in pairs(entry.links or {}) do
+			links = links + 1
+		end
+		lines[#lines + 1] = ("saved: %d achievements, %s and up, %d meta links, written %s"):format(
+			#(entry.records or {}), entry.floor and (entry.floor .. "%") or "no floor", links,
+			ns.AgoText(time() - (entry.at or 0)))
+	else
+		lines[#lines + 1] = "saved: nothing for this character"
+	end
+	local usable, why = ns.Ach_CacheUsable(entry, Settings().scope, WatchFloor())
+	lines[#lines + 1] = "next login: " .. (usable and "starts from it" or ("full scan, " .. why))
+	lines[#lines + 1] = "this login: " .. (loginScan or "no scan yet")
+	local progress = ns.Ach_ScanProgress()
+	if progress then
+		lines[#lines + 1] = ("scanning: %d%%, %s ms per frame"):format(math.floor(progress * 100),
+			ns.AchWalk_Budget())
+	end
+	return lines
 end
