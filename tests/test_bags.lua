@@ -170,6 +170,10 @@ test("what fits at a merchant, the mailbox, a trade or the Auction House", funct
 	local boe = { bind = "boe" }
 	local quest = { quest = true }
 	eq(ns.Bags_Fits({ noValue = true }, "merchant"), false)
+	local particle = { itemID = 1234, noValue = true }
+	eq(ns.Bags_Fits(particle, "merchant", { [1234] = true }), true, "the vendor takes it as payment")
+	eq(ns.Bags_Fits(particle, "merchant", { [999] = true }), false)
+	eq(ns.Bags_Fits(particle, "mail", { [1234] = true }), true)
 	eq(ns.Bags_Fits(soulbound, "merchant"), true)
 	eq(ns.Bags_Fits(soulbound, "mail"), false)
 	eq(ns.Bags_Fits(warbound, "mail"), true)

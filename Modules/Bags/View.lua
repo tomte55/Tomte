@@ -115,21 +115,10 @@ function View:CategoryBlocks(items, layout, place)
 	return blocks, contents
 end
 
--- One bag: every item, sorted, then the empty slots.
+-- One bag: every slot where it really is (bag by bag, slot by slot, as Read.lua lists them), empty ones included, so
+-- moving an item by hand moves it on screen too; the game's Clean Up does the sorting.
 function View:SingleBlocks(items)
-	local filled, empty = {}, {}
-	for _, item in ipairs(items) do
-		if item.empty then
-			empty[#empty + 1] = item
-		else
-			filled[#filled + 1] = item
-		end
-	end
-	ns.Bags_SortItems(filled, self.db.sortMethod, self.db.sortReverse)
-	for _, slot in ipairs(empty) do
-		filled[#filled + 1] = slot
-	end
-	return { { kind = "category", key = "all", count = #filled } }, { all = filled }
+	return { { kind = "category", key = "all", count = #items } }, { all = items }
 end
 
 -- Forgets the kept places (the window closed, or what takes items closed).
@@ -138,11 +127,12 @@ function View:Release()
 end
 
 -- Draws items. opts: layout (category nodes), place ("bags" | "bank" | "warband"), holding (keep places),
--- matches(item) -> bright or faded, paint (Buttons.lua's paint options), button(item) -> the item's button (default:
--- its bag slot's). Returns the drawn width and height.
+-- matches(item) -> bright or faded, pays(item) -> the open vendor takes it as payment (optional), paint (Buttons.lua's
+-- paint options), button(item) -> the item's button (default: its bag slot's). Returns the drawn width and height.
 function View:Draw(items, opts)
 	local db = self.db
-	if db.group then
+	-- Not in one bag: a grouped stack stands for slots all over the bags, and the view shows each slot where it is.
+	if db.group and db.view ~= "single" then
 		items = ns.Bags_Group(items)
 	end
 	local blocks, contents
@@ -213,6 +203,7 @@ function View:Draw(items, opts)
 				local button = opts.button and opts.button(item, i) or ns.BagsButtons_Get(item.bag, item.slot, body)
 				paint.matches = opts.matches(item)
 				paint.free = item.free
+				paint.pays = opts.pays ~= nil and opts.pays(item) or nil
 				anyMatch = anyMatch or paint.matches
 				ns.BagsButtons_Place(button, body, cell.x, cell.y, size)
 				ns.BagsButtons_Paint(button, item, paint)

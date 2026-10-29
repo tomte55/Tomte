@@ -19,8 +19,12 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Performance (new module):** is Tomte fast? A Performance page with how much of each frame Tomte takes, its busiest modules and which file and event the time goes to, the calls that made the game hitch, startup and login cost per module, and every addon's CPU and memory. Copy report gives it all as text; an optional chat warning names a module that makes the game hitch, and an optional readout shows frame rate, latency and Tomte's share on screen (hover it for the busiest modules and the last hitch, click it for the page). Off by default.
 - **Tooltip extras:** items in your bags say when they have no use left: a book or letter with nothing else to it, or a toy, mount, pet or recipe you already know ("safe to delete", "sell it" or "sell or trade it"). Items an unfinished achievement still needs say so.
 
+- **Bags:** right-click a bag's tab to assign it to Equipment, Consumables, Trade Goods and so on, or to leave it out of Clean Up and selling junk, as in the game's own bags.
+
 ### Improved
 
+- **Bags:** at a vendor, items it takes as payment (such as Dark Particles) stay bright with a frame in the accent color instead of fading with the things it won't buy.
+- **Bags:** the One bag view shows every item in the slot it really is in, so you can move items around yourself; Clean Up still sorts. Group identical items applies only to the Categories view.
 - **Bags:** folding sections is now a setting, off by default (Fold sections), and only a click on the heading's name folds it, not the empty rest of its row.
 - **Bags:** stack counts follow the Number size setting and sit in the bottom-right corner like the item level does in the bottom-left.
 - **Faster login:** Tomte's reads at login (achievements, mounts and pets, housing decor) take a much smaller slice of each frame, and Collect here and Holidays share one read of the mount and pet journals, so logging in no longer makes Tomte take a big share of the game's time for the first seconds.
