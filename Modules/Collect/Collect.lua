@@ -127,9 +127,15 @@ local function ZoneToast()
 	if not (state.mounts and state.pets) then
 		return -- tried again when the catalogs are ready
 	end
-	local entries, name, kind, mapID = ns.Collect_ForMap(PlayerMap())
+	-- Whether the toast is due first: matching the whole catalog against the map is the expensive part, and it runs
+	-- right as the journal read finishes.
 	local today = date("%Y-%m-%d")
-	if not entries or kind ~= "zone" or not ns.Collect_ZoneToastDue(db.zoneToasts, mapID, today) then
+	local zoneID, _, zoneKind = ns.MapTabs_ResolveMap(PlayerMap())
+	if not zoneID or zoneKind ~= "zone" or not ns.Collect_ZoneToastDue(db.zoneToasts, zoneID, today) then
+		return
+	end
+	local entries, name, kind, mapID = ns.Collect_ForMap(PlayerMap())
+	if not entries or kind ~= "zone" then
 		return
 	end
 	ns.Collect_MarkZoneToast(db.zoneToasts, mapID, today)
