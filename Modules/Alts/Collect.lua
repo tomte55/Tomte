@@ -155,6 +155,26 @@ local function ExpansionLine(base)
 	return def and def.child
 end
 
+-- The skill in each expansion's line Content has data for (recipe items need "Midnight Leatherworking (50)", not
+-- the profession's overall skill). A line the game doesn't answer for keeps its last reading.
+local function ReadTiers(base, before)
+	local tiers = {}
+	for line, level in pairs(before or {}) do
+		tiers[line] = level
+	end
+	for _, expansion in ipairs(ns.Content_Expansions()) do
+		local def = ns.Weekly_ProfDef(expansion, base)
+		if def and def.child then
+			local ok, info = pcall(C_TradeSkillUI.GetProfessionInfoBySkillLineID, def.child)
+			local level = ok and type(info) == "table" and info.skillLevel or nil
+			if ns.Readable(level) and type(level) == "number" and level > 0 then
+				tiers[def.child] = level
+			end
+		end
+	end
+	return tiers
+end
+
 local function ReadUnspent(line)
 	if not (line and C_ProfSpecs.SkillLineHasSpecialization(line)) then
 		return nil
@@ -194,6 +214,7 @@ local function ReadProfs(c)
 			profs[base] = {
 				name = name, icon = icon, base = base, line = line, skill = skill, max = maxSkill,
 				unspent = unspent, known = before.known or {}, scannedAt = before.scannedAt,
+				tiers = ReadTiers(base, before.tiers),
 				secondary = (index ~= first and index ~= second) or nil,
 			}
 		end
