@@ -268,7 +268,7 @@ local function RenderShop(y, s)
 			.. "stock here.", 4) + 10
 	end
 	local summary = ns.TradingPost_ShopSummary(shop.items, s.tender)
-	c.shopHead:Set("Shop", ("seen %s ago · %s"):format(ns.Ago(GetServerTime() - shop.at),
+	c.shopHead:Set("Shop", ("seen %s · %s"):format(ns.AgoText(GetServerTime() - shop.at),
 		ns.TradingPost_ShopText(summary) or ""))
 	y = PlaceFrame(c.shopHead, y, 30) + 4
 	c.shopNote:Hide()

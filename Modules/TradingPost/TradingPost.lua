@@ -337,7 +337,7 @@ local function Shop()
 		return
 	end
 	local s = ns.TradingPost_State()
-	ns.Print(("the shop, seen %s ago: %s."):format(ns.Ago(GetServerTime() - shop.at),
+	ns.Print(("the shop, seen %s: %s."):format(ns.AgoText(GetServerTime() - shop.at),
 		ns.TradingPost_ShopText(ns.TradingPost_ShopSummary(shop.items, s.tender)) or "empty"))
 	for _, it in ipairs(shop.items) do
 		local mark = it.state == "bought" and " (bought)" or it.state == "owned" and " (owned)" or ""

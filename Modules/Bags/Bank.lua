@@ -284,7 +284,7 @@ local function DrawRemembered()
 	end
 	seen:Show()
 	-- bankAt is newer than the character banks Item counts already holds: those say "last visit" without a time.
-	seen:SetText(at and ("Seen %s ago, at your last visit"):format(ns.Ago(GetServerTime() - at))
+	seen:SetText(at and ("Seen %s, at your last visit"):format(ns.AgoText(GetServerTime() - at))
 		or #list > 0 and "As of your last visit"
 		or "Not seen yet: open the bank once with Item counts on")
 	-- The Warband bank's gold can be read anywhere (Blizzard's money frame does, on ACCOUNT_MONEY).
