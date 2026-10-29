@@ -31,6 +31,8 @@ local REAGENT_ATLAS = "bags-icon-reagents" -- Blizzard's reagent bag filter icon
 local LEAF, LEAF_ALPHA = 20, 0.5
 local ARROW_SCALE = 0.85 -- Gear Check's arrow on a full-size button; the button's own scale shrinks it further
 local INSET = 2 -- a corner overlay's distance from the button's edges
+local COUNT_PULL = -3 -- the stack count's text box ends this much closer to the right edge than INSET (past it:
+                      -- over the digits' empty right side)
 -- A corner's x and y direction away from its edges.
 local CORNER_DIRS = {
 	TOPLEFT = { 1, -1 }, TOPRIGHT = { -1, -1 }, BOTTOMLEFT = { 1, 1 }, BOTTOMRIGHT = { -1, 1 },
@@ -63,12 +65,16 @@ local function Shadow(text)
 	text:SetShadowColor(0, 0, 0, SHADOW_ALPHA)
 end
 
--- Number overlays (item level, pet level, free slots) at the chosen size: outlined (the shadow alone didn't read on
--- bright icons, measured in game) with the marks' shadow too.
-local function SetNumberFont(e, size)
+-- Number overlays (item level, pet level, free slots, the template's stack count) at the chosen size: outlined (the
+-- shadow alone didn't read on bright icons, measured in game) with the marks' shadow too.
+local function SetNumberFont(button, e, size)
 	if e.fontSize ~= size then
 		e.fontSize = size
-		for text, s in pairs({ [e.ilvl] = size, [e.pet] = size, [e.free] = size + 1 }) do
+		local sizes = { [e.ilvl] = size, [e.pet] = size, [e.free] = size + 1 }
+		if button.Count then
+			sizes[button.Count] = size
+		end
+		for text, s in pairs(sizes) do
 			UI.SetFont(text, "number", s, "OUTLINE")
 			Shadow(text)
 		end
@@ -168,6 +174,14 @@ local function Extras(button)
 		e.junkShadow:SetPoint("TOPLEFT", button.JunkIcon, "TOPLEFT", SHADOW_X, SHADOW_Y)
 		e.junkShadow:SetPoint("BOTTOMRIGHT", button.JunkIcon, "BOTTOMRIGHT", SHADOW_X, SHADOW_Y)
 		e.junkShadow:Hide()
+	end
+	if button.Count then
+		-- The template's stack count sat nearer the middle than the item level does on the other side: it hugs the
+		-- corner instead, growing leftward. The number font's digits carry empty space on their right (a "2" measured
+		-- 13.7 wide at size 12 in game), so at the marks' inset it still read as further in than the item level.
+		button.Count:SetJustifyH("RIGHT")
+		button.Count:ClearAllPoints()
+		button.Count:SetPoint("BOTTOMRIGHT", -(INSET + COUNT_PULL), INSET)
 	end
 	e.free = button:CreateFontString(nil, "OVERLAY")
 	e.free:SetPoint("BOTTOMRIGHT", -3, 3)
@@ -382,7 +396,7 @@ end
 -- window: Blizzard's item context matching).
 function ns.BagsButtons_Paint(button, item, opts)
 	local e = Extras(button)
-	SetNumberFont(e, opts.fontSize)
+	SetNumberFont(button, e, opts.fontSize)
 	if button.viewOnly then
 		PaintView(button, e, item, opts)
 		return

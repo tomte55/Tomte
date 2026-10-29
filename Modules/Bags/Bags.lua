@@ -317,6 +317,7 @@ module = ns.RegisterModule({
 			vendor = true, mail = true, bank = true, auction = true, scrapping = true, catalyst = true, upgrade = true,
 			guildbank = false, crafting = false, character = false, socket = false, trade = false,
 		},
+		foldSections = false, -- clicking a section's heading folds it (the window then changes size at its top)
 		folded = {}, -- [section key] = true while folded
 		position = {}, -- point, relPoint, x, y once dragged
 		bankPosition = {}, -- the bank window's, the same way
@@ -385,6 +386,8 @@ module = ns.RegisterModule({
 			onChange = ns.BagsWindow_Relayout, tooltip = "The gap between categories that share a line." },
 		Check("group", "Group identical items",
 			"Stacks of the same item show as one icon with the total. Clicking it uses or picks up the first stack."),
+		Check("foldSections", "Fold sections",
+			"Click a section's heading to fold or unfold it. The bag window grows and shrinks at the top, so headings move."),
 		Check("buttonsOnHover", "Buttons only on hover", "The buttons in the top bar show while the mouse is over the window."),
 		Check("locked", "Lock the window", "The window can't be dragged."),
 		{ type = "button", label = "Position", text = "Reset", onClick = function()
@@ -411,7 +414,7 @@ module = ns.RegisterModule({
 		CornerRow("set", "Equipment set", "A small blue square on items in one of your equipment sets."),
 		CornerRow("petlevel", "Battle pet level", "The level of a caged battle pet."),
 		{ type = "slider", key = "looks.fontSize", label = "Number size", min = 9, max = 16, step = 1, format = Pixels,
-			onChange = ns.BagsWindow_Relayout, tooltip = "Item levels, pet levels and free slots." },
+			onChange = ns.BagsWindow_Relayout, tooltip = "Stack counts, item levels, pet levels and free slots." },
 		Check("looks.newGlow", "New item glow", "The glow on items you just got."),
 		Check("looks.greyJunk", "Grey out junk", "Grey items show in grey."),
 		Check("looks.redUnusable", "Red when you can't use it",

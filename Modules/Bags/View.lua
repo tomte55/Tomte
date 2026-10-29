@@ -16,7 +16,8 @@ local View = {}
 View.__index = View
 
 -- A view drawing into body (a frame); db is the module's saved settings (columns, sizes, sort); folded is this
--- window's own table of folded sections ([section key] = true), so the bag and bank windows fold apart.
+-- window's own table of folded sections ([section key] = true), so the bag and bank windows fold apart. Sections only
+-- fold with db.foldSections on; off, every section shows open and its heading is plain text.
 function ns.BagsView_New(body, db, folded)
 	return setmetatable({ body = body, db = db, folded = folded, labels = {}, headings = {}, rules = {} }, View)
 end
@@ -98,7 +99,8 @@ function View:CategoryBlocks(items, layout, place)
 	end
 	for _, node in ipairs(layout) do
 		if node.kind == "section" then
-			blocks[#blocks + 1] = { kind = "section", key = node.key, label = node.name, folded = self.folded[node.key] }
+			blocks[#blocks + 1] = { kind = "section", key = node.key, label = node.name,
+				folded = db.foldSections and self.folded[node.key] }
 			for _, child in ipairs(node.children or {}) do
 				if child.kind == "category" then
 					Add(child, node.key)
@@ -189,8 +191,10 @@ function View:Draw(items, opts)
 			nHeadings = nHeadings + 1
 			local h = self:Heading(nHeadings)
 			h.key = block.key
-			h.text:SetText((block.folded and "+ " or "- ") .. block.label)
-			h:SetWidth(p.width)
+			h.text:SetText(db.foldSections and ((block.folded and "+ " or "- ") .. block.label) or block.label)
+			h:EnableMouse(db.foldSections)
+			-- Only the heading's text folds it, not the empty rest of its row.
+			h:SetWidth(math.min(p.width, h.text:GetUnboundedStringWidth()))
 			h:ClearAllPoints()
 			h:SetPoint("TOPLEFT", body, "TOPLEFT", p.x, -p.y)
 			h:Show()
