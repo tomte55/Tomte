@@ -178,36 +178,61 @@ local function ProfName(c, base)
 	return prof and prof.name or "?"
 end
 
-local function BaseName(base)
-	for _, c in pairs(db.chars) do
-		local prof = c.profs and c.profs[base]
-		if prof and prof.name then
-			return prof.name
+local skillPattern, levelFirst -- ITEM_MIN_SKILL as a pattern (PlanData.lua), built on first use
+local lineNames -- [localized skill line name] = { base, line }, for the "Requires" line of recipe items
+
+-- The game's names of every profession and expansion line Content has data for ("Midnight Leatherworking").
+local function LineNames()
+	if lineNames then
+		return lineNames
+	end
+	lineNames = {}
+	local function Add(id, entry)
+		local name = C_TradeSkillUI.GetTradeSkillDisplayName(id)
+		if type(name) == "string" and name ~= "" then
+			lineNames[name] = entry
 		end
 	end
-	return "?"
+	for _, expansion in ipairs(ns.Content_Expansions()) do
+		for base, def in pairs(ns.Content_Get(expansion, "profs") or {}) do
+			Add(base, { base = base })
+			if def.child then
+				Add(def.child, { base = base, line = def.child })
+			end
+		end
+	end
+	return lineNames
 end
 
--- A recipe item (pattern, plans, formula...): who knows the recipe it teaches, or who could learn it. No API maps
--- the item to its recipe (C_TradeSkillUI has nothing by item; C_Item.GetItemSpell gives the "learn" spell, not the
--- recipe), so its name is matched against the stored recipes ("Plans: Charged Runeaxe" -> "Charged Runeaxe").
--- Every recipe of a profession somebody has is stored, so a miss means nobody has the profession: no line.
+-- The tooltip's "Requires Midnight Leatherworking (50)": { base, line, level } | nil.
+local function Requirement(data)
+	if not skillPattern then
+		skillPattern, levelFirst = ns.Alts_SkillPattern(ITEM_MIN_SKILL)
+	end
+	local texts = {}
+	for _, line in ipairs(data.lines or {}) do
+		local text = line.leftText
+		if not ns.IsSecret(text) and type(text) == "string" then
+			texts[#texts + 1] = text
+		end
+	end
+	local name, level = ns.Alts_SkillRequirement(texts, skillPattern, levelFirst)
+	local base, line = ns.Alts_SkillLineOf(name, LineNames(), db.chars)
+	return base and { base = base, line = line, level = level } or nil
+end
+
+-- A recipe item (pattern, plans, formula...): who knows the recipe it teaches, or who could learn it and whether
+-- their skill is high enough. No API maps the item to its recipe (C_TradeSkillUI has nothing by item;
+-- C_Item.GetItemSpell gives the "learn" spell, not the recipe), so its name is matched against the stored recipes
+-- ("Plans: Charged Runeaxe" -> "Charged Runeaxe"). Recipes are only stored once a character's profession window
+-- showed that expansion, so without a match the tooltip's "Requires" line names the profession instead.
 local function OnRecipeItem(tooltip, data, itemID)
 	local name = C_Item.GetItemNameByID(itemID) or (data.lines and data.lines[1] and data.lines[1].leftText)
 	local key = ns.Alts_RecipeItemName(name)
-	if not key then
-		return
-	end
 	recipesByName = recipesByName or ns.Alts_RecipesByName(db.recipes)
-	local ids = recipesByName[key]
-	if not ids then
-		return
-	end
-	local status, names, base = ns.Alts_RecipeItemStatus(db.chars, db.recipes, ids)
-	if status == "known" then
-		tooltip:AddLine(Label() .. UI.Wrap(("Known by %s"):format(names), "textMuted"), 1, 1, 1, true)
-	elseif status == "learnable" then
-		tooltip:AddLine(Label() .. UI.Wrap(("Learnable by %s (%s)"):format(names, BaseName(base)), "success"), 1, 1, 1, true)
+	local ids = key and recipesByName[key]
+	for _, line in ipairs(ns.Alts_RecipeItemLines(db.chars, db.recipes, ids, Requirement(data))) do
+		tooltip:AddLine(Label() .. UI.Wrap(line.text, line.role), 1, 1, 1, true)
 	end
 end
 

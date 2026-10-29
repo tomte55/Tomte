@@ -8,7 +8,8 @@ local addonName, ns = ...
 --                     itemLink } (worn profession tools and accessories, slots 20-30), profGearAt,
 --                     profs = { [base skill line] = { name, icon, base, line (the content expansion's skill line),
 --                     skill, max, unspent, known = { [recipeID] = true }, scannedAt (last recipe read), secondary (true
---                     for archaeology, fishing and cooking) } } }
+--                     for archaeology, fishing and cooking), tiers = { [expansion skill line] = skill level } (the
+--                     lines Content has data for, read where the game answers) } } }
 --                   specID, primary and gear are for Gear Check's upgrades for alts (Gear/Alts.lua); worth (bag and
 --                   bank value) is written by Modules/Value/Value.lua.
 --   recipes[id]   = { v (Collect.lua's RECIPE_VERSION), name, icon, line (expansion skill line), lineName, category,
@@ -477,20 +478,115 @@ function ns.Alts_RecipesByName(recipes)
 	return byName
 end
 
--- The tooltip line for a recipe item teaching one of these recipes (same name, so maybe several):
--- "known", "Aldric" | "learnable", "Aldric, Mira, Bob, +2", profession base | nil (nobody has the profession).
-function ns.Alts_RecipeItemStatus(chars, recipes, ids)
-	local known, learnable, seen, base = {}, {}, {}, nil
+-- A "Requires %s (%d)" format (ITEM_MIN_SKILL, localized) as a Lua pattern capturing the skill's name and level, and
+-- whether the level comes first (a locale may number its arguments: "%2$d ... %1$s"). nil for no format.
+function ns.Alts_SkillPattern(format)
+	if type(format) ~= "string" or format == "" then
+		return nil
+	end
+	local nameAt, levelAt = format:find("%%%d?%$?s"), format:find("%%%d?%$?d")
+	if not (nameAt and levelAt) then
+		return nil
+	end
+	local p = format:gsub("%%%d?%$?s", "\1"):gsub("%%%d?%$?d", "\2")
+	p = p:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0")
+	p = p:gsub("\1", "(.+)"):gsub("\2", "(%%d+)")
+	return "^" .. p .. "$", levelAt < nameAt
+end
+
+-- The last tooltip line that names a skill ("Requires Midnight Leatherworking (50)": the recipe's own requirement
+-- comes after the lines of the item it makes): name, level | nil.
+function ns.Alts_SkillRequirement(texts, pattern, levelFirst)
+	if not pattern then
+		return nil
+	end
+	for i = #texts, 1, -1 do
+		local a, b = texts[i]:match(pattern)
+		if a then
+			if levelFirst then
+				a, b = b, a
+			end
+			return a, tonumber(b)
+		end
+	end
+	return nil
+end
+
+-- The profession a requirement names: a skill line name from the game (lineNames = { [name] = { base, line } },
+-- line nil for a profession's own name), else the profession of a character whose profession name is part of it
+-- ("Midnight Leatherworking" holds "Leatherworking"; the longest wins). base, line | nil.
+function ns.Alts_SkillLineOf(name, lineNames, chars)
+	if not name then
+		return nil
+	end
+	local hit = lineNames[name]
+	if hit then
+		return hit.base, hit.line
+	end
+	local best, bestLen
+	for _, c in pairs(chars) do
+		for _, prof in pairs(c.profs or {}) do
+			if prof.name and prof.base and (not bestLen or #prof.name > bestLen) and name:find(prof.name, 1, true) then
+				best, bestLen = prof.base, #prof.name
+			end
+		end
+	end
+	return best
+end
+
+local function ProfOf(c, base)
+	for _, prof in pairs(c.profs or {}) do
+		if prof.base == base then
+			return prof
+		end
+	end
+	return nil
+end
+
+-- "Aldric, Mira, Bob, +2", sorted by name; label(entry) is one name's text.
+local function NameList(list, label)
+	table.sort(list, function(a, b)
+		return (a.c.name or "") < (b.c.name or "")
+	end)
+	local parts = {}
+	for i, entry in ipairs(list) do
+		if i > 3 then
+			parts[#parts + 1] = "+" .. (#list - 3)
+			break
+		end
+		parts[#parts + 1] = label(entry)
+	end
+	return table.concat(parts, ", ")
+end
+
+local function Name(entry)
+	return entry.c.name or "?"
+end
+
+-- The tooltip lines for a recipe item: ids are the stored recipes of its name (maybe several, maybe none: nobody's
+-- profession window showed it yet), req = { base, line, level } its "Requires" line (or nil). Who knows it; else who
+-- could learn it, split by the skill they have in that expansion's line (prof.tiers) against the level it needs
+-- (a character whose skill wasn't read counts as able). { { text, role } }, empty when nobody has the profession.
+function ns.Alts_RecipeItemLines(chars, recipes, ids, req)
+	local known, learnable, seen = {}, {}, {}
+	local base, line = req and req.base, req and req.line
 	for _, id in ipairs(ids or {}) do
-		local k, l = ns.Alts_Crafters(chars, recipes[id], id)
+		local k = ns.Alts_Crafters(chars, recipes[id], id)
 		for _, c in ipairs(k) do
 			if not seen[c] then
 				seen[c] = true
-				known[#known + 1] = c
+				known[#known + 1] = { c = c }
 			end
 		end
+	end
+	if #known > 0 then
+		return { { text = "Known by " .. NameList(known, Name), role = "textMuted" } }
+	end
+	for _, id in ipairs(ids or {}) do
+		local _, l = ns.Alts_Crafters(chars, recipes[id], id)
 		if #l > 0 then
 			base = base or recipes[id].base
+			line = line or recipes[id].line
 		end
 		for _, c in ipairs(l) do
 			if not seen[c] then
@@ -499,25 +595,37 @@ function ns.Alts_RecipeItemStatus(chars, recipes, ids)
 			end
 		end
 	end
-	local function Names(list)
-		table.sort(list, function(a, b)
-			return (a.name or "") < (b.name or "")
-		end)
-		local parts = {}
-		for i, c in ipairs(list) do
-			if i > 3 then
-				parts[#parts + 1] = "+" .. (#list - 3)
-				break
+	if not (ids and ids[1]) and base then
+		for _, c in pairs(chars) do
+			if ProfOf(c, base) then
+				learnable[#learnable + 1] = c
 			end
-			parts[#parts + 1] = c.name or "?"
 		end
-		return table.concat(parts, ", ")
 	end
-	if #known > 0 then
-		return "known", Names(known)
+	local ready, low, profName = {}, {}, nil
+	local need = req and req.level
+	for _, c in ipairs(learnable) do
+		local prof = ProfOf(c, base)
+		profName = profName or (prof and prof.name)
+		local skill = prof and line and prof.tiers and prof.tiers[line]
+		local list = (need and skill and skill < need) and low or ready
+		list[#list + 1] = { c = c, skill = skill }
 	end
-	if #learnable > 0 then
-		return "learnable", Names(learnable), base
+	profName = profName or "?"
+	local lines = {}
+	if #ready == 1 and ready[1].skill then
+		lines[1] = { text = ("Learnable by %s (%s %d)"):format(Name(ready[1]), profName, ready[1].skill), role = "success" }
+	elseif #ready > 0 then
+		lines[1] = { text = ("Learnable by %s (%s)"):format(NameList(ready, Name), profName), role = "success" }
 	end
-	return nil
+	if #low == 1 then
+		lines[#lines + 1] = { text = ("%s: %s %d/%d, not yet"):format(Name(low[1]), profName, low[1].skill, need),
+			role = "textMuted" }
+	elseif #low > 0 then
+		local names = NameList(low, function(entry)
+			return ("%s %d"):format(Name(entry), entry.skill)
+		end)
+		lines[#lines + 1] = { text = ("Not yet: %s (%s %d)"):format(names, profName, need), role = "textMuted" }
+	end
+	return lines
 end
