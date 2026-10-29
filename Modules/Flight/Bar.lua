@@ -133,7 +133,7 @@ local function CreateBar()
 		self:StopMovingOrSizing()
 		SavePosition()
 	end)
-	bar:SetScript("OnUpdate", OnUpdate)
+	bar:SetScript("OnUpdate", ns.Perf_Wrap(OnUpdate, "OnUpdate"))
 	bar.ticks = {}
 
 	local border = CreateFrame("Frame", nil, bar)

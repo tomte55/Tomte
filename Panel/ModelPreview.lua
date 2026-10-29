@@ -310,7 +310,7 @@ function ns.ModelPreview_Create(parent)
 	p.creatureActor = p.creatureScene:CreateActor()
 	-- Its width and depth centered on its position, feet at height 0 (the default can be the model's center).
 	p.creatureActor:SetUseCenterForOrigin(true, true, false)
-	p:SetScript("OnUpdate", function(_, dt)
+	p:SetScript("OnUpdate", ns.Perf_Wrap(function(_, dt)
 		-- The creature shows once it's loaded and measured (usually right away).
 		if p.fitting then
 			local actor = p.creatureActor
@@ -324,7 +324,7 @@ function ns.ModelPreview_Create(parent)
 			p.turn = (p.turn + dt * TURN_SPEED) % (2 * math.pi)
 			p.actor:SetYaw(p.baseYaw + p.turn)
 		end
-	end)
+	end, "OnUpdate"))
 	p.name = UI.Text(p, 13, "heading", "title")
 	p.name:SetPoint("BOTTOMLEFT", 8, 22)
 	p.name:SetPoint("BOTTOMRIGHT", -8, 22)

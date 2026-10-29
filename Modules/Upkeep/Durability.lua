@@ -112,9 +112,9 @@ local function InstanceCheck()
 end
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 events.UPDATE_INVENTORY_DURABILITY = Check
 events.PLAYER_EQUIPMENT_CHANGED = Check

@@ -22,9 +22,9 @@ local seen, seenCount = {}, 0 -- [lineID] = true: the filter runs once per chat 
 local lastToast = {} -- [sender] = GetTime()
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 local Readable = ns.Readable
 

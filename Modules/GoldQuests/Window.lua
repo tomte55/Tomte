@@ -704,7 +704,7 @@ local function Build()
 		local x, y = Cursor()
 		grabX, grabY = frame:GetRight() - x, y - frame:GetBottom()
 	end)
-	frame.grip:SetScript("OnUpdate", function()
+	frame.grip:SetScript("OnUpdate", ns.Perf_Wrap(function()
 		if not frame.sizing then
 			return
 		end
@@ -713,13 +713,13 @@ local function Build()
 		local w = math.min(math.max(x + grabX - frame:GetLeft(), minW), maxW)
 		local h = math.min(math.max(frame:GetTop() - (y - grabY), minH), maxH)
 		frame:SetSize(w, h)
-	end)
+	end, "OnUpdate"))
 	frame.grip:SetScript("OnMouseUp", function()
 		frame.sizing = false
 		SavePlace()
 	end)
 
-	frame:SetScript("OnUpdate", function(_, elapsed)
+	frame:SetScript("OnUpdate", ns.Perf_Wrap(function(_, elapsed)
 		tick, clock = tick + elapsed, clock + elapsed
 		if tick < LOADING_TICK then
 			return
@@ -730,7 +730,7 @@ local function Build()
 			clock = 0
 			ns.GoldWindow_Refresh()
 		end
-	end)
+	end, "OnUpdate"))
 	Place()
 	ApplyLook()
 end

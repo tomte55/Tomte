@@ -162,12 +162,12 @@ end
 -- Events ----------------------------------------------------------------------------------------------------------
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	if self[event] then
 		self[event](self, ...)
 	end
 	ns.CasinoEarn_OnEvent(event, ...)
-end)
+end))
 
 -- Losing control may be a takeoff: UnitOnTaxi can take a moment to say so.
 function events:PLAYER_CONTROL_LOST()

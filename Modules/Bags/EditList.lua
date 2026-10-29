@@ -76,6 +76,7 @@ local function DragUpdate(list)
 		line:Show()
 	end
 end
+local DragUpdateTimed = ns.Perf_Wrap(DragUpdate, "OnUpdate")
 
 local function StartDrag(list, row)
 	list.dragKey, list.dragKind = row.key, row.kind
@@ -84,7 +85,7 @@ local function StartDrag(list, row)
 	list.ghost:Show()
 	row:SetAlpha(0.4)
 	list.dragRow = row
-	list:SetScript("OnUpdate", DragUpdate)
+	list:SetScript("OnUpdate", DragUpdateTimed)
 end
 
 -- cancel: the list hid mid-drag (the window closed): clean up without moving anything.

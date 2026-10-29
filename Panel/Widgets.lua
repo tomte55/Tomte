@@ -819,6 +819,7 @@ function UI.ScrollThumb(parent, scroll, setScroll)
 			setScroll(self.startScroll + (self.startY - CursorY()) * (contentH - viewH) / track)
 		end
 	end
+	local DragTimed = ns.Perf_Wrap(Drag, "OnUpdate")
 	thumb:SetScript("OnEnter", function()
 		Look(true)
 	end)
@@ -830,7 +831,7 @@ function UI.ScrollThumb(parent, scroll, setScroll)
 	thumb:SetScript("OnMouseDown", function(self)
 		self.dragging = true
 		self.startY, self.startScroll = CursorY(), scroll:GetVerticalScroll()
-		self:SetScript("OnUpdate", Drag)
+		self:SetScript("OnUpdate", DragTimed)
 	end)
 	thumb:SetScript("OnMouseUp", function(self)
 		self.dragging = false

@@ -189,7 +189,7 @@ function ns.QuestsItems_Start(moduleDB)
 	events:Watch(OWNER, "QUEST_DATA_LOAD_RESULT")
 	if not hooked then
 		hooked = true -- post-calls can't be removed; OnItem checks enabled
-		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, OnItem)
+		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, ns.Perf_Wrap(OnItem, "tooltip"))
 	end
 end
 

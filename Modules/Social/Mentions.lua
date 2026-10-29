@@ -28,9 +28,9 @@ local module
 local words = {}
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self:OnChat(event, ...)
-end)
+end))
 
 local Readable = ns.Readable
 

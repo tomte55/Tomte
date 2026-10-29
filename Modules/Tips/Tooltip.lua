@@ -308,9 +308,9 @@ local function Hook()
 		return
 	end
 	hooked = true -- post-calls and hooks can't be removed
-	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, OnItem)
-	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Currency, OnCurrency)
-	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Object, OnObject)
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, ns.Perf_Wrap(OnItem, "tooltip"))
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Currency, ns.Perf_Wrap(OnCurrency, "tooltip"))
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Object, ns.Perf_Wrap(OnObject, "tooltip"))
 	hooksecurefunc("DressUpItemLocation", OnDressUpItemLocation)
 end
 

@@ -159,6 +159,11 @@ local function DragUpdate(box, frame)
 	ShowSnapLines(lineX, lineY)
 end
 
+-- The box's OnUpdate while dragging, wrapped once here (not per drag): the dragged frame rides along in box.drag.
+local DragTick = ns.Perf_Wrap(function(box)
+	DragUpdate(box, box.drag.frame)
+end, "OnUpdate")
+
 local function StartDrag(spec, frame)
 	local box = spec.box
 	local rect = UIRect(box)
@@ -177,10 +182,9 @@ local function StartDrag(spec, frame)
 		points = points,
 		targets = SnapTargets(spec, frame),
 		toFrame = UIParent:GetEffectiveScale() / frame:GetEffectiveScale(), -- UIParent units -> the frame's offsets
+		frame = frame,
 	}
-	box:SetScript("OnUpdate", function()
-		DragUpdate(box, frame)
-	end)
+	box:SetScript("OnUpdate", DragTick)
 end
 
 -- A dropped widget settles: its box's outline flashes the accent color and eases back. Made on the first drop, on

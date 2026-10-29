@@ -96,7 +96,7 @@ local function Ease(t)
 	return 1 - (1 - t) * (1 - t)
 end
 
-driver:SetScript("OnUpdate", function(self)
+driver:SetScript("OnUpdate", ns.Perf_Wrap(function(self)
 	local now = GetTime()
 	local finished = {}
 	for key, tw in pairs(tweens) do
@@ -112,7 +112,7 @@ driver:SetScript("OnUpdate", function(self)
 	if not next(tweens) then
 		self:Hide()
 	end
-end)
+end, "OnUpdate"))
 
 -- step(e) runs every frame with e eased from 0 to 1 over `seconds`, ending on 1. A new tween on the same key
 -- replaces the old one.

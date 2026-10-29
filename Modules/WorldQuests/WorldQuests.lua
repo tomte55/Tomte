@@ -31,9 +31,9 @@ local zoneToken = 0 -- a newer zone check cancels pending retries
 local loggedIn = false
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 -- Redraws an open tab, debounced (QUEST_LOG_UPDATE and item info come in bursts).
 local function RefreshSoon()

@@ -309,7 +309,7 @@ local EVENTS = { "BAG_UPDATE_DELAYED", "ZONE_CHANGED_NEW_AREA", "PLAYER_ENTERING
 
 function ns.GatherSeeds_Init(moduleDB, owner)
 	db, module = moduleDB, owner
-	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Object, OnObject)
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Object, ns.Perf_Wrap(OnObject, "tooltip"))
 end
 
 -- Runs while the module is on and the setting is. A hide that falls in combat waits for PLAYER_REGEN_ENABLED, so

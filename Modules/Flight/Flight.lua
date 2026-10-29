@@ -27,9 +27,9 @@ local hooked
 local previewHandle
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 local ticker = CreateFrame("Frame")
 ticker:Hide()
 
@@ -287,7 +287,7 @@ local function Tick()
 end
 
 local sinceTick = 0
-ticker:SetScript("OnUpdate", function(self, elapsed)
+ticker:SetScript("OnUpdate", ns.Perf_Wrap(function(self, elapsed)
 	sinceTick = sinceTick + elapsed
 	if sinceTick < TICK then
 		return
@@ -297,7 +297,7 @@ ticker:SetScript("OnUpdate", function(self, elapsed)
 	if not (pending or flight) then
 		self:Hide()
 	end
-end)
+end, "OnUpdate"))
 
 -- After /reload mid-flight: GetTime() keeps counting across reloads, so the saved start is still valid.
 local function ResumeOrCleanup()

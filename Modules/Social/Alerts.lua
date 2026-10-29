@@ -27,9 +27,9 @@ local active = {} -- [alert key] = { next = GetTime() of the next repeat, left =
 local pvpRung -- this PvP queue pop already rang: not again until it's answered
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 local ticker = CreateFrame("Frame")
 ticker:Hide()
 
@@ -85,7 +85,7 @@ local function Trigger(key)
 end
 
 local sinceTick = 0
-ticker:SetScript("OnUpdate", function(self, elapsed)
+ticker:SetScript("OnUpdate", ns.Perf_Wrap(function(self, elapsed)
 	sinceTick = sinceTick + elapsed
 	if sinceTick < TICK then
 		return
@@ -108,7 +108,7 @@ ticker:SetScript("OnUpdate", function(self, elapsed)
 	if not next(active) then
 		self:Hide()
 	end
-end)
+end, "OnUpdate"))
 
 -- Popups show on the same event: check they're up a moment later.
 local function TriggerSoon(key)
@@ -227,7 +227,7 @@ local function CreateLine()
 	line = CreateFrame("Frame", nil, UIParent)
 	line:SetFrameStrata("DIALOG")
 	DressLine(line)
-	line:SetScript("OnUpdate", LineOnUpdate)
+	line:SetScript("OnUpdate", ns.Perf_Wrap(LineOnUpdate, "OnUpdate"))
 	line:Hide()
 end
 

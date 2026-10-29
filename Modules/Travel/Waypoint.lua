@@ -157,7 +157,7 @@ local function OnUpdate(_, dt)
 	ns.WayMarker_SetAlpha(alpha * db.alpha)
 	ns.WayMarker_Show(state, navFrame, sx, sy, footer, distanceText, scale, timeText, timeRole)
 end
-ticker:SetScript("OnUpdate", OnUpdate)
+ticker:SetScript("OnUpdate", ns.Perf_Wrap(OnUpdate, "OnUpdate"))
 
 local function Start()
 	navFrame = C_Navigation.GetFrame()

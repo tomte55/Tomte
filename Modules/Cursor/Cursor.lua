@@ -166,6 +166,7 @@ local function OnUpdate(_, elapsed)
 	trailBusy = ns.Cursor_TrailUpdate(db, palette, now, x, y,
 		ns.Cursor_TrailGate(db.trail, db.trailWhen, gateState))
 end
+local OnUpdateTimed = ns.Perf_Wrap(OnUpdate, "OnUpdate")
 
 -- Settings changed: the next frame or sample picks up modes, sizes and colors; the shape and the trail start over.
 local function Refresh()
@@ -226,9 +227,9 @@ end
 -- Events -------------------------------------------------------------------------------------------------------
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 function events:PLAYER_REGEN_DISABLED()
 	inCombat = true
@@ -248,7 +249,7 @@ local function Start()
 		driver = CreateFrame("Frame", nil, UIParent)
 	end
 	sinceSample = 0
-	driver:SetScript("OnUpdate", OnUpdate)
+	driver:SetScript("OnUpdate", OnUpdateTimed)
 	driver:Show()
 end
 

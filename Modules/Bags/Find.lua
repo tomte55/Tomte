@@ -97,7 +97,7 @@ end)
 local function WatchLoading(on)
 	if on and not loader then
 		loader = CreateFrame("Frame")
-		loader:SetScript("OnEvent", redraw)
+		loader:SetScript("OnEvent", ns.Perf_WrapEvents(redraw))
 	end
 	if loader then
 		if on then

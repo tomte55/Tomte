@@ -228,9 +228,9 @@ end
 -- After an update -----------------------------------------------------------------------------------------------------
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 events:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 local function Busy()

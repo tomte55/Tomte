@@ -133,9 +133,9 @@ local function BuildAnchor()
 	anchor:SetMovable(true)
 	anchor:SetClampedToScreen(true)
 	PlaceAnchor()
-	anchor:SetScript("OnUpdate", function(self, dt)
+	anchor:SetScript("OnUpdate", ns.Perf_Wrap(function(self, dt)
 		OnUpdate(dt)
-	end)
+	end, "OnUpdate"))
 end
 
 local function Busy(spec)

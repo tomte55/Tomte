@@ -97,6 +97,7 @@ local function OnUpdate()
 		end
 	end
 end
+local OnUpdateTimed = ns.Perf_Wrap(OnUpdate, "OnUpdate")
 
 local function CancelRetry()
 	if retryTimer then
@@ -120,7 +121,7 @@ local function OnResults()
 	end
 	CancelRetry()
 	reader = reader or CreateFrame("Frame")
-	reader:SetScript("OnUpdate", OnUpdate)
+	reader:SetScript("OnUpdate", OnUpdateTimed)
 	job = { ids = ids, i = 1, entries = {}, byID = {}, byItem = {} }
 	state = "reading"
 	reader:Show()

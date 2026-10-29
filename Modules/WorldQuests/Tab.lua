@@ -115,7 +115,7 @@ local function BuildMarker(canvas)
 	marker.shadow = ArrowTexture(marker, "BACKGROUND")
 	marker.shadow:SetVertexColor(0, 0, 0)
 	marker.arrow = ArrowTexture(marker, "OVERLAY")
-	marker:SetScript("OnUpdate", OnMarkerUpdate)
+	marker:SetScript("OnUpdate", ns.Perf_Wrap(OnMarkerUpdate, "OnUpdate"))
 	marker:Hide()
 end
 
@@ -622,7 +622,7 @@ local function Build()
 	panel.empty = UI.Text(panel, 12, "textMuted")
 	panel.empty:SetPoint("TOPLEFT", panel.scroll, "TOPLEFT", 6, -4)
 	panel.empty:SetPoint("RIGHT", -10, 0)
-	panel:SetScript("OnUpdate", OnUpdate)
+	panel:SetScript("OnUpdate", ns.Perf_Wrap(OnUpdate, "OnUpdate"))
 	panel.preview = ns.ModelPreview_Create(panel)
 	UpdateRouteButton()
 	-- The tab stays selected while the map is closed, and reopening it on the same map isn't a map change.

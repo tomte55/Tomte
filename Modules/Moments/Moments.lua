@@ -28,9 +28,9 @@ local ownedHouses = {} -- [house GUID] = true for the player's own houses (this 
 local discoveryPatterns
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 local ticker = CreateFrame("Frame")
 ticker:Hide()
 
@@ -132,13 +132,13 @@ local function Tick()
 end
 
 local sinceTick = 0
-ticker:SetScript("OnUpdate", function(self, elapsed)
+ticker:SetScript("OnUpdate", ns.Perf_Wrap(function(self, elapsed)
 	sinceTick = sinceTick + elapsed
 	if sinceTick >= TICK then
 		sinceTick = 0
 		Tick()
 	end
-end)
+end, "OnUpdate"))
 
 -- The level that decides "Cinematics only at max level": a level-up's new level, otherwise the player's.
 local function LevelFor(moment)

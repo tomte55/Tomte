@@ -289,6 +289,7 @@ are Tomte window settings.
 | Pet Battles | Collections | Help to win pet battles. In a battle, a helper shows the enemy team, which attack types hit the active enemy hard, its attack types, your best pet against it ("Swap to X?") and, in wild battles, rare pets you don't own yet. Talking to a pet tamer shows a card with the team Tomte will use, whether your pets are ready (dead, hurt, too low, missing), Load team, Heal (Revive Battle Pets or a bandage) and Xu-Fu's Pet Guides and Wowhead links. Paste strategies from Xu-Fu (a strategy's "Rematch string"): Load team picks your best copy of each pet and sets the abilities, the steps show during the fight, and a Next move button (key in Key Bindings > Tomte) plays the strategy's script, one press per action. A leveling slot swaps in the next pet from a queue once one reaches 25. A Pet Battles page lists every tamer fight on Xu-Fu's Pet Guides (524), your teams, the leveling queue and a type chart. |
 | Minimap Button | Tomte | A button on the minimap's edge that opens the panel (right-click: the Weekly board popup). Drag it to move it. |
 | Next up | Tomte | A short ranked list on Home of the best things to do right now: Great Vault rewards waiting, a rare up that drops a mount or pet you're missing, low durability, full Concentration, world quests worth doing, a vault slot one activity away, achievements one step from done, open knowledge sources, materials for your alts. Click one to start it (waypoint, track, open), right-click for "not now". Placement, rows, sources and their priority are settings. |
+| Performance | Tomte | Is Tomte fast? A Performance page shows how much of each frame Tomte takes, its busiest modules (hover one to see which file and event the time goes to), the calls that made the game hitch, what each module costs while logging in, and every loaded addon's CPU and memory from the game's profiler. Copy report gives it all as text. Optional chat warning when a Tomte call makes the game hitch, and an on-screen readout (frame rate, latency, Tomte's share). Off by default. |
 | Recent | Tomte | Every toast and banner also goes into a Recent list (a rail page with a quick action that counts what's new, or a block on Home), so one you missed can be read and clicked later. Saved across reloads, account-wide or per character, per-toast-type filters, optional dot on the minimap button. |
 | Graphics presets | Interface | A graphics quality level and frame rate cap for the open world, cities, dungeons and delves, raids, PvP and while AFK. Switches as you go and gives your own settings back when you leave, change them yourself or turn it off. Off by default. |
 | Gold & value | Professions & gold | What things are worth, from Auctionator or TSM (vendor prices without either): loot value on the recap card and the Sessions page, each character's bags and bank in Alts, and material cost, sale price and profit in the Crafting tab. Items you track, holiday tokens and upgrade crests show with your count on the bag's currency bar. |
@@ -370,6 +371,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte alts list` (the crafting list), `/tomte alts tracker` (show/hide the craft tracker)
 - `/tomte recent open` / `clear`, `/tomte value price <item link or ID>`, `/tomte value track <item link or ID>` (show an item on the bag's currency bar, or stop)
 - `/tomte materials why <item link or ID>` (which characters and professions use an item)
+- `/tomte perf show` (Tomte's busiest modules and last hitches), `/tomte perf report` (all of it as text to copy), `/tomte perf reset` (measure from now), `/tomte perf open`
 - `/tomte pets open`, `/tomte pets import` (paste Xu-Fu strategies), `/tomte pets types` (type chart), `/tomte pets load` (the team for the tamer you're talking to)
 - `/tomte weekly popup` / `board`, `/tomte weekly quests` (learned weekly quests), `/tomte weekly forget <name>`, `/tomte weekly ids` (check crest and knowledge quest IDs)
 - `/tomte chatcopy` (copy the chat window you last used)
@@ -425,7 +427,7 @@ Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, 
              Achievements, Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value,
              Minimap, Pets, Fishing, Gather, Delves, TradingPost, Holidays, Share, Materials, Mail, Talents, Graphics,
              Cursor, Buffs, Decor, Games, Quests, Loot, Instances, Tips, Nameplates, Drawers, Summary, Prey, Bags,
-             Counts)
+             Counts, Performance)
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 tools/       dev scripts (waynet.py builds Modules/Travel/Network*.lua from Blizzard's waypoint tables, events.py
              builds Modules/Holidays/Generated.lua from the client's toy and holiday tables, materials.py builds
@@ -488,6 +490,8 @@ or modules, major for changes that reset or break settings.
   Almost Done's meta achievement IDs, and Light Up the Night's achievements that aren't its criteria, come from
   Almost Completed Achievements' meta data (IDs only).
 - Profession weekly IDs and places from WeeklyKnowledge.
+- Performance is inspired by [WoW Task Manager](https://www.curseforge.com/wow/addons/wow-task-manager) (the idea only;
+  no code from it). Its percentages follow Blizzard's addon list.
 - Built-in stat weights: Midnight from SimulationCraft sims published by mythicsim.com for damage and tank specs and
   the Icy Veins and Method guides for healers; The War Within (Season 3) from the Icy Veins stat priority guides.
   Algari gem and Blasphemite IDs and the display season IDs from [wago.tools](https://wago.tools).

@@ -169,9 +169,9 @@ local function SellJunk(visit)
 end
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 function events:MERCHANT_SHOW()
 	if IsShiftKeyDown() or Restricted() then

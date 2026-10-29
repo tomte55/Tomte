@@ -231,7 +231,7 @@ function ns.Moments_ZoneText(on)
 	if on then
 		if not frame then
 			Build()
-			frame:SetScript("OnUpdate", OnUpdate)
+			frame:SetScript("OnUpdate", ns.Perf_Wrap(OnUpdate, "OnUpdate"))
 		end
 		if not hooked then
 			ZoneTextFrame:HookScript("OnShow", OnBlizzardShow)

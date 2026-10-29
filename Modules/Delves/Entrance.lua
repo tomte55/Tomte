@@ -33,7 +33,7 @@ local function Build()
 	card.blocks = {}
 	local elapsed = 0
 	-- The picker can close without its _HIDE reaching us first (a loading screen): follow it.
-	card:SetScript("OnUpdate", function(self, dt)
+	card:SetScript("OnUpdate", ns.Perf_Wrap(function(self, dt)
 		elapsed = elapsed + dt
 		if elapsed < 0.25 then
 			return
@@ -43,7 +43,7 @@ local function Build()
 		if not (picker and picker:IsShown()) then
 			self:Hide()
 		end
-	end)
+	end, "OnUpdate"))
 end
 
 -- The i-th block: a small muted heading over one or two lines of text.

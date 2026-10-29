@@ -96,7 +96,7 @@ local function Step()
 	end
 end
 
-frame:SetScript("OnUpdate", Step)
+frame:SetScript("OnUpdate", ns.Perf_Wrap(Step, "OnUpdate"))
 
 function ns.AchWalk_Join(key, handlers)
 	if not categories then

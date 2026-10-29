@@ -33,9 +33,9 @@ local vignetteTimer, criteriaTimer
 local lastUpNow = "" -- the up-now set the tab last showed
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 local function PlayerMap()
 	return C_Map.GetBestMapForUnit("player")

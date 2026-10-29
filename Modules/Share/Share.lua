@@ -330,9 +330,9 @@ function events:PLAYER_REGEN_ENABLED()
 	SchedulePump(GAP)
 end
 
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 -- Start and stop ---------------------------------------------------------------------------------------------------
 

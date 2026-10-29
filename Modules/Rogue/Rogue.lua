@@ -329,9 +329,9 @@ end
 -- Events ------------------------------------------------------------------------------------------------------
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 function events:PLAYER_ENTERING_WORLD()
 	Refresh()

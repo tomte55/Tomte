@@ -109,7 +109,7 @@ module = ns.RegisterModule({
 	},
 	init = function(saved)
 		db = saved
-		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, OnItem)
+		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, ns.Perf_Wrap(OnItem, "tooltip"))
 	end,
 	toggle = function(active)
 		if active then

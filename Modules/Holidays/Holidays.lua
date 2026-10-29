@@ -28,9 +28,9 @@ local started = false
 local refreshTimer, resetTimer
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 local function OpenPage(key)
 	if ns.EventsPage_Open then

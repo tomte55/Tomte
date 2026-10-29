@@ -237,7 +237,7 @@ end
 local waiter = CreateFrame("Frame")
 waiter:Hide()
 local waited, sinceCheck = 0, 0
-waiter:SetScript("OnUpdate", function(self, elapsed)
+waiter:SetScript("OnUpdate", ns.Perf_Wrap(function(self, elapsed)
 	waited, sinceCheck = waited + elapsed, sinceCheck + elapsed
 	if waited > WAIT_LIMIT then
 		self:Hide()
@@ -257,7 +257,7 @@ waiter:SetScript("OnUpdate", function(self, elapsed)
 	end
 	self:Hide()
 	ns.FishingKey_Refresh()
-end)
+end, "OnUpdate"))
 
 local function Wait(what)
 	want = what

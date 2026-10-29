@@ -199,6 +199,7 @@ local function Tick(f, elapsed)
 		f:SetScript("OnUpdate", nil)
 	end
 end
+local TickTimed = ns.Perf_Wrap(Tick, "OnUpdate")
 
 -- A merged line: new text (counting up to it), flashes, and its fade delay starts again.
 local function Merge(f, spec)
@@ -208,7 +209,7 @@ local function Merge(f, spec)
 	if count and count.to > count.from then
 		f.counting = { from = count.from, to = count.to, text = count.text, t = 0 }
 		f.text:SetText(count.text(count.from))
-		f:SetScript("OnUpdate", Tick)
+		f:SetScript("OnUpdate", TickTimed)
 	end
 	f.pulse:Stop()
 	f.pulse:Play()
@@ -242,7 +243,7 @@ function ns.LootFeed_Push(spec)
 	lines[#lines + 1] = f
 	Layout()
 	f:Show()
-	f:SetScript("OnUpdate", Tick)
+	f:SetScript("OnUpdate", TickTimed)
 	f.inAnim:Play()
 	return f
 end
