@@ -154,7 +154,8 @@ seven themes so the whole thing looks the way you like, and settings sharing bet
 
 ### Good to know
 
-- Retail only, and the text is English only.
+- Made for retail, with the modules that work there also running on World of Warcraft: Forever. The text is English
+  only.
 - It plays nicely with (all optional): Baganator + Syndicator, Auctionator or TradeSkillMaster, Mount Journal
   Enhanced. Tomte's settings have an "Other addons" page that lists what it clashes with, works with or replaces.
 - Content follows your character's expansion (The War Within or Midnight). The Midnight data is newer and I'm still

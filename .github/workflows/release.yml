@@ -44,6 +44,7 @@ jobs:
       # Uploads the same zip and notes to CurseForge. Skipped until the repo has a CF_API_TOKEN secret (CurseForge >
       # account > API tokens) and Tomte.toc has "## X-Curse-Project-ID: <id>". The game version comes from the TOC's
       # "## Interface:" (120105 -> 12.1.5) and must exist on CurseForge, or the upload stops with a message.
+      # Forever's version comes from Tomte_Forever.toc the same way and is only added when CurseForge lists it.
       - name: Upload to CurseForge
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
@@ -52,10 +53,14 @@ jobs:
           if [ -z "$CF_API_TOKEN" ] || [ -z "$project" ]; then echo "No CF_API_TOKEN or X-Curse-Project-ID: skipped"; exit 0; fi
           iface="$(sed -n 's/^## Interface: *//p' Tomte/Tomte.toc | tr -d '\r' | cut -d, -f1)"
           gv="$((iface / 10000)).$((iface / 100 % 100)).$((iface % 100))"
-          id="$(curl -sf -H "X-Api-Token: $CF_API_TOKEN" https://wow.curseforge.com/api/game/versions \
-            | jq --arg v "$gv" 'map(select(.name == $v)) | .[0].id // empty')"
+          versions="$(curl -sf -H "X-Api-Token: $CF_API_TOKEN" https://wow.curseforge.com/api/game/versions)"
+          id="$(printf '%s' "$versions" | jq --arg v "$gv" 'map(select(.name == $v)) | .[0].id // empty')"
           if [ -z "$id" ]; then echo "CurseForge has no game version $gv yet"; exit 1; fi
-          jq -n --rawfile notes notes.md --arg name "Tomte $GITHUB_REF_NAME" --argjson gv "$id" \
-            '{changelog: $notes, changelogType: "markdown", displayName: $name, gameVersions: [$gv], releaseType: "release"}' > cf.json
+          fiface="$(sed -n 's/^## Interface: *//p' Tomte/Tomte_Forever.toc | tr -d '\r' | cut -d, -f1)"
+          fgv="$((fiface / 10000)).$((fiface / 100 % 100)).$((fiface % 100))"
+          fid="$(printf '%s' "$versions" | jq --arg v "$fgv" 'map(select(.name == $v)) | .[0].id // empty')"
+          if [ -z "$fid" ]; then echo "CurseForge has no game version $fgv: retail only"; fi
+          jq -n --rawfile notes notes.md --arg name "Tomte $GITHUB_REF_NAME" --argjson gv "[$id${fid:+,$fid}]" \
+            '{changelog: $notes, changelogType: "markdown", displayName: $name, gameVersions: $gv, releaseType: "release"}' > cf.json
           curl -sf -H "X-Api-Token: $CF_API_TOKEN" -F "metadata=<cf.json" -F "file=@Tomte-${GITHUB_REF_NAME}.zip" \
             "https://wow.curseforge.com/api/projects/$project/upload-file"

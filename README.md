@@ -48,6 +48,12 @@ What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 Works better with (all optional): Auctionator or TradeSkillMaster, Mount Journal Enhanced. Tomte's own Bags and Item
 counts do what Baganator and Syndicator do; if you keep those, Tomte works with them too.
 
+**World of Warcraft: Forever:** the same download works there; unzip it into `_forever_\Interface\AddOns`. Forever gets
+Mail, Loot, Vendor Helper, Durability, Gold & value, Flight Timer, Fishing, Drawers, Nameplates, Quests, the chat
+modules, Whispers, Mentions, Friends, Group Alerts, Friend sharing, AFK Screen, Casino, Recent, Minimap Buttons, Next up
+and Cursor highlight. Anything else in this README is retail only for now. Move Tomte's widgets with `/tomte unlock`
+and `/tomte lock`.
+
 ## A tour
 
 ### Home

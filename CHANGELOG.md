@@ -14,6 +14,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### New
 
+- **Tomte:** runs on World of Warcraft: Forever, with the modules that work there: Mail, Loot, Vendor Helper, Durability, Gold & value, Flight Timer, Fishing, Drawers, Nameplates, Quests, the chat modules, Whispers, Mentions, Friends, Group Alerts, Friend sharing, AFK Screen, Casino, Recent, Minimap Buttons, Next up and Cursor highlight. `/tomte unlock` moves Tomte's widgets, since that game has no Edit Mode.
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
 

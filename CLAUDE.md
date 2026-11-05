@@ -7,6 +7,9 @@ CurseForge page text and logo are kept in `docs/curseforge/`.
 ## Environment
 
 - Client: retail **12.1.5** (Midnight), build 70391. TOC `## Interface: 120105`.
+- World of Warcraft: Forever (1.60.1, `## Interface: 16001`) loads the generated `Tomte_Forever.toc`, a subset of the
+  modules chosen in `tools/forever_list.lua`. `_forever_\Interface\AddOns\Tomte` is a junction to this folder. Code that
+  differs checks `ns.FOREVER`; moved APIs go through `Core/Compat.lua`; the retail client is unaffected.
 - This repo **is** the live addon folder `Interface\AddOns\Tomte`; the repo root is the addon root.
 - The git dir lives at `D:\git\Tomte.git` (`.git` here is a one-line `gitdir:` file). It was moved out of the WoW
   folder because Battle.net's updater tries to clear read-only flags on every file there and fails on git's
