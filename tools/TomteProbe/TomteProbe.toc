@@ -1,4 +1,4 @@
-## Interface: 120105, 11507, 11508
+## Interface: 120105, 11507, 11508, 16001
 ## Title: Tomte Probe
 ## Notes: Dev tool: /tomteprobe lists which game APIs this client has, for porting Tomte. Not part of Tomte's release.
 ## Author: tomte55

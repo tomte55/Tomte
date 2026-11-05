@@ -3,10 +3,9 @@
 -- keep: path prefixes (a folder with its slash, or one file); drop: prefixes taken out of what keep allowed;
 -- extra: Forever-only files, each listed right after the retail file named in `after`.
 return {
-	-- Until launch day (2026-11-04) the name has a suffix no client knows and the interface is a placeholder, so no
-	-- game loads it. Launch day: the real suffix and Interface number from /tomteprobe.
-	name = "Tomte_ForeverPending.toc",
-	interface = "0",
+	-- warcraft.wiki.gg TOC_format: _Forever is the suffix, client 1.60.1 is Interface 16001.
+	name = "Tomte_Forever.toc",
+	interface = "16001",
 	keep = {
 		"Core/", "Themes/", "Cinematic/", "Panel/",
 		-- The launch set (spec: "Launch set").
