@@ -75,6 +75,23 @@ function ns.Ach_ProgressText(record, sep)
 		record.need or record.total)
 end
 
+-- Whether the saved list can stand in for a full scan until the next one (run slowly behind it) is done.
+-- entry: the character's cache { scope, floor (lowest percent it holds), links }; floor: the lowest percent watched
+-- now. A list from before floors and links were saved, for another scope or for a higher threshold can't.
+-- Second value: why not, in player words (for /tomte ach cache).
+function ns.Ach_CacheUsable(entry, scope, floor)
+	if type(entry) ~= "table" then
+		return false, "nothing saved for this character yet"
+	elseif entry.scope ~= scope then
+		return false, "it was saved for the other \"Completed means\" choice"
+	elseif type(entry.floor) ~= "number" or not entry.links then
+		return false, "it's from an older version of Tomte"
+	elseif entry.floor > floor then
+		return false, ("it holds %d%% and up, the threshold now needs %d%%"):format(entry.floor, floor)
+	end
+	return true
+end
+
 -- The strongest milestone between two states ({ percent, done, total }) of one achievement, or nil.
 -- fired: kinds already shown for it this session (almost and lastStep show once; pinned on every step).
 function ns.Ach_Milestone(before, after, threshold, pinned, fired)

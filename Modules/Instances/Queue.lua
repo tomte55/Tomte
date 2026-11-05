@@ -35,34 +35,39 @@ end
 
 -- Ring ------------------------------------------------------------------------------------------------------------
 
+-- The plate's looks on f: the real plate's and the settings preview's (InstancesQueue_DrawSample below).
+local function Dress(f)
+	UI.Panel(f, { subtle = true })
+	f.time = UI.Text(f, 13, "heading", "number")
+	f.time:SetPoint("TOPLEFT", PAD, -PAD)
+	f.diff = UI.Text(f, 10, "textMuted")
+	f.diff:SetPoint("TOPLEFT", f.time, "BOTTOMLEFT", 0, -2)
+	f.icons, f.counts = {}, {}
+end
+
 local function Build()
 	ring = CreateFrame("Frame", nil, UIParent)
 	ring:EnableMouse(false)
 	ring:SetClampedToScreen(true)
-	UI.Panel(ring, { subtle = true })
-	ring.time = UI.Text(ring, 13, "heading", "number")
-	ring.time:SetPoint("TOPLEFT", PAD, -PAD)
-	ring.diff = UI.Text(ring, 10, "textMuted")
-	ring.diff:SetPoint("TOPLEFT", ring.time, "BOTTOMLEFT", 0, -2)
-	ring.icons, ring.counts = {}, {}
+	Dress(ring)
 	ring:Hide()
 end
 
-local function Icon(i)
-	local icon = ring.icons[i]
+local function Icon(f, i)
+	local icon = f.icons[i]
 	if not icon then
-		icon = ring:CreateTexture(nil, "ARTWORK")
+		icon = f:CreateTexture(nil, "ARTWORK")
 		icon:SetSize(ICON, ICON)
-		ring.icons[i] = icon
+		f.icons[i] = icon
 	end
 	return icon
 end
 
-local function Count(i)
-	local count = ring.counts[i]
+local function Count(f, i)
+	local count = f.counts[i]
 	if not count then
-		count = UI.Text(ring, 10, "text", "number")
-		ring.counts[i] = count
+		count = UI.Text(f, 10, "text", "number")
+		f.counts[i] = count
 	end
 	return count
 end
@@ -75,8 +80,8 @@ local function SetRoleIcon(icon, role, lit)
 end
 
 -- Sets up the role icons and counts for slots (Data.lua's Instances_RoleSlots). Returns the row's width and how
--- many icons and counts are in use, for Layout.
-local function DrawRoles(slots)
+-- many icons and counts are in use, for Layout. f: the plate (Dress).
+local function DrawRoles(f, slots)
 	local x, nIcon, nCount = 0, 0, 0
 	for _, slot in ipairs(slots or {}) do
 		if x > 0 then
@@ -85,7 +90,7 @@ local function DrawRoles(slots)
 		local many = slot.total > ROLE_ICONS
 		for k = 1, many and 1 or slot.total do
 			nIcon = nIcon + 1
-			local icon = Icon(nIcon)
+			local icon = Icon(f, nIcon)
 			icon.x = x -- placed by Layout, once the time's width is known
 			SetRoleIcon(icon, slot.role, many and slot.found > 0 or k <= slot.found)
 			icon:Show()
@@ -93,7 +98,7 @@ local function DrawRoles(slots)
 		end
 		if many then
 			nCount = nCount + 1
-			local count = Count(nCount)
+			local count = Count(f, nCount)
 			count:SetText(slot.found .. "/" .. slot.total)
 			UI.SetTextRole(count, slot.found >= slot.total and "success" or "text")
 			count.x = x + 1
@@ -101,11 +106,11 @@ local function DrawRoles(slots)
 			x = x + 1 + math.ceil(count:GetUnboundedStringWidth())
 		end
 	end
-	for i = nIcon + 1, #ring.icons do
-		ring.icons[i]:Hide()
+	for i = nIcon + 1, #f.icons do
+		f.icons[i]:Hide()
 	end
-	for i = nCount + 1, #ring.counts do
-		ring.counts[i]:Hide()
+	for i = nCount + 1, #f.counts do
+		f.counts[i]:Hide()
 	end
 	return x, nIcon, nCount
 end
@@ -125,24 +130,51 @@ local function Fit(eye)
 	end
 end
 
--- Sizes the plate around the time, the average and the role row (right of the time).
-local function Layout(rolesW, nIcon, nCount)
-	local timeW = math.ceil(ring.time:GetUnboundedStringWidth())
-	local diffW = ring.diff:IsShown() and math.ceil(ring.diff:GetUnboundedStringWidth()) or 0
+-- Sizes plate f around the time, the average and the role row (right of the time).
+local function Layout(f, rolesW, nIcon, nCount)
+	local timeW = math.ceil(f.time:GetUnboundedStringWidth())
+	local diffW = f.diff:IsShown() and math.ceil(f.diff:GetUnboundedStringWidth()) or 0
 	local left = math.max(timeW, diffW)
 	local x0 = PAD + left + (rolesW > 0 and ROLE_GAP + 2 or 0)
 	for i = 1, nIcon do
-		local icon = ring.icons[i]
+		local icon = f.icons[i]
 		icon:ClearAllPoints()
-		icon:SetPoint("LEFT", ring, "TOPLEFT", x0 + icon.x, -PAD - ICON / 2)
+		icon:SetPoint("LEFT", f, "TOPLEFT", x0 + icon.x, -PAD - ICON / 2)
 	end
 	for i = 1, nCount do
-		local count = ring.counts[i]
+		local count = f.counts[i]
 		count:ClearAllPoints()
-		count:SetPoint("LEFT", ring, "TOPLEFT", x0 + count.x, -PAD - ICON / 2)
+		count:SetPoint("LEFT", f, "TOPLEFT", x0 + count.x, -PAD - ICON / 2)
 	end
-	local textH = ring.time:GetStringHeight() + (diffW > 0 and 2 + ring.diff:GetStringHeight() or 0)
-	ring:SetSize(x0 + rolesW + PAD, PAD * 2 + math.max(textH, rolesW > 0 and ICON or 0))
+	local textH = f.time:GetStringHeight() + (diffW > 0 and 2 + f.diff:GetStringHeight() or 0)
+	f:SetSize(x0 + rolesW + PAD, PAD * 2 + math.max(textH, rolesW > 0 and ICON or 0))
+end
+
+-- Fills plate f (Dress) for a queue entered elapsed seconds ago (InstancesRead_Queue's average, needs and totals).
+local function Fill(f, elapsed, q)
+	local time, diff, role = ns.Instances_WaitText(elapsed, q.average)
+	f.time:SetText(time)
+	f.diff:SetText(diff or "")
+	f.diff:SetShown(diff ~= nil)
+	UI.SetTextRole(f.diff, role or "textMuted")
+	Layout(f, DrawRoles(f, ns.Instances_RoleSlots(q.needs, q.totals)))
+end
+
+-- The settings preview's made-up queue: a dungeon with the tank found, the healer and two damage places open.
+local SAMPLE_ELAPSED = 252 -- seconds in queue
+local SAMPLE_QUEUE = { average = 342, needs = { tank = 0, healer = 1, dps = 2 }, totals = { tank = 1, healer = 1, dps = 3 } }
+
+-- The settings preview (Panel/Preview.lua): the plate for SAMPLE_QUEUE, drawn by Dress and Fill like the real one.
+function ns.InstancesQueue_DrawSample(host)
+	local f = host.plate
+	if not f then
+		f = CreateFrame("Frame", nil, host)
+		f:SetPoint("TOPLEFT")
+		Dress(f)
+		host.plate = f
+	end
+	Fill(f, SAMPLE_ELAPSED, SAMPLE_QUEUE)
+	return f:GetWidth(), f:GetHeight()
 end
 
 local function StopTicker()
@@ -168,13 +200,7 @@ local function Update()
 	ring:SetFrameStrata(eye:GetFrameStrata())
 	ring:SetFrameLevel(eye:GetFrameLevel() + 10)
 	Fit(eye)
-	local elapsed = q.queuedTime and (GetTime() - q.queuedTime) or 0
-	local time, diff, role = ns.Instances_WaitText(elapsed, q.average)
-	ring.time:SetText(time)
-	ring.diff:SetText(diff or "")
-	ring.diff:SetShown(diff ~= nil)
-	UI.SetTextRole(ring.diff, role or "textMuted")
-	Layout(DrawRoles(ns.Instances_RoleSlots(q.needs, q.totals)))
+	Fill(ring, q.queuedTime and (GetTime() - q.queuedTime) or 0, q)
 	ring:Show()
 	ticker = ticker or C_Timer.NewTicker(TICK, Update)
 end

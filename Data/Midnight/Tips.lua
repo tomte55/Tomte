@@ -42,4 +42,8 @@ ns.Content_Register(11, "tips", {
 	reagentQuantity = {
 		[1283168] = { [268650] = 5 }, -- Ascendant Voidcore
 	},
+	-- Item via wago.tools ItemEffect and ItemXItemEffect (spell 1261503), build 12.1.5, 2026-10-25.
+	samples = {
+		rep = 257382, -- Companion Experience
+	},
 })

@@ -225,9 +225,9 @@ end
 -- Events ---------------------------------------------------------------------------------------------------------
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 function events:PLAYER_ENTERING_WORLD()
 	Refresh()
@@ -329,6 +329,9 @@ ns.EditMode_Register({
 		local point, _, relPoint, x, y = ns.Buffs_StripFrame():GetPoint()
 		db.frame.point, db.frame.relPoint, db.frame.x, db.frame.y = point, relPoint, x, y
 	end,
+	module = "buffs",
+	options = { "scale" },
+	reset = ResetPosition,
 })
 
 local function Scale(v)
@@ -343,15 +346,22 @@ local function WhereChoices()
 	}
 end
 
+-- Settings preview (Panel/Preview.lua): the sample strip at the chosen size, also while the strip is off (the
+-- preview answers its switch as on, to show what turning it on gives).
+local function StripPreview(host, get)
+	return ns.Buffs_DrawSample(host, SampleItems(), get("scale"))
+end
+
 local WHERE_TIP = "Where to check: raids only, raids and dungeons, or delves too. Ready checks outside an "
 	.. "instance check everything that's on."
 
 local options = {
 	{ type = "header", label = "Reminder strip" },
 	{ type = "checkbox", key = "strip", label = "Show missing buffs as icons", onChange = Refresh,
+		preview = ns.Preview_When("strip", StripPreview),
 		tooltip = "In dungeons, raids and delves and during ready checks, out of combat: an icon for each buff you're missing. Point at one to see what it is." },
 	{ type = "slider", key = "scale", label = "Size", min = 0.6, max = 1.6, step = 0.1, format = Scale,
-		onChange = Relayout, parent = "strip" },
+		onChange = Relayout, parent = "strip", preview = ns.Preview_When("strip", StripPreview) },
 	{ type = "button", label = "Position", text = "Reset", onClick = ResetPosition, parent = "strip",
 		tooltip = "Move the icons back to the top middle of the screen. Blizzard's Edit Mode moves them too." },
 	{ type = "button", label = "Preview", text = "Show", onClick = Test,

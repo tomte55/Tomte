@@ -79,7 +79,7 @@ function ns.ZoneText_Create(parent)
 	diamond:SetRotation(math.pi / 4)
 	diamond:SetPoint("CENTER", name, "BOTTOM", 0, -8)
 
-	holder:SetScript("OnUpdate", OnUpdate)
+	holder:SetScript("OnUpdate", ns.Perf_Wrap(OnUpdate, "OnUpdate"))
 end
 
 -- Show (or restart with a new name). Called while the cinematic letterbox is up.

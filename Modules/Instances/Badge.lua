@@ -160,13 +160,24 @@ local function Place()
 	badge:SetPoint("CENTER", Minimap, "CENTER", r * math.cos(a), r * math.sin(a))
 end
 
+-- A badge's looks on b, and its text: the real badge's and the settings preview's (InstancesBadge_DrawSample below).
+local function Dress(b)
+	b:SetHeight(HEIGHT)
+	UI.Panel(b, { subtle = true })
+	b.text = UI.Text(b, 11, "text", "number")
+	b.text:SetPoint("CENTER", 0, 0)
+end
+
+local function Paint(b, text, role)
+	b.text:SetText(text)
+	UI.SetTextRole(b.text, role)
+	b:SetWidth(math.ceil(b.text:GetUnboundedStringWidth()) + 2 * PAD_X)
+end
+
 local function Build()
 	badge = CreateFrame("Button", nil, Minimap)
-	badge:SetHeight(HEIGHT)
 	badge:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	UI.Panel(badge, { subtle = true })
-	badge.text = UI.Text(badge, 11, "text", "number")
-	badge.text:SetPoint("CENTER", 0, 0)
+	Dress(badge)
 	badge:SetScript("OnEnter", ShowTooltip)
 	badge:SetScript("OnLeave", GameTooltip_Hide)
 	badge:SetScript("OnClick", function(self)
@@ -204,9 +215,7 @@ local function Update()
 		badge:Hide()
 		return
 	end
-	badge.text:SetText(text)
-	UI.SetTextRole(badge.text, role)
-	badge:SetWidth(math.ceil(badge.text:GetUnboundedStringWidth()) + 2 * PAD_X)
+	Paint(badge, text, role)
 	badge:Show()
 	if GameTooltip:GetOwner() == badge then
 		ShowTooltip(badge)
@@ -214,6 +223,47 @@ local function Update()
 end
 
 local updateSoon = UI.Debounce(UPDATE_DELAY, Update)
+
+-- The settings preview's made-up places (InstancesRead_Current's shape): a heroic dungeon, a keystone, a delve.
+local SAMPLE_PLACES = {
+	{ instanceType = "party", difficultyID = D.dungeonHeroic, groupSize = 5 },
+	{ instanceType = "party", difficultyID = D.keystone, isChallengeMode = true, keystone = 12 },
+	{ instanceType = "scenario", delveTier = 8 },
+}
+local SAMPLE_GAP = 6
+
+-- The settings preview (Panel/Preview.lua): a row of badges as they read in sample places, then, when get answers
+-- "Outside instances too" on, the one for the difficulty you've chosen. Drawn by Dress and Paint like the real one.
+function ns.InstancesBadge_DrawSample(host, get)
+	local list = {}
+	for _, info in ipairs(SAMPLE_PLACES) do
+		local text, role = ns.Instances_BadgeText(info)
+		list[#list + 1] = { text = text, role = role }
+	end
+	if get("badgeOutside") then
+		local dungeon, raid = ns.InstancesRead_Chosen()
+		list[#list + 1] = { text = ns.Instances_OutsideText(dungeon, raid), role = "textMuted" }
+	end
+	host.badges = host.badges or {}
+	local x = 0
+	for i, entry in ipairs(list) do
+		local b = host.badges[i]
+		if not b then
+			b = CreateFrame("Frame", nil, host)
+			Dress(b)
+			host.badges[i] = b
+		end
+		Paint(b, entry.text, entry.role)
+		b:ClearAllPoints()
+		b:SetPoint("TOPLEFT", x, 0)
+		b:Show()
+		x = x + b:GetWidth() + SAMPLE_GAP
+	end
+	for i = #list + 1, #host.badges do
+		host.badges[i]:Hide()
+	end
+	return x - SAMPLE_GAP, HEIGHT
+end
 
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "PLAYER_DIFFICULTY_CHANGED", "UPDATE_INSTANCE_INFO", "GROUP_ROSTER_UPDATE",

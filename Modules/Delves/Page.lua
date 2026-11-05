@@ -11,10 +11,12 @@ local PAD = 8
 local SLOT_W, SLOT_H, SLOT_GAP = 96, 40, 10
 local PORTRAIT = 48
 local JOURNEY_BAR_GAP = 11 -- the season bar's height plus the space below it
+local RETRY_SECONDS = 61 -- just after Scan.lua's cache for an empty find runs out (60 s)
 
 ns.DELVES_ICON = "Interface\\Icons\\INV_Misc_Key_03"
 
 local page, scroll, c -- c: the scroll content
+local retry -- timer for the next look while no delves are found
 local rows = {}
 
 local QUALITY = {} -- Enum.CurioRarity -> item quality (Blizzard_DelvesCompanionConfiguration's own mapping)
@@ -63,12 +65,14 @@ local function Build()
 		ns.DelvesPage_Refresh()
 	end
 	c.keys = Text(14, "text")
+	c.keysWait = UI.ProgressLine(c)
 	c.combine = Text(12, "success")
 	c.journey = Text(12, "textMuted")
 	c.journeyBar = UI.Bar(c, 5)
 	c.stash = Text(12, "textMuted")
 	c.today = Kit.Heading(c)
 	c.empty = Text(13, "textMuted")
+	c.emptyWait = UI.ProgressLine(c)
 	c.vaultHead = Kit.Heading(c)
 	c.slots, c.slotTiers = {}, {}
 	for i = 1, 3 do
@@ -78,6 +82,7 @@ local function Build()
 		c.slotTiers[i]:SetWidth(SLOT_W)
 	end
 	c.advice = Text(13, "accent")
+	c.adviceWait = UI.ProgressLine(c)
 	c.ladder = Text(12, "textMuted")
 	c.compHead = Kit.Heading(c)
 	c.portrait = c:CreateTexture(nil, "ARTWORK")
@@ -108,6 +113,19 @@ local function Place(fs, y, text, gap)
 	return y + fs:GetStringHeight() + (gap or 4)
 end
 
+-- A busy line under fs while its text says it waits on the game; Render runs again when the data arrives.
+-- When the wait is over, the text that replaced it fades in.
+local function Waiting(line, fs, waiting)
+	if waiting then
+		line:Below(fs):Track(UI.ProgressBusy)
+	else
+		if line:IsShown() and fs:IsShown() then
+			UI.FadeIn(fs)
+		end
+		line:Stop()
+	end
+end
+
 local function PlaceFrame(frame, y, height)
 	frame:ClearAllPoints()
 	frame:SetPoint("TOPLEFT", PAD, -y)
@@ -125,18 +143,26 @@ local function RenderToday(y, list, minLevel)
 	end
 	c.today:Set("Today", #list > 0 and (bountiful .. " bountiful") or nil)
 	y = PlaceFrame(c.today, y, 30) + 4
-	local empty
+	local empty, searching
 	if minLevel then
 		empty = ("Delves open at level %d."):format(minLevel)
 	elseif not ns.Content_Get(ns.ContentExpansion(), "delves") then
 		empty = ("Tomte has no delves for %s."):format(ns.ExpansionName(ns.ContentExpansion()))
 	elseif #list == 0 then
-		empty = ("No delves found for %s. Open the world map once if this looks wrong."):format(
-			ns.ExpansionName(ns.ContentExpansion()))
+		searching = true
+		empty = ("No delves found for %s yet. Tomte keeps looking."):format(ns.ExpansionName(ns.ContentExpansion()))
 	elseif bountiful == 0 then
-		empty = "No bountiful delves found. Open the map once if this looks wrong."
+		empty = "No bountiful delves found today."
 	end
 	y = Place(c.empty, y, empty, 8)
+	Waiting(c.emptyWait, c.empty, searching)
+	-- The zones' delves may not be loaded yet: the scan looks again after a minute (AREA_POIS_UPDATED redraws sooner).
+	if searching and not retry then
+		retry = C_Timer.NewTimer(RETRY_SECONDS, function()
+			retry = nil
+			ns.DelvesPage_Refresh()
+		end)
+	end
 	for i, e in ipairs(list) do
 		local row = Kit.PoolRow(rows, i, c)
 		row:Set(ns.DELVES_ICON, e.name, e.bountiful and "accent" or "text", ns.DelvesScan_ZoneName(e.map))
@@ -199,6 +225,7 @@ local function RenderVault(y, vault)
 		advice = "Reading the Great Vault..."
 	end
 	y = Place(c.advice, y, advice, 4)
+	Waiting(c.adviceWait, c.advice, not vault)
 	y = Place(c.ladder, y, vault and ns.Delves_LadderText(vault.ladder), 4)
 	return y + 14
 end
@@ -237,7 +264,7 @@ local function RenderCompanion(y, comp)
 	c.xp:ClearAllPoints()
 	c.xp:SetPoint("TOPLEFT", textX, -y)
 	c.xp:SetPoint("RIGHT", -PAD, 0)
-	c.xp:SetValue(comp.xpMax and comp.xpMax > 0 and comp.xp / comp.xpMax or 1)
+	UI.BarTo(c.xp, comp.xpMax and comp.xpMax > 0 and comp.xp / comp.xpMax or 1)
 	y = y + 11
 	c.role:ClearAllPoints()
 	c.role:SetPoint("TOPLEFT", textX, -y)
@@ -289,6 +316,7 @@ local function Render()
 	local minLevel = ns.DelvesScan_MinLevel()
 	local y = PAD
 	y = Place(c.keys, y, s.keyLine or (minLevel and "" or "Reading your keys..."), 4)
+	Waiting(c.keysWait, c.keys, not s.keyLine and not minLevel)
 	local perKey = s.keys and s.keys.perKey or 100
 	y = Place(c.combine, y, s.canCombine and ("Combine %d shards into a key"):format(perKey) or nil, 4)
 	local journey = s.companion and s.companion.journey
@@ -298,7 +326,7 @@ local function Render()
 		c.journeyBar:SetPoint("TOPLEFT", PAD, -y)
 		c.journeyBar:SetPoint("RIGHT", -PAD, 0)
 		c.journeyBar:Show()
-		c.journeyBar:SetValue(ns.Delves_JourneyFraction(journey))
+		UI.BarTo(c.journeyBar, ns.Delves_JourneyFraction(journey))
 		y = y + JOURNEY_BAR_GAP
 	else
 		c.journeyBar:Hide()
@@ -318,6 +346,7 @@ local function Render()
 		c.hint:Hide()
 		c.compNone:Hide()
 		c.advice:Hide()
+		c.adviceWait:Stop()
 		c.ladder:Hide()
 		for i = 1, 3 do
 			c.slots[i]:Hide()

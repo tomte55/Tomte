@@ -307,20 +307,74 @@ test("recipe items: name, known by, learnable by with +n", function()
 	eq(ns.Alts_RecipeItemName(nil), nil, "no name")
 	local byName = ns.Alts_RecipesByName(RECIPES)
 	eq(byName["flux"][1], 3, "by name")
-	local status, names = ns.Alts_RecipeItemStatus(CHARS, RECIPES, byName["flux"])
-	eq(status, "known", "Alchy knows Flux")
-	eq(names, "Alchy", "known by")
-	status, names = ns.Alts_RecipeItemStatus(CHARS, RECIPES, byName["unknown thing"])
-	eq(status, "learnable", "nobody knows it")
-	eq(names, "Alchy, Bob", "both alchemists")
+	local lines = ns.Alts_RecipeItemLines(CHARS, RECIPES, byName["flux"])
+	eq(lines[1].text, "Known by Alchy", "Alchy knows Flux")
+	eq(lines[1].role, "textMuted", "known is muted")
+	eq(#lines, 1, "known says nothing else")
+	lines = ns.Alts_RecipeItemLines(CHARS, RECIPES, byName["unknown thing"])
+	eq(lines[1].text, "Learnable by Alchy, Bob (Alchemy)", "both alchemists")
+	eq(lines[1].role, "success", "learnable is green")
 	local chars = {}
 	for i, n in ipairs({ "E", "D", "C", "B", "A" }) do
-		chars[i] = { name = n, profs = { [1] = { base = ALCH, known = {} } } }
+		chars[i] = { name = n, profs = { [1] = { name = "Alchemy", base = ALCH, known = {} } } }
 	end
-	local _, five, base = ns.Alts_RecipeItemStatus(chars, RECIPES, { 4 })
-	eq(five, "A, B, C, +2", "three names then +n")
-	eq(base, ALCH, "its profession")
-	eq(ns.Alts_RecipeItemStatus({ x = { name = "X", profs = {} } }, RECIPES, { 4 }), nil, "nobody has the profession")
+	eq(ns.Alts_RecipeItemLines(chars, RECIPES, { 4 })[1].text, "Learnable by A, B, C, +2 (Alchemy)", "three names then +n")
+	eq(#ns.Alts_RecipeItemLines({ x = { name = "X", profs = {} } }, RECIPES, { 4 }), 0, "nobody has the profession")
+end)
+
+test("recipe items: the skill they need", function()
+	local pattern, levelFirst = ns.Alts_SkillPattern("Requires %s (%d)")
+	eq(levelFirst, false, "name first")
+	local texts = { "Pattern: Rack", "Requires Level 80", "Use: Teaches you how to craft a Rack.",
+		"Requires Midnight Leatherworking (50)" }
+	local name, level = ns.Alts_SkillRequirement(texts, pattern, levelFirst)
+	eq(name, "Midnight Leatherworking", "skill name")
+	eq(level, 50, "skill level")
+	eq(ns.Alts_SkillRequirement({ "Use: nothing" }, pattern), nil, "no requirement")
+	local swapped, first = ns.Alts_SkillPattern("Nécessite (%2$d) %1$s")
+	eq(first, true, "numbered arguments, level first")
+	name, level = ns.Alts_SkillRequirement({ "Nécessite (25) Travail du cuir" }, swapped, first)
+	eq(name, "Travail du cuir", "swapped name")
+	eq(level, 25, "swapped level")
+	eq(ns.Alts_SkillPattern(nil), nil, "no format")
+
+	local LW, MID_LW = 165, 2990
+	local function Leatherworker(name, skill)
+		return { name = name, profs = { [LW] = { name = "Leatherworking", base = LW, known = {},
+			tiers = { [MID_LW] = skill } } } }
+	end
+	local chars = {
+		a = Leatherworker("Tomfang", 62),
+		b = Leatherworker("Kesha", 41),
+		c = { name = "Mira", profs = { [ALCH] = { name = "Alchemy", base = ALCH, known = {} } } },
+	}
+	local names = { ["Midnight Leatherworking"] = { base = LW, line = MID_LW } }
+	eq(select(2, ns.Alts_SkillLineOf("Midnight Leatherworking", names, chars)), MID_LW, "the game's line name")
+	eq(ns.Alts_SkillLineOf("Khaz Algar Leatherworking", names, chars), LW, "a profession name inside it")
+	eq(select(2, ns.Alts_SkillLineOf("Khaz Algar Leatherworking", names, chars)), nil, "no line then")
+	eq(ns.Alts_SkillLineOf("Midnight Tailoring", names, chars), nil, "nobody has it")
+
+	-- No stored recipe: everyone with the profession, split by their skill.
+	local lines = ns.Alts_RecipeItemLines(chars, RECIPES, nil, { base = LW, line = MID_LW, level = 50 })
+	eq(#lines, 2, "able and not yet")
+	eq(lines[1].text, "Learnable by Tomfang (Leatherworking 62)", "one able, with skill")
+	eq(lines[2].text, "Kesha: Leatherworking 41/50, not yet", "one too low")
+	chars.d = Leatherworker("Aldric", 12)
+	chars.e = Leatherworker("Bob", nil)
+	lines = ns.Alts_RecipeItemLines(chars, RECIPES, nil, { base = LW, line = MID_LW, level = 50 })
+	eq(lines[1].text, "Learnable by Bob, Tomfang (Leatherworking)", "skill not read counts as able")
+	eq(lines[2].text, "Not yet: Aldric 12, Kesha 41 (Leatherworking 50)", "several too low")
+	-- A line without a known tier: nobody's skill is checked.
+	lines = ns.Alts_RecipeItemLines(chars, RECIPES, nil, { base = LW, level = 50 })
+	eq(#lines, 1, "all able")
+	eq(#ns.Alts_RecipeItemLines(chars, RECIPES, nil, nil), 0, "no requirement, no recipe: nothing")
+
+	-- A stored recipe takes its line from the recipe; known still wins.
+	local recipes = { [9] = { name = "Rack", base = LW, line = MID_LW } }
+	lines = ns.Alts_RecipeItemLines(chars, recipes, { 9 }, { level = 50 })
+	eq(lines[2].text, "Not yet: Aldric 12, Kesha 41 (Leatherworking 50)", "line from the recipe")
+	chars.b.profs[LW].known[9] = true
+	eq(ns.Alts_RecipeItemLines(chars, recipes, { 9 }, { level = 50 })[1].text, "Known by Kesha", "known wins")
 end)
 
 test("free profession slots and gap text", function()

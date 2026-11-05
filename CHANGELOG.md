@@ -12,13 +12,192 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+### New
+
+- **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
+- **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
+
+## v1.26.0 - 2026-10-29
+
+### New
+
+- **Performance (new module):** is Tomte fast? A Performance page with how much of each frame Tomte takes, its busiest modules and which file and event the time goes to, the calls that made the game hitch, startup and login cost per module, and every addon's CPU and memory. Copy report gives it all as text; an optional chat warning names a module that makes the game hitch, and an optional readout shows frame rate, latency and Tomte's share on screen (hover it for the busiest modules and the last hitch, click it for the page). Off by default.
+- **Tooltip extras:** items in your bags say when they have no use left: a book or letter with nothing else to it, or a toy, mount, pet or recipe you already know ("safe to delete", "sell it" or "sell or trade it"). Items an unfinished achievement still needs say so.
+- **Bags:** right-click a bag's tab to assign it to Equipment, Consumables, Trade Goods and so on, or to leave it out of Clean Up and selling junk, as in the game's own bags.
+
+### Improved
+
+- **Bags:** at a vendor, items it takes as payment (such as Dark Particles) stay bright with a frame in the accent color instead of fading with the things it won't buy.
+- **Bags:** the One bag view shows every item in the slot it really is in, so you can move items around yourself; Clean Up still sorts. Group identical items applies only to the Categories view.
+- **Bags:** folding sections is now a setting, off by default (Fold sections), and only a click on the heading's name folds it, not the empty rest of its row.
+- **Bags:** stack counts follow the Number size setting and sit in the bottom-right corner like the item level does in the bottom-left.
+- **Faster login:** Tomte's reads at login (achievements, mounts and pets, housing decor) take a much smaller slice of each frame, and Collect here and Holidays share one read of the mount and pet journals, so logging in no longer makes Tomte take a big share of the game's time for the first seconds.
+- **Almost Done:** the list from your last session shows right away after logging in and keeps updating from there, while every achievement is checked again slowly in the background. `/tomte ach cache` says what's saved.
+
 ### Fixed
 
+- **Bags, Trading Post, Friend sharing, Recent:** times under a minute say "just now" instead of "now ago" (the saved bank's "Seen just now").
+
+## v1.25.0 - 2026-10-29
+
+### New
+
+- **Bug report:** a small toast when Tomte runs into a Lua error; click it for the report to copy and send. At most one a minute, held back until combat ends, and it can be switched off.
+
+### Improved
+
+- **Bug report:** also lists errors in Blizzard's code that Tomte caused (the "tainted by 'Tomte'" ones), which it missed before.
+- **Alts:** recipe, pattern and plans tooltips say which of your characters can learn them even before their profession window was opened, and whether their skill is high enough yet ("Kesha: Leatherworking 41/50, not yet").
+
+### Fixed
+
+- **Bags:** using an item from the bags (right-click) no longer fails with an error after a bank visit where you switched between Character and Warband.
+- **Appearances:** looks you already have no longer show as new (in tooltips, the bags, loot and world quests) on armor this character can't wear, or right after you collected them.
+- **Gear Check:** item levels no longer show up on the bag bar's buttons.
+- **Loot:** the "you own" count on loot lines updates once the item is in your bags, also when you loot several quickly.
+- **Model preview:** no more Lua errors from the preview next to world map tooltips.
+
+## v1.24.3 - 2026-10-27
+
+### Fixed
+
+- **Bags:** the currencies panel's search finds currencies under folded headers too.
+- **Bags:** gear no longer turns red after a fight: the game's "can't change equipment in combat" line doesn't count as "can't use", and the red tint on gear and recipes checks again by itself after combat, a spec change, a new skill or a learned recipe.
+- **Bags:** category names aren't cut off any more when the category has only an icon or two (Hearthstones, Upgrades).
+- **Bags:** Save this search and Rename the bank tab have room to type the name again.
+- **Bags:** a saved search runs with a click; right-click it for Save as category and Delete (no more submenu on hover).
+- **Bags:** Find on all characters searches tooltip words too ("Use:", "Equip:"), and finds items the game hadn't loaded yet this session (the list fills in as they load).
+
+## v1.24.2 - 2026-10-27
+
+### Fixed
+
+- **Tomte window:** updating from 1.23 or older, What's new shows every release since, not only the newest one.
+
+## v1.24.1 - 2026-10-27
+
+### Fixed
+
+- **Events:** holidays and weekly bonus events (Delves, Timewalking, PvP Brawl, pet battles and more) show a proper
+  icon in Next up, on Home, on the Events page and in toasts, instead of a blank sliver of calendar art.
+- **Bags:** everything you get from opening a bag or cache now shows in New, including items that landed under your
+  mouse or went onto a stack you already had, and it stays there until you close your bags.
+- **Bags:** items you can't use (wrong level, armor type or class) are now tinted red, in the game's own red,
+  profession tools and gear included. The red goes away by itself when a level-up makes the item usable.
+
+## v1.24.0 - 2026-10-27
+
+### New
+
+- **Bags (new module):** Tomte's own bag window in place of the game's bags: items sorted into categories (New and
+  Upgrades on top) or one big bag; marks for upgrades, uncollected appearances, item level, equipment sets, pet
+  levels, junk and the crafting list, each in the corner you pick; a currencies panel; items keep their places
+  while you sell or mail; choose which windows open the bags; and a search that looks in tooltips and understands
+  `is:upgrade`, `ilvl>=600` and more. Off by default.
+- **Bags:** a bank window for the character bank and the Warband bank, in the same categories: bank tabs with an
+  Everything tab on top, buying new tabs, its own search, Clean Up, deposit all, the Warband bank's gold (with silver
+  and copper), and items in your bags that can't go in fade while it's open.
+- **Alts:** in Tomte's bank, "For alts" puts what your other characters craft with into the Warband bank, and "Take
+  for crafts" takes out exactly what your tracked crafts need, from your bank and the Warband bank.
+- **Bags:** your own categories on a Bag categories page: add, rename, drag to reorder, sections, rules with a preview,
+  priority, items that always go in, where each shows, share and import. Save a search, or turn it into a category.
+- **Bags:** look at another character's bags (and their bank, or yours, as you last saw it, from anywhere), and find
+  an item on all your characters.
+- **Item counts (new module):** item tooltips say how many each of your characters has and where (bags, bank, mail,
+  worn), plus the Warband bank and guild banks. The crafting list counts materials on every character with it.
+- **Dressing room:** gear tooltips say whether you have the item's look: not collected (or only for another class),
+  collected from another item, or collected.
+- **Tomte window:** after an update, the first login shows a small "What's new" window with the release's
+  highlights; tick "Don't show this after updates" to stop it, or open it any time with `/tomte changes`.
+- **Tomte window:** a Motion and sound card in its settings. Motion: Full, Subtle (soft fades and glides only) or
+  Off. Sounds: All, Only important (confirmations, errors, rewards) or Off.
+
+### Improved
+
+- **Tomte window:** the window fades in and out; hovers ease instead of snapping; the rail and settings markers
+  glide to what you pick; pages and settings cards rise in; menus, dropdowns and dialogs fade in; switches spring;
+  long lists scroll smoothly and fade at their edges; settings cards light up under the mouse.
+- **Tomte window:** turning a module on flashes its row, and its new page slides into the rail; rail counts light
+  up when they change.
+- **Home:** gold, item level and durability count to their new values, with a floating +/- for gold; the
+  character turns a little toward your mouse, and a click makes it wave, cheer, laugh or salute.
+- **Home:** Around you blocks show shimmering placeholder rows while they're read.
+- **Toasts and banners:** toasts slide in with a small bounce, their icon pops and a shine sweeps across; banners
+  drift in and their icon pops.
+- **Weekly board:** progress eases, finished rows and unlocked vault slots sparkle, faction rings fill smoothly.
+- **Almost Done, Crafting list, Gathering, Pet battles:** minimizing and expanding ease, and new rows fade in
+  while the rest glide into place.
+- **Edit Mode:** a dropped widget flashes and clicks into place; arrow-key nudges tick.
+- **Setup:** larger, easier to read card text.
+
+- **Home:** while Tomte reads your collections, the housing catalog or something the game hasn't sent yet, a thin
+  line shows it working: it fills as a scan goes on (Collect here, Decor vendors, Events, the Achievements dock, the
+  Decor and Events pages, the Collect here map tab) and sweeps while waiting on the game (Delves keys and Great
+  Vault, Gear Check's panel on the character sheet, World quests rewards, an alt's item levels in the craft list).
+- **Home:** the Decor vendors block shows while the housing catalog is read, then stays only where vendors are.
+- **Home:** what arrives after the reading fades in from the top down, and what's below slides down instead of
+  jumping; the same on the Collect here map tab and the Events and Decor pages.
+- **Home:** buttons that open the world map dim in combat, and their tooltips say why.
+- **Home:** every row under Around you has a tooltip saying what a click does.
+- **Alts:** a craft's tooltip updates by itself once the item levels it waited for have loaded.
+- **Alts:** clicking a material in the crafting list finds it in Tomte's bags (and the bank while it's open), and an
+  item's tooltip says how many the crafting list wants moved.
+- **Alts:** the page no longer warns that Syndicator isn't loaded while Tomte's Item counts does its job.
+- **Delves:** when no delves are found yet, the page keeps looking by itself instead of asking you to open the map.
+
+### Fixed
+
+- **Home:** clicking a mount, pet or achievement under Collect here (or a row under Teleports, World quests or
+  Flight masters) opens the world map on its tab, instead of asking you to open the map first.
+- **Home:** Collect here updates on its own once your collections are read, instead of staying on "reading your
+  collections" until you reopen the Tomte window.
+- **Alts:** the crafting list no longer says nobody knows a recipe after a login where the game was slow to load your
+  professions.
+
+## v1.23.0 - 2026-10-25
+
+### New
+
+- **Settings:** point at a setting that changes how something looks or turns something on, and a live preview shows
+  under its tooltip, drawn with sample data in your theme. A switch that turns something on shows it even while
+  it's off; on segmented buttons and in dropdown lists each choice previews before you pick it; sliders update the
+  preview as you drag. Covers the loot window and feed, the Tomte window's theme, Channel tags, Talking Head text,
+  the cursor ring and trail, Waypoints, every on-screen tracker and widget (Almost Done, Alts, Gold world quests,
+  Buffs, Pet health, Rogue poisons, fishing button, Drawers, gathering tracker and seeds, quest reward pick, talent
+  check, Instances' difficulty picker, badge and queue plate, the pet battle helper), Next up and Holidays on Home,
+  quest icons on sample nameplates, Tooltip extras (an example tooltip per line), the zone text, and the toasts of
+  Whispers, Friends and every module that shows toasts.
+
+### Improved
+
+- **Edit Mode:** Tomte's widgets snap while you drag them, like Blizzard's do (with Edit Mode's Snap option on):
+  to the screen's edges and center, the grid, Blizzard's elements and each other, with the same red guide lines.
+- **Edit Mode:** click a Tomte widget to select it, like Blizzard's: a settings window opens beside it with the
+  settings that matter while placing it (size, font size, opacity, grow direction, what it shows), plus Reset
+  position, Hide (until Edit Mode closes) and All settings. The arrow keys nudge the selected widget (Shift: 10 at a
+  time).
+- **Loot:** auto loot always shows up in the feed now: no window, unless something can't be looted by itself (full
+  bags, rolls, locked loot). The window that stayed after auto loot with greyed-out items is gone.
+- **Loot:** looting by hand opens the loot window in one of three new looks (Loot > Look): Strips (lines like the
+  feed's that stay until you take them, the default), Panel (a framed window with an upgrade or something rare shown
+  large and prices in rows) or Tiles (big icons in a grid, like a bag, with Gear Check's upgrade arrow). Looted items
+  leave the window and slide into the feed (turn off with "Show hand-looted items in the feed"). List and Feed
+  become Strips, Card becomes Panel.
+- **Material uses:** the Professions book no longer shows how much profession knowledge you have left to spend.
+
+### Fixed
+
+- **Nameplates:** with "Also for characters" on, the name under the Interact icon now shows for NPCs too (it
+  stayed hidden, waiting for a name on Blizzard's plate that never showed).
+- **Casino:** after a blackjack round with a split, switching to another game and back no longer replays the whole
+  round and its payout on the table.
+- **Casino:** the slots pay table's jackpot no longer runs under its icons at the biggest bet.
 - **Collect & World quests:** clicking a zone toast opens the world map on its tab again, instead of asking you to
   open the map first.
 - **Delves:** picking delve powers for you works now, and the choice window closes after the pick instead of
   staying open.
 - **Instances:** shows the right delve tier in delves where the game reported tier 0 (seen in labyrinths).
+- **Loot:** a currency from a loot window (like Resonance Crystals) no longer shows twice.
 
 ## v1.22.0 - 2026-10-24
 

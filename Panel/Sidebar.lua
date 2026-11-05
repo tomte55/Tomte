@@ -14,6 +14,8 @@ local SIDEBAR_W = RAIL_W + LIST_W
 local RAIL_ROW_H = 46 -- icon, label and a little air above and below
 local RAIL_ICON = 24
 local ROW_H = 24
+local ROW_FLASH = 0.22 -- peak of the accent wash on a module's row when it's turned on
+local CHECK_POP = 0.3 -- how far its checkbox swells
 
 local sidebar -- the frames: rail, list column
 local searchText = ""
@@ -51,6 +53,19 @@ local function Select(module)
 	Refresh()
 end
 
+-- The accent bar that marks the selected row: one per list, gliding from row to row (UI.SlideTo), on a frame above
+-- the rows so their hover wash doesn't cover it. Takes no mouse.
+local function CreateMarker(parent)
+	local marker = CreateFrame("Frame", nil, parent)
+	marker:SetFrameLevel(parent:GetFrameLevel() + 5)
+	marker:SetWidth(2)
+	marker.bar = marker:CreateTexture(nil, "ARTWORK")
+	marker.bar:SetAllPoints()
+	marker.bar:SetColorTexture(UI.Color("accent"))
+	marker:Hide()
+	return marker
+end
+
 -- Rail ---------------------------------------------------------------------------------------------------------
 
 local function SelectGroup(key)
@@ -59,7 +74,7 @@ local function SelectGroup(key)
 	if not module then
 		return
 	end
-	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+	UI.Sound("nav")
 	if sidebar.search:GetText() ~= "" then
 		sidebar.search:SetText("") -- a group click leaves search, or the list would keep showing the matches
 		sidebar.search:ClearFocus()
@@ -75,11 +90,7 @@ local function CreateRailButton(rail, group)
 	b.bg = b:CreateTexture(nil, "BACKGROUND")
 	b.bg:SetAllPoints()
 	b.bg:SetColorTexture(UI.Color("hover"))
-	b.bar = b:CreateTexture(nil, "ARTWORK")
-	b.bar:SetColorTexture(UI.Color("accent"))
-	b.bar:SetPoint("TOPLEFT")
-	b.bar:SetPoint("BOTTOMLEFT")
-	b.bar:SetWidth(2)
+	b.bg:SetAlpha(0) -- eased in on hover and while selected (UI.WashTo)
 	b.icon = b:CreateTexture(nil, "ARTWORK")
 	b.icon:SetSize(RAIL_ICON, RAIL_ICON)
 	b.icon:SetPoint("TOP", 0, -5)
@@ -101,7 +112,7 @@ local function CreateRailButton(rail, group)
 		ns.Theme.SetFont(b.name, "label", size)
 	end
 	b:SetScript("OnEnter", function(self)
-		self.bg:Show()
+		UI.WashTo(self.bg, true)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		GameTooltip:SetText(group.name, UI.Color("heading"))
 		local n = #GroupModules(group.key)
@@ -109,7 +120,7 @@ local function CreateRailButton(rail, group)
 		GameTooltip:Show()
 	end)
 	b:SetScript("OnLeave", function(self)
-		self.bg:SetShown(self.selected)
+		UI.WashTo(self.bg, self.selected)
 		HideTooltip()
 	end)
 	b:SetScript("OnClick", function(self)
@@ -164,6 +175,7 @@ local function CreateRail(parent)
 		end
 	end
 	child:SetHeight(y + 10)
+	rail.marker = CreateMarker(child)
 	return rail
 end
 
@@ -183,6 +195,7 @@ local function ShowRailButton(b)
 end
 
 local function RefreshRail(current)
+	local marked = false
 	for _, b in ipairs(railButtons) do
 		local modules = GroupModules(b.group.key)
 		local usable = false
@@ -193,14 +206,18 @@ local function RefreshRail(current)
 			end
 		end
 		b.selected = current ~= nil and current.category == b.group.key
-		b.bar:SetShown(b.selected)
-		b.bg:SetShown(b.selected or b:IsMouseOver())
+		UI.WashTo(b.bg, b.selected or b:IsMouseOver())
 		b.icon:SetDesaturated(not usable)
 		b.icon:SetAlpha(usable and 1 or 0.5)
 		UI.SetTextRole(b.name, usable and (b.selected and "heading" or "text") or "textFaint")
 		if b.selected then
 			ShowRailButton(b)
+			UI.SlideTo(sidebar.rail.marker, RAIL_INSET, b.top, RAIL_ROW_H)
+			marked = true
 		end
+	end
+	if not marked then
+		sidebar.rail.marker:Hide()
 	end
 end
 
@@ -212,11 +229,7 @@ local function CreateModuleRow(parent)
 	row.bg = row:CreateTexture(nil, "BACKGROUND")
 	row.bg:SetAllPoints()
 	row.bg:SetColorTexture(UI.Color("hover"))
-	row.bar = row:CreateTexture(nil, "ARTWORK")
-	row.bar:SetColorTexture(UI.Color("accent"))
-	row.bar:SetPoint("TOPLEFT")
-	row.bar:SetPoint("BOTTOMLEFT")
-	row.bar:SetWidth(2)
+	row.bg:SetAlpha(0) -- eased in on hover and while selected (UI.WashTo)
 	row.check = UI.Checkbox(row)
 	row.check:SetPoint("LEFT", 12, 0)
 	row.groupIcon = row:CreateTexture(nil, "ARTWORK")
@@ -229,7 +242,7 @@ local function CreateModuleRow(parent)
 
 	local function Enter()
 		local module = row.module
-		row.bg:Show()
+		UI.WashTo(row.bg, true)
 		GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
 		GameTooltip:SetText(module.name, UI.Color("heading"))
 		local about = module.summary or module.description
@@ -244,7 +257,7 @@ local function CreateModuleRow(parent)
 		GameTooltip:Show()
 	end
 	local function Leave()
-		row.bg:SetShown(row.module == Selected())
+		UI.WashTo(row.bg, row.module == Selected())
 		HideTooltip()
 	end
 	row:SetScript("OnEnter", Enter)
@@ -252,17 +265,25 @@ local function CreateModuleRow(parent)
 	row.check:HookScript("OnEnter", Enter)
 	row.check:HookScript("OnLeave", Leave)
 	row:SetScript("OnClick", function()
+		if row.module ~= Selected() then
+			UI.Sound("nav")
+		end
 		Select(row.module)
 	end)
 	row.check.onChange = function(checked)
-		ns.SetModuleEnabled(row.module.key, checked)
+		local key = row.module.key
+		ns.SetModuleEnabled(key, checked)
 		Refresh()
+		if checked then
+			ns.PanelSidebar_Flash(key)
+		end
 	end
 	return row
 end
 
 -- searching: the row shows its group's icon on the right.
 local function SetRow(row, module, selected, searching)
+	local instant = row.module ~= module
 	row.module = module
 	local reason = ns.ModuleBlockedReason(module)
 	row.check:SetChecked(ns.ModuleEnabled(module))
@@ -274,8 +295,8 @@ local function SetRow(row, module, selected, searching)
 		SetGroupIcon(row.groupIcon, ns.PanelLayout_Group(module.category))
 	end
 	row.name:SetPoint("RIGHT", searching and row.groupIcon or row, searching and "LEFT" or "RIGHT", -8, 0)
-	row.bar:SetShown(selected)
-	row.bg:SetShown(selected or row:IsMouseOver())
+	-- A row that now shows another module starts from nothing, not from the wash of the one it showed before.
+	UI.WashTo(row.bg, selected or row:IsMouseOver(), instant)
 end
 
 local function RefreshList()
@@ -305,6 +326,14 @@ local function RefreshList()
 		sidebar.about:SetText(group and group.description or "")
 	end
 
+	-- The marker glides only within the same list; another group or a search shows a new list, where it jumps.
+	local listKey = searching and "search" or (current and current.category)
+	local sameList = listKey == sidebar.listKey
+	sidebar.listKey = listKey
+	if not list.marker then
+		list.marker = CreateMarker(content)
+	end
+	local marked = false
 	local y = 0
 	for i, module in ipairs(modules) do
 		local row = moduleRows[i] or CreateModuleRow(content)
@@ -314,7 +343,14 @@ local function RefreshList()
 		row:SetPoint("RIGHT", content, "RIGHT")
 		SetRow(row, module, module == current, searching)
 		row:Show()
+		if module == current then
+			UI.SlideTo(list.marker, 0, y, ROW_H, not sameList)
+			marked = true
+		end
 		y = y + ROW_H
+	end
+	if not marked then
+		list.marker:Hide()
 	end
 	for i = #modules + 1, #moduleRows do
 		moduleRows[i]:Hide()
@@ -352,10 +388,10 @@ local function CreateSearch(parent)
 	end)
 	box:SetScript("OnEnterPressed", box.ClearFocus)
 	box:SetScript("OnEditFocusGained", function(self)
-		UI.SetBorderColor(self, "accent", 0.8)
+		UI.BorderTo(self, "accent", 0.8)
 	end)
 	box:SetScript("OnEditFocusLost", function(self)
-		UI.SetBorderColor(self, "frame", 0.35)
+		UI.BorderTo(self, "frame", 0.35)
 	end)
 	return box
 end
@@ -393,4 +429,16 @@ end
 
 function ns.PanelSidebar_Refresh()
 	RefreshList()
+end
+
+-- A module just turned on (here or by its page's switch): its row in the list washes accent and fades back, and its
+-- checkbox pops.
+function ns.PanelSidebar_Flash(key)
+	for _, row in ipairs(moduleRows) do
+		if row:IsVisible() and row.module and row.module.key == key then
+			UI.Flash(row, "accent", ROW_FLASH)
+			UI.Pop(row.check, CHECK_POP)
+			return
+		end
+	end
 end

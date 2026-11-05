@@ -15,6 +15,10 @@ local MAX_REVEALS = 3 -- at once (a vault or a mailbox full of gear)
 local TOAST_HOLD = 30 -- seconds the click-to-equip toast stays
 local EQUIPPED_HOLD = 5 -- seconds for the "Equipped" toast
 local EQUIP_WAIT = 60 -- seconds a clicked item may take to be worn (a Bind on Equip popup waits for you)
+-- The equip toast's settings preview: a made-up epic upgrade and the item it replaces.
+local SAMPLE_UPGRADE = { name = "Gauntlets of the Hollow Vigil", icon = "Interface\\Icons\\INV_Gauntlets_04", quality = 4 }
+local SAMPLE_VERDICT = { kind = "upgrade", pct = 3.4 }
+local SAMPLE_OLD_NAME = "Runecarved Handguards"
 local P = Enum.PlayerInteractionType
 local BANKS = { [P.Banker] = true, [P.GuildBanker] = true, [P.CharacterBanker] = true, [P.AccountBanker] = true,
 	[P.VoidStorageBanker] = true }
@@ -138,6 +142,24 @@ local function Equip(item)
 	end
 end
 
+-- The click-to-equip toast. color: the item's quality color; sample: a settings preview (no click, kept out of Recent).
+local function RevealSpec(item, label, color, oldName, sample)
+	return {
+		owner = "gear",
+		label = label,
+		accent = color,
+		title = item.name or item.link,
+		text = (oldName and ("Replaces " .. oldName .. ". ") or "") .. "Click to equip, right-click to dismiss.",
+		icon = item.icon,
+		hold = TOAST_HOLD,
+		holdInCombat = true,
+		test = sample or nil,
+		onClick = not sample and function()
+			Equip(item)
+		end or nil,
+	}
+end
+
 -- item = { guid, link, verdict, name, icon, quality }
 local function Reveal(item)
 	local v = item.verdict
@@ -163,20 +185,16 @@ local function Reveal(item)
 		tier = ns.Gear_RevealTier(item.quality),
 	})
 	if db.revealToast then
-		ns.Toast_Show({
-			owner = "gear",
-			label = label,
-			accent = color,
-			title = item.name or item.link,
-			text = (oldName and ("Replaces " .. oldName .. ". ") or "") .. "Click to equip, right-click to dismiss.",
-			icon = item.icon,
-			hold = TOAST_HOLD,
-			holdInCombat = true,
-			onClick = function()
-				Equip(item)
-			end,
-		})
+		ns.Toast_Show(RevealSpec(item, label, color, oldName))
 	end
+end
+
+-- Settings preview (Panel/Preview.lua, the "Equip toast" row in Gear.lua): a made-up epic upgrade, built by the real
+-- toast's spec code.
+function ns.GearReveal_DrawSample(host)
+	local r, g, b = C_Item.GetItemQualityColor(SAMPLE_UPGRADE.quality)
+	return ns.Toast_DrawSample(host, RevealSpec(SAMPLE_UPGRADE, ns.Gear_RevealLabel(SAMPLE_VERDICT), { r, g, b },
+		SAMPLE_OLD_NAME, true), 1)
 end
 
 -- Whether the item or any worn gear was read without stats (unread: its bonus data hadn't arrived). Such an item

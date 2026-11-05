@@ -166,6 +166,8 @@ function LayoutDetail()
 		end
 	end
 	d.shop:Hide()
+	d.forWait = d.forWait or UI.ProgressLine(d.content)
+	d.forWait:Stop()
 	local recipe = S.db.selected and S.db.recipes[S.db.selected]
 	d.empty:SetShown(not recipe)
 	d.title:SetShown(recipe ~= nil)
@@ -238,13 +240,18 @@ function LayoutDetail()
 		headers[H_FOR] = fs
 		fs:SetWordWrap(true)
 		fs:SetJustifyH("LEFT")
+		local info = ForInfo(recipe, forChar, CompareQuality(quality))
 		fs:SetText(("%s %s"):format(UI.Wrap(("For %s:"):format(ClassName(forChar)), "heading"),
-			ForText(ForInfo(recipe, forChar, CompareQuality(quality)), forChar, recipe)))
+			ForText(info, forChar, recipe)))
 		fs:ClearAllPoints()
 		fs:SetPoint("TOPLEFT", 4, -(y + 6))
 		fs:SetPoint("RIGHT", -4, 0)
 		fs:Show()
 		y = y + fs:GetStringHeight() + 8
+		-- A busy line while item levels load (the items' loads redraw this).
+		if info and (info.loading or info.target and info.target.loading) then
+			d.forWait:Below(fs):Track(UI.ProgressBusy)
+		end
 	end
 	d.shop:ClearAllPoints()
 	d.shop:SetPoint("TOPRIGHT", -4, -(y + 8)) -- on the materials heading's line
@@ -309,7 +316,7 @@ function LayoutDetail()
 		y = y + STEP_H
 	end
 	if not ns.Alts_HasSyndicator() then
-		y = Header(H_SYNDICATOR, "Syndicator isn't loaded: only this character's bags, bank and the Warband bank are counted.", y + 4)
+		y = Header(H_SYNDICATOR, "Item counts is off: only this character's bags, bank and the Warband bank are counted.", y + 4)
 	end
 	d.scroll:SetContentHeight(y + 8)
 end
@@ -390,7 +397,7 @@ local function CreateDetail(parent)
 	add:SetScript("OnClick", function()
 		box:ClearFocus()
 		if S.db.selected then
-			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			UI.Sound("confirm")
 			ns.AltsList_Add(S.db.selected, S.db.crafts or 1, { quality = S.db.quality, ranks = S.db.ranks })
 		end
 	end)

@@ -20,6 +20,7 @@ local CORE_DEFAULTS = {
 	cinematic = {}, -- engine-owned (musicVolumeBackup, pitchLimitBackup)
 	toast = {}, -- social toasts: point = saved position
 	setup = {}, -- first-run picker (Core/Setup.lua, Panel/Setup.lua): state = "pending" | "done", preset = last applied
+	changes = {}, -- what's new after an update (Panel/Changes.lua): seen = the Tomte version whose changes were shown
 	bugs = {}, -- Tomte's last Lua errors, only without BugGrabber (Panel/Bug.lua); never exported or reset
 	-- profileBackup = { at, text }: settings from before the last import (Panel/Share.lua), no default
 }
@@ -94,6 +95,39 @@ function ns.Readable(...)
 	return not canaccessallvalues or canaccessallvalues(...)
 end
 
+-- Whether the account has a source's look (from any item) and that source itself, for the info
+-- GetAppearanceInfoBySource gave. Its collected flags can say false for a look the account has (seen on armor this
+-- character can't wear, right after the game said "added to your appearance collection"), so the sources are
+-- asked one by one as well.
+function ns.AppearanceCollected(sourceID, info)
+	local has = C_TransmogCollection.PlayerHasTransmogItemModifiedAppearance
+	local source = info.sourceIsCollected or has(sourceID)
+	if info.appearanceIsCollected or source then
+		return true, source
+	end
+	for _, id in ipairs(info.appearanceID and C_TransmogCollection.GetAllAppearanceSources(info.appearanceID) or {}) do
+		if has(id) then
+			return true, false
+		end
+	end
+	return false, false
+end
+
+-- An item's appearance the account hasn't collected from any source: "you" when this character can collect it,
+-- "other" when only another class or armor type can; nil when it's collected or the item has no appearance.
+function ns.NewAppearance(link)
+	local _, sourceID = C_TransmogCollection.GetItemInfo(link)
+	if not sourceID then
+		return nil
+	end
+	local info = C_TransmogCollection.GetAppearanceInfoBySource(sourceID)
+	if not info or ns.AppearanceCollected(sourceID, info) then
+		return nil
+	end
+	local _, canCollect = C_TransmogCollection.PlayerCanCollectSource(sourceID)
+	return canCollect == true and "you" or "other"
+end
+
 local events = ns.NewEvents()
 ns.Core_Events = events
 events:Watch("core", "ADDON_LOADED")
@@ -153,6 +187,7 @@ events:On("core", "ADDON_LOADED", function(self, name)
 	local db = TomteDB or {}
 	if fresh then
 		ns.Setup_MarkFresh(db) -- before the migrations: migration 2 marks only older saved variables as done
+		db.changes = { seen = ns.VERSION } -- a new user has no update to hear about
 	end
 	-- First, before anything draws: the theme picked in Settings (Panel/Window.lua).
 	ns.Theme.Apply(type(db.window) == "table" and db.window.theme or nil)
@@ -194,6 +229,7 @@ local function PrintHelp()
 	PrintCommand("/tomte version", "which Tomte version you have (/tomte bug makes a whole bug report)")
 	PrintCommand("/tomte data", "which expansion's content Tomte follows for you, and what it knows about it")
 	PrintCommand("/tomte setup", "pick what Tomte turns on: Collector, Crafter, Minimal or Everything")
+	PrintCommand("/tomte changes", "what's new in this Tomte version")
 	PrintCommand("/tomte bug", "a bug report to copy: versions, modules and Tomte's last errors ('full' adds error "
 		.. "details and your settings, 'clear' empties Tomte's saved errors)")
 	PrintCommand("/tomte profile", "share settings with a friend: export, import, undo")
@@ -275,6 +311,8 @@ SlashCmdList.TOMTE = function(msg)
 		ns.Content_Report()
 	elseif word == "setup" then
 		ns.SetupUI_Show()
+	elseif word == "changes" then
+		ns.ChangesUI_Show()
 	elseif word == "bug" then
 		if rest == "clear" then
 			ns.BugUI_Clear()

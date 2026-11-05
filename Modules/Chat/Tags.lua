@@ -6,6 +6,23 @@ local addonName, ns = ...
 -- then trips over secret whisper senders) the line just added is rewritten with TransformMessages, which Blizzard
 -- offers addons as a secure barrier. Secret lines (chat lockdown: instances, encounters, M+, PvP) stay as they are.
 
+-- The settings preview's sample lines. Its channels answer for themselves rather than through C_ChatInfo: the
+-- player's channel 2 may be anything.
+local SAMPLE_CHANNELS = { -- [number] = { shortcut, zone channel ID }
+	["1"] = { "General", 1 },
+	["2"] = { "Trade", 2 },
+}
+local SAMPLE_LINES = {
+	{ channel = "1", name = "General - Stormwind City", who = "Aldric", text = "Anyone seen the flight master?" },
+	{ channel = "2", name = "Trade - City", who = "Mira", text = "WTS enchants, tips welcome" },
+	{ chatType = "GUILD", who = "Kesha", text = "Raid at eight, bring flasks" },
+	{ chatType = "PARTY", who = "Aldric", text = "ready" },
+}
+local LINE_GAP = 2
+local FALLBACK_CHAT_SIZE = 14 -- when the chat window's font size can't be read
+
+local UI = ns.UI
+
 local module
 local ctx = { labels = {}, groupTags = {} }
 local wrapped = {} -- [frame] = true
@@ -85,15 +102,71 @@ local function OnChange()
 	end
 end
 
+-- Settings preview: sample lines in Blizzard's own chat formats, shortened by the same Chat_ShortenLine the hook uses.
+
+-- The line as the chat window gets it (the CHAT_<type>_GET formats), and its chat type for the color.
+local function SampleLine(sample)
+	local who = "|Hplayer:" .. sample.who .. "|h[" .. sample.who .. "]|h"
+	if sample.channel then
+		local tag = "|Hchannel:channel:" .. sample.channel .. "|h[" .. sample.channel .. ". " .. sample.name .. "]|h "
+		return tag .. (CHAT_CHANNEL_GET or "%s: "):format(who) .. sample.text, "CHANNEL" .. sample.channel
+	end
+	local format = _G["CHAT_" .. sample.chatType .. "_GET"] or "%s: "
+	return format:format(who) .. sample.text, sample.chatType
+end
+
+local function TagsPreview(host, get)
+	local ctx = {
+		style = get("style"),
+		group = get("group"),
+		labels = ns.Chat_ParseLabels(get("labels")),
+		channelInfo = function(number)
+			local c = SAMPLE_CHANNELS[number]
+			if c then
+				return c[1], c[2]
+			end
+		end,
+	}
+	ctx.groupTags, ctx.raidWarning = ns.Chat_GroupTags(function(name)
+		return _G[name]
+	end)
+	local _, size = DEFAULT_CHAT_FRAME:GetFont()
+	size = size or FALLBACK_CHAT_SIZE
+	host.lines = host.lines or {}
+	local width, y = 0, 0
+	for i, sample in ipairs(SAMPLE_LINES) do
+		local fs = host.lines[i]
+		if not fs then
+			fs = UI.Text(host, size, "text", "chat")
+			host.lines[i] = fs
+		end
+		UI.SetFont(fs, "chat", size)
+		local line, chatType = SampleLine(sample)
+		fs:SetText(ns.Chat_ShortenLine(line, ctx))
+		local info = ChatTypeInfo[chatType]
+		if info then
+			fs:SetTextColor(info.r, info.g, info.b)
+		else
+			UI.SetTextRole(fs, "text")
+		end
+		fs:ClearAllPoints()
+		fs:SetPoint("TOPLEFT", 0, -y)
+		width = math.max(width, math.ceil(fs:GetUnboundedStringWidth()))
+		y = y + math.ceil(fs:GetStringHeight()) + LINE_GAP
+	end
+	return width, y - LINE_GAP
+end
+
 local options = {
 	{ type = "header", label = "Tags" },
-	{ type = "dropdown", key = "style", label = "Channel tags", onChange = OnChange, choices = function()
-		return ns.CHAT_TAG_STYLES
-	end, tooltip = "How numbered channels (General, Trade, Services, LookingForGroup, your own channels) show. Short names: Gen, T, S, LFG, LD; other channels keep their name." },
+	{ type = "dropdown", key = "style", label = "Channel tags", onChange = OnChange, preview = TagsPreview,
+		choices = function()
+			return ns.CHAT_TAG_STYLES
+		end, tooltip = "How numbered channels (General, Trade, Services, LookingForGroup, your own channels) show. Short names: Gen, T, S, LFG, LD; other channels keep their name." },
 	{ type = "input", key = "labels", label = "Custom labels", placeholder = "Trade=Tr, Guild=Gu", onChange = OnChange,
-		tooltip = "Your own short names, as Name=Label separated by commas. Name is the channel's name as chat shows it (Trade, Services, General, a custom channel) or a tag like Guild or Party." },
+		preview = TagsPreview, tooltip = "Your own short names, as Name=Label separated by commas. Name is the channel's name as chat shows it (Trade, Services, General, a custom channel) or a tag like Guild or Party." },
 	{ type = "checkbox", key = "group", label = "Shorten guild, party and raid tags", onChange = OnChange,
-		tooltip = "[Guild] -> [G], [Officer] -> [O], [Party] -> [P], [Party Leader] -> [PL], [Raid] -> [R], [Raid Leader] -> [RL], [Raid Warning] -> [RW], [Instance] -> [I], [Instance Leader] -> [IL].\n\nIn instances, encounters, M+ and PvP the game hides chat from addons, so tags show in full there." },
+		preview = TagsPreview, tooltip = "[Guild] -> [G], [Officer] -> [O], [Party] -> [P], [Party Leader] -> [PL], [Raid] -> [R], [Raid Leader] -> [RL], [Raid Warning] -> [RW], [Instance] -> [I], [Instance Leader] -> [IL].\n\nIn instances, encounters, M+ and PvP the game hides chat from addons, so tags show in full there." },
 }
 
 module = ns.RegisterModule({

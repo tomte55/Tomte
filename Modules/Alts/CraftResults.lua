@@ -81,7 +81,7 @@ local function CreateResultRow(parent)
 	row:SetScript("OnClick", function(self)
 		S.db.selected = self.id
 		S.db.crafts, S.db.quality, S.db.ranks = 1, nil, nil
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		UI.Sound("pick")
 		ns.AltsCraft_Refresh()
 	end)
 	return row
@@ -112,7 +112,7 @@ local function CreateGroupRow(parent)
 	end)
 	row:SetScript("OnClick", function(self)
 		S.db.collapsed[self.key] = not self.collapsed
-		PlaySound(self.collapsed and SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON or SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF)
+		UI.Sound(self.collapsed and "on" or "off")
 		ns.AltsCraft_Refresh()
 	end)
 	return row
@@ -139,6 +139,10 @@ local function SetResultRow(row, r)
 		row.name:SetTextColor(UI.RGBA(quality, 0.3))
 	end
 	row.bg:SetShown(r.id == S.db.selected)
+	-- Redrawn under the mouse (item levels that were loading arrived): the open tooltip follows.
+	if GameTooltip:IsOwned(row) then
+		row:GetScript("OnEnter")(row)
+	end
 end
 
 -- An expansion skill line's name ("Dragon Isles Blacksmithing"), for recipes read before names were stored.
@@ -167,7 +171,7 @@ local function SetAllCollapsed(collapsed)
 			S.db.collapsed[row.key] = collapsed
 		end
 	end
-	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+	UI.Sound(collapsed and "off" or "on")
 	ns.AltsCraft_Refresh()
 end
 

@@ -11,6 +11,8 @@ local addonName, ns = ...
 --   choices:         [player choice ID] = { item = ID } | { currency = ID }, the token a choice window takes.
 --   reagentQuantity: [recipe ID] = { [reagent item ID] = real count } where the recipe data says otherwise.
 --   reagentSkip:     [item ID] = true, items whose use spell looks like a recipe but isn't one to show.
+--   samples:         { rep = item ID }, an item the settings preview shows a reputation line on (repSpells is
+--                    keyed by spell, and the game has no spell-to-item lookup).
 -- repSpells: wago.tools SpellEffect (Effect 103, "reputation"), joined with ItemEffect and ItemXItemEffect, build
 -- 12.1.5, 2026-10-23, split by the item's expansion. The other IDs and vendor coordinates are from Plumber by
 -- Peterodox (IDs and positions only, checked 2026-10-23: GameTooltip_Key.lua, GameTooltip_VendorLocation.lua,
@@ -73,5 +75,9 @@ ns.Content_Register(10, "tips", {
 		[428667] = { [211297] = 2 }, -- Fractured Spark of Omens (season 1)
 		[467635] = { [230905] = 2 }, -- Fractured Spark of Fortunes (season 2)
 		[468717] = { [231757] = 2 }, -- Fractured Spark of Starlight (season 3)
+	},
+	-- Item via wago.tools ItemEffect and ItemXItemEffect (spell 448393), build 12.1.5, 2026-10-25.
+	samples = {
+		rep = 224181, -- Companion Experience
 	},
 })

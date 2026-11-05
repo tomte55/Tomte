@@ -25,7 +25,8 @@ local function SetPieces(itemID)
 	for _, item in ipairs(C_Transmog.GetAllSetAppearancesByID(setID) or {}) do
 		local info = C_TransmogCollection.GetAppearanceInfoBySource(item.itemModifiedAppearanceID)
 		if info then
-			pieces[#pieces + 1] = { appearanceID = info.appearanceID, collected = info.appearanceIsCollected }
+			local collected = ns.AppearanceCollected(item.itemModifiedAppearanceID, info)
+			pieces[#pieces + 1] = { appearanceID = info.appearanceID, collected = collected }
 		end
 	end
 	return pieces
@@ -54,6 +55,6 @@ end
 function ns.DressUp_EnsembleUpdate()
 	if On() and not hooked and TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall then
 		hooked = true -- post-calls can't be removed; OnItem checks On()
-		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, OnItem)
+		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, ns.Perf_Wrap(OnItem, "tooltip"))
 	end
 end

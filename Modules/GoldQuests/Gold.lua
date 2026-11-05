@@ -290,6 +290,11 @@ local function Stop()
 	ns.WQRoute_Stop()
 end
 
+-- Settings preview (Panel/Preview.lua): the top of the window, drawn in Window.lua.
+local function WindowPreview(host, get)
+	return ns.GoldWindow_DrawSample(host, get)
+end
+
 local function ResetPlace()
 	ns.GoldWindow_ResetPlace()
 end
@@ -379,15 +384,15 @@ module = ns.RegisterModule({
 	},
 	options = {
 		{ type = "header", label = "Window" },
-		{ type = "button", label = "Gold world quests window", text = "Open", onClick = Open },
+		{ type = "button", label = "Gold world quests window", text = "Open", onClick = Open, preview = WindowPreview },
 		{ type = "slider", key = "scale", label = "Scale", min = 0.6, max = 1.5, step = 0.05,
 			onChange = ns.GoldWindow_ApplyLook, format = function(v)
 				return ("%d%%"):format(math.floor(v * 100 + 0.5))
-			end },
+			end, preview = WindowPreview },
 		{ type = "slider", key = "opacity", label = "Background opacity", min = 0.2, max = 1, step = 0.05,
 			onChange = ns.GoldWindow_ApplyLook, format = function(v)
 				return ("%d%%"):format(math.floor(v * 100 + 0.5))
-			end },
+			end, preview = WindowPreview },
 		{ type = "button", label = "Window position and size", text = "Reset", onClick = ResetPlace },
 		{ type = "header", label = "Chat" },
 		{ type = "checkbox", key = "announce", label = "Gold world quests up, at login",

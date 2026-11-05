@@ -183,7 +183,7 @@ local function Create()
 	DressUpFrame.ModelScene:HookScript("OnSizeChanged", Fit)
 	bar.Fit = Fit
 	bar:SetAlpha(IDLE_ALPHA)
-	bar:SetScript("OnUpdate", Fade)
+	bar:SetScript("OnUpdate", ns.Perf_Wrap(Fade, "OnUpdate"))
 	bar:Hide()
 end
 

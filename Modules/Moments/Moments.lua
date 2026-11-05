@@ -28,9 +28,9 @@ local ownedHouses = {} -- [house GUID] = true for the player's own houses (this 
 local discoveryPatterns
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 local ticker = CreateFrame("Frame")
 ticker:Hide()
 
@@ -132,13 +132,13 @@ local function Tick()
 end
 
 local sinceTick = 0
-ticker:SetScript("OnUpdate", function(self, elapsed)
+ticker:SetScript("OnUpdate", ns.Perf_Wrap(function(self, elapsed)
 	sinceTick = sinceTick + elapsed
 	if sinceTick >= TICK then
 		sinceTick = 0
 		Tick()
 	end
-end)
+end, "OnUpdate"))
 
 -- The level that decides "Cinematics only at max level": a level-up's new level, otherwise the player's.
 local function LevelFor(moment)
@@ -692,6 +692,9 @@ end
 options[#options + 1] = { type = "header", label = "Zone text" }
 options[#options + 1] = { type = "checkbox", key = "zoneText", label = "Zone text in Tomte's style",
 	tooltip = "Show the zone and subzone name you enter (and Sanctuary, Contested and so on) in the Tomte theme instead of Blizzard's text. Same timing as Blizzard's.",
+	preview = ns.Preview_When("zoneText", function(host, get)
+		return ns.Moments_ZoneTextSample(host, get)
+	end),
 	onChange = function(on)
 		ns.Moments_ZoneText(on and module.active)
 	end }

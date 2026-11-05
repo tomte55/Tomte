@@ -216,4 +216,25 @@ test("a crafter mail can't reach gets a Warband bank line, not a mail", function
 	eq(ns.Alts_MarkedItems({ todo })[HERB], 10, "still marked in the bags")
 end)
 
+test("bank wants: Warband bank takes and your own bank, not mail or other characters", function()
+	local todos = { { lines = {
+		{ kind = "take", mine = true, itemID = HERB, n = 6 },
+		{ kind = "take", mine = true, itemID = HERB, n = 4 },
+		{ kind = "grab", mine = true, itemID = ORE, n = 3, where = "bank" },
+		{ kind = "fetch", mine = true, itemID = INGOT, n = 2, where = "bank" },
+		{ kind = "collect", mine = true, itemID = BAR, n = 1, where = "mail" },
+		{ kind = "fetch", mine = true, itemID = BAR, n = 1, where = "mail" },
+		{ kind = "other", itemID = FLASK, n = 9, where = "bank" },
+	} } }
+	local wants = ns.Alts_BankWants(todos)
+	eq(#wants.warband, 1)
+	eq(wants.warband[1].itemID, HERB)
+	eq(wants.warband[1].n, 10)
+	eq(#wants.bank, 2)
+	eq(wants.bank[1].itemID, ORE)
+	eq(wants.bank[2].itemID, INGOT)
+	local plan = ns.Alts_AttachPlan(wants.warband, { { bag = 12, slot = 1, itemID = HERB, count = 200 } }, true, 100)
+	eq(plan[1].split, 10, "splits so only what the crafts need comes out")
+end)
+
 H.done()

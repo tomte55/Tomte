@@ -11,6 +11,7 @@ local UI = ns.UI
 local HEAD_H = 40
 local COL_GAP = 24
 local TWO_COLS_W = 760 -- the strip splits into two columns from this width
+local ARRIVE_STAGGER = 0.05 -- seconds between two suggestions fading in at once
 
 local module, db
 local dismissed = {} -- [candidate key] = state | true, this session only
@@ -46,7 +47,7 @@ local function Run(c)
 	if not c.onClick then
 		return
 	end
-	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+	UI.Sound("nav")
 	if not c.stay then
 		ns.Panel_Hide()
 	end
@@ -86,6 +87,11 @@ local function Create(frame, Kit)
 	frame.none:SetPoint("TOPLEFT", 0, -HEAD_H)
 	frame.none:SetPoint("RIGHT")
 	frame.none:SetText("Nothing pressing.")
+	-- The suggestions shown while on screen ([key] = true), so one that comes in later fades in; forgotten on hide,
+	-- so opening the window doesn't fade them all.
+	frame:HookScript("OnHide", function(self)
+		self.seen = nil
+	end)
 end
 
 -- Returns the height it used.
@@ -112,15 +118,24 @@ local function Refresh(frame)
 	local n = #list
 	local colW = (frame:GetWidth() - (cols - 1) * COL_GAP) / cols
 	local perCol = math.ceil(n / cols)
+	local seen = frame:IsVisible() and frame.seen or nil
+	local keys, arrived = {}, 0
 	for i, c in ipairs(list) do
 		local row = Kit.PoolRow(frame.rows, i, frame)
+		if c.key ~= nil then
+			keys[c.key] = true
+			if seen and not seen[c.key] then
+				UI.FadeIn(row, arrived * ARRIVE_STAGGER)
+				arrived = arrived + 1
+			end
+		end
 		row:Set(c.icon, c.text, c.color or "text", c.right, c.rightColor, twoLines and (c.why or "") or nil)
 		row.onClick = c.onClick and function()
 			Run(c)
 		end or function() end
 		row.onRightClick = function()
 			dismissed[c.key] = ns.NextUp_DismissValue(c)
-			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF)
+			UI.Sound("off")
 			ns.Panel_Refresh()
 		end
 		row.onEnter = function(self)
@@ -133,6 +148,7 @@ local function Refresh(frame)
 		row:SetWidth(colW)
 	end
 	Kit.HideFrom(frame.rows, n + 1)
+	frame.seen = frame:IsVisible() and keys or nil
 	frame.none:SetShown(n == 0)
 	if n == 0 then
 		return HEAD_H + 18
@@ -149,6 +165,25 @@ local Section = {
 		return db.placement
 	end,
 }
+
+local PREVIEW_W = 300 -- about Home's right column on a default-size Tomte window
+
+-- Settings preview (Panel/Preview.lua): the Home section with what's up now, drawn by Create and Refresh like the
+-- real one, as wide as the placement makes it (the strip at its two-column width) and tall enough for every row.
+local function SectionPreview(host)
+	local frame = host.section
+	if not frame then
+		frame = CreateFrame("Frame", nil, host)
+		frame:SetPoint("TOPLEFT")
+		Create(frame, ns.HomeKit)
+		host.section = frame
+	end
+	local width = db.placement == "strip" and TWO_COLS_W or PREVIEW_W
+	frame:SetSize(width, HEAD_H + db.rows * ns.HomeKit.ROW2_H)
+	local h = Refresh(frame)
+	frame:SetHeight(h)
+	return width, h
+end
 
 -- Minimap button tooltip lines (Minimap.lua asks).
 function ns.NextUp_TooltipLines()
@@ -167,13 +202,16 @@ end
 local function BuildOptions()
 	local options = {
 		{ type = "header", label = "Suggestions" },
-		{ type = "checkbox", key = "home", label = "Show on Home" },
-		{ type = "dropdown", key = "placement", label = "Placement", parent = "home", choices = function()
-			return { { value = "characters", text = "Under Your characters" }, { value = "column", text = "Right column" },
-				{ value = "strip", text = "Strip under This week" } }
-		end, tooltip = "Under the character list (it goes to the right column when there are too many characters to fit), "
-			.. "on top of the right column (above Around you), or across Home under This week." },
-		{ type = "slider", key = "rows", label = "Rows", min = 3, max = 8, step = 1, parent = "home" },
+		{ type = "checkbox", key = "home", label = "Show on Home", preview = ns.Preview_When("home", SectionPreview) },
+		{ type = "dropdown", key = "placement", label = "Placement", parent = "home",
+			preview = ns.Preview_When("home", SectionPreview),
+			choices = function()
+				return { { value = "characters", text = "Under Your characters" },
+					{ value = "column", text = "Right column" }, { value = "strip", text = "Strip under This week" } }
+			end, tooltip = "Under the character list (it goes to the right column when there are too many characters "
+				.. "to fit), on top of the right column (above Around you), or across Home under This week." },
+		{ type = "slider", key = "rows", label = "Rows", min = 3, max = 8, step = 1, parent = "home",
+			preview = ns.Preview_When("home", SectionPreview) },
 		{ type = "slider", key = "perSource", label = "Most from one source", min = 1, max = 8, step = 1,
 			parent = "home",
 			tooltip = "So one source (say, achievements) can't fill the whole list." },

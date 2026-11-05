@@ -344,8 +344,7 @@ local function StatusText(info, counts, vendors)
 			.. ns.Decor_CollectedText(counts, ns.Thousands)
 			.. UI.Wrap(("  ·  %s missing"):format(ns.Thousands(counts.missing)), "textMuted")
 	end
-	local pct = math.floor(info.progress * 100)
-	return UI.Wrap(("Reading the housing catalog... %d%%"):format(pct), "textMuted")
+	return UI.Wrap("Reading the housing catalog...", "textMuted")
 end
 
 local function EmptyText(counts)
@@ -391,7 +390,16 @@ local function Layout()
 		end
 	end
 	page.status:SetText(StatusText(info, counts, vendors))
+	local reading = page.progress:Track(ns.DecorCatalog_Progress)
+	if reading then
+		page.progress:SetWidth(page.status:GetStringWidth())
+	end
 	Render(items)
+	-- The catalog was just read: the list fades in from the top.
+	if page.wasReading and not reading then
+		UI.FadeInRows(page.list.rows, 1, page.list.used, UI.FADE_SPREAD)
+	end
+	page.wasReading = reading
 	if db.preview then
 		ns.DecorDetail_Show(page.pane, selectedID and info.usable and ns.DecorCatalog_ByID(selectedID) or nil)
 	end
@@ -500,6 +508,9 @@ ns.DecorPage = {
 		page.status:SetPoint("RIGHT", -8, 0)
 		page.status:SetJustifyH("RIGHT")
 		page.status:SetWordWrap(false)
+		-- Under the status text while the catalog is read (as wide as the text, set in Layout).
+		page.progress = UI.ProgressLine(page)
+		page.progress:SetPoint("TOPRIGHT", page.status, "BOTTOMRIGHT", 0, -3)
 		page.list = { rows = {}, used = 0 }
 		page.list.scroll = UI.Scroll(page)
 		page.list.scroll:SetPoint("TOPLEFT", 0, -LIST_TOP)
@@ -510,6 +521,9 @@ ns.DecorPage = {
 		Place()
 	end,
 	Refresh = function()
+		if not ns.DecorCatalog_State().usable then
+			ns.DecorCatalog_Hurry() -- the page waits for it
+		end
 		ns.Decor_EnsureScan()
 		Layout()
 	end,

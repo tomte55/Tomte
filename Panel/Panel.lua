@@ -64,6 +64,10 @@ end
 local function CreatePageView(parent)
 	local pv = CreateFrame("Frame", nil, parent)
 	pv.rail = ns.PanelRail_Create(pv, function(entry)
+		local current = view == "page" and openEntry or nil
+		if entry ~= current and not (entry and entry.kind == "map") then
+			UI.Sound("nav")
+		end
 		if not entry then
 			view, openEntry = "home", nil
 			Refresh()
@@ -102,8 +106,14 @@ local function RefreshPageView()
 	end
 	host.title:SetShown(entry ~= nil)
 	host.uses:SetShown(entry ~= nil)
+	-- Back to Home from a page: it rises in like a page does. Not on reopening the window (Home stayed "shown" with
+	-- it; the window's own UI.Appear plays) or on a redraw.
+	local homeWasShown = panel.home:IsShown()
 	panel.home:SetShown(entry == nil)
 	if not entry then
+		if not homeWasShown then
+			UI.EnterUp(panel.home)
+		end
 		panel.home:Refresh()
 		return
 	end
@@ -129,6 +139,9 @@ local function RefreshPageView()
 		if entry.page.Refresh then
 			entry.page.Refresh(frame) -- only when it becomes visible
 		end
+		-- Opened (not redrawn): the page and its title rise in.
+		UI.EnterUp(frame)
+		UI.EnterUp(host.title)
 	end
 end
 
@@ -197,15 +210,18 @@ local function CreateTitleBar()
 	local close = UI.Button(titleBar, 20, "x")
 	close:SetPoint("RIGHT", -10, 0)
 	close:SetScript("OnClick", function()
-		panel:Hide()
+		UI.Disappear(panel)
 	end)
 	-- Settings from Home or a page; back to Home from Settings.
 	local nav = UI.Button(titleBar, 84, "Settings")
 	nav:SetPoint("RIGHT", close, "LEFT", -8, 0)
 	nav:SetScript("OnClick", function()
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		UI.Sound("nav")
 		view = view == "settings" and "home" or "settings"
 		Refresh()
+		if view == "home" then
+			UI.EnterUp(panel.home) -- Settings' cards rise in on their own (ModulePage.lua)
+		end
 	end)
 	titleBar.nav = nav
 	local version = UI.Text(titleBar, 12, "textFaint", "number")
@@ -275,9 +291,14 @@ local function Build()
 	UI.ResizeGrip(panel, SaveLayout)
 
 	panel:SetScript("OnShow", function()
+		UI.Sound("open")
 		Refresh()
 	end)
-	panel:SetScript("OnHide", function()
+	panel:SetScript("OnHide", function(self)
+		-- Still shown: only UIParent hid (Alt+Z, a cinematic), the window wasn't closed.
+		if not self:IsShown() then
+			UI.Sound("close")
+		end
 		HideTooltip()
 		ns.db.panel.last = { view = view, page = view == "page" and openEntry and openEntry.key or nil, at = GetServerTime() }
 		for _, frame in pairs(panel.pageView.host.frames) do
@@ -301,16 +322,26 @@ function ns.Panel_ApplyLook()
 	end
 end
 
+-- The window is fading out (UI.Disappear): still shown, but on its way to hidden.
+local function Leaving()
+	return UI.IsDisappearing(panel)
+end
+
 local function Show()
 	if not panel then
 		Build()
 	end
 	if panel:IsShown() then
+		if Leaving() then
+			UI.Appear(panel) -- opened again while it fades out: it stays and comes back (Appear stops the fade)
+		end
 		Refresh()
 		return
 	end
 	ApplyLayout()
+	panel:SetAlpha(1) -- a fade out cut short by Esc may have left it at its last frame's alpha
 	panel:Show() -- OnShow refreshes
+	UI.Appear(panel)
 end
 
 -- From /tomte, the minimap button or the compartment: back where you were if it was closed a little while ago
@@ -360,9 +391,10 @@ function ns.Panel_OpenMap(entry)
 	end
 end
 
+-- Fades out (UI.Disappear); Esc, the map and Home's actions hide it at once.
 function ns.Panel_Hide()
 	if panel then
-		panel:Hide()
+		UI.Disappear(panel)
 	end
 end
 
@@ -376,8 +408,8 @@ function ns.Panel_IsShown()
 end
 
 function ns.Panel_Toggle()
-	if panel and panel:IsShown() then
-		panel:Hide()
+	if panel and panel:IsShown() and not Leaving() then
+		UI.Disappear(panel)
 	else
 		ns.Panel_Open()
 	end

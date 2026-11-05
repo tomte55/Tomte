@@ -20,13 +20,24 @@ local db
 local enabled = false
 local strip
 
+local function NewStrip(parent)
+	local frame = CreateFrame("Frame", nil, parent)
+	UI.Panel(frame, { subtle = true })
+	frame.text = UI.Text(frame, 12, "text", "body")
+	frame.text:SetPoint("TOPLEFT", PAD, -PAD)
+	frame.text:SetJustifyH("LEFT")
+	return frame
+end
+
 local function CreateStrip()
-	strip = CreateFrame("Frame", nil, UIParent)
-	UI.Panel(strip, { subtle = true })
-	strip.text = UI.Text(strip, 12, "text", "body")
-	strip.text:SetPoint("TOPLEFT", PAD, -PAD)
-	strip.text:SetJustifyH("LEFT")
+	strip = NewStrip(UIParent)
 	strip:Hide()
+end
+
+-- lines: "<icon> Name: count" texts.
+local function FillStrip(frame, lines)
+	frame.text:SetText(UI.Wrap("You have", "textMuted") .. "\n" .. table.concat(lines, "\n"))
+	frame:SetSize(frame.text:GetStringWidth() + PAD * 2, frame.text:GetStringHeight() + PAD * 2)
 end
 
 local function WatchWhileShown(on)
@@ -82,8 +93,7 @@ local function Refresh()
 	strip:SetParent(frame)
 	strip:ClearAllPoints()
 	strip:SetPoint("TOP", frame, "BOTTOM", 0, -GAP)
-	strip.text:SetText(UI.Wrap("You have", "textMuted") .. "\n" .. table.concat(lines, "\n"))
-	strip:SetSize(strip.text:GetStringWidth() + PAD * 2, strip.text:GetStringHeight() + PAD * 2)
+	FillStrip(strip, lines)
 	if not strip:IsShown() then
 		strip:Show()
 		WatchWhileShown(true)
@@ -116,3 +126,28 @@ function ns.TipsChoice_Stop()
 end
 
 ns.TipsChoice_Refresh = Refresh
+
+-- Setting preview: the strip into host, with the token a choice window of the player's expansion takes. A real
+-- window also lists its rewards, which only the open window knows. Returns the size, or nil while nothing is ready.
+local previewStrips = {} -- [host] = its sample strip
+
+function ns.TipsChoice_Preview(host, module)
+	for _, entry in ipairs(ns.Tips_PreviewItems(ns.Tips_PreviewSources(), "choice")) do
+		local isItem = entry.kind == "item"
+		if isItem and C_Item.DoesItemExistByID(entry.id) and not ns.Tips_PreviewLoaded(entry.id, module) then
+			return nil
+		end
+		local name, have, icon = ns.Tips_Entry(entry.kind, entry.id)
+		if name then
+			local frame = previewStrips[host]
+			if not frame then
+				frame = NewStrip(host)
+				frame:SetPoint("TOPLEFT")
+				previewStrips[host] = frame
+			end
+			FillStrip(frame, { Icon(icon) .. ns.Tips_CountText(name, have) })
+			return frame:GetSize()
+		end
+	end
+	return nil
+end

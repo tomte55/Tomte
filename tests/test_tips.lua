@@ -212,5 +212,80 @@ test("CountText", function()
 	eq(ns.Tips_CountText("Radiant Echo", 1234), "Radiant Echo: 1,234")
 	eq(ns.Tips_CountText(nil, nil), "?: 0")
 end)
+test("PreviewItems picks samples per line kind, the first source first, each once", function()
+	local mine = {
+		keys = { [30] = true, [10] = true },
+		samples = { rep = 500 },
+		reagentQuantity = { [2] = { [41] = 1, [40] = 2 }, [1] = { [42] = 1 } },
+		vendors = { [60] = { named = true, map = 1 }, [61] = { map = 1 } },
+		choices = { [7] = { currency = 3000 }, [8] = { item = 70 } },
+	}
+	local older = {
+		keys = { [10] = true, [5] = true },
+		samples = { rep = 501 },
+		vendors = { [62] = { places = { { map = 2 }, { named = true, map = 3 } } } },
+		choices = { [9] = { currency = 3000 } },
+	}
+	local sources = { mine, older }
+	eq(table.concat(ns.Tips_PreviewItems(sources, "keys"), ","), "10,30,5", "sorted, a repeat once")
+	eq(table.concat(ns.Tips_PreviewItems(sources, "rep"), ","), "500,501")
+	eq(table.concat(ns.Tips_PreviewItems(sources, "reagents"), ","), "42,40,41", "by recipe, then item")
+	eq(table.concat(ns.Tips_PreviewItems(sources, "vendors"), ","), "61,60,62",
+		"a vendor not in the item's text first, per source")
+	local choice = ns.Tips_PreviewItems(sources, "choice")
+	eq(#choice, 2, "the same currency once")
+	eq(choice[1].kind, "currency")
+	eq(choice[1].id, 3000)
+	eq(choice[2].kind, "item")
+	eq(ns.Tips_PreviewItems({ {} }, "rep")[1], nil, "a source without samples")
+end)
+
+-- A book with nothing else to it, checked against every achievement; tests change one fact.
+local function Book(changes)
+	local facts = { scanned = true, readable = true, bound = true }
+	for k, v in pairs(changes or {}) do
+		facts[k] = v
+	end
+	return facts
+end
+
+test("use: a plain book is lore, safe to delete or sell", function()
+	local text, role = ns.Tips_UseVerdict(Book())
+	eq(text, "Lore: read it, then safe to delete")
+	eq(role, "success")
+	eq(ns.Tips_UseVerdict(Book({ sells = true })), "Lore: read it, then sell it")
+end)
+
+test("use: an achievement that needs it wins over everything", function()
+	local text, role = ns.Tips_UseVerdict(Book({ achievement = "Lorewalking", known = true }))
+	eq(text, "Needed for Lorewalking")
+	eq(role, "warning")
+	eq(ns.Tips_UseVerdict({ achievement = "Lorewalking" }), "Needed for Lorewalking", "even outside the bags")
+end)
+
+test("use: no line before the achievement check is done", function()
+	eq(ns.Tips_UseVerdict(Book({ scanned = false })), nil)
+	eq(ns.Tips_UseVerdict(Book({ scanned = false, known = true })), nil)
+end)
+
+test("use: no line on a book with a use, a quest or a token", function()
+	eq(ns.Tips_UseVerdict(Book({ hasUse = true })), nil, "use effect")
+	eq(ns.Tips_UseVerdict(Book({ quest = true })), nil, "quest")
+	eq(ns.Tips_UseVerdict(Book({ token = true })), nil, "token")
+	eq(ns.Tips_UseVerdict(Book({ reagent = true })), nil, "reagent")
+end)
+
+test("use: no line on anything that isn't a book and isn't learned", function()
+	local text, _, reason = ns.Tips_UseVerdict(Book({ readable = false }))
+	eq(text, nil)
+	eq(type(reason), "string")
+end)
+
+test("use: already learned says delete, sell, or sell or trade", function()
+	eq(ns.Tips_UseVerdict({ scanned = true, known = true, bound = true }), "Already learned: safe to delete")
+	eq(ns.Tips_UseVerdict({ scanned = true, known = true, bound = true, sells = true }), "Already learned: sell it")
+	eq(ns.Tips_UseVerdict({ scanned = true, known = true, bound = false }), "Already learned: sell or trade it")
+	eq(ns.Tips_UseVerdict({ scanned = true, known = true, quest = true }), nil, "a quest still needs it")
+end)
 
 H.done()

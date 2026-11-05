@@ -17,6 +17,14 @@ local EVENTS = {
 }
 local KIND_WORDS = { mount = "mount", pet = "pet" }
 local ICON = "Interface\\Icons\\Ability_Mount_RidingHorse" -- the same horse as the map tab's (Tab.lua)
+-- Made-up toasts for the test command and the settings previews.
+local SAMPLE_ZONE = "Hallowfall"
+local SAMPLE_COUNTS = { mounts = 2, pets = 3, achievements = 18 }
+local SAMPLE_RARE = "Sample Rare"
+local SAMPLE_DROPS = {
+	{ kind = "mount", name = "Sample Mount", icon = 132261 },
+	{ kind = "pet", name = "Sample Pet", icon = 132261 },
+}
 
 local module, db
 local started = false
@@ -25,9 +33,9 @@ local vignetteTimer, criteriaTimer
 local lastUpNow = "" -- the up-now set the tab last showed
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 local function PlayerMap()
 	return C_Map.GetBestMapForUnit("player")
@@ -65,14 +73,18 @@ end
 
 -- Toasts --------------------------------------------------------------------------------------------------------
 
--- sample: a test toast (no click action, kept out of Recent).
-local function ShowZoneToast(name, counts, sample)
-	ns.Toast_Show({
+-- sample: a test toast or a settings preview (no click action, kept out of Recent).
+local function ZoneToastSpec(name, counts, sample)
+	return {
 		owner = OWNER, label = "Collect here", accent = ACCENT, title = name,
 		text = ns.Collect_ZoneToastText(counts) .. (sample and "" or "\nClick for the list."),
 		icon = ICON, mergeKey = "collect:zone", holdInCombat = true, hold = 10,
 		test = sample or nil, onClick = not sample and ns.CollectTab_Open or nil, opensMap = not sample or nil,
-	})
+	}
+end
+
+local function ShowZoneToast(name, counts, sample)
+	ns.Toast_Show(ZoneToastSpec(name, counts, sample))
 end
 
 -- "Sample Mount (a mount)" or "A (a mount) and B (a pet)"
@@ -88,9 +100,9 @@ local function DropList(drops)
 end
 
 -- drops: the rare's missing mounts and pets, all in one toast.
-local function ShowRareToast(rareName, drops, sample)
+local function RareToastSpec(rareName, drops, sample)
 	local first = drops[1]
-	ns.Toast_Show({
+	return {
 		owner = OWNER, label = "Up now", accent = ACCENT, title = rareName,
 		text = ("Drops %s.%s"):format(DropList(drops), sample and "" or "\nClick for a waypoint."),
 		icon = first.icon, mergeKey = "collect:rare:" .. rareName, holdInCombat = true, hold = 15,
@@ -100,7 +112,11 @@ local function ShowRareToast(rareName, drops, sample)
 				ns.Collect_Waypoint(first.upNow, rareName)
 			end
 		end or nil,
-	})
+	}
+end
+
+local function ShowRareToast(rareName, drops, sample)
+	ns.Toast_Show(RareToastSpec(rareName, drops, sample))
 end
 
 local function ZoneToast()
@@ -111,9 +127,15 @@ local function ZoneToast()
 	if not (state.mounts and state.pets) then
 		return -- tried again when the catalogs are ready
 	end
-	local entries, name, kind, mapID = ns.Collect_ForMap(PlayerMap())
+	-- Whether the toast is due first: matching the whole catalog against the map is the expensive part, and it runs
+	-- right as the journal read finishes.
 	local today = date("%Y-%m-%d")
-	if not entries or kind ~= "zone" or not ns.Collect_ZoneToastDue(db.zoneToasts, mapID, today) then
+	local zoneID, _, zoneKind = ns.MapTabs_ResolveMap(PlayerMap())
+	if not zoneID or zoneKind ~= "zone" or not ns.Collect_ZoneToastDue(db.zoneToasts, zoneID, today) then
+		return
+	end
+	local entries, name, kind, mapID = ns.Collect_ForMap(PlayerMap())
+	if not entries or kind ~= "zone" then
 		return
 	end
 	ns.Collect_MarkZoneToast(db.zoneToasts, mapID, today)
@@ -187,6 +209,9 @@ end
 -- The catalogs changed (one finished, or something was earned).
 local function OnChanged()
 	ns.CollectTab_Refresh()
+	if ns.Panel_IsShown() then
+		ns.Panel_Refresh() -- Home's Around you, Next up and the rail's count
+	end
 	ZoneToast()
 end
 
@@ -199,14 +224,17 @@ function events:ZONE_CHANGED_NEW_AREA()
 end
 
 function events:NEW_MOUNT_ADDED()
+	ns.CollectTab_Celebrate("mount")
 	ns.Collect_Earned("mount")
 end
 
 function events:NEW_PET_ADDED()
+	ns.CollectTab_Celebrate("pet")
 	ns.Collect_Earned("pet")
 end
 
 function events:ACHIEVEMENT_EARNED(id)
+	ns.CollectTab_Celebrate("ach", id)
 	ns.Collect_Earned("ach", id)
 end
 
@@ -266,9 +294,17 @@ local function Test()
 	if not ns.Module_RequireOn(module) then
 		return
 	end
-	ShowZoneToast("Hallowfall", { mounts = 2, pets = 3, achievements = 18 }, true)
-	ShowRareToast("Sample Rare", { { kind = "mount", name = "Sample Mount", icon = 132261 },
-		{ kind = "pet", name = "Sample Pet", icon = 132261 } }, true)
+	ShowZoneToast(SAMPLE_ZONE, SAMPLE_COUNTS, true)
+	ShowRareToast(SAMPLE_RARE, SAMPLE_DROPS, true)
+end
+
+-- Settings previews (Panel/Preview.lua): the same samples as the test command, built by the real toasts' spec code.
+local function ZonePreview(host)
+	return ns.Toast_DrawSample(host, ZoneToastSpec(SAMPLE_ZONE, SAMPLE_COUNTS, true), 1)
+end
+
+local function RarePreview(host)
+	return ns.Toast_DrawSample(host, RareToastSpec(SAMPLE_RARE, SAMPLE_DROPS, true), 1)
 end
 
 local function Changed()
@@ -340,6 +376,13 @@ module = ns.RegisterModule({
 				local entries = ns.Collect_ForMap(PlayerMap())
 				local text = entries and ns.Collect_ZoneToastText(ShownCounts(entries))
 				return text and ("Collect here: " .. text) or "Collect here: nothing left in this zone"
+			end,
+			progress = function()
+				local state = ns.Collect_State()
+				if state.mounts and state.pets and state.achievements then
+					return nil
+				end
+				return state.progress
 			end,
 			-- Mounts and pets first, then the achievements closest to done.
 			items = function(limit)
@@ -447,8 +490,9 @@ module = ns.RegisterModule({
 				.. "to open it, Shift-click to link it in chat." },
 		{ type = "header", label = "Toasts" },
 		{ type = "checkbox", key = "toasts.zone", label = "Arriving in a zone with mounts or pets left",
-			tooltip = "Once per zone per session." },
+			preview = ns.Preview_When("toasts.zone", ZonePreview), tooltip = "Once per zone per session." },
 		{ type = "checkbox", key = "toasts.rare", label = "A rare is up that drops one you're missing",
+			preview = ns.Preview_When("toasts.rare", RarePreview),
 			tooltip = "Matched by the rare's name on the minimap or map. Click the toast for a waypoint." },
 		{ type = "button", label = "Sample toasts", text = "Show", onClick = Test },
 	},

@@ -102,6 +102,11 @@ local function Apply()
 	ns.InstancesHoliday_Toggle(on and db.holiday)
 end
 
+-- Settings preview (Panel/Preview.lua): sample minimap badges, drawn in Badge.lua.
+local function BadgePreview(host, get)
+	return ns.InstancesBadge_DrawSample(host, get)
+end
+
 local function Why()
 	ns.Print(ns.InstancesBadge_Why())
 	ns.Print(ns.InstancesEntrance_Why())
@@ -150,7 +155,9 @@ module = ns.RegisterModule({
 	options = {
 		{ type = "header", label = "At the portal" },
 		{ type = "checkbox", key = "entrance", label = "Difficulty picker", onChange = Apply,
-			tooltip = "Near a dungeon or raid portal, a small card to pick Normal, Heroic or Mythic, with your lockout under each. Only the group leader can change it; in a group you see it read-only. Blizzard's Edit Mode moves it." },
+			preview = ns.Preview_When("entrance", function(host)
+				return ns.InstancesEntrance_DrawSample(host)
+			end), tooltip = "Near a dungeon or raid portal, a small card to pick Normal, Heroic or Mythic, with your lockout under each. Only the group leader can change it; in a group you see it read-only. Blizzard's Edit Mode moves it." },
 		{ type = "button", label = "Position", text = "Reset", onClick = ns.InstancesEntrance_ResetPosition,
 			parent = "entrance", tooltip = "Move the card back to the top of the screen." },
 		{ type = "checkbox", key = "banner", label = "Lockout banner", onChange = Apply,
@@ -158,6 +165,7 @@ module = ns.RegisterModule({
 
 		{ type = "header", label = "Minimap" },
 		{ type = "checkbox", key = "badge", label = "Difficulty badge", onChange = Apply,
+			preview = ns.Preview_When("badge", BadgePreview),
 			tooltip = "Readable text in place of Blizzard's difficulty flag: 5 · H, 20 · M, M+12, D8, LFR, TW." },
 		{ type = "checkbox", key = "badgeOutside", label = "Outside instances too",
 			onChange = ns.InstancesBadge_Refresh, parent = "badge",
@@ -165,7 +173,9 @@ module = ns.RegisterModule({
 
 		{ type = "header", label = "Dungeon Finder" },
 		{ type = "checkbox", key = "queue", label = "Queue plate", onChange = Apply,
-			tooltip = "A small panel by the queue eye with your time in queue, the average wait, and a role icon for each place in the group that lights up when it's filled." },
+			preview = ns.Preview_When("queue", function(host)
+				return ns.InstancesQueue_DrawSample(host)
+			end), tooltip = "A small panel by the queue eye with your time in queue, the average wait, and a role icon for each place in the group that lights up when it's filled." },
 		{ type = "checkbox", key = "holiday", label = "Pick the holiday dungeon", onChange = Apply,
 			tooltip = "The first time you open Dungeon Finder in a session, select the holiday boss or Timewalking dungeon when one is up." },
 	},

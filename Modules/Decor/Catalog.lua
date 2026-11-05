@@ -3,10 +3,12 @@ local addonName, ns = ...
 -- Housing decor: the catalog, read into plain tables for the page, Next up and the commands. One catalog searcher
 -- (C_HousingCatalog.CreateCatalogSearcher, collected and uncollected, base variants only) lists every decor entry;
 -- each entry's info (name, icon, model, owned counts, source text) is then read a few milliseconds per frame, so a
--- catalog of thousands never freezes the client. Every housing call is guarded: the API may be missing, the housing
--- service off, or an entry may error. Source text rules in Data.lua; started and stopped by Decor.lua.
+-- catalog of thousands never freezes the client. A rescan asked for while a read runs doesn't start over: the entries
+-- read before it are read again once the read is done. Every housing call is guarded: the API may be missing, the
+-- housing service off, or an entry may error. Source text rules in Data.lua; started and stopped by Decor.lua.
 
-local BUDGET_MS = 3 -- reading time per frame
+local BUDGET_MS = 2 -- reading time per frame while someone waits for it (the Decor page, /tomte decor scan)
+local BACKGROUND_MS = 0.75 -- reading time per frame otherwise: at login, and after storage changes
 local RETRY = 10 -- seconds to wait for search results before running the search again
 local MAX_TRIES = 3 -- searches without results before giving up until the next rescan
 local DECOR_TYPE = 1 -- Enum.HousingCatalogEntryType.Decor, when the enum is missing
@@ -19,6 +21,7 @@ local searcher -- kept while the module is on; its results callback starts each 
 local reader -- hidden frame whose OnUpdate reads the entries, shown only while reading
 local job -- { ids, i, entries, byID, byItem }
 local tries, retryTimer = 0, nil
+local hurry = false -- someone waits for this read: the full budget until it's done
 local onChanged = function() end
 
 local function DecorType()
@@ -66,11 +69,42 @@ local function ReadInfo(fn, ...)
 	return ok and info or nil
 end
 
+-- A fresh read of a known entry, in place (the lists hold that table), without keeping a field it no longer has.
+local function Patch(e)
+	local old = byID[e.id]
+	if not old then
+		return false
+	end
+	for k in pairs(old) do
+		old[k] = nil
+	end
+	for k, v in pairs(e) do
+		old[k] = v
+	end
+	return true
+end
+
 local function Finish()
-	entries, byID, byItem = job.entries, job.byID, job.byItem
+	if not job.patch then
+		entries, byID, byItem = job.entries, job.byID, job.byItem
+	end
+	-- Storage changed while this read ran (job.redo set by DecorCatalog_Scan): the entries read before that are
+	-- read again, in place, instead of the whole catalog.
+	local redo
+	if job.redo and job.redo > 0 then
+		redo = {}
+		for i = 1, job.redo do
+			redo[i] = job.ids[i]
+		end
+	end
 	job = nil
-	reader:Hide()
 	state = "ready"
+	if redo then
+		job = { ids = redo, i = 1, patch = true }
+	else
+		reader:Hide()
+		hurry = false
+	end
 	onChanged()
 end
 
@@ -79,7 +113,7 @@ local function OnUpdate()
 		reader:Hide()
 		return
 	end
-	local deadline = debugprofilestop() + BUDGET_MS
+	local deadline = debugprofilestop() + (hurry and BUDGET_MS or BACKGROUND_MS)
 	while debugprofilestop() < deadline do
 		local id = job.ids[job.i]
 		if not id then
@@ -88,7 +122,11 @@ local function OnUpdate()
 		end
 		job.i = job.i + 1
 		local e = MakeEntry(ReadInfo(C_HousingCatalog.GetCatalogEntryInfo, id))
-		if e and not job.byID[e.id] then
+		if job.patch then
+			if e then
+				Patch(e)
+			end
+		elseif e and not job.byID[e.id] then
 			job.entries[#job.entries + 1] = e
 			job.byID[e.id] = e
 			if e.itemID then
@@ -97,6 +135,7 @@ local function OnUpdate()
 		end
 	end
 end
+local OnUpdateTimed = ns.Perf_Wrap(OnUpdate, "OnUpdate")
 
 local function CancelRetry()
 	if retryTimer then
@@ -120,7 +159,7 @@ local function OnResults()
 	end
 	CancelRetry()
 	reader = reader or CreateFrame("Frame")
-	reader:SetScript("OnUpdate", OnUpdate)
+	reader:SetScript("OnUpdate", OnUpdateTimed)
 	job = { ids = ids, i = 1, entries = {}, byID = {}, byItem = {} }
 	state = "reading"
 	reader:Show()
@@ -177,6 +216,12 @@ local function MakeSearcher()
 	return s
 end
 
+-- Someone waits for the catalog (the Decor page is open, or a command asked): a read that's running, or the next
+-- one, gets the full budget until it's done.
+function ns.DecorCatalog_Hurry()
+	hurry = true
+end
+
 -- Reads the catalog (again). Quietly does nothing where housing isn't available.
 function ns.DecorCatalog_Scan()
 	if not ns.DecorCatalog_Available() then
@@ -190,6 +235,11 @@ function ns.DecorCatalog_Scan()
 		onChanged()
 		return
 	end
+	-- A read is running: once it's done, what it had read by now is read again (Finish), not the whole catalog over.
+	if job then
+		job.redo = math.max(job.redo or 0, job.i - 1)
+		return
+	end
 	tries = 0
 	RunSearch()
 end
@@ -201,16 +251,10 @@ function ns.DecorCatalog_Update(decorID)
 		return false
 	end
 	local e = MakeEntry(ReadInfo(C_HousingCatalog.GetCatalogEntryInfoByRecordID, DecorType(), decorID))
-	if not e then
+	if not e or e.id ~= decorID then
 		return false
 	end
-	-- In place (the lists hold this table), without keeping a field the new read no longer has.
-	for k in pairs(old) do
-		old[k] = nil
-	end
-	for k, v in pairs(e) do
-		old[k] = v
-	end
+	Patch(e)
 	onChanged()
 	return true
 end
@@ -220,7 +264,7 @@ function ns.DecorCatalog_Stop()
 	if searcher and searcher.SetResultsUpdatedCallback then
 		pcall(searcher.SetResultsUpdatedCallback, searcher, function() end)
 	end
-	searcher, job = nil, nil
+	searcher, job, hurry = nil, nil, false
 	if reader then
 		reader:Hide()
 	end
@@ -232,11 +276,21 @@ end
 -- after a storage change keeps the last one until it's done).
 function ns.DecorCatalog_State()
 	local progress = state == "ready" and 1 or 0
-	if job and #job.ids > 0 then
+	if job and not job.patch and #job.ids > 0 then
 		progress = (job.i - 1) / #job.ids
 	end
 	return { state = state, progress = progress, count = #entries,
 		usable = state == "ready" or (#entries > 0 and state ~= "idle" and state ~= "unavailable") }
+end
+
+-- For a progress line (UI.ProgressLine) while there's nothing to show yet: 0..1 while reading, true while waiting for
+-- the game's search, nil once there's a read to show or the catalog can't be read.
+function ns.DecorCatalog_Progress()
+	local info = ns.DecorCatalog_State()
+	if info.usable or info.state == "unavailable" then
+		return nil
+	end
+	return info.state == "reading" and info.progress or true
 end
 
 function ns.DecorCatalog_Entries()

@@ -197,17 +197,17 @@ end
 -- The unlocked preview sweeps the fake health so the colors, tick and glow can be seen.
 local previewDriver = CreateFrame("Frame")
 previewDriver:Hide()
-previewDriver:SetScript("OnUpdate", function(self, dt)
+previewDriver:SetScript("OnUpdate", ns.Perf_Wrap(function(self, dt)
 	previewTime = previewTime + dt
 	if bar and bar:IsShown() and not inCombat then
 		ShowPreview()
 	end
-end)
+end, "OnUpdate"))
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 local UNIT_EVENTS = { "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_FLAGS" }
 local EVENTS = {
@@ -340,6 +340,19 @@ local function SetLocked(locked)
 	Update()
 end
 
+local function Relayout()
+	if bar then
+		ApplyLayout()
+	end
+	Update()
+end
+
+-- Same position as defaults.frame below.
+local function ResetPosition()
+	db.frame.point, db.frame.relPoint, db.frame.x, db.frame.y = "CENTER", "CENTER", 0, -170
+	Relayout()
+end
+
 ns.EditMode_Register({
 	name = "Pet Health",
 	frame = function()
@@ -355,20 +368,10 @@ ns.EditMode_Register({
 		local point, _, relPoint, x, y = bar:GetPoint()
 		SavePosition(point, relPoint, x, y)
 	end,
+	module = "pet",
+	options = { "visibility", "threshold", "scale", "showPercent" },
+	reset = ResetPosition,
 })
-
-local function Relayout()
-	if bar then
-		ApplyLayout()
-	end
-	Update()
-end
-
--- Same position as defaults.frame below.
-local function ResetPosition()
-	db.frame.point, db.frame.relPoint, db.frame.x, db.frame.y = "CENTER", "CENTER", 0, -170
-	Relayout()
-end
 
 local VISIBILITY = {
 	{ value = "combat", text = "In combat, or hurt" },
@@ -381,6 +384,24 @@ end
 
 local function Scale(v)
 	return ("%.1f"):format(v)
+end
+
+-- Settings preview (Panel/Preview.lua): the bar at the chosen size, a little above the warning line, with this
+-- character's pet spells under it.
+local PREVIEW_ABOVE = 0.15 -- fake health this far above the threshold: the healthy colors, the tick in view
+local function BarPreview(host, get)
+	if not profile then
+		return nil
+	end
+	local threshold = get("threshold") / 100
+	return ns.UnitBar_DrawSample(host, {
+		scale = get("scale"),
+		threshold = threshold,
+		showPercent = get("showPercent"),
+		spells = KnownSpells(),
+		name = petName or "Pet",
+		fraction = math.min(1, threshold + PREVIEW_ABOVE),
+	})
 end
 
 local function Command(fn)
@@ -448,11 +469,12 @@ module = ns.RegisterModule({
 		end, onChange = Update,
 			tooltip = "A dead pet, or no pet in combat, always shows." },
 		{ type = "slider", key = "threshold", label = "Warning below", min = 20, max = 70, step = 5,
-			format = Percent, onChange = Relayout,
+			format = Percent, onChange = Relayout, preview = BarPreview,
 			tooltip = "Below this the bar turns red and glows. The tick on the bar marks it." },
 		{ type = "slider", key = "scale", label = "Size", min = 0.6, max = 1.6, step = 0.1, format = Scale,
-			onChange = Relayout },
-		{ type = "checkbox", key = "showPercent", label = "Show percent", onChange = Relayout },
+			onChange = Relayout, preview = BarPreview },
+		{ type = "checkbox", key = "showPercent", label = "Show percent", onChange = Relayout,
+			preview = BarPreview },
 		{ type = "button", label = "Position", text = "Reset", onClick = Command(ResetPosition),
 			tooltip = "Move the bar back under your character." },
 

@@ -13,8 +13,8 @@ local ITEM_H = 30
 local SECTION_GAP = 14
 
 local button, panel
-local lines, items = {}, {}
-local usedLines, usedItems = 0, 0
+local lines, items, waits = {}, {}, {}
+local usedLines, usedItems, usedWaits = 0, 0, 0
 local requested = false
 
 local function DB()
@@ -46,6 +46,15 @@ local function Line(y, text, role, size, indent)
 	fs:SetText(text)
 	fs:Show()
 	return math.max(fs:GetStringHeight(), LINE_H - 4) + 4
+end
+
+-- A busy line (UI.ProgressLine) under the last Line, which says something is still loading; Layout runs again when
+-- it arrives.
+local function Busy()
+	usedWaits = usedWaits + 1
+	local line = waits[usedWaits] or UI.ProgressLine(panel.content)
+	waits[usedWaits] = line
+	line:Below(lines[usedLines]):Track(UI.ProgressBusy)
 end
 
 local function Header(y, text)
@@ -156,6 +165,10 @@ local function GemSection(y, ctx)
 		y = y + Line(y, ns.Gear_StatLabel(ctx.best.stats), "textMuted", 11)
 	else
 		y = y + Line(y, "Not known yet (gem data loading).", "textFaint", 11)
+		-- Only while the gems really load: without a spec there's no context, and a set without gems never has one.
+		if ctx and not ctx.complete then
+			Busy()
+		end
 	end
 	return y
 end
@@ -163,7 +176,9 @@ end
 local function GearSection(y, list)
 	y = y + Header(y, "Your gear")
 	if not list then
-		return y + Line(y, "Reading your gear...", "textFaint", 11)
+		y = y + Line(y, "Reading your gear...", "textFaint", 11)
+		Busy()
+		return y
 	end
 	if #list == 0 then
 		return y + Line(y, "Everything is enchanted and socketed.", "success", 12)
@@ -192,7 +207,7 @@ local function Layout()
 	if not panel:IsVisible() then
 		return
 	end
-	usedLines, usedItems = 0, 0
+	usedLines, usedItems, usedWaits = 0, 0, 0
 	local ctx = ns.Gear_Context()
 	local y = WeightsSection(0, ctx)
 	y = GemSection(y + SECTION_GAP, ctx)
@@ -203,6 +218,14 @@ local function Layout()
 	for i = usedItems + 1, #items do
 		items[i]:Hide()
 	end
+	for i = usedWaits + 1, #waits do
+		waits[i]:Stop()
+	end
+	-- What it waited for just arrived: the panel's content fades in.
+	if panel.wasWaiting and usedWaits == 0 then
+		UI.FadeIn(panel.content)
+	end
+	panel.wasWaiting = usedWaits > 0
 	panel.scroll:SetContentHeight(y + 8)
 end
 
@@ -227,7 +250,7 @@ local function BuildButton()
 		GameTooltip:Hide()
 	end)
 	button:SetScript("OnClick", function()
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		UI.Sound(DB().sheetOpen and "close" or "open")
 		SetOpen(not DB().sheetOpen)
 	end)
 	-- Count of missing enchants and empty sockets.

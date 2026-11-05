@@ -280,7 +280,7 @@ local function Start()
 	events:Watch(OWNER, "MERCHANT_UPDATE")
 	if not hooked and TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall then
 		hooked = true -- post-calls can't be removed; OnItem checks module.active
-		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, OnItem)
+		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, ns.Perf_Wrap(OnItem, "tooltip"))
 	end
 	if ns.inWorld then
 		EnteredWorld()
@@ -333,6 +333,7 @@ local function Scan()
 	end
 	printWhenRead = true
 	ns.Print("reading the housing catalog...")
+	ns.DecorCatalog_Hurry()
 	ns.DecorCatalog_Scan()
 end
 
@@ -475,14 +476,20 @@ module = ns.RegisterModule({
 			description = "A vendor in your zone sells housing decor you're missing (click to track it).",
 			candidates = NextCandidates },
 		{ kind = "around", key = "decoraround", order = 60, name = "Decor vendors", icon = ICON,
+			-- While the catalog is read it shows with its progress line, then only where vendors are.
 			shown = function()
 				local _, total = VendorsHere()
-				return total > 0
+				return total > 0 or ns.DecorCatalog_Progress() ~= nil
 			end,
+			keepEmpty = true,
 			title = function()
+				if ns.DecorCatalog_Progress() ~= nil then
+					return "Decor vendors: reading the housing catalog..."
+				end
 				local vendors, total = VendorsHere()
 				return ns.Decor_VendorsHereText(vendors, total) or "Decor vendors: none here"
 			end,
+			progress = ns.DecorCatalog_Progress,
 			items = AroundItems, maxRows = 4, open = Open, openText = "Open the Decor page" },
 	},
 	defaults = {
@@ -499,6 +506,7 @@ module = ns.RegisterModule({
 		hover = true, -- house editor: storage count and budget cost on hovered decor (Editor.lua)
 		dupe = false, -- house editor: Alt places another of the hovered decor
 		dyeCopy = false, -- house editor: right-click copies dyes, Paste dyes previews them
+		dyePresets = {}, -- saved dye sets (Editor.lua): { { name, colors = { dye color ID or 0 } } }, newest first
 		clock = true, -- house editor: the clock above the mode bar
 		editorSeconds = 0, -- seconds spent in the house editor, all sessions
 		sizeLine = true, -- the preview's "about 1.5 people tall" line (Detail.lua)
@@ -570,7 +578,7 @@ module = ns.RegisterModule({
 				ns.DecorEditor_Apply()
 			end },
 		{ type = "checkbox", key = "dyeCopy", label = "Copy dyes",
-			tooltip = "In customize mode, right-click a dyed decor to copy its dyes. Select another decor and press Paste dyes under the dye pane to try them on; Blizzard's Apply saves them.",
+			tooltip = "In customize mode, right-click a dyed decor to copy its dyes. Select another decor and press Paste dyes under the dye pane to try them on; Blizzard's Apply saves them. Presets saves a set of dyes to put on decor later.",
 			onChange = function()
 				ns.DecorEditor_Apply()
 			end },

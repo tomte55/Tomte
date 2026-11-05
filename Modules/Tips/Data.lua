@@ -2,7 +2,8 @@ local addonName, ns = ...
 
 -- Tooltip extras: pure logic (no WoW API calls; unit-tested in tests/test_tips.lua). Merging the per-expansion data
 -- (Data/<Expansion>/Tips.lua), and the text of each line: reputation standing, reagent counts, the key a chest
--- needs, vendor places and choice window counts. The game is read in Read.lua, lines are added in Tooltip.lua.
+-- needs, vendor places, choice window counts and whether an item has any use left. The game is read in Read.lua and
+-- Scan.lua, lines are added in Tooltip.lua.
 
 local floor = math.floor
 
@@ -187,4 +188,114 @@ end
 -- "Radiant Echo: 12" for the choice window strip.
 function ns.Tips_CountText(name, have)
 	return (name or "?") .. ": " .. ns.Thousands(have or 0)
+end
+
+-- What's left to do with an item --------------------------------------------------------------------------------
+
+-- Achievement criteria types whose asset is an item ID (GetAchievementCriteriaInfo): acquire, eat or drink, fish
+-- up, own.
+ns.TIPS_ITEM_CRITERIA = { [36] = true, [41] = true, [42] = true, [57] = true }
+
+-- Whether a bag item still has a use. A line only where the answer is certain; anything Tomte can't rule out (a
+-- token some NPC takes, say) gets none. facts (Read.lua): achievement (name of an unfinished achievement that needs
+-- it), scanned (the achievement index is complete), quest (starts or belongs to a quest), known (a toy, mount, pet,
+-- recipe or other learnable that's already learned), readable (a book or letter), hasUse (a Use: effect), token
+-- (a reputation, vendor or combine item in the tips data), reagent, bound, sells (a vendor pays for it).
+-- Returns text, color role (both nil for no line) and the reason, for /tomte tips why.
+function ns.Tips_UseVerdict(facts)
+	if facts.achievement then
+		return "Needed for " .. facts.achievement, "warning", "an unfinished achievement needs it"
+	end
+	if not facts.scanned then
+		return nil, nil, "the achievement check hasn't finished yet"
+	end
+	if facts.quest then
+		return nil, nil, "it starts or belongs to a quest"
+	end
+	if facts.known then
+		if not facts.bound then
+			return "Already learned: sell or trade it", "success", "already learned, and it isn't soulbound"
+		end
+		return facts.sells and "Already learned: sell it" or "Already learned: safe to delete", "success",
+			"already learned"
+	end
+	if not facts.readable then
+		return nil, nil, "not a book or letter, so a use can't be ruled out"
+	end
+	if facts.hasUse or facts.token or facts.reagent then
+		return nil, nil, "a book or letter, but it also has a use"
+	end
+	return facts.sells and "Lore: read it, then sell it" or "Lore: read it, then safe to delete", "success",
+		"a book or letter with no other use"
+end
+
+-- Setting previews --------------------------------------------------------------------------------------------------
+
+local function SortedKeys(tbl)
+	local ids = {}
+	for id in pairs(tbl or {}) do
+		ids[#ids + 1] = id
+	end
+	table.sort(ids)
+	return ids
+end
+
+local function NamesVendor(value)
+	for _, place in ipairs(ns.Tips_VendorPlaces(value)) do
+		if not place.named then
+			return false
+		end
+	end
+	return true
+end
+
+-- The sample items a settings preview tries for a line kind, best first. sources: tips tables, the player's
+-- expansion first. kind: "keys" (chest-named items), "rep" (samples.rep: repSpells is keyed by spell, not item),
+-- "reagents" (the combine items reagentQuantity names), "vendors" (tokens whose vendor isn't in the item's own text
+-- first, so the "Spend at" line shows), "choice" (the tokens choice windows take: { kind, id }, each once).
+function ns.Tips_PreviewItems(sources, kind)
+	local list, seen = {}, {}
+	local function add(id, value)
+		if not seen[id] then
+			seen[id] = true
+			list[#list + 1] = value or id
+		end
+	end
+	for _, tips in ipairs(sources) do
+		if kind == "rep" then
+			if tips.samples and tips.samples.rep then
+				add(tips.samples.rep)
+			end
+		elseif kind == "reagents" then
+			for _, recipeID in ipairs(SortedKeys(tips.reagentQuantity)) do
+				for _, itemID in ipairs(SortedKeys(tips.reagentQuantity[recipeID])) do
+					add(itemID)
+				end
+			end
+		elseif kind == "vendors" then
+			local named = {}
+			for _, itemID in ipairs(SortedKeys(tips.vendors)) do
+				if NamesVendor(tips.vendors[itemID]) then
+					named[#named + 1] = itemID
+				else
+					add(itemID)
+				end
+			end
+			for _, itemID in ipairs(named) do
+				add(itemID)
+			end
+		elseif kind == "choice" then
+			for _, choiceID in ipairs(SortedKeys(tips.choices)) do
+				local token = tips.choices[choiceID]
+				local entryKind = token.item and "item" or "currency"
+				local id = token.item or token.currency
+				add(entryKind .. id, { kind = entryKind, id = id })
+			end
+		else
+			for _, itemID in ipairs(SortedKeys(tips[kind])) do
+				add(itemID)
+			end
+		end
+	end
+	return list
 end

@@ -19,19 +19,7 @@ local IsGear = ns.Loot_IsGear
 
 -- An appearance you haven't collected from any source, and can collect on this character.
 local function NewLook(link)
-	if not C_TransmogCollection then -- no transmog on Forever
-		return false
-	end
-	local _, sourceID = C_TransmogCollection.GetItemInfo(link)
-	if not sourceID then
-		return false
-	end
-	local info = C_TransmogCollection.GetAppearanceInfoBySource(sourceID)
-	if not info or info.appearanceIsCollected then
-		return false
-	end
-	local _, canCollect = C_TransmogCollection.PlayerCanCollectSource(sourceID)
-	return canCollect == true
+	return ns.NewAppearance(link) == "you"
 end
 
 local function Verdict(link, ctx)
@@ -62,6 +50,11 @@ local function Price(link)
 	return copper, stale
 end
 
+-- How many of an item you own: bags, bank, reagent bank and warband bank.
+function ns.Loot_Owned(itemID)
+	return C_Item.GetItemCount(itemID, true, false, true, true)
+end
+
 -- The item fields and the extras that are switched on (opts from Loot_ReadOptions).
 local function ItemExtras(e, opts)
 	local itemID, _, _, _, _, classID, subclassID = C_Item.GetItemInfoInstant(e.link)
@@ -69,13 +62,15 @@ local function ItemExtras(e, opts)
 		return
 	end
 	e.itemID, e.classID, e.subclassID = itemID, classID, subclassID
-	local name, _, quality, _, _, _, _, _, _, icon, sell = C_Item.GetItemInfo(e.link)
+	local name, _, quality, _, _, _, subType, _, _, icon, sell = C_Item.GetItemInfo(e.link)
 	e.name = e.name or name
 	e.quality = e.quality or quality or C_Item.GetItemQualityByID(e.link) -- known before the full item data
 	e.icon = e.icon or icon
 	e.sell = sell
+	e.subType = subType
+	e.toy = C_ToyBox.GetToyInfo(itemID) ~= nil
 	if opts.owned then
-		e.owned = C_Item.GetItemCount(itemID, true, false, true, true)
+		e.owned = ns.Loot_Owned(itemID) -- read as the loot opens: the feed reads it again once it's in the bags
 	end
 	if opts.newLook and IsGear(e) then
 		e.newLook = NewLook(e.link)

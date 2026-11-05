@@ -75,7 +75,7 @@ local function NewRow()
 	end)
 	row:SetScript("OnClick", function(self)
 		if self.onClick then
-			PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			UI.Sound("pick")
 			self.onClick()
 		end
 	end)
@@ -412,7 +412,7 @@ end
 local function FilterButton(width, onClick)
 	local b = UI.Button(page, width, "")
 	b:SetScript("OnClick", function()
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		UI.Sound("pick")
 		onClick()
 		detail = nil
 		Layout()

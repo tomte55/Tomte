@@ -41,6 +41,11 @@ local function Refresh()
 	ns.PetsPage_Refresh()
 end
 
+-- Settings preview (Panel/Preview.lua): the battle helper with a sample enemy team, drawn in Battle.lua.
+local function HelperPreview(host, get)
+	return ns.PetsBattle_DrawSample(host, get)
+end
+
 module = ns.RegisterModule({
 	key = "pets",
 	name = "Pet Battles",
@@ -100,6 +105,7 @@ module = ns.RegisterModule({
 	options = {
 		{ type = "header", label = "Battle helper" },
 		{ type = "checkbox", key = "advisor.shown", label = "Show the battle helper", onChange = Refresh,
+			preview = ns.Preview_When("advisor.shown", HelperPreview),
 			tooltip = "In pet battles: the enemy team, the attack types that hit the active enemy hard, your best pet against it and, for a saved strategy, its steps and the Next move button." },
 		{ type = "checkbox", key = "advisor.steps", label = "Strategy steps", onChange = Refresh,
 			parent = "advisor.shown", tooltip = "Show a saved strategy's turn-by-turn notes under the helper, with the round number." },
@@ -110,7 +116,7 @@ module = ns.RegisterModule({
 				return ("%.1f"):format(v)
 			end, onChange = function()
 				ns.PetsBattle_Relayout()
-			end },
+			end, preview = ns.Preview_When("advisor.shown", HelperPreview) },
 		{ type = "button", label = "Position", text = "Reset", onClick = function()
 			ns.PetsBattle_ResetPosition()
 		end, tooltip = "Move the helper back above the pet battle bar.", parent = "advisor.shown" },

@@ -74,7 +74,7 @@ local function RowClick(row)
 	if row.known == false then
 		return
 	end
-	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF)
+	UI.Sound("pick")
 	SetCurrentTitle(row.titleID)
 end
 

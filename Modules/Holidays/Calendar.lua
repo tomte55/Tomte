@@ -8,7 +8,11 @@ local addonName, ns = ...
 -- open, where the player may be browsing another month: then the reader works out the offset from that month.
 -- C_Calendar.GetDayEvent is secret in chat messaging lockdown: nothing is read then.
 
-ns.EVENTS_INDEX = ns.Events_Index(ns.EVENTS_DEFS)
+local iconGroups = { { icon = ns.EVENTS_TIMEWALKING.icon, textures = ns.EVENTS_TW_TEXTURES } }
+for _, group in ipairs(ns.EVENTS_WEEKLY_ICONS) do
+	iconGroups[#iconGroups + 1] = group
+end
+ns.EVENTS_INDEX = ns.Events_Index(ns.EVENTS_DEFS, iconGroups)
 
 local CACHE_SECONDS = 60
 local DEFAULT_SOON_DAYS = 7 -- before Events_Init (and the module default)

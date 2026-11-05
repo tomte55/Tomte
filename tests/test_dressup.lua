@@ -123,4 +123,18 @@ test("titles: filter, search and sort", function()
 	eq(#ns.DressUp_FilterTitles(titles, "naaru", "owned"), 0, "search within the filter")
 end)
 
+test("appearance state and its tooltip line", function()
+	local State = ns.DressUp_AppearanceState
+	eq(State(nil, true), nil)
+	eq(State({ appearanceIsCollected = false }, true), "new")
+	eq(State({ appearanceIsCollected = false }, false), "other")
+	eq(State({ appearanceIsCollected = true, sourceIsCollected = false }, true), "source")
+	eq(State({ appearanceIsCollected = true, sourceIsCollected = true }, true), "known")
+	local text, role = ns.DressUp_AppearanceLine("new")
+	eq(text, "Appearance not collected")
+	eq(role, "accent")
+	eq(ns.DressUp_AppearanceLine("known") ~= nil, true)
+	eq(ns.DressUp_AppearanceLine(nil), nil)
+end)
+
 H.done()

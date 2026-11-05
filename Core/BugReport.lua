@@ -11,6 +11,11 @@ ns.BUG_MAX_MESSAGE = 500
 
 local TOMTE_PATH = "AddOns/Tomte/"
 local BLOCKED = "AddOn 'Tomte'" -- BugGrabber's ADDON_ACTION_BLOCKED text (localized, keeps the quoted name)
+-- 12.x: Blizzard code that trips over a secret value after Tomte tainted it ("... (execution tainted by 'Tomte')").
+-- The stack is all Blizzard's, so the message is the only sign.
+local TAINTED = "tainted by 'Tomte'"
+ns.BUG_TOAST_GAP = 60 -- seconds: at most one bug toast this often, the errors in between are counted into the next
+ns.BUG_TOAST_MESSAGE = 90 -- characters of the error message a toast shows
 local TAIL = "%.%.%.([^%s%[%]\"':]+%.lua)" -- a path Lua shortened to "...<end of path>"
 local TAIL_MIN = 12 -- shorter tails could be anyone's file
 local SECRET_TEXT = "(hidden by the game: secret value)"
@@ -57,16 +62,20 @@ local function Mentions(text, files)
 	return text:find(TOMTE_PATH, 1, true) ~= nil or OwnTail(text, files)
 end
 
--- isTomte, stackOnly (the message points elsewhere but the stack goes through Tomte: a hook, a tooltip).
+-- isTomte, stackOnly (the message points elsewhere but the stack goes through Tomte: a hook, a tooltip), tainted
+-- (Blizzard's own code failed on a value Tomte had tainted earlier; nothing of Tomte's in message path or stack).
 function ns.Bug_IsTomte(message, stack, files)
 	files = files or ns.BUG_FILES or {}
 	if Mentions(message, files) or (type(message) == "string" and message:find(BLOCKED, 1, true)) then
-		return true, false
+		return true, false, false
 	end
 	if Mentions(stack, files) then
-		return true, true
+		return true, true, false
 	end
-	return false, false
+	if type(message) == "string" and message:find(TAINTED, 1, true) then
+		return true, false, true
+	end
+	return false, false, false
 end
 
 -- One shape for every source. raw: a BugGrabber error (counter, numeric time), a ScriptErrorsFrame entry (count,
@@ -99,7 +108,7 @@ function ns.Bug_Collect(lists, files, max)
 	local out, byMessage, total = {}, {}, 0
 	for _, list in ipairs(lists) do
 		for _, e in ipairs(list) do
-			local isTomte, stackOnly = ns.Bug_IsTomte(e.message, e.stack, files)
+			local isTomte, stackOnly, tainted = ns.Bug_IsTomte(e.message, e.stack, files)
 			if isTomte then
 				local seen = byMessage[e.message]
 				if seen then
@@ -110,7 +119,7 @@ function ns.Bug_Collect(lists, files, max)
 					for k, v in pairs(e) do
 						copy[k] = v
 					end
-					copy.stackOnly = stackOnly
+					copy.stackOnly, copy.tainted = stackOnly, tainted
 					byMessage[e.message] = copy
 					if #out < max then
 						out[#out + 1] = copy
@@ -171,6 +180,45 @@ function ns.Bug_Remember(buffer, errors, version, now, max)
 	for i = #buffer, max + 1, -1 do
 		buffer[i] = nil
 	end
+end
+
+-- Bug toasts. state = { seen = { [message] = true }, pending = errors not toasted yet, last = when the last toast
+-- showed }: each distinct error counts once a session, and toasts come at most one per gap seconds. Returns "show"
+-- (toast now), "wait", seconds (one is due when the gap ends) or nil (seen before: nothing to do).
+function ns.Bug_ToastNote(state, message, now, gap)
+	state.seen = state.seen or {}
+	state.pending = state.pending or 0
+	if state.seen[message] then
+		return nil
+	end
+	state.seen[message] = true
+	state.pending = state.pending + 1
+	if state.last and now - state.last < gap then
+		return "wait", state.last + gap - now
+	end
+	return "show"
+end
+
+-- How many errors the toast shown now is about. Starts the next gap.
+function ns.Bug_ToastTake(state, now)
+	local n = state.pending or 0
+	state.pending, state.last = 0, now
+	return n
+end
+
+-- The toast's title and text: n new errors, message the newest one's (first line, game folders cut, shortened).
+function ns.Bug_ToastText(n, message)
+	local title = n > 1 and ("Tomte ran into %d errors"):format(n) or "Tomte ran into an error"
+	local line = type(message) == "string" and message:match("^[^\n]*") or ""
+	line = line:gsub("\\", "/"):gsub("^Interface/AddOns/", ""):gsub("^Tomte/", "")
+	if #line > ns.BUG_TOAST_MESSAGE then
+		line = line:sub(1, ns.BUG_TOAST_MESSAGE - 3) .. "..."
+	end
+	local text = "Click for a bug report to copy and send."
+	if line ~= "" then
+		text = line .. "\n" .. text
+	end
+	return title, text
 end
 
 local function Q(v)
@@ -261,6 +309,8 @@ function ns.Bug_ReportText(info)
 				end
 				if e.stackOnly then
 					head = head .. " (Tomte in the stack)"
+				elseif e.tainted then
+					head = head .. " (Blizzard code, tainted by Tomte earlier)"
 				end
 				add(head)
 				add(e.message or UNREADABLE)

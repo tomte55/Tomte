@@ -13,6 +13,10 @@ local TOASTED_DAYS = 60 -- days a toasted occurrence is remembered
 local ENDING_MINUTES = 2 * 1440 -- Next up's "Holiday ending": ends within two days
 local HEAD_H = 40
 local ICON = "Interface\\Icons\\INV_Misc_Toy_10"
+-- The test command's and the settings previews' holiday (endsIn in minutes, as the calendar reader's) and what's
+-- missing from it.
+local SAMPLE_EVENT = { key = "sample", name = "Hallow's End", icon = 236546, endsIn = 6 * 1440 }
+local SAMPLE_COUNTS = { mounts = 1, pets = 2, toys = 3, achievements = 5 }
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "CALENDAR_UPDATE_EVENT_LIST", "LFG_UPDATE_RANDOM_INFO", "LFG_COMPLETION_REWARD",
 	"QUEST_TURNED_IN", "QUEST_DATA_LOAD_RESULT", "NEW_MOUNT_ADDED", "NEW_PET_ADDED", "NEW_TOY_ADDED",
@@ -24,9 +28,9 @@ local started = false
 local refreshTimer, resetTimer
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 local function OpenPage(key)
 	if ns.EventsPage_Open then
@@ -68,27 +72,49 @@ end
 
 -- Toasts -----------------------------------------------------------------------------------------------------------
 
-local function ShowStartToast(ev, counts, sample)
-	ns.Toast_Show({
+-- sample: a test toast or a settings preview (no click action, kept out of Recent).
+local function StartSpec(ev, counts, sample)
+	return {
 		owner = OWNER, label = "Holiday", accent = "accent", title = ev.name .. " has started",
 		text = (ns.Events_CountsText(counts) or "") .. " · ends " .. EndDate(ev),
-		icon = ev.texture or ICON, mergeKey = "events:" .. ev.key, holdInCombat = true, hold = 12,
+		icon = ev.icon or ICON, mergeKey = "events:" .. ev.key, holdInCombat = true, hold = 12,
 		test = sample or nil,
 		onClick = not sample and function()
 			OpenPage(ev.key)
 		end or nil,
-	})
+	}
 end
 
-local function ShowHeadsUpToast(ev, counts)
-	ns.Toast_Show({
+local function ShowStartToast(ev, counts, sample)
+	ns.Toast_Show(StartSpec(ev, counts, sample))
+end
+
+-- sample: a settings preview (kept out of Recent).
+local function HeadsUpSpec(ev, counts, sample)
+	return {
 		owner = OWNER, label = "Holiday tomorrow", accent = "accent", title = ev.name .. " " .. ns.Events_When(ev),
-		text = ns.Events_CountsText(counts) or "", icon = ev.texture or ICON, mergeKey = "events:pre:" .. ev.key,
-		holdInCombat = true, hold = 10,
+		text = ns.Events_CountsText(counts) or "", icon = ev.icon or ICON, mergeKey = "events:pre:" .. ev.key,
+		holdInCombat = true, hold = 10, test = sample or nil,
 		onClick = function()
 			OpenPage(ev.key)
 		end,
-	})
+	}
+end
+
+local function ShowHeadsUpToast(ev, counts)
+	ns.Toast_Show(HeadsUpSpec(ev, counts))
+end
+
+-- Settings previews (Panel/Preview.lua): the test command's holiday, built by the real toasts' spec code; the
+-- heads-up has it starting tomorrow.
+local function StartPreview(host)
+	return ns.Toast_DrawSample(host, StartSpec(SAMPLE_EVENT, SAMPLE_COUNTS, true), 1)
+end
+
+local function HeadsUpPreview(host)
+	local ev = { key = SAMPLE_EVENT.key, name = SAMPLE_EVENT.name, icon = SAMPLE_EVENT.icon,
+		startsIn = 20 * 60 }
+	return ns.Toast_DrawSample(host, HeadsUpSpec(ev, SAMPLE_COUNTS, true), 1)
 end
 
 local function MaybeToast()
@@ -297,7 +323,8 @@ local function CreateSection(frame, Kit)
 	frame.Kit = Kit
 end
 
-local function RefreshSection(frame)
+-- The section with at most `rows` events: on Home, and in the settings preview (SectionPreview below).
+local function FillSection(frame, rows)
 	local Kit = frame.Kit
 	local list = ns.Events_Current().list
 	if #list == 0 then
@@ -313,13 +340,21 @@ local function RefreshSection(frame)
 	frame.heading:Set("Events", active > 0 and (active .. " on now") or "soon", "Open", function()
 		OpenPage()
 	end)
-	local n = math.min(#list, db.homeRows)
+	local n = math.min(#list, rows)
+	-- [event key] = true while its counts are read; an event whose counts just arrived fades them in.
+	local reading, wasReading = {}, frame.reading or {}
 	for i = 1, n do
 		local ev = list[i]
 		local row = Kit.PoolRow(frame.rows, i, frame)
 		local right, rightColor = RightText(ev)
 		local text = ev.active and (ev.name .. "  " .. UI.Wrap(ns.Events_When(ev), "textMuted")) or ev.name
-		row:Set(ev.texture or ICON, text, ev.active and "text" or "textMuted", right, rightColor)
+		row:Set(ev.icon or ICON, text, ev.active and "text" or "textMuted", right, rightColor)
+		if ev.active and ev.def and not Counts(ev) then
+			Kit.RowProgress(row, ns.EventsCatalog_Progress)
+			reading[ev.key] = true
+		elseif wasReading[ev.key] then
+			UI.FadeIn(row.right)
+		end
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", 0, -(HEAD_H + (i - 1) * Kit.ROW_H))
 		row:SetPoint("RIGHT")
@@ -331,7 +366,32 @@ local function RefreshSection(frame)
 		end
 	end
 	Kit.HideFrom(frame.rows, n + 1)
+	frame.reading = reading
 	return HEAD_H + n * Kit.ROW_H
+end
+
+local function RefreshSection(frame)
+	return FillSection(frame, db.homeRows)
+end
+
+local PREVIEW_W = 300 -- about Home's right column on a default-size Tomte window
+
+-- Settings preview (Panel/Preview.lua): the Home section with today's events, as many rows as the setting says.
+local function SectionPreview(host, get)
+	local frame = host.section
+	if not frame then
+		frame = CreateFrame("Frame", nil, host)
+		frame:SetPoint("TOPLEFT")
+		frame:SetWidth(PREVIEW_W)
+		CreateSection(frame, ns.HomeKit)
+		host.section = frame
+	end
+	local h = FillSection(frame, get("homeRows"))
+	if h == 0 then
+		return nil -- no events now or soon: nothing to show
+	end
+	frame:SetHeight(h)
+	return PREVIEW_W, h
 end
 
 -- Next up ---------------------------------------------------------------------------------------------------------
@@ -359,7 +419,7 @@ local function BossCandidates()
 			list[#list + 1] = {
 				key = "events:boss:" .. id, state = Today(), text = ("%s: not done today"):format(b.name),
 				why = ev and ("%s daily boss, %s"):format(ev.name, ns.Events_When(ev)) or "Holiday daily boss",
-				icon = ev and ev.texture or ICON,
+				icon = ev and ev.icon or ICON,
 				onClick = function()
 					ns.Events_OpenFinder(id)
 				end, hint = "Click to open the Dungeon Finder",
@@ -380,7 +440,7 @@ local function EndingCandidates()
 				list[#list + 1] = {
 					key = "events:end:" .. key, state = total,
 					text = ("%s ends in %s"):format(ev.name, ns.Events_Duration(ev.endsIn)),
-					why = ns.Events_CountsText(counts), icon = ev.texture or ICON,
+					why = ns.Events_CountsText(counts), icon = ev.icon or ICON,
 					onClick = function()
 						OpenPage(key)
 					end, hint = "Click for the list",
@@ -409,7 +469,7 @@ local function DarkmoonCandidates()
 	return { {
 		key = "events:dmf", state = #open,
 		text = #open == 1 and "1 Darkmoon Faire profession quest" or (#open .. " Darkmoon Faire profession quests"),
-		why = table.concat(open, ", "), icon = ev and ev.texture or ICON,
+		why = table.concat(open, ", "), icon = ev and ev.icon or ICON,
 		onClick = function()
 			OpenPage(ev and ev.key)
 		end, hint = "Click for the list",
@@ -502,8 +562,7 @@ local function Test()
 	if not ns.Module_RequireOn(module) then
 		return
 	end
-	ShowStartToast({ key = "sample", name = "Hallow's End", texture = 235461, endsIn = 6 * 1440 },
-		{ mounts = 1, pets = 2, toys = 3, achievements = 5 }, true)
+	ShowStartToast(SAMPLE_EVENT, SAMPLE_COUNTS, true)
 end
 
 local function OpenCalendar()
@@ -614,9 +673,10 @@ module = ns.RegisterModule({
 	options = {
 		{ type = "header", label = "Home" },
 		{ type = "checkbox", key = "home", label = "Show on Home", onChange = Redraw,
+			preview = ns.Preview_When("home", SectionPreview),
 			tooltip = "A block in Home's right column: the events on now with what's left, then the ones starting soon." },
 		{ type = "slider", key = "homeRows", label = "Rows on Home", min = 2, max = 8, step = 1, onChange = Redraw,
-			parent = "home" },
+			parent = "home", preview = ns.Preview_When("home", SectionPreview) },
 		{ type = "header", label = "Events" },
 		{ type = "slider", key = "soonDays", label = "Starting within (days)", min = 1, max = 14, step = 1,
 			onChange = SettingChanged },
@@ -629,8 +689,10 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "show.achievements", label = "Achievements", onChange = SettingChanged },
 		{ type = "header", label = "Toasts" },
 		{ type = "checkbox", key = "toasts.start", label = "When a holiday starts",
+			preview = ns.Preview_When("toasts.start", StartPreview),
 			tooltip = "Once per holiday, when you still miss something from it." },
 		{ type = "checkbox", key = "toasts.before", label = "A day before a holiday starts",
+			preview = ns.Preview_When("toasts.before", HeadsUpPreview),
 			tooltip = "A heads-up the day before, when you still miss something from it." },
 		{ type = "button", label = "Sample toast", text = "Show", onClick = Test },
 		{ type = "header", label = "Elsewhere" },

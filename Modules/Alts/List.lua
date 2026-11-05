@@ -2,7 +2,9 @@ local addonName, ns = ...
 
 -- Crafting list: crafts added from the Crafting tab, an on-screen tracker with the to-do for the character you're
 -- on ("Grab 10 Iron Ingot from bank", "Mail 20 Mycobloom to Mira", "Ready: craft 3 Flask"),
--- crafts counted down as they're made, and marks on the items to move in Baganator's bags and bank. The mailbox rows
+-- crafts counted down as they're made, and marks on the items to move in Baganator's bags and bank. While the tracker
+-- shows, a craft or step that joins fades in and what it pushes down glides (ns.EditMode_Reflow), and its height
+-- eases, folding included (ns.EditMode_Fold, both in Core/EditMode.lua). The mailbox rows
 -- are in Send.lua, the List tab in ListTab.lua, the rules in ListData.lua.
 -- Also the shared labels the Alts files draw items and recipes with: Alts_QualityMarkup, Alts_RankMarkup,
 -- Alts_ItemLabel, Alts_RecipeLabel and Alts_MissingText.
@@ -13,29 +15,45 @@ local TITLE_H = 22
 local HEAD_H = 20
 local LINE_H = 15
 local MAX_LINES = 6 -- per craft in the tracker
+local FILL_SECONDS = 0.5 -- a craft's progress line easing to its new length
 local DEFAULT_POINT = { "TOPRIGHT", "TOPRIGHT", -40, -260 }
 local BAGANATOR_ID = "tomte_craftlist"
 -- Seconds the to-do is kept. AltsList_Changed drops it on bag, bank, mail, craft and recipe changes; this only
 -- catches what has no event (item names and prices arriving). The rail polls the pill every second.
 local CACHE = 15
--- Under the to-do without Syndicator (List tab and tracker).
-local PARTIAL_NOTE = "Materials on your other characters aren't counted without Syndicator."
+-- Under the to-do without Item counts or Syndicator (List tab and tracker).
+local PARTIAL_NOTE = "Materials on your other characters aren't counted: turn on Item counts."
 ns.ALTS_PARTIAL_NOTE = PARTIAL_NOTE
 local LINE_COLORS = {
 	grab = "text", collect = "text", take = "text", mail = "text", deposit = "text", fetch = "text", missing = "danger",
 	craft = "accent", ready = "success", wait = "textMuted", other = "textMuted",
 }
+-- The settings preview's crafts when nothing is tracked: to-dos as ListData.lua builds them, plus their own head
+-- (sample: the recipe's name, the crafter and its class file), as made-up recipes and characters aren't saved.
+local SAMPLE = {
+	{ entry = { crafts = 3 }, needed = 4, inPlace = 2,
+		sample = { name = "Flask of Alchemical Chaos", crafter = "Mira", class = "MAGE" },
+		lines = {
+			{ kind = "grab", mine = true, text = "Grab 10 Mycobloom from bank" },
+			{ kind = "mail", mine = true, text = "Mail 20 Luredrop to Mira" },
+			{ kind = "wait", text = "Mira crafts Flask of Alchemical Chaos" },
+		} },
+	{ entry = { crafts = 1 }, needed = 1, inPlace = 1,
+		sample = { name = "Charged Runeaxe", crafter = "Aldric", class = "PALADIN" },
+		lines = {
+			{ kind = "ready", mine = true, text = "Ready: craft Charged Runeaxe" },
+		} },
+}
 
 local db
 local frame
-local blocks = {}
 local cache, cacheAt
 local pending -- recipe spell ID of the craft that just started
 local inCombat = false
 local refreshTimer
 
 local events = ns.Alts_Events
-local baganatorRegistered, syndicatorRegistered
+local baganatorRegistered, syndicatorRegistered, countsRegistered
 -- Syndicator's callback registry stores callbacks per owner: its own table, not shared with CraftMats.lua.
 local listOwner = {}
 
@@ -67,9 +85,38 @@ local function GuidOf(character)
 	return guidByName[plain] or guidByName[character:match("^([^%-]+)") or character]
 end
 
--- { { guid, where, n } } for one item: every character's bags, bank and mail, and the Warband bank.
+-- { { guid, where, n } } for one item: every character's bags, bank and mail, and the Warband bank. From Item counts
+-- (Tomte's own record, by GUID like ours), else Syndicator, else this character only.
 local function Where(itemID)
 	local list = {}
+	local me = UnitGUID("player")
+	-- This character and the Warband bank, live from the game.
+	local function Mine()
+		local bags = C_Item.GetItemCount(itemID, false, false, true, false) or 0
+		local withBank = C_Item.GetItemCount(itemID, true, false, true, false) or 0
+		local all = C_Item.GetItemCount(itemID, true, false, true, true) or 0
+		if bags > 0 then
+			list[#list + 1] = { guid = me, where = "bags", n = bags }
+		end
+		if withBank > bags then
+			list[#list + 1] = { guid = me, where = "bank", n = withBank - bags }
+		end
+		if all > withBank then
+			list[#list + 1] = { where = "warband", n = all - withBank }
+		end
+	end
+	-- Item counts: other characters from its record (it has this one's bank only once it was opened).
+	if ns.Counts_Active and ns.Counts_Active() then
+		for _, w in ipairs(ns.Counts_Where(ns.Counts_Entry(itemID))) do
+			if w.guid and w.guid ~= me and w.where ~= "equipped" then
+				list[#list + 1] = w
+			elseif w.guid == me and w.where == "mail" then
+				list[#list + 1] = w
+			end
+		end
+		Mine()
+		return list
+	end
 	local api = SyndicatorAPI()
 	if api then
 		local info = api.GetInventoryInfoByItemID(itemID, false, false)
@@ -111,7 +158,7 @@ end
 -- Without Syndicator only this character and the Warband bank are counted: a material "to get" may be on another
 -- character. True when that can be so (another character known, something missing).
 function ns.AltsList_PartialCounts(todos)
-	if SyndicatorAPI() or not ns.altsDB then
+	if ns.Alts_HasSyndicator() or not ns.altsDB then
 		return false
 	end
 	local me, others = UnitGUID("player"), false
@@ -308,9 +355,17 @@ function ns.AltsList_Changed()
 			ns.AltsSend_Refresh()
 		end
 		-- A full Baganator refresh runs every corner widget and upgrade plugin on every item: only when our marks moved.
-		if Baganator and Baganator.API and Baganator.API.RequestItemButtonsRefresh and db.listBaganator
-			and MarksChanged() then
-			Baganator.API.RequestItemButtonsRefresh()
+		-- Tomte's own bags (Modules/Bags) redraw their crafting-list marks the same way.
+		local baganator = Baganator and Baganator.API and Baganator.API.RequestItemButtonsRefresh and db.listBaganator
+		local tomteBags = ns.Bags_Active and ns.Bags_Active()
+		if (baganator or tomteBags) and MarksChanged() then
+			if baganator then
+				Baganator.API.RequestItemButtonsRefresh()
+			end
+			if tomteBags then
+				ns.BagsWindow_Refresh()
+				ns.BagsBank_Refresh()
+			end
 		end
 	end)
 end
@@ -341,15 +396,30 @@ end
 
 local SEARCHABLE = { grab = true, take = true, collect = true, fetch = true, mail = true, deposit = true }
 
--- Baganator has no search API; its slash command is the public way in ("/bgr search <text>", lower case). It opens
--- the bags too, and an open bank view highlights the matches.
+-- Where a click on a material line finds it: Tomte's bags, else Baganator's, else nil.
+local function SearchTarget()
+	if ns.Bags_Active and ns.Bags_Active() then
+		return "your bags"
+	elseif SlashCmdList and SlashCmdList["Baganator"] and db.listBaganator then
+		return "Baganator"
+	end
+	return nil
+end
+
+-- Tomte's bags (Modules/Bags) search for it by name, and its bank too while it's open. Baganator has no search API;
+-- its slash command is the public way in ("/bgr search <text>", lower case). It opens the bags too, and an open bank
+-- view highlights the matches.
 function ns.AltsList_Search(itemID)
 	local name = itemID and C_Item.GetItemNameByID(itemID)
-	local slash = SlashCmdList and SlashCmdList["Baganator"]
-	if not (name and slash and db.listBaganator) then
+	local target = SearchTarget()
+	if not (name and target) then
 		return false
 	end
-	local ok = pcall(slash, "search " .. name:lower())
+	if target == "your bags" then
+		ns.BagsWindow_Find(name)
+		return true
+	end
+	local ok = pcall(SlashCmdList["Baganator"], "search " .. name:lower())
 	return ok
 end
 
@@ -359,20 +429,21 @@ local function LineTooltip(owner, line)
 	end
 	GameTooltip:SetOwner(owner, "ANCHOR_LEFT")
 	GameTooltip:SetItemByID(line.itemID)
-	if SEARCHABLE[line.kind] and SlashCmdList and SlashCmdList["Baganator"] then
+	local target = SEARCHABLE[line.kind] and SearchTarget()
+	if target then
 		GameTooltip:AddLine(" ")
 		local r, g, b = UI.Color("accent")
-		GameTooltip:AddLine("Click: find it in Baganator", r, g, b)
+		GameTooltip:AddLine("Click: find it in " .. target, r, g, b)
 	end
 	GameTooltip:Show()
 end
 
-local function Block(i)
-	local b = blocks[i]
+local function Block(f, i)
+	local b = f.blocks[i]
 	if b then
 		return b
 	end
-	b = CreateFrame("Button", nil, frame)
+	b = CreateFrame("Button", nil, f)
 	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	b.title = UI.Text(b, 13, "heading")
 	b.title:SetPoint("TOPLEFT", 0, 0)
@@ -413,7 +484,7 @@ local function Block(i)
 	b:SetScript("OnLeave", function()
 		GameTooltip:Hide()
 	end)
-	blocks[i] = b
+	f.blocks[i] = b
 	return b
 end
 
@@ -451,21 +522,148 @@ local function Line(b, i)
 	return l
 end
 
+-- The tracker's look on f: the panel, the title and the note (crafts go in f.blocks). Shared by the real tracker and
+-- the settings preview.
+local function Dress(f)
+	f:SetSize(WIDTH, 60)
+	UI.Panel(f, { alpha = 0.55, subtle = true })
+	f.title = UI.Text(f, 10, "textMuted")
+	f.title:SetPoint("TOPLEFT", 10, -6)
+	f.title:SetText(ns.Spaced and ns.Spaced("Crafting list") or "CRAFTING LIST")
+	f.note = UI.Text(f, 10, "textMuted")
+	f.note:SetWidth(WIDTH - 20)
+	f.note:SetJustifyH("LEFT")
+	f.note:SetWordWrap(true)
+	f.blocks = {}
+end
+
+-- A craft's title line and its crafter (name and class file, nil when nobody). The preview's sample crafts carry
+-- their own (t.sample), as their recipes and characters aren't in the saved data.
+local function CraftHead(t)
+	local s = t.sample
+	local label, crafter, class
+	if s then
+		label, crafter, class = s.name, s.crafter, s.class
+	else
+		label = ns.Alts_RecipeLabel(t.entry.recipeID, 15, t.entry.quality)
+		local c = t.crafter and ns.altsDB.chars[t.crafter]
+		crafter, class = c and c.name, c and c.class
+	end
+	return ("%s  %s"):format(label, UI.Wrap("x" .. t.entry.crafts, "textMuted")), crafter, class
+end
+
+-- A step line's key within its craft, to follow it across redraws: its kind and item or recipe (not its text, whose
+-- counts change as things move), numbered when the same comes twice.
+local function LineKey(line, seen)
+	local key = ("%s:%s"):format(line.kind or "", tostring(line.itemID or line.recipeID or ""))
+	seen[key] = (seen[key] or 0) + 1
+	return key .. "#" .. seen[key]
+end
+
+-- Lays the crafts out on f (built by Dress) and sizes it. Each craft block and step line gets .key and .y for
+-- ns.EditMode_Reflow.
+local function Fill(f, todos)
+	local blocks = f.blocks
+	local y = TITLE_H
+	for i, t in ipairs(todos) do
+		local b = Block(f, i)
+		b.todo = t
+		b.key, b.y = t.entry, y
+		b:ClearAllPoints()
+		b:SetPoint("TOPLEFT", 10, -y)
+		b:SetPoint("RIGHT", -10, 0)
+		local title, crafter, class = CraftHead(t)
+		b.title:SetText(title)
+		local color = class and C_ClassColor.GetClassColor(class)
+		b.crafter:SetText(crafter or "nobody")
+		if color then
+			b.crafter:SetTextColor(color.r, color.g, color.b)
+		else
+			UI.SetTextRole(b.crafter, "textMuted")
+		end
+		-- The same craft's progress eases to its new length while the tracker shows; a block now showing another craft
+		-- jumps.
+		local width = math.max((WIDTH - 20) * ns.Alts_CraftProgress(t), 1)
+		local fill = b.fill
+		if b.fillOf == t.entry and b:IsVisible() and math.abs(fill:GetWidth() - width) >= 1 then
+			local from = fill:GetWidth()
+			UI.Tween(fill, "width", FILL_SECONDS, function(p)
+				fill:SetWidth(UI.Lerp(from, width, p))
+			end)
+		else
+			UI.TweenStop(fill, "width")
+			fill:SetWidth(width)
+		end
+		b.fillOf = t.entry
+		local ly = HEAD_H
+		local shown = 0
+		local keys = {}
+		for _, line in ipairs(t.lines) do
+			if shown >= MAX_LINES then
+				break
+			end
+			shown = shown + 1
+			local l = Line(b, shown)
+			l.line = line
+			l.key, l.y = LineKey(line, keys), ly
+			l:ClearAllPoints()
+			l:SetPoint("TOPLEFT", 0, -ly)
+			l:SetPoint("RIGHT")
+			l.text:SetText(line.text)
+			UI.SetTextRole(l.text, line.mine and (LINE_COLORS[line.kind] or "text") or "textMuted")
+			local h = math.max(LINE_H, math.ceil(l.text:GetStringHeight()) + 3)
+			l:SetHeight(h)
+			ly = ly + h
+		end
+		if #t.lines > MAX_LINES then
+			shown = shown + 1
+			local l = Line(b, shown)
+			l.line = {}
+			l.key, l.y = "more", ly
+			l:ClearAllPoints()
+			l:SetPoint("TOPLEFT", 0, -ly)
+			l:SetPoint("RIGHT")
+			l.text:SetText(("+ %d more (the List tab has them all)"):format(#t.lines - MAX_LINES))
+			UI.SetTextRole(l.text, "textMuted")
+			l:SetHeight(LINE_H)
+			ly = ly + LINE_H
+		end
+		for j = shown + 1, #b.lines do
+			b.lines[j]:Hide()
+		end
+		b.shownLines = shown
+		b:SetHeight(ly)
+		b:Show()
+		y = y + ly + 8
+	end
+	for i = #todos + 1, #blocks do
+		blocks[i]:Hide()
+	end
+	if #todos == 0 then
+		y = y + 18
+	end
+	-- "Get" lines without Syndicator may be on another character.
+	if ns.AltsList_PartialCounts(todos) then
+		f.note:ClearAllPoints()
+		f.note:SetPoint("TOPLEFT", 10, -y)
+		f.note:SetText(PARTIAL_NOTE)
+		f.note:Show()
+		y = y + math.ceil(f.note:GetStringHeight()) + 6
+	else
+		f.note:Hide()
+	end
+	f:SetHeight(y + 4)
+end
+
+local Draw
+
 local function Build()
 	frame = CreateFrame("Frame", nil, UIParent)
-	frame:SetSize(WIDTH, 60)
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetClampedToScreen(true)
 	frame:SetMovable(true)
 	frame:Hide()
-	UI.Panel(frame, { alpha = 0.55, subtle = true })
-	frame.title = UI.Text(frame, 10, "textMuted")
-	frame.title:SetPoint("TOPLEFT", 10, -6)
-	frame.title:SetText(ns.Spaced and ns.Spaced("Crafting list") or "CRAFTING LIST")
-	frame.note = UI.Text(frame, 10, "textMuted")
-	frame.note:SetWidth(WIDTH - 20)
-	frame.note:SetJustifyH("LEFT")
-	frame.note:SetWordWrap(true)
+	Dress(frame)
 	local mover = CreateFrame("Frame", nil, frame)
 	mover:SetAllPoints()
 	mover:SetFrameLevel(frame:GetFrameLevel() + 10)
@@ -487,7 +685,7 @@ local function Build()
 		return db.tracker.collapsed
 	end, function()
 		db.tracker.collapsed = not db.tracker.collapsed
-		ns.AltsList_Refresh()
+		Draw(true)
 	end)
 end
 
@@ -518,7 +716,32 @@ local function WantShown(todos)
 	return true
 end
 
-function ns.AltsList_Refresh()
+-- The tracker's crafts and note, top down: what a fold fades.
+local function FoldRegions()
+	local list = {}
+	for i, b in ipairs(frame.blocks) do
+		list[i] = b
+	end
+	list[#list + 1] = frame.note
+	return list
+end
+
+-- After a draw that shows the crafts: crafts and step lines that joined since the last one fade in and what moved
+-- glides (only when the tracker showed them before too).
+local function Reflow(todos, live)
+	local before = live and frame.spots
+	local lineSpots = {}
+	frame.spots = ns.EditMode_Reflow(frame.blocks, #todos, before or nil)
+	for i = 1, #todos do
+		local b = frame.blocks[i]
+		lineSpots[b.key] = ns.EditMode_Reflow(b.lines, b.shownLines,
+			before and before[b.key] ~= nil and frame.lineSpots and frame.lineSpots[b.key] or nil)
+	end
+	frame.lineSpots = lineSpots
+end
+
+-- fold: the minus was clicked (what folds away fades); any other draw only eases the height.
+function Draw(fold)
 	if not db then
 		return
 	end
@@ -533,90 +756,48 @@ function ns.AltsList_Refresh()
 		Build()
 		Place()
 	end
+	local before = ns.EditMode_FoldStart(frame, FoldRegions())
 	frame:SetScale(db.tracker.scale or 1)
 	frame.mover:SetShown(not db.tracker.locked and not ns.EditMode_Active())
-	if db.tracker.collapsed then
-		for _, b in ipairs(blocks) do
+	local collapsed = db.tracker.collapsed
+	if collapsed then
+		for _, b in ipairs(frame.blocks) do
 			b:Hide()
 		end
 		frame.note:Hide()
 		frame:SetHeight(TITLE_H)
-		frame:Show()
-		return
-	end
-	local y = TITLE_H
-	for i, t in ipairs(todos) do
-		local b = Block(i)
-		b.todo = t
-		b:ClearAllPoints()
-		b:SetPoint("TOPLEFT", 10, -y)
-		b:SetPoint("RIGHT", -10, 0)
-		b.title:SetText(("%s  %s"):format(ns.Alts_RecipeLabel(t.entry.recipeID, 15, t.entry.quality),
-			UI.Wrap("x" .. t.entry.crafts, "textMuted")))
-		local c = t.crafter and ns.altsDB.chars[t.crafter]
-		local color = c and c.class and C_ClassColor.GetClassColor(c.class)
-		b.crafter:SetText(c and c.name or "nobody")
-		if color then
-			b.crafter:SetTextColor(color.r, color.g, color.b)
-		else
-			UI.SetTextRole(b.crafter, "textMuted")
-		end
-		b.fill:SetWidth(math.max((WIDTH - 20) * ns.Alts_CraftProgress(t), 1))
-		local ly = HEAD_H
-		local shown = 0
-		for _, line in ipairs(t.lines) do
-			if shown >= MAX_LINES then
-				break
-			end
-			shown = shown + 1
-			local l = Line(b, shown)
-			l.line = line
-			l:ClearAllPoints()
-			l:SetPoint("TOPLEFT", 0, -ly)
-			l:SetPoint("RIGHT")
-			l.text:SetText(line.text)
-			UI.SetTextRole(l.text, line.mine and (LINE_COLORS[line.kind] or "text") or "textMuted")
-			local h = math.max(LINE_H, math.ceil(l.text:GetStringHeight()) + 3)
-			l:SetHeight(h)
-			ly = ly + h
-		end
-		if #t.lines > MAX_LINES then
-			shown = shown + 1
-			local l = Line(b, shown)
-			l.line = {}
-			l:ClearAllPoints()
-			l:SetPoint("TOPLEFT", 0, -ly)
-			l:SetPoint("RIGHT")
-			l.text:SetText(("+ %d more (the List tab has them all)"):format(#t.lines - MAX_LINES))
-			UI.SetTextRole(l.text, "textMuted")
-			l:SetHeight(LINE_H)
-			ly = ly + LINE_H
-		end
-		for j = shown + 1, #b.lines do
-			b.lines[j]:Hide()
-		end
-		b:SetHeight(ly)
-		b:Show()
-		y = y + ly + 8
-	end
-	for i = #todos + 1, #blocks do
-		blocks[i]:Hide()
-	end
-	if #todos == 0 then
-		y = y + 18
-	end
-	-- "Get" lines without Syndicator may be on another character.
-	if ns.AltsList_PartialCounts(todos) then
-		frame.note:ClearAllPoints()
-		frame.note:SetPoint("TOPLEFT", 10, -y)
-		frame.note:SetText(PARTIAL_NOTE)
-		frame.note:Show()
-		y = y + math.ceil(frame.note:GetStringHeight()) + 6
 	else
-		frame.note:Hide()
+		Fill(frame, todos)
 	end
-	frame:SetHeight(y + 4)
+	ns.EditMode_FoldKeep(frame)
 	frame:Show()
+	ns.EditMode_Fold(frame, before, fold and FoldRegions() or {})
+	if collapsed or not frame:IsVisible() then
+		frame.spots, frame.lineSpots = nil, nil
+	else
+		Reflow(todos, before.visible and not fold)
+	end
+end
+
+function ns.AltsList_Refresh()
+	Draw(false)
+end
+
+-- The settings preview (Panel/Preview.lua): the tracker with this character's to-do, or SAMPLE when nothing is
+-- tracked, at the scale under the mouse. Drawn by Dress and Fill like the real one.
+function ns.AltsList_DrawSample(host, get)
+	local f = host.tracker
+	if not f then
+		f = CreateFrame("Frame", nil, host)
+		f:SetPoint("TOPLEFT")
+		Dress(f)
+		host.tracker = f
+	end
+	local todos = ns.AltsList_Todos()
+	Fill(f, #todos > 0 and todos or SAMPLE)
+	local scale = get("tracker.scale") or 1
+	f:SetScale(scale)
+	return f:GetWidth() * scale, f:GetHeight() * scale
 end
 
 ns.EditMode_Register({
@@ -628,6 +809,11 @@ ns.EditMode_Register({
 		ns.AltsList_Refresh()
 	end,
 	saved = SavePoint,
+	module = "alts",
+	options = { "tracker.mode", "tracker.scale", "tracker.hideInCombat" },
+	reset = function()
+		ns.AltsList_ResetPosition()
+	end,
 })
 
 function ns.AltsList_ResetPosition()
@@ -647,6 +833,14 @@ local function Marked()
 		marked, markedFor = ns.Alts_MarkedItems(todos), todos
 	end
 	return marked
+end
+
+-- How many of an item the crafting list wants moved (Tomte's own bags mark it), nil for none or while Alts is off.
+function ns.AltsList_Marked(itemID)
+	if not (ns.altsModule.active and itemID) then
+		return nil
+	end
+	return Marked()[itemID]
 end
 
 -- Whether the marks differ from the ones the item buttons last showed (and remembers the new ones).
@@ -763,6 +957,14 @@ function ns.AltsList_Start(moduleDB)
 		end
 	end
 	RegisterBaganator()
+	if ns.Counts_OnChange and not countsRegistered then
+		countsRegistered = true -- once per session; the listener checks that Alts is on
+		ns.Counts_OnChange(function()
+			if ns.altsModule.active then
+				ns.AltsList_Changed()
+			end
+		end)
+	end
 	if _G.Syndicator and Syndicator.CallbackRegistry and not syndicatorRegistered then
 		syndicatorRegistered = true
 		for _, name in ipairs({ "BagCacheUpdate", "MailCacheUpdate", "WarbandBankCacheUpdate" }) do

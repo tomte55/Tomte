@@ -9,6 +9,7 @@ local addonName, ns = ...
 -- APIs: Blizzard UI source 12.1.0 (69933) + warcraft.wiki.gg (docs/superpowers/specs/2026-10-05-tomte-alts-design.md).
 
 local DEBOUNCE = 1
+local PROF_RETRIES = 5 -- reads again while the professions aren't loaded yet (ReadProfs), this many times
 local GEAR_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 } -- worn gear without shirt (4) and tabard
 local PRIMARY_KEYS = { [1] = "STR", [2] = "AGI", [4] = "INT" } -- LE_UNIT_STAT_*, GetSpecializationInfo's primaryStat
 local BATCH = 30 -- recipes read per frame
@@ -154,6 +155,26 @@ local function ExpansionLine(base)
 	return def and def.child
 end
 
+-- The skill in each expansion's line Content has data for (recipe items need "Midnight Leatherworking (50)", not
+-- the profession's overall skill). A line the game doesn't answer for keeps its last reading.
+local function ReadTiers(base, before)
+	local tiers = {}
+	for line, level in pairs(before or {}) do
+		tiers[line] = level
+	end
+	for _, expansion in ipairs(ns.Content_Expansions()) do
+		local def = ns.Weekly_ProfDef(expansion, base)
+		if def and def.child then
+			local ok, info = pcall(C_TradeSkillUI.GetProfessionInfoBySkillLineID, def.child)
+			local level = ok and type(info) == "table" and info.skillLevel or nil
+			if ns.Readable(level) and type(level) == "number" and level > 0 then
+				tiers[def.child] = level
+			end
+		end
+	end
+	return tiers
+end
+
 local function ReadUnspent(line)
 	if not (line and C_ProfSpecs.SkillLineHasSpecialization(line)) then
 		return nil
@@ -170,6 +191,17 @@ local function ReadProfs(c)
 	local profs = {}
 	-- Every profession: the two main ones, then archaeology, fishing and cooking (only cooking has recipes).
 	local first, second, archaeology, fishing, cooking = GetProfessions()
+	-- Right after login the game can answer with no professions, or with professions it can't describe yet. Reading
+	-- that would drop every known recipe (the crafting list then said nobody knows them until the profession window
+	-- was opened, measured in game): keep what was read before until the answer is complete.
+	if not (first or second or archaeology or fishing or cooking) and next(old) then
+		return false
+	end
+	for _, index in pairs({ first, second, archaeology, fishing, cooking }) do
+		if not select(7, GetProfessionInfo(index)) then
+			return false
+		end
+	end
 	for _, index in pairs({ first, second, archaeology, fishing, cooking }) do
 		local name, icon, skill, maxSkill, _, _, base = GetProfessionInfo(index)
 		if base then
@@ -182,12 +214,27 @@ local function ReadProfs(c)
 			profs[base] = {
 				name = name, icon = icon, base = base, line = line, skill = skill, max = maxSkill,
 				unspent = unspent, known = before.known or {}, scannedAt = before.scannedAt,
+				tiers = ReadTiers(base, before.tiers),
 				secondary = (index ~= first and index ~= second) or nil,
 			}
 		end
 	end
 	c.profs = profs
+	return true
 end
+
+-- The professions read, as one string: a change (learned, unlearned, or read for the first time) redraws the
+-- crafting list, whose plans need to know who crafts what.
+local function ProfsKey(c)
+	local bases = {}
+	for base, p in pairs(c.profs or {}) do
+		bases[#bases + 1] = base .. ":" .. (p.known and next(p.known) and "k" or "")
+	end
+	table.sort(bases)
+	return table.concat(bases, ",")
+end
+
+local profRetries = 0
 
 local function Refresh()
 	pending = false
@@ -204,7 +251,15 @@ local function Refresh()
 	Try(ReadGear, c)
 	Try(ReadProfGear, c)
 	Try(ReadRest, c)
-	Try(ReadProfs, c)
+	local profsBefore = ProfsKey(c)
+	local ok, read = Try(ReadProfs, c)
+	if ok and read == false and profRetries < PROF_RETRIES then
+		profRetries = profRetries + 1
+		C_Timer.After(DEBOUNCE, ns.AltsCollect_Request)
+	end
+	if ProfsKey(c) ~= profsBefore and ns.AltsList_Changed then
+		ns.AltsList_Changed()
+	end
 	ns.Alts_Changed()
 end
 
@@ -427,12 +482,20 @@ local function SyndicatorAPI()
 	return nil
 end
 
+-- Item counts (Tomte's own record) is on: every character's items are counted.
+local function TomteCounts()
+	return ns.Counts_Active ~= nil and ns.Counts_Active()
+end
+
+-- Items on every character are counted (Item counts, or else Syndicator); false: this character and the Warband
+-- bank only.
 function ns.Alts_HasSyndicator()
-	return SyndicatorAPI() ~= nil
+	return TomteCounts() or SyndicatorAPI() ~= nil
 end
 
 -- How many of these items (quality ranks of one reagent) the account has, and where: total, { { name, n, class } }
--- sorted most first. Without Syndicator: this character's bags, bank, reagents and Warband bank.
+-- sorted most first. From Item counts, else Syndicator; without either: this character's bags, bank, reagents and
+-- Warband bank.
 function ns.Alts_Have(items)
 	local total, byWhere, classOf = 0, {}, {}
 	local function Add(where, n, class)
@@ -443,7 +506,24 @@ function ns.Alts_Have(items)
 		end
 	end
 	local api = SyndicatorAPI()
-	if api then
+	if TomteCounts() then
+		-- Other characters from the record; this one and the Warband bank live from the game (the record has the bank
+		-- only once it was opened with Item counts on). Worn gear isn't material.
+		local me = UnitGUID("player")
+		for _, itemID in ipairs(items) do
+			for _, w in ipairs(ns.Counts_Where(ns.Counts_Entry(itemID))) do
+				if w.guid and w.guid ~= me and w.where ~= "equipped" then
+					local name = ns.Counts_CharName(w.guid) or "?"
+					local char = ns.altsDB and ns.altsDB.chars[w.guid]
+					Add(name, w.n, char and char.class)
+				end
+			end
+			local mine = C_Item.GetItemCount(itemID, true, false, true, false)
+			local all = C_Item.GetItemCount(itemID, true, false, true, true)
+			Add(UnitName("player"), mine, select(2, UnitClass("player")))
+			Add("Warband bank", (all or 0) - (mine or 0))
+		end
+	elseif api then
 		for _, itemID in ipairs(items) do
 			local info = api.GetInventoryInfoByItemID(itemID, false, false)
 			for _, c in ipairs(info and info.characters or {}) do

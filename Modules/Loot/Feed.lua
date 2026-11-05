@@ -1,19 +1,15 @@
 local addonName, ns = ...
 
--- Loot: the feed, lines that slide in beside your character and fade after the fade delay: what you looted (Feed
--- style), and in every style the lines that stand in for Blizzard's loot pop-ups, valuable boss loot, reputation and
--- currency (Toasts.lua). Not clickable, so it never takes a click meant for the world. Placed where Edit Mode put it;
--- grows down or up. Text helpers are in Window.lua.
+-- Loot: the feed, lines that slide in beside your character and fade after the fade delay: what auto loot took (and
+-- what you take by hand, while that setting is on), and the lines that stand in for Blizzard's loot pop-ups,
+-- valuable boss loot, reputation and currency (Toasts.lua). Not clickable, so it never takes a click meant for the world. Placed where Edit Mode put it;
+-- grows down or up. Text helpers and the strip each line is drawn as are in Parts.lua.
 -- A line: a thin bar in the item's quality color, the icon, the name, the extras smaller after it, on a dark strip
 -- that fades out to the right, so it reads over the world without a box around it.
 
 local FEED_MAX = 8 -- lines at once; a new one past this sends the oldest away
 local BASE_FONT = 12
 local LINE_W = 400 -- the widest a line gets; each line fits its text up to this
-local BAR_W = 2 -- the quality bar on the left edge
-local ICON_GAP, DETAIL_GAP = 6, 8 -- after the bar and the icon; between the name and the extras
-local TAIL = 48 -- the strip runs on past the text this far while it fades out
-local STRIP_ALPHA = 0.85 -- the strip's darkest point, times the Background opacity
 local LINE_EXTRA = 10 -- line height over the font size
 local GAP = 3
 local SLIDE = 16 -- pixels a line slides in from
@@ -76,7 +72,7 @@ local function Release(f)
 	f.pulse:Stop()
 	f:SetScript("OnUpdate", nil)
 	f:Hide()
-	f.mergeKey, f.entry, f.copper, f.counting, f.slide = nil, nil, nil, nil, nil
+	f.mergeKey, f.entry, f.copper, f.counting, f.slide, f.spec, f.suffix = nil, nil, nil, nil, nil, nil, nil
 	for i, shown in ipairs(lines) do
 		if shown == f then
 			table.remove(lines, i)
@@ -90,21 +86,7 @@ end
 local function CreateLine()
 	local f = CreateFrame("Frame", nil, holder)
 	f:EnableMouse(false)
-	f.bg = f:CreateTexture(nil, "BACKGROUND")
-	f.bg:SetAllPoints()
-	f.bg:SetColorTexture(1, 1, 1, 1) -- colored by the gradient (Fill)
-	f.bar = f:CreateTexture(nil, "ARTWORK")
-	f.bar:SetPoint("TOPLEFT")
-	f.bar:SetPoint("BOTTOMLEFT")
-	f.bar:SetWidth(BAR_W)
-	f.icon = f:CreateTexture(nil, "ARTWORK")
-	f.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-	f.icon:SetPoint("LEFT", BAR_W + ICON_GAP - 2, 0)
-	f.text = UI.Text(f, BASE_FONT, "text")
-	f.text:SetWordWrap(false)
-	f.detail = UI.Text(f, BASE_FONT - 1, "textMuted")
-	f.detail:SetWordWrap(false)
-	f.detail:SetPoint("LEFT", f.text, "RIGHT", DETAIL_GAP, 0)
+	ns.LootParts_Strip(f)
 	-- Merged: the line flashes in the accent, as a merged whisper toast does.
 	f.flash = f:CreateTexture(nil, "BORDER")
 	f.flash:SetAllPoints()
@@ -145,44 +127,12 @@ local function CreateLine()
 	return f
 end
 
--- The bar's color: the item's quality, else the spec's role (reputation, honor), else the accent.
-local function SetBarColor(f, spec)
-	local q = spec.quality and ITEM_QUALITY_COLORS[spec.quality]
-	if q then
-		f.bar:SetColorTexture(q.r, q.g, q.b, 1)
-	else
-		f.bar:SetColorTexture(UI.Color(spec.role or "accent"))
-	end
-end
-
 local function Fill(f, spec)
 	local size = db.fontSize
-	local iconSize = size + 6
+	f.spec = spec
 	f.static = spec.static
 	f:SetAlpha(1)
-	f.bg:SetGradient("HORIZONTAL", UI.ColorObject("bg", db.bgAlpha * STRIP_ALPHA), UI.ColorObject("bg", 0))
-	SetBarColor(f, spec)
-	f.icon:SetSize(iconSize, iconSize)
-	f.icon:SetTexture(spec.icon)
-	f.icon:SetShown(spec.icon ~= nil)
-	f.text:ClearAllPoints()
-	if spec.icon then
-		f.text:SetPoint("LEFT", f.icon, "RIGHT", ICON_GAP, 0)
-	else
-		f.text:SetPoint("LEFT", BAR_W + ICON_GAP, 0)
-	end
-	UI.SetFont(f.text, "body", size)
-	UI.SetFont(f.detail, "body", size - 1)
-	f.text:SetText(spec.text or "")
-	f.detail:SetText(spec.detail or "")
-	local left = BAR_W + ICON_GAP + (spec.icon and iconSize + ICON_GAP or 0)
-	local detailW = (spec.detail and spec.detail ~= "") and DETAIL_GAP + math.ceil(f.detail:GetUnboundedStringWidth())
-		or 0
-	-- A long name gives way first, so the extras stay readable within LINE_W.
-	local maxW = LINE_W * size / BASE_FONT
-	local nameW = math.min(math.ceil(f.text:GetUnboundedStringWidth()), maxW - TAIL - left - detailW)
-	f.text:SetWidth(math.max(nameW, 1))
-	f.width = left + nameW + detailW + TAIL
+	f.width = ns.LootParts_FillStrip(f, spec, size, db.bgAlpha, LINE_W * size / BASE_FONT)
 end
 
 local function Build()
@@ -249,6 +199,7 @@ local function Tick(f, elapsed)
 		f:SetScript("OnUpdate", nil)
 	end
 end
+local TickTimed = ns.Perf_Wrap(Tick, "OnUpdate")
 
 -- A merged line: new text (counting up to it), flashes, and its fade delay starts again.
 local function Merge(f, spec)
@@ -258,7 +209,7 @@ local function Merge(f, spec)
 	if count and count.to > count.from then
 		f.counting = { from = count.from, to = count.to, text = count.text, t = 0 }
 		f.text:SetText(count.text(count.from))
-		f:SetScript("OnUpdate", Tick)
+		f:SetScript("OnUpdate", TickTimed)
 	end
 	f.pulse:Stop()
 	f.pulse:Play()
@@ -292,7 +243,7 @@ function ns.LootFeed_Push(spec)
 	lines[#lines + 1] = f
 	Layout()
 	f:Show()
-	f:SetScript("OnUpdate", Tick)
+	f:SetScript("OnUpdate", TickTimed)
 	f.inAnim:Play()
 	return f
 end
@@ -306,6 +257,62 @@ local function EntryKey(e)
 		return ns.Loot_IsGear(e) and ("l:" .. e.link) or ("i:" .. (e.itemID or e.link))
 	end
 	return nil
+end
+
+local function DetailText(e, suffix)
+	local detail = ns.Loot_PartsText(ns.Loot_Details(e, ns.Loot_DetailOpts("tag")))
+	if suffix then
+		detail = detail ~= "" and (detail .. "  " .. suffix) or suffix
+	end
+	return detail
+end
+
+-- Owned counts ----------------------------------------------------------------------------------------------------
+
+-- An entry's owned count is read as the loot opens, before the item is in the bags (looting fast, several in a row
+-- can be read before any of them lands). Once the bags have taken it, the lines still up read it again.
+local FEED_OWNER = "lootFeed"
+local eventsAttached = false
+local WatchBags
+
+local function RefreshOwned()
+	local any = false
+	for _, f in ipairs(lines) do
+		local e = f.entry
+		if e and e.owned and e.itemID then
+			any = true
+			local owned = ns.Loot_Owned(e.itemID)
+			if owned ~= e.owned then
+				e.owned = owned
+				local spec = {}
+				for k, v in pairs(f.spec) do
+					spec[k] = v
+				end
+				spec.detail = DetailText(e, f.suffix)
+				local alpha = f:GetAlpha() -- keeps a fading line where its fade is
+				Fill(f, spec) -- a line counting up gets its number back on the next frame (CountStep)
+				f:SetAlpha(alpha)
+			end
+		end
+	end
+	Layout()
+	if not any then
+		WatchBags(false)
+	end
+end
+
+-- Watches the bags while a line with an owned count is up. The Loot bus is made in Toasts.lua, later in the TOC.
+function WatchBags(on)
+	local events = ns.Loot_Events
+	if not eventsAttached then
+		eventsAttached = true
+		events:On(FEED_OWNER, "BAG_UPDATE_DELAYED", RefreshOwned)
+	end
+	if on then
+		events:Watch(FEED_OWNER, "BAG_UPDATE_DELAYED")
+	else
+		events:UnwatchAll(FEED_OWNER)
+	end
 end
 
 -- An entry (Read.lua) as a feed line, with the extras that are on; suffix: more colored text after it. The same
@@ -331,14 +338,13 @@ function ns.LootFeed_PushEntry(e, suffix)
 			return ns.Loot_NameText(shown)
 		end }
 	end
-	local detail = ns.Loot_PartsText(ns.Loot_Details(e, ns.Loot_DetailOpts("tag")))
-	if suffix then
-		detail = detail ~= "" and (detail .. "  " .. suffix) or suffix
-	end
-	local f = ns.LootFeed_Push({ icon = e.icon, text = ns.Loot_NameText(e), detail = detail, quality = e.quality,
-		mergeKey = key, count = count })
+	local f = ns.LootFeed_Push({ icon = e.icon, text = ns.Loot_NameText(e), detail = DetailText(e, suffix),
+		quality = e.quality, mergeKey = key, count = count })
 	if f then
-		f.entry = e
+		f.entry, f.suffix = e, suffix
+		if e.owned then
+			WatchBags(true)
+		end
 	end
 end
 
@@ -371,6 +377,9 @@ function ns.LootFeed_Clear()
 	for i = #lines, 1, -1 do
 		Release(lines[i])
 	end
+	if eventsAttached then
+		WatchBags(false)
+	end
 end
 
 function ns.LootFeed_Relayout()
@@ -390,16 +399,62 @@ end
 
 -- Edit Mode -------------------------------------------------------------------------------------------------------
 
+local function SampleSpec(p)
+	local text = p.text
+	if not text then
+		text = ns.Loot_NameText({ kind = "item", name = p.name, quality = p.quality, quantity = p.count })
+	end
+	return { icon = p.icon, text = text, detail = p.detail and ns.Loot_PartsText(p.detail), quality = p.quality,
+		role = p.role }
+end
+
 -- Sample lines, kept until Edit Mode closes (also /tomte loot test, where they fade like real ones).
 function ns.LootFeed_Preview(static)
 	for _, p in ipairs(PREVIEW) do
-		local text = p.text
-		if not text then
-			text = ns.Loot_NameText({ kind = "item", name = p.name, quality = p.quality, quantity = p.count })
-		end
-		ns.LootFeed_Push({ icon = p.icon, text = text, detail = p.detail and ns.Loot_PartsText(p.detail),
-			quality = p.quality, role = p.role, static = static })
+		local spec = SampleSpec(p)
+		spec.static = static
+		ns.LootFeed_Push(spec)
 	end
+end
+
+-- Sample line i of a settings preview, drawn still into host. Returns its width.
+local function DrawSampleLine(host, i, p, size, h, growUp, bgAlpha)
+	local f = host.feedLines[i]
+	if not f then
+		f = CreateFrame("Frame", nil, host)
+		ns.LootParts_Strip(f)
+		host.feedLines[i] = f
+	end
+	local w = ns.LootParts_FillStrip(f, SampleSpec(p), size, bgAlpha, LINE_W * size / BASE_FONT)
+	f:SetSize(w, h)
+	f:ClearAllPoints()
+	if growUp then
+		f:SetPoint("BOTTOMLEFT", 0, (i - 1) * (h + GAP))
+	else
+		f:SetPoint("TOPLEFT", 0, -(i - 1) * (h + GAP))
+	end
+	f:Show()
+	return w
+end
+
+-- The sample lines drawn still into host for a settings preview (Preview.lua), with the settings get(key) answers:
+-- the oldest at the top, or at the bottom when the feed grows upward; the reputation line only while those lines are
+-- on. Returns their width and height.
+function ns.LootFeed_DrawSample(host, get)
+	host.feedLines = host.feedLines or {}
+	local size, growUp = get("fontSize"), get("growUp")
+	local h = size + LINE_EXTRA
+	local width, i = 0, 0
+	for _, p in ipairs(PREVIEW) do
+		if not p.text or get("extras.repCurrency") then
+			i = i + 1
+			width = math.max(width, DrawSampleLine(host, i, p, size, h, growUp, get("bgAlpha")))
+		end
+	end
+	for n = i + 1, #host.feedLines do
+		host.feedLines[n]:Hide()
+	end
+	return width, i * (h + GAP) - GAP
 end
 
 local function RefreshPreview()
@@ -430,6 +485,11 @@ ns.EditMode_Register({
 	saved = function()
 		local p, at = db.feed, UI.TopLeftPoint(holder)
 		p.point, p.relPoint, p.x, p.y = at[1], at[2], at[3], at[4]
+	end,
+	module = "loot",
+	options = { "fontSize", "bgAlpha", "growUp", "fadeDelay", "extras.repCurrency" },
+	reset = function()
+		ns.LootFeed_ResetPosition()
 	end,
 })
 

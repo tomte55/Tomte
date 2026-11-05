@@ -154,7 +154,7 @@ end
 local function FadeUI(from, to, duration, onDone)
 	local t = 0
 	UIParent:SetAlpha(from)
-	uiFader:SetScript("OnUpdate", function(self, elapsed)
+	uiFader:SetScript("OnUpdate", ns.Perf_Wrap(function(self, elapsed)
 		t = t + elapsed
 		local p = math.min(t / duration, 1)
 		UIParent:SetAlpha(from + (to - from) * p)
@@ -164,7 +164,7 @@ local function FadeUI(from, to, duration, onDone)
 				onDone()
 			end
 		end
-	end)
+	end, "OnUpdate"))
 end
 
 local function HideUI(instant)
@@ -209,7 +209,7 @@ end
 -- far, so an Exit halfway undoes exactly that.
 local function GlideZoom(state, delta, duration)
 	local t, done = 0, 0
-	zoomer:SetScript("OnUpdate", function(self, elapsed)
+	zoomer:SetScript("OnUpdate", ns.Perf_Wrap(function(self, elapsed)
 		t = t + elapsed
 		local want = delta * ns.Smoothstep(math.min(t / duration, 1))
 		local step = want - done
@@ -223,7 +223,7 @@ local function GlideZoom(state, delta, duration)
 		if t >= duration then
 			self:SetScript("OnUpdate", nil)
 		end
-	end)
+	end, "OnUpdate"))
 end
 
 -- state.zoomedOut is signed: below 0 when opts.zoom moved the camera in.
@@ -271,7 +271,7 @@ local function LimitPitch(state, limit, noLift)
 	local from = db.pitchLimitBackup
 	pitchLimit = nil
 	local t, nudging = 0, false
-	pitcher:SetScript("OnUpdate", function(self, elapsed)
+	pitcher:SetScript("OnUpdate", ns.Perf_Wrap(function(self, elapsed)
 		t = t + elapsed
 		if t < PITCH_EASE then
 			local p = Ease(t / PITCH_EASE)
@@ -288,7 +288,7 @@ local function LimitPitch(state, limit, noLift)
 			MoveViewUpStop()
 			self:SetScript("OnUpdate", nil)
 		end
-	end)
+	end, "OnUpdate"))
 end
 
 local function RestorePitch(state)
@@ -558,7 +558,7 @@ local function CreateLetterbox()
 	hint:SetPoint("RIGHT", letterbox.top, "RIGHT", -HINT_PAD, 0)
 	hint:SetAlpha(0)
 
-	letterbox:SetScript("OnUpdate", LetterboxOnUpdate)
+	letterbox:SetScript("OnUpdate", ns.Perf_Wrap(LetterboxOnUpdate, "OnUpdate"))
 
 	-- Input is only enabled while active: clicks/drags and the wheel never reach the camera. A passthrough
 	-- cinematic leaves the mouse alone (clicks are seen in OnUpdate) and lets keys through, and any of them
@@ -791,7 +791,7 @@ function C.Watch(state)
 end
 
 watcher:Hide()
-watcher:SetScript("OnUpdate", WatcherOnUpdate)
+watcher:SetScript("OnUpdate", ns.Perf_Wrap(WatcherOnUpdate, "OnUpdate"))
 watcher:SetScript("OnKeyDown", TopUp)
 
 local function RestoreOrphaned()
@@ -803,7 +803,7 @@ local function RestoreOrphaned()
 	end
 end
 
-events:SetScript("OnEvent", function(self, event)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event)
 	if event == "PLAYER_ENTERING_WORLD" then
 		-- Next frame, after the modules' own handlers had a chance to resume their state: a music-volume or
 		-- pitch-limit backup that no live state owns is left over from an interrupted cinematic.
@@ -821,5 +821,5 @@ events:SetScript("OnEvent", function(self, event)
 		end
 	end
 	UpdateEvents()
-end)
+end))
 events:RegisterEvent("PLAYER_ENTERING_WORLD")

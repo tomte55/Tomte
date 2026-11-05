@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Cursor highlight: the trail behind the cursor. Flat shapes are pooled textures (or pooled lines for the ribbon) at
 -- the trail's points; a spell effect is one Blizzard model at the cursor whose particles stay behind as it moves.
 -- Driven by Cursor.lua's OnUpdate (registered there); pure rules (points, sizes, when it shows, colors, the shape
--- and effect lists) in Data.lua.
+-- and effect lists) in Data.lua. The settings preview's still trail is drawn here too (Cursor_TrailSample).
 
 local ART = ns.Theme.MEDIA .. "Cursor\\"
 local MAX_POINTS = 48 -- pool size; a point's life usually ends the trail long before the mouse lays this many
@@ -13,9 +13,18 @@ local HEAD_REFERENCE = 14 -- the head size (the default) the spell effects' scal
 -- Both holders draw in the TOOLTIP strata, above every window; the ring's holder sits a level above the trail's.
 local TRAIL_LEVEL = 5
 
+-- The settings preview's still trail (Cursor_TrailSample): the cursor sweeps an arc of SAMPLE_RADIUS at SAMPLE_SPEED
+-- for SAMPLE_SECONDS (longer than the longest Length), looked at SAMPLE_RATE times a second as the driver would.
+local SAMPLE_SPEED = 300 -- UI units per second: an easy sweep of the hand
+local SAMPLE_RADIUS = 170
+local SAMPLE_SECONDS = 1.3
+local SAMPLE_RATE = 120
+
 local holder, model
-local sprites, lines = { shown = 0 }, { shown = 0 } -- pooled textures and ribbon lines; shown: see HideFrom
-local spriteArt -- the art the pooled textures show now
+-- The flat trail's drawing target: frame (what points are placed on: the screen holder, made on first need, or a
+-- preview's frame), sprites and lines (pooled textures and ribbon lines; shown: see HideFrom), art (the art the
+-- pooled textures show now).
+local live = { sprites = { shown = 0 }, lines = { shown = 0 } }
 local points, fade = {}, {}
 local lastX, lastY, lastMove
 local modelFile -- the model file shown, nil while the model is hidden and cleared
@@ -31,27 +40,28 @@ local function Holder()
 		holder:SetFrameStrata("TOOLTIP")
 		holder:SetFrameLevel(TRAIL_LEVEL)
 		holder:EnableMouse(false)
+		live.frame = holder
 	end
 	return holder
 end
 
-local function Sprite(i)
-	local s = sprites[i]
+local function Sprite(target, i)
+	local s = target.sprites[i]
 	if not s then
-		s = Holder():CreateTexture(nil, "ARTWORK")
-		s:SetTexture(ART .. spriteArt)
+		s = target.frame:CreateTexture(nil, "ARTWORK")
+		s:SetTexture(ART .. target.art)
 		s:SetBlendMode("ADD")
-		sprites[i] = s
+		target.sprites[i] = s
 	end
 	return s
 end
 
-local function Line(i)
-	local l = lines[i]
+local function Line(target, i)
+	local l = target.lines[i]
 	if not l then
-		l = Holder():CreateLine(nil, "ARTWORK")
+		l = target.frame:CreateLine(nil, "ARTWORK")
 		l:SetColorTexture(1, 1, 1, 1) -- white, tinted per segment with SetVertexColor
-		lines[i] = l
+		target.lines[i] = l
 	end
 	return l
 end
@@ -67,14 +77,16 @@ local function HideFrom(pool, first)
 	end
 end
 
-local function DrawSprites(db, palette, shape, now, gate)
-	if spriteArt ~= shape.art then
-		spriteArt = shape.art
+-- The flat trail of points (with their strengths in fade) on target; the shape pieces, or the ribbon.
+local function DrawSprites(target, points, fade, db, palette, shape, now, gate)
+	local sprites, lines = target.sprites, target.lines
+	if target.art ~= shape.art then
+		target.art = shape.art
 		for _, s in ipairs(sprites) do
-			s:SetTexture(ART .. spriteArt)
+			s:SetTexture(ART .. target.art)
 		end
 	end
-	local anchor = Holder()
+	local anchor = target.frame
 	for i, p in ipairs(points) do
 		local age = now - p.t
 		local size, alpha = ns.Cursor_TrailLook(fade[i], db.trailSize, db.trailTaper, db.trailOpacity)
@@ -82,7 +94,7 @@ local function DrawSprites(db, palette, shape, now, gate)
 			local k = ns.Cursor_Twinkle(p.n, age)
 			size, alpha = size * k, alpha * k
 		end
-		local s = Sprite(i)
+		local s = Sprite(target, i)
 		s:SetRotation(shape.spin and ns.Cursor_Spin(p.n, age) or 0)
 		s:SetVertexColor(ns.Cursor_Color(db.color, palette, p.t))
 		s:SetSize(size, size)
@@ -96,15 +108,16 @@ local function DrawSprites(db, palette, shape, now, gate)
 end
 
 -- A line from each point to the next and from the newest point to the cursor, as thick as the newer end's size.
-local function DrawRibbon(db, palette, now, x, y, gate)
-	local anchor = Holder()
+local function DrawRibbon(target, points, fade, db, palette, now, x, y, gate)
+	local sprites, lines = target.sprites, target.lines
+	local anchor = target.frame
 	local n = #points
 	for i = 1, n do
 		local p, q = points[i], points[i + 1]
 		local f = q and fade[i + 1] or fade[i] -- the head segment fades with the newest point once the mouse rests
 		local qx, qy = q and q.x or x, q and q.y or y
 		local size, alpha = ns.Cursor_TrailLook(f, db.trailSize, db.trailTaper, db.trailOpacity)
-		local l = Line(i)
+		local l = Line(target, i)
 		l:SetStartPoint("BOTTOMLEFT", anchor, p.x, p.y)
 		l:SetEndPoint("BOTTOMLEFT", anchor, qx, qy)
 		l:SetThickness(math.max(1, size * RIBBON_WIDTH))
@@ -118,8 +131,8 @@ local function DrawRibbon(db, palette, now, x, y, gate)
 end
 
 local function Hide2D()
-	HideFrom(sprites, 1)
-	HideFrom(lines, 1)
+	HideFrom(live.sprites, 1)
+	HideFrom(live.lines, 1)
 end
 
 -- Draws the flat trail; returns whether anything is left to draw (false: the trail has faded out).
@@ -133,12 +146,53 @@ local function Update2D(db, palette, now, x, y, gate, moved)
 		return false
 	end
 	local shape = ns.Cursor_Find(ns.CURSOR_TRAIL_SHAPES, db.trailShape)
+	Holder()
 	if shape.art then
-		DrawSprites(db, palette, shape, now, gate)
+		DrawSprites(live, points, fade, db, palette, shape, now, gate)
 	else
-		DrawRibbon(db, palette, now, x, y, gate)
+		DrawRibbon(live, points, fade, db, palette, now, x, y, gate)
 	end
 	return true
+end
+
+-- A still flat trail for a settings preview (Panel/Preview.lua): the points the trail would hold right after the
+-- cursor swept an arc, drawn into host by the same code as the real trail. s: the trail settings (color,
+-- trailShape, trailSize, trailOpacity, trailLife, trailGap, trailTaper); palette as for Cursor_TrailUpdate.
+-- Returns the width and height drawn.
+function ns.Cursor_TrailSample(host, s, palette)
+	local target = host.trailSample
+	if not target then
+		target = { frame = CreateFrame("Frame", nil, host), sprites = { shown = 0 }, lines = { shown = 0 } }
+		target.frame:SetSize(1, 1)
+		host.trailSample = target
+	end
+	local pts, strengths = {}, {}
+	local now, x, y = 0, 0, 0
+	for step = 0, SAMPLE_SECONDS * SAMPLE_RATE do
+		now = step / SAMPLE_RATE
+		local turn = SAMPLE_SPEED * now / SAMPLE_RADIUS
+		x, y = SAMPLE_RADIUS * math.sin(turn), SAMPLE_RADIUS * (1 - math.cos(turn))
+		ns.Cursor_TrailAdd(pts, now, x, y, s.trailGap, MAX_POINTS)
+	end
+	ns.Cursor_TrailFade(pts, now, s.trailLife, strengths)
+	-- The box around what shows (the points and the cursor), with room for a fresh point's half size.
+	local minX, maxX, minY, maxY = x, x, y, y
+	for _, p in ipairs(pts) do
+		minX, maxX = math.min(minX, p.x), math.max(maxX, p.x)
+		minY, maxY = math.min(minY, p.y), math.max(maxY, p.y)
+	end
+	local margin = s.trailSize / 2 + 2
+	local w, h = maxX - minX + 2 * margin, maxY - minY + 2 * margin
+	-- Points are placed from the frame's bottom-left: put (minX, minY) margin in from host's bottom-left corner.
+	target.frame:ClearAllPoints()
+	target.frame:SetPoint("BOTTOMLEFT", host, "TOPLEFT", margin - minX, margin - h - minY)
+	local shape = ns.Cursor_Find(ns.CURSOR_TRAIL_SHAPES, s.trailShape)
+	if shape.art then
+		DrawSprites(target, pts, strengths, s, palette, shape, now, 1)
+	else
+		DrawRibbon(target, pts, strengths, s, palette, now, x, y, 1)
+	end
+	return w, h
 end
 
 -- Spell effect -------------------------------------------------------------------------------------------------

@@ -77,6 +77,12 @@ local function Scale(v)
 	return ("%.1f"):format(v)
 end
 
+-- Settings preview (Panel/Preview.lua): the button at the chosen size, showing what a press would do now; also while
+-- the button is off (the preview answers its switch as on).
+local function ButtonPreview(host, get)
+	return ns.FishingKey_DrawSample(host, get("button.scale"))
+end
+
 -- Options can't grey a row out: a toy option says in its tooltip whether you own one (updated when the page builds).
 local RAFT_TIP = "While you swim, the key uses a fishing raft toy so you can fish from open water, and renews it when less than a minute is left. Out of water nothing changes. One press per toy, then the next press casts."
 local BOBBER_TIP = "When the Reusable Oversized Bobber's buff is gone and the toy is off cooldown, the key uses it first (a bigger bobber that's easier to see). One press, then the next press casts."
@@ -169,9 +175,10 @@ module = ns.RegisterModule({
 
 		{ type = "header", label = "Fishing button" },
 		{ type = "checkbox", key = "button.shown", label = "Show the fishing button", onChange = Refresh,
+			preview = ns.Preview_When("button.shown", ButtonPreview),
 			tooltip = "An icon with what the next press does. A click casts like the key, but reeling in needs the key (or a click on the bobber). Blizzard's Edit Mode moves it." },
 		{ type = "slider", key = "button.scale", label = "Size", min = 0.6, max = 1.6, step = 0.1, format = Scale,
-			onChange = Relayout, parent = "button.shown" },
+			onChange = Relayout, parent = "button.shown", preview = ns.Preview_When("button.shown", ButtonPreview) },
 		{ type = "button", label = "Position", text = "Reset", parent = "button.shown", onClick = function()
 			ns.FishingKey_ResetPosition()
 		end, tooltip = "Move the button back to below the middle of the screen." },

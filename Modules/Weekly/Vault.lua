@@ -14,11 +14,16 @@ function ns.WeeklySlot_Create(parent, width, height, fontSize)
 	slot.text = slot:CreateFontString(nil, "OVERLAY")
 	UI.SetFont(slot.text, "number", fontSize or 13)
 	slot.text:SetPoint("CENTER")
+	-- What the slot showed while on screen, so a change seen live can be marked; a hidden slot forgets it, so opening
+	-- the window on a slot earned meanwhile (or a /reload) doesn't celebrate.
+	slot:SetScript("OnHide", function(self)
+		self.seenDone, self.seenText = nil, nil
+	end)
 	return slot
 end
 
 -- s = { progress, threshold, ilvl } or nil. showLater: later locked slots show their progress, dimmed.
-function ns.WeeklySlot_Set(slot, s, isNext, showLater)
+local function Draw(slot, s, isNext, showLater)
 	if s and s.progress >= s.threshold then
 		slot.bg:SetColorTexture(UI.RGBA("accentDeep", 0.35))
 		UI.SetBorderColor(slot, "accent", 0.75)
@@ -36,4 +41,24 @@ function ns.WeeklySlot_Set(slot, s, isNext, showLater)
 		slot.text:SetText(show and ("%d/%d"):format(s.progress, s.threshold) or "")
 		UI.SetTextRole(slot.text, isNext and "textMuted" or "textFaint")
 	end
+end
+
+-- A slot that unlocked while on screen bursts (with the loot sound); progress that moved pops its numbers.
+local function MarkChange(slot, done, text)
+	if not slot:IsVisible() then
+		slot.seenDone, slot.seenText = nil, nil
+		return
+	end
+	if slot.seenDone == false and done then
+		UI.Burst(slot)
+		UI.Pop(slot.text, 0.3)
+	elseif slot.seenText and slot.seenText ~= text and text ~= "" then
+		UI.Pop(slot.text, 0.25)
+	end
+	slot.seenDone, slot.seenText = done, text
+end
+
+function ns.WeeklySlot_Set(slot, s, isNext, showLater)
+	Draw(slot, s, isNext, showLater)
+	MarkChange(slot, s ~= nil and s.progress >= s.threshold, slot.text:GetText() or "")
 end

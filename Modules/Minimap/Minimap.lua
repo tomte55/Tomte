@@ -36,6 +36,7 @@ local function FollowCursor(button)
 	Saved(button.key).angle = ns.Minimap_Angle(px / scale - mx, py / scale - my)
 	Place(button)
 end
+local FollowCursorTimed = ns.Perf_Wrap(FollowCursor, "OnUpdate")
 
 local function ShowTooltip(button)
 	if dragging then
@@ -88,7 +89,7 @@ local function Create(owner)
 		dragging = self
 		GameTooltip:Hide()
 		self:LockHighlight()
-		self:SetScript("OnUpdate", FollowCursor)
+		self:SetScript("OnUpdate", FollowCursorTimed)
 	end)
 	button:SetScript("OnDragStop", function(self)
 		dragging = nil

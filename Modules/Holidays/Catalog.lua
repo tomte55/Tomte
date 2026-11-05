@@ -91,6 +91,15 @@ function ns.EventsCatalog_State()
 	return { ready = ready, progress = progress, empty = targetKey == "" }
 end
 
+-- For a progress line (UI.ProgressLine): 0..1 while the journals are read, nil once they are.
+function ns.EventsCatalog_Progress()
+	local state = ns.EventsCatalog_State()
+	if state.ready then
+		return nil
+	end
+	return state.progress
+end
+
 local function StillMissing(e)
 	return ns.Journal_StillMissing(e.kind, e.id)
 end

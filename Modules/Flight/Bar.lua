@@ -133,7 +133,7 @@ local function CreateBar()
 		self:StopMovingOrSizing()
 		SavePosition()
 	end)
-	bar:SetScript("OnUpdate", OnUpdate)
+	bar:SetScript("OnUpdate", ns.Perf_Wrap(OnUpdate, "OnUpdate"))
 	bar.ticks = {}
 
 	local border = CreateFrame("Frame", nil, bar)
@@ -282,3 +282,13 @@ function ns.Bar_Frame()
 end
 
 ns.Bar_SavePosition = SavePosition
+
+-- The same position as the frame default in Data.lua.
+function ns.Bar_ResetPosition()
+	local pos = ns.flightDB.frame
+	pos.point, pos.relPoint, pos.x, pos.y = "TOP", "TOP", 0, -150
+	if bar then
+		bar:ClearAllPoints()
+		bar:SetPoint(pos.point, UIParent, pos.relPoint, pos.x, pos.y)
+	end
+end

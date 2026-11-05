@@ -120,9 +120,11 @@ end
 --   "map"      a rail row that opens a world map tab: name, icon or atlas, summary(), open()
 --   "quick"    an action button under the hero: name, count() -> n (shown above 0), open()
 --   "around"   a block in Home's "Around you" column: name, icon, title() ("Name: counts"), items(limit) -> rows
---              { icon, text, color, right, rightColor, onEnter, onClick }, maxRows, keepEmpty, open(), openText
---              (the heading's tooltip), opensMap (the heading opens the world map before open() runs); the user can
---              untick it in the Tomte window settings
+--              { icon, text, color, right, rightColor, onEnter, onClick, hint (the default tooltip's click line, when
+--              there's no onEnter) }, maxRows, keepEmpty, open(), openText
+--              (the heading's tooltip), opensMap (the heading and rows without their own click open the world map
+--              before open() runs), progress() (0..1 while something is still being read, a thin line under the
+--              heading; nil when done); the user can untick it in the Tomte window settings
 --   "section"  a Home section that draws itself: slot ("week", "characters", "next", "recent", "events"; the first
 --              entry per slot wins), Create(frame, kit), Refresh(frame) -> wanted height
 --   "next"     a Next up source (Modules/NextUp): name, candidates(now), score
@@ -224,16 +226,19 @@ end
 
 -- Lines for the settings header from module.uses / module.conflicts / module.replaces ({ addon, why }).
 -- isLoaded(addon) -> bool. ok: a used addon is loaded, or a conflicting or replaced one isn't. addon: its name;
--- conflict: from module.conflicts; overlap: from module.replaces (an addon doing the module's job).
+-- conflict: from module.conflicts; overlap: from module.replaces (an addon doing the module's job). A used addon's
+-- optional `unneeded()` returning true leaves its line out (something in Tomte does its job now).
 function ns.ModuleDependencies(module, isLoaded)
 	local lines = {}
 	for _, dep in ipairs(module.uses or {}) do
 		local loaded = isLoaded(dep.addon)
-		lines[#lines + 1] = {
-			ok = loaded,
-			addon = dep.addon,
-			text = ("Uses %s: %s"):format(dep.addon, loaded and dep.why or ("not loaded, " .. (dep.without or dep.why))),
-		}
+		if loaded or not (dep.unneeded and dep.unneeded()) then
+			lines[#lines + 1] = {
+				ok = loaded,
+				addon = dep.addon,
+				text = ("Uses %s: %s"):format(dep.addon, loaded and dep.why or ("not loaded, " .. (dep.without or dep.why))),
+			}
+		end
 	end
 	for _, dep in ipairs(module.conflicts or {}) do
 		local loaded = isLoaded(dep.addon)
@@ -323,6 +328,23 @@ function ns.RefreshModule(module)
 	end
 end
 
+-- fn(module), with the time it took added to the module's startup time. The clock comes from Perf.lua (the tests
+-- have none), so this file still calls no WoW API itself.
+local function Timed(module, fn)
+	local clock = ns.Perf_Clock
+	if not clock then
+		fn(module)
+		return
+	end
+	local t0 = clock()
+	fn(module)
+	ns.Perf_Startup(module.key, clock() - t0)
+end
+
+local function InitOne(module)
+	Call(module.init, module.db)
+end
+
 -- Core.lua has already set ns.db and merged its defaults; the tests call this directly with a bare table, so it
 -- sets ns.db and db.enabled itself.
 function ns.InitModules(db)
@@ -337,11 +359,11 @@ function ns.InitModules(db)
 		end
 		module.db = db[module.key]
 		if module.init then
-			Call(module.init, module.db)
+			Timed(module, InitOne)
 		end
 	end
 	for _, module in ipairs(ns.modules) do
-		ns.RefreshModule(module)
+		Timed(module, ns.RefreshModule)
 	end
 end
 

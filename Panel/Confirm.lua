@@ -45,14 +45,18 @@ local function Build()
 	dialog.no:SetHeight(22)
 	dialog.no:SetPoint("BOTTOMRIGHT", -PAD, 14)
 	dialog.no:SetScript("OnClick", function()
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF)
+		UI.Sound("off")
+		local onNo = dialog.onNo
 		Close()
+		if onNo then
+			onNo()
+		end
 	end)
 	dialog.yes = UI.Button(dialog, 80, "Yes")
 	dialog.yes:SetHeight(22)
 	dialog.yes:SetPoint("RIGHT", dialog.no, "LEFT", -8, 0)
 	dialog.yes:SetScript("OnClick", function()
-		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+		UI.Sound("confirm")
 		Accept()
 	end)
 	-- Keys: Esc = No, Enter = Yes (unless the question popped up on its own: opts.noEnter), everything else goes on
@@ -76,13 +80,15 @@ local function Build()
 end
 
 -- text: the question; onAccept() runs on Yes. opts.yes / opts.no: other button labels. opts.noEnter: Enter isn't Yes
--- (a question that comes up without a click, where Enter may be meant for the chat box).
+-- (a question that comes up without a click, where Enter may be meant for the chat box). opts.onNo: runs on the No
+-- button only (Esc just closes), for a question with two answers that both do something.
 function ns.Confirm_Show(text, onAccept, opts)
 	if not dialog then
 		Build()
 	end
 	opts = opts or {}
 	dialog.noEnter = opts.noEnter
+	dialog.onNo = opts.onNo
 	UI.PlaceDialog(dialog) -- WorldFrame while a dialogue addon hides UIParent (Waypoints asks at guards)
 	dialog.onAccept = onAccept
 	local question, detail = text:match("^(.-)\n\n(.+)$")
@@ -95,7 +101,10 @@ function ns.Confirm_Show(text, onAccept, opts)
 	UI.FitButton(dialog.no, 80, 24)
 	local textH = dialog.text:GetStringHeight() + (detail and DETAIL_GAP + dialog.detail:GetStringHeight() or 0)
 	dialog:SetHeight(PAD + textH + 16 + BUTTONS_H)
-	dialog:Show()
+	if not dialog:IsShown() then
+		dialog:Show()
+		UI.Appear(dialog)
+	end
 	dialog:Raise()
 	if not InCombatLockdown() then
 		dialog:EnableKeyboard(true)

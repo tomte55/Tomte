@@ -73,6 +73,7 @@ local function SetCooldown(cd, start, duration)
 	end
 end
 
+-- Also fills the settings preview's plain copies (DrawSample below), so they show the same icons and counts.
 local function UpdateButton(b)
 	local entry = b.entry
 	if not entry then
@@ -98,17 +99,21 @@ local function UpdateButton(b)
 	end
 end
 
-local function UpdateToggle(i)
-	local d = drawers[i]
-	local saved, entries = DrawerDB(i)
+-- Drawer i's button t: its first entry's icon, its name when names show, its key. Real or preview button.
+local function FillToggle(t, i, name, showNames, entries)
 	local icon = ns.DRAWERS_EMPTY_ICON
 	if entries[1] then
 		icon = select(2, ns.Drawers_Info(entries[1]))
 	end
-	d.toggle.icon:SetTexture(icon)
-	d.toggle.label:SetText(db.showNames and ns.Drawers_Name(saved.name, i) or "")
+	t.icon:SetTexture(icon)
+	t.label:SetText(showNames and ns.Drawers_Name(name, i) or "")
 	local key = GetBindingKey(Binding(i))
-	d.toggle.hotkey:SetText(key and GetBindingText(key, 1) or "") -- 1: abbreviated, as on Blizzard's action buttons
+	t.hotkey:SetText(key and GetBindingText(key, 1) or "") -- 1: abbreviated, as on Blizzard's action buttons
+end
+
+local function UpdateToggle(i)
+	local saved, entries = DrawerDB(i)
+	FillToggle(drawers[i].toggle, i, saved.name, db.showNames, entries)
 end
 
 local function UpdateLooks()
@@ -163,19 +168,52 @@ local function Icon(b)
 	b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 end
 
-local function CreateEntryButton(d)
-	local b = CreateFrame("Button", nil, d.flyout, "SecureActionButtonTemplate")
+-- The looks of an entry button, a drawer's button and its flyout, shared by the real (secure) frames and the
+-- settings preview's plain ones.
+local function EntryLooks(b)
 	b:SetSize(SIZE, SIZE)
-	-- Mouse only (no binding): SecureActionButton_OnClick ignores useOnKeyDown for a real mouse press and acts on
-	-- the up click, so a button registered for down clicks only would never act. Up only also keeps the close-after-use
-	-- wrapper from hiding the flyout on the down click before the action's up click arrives.
-	b:RegisterForClicks("AnyUp")
-	b:SetAttribute("useOnKeyDown", false)
 	Icon(b)
 	b.cooldown = CreateFrame("Cooldown", nil, b, "CooldownFrameTemplate")
 	b.cooldown:SetAllPoints()
 	b.count = UI.Text(b, 11, "text", "number")
 	b.count:SetPoint("BOTTOMRIGHT", -2, 2)
+end
+
+local function ToggleLooks(t)
+	t:SetSize(SIZE, SIZE)
+	Icon(t)
+	t.label = UI.Text(t, 10, "textMuted", "label")
+	t.label:SetPoint("TOP", t, "BOTTOM", 0, -3)
+	t.hotkey = UI.Text(t, 10, "heading", "number")
+	t.hotkey:SetPoint("TOPRIGHT", -2, -2)
+end
+
+local function FlyoutLooks(f)
+	UI.Surface(f, 0.8)
+end
+
+-- Places the first n of buttons around anchor's center as the drawer opens (direction, perLine) and the flyout
+-- around them. Returns the flyout buttons' box (Drawers_Layout), relative to anchor's center.
+local function Arrange(anchor, flyout, buttons, n, direction, perLine)
+	local points, box = ns.Drawers_Layout(n, direction, perLine, SIZE, GAP)
+	for j = 1, n do
+		buttons[j]:ClearAllPoints()
+		buttons[j]:SetPoint("CENTER", anchor, "CENTER", points[j].x, points[j].y)
+	end
+	flyout:ClearAllPoints()
+	flyout:SetPoint("TOPLEFT", anchor, "CENTER", box.left - PAD, box.top + PAD)
+	flyout:SetPoint("BOTTOMRIGHT", anchor, "CENTER", box.right + PAD, box.bottom - PAD)
+	return box
+end
+
+local function CreateEntryButton(d)
+	local b = CreateFrame("Button", nil, d.flyout, "SecureActionButtonTemplate")
+	-- Mouse only (no binding): SecureActionButton_OnClick ignores useOnKeyDown for a real mouse press and acts on
+	-- the up click, so a button registered for down clicks only would never act. Up only also keeps the close-after-use
+	-- wrapper from hiding the flyout on the down click before the action's up click arrives.
+	b:RegisterForClicks("AnyUp")
+	b:SetAttribute("useOnKeyDown", false)
+	EntryLooks(b)
 	b:SetScript("OnEnter", EntryOnEnter)
 	b:SetScript("OnLeave", GameTooltip_Hide)
 	SecureHandlerWrapScript(b, "OnClick", d.toggle, ENTRY_PRE, ENTRY_POST)
@@ -188,7 +226,6 @@ local function CreateDrawer(i)
 	-- The toggle is the frame Edit Mode moves; protected, so the flyout and its buttons may anchor to it.
 	local t = CreateFrame("Button", BUTTON_PREFIX .. i, UIParent, "SecureHandlerClickTemplate")
 	t:SetID(i)
-	t:SetSize(SIZE, SIZE)
 	t:SetMovable(true)
 	t:SetClampedToScreen(true)
 	t:SetFrameStrata("MEDIUM")
@@ -198,16 +235,12 @@ local function CreateDrawer(i)
 	t:SetScript("PostClick", TogglePostClick)
 	t:SetScript("OnEnter", ToggleOnEnter)
 	t:SetScript("OnLeave", GameTooltip_Hide)
-	Icon(t)
-	t.label = UI.Text(t, 10, "textMuted", "label")
-	t.label:SetPoint("TOP", t, "BOTTOM", 0, -3)
-	t.hotkey = UI.Text(t, 10, "heading", "number")
-	t.hotkey:SetPoint("TOPRIGHT", -2, -2)
+	ToggleLooks(t)
 	t:Hide()
 
 	local f = CreateFrame("Frame", nil, t, "SecureFrameTemplate")
 	f:SetFrameStrata("DIALOG")
-	UI.Surface(f, 0.8)
+	FlyoutLooks(f)
 	f:Hide()
 	f:HookScript("OnShow", UpdateLooks)
 	t:SetFrameRef("flyout", f)
@@ -271,20 +304,15 @@ end
 local function Build(i)
 	local d = drawers[i]
 	local saved, entries = DrawerDB(i)
-	local points, box = ns.Drawers_Layout(#entries, saved.direction, saved.perLine, SIZE, GAP)
 	for j, entry in ipairs(entries) do
 		local b = d.buttons[j] or CreateEntryButton(d)
 		SetEntry(b, entry)
-		b:ClearAllPoints()
-		b:SetPoint("CENTER", d.toggle, "CENTER", points[j].x, points[j].y)
 		b:Show()
 	end
 	for j = #entries + 1, #d.buttons do
 		ClearEntry(d.buttons[j])
 	end
-	d.flyout:ClearAllPoints()
-	d.flyout:SetPoint("TOPLEFT", d.toggle, "CENTER", box.left - PAD, box.top + PAD)
-	d.flyout:SetPoint("BOTTOMRIGHT", d.toggle, "CENTER", box.right + PAD, box.bottom - PAD)
+	Arrange(d.toggle, d.flyout, d.buttons, #entries, saved.direction, saved.perLine)
 	if #entries == 0 then
 		d.flyout:Hide()
 	end
@@ -342,6 +370,77 @@ end
 
 function ns.Drawers_Toggle(i)
 	return drawers[i] and drawers[i].toggle
+end
+
+-- Settings preview ---------------------------------------------------------------------------------------------
+
+-- An empty drawer previews with these (module icons elsewhere in Tomte, so known to exist), enough to show a
+-- second line at the default "Buttons per line".
+local SAMPLE_ICONS = {
+	136245, 136248, 136243, 237429, 132268, 134441, 133785, 135934, 237387, 132161,
+}
+local LABEL_ROOM = 16 -- the name under the drawer's button: its 3 pixel gap and a line of 10 point text
+
+-- Drawer i opened (Panel/Preview.lua), drawn by plain copies of its frames with the same looks and layout code:
+-- nothing secure, nothing clickable. Its own entries, or sample icons while it's empty. get reads the settings.
+function ns.Drawers_DrawSample(host, get, i)
+	local v = host.drawer
+	if not v then
+		v = { buttons = {} }
+		v.root = CreateFrame("Frame", nil, host)
+		v.root:SetPoint("TOPLEFT")
+		v.flyout = CreateFrame("Frame", nil, v.root)
+		FlyoutLooks(v.flyout)
+		v.toggle = CreateFrame("Button", nil, v.root)
+		ToggleLooks(v.toggle)
+		host.drawer = v
+	end
+	local key = "d" .. i
+	local _, entries = DrawerDB(i)
+	local n = #entries > 0 and #entries or #SAMPLE_ICONS
+	for j = 1, n do
+		local b = v.buttons[j]
+		if not b then
+			b = CreateFrame("Button", nil, v.flyout)
+			EntryLooks(b)
+			v.buttons[j] = b
+		end
+		b.entry = entries[j]
+		if b.entry then
+			UpdateButton(b)
+		else
+			b.icon:SetTexture(SAMPLE_ICONS[j])
+			b.icon:SetDesaturated(false)
+			b.count:SetText("")
+			b.cooldown:Clear()
+		end
+		b:Show()
+	end
+	for j = n + 1, #v.buttons do
+		v.buttons[j]:Hide()
+	end
+	local showNames = get("showNames")
+	FillToggle(v.toggle, i, get(key .. ".name"), showNames, entries)
+	if #entries == 0 then
+		v.toggle.icon:SetTexture(SAMPLE_ICONS[1])
+	end
+	local box = Arrange(v.toggle, v.flyout, v.buttons, n, get(key .. ".direction"), get(key .. ".perLine"))
+
+	-- The picture's bounds around the drawer button's center: the button, the open flyout, the name under it.
+	local half = SIZE / 2
+	local left, right = math.min(-half, box.left - PAD), math.max(half, box.right + PAD)
+	local top, bottom = math.max(half, box.top + PAD), math.min(-half, box.bottom - PAD)
+	if showNames then
+		local w = v.toggle.label:GetUnboundedStringWidth() / 2
+		left, right = math.min(left, -w), math.max(right, w)
+		bottom = math.min(bottom, -half - LABEL_ROOM)
+	end
+	v.toggle:ClearAllPoints()
+	v.toggle:SetPoint("CENTER", v.root, "TOPLEFT", -left, -top)
+	local scale = get("scale")
+	v.root:SetScale(scale)
+	v.root:SetSize(right - left, top - bottom)
+	return (right - left) * scale, (top - bottom) * scale
 end
 
 -- Events ------------------------------------------------------------------------------------------------------

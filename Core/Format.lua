@@ -37,8 +37,8 @@ function ns.SignedGold(copper)
 	return (copper < 0 and "-" or "+") .. ns.Gold(abs(copper))
 end
 
--- "50,000g": only gold once there is any (detailed keeps the silver: "1,234g 56s"), else silver and copper.
--- icons = { gold, silver, copper } format strings that take the amount.
+-- "50,000g": only gold once there is any (detailed keeps the silver: "1,234g 56s"; "exact" the copper too:
+-- "1,234g 56s 78c"), else silver and copper. icons = { gold, silver, copper } format strings that take the amount.
 function ns.Coins(copper, detailed, icons)
 	local g = floor(copper / 10000)
 	local s = floor(copper / 100) % 100
@@ -47,7 +47,10 @@ function ns.Coins(copper, detailed, icons)
 	if g > 0 then
 		parts[1] = icons.gold:format(ns.Thousands(g))
 		if detailed and s > 0 then
-			parts[2] = icons.silver:format(s)
+			parts[#parts + 1] = icons.silver:format(s)
+		end
+		if detailed == "exact" and c > 0 then
+			parts[#parts + 1] = icons.copper:format(c)
 		end
 	else
 		if s > 0 then
@@ -71,6 +74,12 @@ function ns.Ago(seconds)
 		return floor(seconds / 3600) .. "h"
 	end
 	return floor(seconds / 86400) .. "d"
+end
+
+-- Ago for a sentence: "just now", "5m ago", "2h ago".
+function ns.AgoText(seconds)
+	local ago = ns.Ago(seconds)
+	return ago == "now" and "just now" or (ago .. " ago")
 end
 
 -- "45s", "12:34" or "1:23:45" for whole seconds.
@@ -164,4 +173,35 @@ function ns.FormatMatch(text, pattern, spec)
 		out[pos] = capture
 	end
 	return out
+end
+
+-- Keys --------------------------------------------------------------------------------------------------------------
+
+local MODIFIER_KEYS = {
+	LSHIFT = true, RSHIFT = true, LCTRL = true, RCTRL = true, LALT = true, RALT = true, LMETA = true, RMETA = true,
+}
+
+-- A key press as a binding string in the game's modifier order: ("C", false, true, false) -> "CTRL-C". nil for a
+-- modifier key on its own (the chord isn't finished yet).
+function ns.KeyChord(key, alt, ctrl, shift)
+	if type(key) ~= "string" or key == "" or MODIFIER_KEYS[key] then
+		return nil
+	end
+	return (alt and "ALT-" or "") .. (ctrl and "CTRL-" or "") .. (shift and "SHIFT-" or "") .. key
+end
+
+-- A binding string for people: "CTRL-SHIFT-S" -> "Ctrl+Shift+S". "" or nil -> "".
+function ns.KeyText(chord)
+	if type(chord) ~= "string" or chord == "" then
+		return ""
+	end
+	local parts, rest = {}, chord
+	for _, mod in ipairs({ "ALT", "CTRL", "SHIFT", "META" }) do
+		if rest:sub(1, #mod + 1) == mod .. "-" and #rest > #mod + 1 then
+			parts[#parts + 1] = mod:sub(1, 1) .. mod:sub(2):lower()
+			rest = rest:sub(#mod + 2)
+		end
+	end
+	parts[#parts + 1] = rest
+	return table.concat(parts, "+")
 end

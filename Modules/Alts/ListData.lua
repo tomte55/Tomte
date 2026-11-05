@@ -385,6 +385,32 @@ function ns.Alts_AttachPlan(wants, stacks, exact, maxSlots)
 	return out
 end
 
+-- What "Take for crafts" takes out at the bank, per bank: { warband = { { itemID, n } }, bank = { { itemID, n } } }
+-- ("take" lines from the Warband bank; "grab" and "fetch" lines from your own bank, not your mail), for
+-- Alts_AttachPlan.
+function ns.Alts_BankWants(todos)
+	local sums = { warband = {}, bank = {} }
+	for _, t in ipairs(todos) do
+		for _, l in ipairs(t.lines) do
+			local from = l.kind == "take" and "warband"
+				or (l.kind == "grab" or l.kind == "fetch") and l.where == "bank" and "bank" or nil
+			if from and l.mine and l.itemID then
+				sums[from][l.itemID] = (sums[from][l.itemID] or 0) + l.n
+			end
+		end
+	end
+	local out = { warband = {}, bank = {} }
+	for from, byItem in pairs(sums) do
+		for itemID, n in pairs(byItem) do
+			out[from][#out[from] + 1] = { itemID = itemID, n = n }
+		end
+		table.sort(out[from], function(a, b)
+			return a.itemID < b.itemID
+		end)
+	end
+	return out
+end
+
 -- [itemID] = count, the items your to-do lines move (for the bag and bank marks).
 function ns.Alts_MarkedItems(todos)
 	local marked = {}

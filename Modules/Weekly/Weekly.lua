@@ -7,6 +7,9 @@ local addonName, ns = ...
 
 local CONC_ICON = "Interface\\Icons\\INV_Misc_Gear_01" -- when the profession's own icon isn't known
 local MAX_TIMER = 86400 -- caps the Concentration toast timer at one day; it re-checks and re-arms when it fires
+-- The settings preview's made-up alt and profession.
+local SAMPLE_CHAR = "Mira"
+local SAMPLE_PROF = { name = "Alchemy", icon = "Interface\\Icons\\Trade_Alchemy" }
 
 local module, db
 local toastTimer
@@ -57,6 +60,21 @@ function ns.Weekly_CurrentView()
 	return ns.Weekly_View(snap, GetServerTime())
 end
 
+-- The Concentration toast for a character's profession. sample: a settings preview (kept out of Recent).
+local function ConcSpec(name, prof, sample)
+	return {
+		owner = "weekly", label = "Concentration", accent = "accent", title = name or "?",
+		text = (prof.name or "Profession") .. " Concentration is full. Craft before it goes to waste.",
+		icon = prof.icon or CONC_ICON, hold = 10, holdInCombat = true,
+		onClick = OpenBoard("profs"), test = sample or nil,
+	}
+end
+
+-- Settings preview (Panel/Preview.lua): a made-up alt's toast, built by the real toast's spec code.
+local function ConcPreview(host)
+	return ns.Toast_DrawSample(host, ConcSpec(SAMPLE_CHAR, SAMPLE_PROF, true), 1)
+end
+
 local function CheckToasts()
 	if toastTimer then
 		toastTimer:Cancel()
@@ -71,12 +89,7 @@ local function CheckToasts()
 		local snap = db.chars[due.guid]
 		local prof = snap.profs[due.skillLine]
 		prof.conc.notified = true
-		ns.Toast_Show({
-			owner = "weekly", label = "Concentration", accent = "accent", title = snap.name or "?",
-			text = (prof.name or "Profession") .. " Concentration is full. Craft before it goes to waste.",
-			icon = prof.icon or CONC_ICON, hold = 10, holdInCombat = true,
-			onClick = OpenBoard("profs"),
-		})
+		ns.Toast_Show(ConcSpec(snap.name, prof))
 	end
 	local nextFull = ns.Weekly_NextConcFull(chars, now)
 	if nextFull then
@@ -182,7 +195,8 @@ local function Pill()
 end
 
 local BASE_OPTIONS = {
-	{ type = "checkbox", key = "toast", label = "Concentration full toast", onChange = function()
+	{ type = "checkbox", key = "toast", label = "Concentration full toast",
+		preview = ns.Preview_When("toast", ConcPreview), onChange = function()
 		CheckToasts()
 	end, tooltip = "A toast when any tracked character's Concentration is predicted full (once per fill)." },
 	{ type = "checkbox", key = "learned", label = "Show learned weekly quests", onChange = function()

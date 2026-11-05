@@ -27,7 +27,8 @@ local KNOB = 20
 local TABLE_X = 428 -- the pay table's left edge
 local TABLE_TOP = -72
 local TABLE_ROW = 34
-local TABLE_ICON = 20
+local TABLE_ICON = 18 -- small enough that three icons and a six-digit pay fit the column
+local TABLE_RIGHT = 10 -- the pay table's right margin
 local WIN_Y, MESSAGE_Y = -386, -416
 local CHIP_ROLL = 0.8
 local BIG_WIN = 500 -- chips won in one spin that count as a big win (a bigger sound)
@@ -302,13 +303,13 @@ local function BuildPayTable()
 		local y = TABLE_TOP - (n - 1) * TABLE_ROW
 		local row = CreateFrame("Frame", nil, root)
 		row:SetPoint("TOPLEFT", root, "TOPLEFT", TABLE_X, y)
-		row:SetPoint("TOPRIGHT", root, "TOPRIGHT", -18, y)
+		row:SetPoint("TOPRIGHT", root, "TOPRIGHT", -TABLE_RIGHT, y)
 		row:SetHeight(TABLE_ICON + 4)
 		local prev
 		for _, key in ipairs(entry.icons) do
 			local t = Icon(row, key, TABLE_ICON)
 			if prev then
-				t:SetPoint("LEFT", prev, "RIGHT", 2, 0)
+				t:SetPoint("LEFT", prev, "RIGHT", 1, 0)
 			else
 				t:SetPoint("LEFT")
 			end

@@ -314,9 +314,9 @@ local function CreateButton()
 end
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(self, event, ...)
+events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
 	self[event](self, ...)
-end)
+end))
 
 -- Fires just before the combat lockdown starts, so attributes can still be set here.
 function events:PLAYER_REGEN_DISABLED()

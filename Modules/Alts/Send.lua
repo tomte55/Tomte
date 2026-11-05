@@ -289,7 +289,7 @@ local function Attach(g)
 	SendMailNameEditBox:SetText(ns.Alts_MailName(c, GetRealmName()))
 	SendMailSubjectEditBox:SetText(db.sendSubject ~= "" and db.sendSubject or "Tomte")
 	attached = { guid = g.guid, stacks = done, gear = g.gear }
-	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+	UI.Sound("confirm")
 	ns.AltsSend_Refresh()
 end
 
@@ -336,7 +336,7 @@ local function AttachCraft(cm)
 	local recipe = ns.altsDB.recipes[cm.todo.entry.recipeID]
 	SendMailSubjectEditBox:SetText(("%s: %s"):format(db.sendSubject ~= "" and db.sendSubject or "Tomte", recipe and recipe.name or "craft"))
 	attached = { guid = cm.to, stacks = plan, craft = cm.todo.entry.recipeID }
-	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+	UI.Sound("confirm")
 	ns.AltsSend_Refresh()
 end
 

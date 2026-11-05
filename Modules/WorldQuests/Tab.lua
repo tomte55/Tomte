@@ -37,6 +37,11 @@ local marker
 local pending = 0
 local Refresh
 
+-- The progress line's read: busy while rewards load (pending is updated by each Refresh).
+local function Loading()
+	return pending > 0 or nil
+end
+
 -- Actions -------------------------------------------------------------------------------------------------------
 
 local function IsTracked(q)
@@ -110,7 +115,7 @@ local function BuildMarker(canvas)
 	marker.shadow = ArrowTexture(marker, "BACKGROUND")
 	marker.shadow:SetVertexColor(0, 0, 0)
 	marker.arrow = ArrowTexture(marker, "OVERLAY")
-	marker:SetScript("OnUpdate", OnMarkerUpdate)
+	marker:SetScript("OnUpdate", ns.Perf_Wrap(OnMarkerUpdate, "OnUpdate"))
 	marker:Hide()
 end
 
@@ -457,6 +462,7 @@ function Refresh()
 		HidePreview()
 		HideMarker()
 		panel.note:SetText("")
+		panel.progress:Stop()
 		panel.empty:SetText("Open a zone or a continent to see its world quests.")
 		panel.empty:Show()
 		panel.scroll:SetContentHeight(1)
@@ -470,6 +476,7 @@ function Refresh()
 		note = note .. "  " .. UI.Wrap("·  loading rewards…", "textFaint")
 	end
 	panel.note:SetText(note)
+	panel.progress:Track(Loading)
 	local y = 0
 	for _, section in ipairs(sections) do
 		local header = Row()
@@ -605,13 +612,17 @@ local function Build()
 	panel.note:SetPoint("TOPLEFT", panel.title, "BOTTOMLEFT", 0, -4)
 	panel.note:SetPoint("RIGHT", -10, 0)
 	panel.note:SetWordWrap(false)
+	-- In the gap under the note while rewards load.
+	panel.progress = UI.ProgressLine(panel)
+	panel.progress:SetPoint("TOPLEFT", panel.note, "BOTTOMLEFT", 0, -4)
+	panel.progress:SetPoint("RIGHT", -10, 0)
 	panel.scroll = UI.Scroll(panel)
 	panel.scroll:SetPoint("TOPLEFT", panel.note, "BOTTOMLEFT", -6, -8)
 	panel.scroll:SetPoint("BOTTOMRIGHT", -10, 8)
 	panel.empty = UI.Text(panel, 12, "textMuted")
 	panel.empty:SetPoint("TOPLEFT", panel.scroll, "TOPLEFT", 6, -4)
 	panel.empty:SetPoint("RIGHT", -10, 0)
-	panel:SetScript("OnUpdate", OnUpdate)
+	panel:SetScript("OnUpdate", ns.Perf_Wrap(OnUpdate, "OnUpdate"))
 	panel.preview = ns.ModelPreview_Create(panel)
 	UpdateRouteButton()
 	-- The tab stays selected while the map is closed, and reopening it on the same map isn't a map change.

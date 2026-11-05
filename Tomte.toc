@@ -2,7 +2,7 @@
 ## Title: Tomte
 ## Notes: Your gear, your week, your alts, gold, travel and collecting in one window, with a cinematic touch.
 ## Author: tomte55
-## Version: 1.22.0
+## Version: 1.26.0
 ## IconTexture: Interface\AddOns\Tomte\Media\Logo
 ## SavedVariables: TomteDB
 ## OptionalDeps: Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI, Syndicator, Auctionator, TradeSkillMaster, DialogueUI
@@ -20,13 +20,17 @@ Themes/Void.lua
 Core/Format.lua
 Core/Compat.lua
 Core/Migrations.lua
+Core/PerfData.lua
+Core/Perf.lua
 Core/Events.lua
 Core/Core.lua
 Core/Modules.lua
 Core/Setup.lua
+Core/ChangesData.lua
 Core/Profile.lua
 Core/BugReport.lua
 Core/BugFiles.lua
+Core/EditModeData.lua
 Core/EditMode.lua
 Core/SessionData.lua
 Core/Session.lua
@@ -63,10 +67,14 @@ Cinematic/Banner.lua
 Panel/Layout.lua
 Panel/Widgets.lua
 Panel/Controls.lua
+Panel/Motion.lua
 Panel/Menu.lua
 Panel/Dialog.lua
 Panel/Confirm.lua
+Panel/Preview.lua
+Panel/OptionRows.lua
 Panel/Options.lua
+Panel/EditModeDialog.lua
 Panel/HomeKit.lua
 Panel/HomeHero.lua
 Panel/HomeAround.lua
@@ -81,6 +89,7 @@ Panel/Addons.lua
 Panel/Share.lua
 Panel/Bug.lua
 Panel/Setup.lua
+Panel/Changes.lua
 Panel/MapTabs.lua
 Panel/ModelPreview.lua
 Panel/Entries.lua
@@ -197,6 +206,26 @@ Modules/Gear/RewardCard.lua
 Modules/Gear/Upgrade.lua
 Modules/Gear/Sockets.lua
 Modules/Gear/Bags.lua
+Modules/Counts/Data.lua
+Modules/Counts/Collect.lua
+Modules/Counts/Tooltip.lua
+Modules/Counts/Counts.lua
+Modules/Bags/Search.lua
+Modules/Bags/Data.lua
+Modules/Bags/EditData.lua
+Modules/Bags/Layout.lua
+Modules/Bags/Read.lua
+Modules/Bags/Buttons.lua
+Modules/Bags/Kit.lua
+Modules/Bags/View.lua
+Modules/Bags/Currencies.lua
+Modules/Bags/Find.lua
+Modules/Bags/Window.lua
+Modules/Bags/Bank.lua
+Modules/Bags/EditList.lua
+Modules/Bags/EditPage.lua
+Modules/Bags/Takeover.lua
+Modules/Bags/Bags.lua
 Modules/Showcase/Data.lua
 Modules/Showcase/Camera.lua
 Modules/Showcase/Card.lua
@@ -210,6 +239,7 @@ Modules/DressUp/Outfits.lua
 Modules/DressUp/Catalyst.lua
 Modules/DressUp/Restore.lua
 Modules/DressUp/Ensemble.lua
+Modules/DressUp/Appearance.lua
 Modules/DressUp/Titles.lua
 Modules/DressUp/DressUp.lua
 Modules/Achievements/Data.lua
@@ -271,7 +301,6 @@ Modules/Alts/ListTab.lua
 Modules/Alts/Alts.lua
 Modules/Materials/Generated.lua
 Modules/Materials/Data.lua
-Modules/Materials/Knowledge.lua
 Modules/Materials/Materials.lua
 Modules/Recap/Data.lua
 Modules/Recap/History.lua
@@ -286,15 +315,26 @@ Modules/Collect/Sources.lua
 Modules/Collect/Collect.lua
 Modules/Decor/Data.lua
 Modules/Decor/EditorData.lua
+Modules/Decor/ToolsData.lua
 Modules/Decor/Catalog.lua
 Modules/Decor/Detail.lua
 Modules/Decor/Page.lua
 Modules/Decor/Vendors.lua
+Modules/Decor/Place.lua
 Modules/Decor/Editor.lua
 Modules/Decor/Houses.lua
 Modules/Decor/HouseList.lua
 Modules/Decor/Alert.lua
 Modules/Decor/Decor.lua
+Modules/Decor/Clipboard.lua
+Modules/Decor/Quickbar.lua
+Modules/Decor/Dock.lua
+Modules/Decor/Expert.lua
+Modules/Decor/Lock.lua
+Modules/Decor/PlacedSearch.lua
+Modules/Decor/CatalogMenu.lua
+Modules/Decor/Keys.lua
+Modules/Decor/Decorate.lua
 Modules/Holidays/Table.lua
 Modules/Holidays/Generated.lua
 Modules/Holidays/Data.lua
@@ -316,6 +356,11 @@ Modules/NextUp/Data.lua
 Modules/NextUp/NextUp.lua
 Modules/Recent/Data.lua
 Modules/Recent/Recent.lua
+Modules/Performance/Data.lua
+Modules/Performance/Read.lua
+Modules/Performance/Page.lua
+Modules/Performance/Overlay.lua
+Modules/Performance/Performance.lua
 Modules/Value/Data.lua
 Modules/Value/Backpack.lua
 Modules/Value/Value.lua
@@ -370,8 +415,12 @@ Modules/Share/Share.lua
 
 Modules/Loot/Data.lua
 Modules/Loot/Read.lua
+Modules/Loot/Parts.lua
 Modules/Loot/Window.lua
 Modules/Loot/Feed.lua
+Modules/Loot/LookStrips.lua
+Modules/Loot/LookPanel.lua
+Modules/Loot/LookTiles.lua
 Modules/Loot/Toasts.lua
 Modules/Loot/Loot.lua
 Modules/Quests/Data.lua
@@ -391,6 +440,7 @@ Modules/Instances/Queue.lua
 Modules/Instances/Instances.lua
 Modules/Tips/Data.lua
 Modules/Tips/Read.lua
+Modules/Tips/Scan.lua
 Modules/Tips/Tooltip.lua
 Modules/Tips/Choice.lua
 Modules/Tips/Tips.lua

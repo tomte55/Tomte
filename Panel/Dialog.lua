@@ -91,6 +91,7 @@ local function Build()
 		local err = popup.spec.onSave and popup.spec.onSave(popup.edit:GetText())
 		if err then
 			popup.error:SetText(err)
+			UI.Shake(popup) -- refused: the text can't be saved as it is
 		else
 			popup:Hide()
 		end
@@ -137,7 +138,10 @@ function ns.Dialog_Show(spec)
 	end
 	popup.edit:SetText(spec.text or "")
 	popup.scroll:SetScroll(0)
-	popup:Show()
+	if not popup:IsShown() then
+		popup:Show()
+		UI.Appear(popup)
+	end
 	popup.edit:SetFocus()
 	if spec.readOnly then
 		popup.edit:HighlightText()
