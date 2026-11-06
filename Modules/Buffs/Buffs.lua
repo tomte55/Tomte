@@ -82,16 +82,20 @@ end
 -- What Edit Mode and /tomte buffs test show.
 local function SampleItems()
 	local _, class = UnitClass("player")
-	local groupSpell = ns.BUFFS_GROUP[class] or ns.BUFFS_GROUP.MAGE
+	local groupSpell = (ns.Buffs_GroupSpells(class) or ns.Buffs_GroupSpells("MAGE"))[1]
 	local sample = { "Sample: shows when this is missing.", "textMuted" }
 	local flasks = (ns.Content_Get(ns.ContentExpansion(), "buffs") or {}).flask
-	return {
+	local items = {
 		{ icon = FOOD_ICON, title = ns.Buffs_Label("food"), role = "danger", lines = { sample } },
-		{ icon = FirstTexture(flasks), title = ns.Buffs_Label("flask"), role = "danger", lines = { sample } },
 		{ icon = WEAPON_ICON, title = ns.Buffs_Label("weapon"), role = "warning", lines = { sample } },
 		{ icon = C_Spell.GetSpellTexture(groupSpell) or ns.ICON, title = C_Spell.GetSpellName(groupSpell)
 			or ns.Buffs_Label("group"), role = "accent", count = 3, lines = { sample } },
 	}
+	if not ns.FOREVER then -- Forever has no flask check
+		table.insert(items, 2, { icon = FirstTexture(flasks), title = ns.Buffs_Label("flask"), role = "danger",
+			lines = { sample } })
+	end
+	return items
 end
 
 -- Refresh --------------------------------------------------------------------------------------------------------
@@ -194,7 +198,8 @@ local function Why()
 		print("  " .. UI.Wrap("The game hides buffs from addons right now (combat, boss, Mythic+ or PvP).", "warning"))
 	end
 	if not ns.Buffs_Watching(s.content, s.readyCheck) then
-		print("  " .. UI.Wrap("The strip only shows in dungeons, raids, delves and during ready checks.", "textMuted"))
+		print("  " .. UI.Wrap(ns.FOREVER and "The strip only shows in dungeons, raids and during ready checks."
+			or "The strip only shows in dungeons, raids, delves and during ready checks.", "textMuted"))
 	end
 	for _, r in ipairs(ns.Buffs_Evaluate(s, Rules())) do
 		local label = r.key == "group" and GroupName(s) or ns.Buffs_Label(r.key)
@@ -263,7 +268,7 @@ end
 function events:UNIT_AURA(unit)
 	if unit ~= "player" then
 		local _, class = UnitClass("player")
-		if not ns.BUFFS_GROUP[class] or not (unit:find("^party%d") or unit:find("^raid%d")) then
+		if not ns.Buffs_GroupSpells(class) or not (unit:find("^party%d") or unit:find("^raid%d")) then
 			return
 		end
 	end
@@ -339,6 +344,12 @@ local function Scale(v)
 end
 
 local function WhereChoices()
+	if ns.FOREVER then -- no delves there; "group" is the default, so "all" never needs a button
+		return {
+			{ value = "raid", text = "Raids" },
+			{ value = "group", text = "And dungeons" },
+		}
+	end
 	return {
 		{ value = "raid", text = "Raids" },
 		{ value = "group", text = "And dungeons" },
@@ -352,14 +363,16 @@ local function StripPreview(host, get)
 	return ns.Buffs_DrawSample(host, SampleItems(), get("scale"))
 end
 
-local WHERE_TIP = "Where to check: raids only, raids and dungeons, or delves too. Ready checks outside an "
+local WHERE_TIP = (ns.FOREVER and "Where to check: raids only, or raids and dungeons. Ready checks outside an "
+	or "Where to check: raids only, raids and dungeons, or delves too. Ready checks outside an ")
 	.. "instance check everything that's on."
 
 local options = {
 	{ type = "header", label = "Reminder strip" },
 	{ type = "checkbox", key = "strip", label = "Show missing buffs as icons", onChange = Refresh,
 		preview = ns.Preview_When("strip", StripPreview),
-		tooltip = "In dungeons, raids and delves and during ready checks, out of combat: an icon for each buff you're missing. Point at one to see what it is." },
+		tooltip = (ns.FOREVER and "In dungeons and raids" or "In dungeons, raids and delves")
+			.. " and during ready checks, out of combat: an icon for each buff you're missing. Point at one to see what it is." },
 	{ type = "slider", key = "scale", label = "Size", min = 0.6, max = 1.6, step = 0.1, format = Scale,
 		onChange = Relayout, parent = "strip", preview = ns.Preview_When("strip", StripPreview) },
 	{ type = "button", label = "Position", text = "Reset", onClick = ResetPosition, parent = "strip",
@@ -369,26 +382,29 @@ local options = {
 	{ type = "header", label = "What to check" },
 }
 
--- A check's switch and its "Where" choice under it.
-local function AddCheck(key, label, tooltip)
+-- A check's switch and its "Where" choice under it. shown: for a check that doesn't apply everywhere.
+local function AddCheck(key, label, tooltip, shown)
 	options[#options + 1] = { type = "checkbox", key = key .. ".on", label = label, onChange = Refresh,
-		tooltip = tooltip }
+		tooltip = tooltip, shown = shown }
 	options[#options + 1] = { type = "dropdown", key = key .. ".where", label = "Where", choices = WhereChoices,
-		onChange = Refresh, parent = key .. ".on", tooltip = WHERE_TIP }
+		onChange = Refresh, parent = key .. ".on", tooltip = WHERE_TIP, shown = shown }
 end
 
 AddCheck("food", "Food buff", "Well Fed from food or a feast. Only at max level.")
-AddCheck("flask", "Flask", "A flask from this expansion. Only at max level.")
-AddCheck("rune", "Augment rune", "An augment rune from this expansion. Only at max level.")
-AddCheck("weapon", "Weapon oil or stone",
-	"A temporary weapon enchant (oil, whetstone, weightstone, or a class imbue) on each weapon that takes one. Not for rogues: Rogue Poisons covers them. Only at max level.")
-AddCheck("group", "Your group buff",
-	"The buff your class brings (Arcane Intellect, Power Word: Fortitude, Battle Shout, Mark of the Wild, Skyfury, Blessing of the Bronze) when you or anyone in your group nearby lacks it.")
+AddCheck("flask", "Flask", "A flask from this expansion. Only at max level.", ns.NotForever)
+AddCheck("rune", "Augment rune", "An augment rune from this expansion. Only at max level.", ns.NotForever)
+AddCheck("weapon", "Weapon oil or stone", ns.FOREVER
+	and "A temporary weapon enchant (oil, whetstone, weightstone, or a class imbue) on each weapon that takes one. Not for rogues (Rogue Poisons covers them) or hunters. Only at max level."
+	or "A temporary weapon enchant (oil, whetstone, weightstone, or a class imbue) on each weapon that takes one. Not for rogues: Rogue Poisons covers them. Only at max level.")
+AddCheck("group", "Your group buff", ns.FOREVER
+	and "The buff your class brings (Arcane Intellect, Power Word: Fortitude, Mark of the Wild) when you or anyone in your group nearby lacks it. The raid-wide version counts too."
+	or "The buff your class brings (Arcane Intellect, Power Word: Fortitude, Battle Shout, Mark of the Wild, Skyfury, Blessing of the Bronze) when you or anyone in your group nearby lacks it.")
 
 for _, row in ipairs({
 	{ type = "header", label = "Buff check" },
 	{ type = "checkbox", key = "check.onEnter", label = "When entering an instance",
-		tooltip = "List what's missing in chat a few seconds after entering a dungeon, raid or delve." },
+		tooltip = "List what's missing in chat a few seconds after entering a "
+			.. (ns.FOREVER and "dungeon or raid." or "dungeon, raid or delve.") },
 	{ type = "checkbox", key = "check.onReadyCheck", label = "On ready checks" },
 	{ type = "checkbox", key = "check.banner", label = "Banner and sound",
 		tooltip = "Also show what's missing as a banner with a warning sound. Off: chat and the icons only." },
@@ -404,7 +420,9 @@ module = ns.RegisterModule({
 	category = "class",
 	icon = FOOD_ICON,
 	summary = "Icons for missing food, flask, rune, weapon oil and your group buff before the pull.",
-	description = "In dungeons, raids and delves and during ready checks, out of combat: an icon for each buff you're missing (food, flask, augment rune, weapon oil or stone, and the group buff your class brings when someone in the group lacks it). A buff check in chat when you enter and on ready checks.",
+	description = ns.FOREVER
+		and "In dungeons and raids and during ready checks, out of combat: an icon for each buff you're missing (food, weapon oil or stone, and the group buff your class brings when someone in the group lacks it). A buff check in chat when you enter and on ready checks."
+		or "In dungeons, raids and delves and during ready checks, out of combat: an icon for each buff you're missing (food, flask, augment rune, weapon oil or stone, and the group buff your class brings when someone in the group lacks it). A buff check in chat when you enter and on ready checks.",
 	enabledByDefault = true,
 	toasts = "Buff check (banners)",
 	defaults = {
@@ -412,11 +430,12 @@ module = ns.RegisterModule({
 		scale = 1,
 		frame = { point = "TOP", relPoint = "TOP", x = 0, y = -160 }, -- ResetPosition repeats it
 		-- Each check: on, and where ("raid" | "group": raids and dungeons | "all": delves too).
-		food = { on = true, where = "all" },
+		food = { on = true, where = ns.FOREVER and "group" or "all" },
 		flask = { on = true, where = "group" },
 		rune = { on = true, where = "raid" },
-		weapon = { on = true, where = "group" },
-		group = { on = true, where = "all" },
+		-- Forever dungeons run from level 10; at the cap, a stone is still a raid habit there.
+		weapon = { on = true, where = ns.FOREVER and "raid" or "group" },
+		group = { on = true, where = ns.FOREVER and "group" or "all" },
 		check = { onEnter = true, onReadyCheck = true, banner = false },
 	},
 	init = function(moduleDB)
@@ -438,3 +457,6 @@ module = ns.RegisterModule({
 	},
 	options = options,
 })
+if ns.FOREVER then
+	module.summary = "Icons for missing food, weapon oil and your group buff before the pull."
+end

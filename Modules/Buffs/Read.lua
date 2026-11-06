@@ -77,23 +77,42 @@ local function GroupUnits()
 	return units
 end
 
+-- The group buff spells of a class, the one it casts first; nil when it brings none. Forever's come from its content
+-- list: a buff there has a separate raid-wide version, and either one counts.
+local groupSpells = {}
+function ns.Buffs_GroupSpells(class)
+	if groupSpells[class] == nil then
+		local spells
+		if ns.FOREVER then
+			local data = ns.Content_Get(ns.CONTENT_FOREVER, "buffs")
+			spells = data and data.group[class]
+		else
+			spells = ns.BUFFS_GROUP[class] and { ns.BUFFS_GROUP[class] }
+		end
+		groupSpells[class] = spells or false
+	end
+	return groupSpells[class] or nil
+end
+
 local function Group(class, hidden)
-	local spellID = ns.BUFFS_GROUP[class]
-	if not spellID then
+	local spells = ns.Buffs_GroupSpells(class)
+	if not spells then
 		return nil
 	end
+	local spellID = spells[1]
 	local name = C_Spell.GetSpellName(spellID)
 	local g = { spellID = spellID, name = name, known = name ~= nil and C_SpellBook.IsSpellKnown(spellID) or false,
 		missing = {}, unknown = 0 }
 	if not g.known or hidden then
 		return g
 	end
+	local names = Names(spells)
 	for _, unit in ipairs(GroupUnits()) do
 		if UnitExists(unit) and UnitIsConnected(unit) and not UnitIsDeadOrGhost(unit) then
 			if not UnitIsVisible(unit) then
 				g.unknown = g.unknown + 1
 			else
-				local has = HasAny(unit, { name })
+				local has = HasAny(unit, names)
 				if has == nil then
 					g.unknown = g.unknown + 1
 				elseif not has then
@@ -128,13 +147,19 @@ function ns.Buffs_Read(readyCheck)
 		expansion = expansion,
 		names = {},
 	}
+	if ns.FOREVER then
+		s.noList = { flask = true, rune = true }
+	end
 	if data and not hidden then
 		for _, key in ipairs({ "food", "flask", "rune" }) do
-			s.names[key] = Names(data[key])
-			s[key] = HasAny("player", s.names[key])
+			if not (s.noList and s.noList[key]) then
+				s.names[key] = Names(data[key])
+				s[key] = HasAny("player", s.names[key])
+			end
 		end
 	end
-	s.weapons = Weapons()
+	-- A Forever hunter's bow is in the ranged slot: the melee stat stick in these slots isn't what a stone is for.
+	s.weapons = (ns.FOREVER and class == "HUNTER") and {} or Weapons()
 	s.group = Group(class, hidden)
 	return s
 end

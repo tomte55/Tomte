@@ -74,6 +74,9 @@ local function Result(key, state, why, extra)
 end
 
 local function ConsumableResult(key, s, have)
+	if s.noList and s.noList[key] then
+		return Result(key, "none", "not checked in this game")
+	end
 	if not s.hasData then
 		return Result(key, "noData", "no list for this expansion")
 	end
@@ -134,6 +137,7 @@ end
 -- s = {
 --   class = "MAGE" (UnitClass token), content = "raid" | "dungeon" | "delve" | nil, readyCheck = bool,
 --   atMax = bool (at the content's max level), hasData = bool (the expansion has a consumable list),
+--   noList = nil | { [key] = true } (consumables this game has no list for: Forever's flask and rune),
 --   aurasHidden = bool (the game makes aura reads secret right now: combat, encounter, Mythic+, PvP),
 --   food, flask, rune = true | false | nil (nil: couldn't read),
 --   weapons = { { slot, has = bool } } (only weapons that can take an oil or stone),

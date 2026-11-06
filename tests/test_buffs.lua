@@ -161,4 +161,15 @@ test("NameList shortens long lists", function()
 	eq(ns.Buffs_NameList({ "Aldric", "Kesha", "Mira" }, 2), "Aldric, Kesha and 1 more")
 end)
 
+test("A consumable with no list in this game is never missing (Forever's flask and rune)", function()
+	local s = Situation({ flask = nil, rune = nil, noList = { flask = true, rune = true } })
+	local byKey = {}
+	for _, r in ipairs(ns.Buffs_Evaluate(s, Rules())) do
+		byKey[r.key] = r.state
+	end
+	eq(byKey.flask, "none")
+	eq(byKey.rune, "none")
+	eq(byKey.food, "missing", "food still checked")
+end)
+
 H.done()
