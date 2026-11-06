@@ -7,6 +7,9 @@ the client's recipe tables, read from wago.tools CSV exports. Dev-only, not in t
 folder. Tables: SpellReagents, SkillLineAbility, SkillLine, CraftingReagentQuality, MCRSlotXMCRCategory,
 ModifiedCraftingSpellSlot, Item.
 
+A World of Warcraft: Forever build (1.x, e.g. 1.60.1.70790) writes Modules/Materials/GeneratedForever.lua instead. That
+game has no quality-ranked reagents (the three tables for them don't exist in its builds) and has First Aid.
+
 Two sources of reagents:
   - SpellReagents: a recipe spell's fixed reagents (Reagent_0..7), used by older recipes.
   - Dragonflight-style recipes with quality-ranked reagents: CraftingReagentQuality puts each rank of an item into a
@@ -22,15 +25,17 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # the -I flag leaves the script folder off sys.path
 import wago
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Modules", "Materials", "Generated.lua")
-TABLES = ["SpellReagents", "SkillLineAbility", "SkillLine", "CraftingReagentQuality", "MCRSlotXMCRCategory",
-          "ModifiedCraftingSpellSlot", "Item"]
+FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Modules", "Materials")
+TABLES = ["SpellReagents", "SkillLineAbility", "SkillLine", "Item"]
+QUALITY_TABLES = ["CraftingReagentQuality", "MCRSlotXMCRCategory", "ModifiedCraftingSpellSlot"]
 # The professions that craft: Blacksmithing, Leatherworking, Alchemy, Herbalism (mulch), Cooking, Mining (smelting),
 # Tailoring, Engineering, Enchanting, Skinning, Jewelcrafting, Inscription. Mounts, companions, class lines and the
 # like also sit in SkillLineAbility and are left out.
 PROFESSIONS = {164, 165, 171, 182, 185, 186, 197, 202, 333, 393, 755, 773}
+FIRST_AID = 129  # Forever only: retail's First Aid is gone
 # Spot checks printed after writing: item ID -> name.
 CHECKS = {210796: "Mycobloom (rank 1)", 210798: "Mycobloom (rank 3)", 2840: "Copper Bar", 210930: "Bismuth (rank 1)"}
+FOREVER_CHECKS = {2840: "Copper Bar", 5466: "Scorpid Stinger", 2589: "Linen Cloth"}
 
 
 def main():
@@ -38,14 +43,18 @@ def main():
         print(__doc__)
         sys.exit(1)
     build = sys.argv[1]
-    data = wago.load(wago.folder_from_argv("tomte_materials_"), TABLES, build)
+    forever = build.startswith("1.")
+    out = os.path.join(FOLDER, "GeneratedForever.lua" if forever else "Generated.lua")
+    professions = PROFESSIONS | {FIRST_AID} if forever else PROFESSIONS
+    checks = FOREVER_CHECKS if forever else CHECKS
+    data = wago.load(wago.folder_from_argv("tomte_materials_"), TABLES + ([] if forever else QUALITY_TABLES), build)
 
     parent = {r["ID"]: r["ParentSkillLineID"] for r in data["SkillLine"]}
     profession = {}  # recipe spell -> profession skill line
     for row in data["SkillLineAbility"]:
         line = row["SkillLine"]
         top = int(parent.get(line, "0") or 0) or int(line)
-        if top in PROFESSIONS:
+        if top in professions:
             profession.setdefault(int(row["Spell"]), top)
 
     uses = {}  # item -> profession -> set of recipe spells
@@ -61,12 +70,12 @@ def main():
             add(int(row["Reagent_%d" % i] or 0), spell)
 
     slots = {}  # crafting category -> reagent slots
-    for row in data["MCRSlotXMCRCategory"]:
+    for row in data.get("MCRSlotXMCRCategory", ()):
         slots.setdefault(row["ModifiedCraftingCategoryID"], set()).add(row["ModifiedCraftingReagentSlotID"])
     spells = {}  # reagent slot -> recipe spells
-    for row in data["ModifiedCraftingSpellSlot"]:
+    for row in data.get("ModifiedCraftingSpellSlot", ()):
         spells.setdefault(row["ModifiedCraftingReagentSlotID"], set()).add(int(row["SpellID"]))
-    for row in data["CraftingReagentQuality"]:
+    for row in data.get("CraftingReagentQuality", ()):
         item = int(row["ItemID"] or 0)
         for slot in slots.get(row["ModifiedCraftingCategoryID"], ()):
             for spell in spells.get(slot, ()):
@@ -87,11 +96,11 @@ def main():
     lines.append("")
     lines.append("-- Newest trade good or reagent item ID in build %s: newer items aren't in the table." % build)
     lines.append("ns.MATERIALS_LAST_ITEM = %d" % last)
-    with open(OUT, "w", encoding="utf-8", newline="\n") as f:
+    with open(out, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines) + "\n")
-    print("wrote %s: %d items" % (os.path.normpath(OUT), len(uses)))
+    print("wrote %s: %d items" % (os.path.normpath(out), len(uses)))
     print("  newest trade good or reagent: %d" % last)
-    for item, name in CHECKS.items():
+    for item, name in checks.items():
         print("  %s %d: %s" % (name, item, {p: len(s) for p, s in sorted(uses.get(item, {}).items())}))
 
 
