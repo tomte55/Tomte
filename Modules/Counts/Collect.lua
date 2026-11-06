@@ -5,6 +5,9 @@ local addonName, ns = ...
 -- bank tab you look at. Other characters keep what was read when they last played. Started and stopped by Counts.lua.
 
 local BAGS = { 0, 1, 2, 3, 4, 5 } -- backpack, bags 1-4, reagent bag (Enum.BagIndex)
+if ns.FOREVER and C_ActionBar.ShouldShowKeyring() then
+	BAGS[#BAGS + 1] = -1 -- Enum.BagIndex.Keyring: Forever's keys are carried there
+end
 local EQUIP_FIRST, EQUIP_LAST = 1, 19 -- inventory slots of worn gear (head .. tabard)
 local MAIL_ATTACHMENTS = 16 -- ATTACHMENTS_MAX_RECEIVE (MailFrame.lua)
 local GUILD_SLOTS = 98 -- MAX_GUILDBANK_SLOTS_PER_TAB (Blizzard_GuildBankUI.lua)

@@ -145,7 +145,9 @@ module = ns.RegisterModule({
 	category = "gear",
 	icon = 134327, -- inv_misc_note_01
 	summary = "How many of an item each of your characters has, on its tooltip.",
-	description = "Remembers what each of your characters carries: bags, bank, mail and worn gear, plus the Warband bank and the guild banks you look at. Item tooltips say who has how many and where. The crafting list (Alts) counts materials on every character with it, and Tomte's bags can show another character's bags.",
+	description = ns.FOREVER -- Forever: no promise of a Warband bank; its line still shows when one has been read
+		and "Remembers what each of your characters carries: bags, bank, mail and worn gear, plus the guild banks you look at. Item tooltips say who has how many and where. The crafting list (Alts) counts materials on every character with it, and Tomte's bags can show another character's bags."
+		or "Remembers what each of your characters carries: bags, bank, mail and worn gear, plus the Warband bank and the guild banks you look at. Item tooltips say who has how many and where. The crafting list (Alts) counts materials on every character with it, and Tomte's bags can show another character's bags.",
 	enabledByDefault = true,
 	replaces = { { addon = "Syndicator", why = "item counts on every character, for tooltips and the crafting list" } },
 	defaults = {
