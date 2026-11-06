@@ -95,6 +95,13 @@ end
 
 local function Apply()
 	local on = module.active
+	-- Forever has only the banner: no difficulties to choose (no entry in its portrait menu, Camelot/UnitPopupMenus.lua),
+	-- no difficulty flag to replace (Camelot/MinimapInstanceDifficulty.lua) and no Dungeon Finder. Badge.lua, Entrance.lua
+	-- and Queue.lua don't load there.
+	if ns.FOREVER then
+		BannerToggle(on and db.banner)
+		return
+	end
 	ns.InstancesEntrance_Toggle(on and db.entrance)
 	ns.InstancesBadge_Toggle(on and db.badge)
 	BannerToggle(on and db.banner)
@@ -123,17 +130,18 @@ module = ns.RegisterModule({
 	category = "social",
 	icon = 255345, -- achievement_dungeon_gloryofthehero
 	summary = "Pick difficulty at the portal, see it on the minimap, and follow your queue.",
-	description = "Near a dungeon or raid portal, a small card to pick Normal, Heroic or Mythic with your lockout on "
-		.. "each. Readable difficulty on the minimap in place of Blizzard's flag (click it outside an instance to "
-		.. "change difficulty), a banner with your lockout when you enter a dungeon or raid, a panel by the queue "
-		.. "eye with your time in queue and who's been found so far, and the holiday or Timewalking dungeon "
+	description = ns.FOREVER and "A banner with your lockout when you enter a dungeon or raid: whether you're saved and "
+		.. "how many bosses are down." or "Near a dungeon or raid portal, a small card to pick Normal, Heroic or Mythic "
+		.. "with your lockout on each. Readable difficulty on the minimap in place of Blizzard's flag (click it outside "
+		.. "an instance to change difficulty), a banner with your lockout when you enter a dungeon or raid, a panel by "
+		.. "the queue eye with your time in queue and who's been found so far, and the holiday or Timewalking dungeon "
 		.. "picked for you the first time you open Dungeon Finder.",
 	enabledByDefault = true,
 	toasts = "Instance lockout (banners)",
-	replaces = {
+	replaces = not ns.FOREVER and {
 		{ addon = "Plumber", why = "the difficulty picker at portals, queue status and the holiday dungeon" },
 		{ addon = "EnhanceQoL", why = "the difficulty text" },
-	},
+	} or nil,
 	defaults = {
 		entrance = true,
 		badge = true,
@@ -145,38 +153,44 @@ module = ns.RegisterModule({
 	},
 	init = function(saved)
 		db = saved
-		ns.InstancesEntrance_Init(db)
-		ns.InstancesBadge_Init(db)
+		if not ns.FOREVER then
+			ns.InstancesEntrance_Init(db)
+			ns.InstancesBadge_Init(db)
+		end
 	end,
 	toggle = Apply,
-	commands = {
+	commands = not ns.FOREVER and {
 		{ "why", "what the badge, the portal card, the queue plate and the holiday pick see right now", Why },
-	},
+	} or nil,
 	options = {
-		{ type = "header", label = "At the portal" },
-		{ type = "checkbox", key = "entrance", label = "Difficulty picker", onChange = Apply,
+		{ type = "header", label = ns.FOREVER and "Entering" or "At the portal" },
+		{ type = "checkbox", key = "entrance", label = "Difficulty picker", onChange = Apply, shown = ns.NotForever,
 			preview = ns.Preview_When("entrance", function(host)
 				return ns.InstancesEntrance_DrawSample(host)
 			end), tooltip = "Near a dungeon or raid portal, a small card to pick Normal, Heroic or Mythic, with your lockout under each. Only the group leader can change it; in a group you see it read-only. Blizzard's Edit Mode moves it." },
 		{ type = "button", label = "Position", text = "Reset", onClick = ns.InstancesEntrance_ResetPosition,
-			parent = "entrance", tooltip = "Move the card back to the top of the screen." },
+			parent = "entrance", shown = ns.NotForever, tooltip = "Move the card back to the top of the screen." },
 		{ type = "checkbox", key = "banner", label = "Lockout banner", onChange = Apply,
 			tooltip = "When you enter a dungeon or raid: its difficulty, and whether you're saved and how many bosses are down." },
 
 		{ type = "header", label = "Minimap" },
-		{ type = "checkbox", key = "badge", label = "Difficulty badge", onChange = Apply,
+		{ type = "checkbox", key = "badge", label = "Difficulty badge", onChange = Apply, shown = ns.NotForever,
 			preview = ns.Preview_When("badge", BadgePreview),
 			tooltip = "Readable text in place of Blizzard's difficulty flag: 5 · H, 20 · M, M+12, D8, LFR, TW." },
 		{ type = "checkbox", key = "badgeOutside", label = "Outside instances too",
-			onChange = ns.InstancesBadge_Refresh, parent = "badge",
+			onChange = ns.InstancesBadge_Refresh, parent = "badge", shown = ns.NotForever,
 			tooltip = "Show the dungeon and raid difficulty you've chosen (H / M). Click it to change them." },
 
 		{ type = "header", label = "Dungeon Finder" },
-		{ type = "checkbox", key = "queue", label = "Queue plate", onChange = Apply,
+		{ type = "checkbox", key = "queue", label = "Queue plate", onChange = Apply, shown = ns.NotForever,
 			preview = ns.Preview_When("queue", function(host)
 				return ns.InstancesQueue_DrawSample(host)
 			end), tooltip = "A small panel by the queue eye with your time in queue, the average wait, and a role icon for each place in the group that lights up when it's filled." },
-		{ type = "checkbox", key = "holiday", label = "Pick the holiday dungeon", onChange = Apply,
+		{ type = "checkbox", key = "holiday", label = "Pick the holiday dungeon", onChange = Apply, shown = ns.NotForever,
 			tooltip = "The first time you open Dungeon Finder in a session, select the holiday boss or Timewalking dungeon when one is up." },
 	},
 })
+
+if ns.FOREVER then
+	module.summary = "Your lockout when you enter a dungeon or raid."
+end
