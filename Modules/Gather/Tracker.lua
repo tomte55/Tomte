@@ -171,10 +171,14 @@ local function SampleRun()
 	for i = 1, 42 do
 		ns.Gather_AddGather(run, { at = now - 1930 + i * 45, kind = "mining", sources = { "GameObject-0-0-0-0-1-" .. i } })
 	end
+	run.skill[2881] = { from = 92, to = 95 }
+	-- Forever: these are retail's ores and no IDs of its own are verified, so the sample has no item rows or knowledge.
+	if ns.FOREVER then
+		return run
+	end
 	ns.Gather_AddItem(run, { itemID = 210930, count = 86, unit = 3000, rank = 2, kind = "mining" })
 	ns.Gather_AddItem(run, { itemID = 210936, count = 31, unit = 4000, rank = 1, kind = "mining" })
 	ns.Gather_AddItem(run, { itemID = 213610, count = 12, unit = 1500, kind = "mining" })
-	run.skill[2881] = { from = 92, to = 95 }
 	run.knowledge[2881] = { last = 4, gained = 2 }
 	return run
 end

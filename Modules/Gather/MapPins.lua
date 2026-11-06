@@ -18,7 +18,9 @@ local LEVEL_TYPE = "PIN_FRAME_LEVEL_DIG_SITE"
 -- Map buttons stack down the map's top-right corner, 32 px apart (Blizzard's filter and pin buttons first). Other
 -- addons (RareScanner, Krowi's) stack theirs with Krowi_WorldMapButtons; when it's loaded ours joins that column.
 local STACK_LIB = "Krowi_WorldMapButtons-1.4"
-local BLIZZARD_BUTTONS = 2 -- the map's filter and map pin buttons, when no addon stacks buttons
+-- The map's filter and map pin buttons, when no addon stacks buttons. Forever moves both away from this corner
+-- (Blizzard_WorldMap/Camelot, AdjustOverlayFrames).
+local BLIZZARD_BUTTONS = ns.FOREVER and 0 or 2
 local BUTTON_ICON = "Interface\\Icons\\Trade_Mining"
 
 local UI = ns.UI

@@ -226,6 +226,10 @@ local function EndPreview(host)
 end
 
 local function FindPreview(host)
+	-- Forever: no knowledge drops, and the sample's retail item may not exist there.
+	if ns.FOREVER then
+		return ns.Toast_DrawSample(host, ItemFindSpec("Gleaming Geode", ns.GATHER_KIND_ICONS.mining, true), 1)
+	end
 	ns.Toast_DrawSample(host, ItemFindSpec(SAMPLE_FIND, C_Item.GetItemIconByID(SAMPLE_FIND_ICON_ITEM), true), 1)
 	return ns.Toast_DrawSample(host, KnowledgeSpec(ns.GATHER_KIND_NAMES.mining, nil, 1, 2, true), 2)
 end
@@ -454,13 +458,44 @@ local function SeedsPreview(host)
 	return ns.GatherSeeds_DrawSample(host)
 end
 
+local HOME = {
+	{ kind = "page", key = "gather", order = 8, name = "Gathering", icon = ns.GATHER_KIND_ICONS.mining,
+		page = ns.GatherPage, summary = LastRunLine },
+}
+local COMMANDS = {
+	{ "", "open the Gathering page", ns.Gather_Open, hidden = true },
+	{ "open", "open the Gathering page", ns.Gather_Open },
+	{ "start", "start a gathering run now (kept even when short)", function()
+		if ns.Gather_Start(true) then
+			ns.Print("gathering run started.")
+		end
+	end },
+	{ "end", "end the gathering run", function()
+		ns.Gather_End("manual")
+	end },
+	{ "why", "what the last loot window counted as, and why", Why },
+	{ "nodes", "how many node spots are remembered here and everywhere", Nodes },
+	{ "follow", "follow the gathering route in your zone, or stop", ns.GatherFollow_Toggle },
+	{ "skip", "skip the route's next spot (somebody got there first)", ns.GatherFollow_Skip },
+	{ "route", "the gathering route in your zone", ns.GatherFollow_Info },
+}
+-- Forever has no weekly knowledge drops and no Resilient Seeds.
+if not ns.FOREVER then
+	HOME[#HOME + 1] = { kind = "next", key = "nextgather", name = "Gathering knowledge drops", score = 35,
+		candidates = NextDrops, description = "Weekly knowledge drops your gathering professions can still find." }
+	COMMANDS[#COMMANDS + 1] = { "soil", "the object your mouse pointed at last and the Rich Soil spots Tomte knows", function()
+		ns.GatherSeeds_Info()
+	end }
+end
+
 module = ns.RegisterModule({
 	key = "gather",
 	name = "Gathering",
 	category = "professions",
 	icon = 136248, -- trade_mining
 	summary = "Nodes, loot and gold per hour for your gathering runs, plus node maps.",
-	description = "Tracks your gathering runs (mining, herbalism, skinning and fishing): nodes per hour, items with their ranks, gold per hour, rare finds, skill and knowledge gained, and zones. A small tracker while you gather, a toast when a run ends and a Gathering page.",
+	description = ns.FOREVER and "Tracks your gathering runs (mining, herbalism, skinning and fishing): nodes per hour, items, gold per hour, rare finds, skill gained, and zones. A small tracker while you gather, a toast when a run ends and a Gathering page."
+		or "Tracks your gathering runs (mining, herbalism, skinning and fishing): nodes per hour, items with their ranks, gold per hour, rare finds, skill and knowledge gained, and zones. A small tracker while you gather, a toast when a run ends and a Gathering page.",
 	enabledByDefault = true,
 	toasts = true,
 	defaults = {
@@ -490,9 +525,9 @@ module = ns.RegisterModule({
 		seeds = { on = false, frame = { point = "CENTER", relPoint = "CENTER", x = 0, y = -120 } }, -- Seeds.lua
 		soil = {}, -- [game object ID] = true: Rich Soil spots learned by planting (Seeds.lua; a collection)
 	},
-	replaces = {
+	replaces = not ns.FOREVER and {
 		{ addon = "Plumber", why = "the Resilient Seeds button at Rich Soil" },
-	},
+	} or nil,
 	-- Page filters and the route being followed: not in settings strings (Core/Profile.lua). Collections (runs, nodes) never are.
 	noShare = { "pageScope", "pageRange", "pageKind", "pageView", "follow" },
 	init = function(saved)
@@ -558,32 +593,8 @@ module = ns.RegisterModule({
 		ns.Share_Changed("nodes")
 		Refresh()
 	end,
-	home = {
-		{ kind = "page", key = "gather", order = 8, name = "Gathering", icon = ns.GATHER_KIND_ICONS.mining,
-			page = ns.GatherPage, summary = LastRunLine },
-		{ kind = "next", key = "nextgather", name = "Gathering knowledge drops", score = 35, candidates = NextDrops,
-			description = "Weekly knowledge drops your gathering professions can still find." },
-	},
-	commands = {
-		{ "", "open the Gathering page", ns.Gather_Open, hidden = true },
-		{ "open", "open the Gathering page", ns.Gather_Open },
-		{ "start", "start a gathering run now (kept even when short)", function()
-			if ns.Gather_Start(true) then
-				ns.Print("gathering run started.")
-			end
-		end },
-		{ "end", "end the gathering run", function()
-			ns.Gather_End("manual")
-		end },
-		{ "why", "what the last loot window counted as, and why", Why },
-		{ "nodes", "how many node spots are remembered here and everywhere", Nodes },
-		{ "follow", "follow the gathering route in your zone, or stop", ns.GatherFollow_Toggle },
-		{ "skip", "skip the route's next spot (somebody got there first)", ns.GatherFollow_Skip },
-		{ "route", "the gathering route in your zone", ns.GatherFollow_Info },
-		{ "soil", "the object your mouse pointed at last and the Rich Soil spots Tomte knows", function()
-			ns.GatherSeeds_Info()
-		end },
-	},
+	home = HOME,
+	commands = COMMANDS,
 	options = {
 		{ type = "header", label = "Runs" },
 		{ type = "checkbox", key = "auto", label = "Start runs by themselves",
@@ -603,7 +614,8 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Tracker and toasts" },
 		{ type = "checkbox", key = "tracker.shown", label = "Show the tracker", onChange = Refresh,
 			preview = ns.Preview_When("tracker.shown", TrackerPreview),
-			tooltip = "A small window while a run is on: time, nodes, value, top items, finds, skill. Hidden in instances and pet battles. Move it in Blizzard's Edit Mode (\"Gathering run\")." },
+			tooltip = ns.FOREVER and "A small window while a run is on: time, nodes, value, top items, finds, skill. Hidden in instances. Move it in Blizzard's Edit Mode (\"Gathering run\")."
+				or "A small window while a run is on: time, nodes, value, top items, finds, skill. Hidden in instances and pet battles. Move it in Blizzard's Edit Mode (\"Gathering run\")." },
 		{ type = "button", label = "Tracker position", text = "Reset", parent = "tracker.shown", onClick = function()
 			ns.GatherTracker_ResetPosition()
 		end },
@@ -612,7 +624,8 @@ module = ns.RegisterModule({
 			tooltip = "Time, nodes, value and gold per hour of the run." },
 		{ type = "checkbox", key = "toastFind", label = "Toast for rare finds",
 			preview = ns.Preview_When("toastFind", FindPreview),
-			tooltip = "A rare or better item, or a weekly knowledge drop, while gathering." },
+			tooltip = ns.FOREVER and "A rare or better item while gathering."
+				or "A rare or better item, or a weekly knowledge drop, while gathering." },
 
 		{ type = "header", label = "Nodes" },
 		{ type = "checkbox", key = "recordNodes", label = "Remember node spots", onChange = function()
@@ -639,7 +652,8 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "mapRoute", label = "Show the route on the world map", onChange = PinsChanged,
 			tooltip = "A loop through the zone's node spots, drawn as lines between the icons." },
 		{ type = "checkbox", key = "routeTight", label = "Leave out far-off spots", onChange = PinsChanged,
-			tooltip = "A lone spot far from the others costs more flying than it brings: the route skips it." },
+			tooltip = ns.FOREVER and "A lone spot far from the others costs more travel than it brings: the route skips it."
+				or "A lone spot far from the others costs more flying than it brings: the route skips it." },
 		{ type = "button", label = "Route in your zone", text = "Follow", onClick = function()
 			ns.GatherFollow_Toggle()
 		end, tooltip = "Puts a map pin on the next node spot of the route; it moves on as you reach each spot. Click again to stop. Also /tomte gather follow, or a key binding (Key Bindings > Tomte), which also has one to skip a spot." },

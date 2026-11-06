@@ -328,7 +328,7 @@ local function DetailView(y)
 	local progress = ns.Gather_ProgressText(r)
 	if progress then
 		y = y + 6
-		TextRow(y, "Skill and knowledge", "heading")
+		TextRow(y, ns.FOREVER and "Skill" or "Skill and knowledge", "heading")
 		y = y + ROW_H
 		TextRow(y, progress)
 		y = y + ROW_H
