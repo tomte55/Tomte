@@ -251,4 +251,41 @@ test("DiscoveredArea: odd formats and messages return, never error", function()
 	end
 end)
 
+test("Types: retail keeps every type under its own name", function()
+	local types = ns.Moments_Types(false)
+	eq(#types, #ns.MOMENT_TYPES)
+	for i, t in ipairs(types) do
+		eq(t.key, ns.MOMENT_TYPES[i].key)
+		eq(t.name, ns.MOMENT_TYPES[i].name)
+	end
+end)
+
+test("Types: Forever drops what it doesn't have and says it its way", function()
+	local names = {}
+	for _, t in ipairs(ns.Moments_Types(true)) do
+		names[t.key] = t.name
+	end
+	for _, key in ipairs({ "companion", "chapter", "house", "upgrade" }) do
+		eq(names[key], nil, key)
+	end
+	eq(names.achievement, "Legacy Challenge")
+	eq(names.pet, "New pet")
+	eq(names.renown, "Legacy reward")
+	eq(names.levelup, "Level up")
+	eq(names.mount, "New mount")
+end)
+
+test("LegacyRewardLevel: the highest level with a reward in the range", function()
+	local rewards = { [5] = { "a" }, [8] = { "b" }, [9] = {}, [12] = { "c" } }
+	local function rewardsFor(level)
+		return rewards[level]
+	end
+	local level, list = ns.Moments_LegacyRewardLevel(4, 10, rewardsFor)
+	eq(level, 8)
+	eq(list[1], "b")
+	eq((ns.Moments_LegacyRewardLevel(5, 7, rewardsFor)), nil, "the old level's reward was already had")
+	eq((ns.Moments_LegacyRewardLevel(4, 5, rewardsFor)), 5, "one level, with a reward")
+	eq((ns.Moments_LegacyRewardLevel(8, 9, rewardsFor)), nil, "an empty list is no reward")
+end)
+
 H.done()

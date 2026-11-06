@@ -6,19 +6,44 @@ local addonName, ns = ...
 -- In options order. style = the default.
 ns.MOMENT_TYPES = {
 	{ key = "levelup", name = "Level up", style = "cinematicMax" },
-	{ key = "achievement", name = "Achievement", style = "banner" },
+	{ key = "achievement", name = "Achievement", foreverName = "Legacy Challenge", style = "banner" },
 	{ key = "mount", name = "New mount", style = "cinematic" },
-	{ key = "pet", name = "New battle pet", style = "banner" },
+	{ key = "pet", name = "New battle pet", foreverName = "New pet", style = "banner" },
 	{ key = "toy", name = "New toy", style = "banner" },
 	{ key = "zone", name = "New zone", style = "cinematic" },
 	{ key = "discovery", name = "Area discovered", style = "banner" },
-	{ key = "renown", name = "Renown", style = "banner" },
-	{ key = "companion", name = "Companion level (delves)", style = "banner" },
-	{ key = "chapter", name = "Campaign chapter", style = "cinematic" },
-	{ key = "house", name = "House level", style = "banner" },
+	{ key = "renown", name = "Renown", foreverName = "Legacy reward", style = "banner" },
+	{ key = "companion", name = "Companion level (delves)", retail = true, style = "banner" },
+	{ key = "chapter", name = "Campaign chapter", retail = true, style = "cinematic" },
+	{ key = "house", name = "House level", retail = true, style = "banner" },
 	{ key = "tame", name = "Tamed pet (hunter)", style = "cinematic" },
-	{ key = "upgrade", name = "Gear upgrade (Gear Check)", style = "cinematic" },
+	{ key = "upgrade", name = "Gear upgrade (Gear Check)", retail = true, style = "cinematic" },
 }
+
+-- The types this game has, each with the name to show. World of Warcraft: Forever has no delves, campaigns or houses,
+-- and its Gear Check shows upgrades as its own toast. retail = true marks those. forever = the game is Forever.
+function ns.Moments_Types(forever)
+	local list = {}
+	for _, t in ipairs(ns.MOMENT_TYPES) do
+		if not (forever and t.retail) then
+			list[#list + 1] = { key = t.key, name = forever and t.foreverName or t.name, style = t.style }
+		end
+	end
+	return list
+end
+
+-- Forever's renown is the Legacy track, and its level is the character's Legacy points: most levels are one challenge
+-- and reward nothing. The highest level in (oldLevel, newLevel] with a reward and that level's rewards, or nil.
+-- rewardsFor(level) -> list of rewards.
+function ns.Moments_LegacyRewardLevel(oldLevel, newLevel, rewardsFor)
+	for level = newLevel, oldLevel + 1, -1 do
+		local rewards = rewardsFor(level)
+		if rewards and #rewards > 0 then
+			return level, rewards
+		end
+	end
+	return nil
+end
 
 ns.MOMENT_STYLES = {
 	{ value = "off", text = "Off" },

@@ -16,8 +16,16 @@ local CHAPTER_DELAY = 2 -- seconds: a chapter's hidden reward quest completes af
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "PLAYER_LEVEL_UP", "ACHIEVEMENT_EARNED",
 	"NEW_MOUNT_ADDED", "NEW_PET_ADDED", "NEW_TOY_ADDED", "UI_INFO_MESSAGE",
-	"MAJOR_FACTION_RENOWN_LEVEL_CHANGED", "QUEST_TURNED_IN", "PLAYER_HOUSE_LIST_UPDATED", "HOUSE_LEVEL_FAVOR_UPDATED",
+	"MAJOR_FACTION_RENOWN_LEVEL_CHANGED",
 }
+if not ns.FOREVER then -- campaigns and houses: Forever has neither
+	for _, event in ipairs({ "QUEST_TURNED_IN", "PLAYER_HOUSE_LIST_UPDATED", "HOUSE_LEVEL_FAVOR_UPDATED" }) do
+		EVENTS[#EVENTS + 1] = event
+	end
+end
+-- Forever's pet journal is the Classic one (Blizzard_Collections.toc): pets, not battle pets.
+local PET_NOUN = ns.FOREVER and "pet" or "battle pet"
+local TYPES = ns.Moments_Types(ns.FOREVER)
 
 local module
 local waiting = {} -- cinematic moments not shown yet: { moment, waited }
@@ -206,6 +214,13 @@ function Build.achievement(achievementID)
 	if not name then
 		return nil
 	end
+	if ns.FOREVER then
+		-- Legacy points, as Blizzard's cards read them (Blizzard_LegacyAchievementOverrides.lua).
+		points = C_Traits.GetTraitCurrencyForAchievement(Constants.LegacyConsts.LEGACY_POINTS_TRAIT_CURRENCY_ID,
+			achievementID)
+		return { label = "Legacy Challenge done", title = name, subtitle = description,
+			detail = points and points > 0 and (points .. " Legacy points") or nil, icon = icon }
+	end
 	return {
 		label = "Achievement earned",
 		title = name,
@@ -242,9 +257,10 @@ function Build.pet(petGUID, tier)
 	if not name then
 		return nil
 	end
-	local quality = select(5, C_PetJournal.GetPetStats(petGUID))
+	-- Not in Blizzard's Classic pet journal, which Forever loads: without it, an unknown quality.
+	local quality = C_PetJournal.GetPetStats and select(5, C_PetJournal.GetPetStats(petGUID))
 	tier = tier or ns.Moments_PetTier(quality)
-	return { label = ns.Moments_TierLabel(tier, "battle pet"), title = customName or name, detail = description,
+	return { label = ns.Moments_TierLabel(tier, PET_NOUN), title = customName or name, detail = description,
 		icon = icon, displayID = displayID, tier = tier }
 end
 
@@ -453,6 +469,18 @@ function events:UI_INFO_MESSAGE(messageType, message)
 	end)
 end
 
+-- A Legacy track level with a reward: the moment names the reward. Every other level is only a challenge's points,
+-- which the challenge's own moment already said.
+local function ShowLegacyReward(factionID, title, oldLevel, newLevel)
+	local level, rewards = ns.Moments_LegacyRewardLevel(oldLevel, newLevel, function(at)
+		return C_MajorFactions.GetRenownRewardsForLevel(factionID, at)
+	end)
+	if level then
+		local icon, name = RenownRewardUtil.GetRenownRewardInfo(rewards[1])
+		Show("renown", { label = "Legacy reward", title = name or title, subtitle = level .. " Legacy points", icon = icon })
+	end
+end
+
 function events:MAJOR_FACTION_RENOWN_LEVEL_CHANGED(factionID, newLevel, oldLevel)
 	if Secret(factionID, newLevel, oldLevel) or not (newLevel and oldLevel and newLevel > oldLevel) then
 		return
@@ -460,7 +488,11 @@ function events:MAJOR_FACTION_RENOWN_LEVEL_CHANGED(factionID, newLevel, oldLevel
 	local data = C_MajorFactions.GetMajorFactionData(factionID)
 	if data and data.name then
 		ns.Session_Note("renown", { factionID = factionID, title = data.name, from = oldLevel, to = newLevel })
-		Show("renown", { label = "Renown " .. newLevel, title = data.name })
+		if ns.FOREVER then
+			ShowLegacyReward(factionID, data.name, oldLevel, newLevel)
+		else
+			Show("renown", { label = "Renown " .. newLevel, title = data.name })
+		end
 	end
 end
 
@@ -548,6 +580,10 @@ local SAMPLES = {
 		return Build.levelup(UnitLevel("player"))
 	end,
 	achievement = function()
+		if ns.FOREVER then -- the ID below is retail's
+			return { label = "Legacy Challenge done", title = "Sample Legacy Challenge", subtitle = "Reach level 10.",
+				detail = "10 Legacy points" }
+		end
 		return Build.achievement(6) or { label = "Achievement earned", title = "Level 10", subtitle = "Reach level 10.", detail = "10 points" }
 	end,
 	mount = function(tier)
@@ -562,7 +598,7 @@ local SAMPLES = {
 				return moment
 			end
 		end
-		return { label = ns.Moments_TierLabel(tier, "battle pet"), title = "Mechanical Squirrel",
+		return { label = ns.Moments_TierLabel(tier, PET_NOUN), title = "Mechanical Squirrel",
 			icon = "Interface\\Icons\\INV_Pet_MechanicalSquirrel", tier = tier }
 	end,
 	toy = function()
@@ -577,6 +613,9 @@ local SAMPLES = {
 		return { label = "Discovered", title = GetSubZoneText() ~= "" and GetSubZoneText() or GetZoneText(), subtitle = name }
 	end,
 	renown = function()
+		if ns.FOREVER then
+			return { label = "Legacy reward", title = "Sample reward", subtitle = "25 Legacy points" }
+		end
 		return { label = "Renown 12", title = "The Silvermoon Court" }
 	end,
 	companion = function()
@@ -595,6 +634,9 @@ local SAMPLES = {
 		local label = ns.Moments_TierLabel(tier, "companion")
 		if pet then
 			return { label = label, title = pet.name, subtitle = pet.family, icon = pet.icon, displayID = pet.displayID, tier = tier }
+		end
+		if ns.FOREVER then -- a vanilla game: no exotic spirit beasts
+			return { label = label, title = "Broken Tooth", subtitle = "Cat", tier = tier }
 		end
 		return { label = label, title = "Loque'nahak", subtitle = "Exotic Spirit Beast", tier = tier }
 	end,
@@ -616,6 +658,14 @@ local SAMPLES = {
 	end,
 }
 
+if ns.FOREVER then -- only the types it has can be previewed
+	for _, t in ipairs(ns.MOMENT_TYPES) do
+		if t.retail then
+			SAMPLES[t.key] = nil
+		end
+	end
+end
+
 -- "mount legendary": a type and, for creatures, a tier.
 local function Preview(text)
 	if not ns.Module_RequireOn(module) then
@@ -630,7 +680,7 @@ local function Preview(text)
 	local sample = SAMPLES[kind]
 	if not sample then
 		local keys = {}
-		for _, t in ipairs(ns.MOMENT_TYPES) do
+		for _, t in ipairs(TYPES) do
 			keys[#keys + 1] = t.key
 		end
 		ns.Print("preview one of: " .. table.concat(keys, ", "))
@@ -655,7 +705,7 @@ local function Activate()
 	end
 	ns.Moments_ZoneText(ns.momentsDB.zoneText)
 	HookToasts()
-	if C_Housing and C_Housing.GetPlayerOwnedHouses then
+	if not ns.FOREVER and C_Housing and C_Housing.GetPlayerOwnedHouses then
 		C_Housing.GetPlayerOwnedHouses() -- answers with PLAYER_HOUSE_LIST_UPDATED
 	end
 end
@@ -676,17 +726,23 @@ end
 
 local function TypeChoices()
 	local list = {}
-	for i, t in ipairs(ns.MOMENT_TYPES) do
+	for i, t in ipairs(TYPES) do
 		list[i] = { value = t.key, text = t.name }
 	end
 	return list
 end
 
+-- Forever: the tame moment comes from Hunter Pets, which may not be loaded.
+local function HunterPetsLoaded()
+	return ns.Stable_Snapshot ~= nil
+end
+
 local options = {
 	{ type = "header", label = "Moments" },
 }
-for _, t in ipairs(ns.MOMENT_TYPES) do
+for _, t in ipairs(TYPES) do
 	options[#options + 1] = { type = "dropdown", key = "styles." .. t.key, label = t.name, choices = StyleChoices,
+		shown = ns.FOREVER and t.key == "tame" and HunterPetsLoaded or nil,
 		tooltip = "Off, a banner over the UI, or a short cinematic (UI hidden, letterbox). Cinematic at max level is a banner while levelling and a cinematic once you reach max level. Cinematics wait until you're out of combat, instances and taxis; after 10 seconds they show as a banner." }
 end
 options[#options + 1] = { type = "header", label = "Zone text" }
@@ -705,6 +761,7 @@ options[#options + 1] = { type = "checkbox", key = "replaceLevelUp", label = "Re
 	tooltip = "When level ups show as a moment, hide Blizzard's \"You've Reached Level\" text so only the moment shows. Its sound still plays, and the new-spell notices after it still show." }
 options[#options + 1] = { type = "header", label = "Battle pets" }
 options[#options + 1] = { type = "checkbox", key = "replacePetCapture", label = "Replace Blizzard's capture text",
+	shown = ns.NotForever, -- pet battles aren't confirmed live there
 	tooltip = "When new battle pets show as a moment, hide Blizzard's \"You have captured\" text after a pet battle so only the moment shows." }
 options[#options + 1] = { type = "header", label = "Cinematic" }
 options[#options + 1] = { type = "slider", key = "duration", label = "Cinematic length", min = 4, max = 15, step = 1,
@@ -713,7 +770,7 @@ options[#options + 1] = { type = "slider", key = "duration", label = "Cinematic 
 	end,
 	tooltip = "How long a cinematic moment stays. Click or Esc closes it sooner. Epic and legendary creatures stay a little longer." }
 options[#options + 1] = { type = "checkbox", key = "revealSound", label = "Reveal sounds",
-	tooltip = "Play a sound when a new mount, battle pet or tamed pet is revealed. Rarer ones sound grander." }
+	tooltip = ("Play a sound when a new mount, %s or tamed pet is revealed. Rarer ones sound grander."):format(PET_NOUN) }
 options[#options + 1] = { type = "header", label = "Preview" }
 options[#options + 1] = { type = "dropdown", key = "previewKind", label = "Moment", choices = TypeChoices,
 	tooltip = "Which moment the Preview button below shows." }
@@ -757,7 +814,13 @@ module = ns.RegisterModule({
 		return playing
 	end,
 	commands = {
-		{ "preview", "show a sample moment; add a type (levelup, mount, zone, tame, upgrade, ...) and for mount, pet, tame or upgrade a tier (common, rare, epic, legendary)", Preview },
+		{ "preview", ns.FOREVER and "show a sample moment; add a type (levelup, mount, zone, tame, ...) and for mount, pet or tame a tier (common, rare, epic, legendary)"
+			or "show a sample moment; add a type (levelup, mount, zone, tame, upgrade, ...) and for mount, pet, tame or upgrade a tier (common, rare, epic, legendary)", Preview },
 	},
 	options = options,
 })
+
+if ns.FOREVER then
+	module.summary = "Title cards for level ups, new mounts, Legacy Challenges and more."
+	module.description = "Short title cards for moments worth a pause: level ups, Legacy Challenges and rewards, new mounts, pets and toys, new zones and tamed pets. A banner or a small cinematic."
+end
