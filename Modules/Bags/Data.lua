@@ -6,6 +6,7 @@ local addonName, ns = ...
 -- { empty = true, kind = a key of BAGS_SLOT_KINDS, bag, slot }.
 
 local CLASS_WEAPON, CLASS_PROFESSION = 2, 19 -- Enum.ItemClass
+local BUYBACK_SLOTS = 12 -- the merchant's buyback page
 local SUBCLASS_FISHING_POLE = 20 -- Enum.ItemWeaponSubclass.Fishingpole
 
 -- The kinds of free slot, in the order they show. A bag's family is the bit C_Container.GetContainerNumFreeSlots returns
@@ -601,8 +602,9 @@ function ns.Bags_PetLevel(link)
 end
 
 -- Stacks of the same item (same link) merged into one record per item for "group identical items": the first
--- stack's record (its bag and slot, so clicks act on it) with count = the total and stacks = how many were merged.
--- Empty slots and unreadable items stay as they are.
+-- stack's record (its bag and slot, so clicks act on it) with count = the total, stacks = how many were merged and
+-- more = the other stacks' places ({ { bag, slot } }, nil when there's only one). Empty slots and unreadable items stay
+-- as they are.
 function ns.Bags_Group(items)
 	local out, byLink = {}, {}
 	for _, item in ipairs(items) do
@@ -611,6 +613,8 @@ function ns.Bags_Group(items)
 		if first then
 			first.count = first.count + (item.count or 1)
 			first.stacks = first.stacks + 1
+			first.more = first.more or {}
+			first.more[#first.more + 1] = { bag = item.bag, slot = item.slot }
 		else
 			local copy = item
 			if link then
@@ -621,6 +625,23 @@ function ns.Bags_Group(items)
 		end
 	end
 	return out
+end
+
+-- The other stacks a right-click on a grouped item also sells at a merchant: empty for an item that sells for nothing,
+-- and no more than the buyback page still holds with the clicked stack, so one click can't sell what can't be bought
+-- back. Another click sells the rest.
+function ns.Bags_StacksToSell(item)
+	local list = {}
+	if item.noValue then
+		return list
+	end
+	for i, place in ipairs(item.more or {}) do
+		if i >= BUYBACK_SLOTS then
+			break
+		end
+		list[i] = place
+	end
+	return list
 end
 
 -- How many of each item the records hold: [itemID] = count. Empty slots and records without an itemID are skipped.

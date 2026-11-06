@@ -453,9 +453,27 @@ test("grouping merges stacks of the same item, keeping the first stack's slot", 
 	eq(out[1].stacks, 2)
 	eq(out[1].slot, 1)
 	eq(out[1].name, "Ore")
+	eq(#out[1].more, 1, "the other stack's place")
+	eq(out[1].more[1].bag, 1)
+	eq(out[1].more[1].slot, 3)
+	eq(out[3].more, nil, "one stack has no others")
 	eq(items[1].count, 20, "the original record is untouched")
+	eq(items[1].more, nil, "the original record is untouched")
 	eq(out[2].empty, true)
 	eq(out[4].readable, false)
+end)
+
+test("StacksToSell: a grouped item's other stacks, as many as buyback can still hold", function()
+	eq(#ns.Bags_StacksToSell({}), 0, "not grouped")
+	local more = {}
+	for i = 1, 15 do
+		more[i] = { bag = 1, slot = i }
+	end
+	eq(#ns.Bags_StacksToSell({ more = { more[1], more[2] } }), 2)
+	local list = ns.Bags_StacksToSell({ more = more })
+	eq(#list, 11, "12 with the clicked stack")
+	eq(list[11].slot, 11)
+	eq(#ns.Bags_StacksToSell({ more = more, noValue = true }), 0, "sells for nothing")
 end)
 
 test("counts add up stacks per item and skip empty slots", function()

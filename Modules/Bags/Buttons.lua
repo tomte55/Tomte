@@ -141,6 +141,31 @@ local function Square(holder, sub)
 	return { t }
 end
 
+-- Blizzard asks before selling an item you could still return for a refund (ContainerFrame_GetExtendedPriceString).
+local function Refundable(bag, slot)
+	local info = C_Container.GetContainerItemPurchaseInfo(bag, slot, false)
+	return info and info.refundSeconds ~= nil
+end
+
+-- Right-click on a grouped item at a merchant: Blizzard's click has sold the first stack, this sells the others. Runs
+-- after Blizzard's code (a hook), so that stays untainted. Each place is read again: the bags may have changed since
+-- the icon was painted. Vendor Helper sells the same way, several items at once with no wait.
+local function SellOtherStacks(button, mouseButton)
+	local item = extras[button].grouped
+	if not item or mouseButton ~= "RightButton" or IsModifiedClick() or InCombatLockdown() then
+		return
+	end
+	if not (MerchantFrame:IsShown() and MerchantFrame.selectedTab == 1) or Refundable(item.bag, item.slot) then
+		return
+	end
+	for _, place in ipairs(ns.Bags_StacksToSell(item)) do
+		local info = C_Container.GetContainerItemInfo(place.bag, place.slot)
+		if info and info.hyperlink == item.link and not info.isLocked and not Refundable(place.bag, place.slot) then
+			C_Container.UseContainerItem(place.bag, place.slot)
+		end
+	end
+end
+
 local function Extras(button)
 	local e = extras[button]
 	if e then
@@ -160,6 +185,7 @@ local function Extras(button)
 		icon:SetPoint("BOTTOMRIGHT", -ICON_INSET, ICON_INSET)
 	end
 	UI.Border(button, "rule")
+	button:HookScript("OnClick", SellOtherStacks)
 	button:HookScript("OnEnter", function(self)
 		UI.BorderTo(self, "accent")
 		local name = extras[self].kindName
@@ -429,6 +455,7 @@ end
 -- color role, for the frame).
 function ns.BagsButtons_Paint(button, item, opts)
 	local e = Extras(button)
+	e.grouped = item.more and item or nil
 	SetNumberFont(button, e, opts.fontSize)
 	if button.viewOnly then
 		PaintView(button, e, item, opts)
