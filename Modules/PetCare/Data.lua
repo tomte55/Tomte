@@ -76,9 +76,11 @@ end
 -- Pet training ---------------------------------------------------------------------------------------------------------
 
 -- A Beast Training row as the reminder keeps it, nil for what can't be learned any more. GetTrainerServiceInfo's name,
--- serviceType and subtext ("(Rank 2)"), its required level, and GetTrainerServiceCost, which is training points here.
+-- serviceType and subtext ("(Rank 2)"), its required level, and GetTrainerServiceCost, which is training points here. A row that
+-- costs nothing is left out: Forever can list what the pet already knows as "available" at 0 points, and training it says it's
+-- already learned (seen in game; the list came back empty later).
 function ns.PetCare_SlimTraining(name, serviceType, rank, level, cost)
-	if not name or (serviceType ~= "available" and serviceType ~= "unavailable") then
+	if not name or (serviceType ~= "available" and serviceType ~= "unavailable") or not cost or cost <= 0 then
 		return nil
 	end
 	return { name = rank and rank ~= "" and (name .. " " .. rank) or name, level = level or 0, cost = cost or 0 }
