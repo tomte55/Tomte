@@ -6,6 +6,7 @@ local addonName, ns = ...
 local BAR_SLOTS = 120 -- the action bars' slots; Blizzard's stance and possess bars above it hold no reagent spells
 local WEAPON_SLOTS = { 16, 17, 18 } -- main hand, off hand, ranged
 local SKILL_GAP = 5 -- weapon skills this far under their cap are listed; Gear Check warns from further behind
+local LAST_CARRIED_BAG = 4 -- bag IDs: 0 is the backpack, 1 to 4 the bags you wear
 
 local IsSecret = ns.IsSecret
 
@@ -70,21 +71,45 @@ function ns.LevelingRead_Ammo()
 	return true, count, subclass
 end
 
--- What the open merchant sells, for Leveling_PickAmmo. Items with another price than gold aren't offered.
+-- What the open merchant sells, for Leveling_PickAmmo. Items with another price than gold aren't offered. maxStack is how
+-- many fit in a bag slot, maxBuy how many one purchase can buy.
 function ns.LevelingRead_Merchant()
 	local items = {}
 	for i = 1, GetMerchantNumItems() do
 		local info = C_MerchantFrame.GetItemInfo(i)
 		local link = GetMerchantItemLink(i)
 		if info and link and info.isPurchasable and not info.hasExtendedCost then
-			local _, _, _, _, _, classID, subclassID = C_Item.GetItemInfoInstant(link)
+			local itemID, _, _, _, _, classID, subclassID = C_Item.GetItemInfoInstant(link)
+			local _, _, _, _, minLevel, _, _, maxStack = C_Item.GetItemInfo(link)
+			local stack = info.stackCount or 1
 			items[#items + 1] = {
-				index = i, name = info.name, classID = classID, subclassID = subclassID, price = info.price,
-				stack = info.stackCount, usable = info.isUsable, minLevel = select(5, C_Item.GetItemInfo(link)),
+				index = i, itemID = itemID, name = info.name, icon = info.texture, classID = classID, subclassID = subclassID,
+				price = info.price, stack = stack, available = info.numAvailable, usable = info.isUsable,
+				minLevel = minLevel, maxStack = maxStack or stack, maxBuy = GetMerchantItemMaxStack(i),
 			}
 		end
 	end
 	return items
+end
+
+-- The carried bags that take this ammo, for Leveling_AmmoRoom: { { family, free, topUp } }.
+function ns.LevelingRead_AmmoBags(item)
+	local bags = {}
+	local itemFamily = C_Item.GetItemFamily(item.itemID)
+	for bag = 0, LAST_CARRIED_BAG do
+		local free, family = C_Container.GetContainerNumFreeSlots(bag)
+		if ns.Bags_BagTakes(family, itemFamily) then
+			local topUp = 0
+			for slot = 1, C_Container.GetContainerNumSlots(bag) do
+				local info = C_Container.GetContainerItemInfo(bag, slot)
+				if info and info.itemID == item.itemID then
+					topUp = topUp + math.max(item.maxStack - info.stackCount, 0)
+				end
+			end
+			bags[#bags + 1] = { family = family, free = free or 0, topUp = topUp }
+		end
+	end
+	return bags
 end
 
 -- The quest log: { { questID, title, level, difficulty, elite, complete, timeLeft, xp } }. xp is 0 until the game has the

@@ -118,6 +118,63 @@ test("PickAmmo: the right kind, the best you can use and afford", function()
 	eq(ns.Leveling_PickAmmo(items, WAND, 30, 1000), nil, "no ammo for a wand")
 	items[2].usable = false
 	eq(ns.Leveling_PickAmmo(items, BOWS, 15, 1000).index, 1, "not usable")
+	items[2].usable = nil
+	eq(ns.Leveling_PickAmmo(items, BOWS, 30).index, 3, "no money given: the best you can use")
+end)
+
+test("AmmoRoom: ammo bags apart from ordinary bags", function()
+	local ammoRoom, normalRoom = ns.Leveling_AmmoRoom({
+		{ family = 0, free = 2, topUp = 0 },
+		{ family = 1, free = 3, topUp = 143 },
+		{ family = 1, free = 1, topUp = 0 },
+	}, 200)
+	eq(ammoRoom, 943, "free slots and part stacks in both quivers")
+	eq(normalRoom, 400)
+	ammoRoom, normalRoom = ns.Leveling_AmmoRoom({ { family = 0, free = 1, topUp = 50 } }, 200)
+	eq(ammoRoom, nil, "no ammo bag")
+	eq(normalRoom, 250)
+	eq(ns.Leveling_AmmoRoom({ { family = 1, free = 0, topUp = 0 } }, 200), 0, "a full quiver isn't no quiver")
+end)
+
+test("AmmoFill: fills an ammo bag, ignoring the target", function()
+	local item = { price = 100, stack = 200 }
+	local amount, cost = ns.Leveling_AmmoFill(item, 1143, 5000, 3000, 400, 100000)
+	eq(amount, 1143, "exactly the room, never into other bags")
+	eq(cost, 572, "rounded up to whole copper")
+	eq(ns.Leveling_AmmoFill(item, 0, 5000, 0, 400, 100000), 0, "full")
+end)
+
+test("AmmoFill: without an ammo bag, up to the target and what the bags hold", function()
+	local item = { price = 100, stack = 200 }
+	eq(ns.Leveling_AmmoFill(item, nil, 5000, 150, 400, 100000), 250, "the rest of the target")
+	eq(ns.Leveling_AmmoFill(item, nil, 100, 150, 400, 100000), 100, "bags nearly full")
+	eq(ns.Leveling_AmmoFill(item, nil, 5000, 600, 400, 100000), 0, "already past the target")
+end)
+
+test("AmmoFill: limited by money and stock", function()
+	local amount, cost = ns.Leveling_AmmoFill({ price = 100, stack = 200 }, 1000, 0, 0, 400, 75)
+	eq(amount, 150, "as many as you can pay for")
+	eq(cost, 75)
+	eq(ns.Leveling_AmmoFill({ price = 100, stack = 200 }, 1000, 0, 0, 400, 0), 0, "no money")
+	eq(ns.Leveling_AmmoFill({ price = 100, stack = 200, available = 300 }, 1000, 0, 0, 400, 100000), 300, "limited stock")
+	eq(ns.Leveling_AmmoFill({ price = 100, stack = 200, available = -1 }, 1000, 0, 0, 400, 100000), 1000, "unlimited")
+	eq(ns.Leveling_AmmoFill({ price = 0 }, 1000, 0, 0, 400, 0), 1000, "free")
+end)
+
+test("AutoBudget: a quarter of your money, in whole copper", function()
+	eq(ns.Leveling_AutoBudget(1000), 250)
+	eq(ns.Leveling_AutoBudget(3), 0)
+	eq(ns.Leveling_AutoBudget(0), 0)
+end)
+
+test("BuyBatches: purchases no larger than the game allows", function()
+	local batches = ns.Leveling_BuyBatches(543, 200)
+	eq(#batches, 3)
+	eq(batches[1], 200)
+	eq(batches[2], 200)
+	eq(batches[3], 143)
+	eq(#ns.Leveling_BuyBatches(0, 200), 0)
+	eq(#ns.Leveling_BuyBatches(400, 200), 2, "whole stacks leave nothing over")
 end)
 
 test("NewlyLow warns once until it recovers", function()

@@ -10,6 +10,8 @@ local LEVEL_DELAY = 2 -- seconds: UnitLevel and the spellbook can lag behind PLA
 local CHECK_DELAY = 2 -- seconds of quiet before bars and supplies are read again
 local TOAST_HOLD = 12
 local BUY_W, BUY_GAP = 230, 4
+local BUY_SETTLE = 1.5 -- seconds after a purchase before the bags are trusted again: they update as the server answers
+local AUTO_DELAY = 1 -- seconds after a vendor opens: an item whose data hasn't loaded has no level, and could pick wrong
 local PAGE_KEY = "levelingpage"
 ns.LEVELING_PAGE_KEY = PAGE_KEY -- the Home section opens it
 
@@ -20,18 +22,19 @@ local events = CreateFrame("Frame")
 local oldRanksKnown -- [spell text] = true: already told; nil until the first read, which says nothing
 local lowSupplies = {} -- [key] = true: already warned, until it recovers
 local merchantOpen = false
+local buySettling = false -- a purchase was just made and the bags haven't caught up
 
 function ns.Leveling_DB()
 	return db
 end
 
-local function Toast(label, title, text)
+local function Toast(label, title, text, icon)
 	ns.Toast_Show({
 		owner = "leveling",
 		label = label,
 		title = title,
 		text = text,
-		icon = ICON,
+		icon = icon or ICON,
 		hold = TOAST_HOLD,
 		onClick = function()
 			ns.Panel_OpenPage(PAGE_KEY)
@@ -117,28 +120,80 @@ local function CheckSupplies(bars)
 	end
 end
 
-local function UpdateBuyButton()
+-- What the button buys right now: the item, how many and what that costs. Filling an ammo bag only offers the best ammo
+-- you can use, so being short on gold doesn't fill it with worse; without one, you get the best you can afford a stack of.
+local function PlanPurchase(weapon, money)
+	local items, level = ns.LevelingRead_Merchant(), UnitLevel("player")
+	local item = ns.Leveling_PickAmmo(items, weapon, level)
+	if not item then
+		return nil
+	end
+	local ammoRoom, normalRoom = ns.Leveling_AmmoRoom(ns.LevelingRead_AmmoBags(item), item.maxStack)
+	if not ammoRoom then
+		item = ns.Leveling_PickAmmo(items, weapon, level, money)
+		if not item then
+			return nil
+		end
+		ammoRoom, normalRoom = ns.Leveling_AmmoRoom(ns.LevelingRead_AmmoBags(item), item.maxStack)
+	end
+	local amount, cost = ns.Leveling_AmmoFill(item, ammoRoom, normalRoom, C_Item.GetItemCount(item.itemID), db.ammoTarget,
+		money)
+	return amount > 0 and { item = item, amount = amount, cost = cost } or nil
+end
+
+local UpdateBuyButton
+
+local function Buy(plan)
+	-- The button is gone until the bags have caught up: buying again on the old numbers would overflow.
+	buySettling = true
+	buyButton.plan = nil
+	buyButton:Hide()
+	for _, quantity in ipairs(ns.Leveling_BuyBatches(plan.amount, plan.item.maxBuy)) do
+		BuyMerchantItem(plan.item.index, quantity)
+	end
+	C_Timer.After(BUY_SETTLE, function()
+		buySettling = false
+		if module.active then
+			UpdateBuyButton()
+		end
+	end)
+end
+
+local function AutoBuy()
+	local needs, _, weapon = ns.LevelingRead_Ammo()
+	if not (merchantOpen and not buySettling and db.ammoBuy and db.ammoAuto and needs) then
+		return
+	end
+	local plan = PlanPurchase(weapon, ns.Leveling_AutoBudget(GetMoney()))
+	if plan then
+		Buy(plan)
+		Toast("Supplies", "Ammo bought", ("%s x%s for %s."):format(plan.item.name, ns.Thousands(plan.amount),
+			ns.Price(plan.cost)), plan.item.icon)
+	end
+end
+
+UpdateBuyButton = function()
 	if not buyButton then
 		return
 	end
-	local needs, count, weapon = ns.LevelingRead_Ammo()
-	local item
-	if merchantOpen and db.ammo and db.ammoBuy and needs and count < db.ammoTarget then
-		item = ns.Leveling_PickAmmo(ns.LevelingRead_Merchant(), weapon, UnitLevel("player"), GetMoney())
+	local needs, _, weapon = ns.LevelingRead_Ammo()
+	local plan
+	if merchantOpen and not buySettling and db.ammoBuy and needs then
+		plan = PlanPurchase(weapon, GetMoney())
 	end
-	buyButton.index = item and item.index
-	if item then
-		buyButton.label:SetText(("Buy %s x%d (%s)"):format(item.name, item.stack or 1, ns.Price(item.price)))
+	buyButton.plan = plan
+	if plan then
+		buyButton.label:SetText(("Buy %s x%s (%s)"):format(plan.item.name, ns.Thousands(plan.amount), ns.Price(plan.cost)))
 	end
-	buyButton:SetShown(item ~= nil)
+	buyButton:SetShown(plan ~= nil)
 end
 
 local function CreateBuyButton()
 	buyButton = UI.Button(MerchantFrame, BUY_W, "")
 	buyButton:SetPoint("BOTTOM", MerchantFrame, "TOP", 0, BUY_GAP)
 	buyButton:SetScript("OnClick", function(self)
-		if self.index then
-			BuyMerchantItem(self.index) -- one purchase per click: buying needs a real click
+		if self.plan then
+			Buy(self.plan)
 		end
 	end)
 	buyButton:Hide()
@@ -190,6 +245,7 @@ function events:MERCHANT_SHOW()
 		CreateBuyButton()
 	end
 	UpdateBuyButton()
+	C_Timer.After(AUTO_DELAY, AutoBuy)
 end
 
 events.MERCHANT_UPDATE = UpdateBuyButton
@@ -272,6 +328,7 @@ module = ns.RegisterModule({
 		ammoLow = 100,
 		ammoTarget = 400,
 		ammoBuy = true,
+		ammoAuto = false,
 		reagents = true,
 		reagentLow = 5,
 		chars = {}, -- [player GUID] = { services = { { name, rank, level, cost } } } from the last class trainer visit
@@ -331,10 +388,13 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "ammo", label = "Ammo warning", onChange = check },
 		{ type = "slider", key = "ammoLow", label = "Warn at", min = 20, max = 400, step = 20, parent = "ammo",
 			onChange = check },
-		{ type = "checkbox", key = "ammoBuy", label = "Buy ammo button at vendors", parent = "ammo", onChange = check,
-			tooltip = "A button above the vendor's window when it sells the right ammo for your weapon. Each click buys once." },
-		{ type = "slider", key = "ammoTarget", label = "Buy up to", min = 200, max = 2000, step = 200, parent = "ammoBuy",
-			onChange = check },
+		{ type = "checkbox", key = "ammoBuy", label = "Buy ammo button at vendors", onChange = check,
+			tooltip = "A button above the vendor's window when it sells the right ammo for your weapon. One click fills your quiver or ammo pouch, and nothing spills into your other bags." },
+		{ type = "checkbox", key = "ammoAuto", label = "Buy automatically", parent = "ammoBuy",
+			tooltip = "Buys when you open a vendor that sells your ammo, without a click, spending at most a quarter of your gold. A toast says what it bought." },
+		{ type = "slider", key = "ammoTarget", label = "Buy up to, no quiver", min = 200, max = 2000, step = 200,
+			parent = "ammoBuy", onChange = check,
+			tooltip = "How much ammo one click buys when you have no quiver or ammo pouch for it, so it doesn't take over your bags." },
 		{ type = "checkbox", key = "reagents", label = "Reagent warning", onChange = check,
 			tooltip = "Spells on your action bars that use a reagent and have few casts left." },
 		{ type = "slider", key = "reagentLow", label = "Warn at casts left", min = 1, max = 20, step = 1,

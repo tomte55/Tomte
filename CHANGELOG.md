@@ -18,6 +18,10 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
 - **Themes:** a Forever theme, on World of Warcraft: Forever only, that makes Tomte look like part of the game: its metal frames, rock background, red buttons, stat headings, progress bars and checkboxes, with the Tomte window's pages as icon tabs on its right edge. Pick it in Settings > Tomte window > Theme.
 
+### Improved
+
+- **Leveling:** the ammo button at vendors fills your quiver or ammo pouch in one click, exactly to the brim with nothing spilling into your other bags, and shows the total price. A new setting buys by itself when you open the vendor, spending at most a quarter of your gold. The button no longer goes away with the ammo warning.
+
 ## v1.27.0 - 2026-11-06
 
 ### New

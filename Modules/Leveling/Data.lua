@@ -8,6 +8,7 @@ local WEAPON_BOWS, WEAPON_GUNS, WEAPON_CROSSBOW = 2, 3, 18 -- Enum.ItemWeaponSub
 local AMMO_CLASS = 6 -- Enum.ItemClass.Projectile
 local AMMO_ARROW, AMMO_BULLET = 2, 3 -- warcraft.wiki.gg ItemType: Projectile's subclasses
 local AMMO_FOR = { [WEAPON_BOWS] = AMMO_ARROW, [WEAPON_CROSSBOW] = AMMO_ARROW, [WEAPON_GUNS] = AMMO_BULLET }
+local AUTO_BUDGET_SHARE = 0.25 -- of your money, at most, on one automatic ammo purchase
 -- Enum.RelativeContentDifficulty.
 local TRIVIAL, EASY, FAIR = 0, 1, 2
 -- role: the group's heading and quest levels. textRole: its quest titles, fading as a quest is worth less.
@@ -170,8 +171,8 @@ function ns.Leveling_AmmoState(needs, count, low)
 	return count <= low and "low" or "ok"
 end
 
--- The merchant's best ammo for this weapon: the highest level you can use and afford. items: { { index, classID,
--- subclassID, minLevel, price, usable } }. Nil when none fits.
+-- The merchant's best ammo for this weapon: the highest level you can use and, when money is given, afford a stack of.
+-- items: { { index, classID, subclassID, minLevel, price, usable } }. Nil when none fits.
 function ns.Leveling_PickAmmo(items, weaponSubclass, level, money)
 	local wanted, best = AMMO_FOR[weaponSubclass], nil
 	if not wanted then
@@ -179,13 +180,60 @@ function ns.Leveling_PickAmmo(items, weaponSubclass, level, money)
 	end
 	for _, item in ipairs(items) do
 		if item.classID == AMMO_CLASS and item.subclassID == wanted and item.usable ~= false
-			and (item.minLevel or 0) <= level and (item.price or 0) <= money then
+			and (item.minLevel or 0) <= level and (not money or (item.price or 0) <= money) then
 			if not best or (item.minLevel or 0) > (best.minLevel or 0) then
 				best = item
 			end
 		end
 	end
 	return best
+end
+
+-- How much of an ammo fits. bags: { { family, free, topUp } } for the bags that take it; topUp is the room left in its
+-- part stacks. Returns the room in ammo bags (quivers, pouches; nil without one) and the room in ordinary bags.
+function ns.Leveling_AmmoRoom(bags, maxStack)
+	local ammoRoom, normalRoom = nil, 0
+	for _, bag in ipairs(bags) do
+		local room = bag.free * maxStack + (bag.topUp or 0)
+		if (bag.family or 0) ~= 0 then
+			ammoRoom = (ammoRoom or 0) + room
+		else
+			normalRoom = normalRoom + room
+		end
+	end
+	return ammoRoom, normalRoom
+end
+
+-- How many to buy and what that costs. An ammo bag is filled and never overflows into your other bags; without one, you
+-- buy up to target as far as your bags hold it. Either way as many as money and the merchant's stock allow. item: { price
+-- (per stack of stack), stack, available (above 0 when the stock is limited) }.
+function ns.Leveling_AmmoFill(item, ammoRoom, normalRoom, have, target, money)
+	local amount = ammoRoom or math.min(target - have, normalRoom)
+	if item.available and item.available > 0 then
+		amount = math.min(amount, item.available)
+	end
+	local price, stack = item.price or 0, item.stack or 1
+	if price > 0 then
+		amount = math.min(amount, math.floor(money * stack / price))
+	end
+	amount = math.max(amount, 0)
+	return amount, math.ceil(price * amount / stack)
+end
+
+-- What buying automatically may spend: a share of your money, so a visit you didn't think about can't empty your purse.
+function ns.Leveling_AutoBudget(money)
+	return math.floor(money * AUTO_BUDGET_SHARE)
+end
+
+-- An amount as the purchases that make it up, each at most maxBuy (the game's limit for one purchase).
+function ns.Leveling_BuyBatches(amount, maxBuy)
+	local batches = {}
+	while amount > 0 do
+		local n = math.min(amount, maxBuy)
+		batches[#batches + 1] = n
+		amount = amount - n
+	end
+	return batches
 end
 
 -- Warning once: which keys are low now and weren't before. prev and the returned table: [key] = true.
