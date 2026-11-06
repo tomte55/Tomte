@@ -74,6 +74,14 @@ function UI.SearchBoxClear(box)
 			self:SetFocus()
 		end
 	end)
+	if Theme.panel == "forever" then
+		UI.Forever_SearchArt(box)
+	end
+end
+
+-- Where a search box's text and placeholder start, past the magnifying glass on the Forever theme's field.
+function UI.SearchTextX()
+	return Theme.panel == "forever" and UI.FOREVER_SEARCH_X or 8
 end
 
 -- Puts a link into the open chat edit box (shift-click). Does nothing for a nil link.
@@ -195,6 +203,11 @@ function UI.Border(frame, role, alpha)
 	local r, g, b, a = RGBA(role or "frame", alpha)
 	frame.borderEdges = Edges(frame, 0, "BORDER", 0, r, g, b, a or 1)
 	frame.borderColor = { r, g, b, a or 1 } -- where UI.BorderTo (Motion.lua) eases from
+	if frame.artField then -- the game's own field (UI.Forever_SearchArt) has its border in its art
+		for _, t in ipairs(frame.borderEdges) do
+			t:Hide()
+		end
+	end
 end
 
 function UI.SetBorderColor(frame, role, alpha)
@@ -458,6 +471,7 @@ function UI.Surface(frame, borderAlpha)
 	local bg = frame:CreateTexture(nil, "BACKGROUND")
 	bg:SetAllPoints()
 	bg:SetColorTexture(Theme.Color("surface"))
+	bg:SetShown(not frame.artField) -- square, under the game's rounded field (UI.Forever_SearchArt)
 	UI.Border(frame, "frame", borderAlpha or 0.35)
 	frame.surfaceFill = bg -- a scroll inside matches its edge fades to it (UI.Scroll)
 	return bg

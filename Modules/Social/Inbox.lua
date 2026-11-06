@@ -19,6 +19,9 @@ local AVATAR = 28
 local HEADER_AVATAR = 34
 local HEADER_H = 50
 local INPUT_H = 26
+local FOREVER_LIST_X, FOREVER_LIST_Y = 12, 14 -- the Forever theme: the list clear of the frame's metal, in its well
+local FOREVER_WELL_OUT = 4 -- how far a well reaches past what it holds
+local FOREVER_PANE_GAP = 12 -- between the messages' well and the chat line, whose art is taller than the box
 local WHO_SECONDS = 10 -- online status and zones are read again this often while the window is open
 local CLASS_CIRCLES = "Interface\\TargetingFrame\\UI-Classes-Circles"
 local BNET_PORTRAIT = "Interface\\FriendsFrame\\Battlenet-Portrait"
@@ -362,6 +365,9 @@ end
 -- next line, Esc leaves it. Not focused on open, so movement keys keep working while you read.
 local function CreateInput(parent)
 	local box = CreateFrame("EditBox", nil, parent)
+	if ns.Theme.panel == "forever" then
+		UI.Forever_ChatInput(box)
+	end
 	box:SetHeight(INPUT_H)
 	box:SetPoint("BOTTOMLEFT")
 	box:SetPoint("BOTTOMRIGHT")
@@ -385,9 +391,15 @@ local function CreateInput(parent)
 	box:SetScript("OnHide", box.ClearFocus)
 	box:SetScript("OnEditFocusGained", function(self)
 		UI.SetBorderColor(self, "accent", 0.8)
+		if self.artFocus then
+			self.artFocus(self, true)
+		end
 	end)
 	box:SetScript("OnEditFocusLost", function(self)
 		UI.SetBorderColor(self, "frame", 0.5)
+		if self.artFocus then
+			self.artFocus(self, false)
+		end
 	end)
 	return box
 end
@@ -486,13 +498,22 @@ local function Build()
 	line:SetPoint("BOTTOMLEFT", 20, 0)
 	line:SetPoint("BOTTOMRIGHT", -20, 0)
 
+	-- The Forever theme sinks the list and the messages into wells, as the game's windows do, instead of drawing lines.
+	local forever = ns.Theme.panel == "forever"
+	line:SetShown(not forever)
 	frame.list = UI.Scroll(frame)
-	frame.list:SetPoint("TOPLEFT", 6, -TITLE_H - 6)
-	frame.list:SetPoint("BOTTOMLEFT", 6, 10)
+	frame.list:SetPoint("TOPLEFT", forever and FOREVER_LIST_X or 6, -TITLE_H - 6)
+	frame.list:SetPoint("BOTTOMLEFT", forever and FOREVER_LIST_X or 6, forever and FOREVER_LIST_Y or 10)
 	frame.list:SetWidth(LIST_W)
-	local divider = UI.VLine(frame)
-	divider:SetPoint("TOP", frame.list, "TOPRIGHT", 12, 0)
-	divider:SetPoint("BOTTOM", frame.list, "BOTTOMRIGHT", 12, 0)
+	if forever then
+		local well = UI.Forever_Well(frame)
+		well:SetPoint("TOPLEFT", frame.list, -FOREVER_WELL_OUT, FOREVER_WELL_OUT)
+		well:SetPoint("BOTTOMRIGHT", frame.list, FOREVER_WELL_OUT, -FOREVER_WELL_OUT)
+	else
+		local divider = UI.VLine(frame)
+		divider:SetPoint("TOP", frame.list, "TOPRIGHT", 12, 0)
+		divider:SetPoint("BOTTOM", frame.list, "BOTTOMRIGHT", 12, 0)
+	end
 
 	local right = CreateFrame("Frame", nil, frame)
 	right:SetPoint("TOPLEFT", frame.list, "TOPRIGHT", 24, -2)
@@ -507,7 +528,12 @@ local function Build()
 	frame.elsewhere:Hide()
 	frame.pane = ns.InboxMessages_Create(right)
 	frame.pane.frame:SetPoint("TOPLEFT", frame.header, "BOTTOMLEFT", 0, -6)
-	frame.pane.frame:SetPoint("BOTTOMRIGHT", frame.input, "TOPRIGHT", 0, 8)
+	frame.pane.frame:SetPoint("BOTTOMRIGHT", frame.input, "TOPRIGHT", 0, forever and FOREVER_PANE_GAP or 8)
+	if forever then
+		local well = UI.Forever_Well(right)
+		well:SetPoint("TOPLEFT", frame.pane.frame, -FOREVER_WELL_OUT, FOREVER_WELL_OUT)
+		well:SetPoint("BOTTOMRIGHT", frame.pane.frame, FOREVER_WELL_OUT, -FOREVER_WELL_OUT)
+	end
 
 	UI.ResizeGrip(frame, SaveLayout)
 

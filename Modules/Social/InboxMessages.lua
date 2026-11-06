@@ -1,9 +1,11 @@
 local addonName, ns = ...
 
 -- Whisper inbox: the message pane. Messages as chat bubbles (theirs left, yours right in an accent tint, the time
--- under each, links clickable) with a divider between days and a NEW divider where the unread ones began. The
--- session's "In instance" conversation holds secret messages, which can be shown but not measured, so it keeps a
--- plain line list. Built by Inbox.lua (ns.InboxMessages_Create).
+-- under each, links clickable) with a divider between days and a NEW divider where the unread ones began. The Forever
+-- theme shows them as the game's chat lines instead: theirs in the player's whisper color, yours as "[You]:" in a
+-- muted color on a faint band, so the two tell apart at a glance. The session's "In instance"
+-- conversation holds secret messages, which can be shown but not measured, so it keeps a plain line list. Built by
+-- Inbox.lua (ns.InboxMessages_Create).
 
 local UI = ns.UI
 local MAX_SHARE = 0.72 -- a bubble is at most this share of the pane's width
@@ -12,6 +14,10 @@ local TIME_H = 13 -- the time line under a bubble's text
 local GAP = 4 -- between bubbles
 local DIVIDER_H = 28
 local TEXT_SIZE = 13
+local LINE_GAP = 3 -- between the Forever theme's chat lines
+local LINE_INSET = 4 -- from the pane's left edge, inside your lines' band
+local LINE_PAD_Y = 2 -- above and below a line's text, inside your lines' band
+local FOREVER_DAY_RULE = 0.3 -- its well is darker, so a day's line stays quiet at this alpha
 
 local function Clock(at)
 	local t = date("*t", at)
@@ -64,6 +70,14 @@ local function CreateBubble(parent)
 	b.text:SetJustifyH("LEFT")
 	b.time = UI.Text(b, 10, "textFaint", "number")
 	b.time:SetPoint("BOTTOMRIGHT", -PAD_X, PAD_Y - 2)
+	if ns.Theme.panel == "forever" then -- a chat line: its text, and a band behind your own (pane:Show)
+		b.time:Hide()
+		for _, t in ipairs(b.borderEdges) do
+			t:Hide()
+		end
+		b.text:ClearAllPoints()
+		b.text:SetPoint("TOPLEFT", LINE_INSET, -LINE_PAD_Y)
+	end
 	b:EnableMouse(true) -- for the links (the wheel still reaches the scroll: bubbles don't take it)
 	b:SetHyperlinksEnabled(true)
 	b:SetScript("OnHyperlinkClick", function(_, link, text, button)
@@ -103,7 +117,7 @@ local function SetDivider(d, text, isNew)
 	d.text:SetText(text)
 	UI.SetTextRole(d.text, isNew and "accent" or "textFaint")
 	local r, g, b = UI.Color(isNew and "accent" or "rule")
-	local a = isNew and 0.6 or 0.8
+	local a = isNew and 0.6 or (ns.Theme.panel == "forever" and FOREVER_DAY_RULE or 0.8)
 	d.left:SetColorTexture(r, g, b, a)
 	d.right:SetColorTexture(r, g, b, a)
 end
@@ -159,6 +173,12 @@ function ns.InboxMessages_Create(parent)
 					newY = y
 				end
 				y = y + DIVIDER_H
+			elseif item.line then
+				f.text:SetWidth(width - 2 * LINE_INSET)
+				local h = math.ceil(f.text:GetStringHeight()) + 2 * LINE_PAD_Y
+				f:SetSize(width, h)
+				f:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+				y = y + h + LINE_GAP
 			else
 				local text = f.text
 				text:SetWidth(maxW - 2 * PAD_X)
@@ -263,6 +283,13 @@ function ns.InboxMessages_Create(parent)
 			d:Show()
 			self.items[#self.items + 1] = { kind = "divider", frame = d, isNew = isNew }
 		end
+		-- The Forever theme's chat lines, as the chat frame writes them: time, who, and the text in the whisper color.
+		local asLines = ns.Theme.panel == "forever"
+		local chatColor = asLines and ns.Toast_ChatColor(convo.bn and "BN_WHISPER" or "WHISPER")
+		local function LinePrefix(m)
+			local name = m.out and UI.ClassColored(YOU, select(2, UnitClass("player"))) or ns.Inbox_ColoredName(convo)
+			return UI.Wrap("[" .. Clock(m.at) .. "]", "textFaint") .. " [" .. name .. "]: "
+		end
 		local lastDay
 		for i, m in ipairs(convo.messages) do
 			local day = date("%Y-%m-%d", m.at)
@@ -276,7 +303,7 @@ function ns.InboxMessages_Create(parent)
 			nb = nb + 1
 			local b = self.bubbles[nb] or CreateBubble(content)
 			self.bubbles[nb] = b
-			SetBubbleText(b, m.text)
+			SetBubbleText(b, asLines and (LinePrefix(m) .. m.text) or m.text)
 			b.time:SetText(Clock(m.at))
 			-- Faint tints, the same in every theme: a light wash for theirs, the accent for yours.
 			if m.out then
@@ -286,8 +313,16 @@ function ns.InboxMessages_Create(parent)
 				b.bg:SetColorTexture(UI.RGBA("text", 0.06))
 				UI.SetBorderColor(b, "frame", 0.35)
 			end
+			if asLines then
+				b.bg:SetShown(m.out)
+				if m.out then
+					UI.SetTextRole(b.text, "textMuted")
+				else
+					b.text:SetTextColor(chatColor[1], chatColor[2], chatColor[3])
+				end
+			end
 			b:Show()
-			self.items[#self.items + 1] = { kind = "bubble", frame = b, out = m.out }
+			self.items[#self.items + 1] = { kind = "bubble", frame = b, out = m.out, line = asLines }
 		end
 		follow = true
 		Follow(Layout(scroll:GetWidth()))

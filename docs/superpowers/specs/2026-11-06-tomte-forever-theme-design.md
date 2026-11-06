@@ -45,6 +45,12 @@ it is an exact match instead of a lookalike.
 - **Bars and toggles:** `UI.Bar` is the game's progress bar (`common-stat-bar-*`), and `UI.Switch` and `UI.Checkbox` are
   its checkbox (`checkbox-minimal`). A bar's own rect stays the caller's and the frame hangs outside it, so layouts stay
   put. Default fill is blue, like the skill bars. The thin progress lines (`UI.ProgressLine`) stay as they are.
+- **Search boxes** use the game's field and magnifying glass, applied where every search box already calls
+  `UI.SearchBoxClear`. Other text fields keep the plain surface.
+- **Whispers** reads as chat: messages are the game's chat lines rather than bubbles, theirs in the player's whisper
+  color and yours as "[You]:" in a muted color on a faint band (all in one color they were hard to tell apart), the
+  input is the chat frame's line, and the list and messages sit in sunken wells (`UI.Forever_Well`, the
+  `common-insideframe` art) for depth rather than being divided by lines. Other themes keep the bubbles.
 - **No Background opacity setting and no scroll edge fades:** rock isn't a flat color a fade could match, and the
   game's own windows are solid.
 - **Text:** the client's font everywhere, white text and yellow headings from Blizzard's color globals.

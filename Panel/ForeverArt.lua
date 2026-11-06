@@ -49,8 +49,19 @@ local BAR_TINTED = "common-stat-bar-white" -- any other color role: its color on
 local SWITCH_SIZE, CHECK_SIZE = 24, 18 -- the game's are 26: a little less fits Tomte's rows
 local DISABLED_ALPHA = 0.35
 
+local WELL_ATLAS = "common-insideframe" -- the inner frame of the Character and Professions windows
+local WELL_CORNER = 20 -- px of the art's corners and edges drawn unstretched: it holds their ornament
+local WELL_SHADE = 0.55 -- how dark a well is over the rock, in frameDark
+
+local CHAT_INPUT = "Interface\\ChatFrame\\UI-ChatInputBorder" -- ChatFrameEditBoxTemplate's slices
+local CHAT_INPUT_SIZE = 32
+
+local SEARCH_CAP_W, SEARCH_H = 8, 20 -- InputBoxVisualTemplate's slices
+local SEARCH_ICON, SEARCH_ICON_X = 12, 6
+
 local Theme = ns.Theme
 local UI = ns.UI
+UI.FOREVER_SEARCH_X = 22 -- past the magnifying glass (UI.SearchTextX)
 
 -- Panels ---------------------------------------------------------------------------------------------------------------
 
@@ -396,6 +407,112 @@ end
 
 function UI.Forever_Checkbox(parent)
 	return Check(parent, CHECK_SIZE)
+end
+
+-- Wells ------------------------------------------------------------------------------------------------------------------
+
+-- A sunken panel inside a window, as the game's windows have: a darker fill in the inner frame's art, its corners and
+-- edges cut out of the atlas so it fits any size. The caller anchors the frame it returns; it sits under parent's other
+-- children and takes no mouse.
+function UI.Forever_Well(parent)
+	local well = CreateFrame("Frame", nil, parent)
+	well:SetFrameLevel(parent:GetFrameLevel())
+	local fill = well:CreateTexture(nil, "BACKGROUND")
+	fill:SetAllPoints()
+	local r, g, b = Theme.RGB("frameDark")
+	fill:SetColorTexture(r, g, b, WELL_SHADE)
+	local info = C_Texture.GetAtlasInfo(WELL_ATLAS)
+	if not info then
+		return well
+	end
+	local l, t = info.leftTexCoord, info.topTexCoord
+	local ri, bo = info.rightTexCoord, info.bottomTexCoord
+	local cu, cv = (ri - l) * WELL_CORNER / info.width, (bo - t) * WELL_CORNER / info.height
+	local function Piece(u1, u2, v1, v2)
+		local tex = well:CreateTexture(nil, "BORDER")
+		tex:SetTexture(info.file or info.filename)
+		tex:SetTexCoord(u1, u2, v1, v2)
+		return tex
+	end
+	local function Corner(point, u1, u2, v1, v2)
+		local tex = Piece(u1, u2, v1, v2)
+		tex:SetSize(WELL_CORNER, WELL_CORNER)
+		tex:SetPoint(point)
+		return tex
+	end
+	local tl = Corner("TOPLEFT", l, l + cu, t, t + cv)
+	local tr = Corner("TOPRIGHT", ri - cu, ri, t, t + cv)
+	local bl = Corner("BOTTOMLEFT", l, l + cu, bo - cv, bo)
+	local br = Corner("BOTTOMRIGHT", ri - cu, ri, bo - cv, bo)
+	-- Stretches between two corners: its top left at one's point, its bottom right at the other's.
+	local function Edge(from, fromPoint, to, toPoint, u1, u2, v1, v2)
+		local tex = Piece(u1, u2, v1, v2)
+		tex:SetPoint("TOPLEFT", from, fromPoint)
+		tex:SetPoint("BOTTOMRIGHT", to, toPoint)
+	end
+	Edge(tl, "TOPRIGHT", tr, "BOTTOMLEFT", l + cu, ri - cu, t, t + cv)
+	Edge(bl, "TOPRIGHT", br, "BOTTOMLEFT", l + cu, ri - cu, bo - cv, bo)
+	Edge(tl, "BOTTOMLEFT", bl, "TOPRIGHT", l, l + cu, t + cv, bo - cv)
+	Edge(tr, "BOTTOMLEFT", br, "TOPRIGHT", ri - cu, ri, t + cv, bo - cv)
+	return well
+end
+
+-- Chat input ---------------------------------------------------------------------------------------------------------------
+
+-- The game's chat line under an edit box, with its brighter look while typing: box.artFocus(box, focused). box.artField
+-- tells UI.Border and UI.Surface to draw nothing of their own.
+function UI.Forever_ChatInput(box)
+	box.artField = true
+	local function Slices(suffixL, suffixM, suffixR, layer)
+		local left = box:CreateTexture(nil, layer)
+		left:SetTexture(CHAT_INPUT .. suffixL)
+		left:SetSize(CHAT_INPUT_SIZE, CHAT_INPUT_SIZE)
+		left:SetPoint("LEFT")
+		local right = box:CreateTexture(nil, layer)
+		right:SetTexture(CHAT_INPUT .. suffixR)
+		right:SetSize(CHAT_INPUT_SIZE, CHAT_INPUT_SIZE)
+		right:SetPoint("RIGHT")
+		local mid = box:CreateTexture(nil, layer)
+		mid:SetTexture(CHAT_INPUT .. suffixM, "REPEAT")
+		mid:SetHorizTile(true)
+		mid:SetHeight(CHAT_INPUT_SIZE)
+		mid:SetPoint("TOPLEFT", left, "TOPRIGHT")
+		mid:SetPoint("TOPRIGHT", right, "TOPLEFT")
+		return { left, mid, right }
+	end
+	Slices("-Left2", "-Mid2", "-Right2", "BACKGROUND")
+	local focus = Slices("Focus-Left", "Focus-Mid", "Focus-Right", "BORDER")
+	function box.artFocus(_, focused)
+		for _, tex in ipairs(focus) do
+			tex:SetShown(focused)
+		end
+	end
+	box.artFocus(box, false)
+end
+
+-- Search boxes ----------------------------------------------------------------------------------------------------------
+
+-- The game's search field under a search box (InputBoxVisualTemplate, SearchBoxTemplate): three slices and a magnifying
+-- glass. box.artField tells UI.Border and UI.Surface, which the box's creator calls next, to draw nothing of their own.
+function UI.Forever_SearchArt(box)
+	box.artField = true
+	local left = box:CreateTexture(nil, "BACKGROUND")
+	left:SetAtlas("common-search-border-left")
+	left:SetSize(SEARCH_CAP_W, SEARCH_H)
+	left:SetPoint("LEFT")
+	local right = box:CreateTexture(nil, "BACKGROUND")
+	right:SetAtlas("common-search-border-right")
+	right:SetSize(SEARCH_CAP_W, SEARCH_H)
+	right:SetPoint("RIGHT")
+	local middle = box:CreateTexture(nil, "BACKGROUND")
+	middle:SetAtlas("common-search-border-middle")
+	middle:SetHeight(SEARCH_H)
+	middle:SetPoint("LEFT", left, "RIGHT")
+	middle:SetPoint("RIGHT", right, "LEFT")
+	local glass = box:CreateTexture(nil, "OVERLAY")
+	glass:SetAtlas("common-search-magnifyingglass")
+	glass:SetSize(SEARCH_ICON, SEARCH_ICON)
+	glass:SetPoint("LEFT", SEARCH_ICON_X, -1)
 end
 
 -- Rows ------------------------------------------------------------------------------------------------------------------

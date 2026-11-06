@@ -226,12 +226,14 @@ function ns.BagsKit_Search(parent, placeholder, onChange)
 	UI.SearchBoxClear(box)
 	UI.SetFont(box, "body", 12)
 	UI.SetTextRole(box, "text")
-	box:SetTextInsets(8, 22, 0, 0)
-	Fill(box, "BACKGROUND", 2, SEARCH_SHADE)
+	box:SetTextInsets(UI.SearchTextX(), 22, 0, 0)
 	UI.Border(box, "rule")
-	TopShadow(box)
+	if not box.artField then -- the Forever theme's field has its own inside
+		Fill(box, "BACKGROUND", 2, SEARCH_SHADE)
+		TopShadow(box)
+	end
 	box.placeholder = UI.Text(box, 12, "textFaint")
-	box.placeholder:SetPoint("LEFT", 8, 0)
+	box.placeholder:SetPoint("LEFT", UI.SearchTextX(), 0)
 	box.placeholder:SetText(placeholder)
 	box.help = CreateFrame("Button", nil, box)
 	box.help:SetSize(18, BUTTON_H)
@@ -263,6 +265,9 @@ function ns.BagsKit_Search(parent, placeholder, onChange)
 	function box:SetError(text)
 		self.error = text
 		UI.SetBorderColor(self, text and "danger" or "rule")
+		if self.artField then -- no border to color on the game's field
+			UI.SetTextRole(self, text and "danger" or "text")
+		end
 	end
 	return box
 end
