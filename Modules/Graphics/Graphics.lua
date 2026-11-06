@@ -31,6 +31,9 @@ local LABELS = {}
 for _, s in ipairs(ns.GRAPHICS_SITUATIONS) do
 	LABELS[s.key] = s.label
 end
+if ns.FOREVER then
+	LABELS.dungeon = "Dungeons" -- no delves on Forever
+end
 
 -- [group] = situation key: the player changed that group by hand there; Tomte stays out until another situation
 -- wins (Data.lua's Graphics_Decide). Session only: a new session starts from the presets again.
@@ -326,7 +329,7 @@ module = ns.RegisterModule({
 	category = "interface",
 	icon = 136243, -- trade_engineering
 	summary = "A graphics quality level and frame rate cap for each kind of place.",
-	description = "Pick a graphics quality level and a frame rate cap for the open world, cities, dungeons and delves, raids, PvP and while AFK. Tomte switches as you go and puts your own settings back when you leave, when you change them yourself and when you turn this off.",
+	description = "Pick a graphics quality level and a frame rate cap for the open world, cities, dungeons" .. (ns.FOREVER and "" or " and delves") .. ", raids, PvP and while AFK. Tomte switches as you go and puts your own settings back when you leave, when you change them yourself and when you turn this off.",
 	enabledByDefault = false, -- changes the game's graphics settings
 	defaults = {
 		quality = { world = LEAVE_ALONE, city = LEAVE_ALONE, dungeon = LEAVE_ALONE, raid = LEAVE_ALONE,
