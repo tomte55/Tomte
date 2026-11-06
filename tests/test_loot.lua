@@ -295,4 +295,15 @@ test("worth text", function()
 	eq(ns.Loot_WorthText(item(1, 1, { value = 7, stale = true })), ns.Price(7) .. "?", "stale price")
 end)
 
+test("a grey Gear Check calls an upgrade isn't junk", function()
+	local grey = { kind = "item", quality = 0 }
+	eq(ns.Loot_IsJunk(grey), true, "plain grey")
+	grey.verdict = { upgrade = true }
+	eq(ns.Loot_IsJunk(grey), false, "upgrade")
+	grey.verdict = { maybe = true }
+	eq(ns.Loot_IsJunk(grey), false, "maybe")
+	grey.verdict = { upgrade = false, maybe = false }
+	eq(ns.Loot_IsJunk(grey), true, "a downgrade")
+end)
+
 H.done()

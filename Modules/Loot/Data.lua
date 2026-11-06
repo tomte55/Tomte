@@ -46,8 +46,10 @@ function ns.Loot_IsGear(e)
 	return e.kind == "item" and (e.classID == CLASS_WEAPON or e.classID == CLASS_ARMOR)
 end
 
+-- A grey that Gear Check calls an upgrade (it can be one while leveling) isn't junk.
 function ns.Loot_IsJunk(e)
-	return e.kind == "item" and e.quality == QUALITY_POOR and e.quest == nil
+	local v = e.verdict
+	return e.kind == "item" and e.quality == QUALITY_POOR and e.quest == nil and not (v and (v.upgrade or v.maybe))
 end
 
 local function HasValue(e)
