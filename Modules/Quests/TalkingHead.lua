@@ -60,7 +60,7 @@ end
 
 local function Build()
 	frame = BuildSubtitle(UIParent, db.thSize)
-	frame:SetFrameStrata("MEDIUM")
+	frame:SetFrameStrata("HIGH") -- above the action bars (MEDIUM), which drew over the line where the two overlap
 	frame:SetClampedToScreen(true)
 	frame:SetMovable(true)
 	frame:Hide()
