@@ -455,6 +455,7 @@ ns.BUG_FILES = {
 	"Data/Forever/Rogue.lua",
 	"Data/Forever/Tools.lua",
 	"Data/Forever/Fishing.lua",
+	"Data/Forever/Dungeons.lua",
 	"Panel/ForeverArt.lua",
 	"Panel/ForeverTabs.lua",
 	"Modules/Rogue/Forever.lua",
@@ -471,6 +472,9 @@ ns.BUG_FILES = {
 	"Modules/PetCare/PetCare.lua",
 	"Modules/Rest/Data.lua",
 	"Modules/Rest/Rest.lua",
+	"Modules/ChatGroups/Data.lua",
+	"Modules/ChatGroups/Page.lua",
+	"Modules/ChatGroups/ChatGroups.lua",
 	"Modules/Materials/GeneratedForever.lua",
 	"Modules/Fishing/Rod.lua",
 }

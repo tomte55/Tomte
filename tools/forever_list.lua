@@ -37,7 +37,7 @@ return {
 		{ after = "Themes/Cartographer.lua", files = { "Themes/Forever.lua" } },
 		{ after = "Panel/Widgets.lua", files = { "Panel/ForeverArt.lua" } },
 		{ after = "Panel/Rail.lua", files = { "Panel/ForeverTabs.lua" } },
-		{ after = "Core/Content.lua", files = { "Data/Forever/Teleports.lua", "Data/Forever/Buffs.lua", "Data/Forever/Rogue.lua", "Data/Forever/Tools.lua", "Data/Forever/Fishing.lua" } },
+		{ after = "Core/Content.lua", files = { "Data/Forever/Teleports.lua", "Data/Forever/Buffs.lua", "Data/Forever/Rogue.lua", "Data/Forever/Tools.lua", "Data/Forever/Fishing.lua", "Data/Forever/Dungeons.lua" } },
 		{ after = "Modules/Fishing/Helpers.lua", files = { "Modules/Fishing/Rod.lua" } },
 		{ after = "Modules/Materials/Data.lua", files = { "Modules/Materials/GeneratedForever.lua" } },
 		{ after = "Modules/Rogue/Lockpick.lua", files = { "Modules/Rogue/Forever.lua" } },
@@ -51,6 +51,7 @@ return {
 			"Modules/PetCare/Data.lua", "Modules/PetCare/PetCare.lua",
 			-- docs/superpowers/specs/2026-11-06-tomte-forever-rest-and-chat-groups.md
 			"Modules/Rest/Data.lua", "Modules/Rest/Rest.lua",
+			"Modules/ChatGroups/Data.lua", "Modules/ChatGroups/Page.lua", "Modules/ChatGroups/ChatGroups.lua",
 		} },
 	},
 }
