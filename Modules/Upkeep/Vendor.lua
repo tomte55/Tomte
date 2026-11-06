@@ -87,6 +87,9 @@ local function BagItems()
 				items[#items + 1] = {
 					bag = bag, slot = slot, quality = info.quality, count = info.stackCount, price = price,
 					noValue = info.hasNoValue, excluded = excluded, locked = info.isLocked,
+					-- Looked up at call time: Gear Check may be off or not loaded.
+					keep = info.quality == 0 and info.hyperlink and ns.Gear_BagArrow
+						and ns.Gear_BagArrow(info.hyperlink) ~= nil or nil,
 				}
 			end
 		end
@@ -159,9 +162,9 @@ end
 
 local BUYBACK_SLOTS = 12 -- the merchant's buyback page: sell no more greys than it holds
 
--- Forever has no "sell all junk": greys go one by one, like the Classic vendor addons do.
-local function SellJunkOneByOne(visit)
-	local slots = ns.Upkeep_JunkSlots(BagItems(), BUYBACK_SLOTS)
+-- A client without "sell all junk", or a grey to keep that it would take: greys go one by one.
+local function SellJunkOneByOne(visit, items)
+	local slots = ns.Upkeep_JunkSlots(items, BUYBACK_SLOTS)
 	for _, item in ipairs(slots) do
 		C_Container.UseContainerItem(item.bag, item.slot)
 	end
@@ -174,14 +177,15 @@ local function SellJunk(visit)
 	if not db.junk then
 		return
 	end
-	if not (C_MerchantFrame and C_MerchantFrame.SellAllJunkItems) then
-		SellJunkOneByOne(visit)
+	local items = BagItems()
+	if not (C_MerchantFrame and C_MerchantFrame.SellAllJunkItems) or ns.Upkeep_KeepsAny(items) then
+		SellJunkOneByOne(visit, items)
 		return
 	end
 	if not C_MerchantFrame.IsSellAllJunkEnabled() or C_MerchantFrame.GetNumJunkItems() == 0 then
 		return
 	end
-	local value, n = ns.Upkeep_JunkValue(BagItems())
+	local value, n = ns.Upkeep_JunkValue(items)
 	C_MerchantFrame.SellAllJunkItems()
 	if n > 0 then
 		visit.sold, visit.junkValue = n, value

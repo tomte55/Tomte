@@ -25,10 +25,21 @@ function ns.Upkeep_RepairPlan(cost, money, useGuild, canGuild, withdraw, bankMon
 	return "poor"
 end
 
--- items: { { quality, count, price, noValue, excluded } }. Grey items (quality 0) that sell, outside bags
--- excluded from junk selling. Returns copper, item count (stacks).
+-- items: { { quality, count, price, noValue, excluded, keep } }. Grey items (quality 0) that sell, outside bags
+-- excluded from junk selling, except what's kept (gear Gear Check calls an upgrade: a grey can be one while leveling).
+-- Returns copper, item count (stacks).
 local function Sells(item)
-	return item.quality == 0 and not item.noValue and not item.excluded and (item.price or 0) > 0
+	return item.quality == 0 and not item.noValue and not item.excluded and (item.price or 0) > 0 and not item.keep
+end
+
+-- Whether a grey that would sell is being kept: Blizzard's "sell all junk" would take it, so greys go one by one.
+function ns.Upkeep_KeepsAny(items)
+	for _, item in ipairs(items) do
+		if item.keep and item.quality == 0 then
+			return true
+		end
+	end
+	return false
 end
 
 function ns.Upkeep_JunkValue(items)
@@ -42,7 +53,7 @@ function ns.Upkeep_JunkValue(items)
 	return value, n
 end
 
--- For clients without Blizzard's "sell all junk" (Forever): the items (with bag, slot) to sell one by one, at most
+-- When Blizzard's "sell all junk" can't be used: the items (with bag, slot) to sell one by one, at most
 -- max of them (the buyback page holds 12, so selling more would lose the chance to buy one back). Skips locked items.
 function ns.Upkeep_JunkSlots(items, max)
 	local list = {}

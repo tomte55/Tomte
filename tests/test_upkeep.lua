@@ -47,6 +47,21 @@ test("junk: greys only, counts stacks, skips excluded and valueless", function()
 	eq(n, 2, "stacks")
 end)
 
+test("a grey to keep isn't sold or counted, and asks for selling one by one", function()
+	local items = {
+		{ quality = 0, count = 1, price = 10, bag = 0, slot = 1 },
+		{ quality = 0, count = 1, price = 99, bag = 0, slot = 2, keep = true },
+	}
+	local value, n = ns.Upkeep_JunkValue(items)
+	eq(value, 10, "value")
+	eq(n, 1, "stacks")
+	local slots = ns.Upkeep_JunkSlots(items, 12)
+	eq(#slots, 1, "one sold")
+	eq(slots[1].slot, 1, "not the kept one")
+	eq(ns.Upkeep_KeepsAny(items), true, "keeps")
+	eq(ns.Upkeep_KeepsAny({ items[1] }), false, "nothing to keep")
+end)
+
 test("junk slots: the greys that sell, skipping locked ones", function()
 	local slots = ns.Upkeep_JunkSlots({
 		{ bag = 0, slot = 1, quality = 0, count = 1, price = 10 },
