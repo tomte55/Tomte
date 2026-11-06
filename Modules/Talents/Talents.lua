@@ -3,6 +3,8 @@ local addonName, ns = ...
 -- Talent check: remembers which saved talent loadout you use per kind of place (open world, dungeon, raid, delve,
 -- PvP; a single dungeon, raid or delve can have its own) per character and spec. Entering a place or a ready check
 -- on the wrong loadout shows a card with a one-click switch; switching by hand inside a place offers to remember it.
+-- World of Warcraft: Forever has no saved loadouts (its talent frame hides the load system) but dual spec: there the
+-- two spec groups, 1 and 2, stand in for configIDs, so the rules and the saved table are the same.
 -- Pure rules in Data.lua, the card in Card.lua. Design: docs/superpowers/specs/2026-10-20-tomte-talents-design.md.
 
 local ENTER_DELAY = 4 -- seconds after zoning before the check: talent and instance data settle after the load screen
@@ -13,6 +15,7 @@ local MAX_ROWS = 30 -- saved-entry rows in settings (5 kinds plus overrides, for
 -- The Starter Build's pseudo config ID (Constants.TraitConsts.STARTER_BUILD_TRAIT_CONFIG_ID), as
 -- GetLastSelectedSavedConfigID reports it.
 local STARTER_FALLBACK = -2
+local LOADOUT = ns.FOREVER and "spec" or "loadout" -- the word for what's remembered, in settings and chat
 
 local UI = ns.UI
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
@@ -65,6 +68,9 @@ end
 
 -- The selected saved loadout, or nil on the Default loadout and the Starter Build.
 local function ActiveConfig(specID)
+	if ns.FOREVER then
+		return C_SpecializationInfo.GetActiveSpecGroup()
+	end
 	local id = C_ClassTalents.GetLastSelectedSavedConfigID(specID)
 	if id == StarterID() then
 		return nil
@@ -74,6 +80,9 @@ end
 
 -- The spec's saved loadouts: { [configID] = true }, how many.
 local function SavedLoadouts(specID)
+	if ns.FOREVER then
+		return ns.Talents_DualSpec(GetNumSpecGroups())
+	end
 	local valid, count = {}, 0
 	for _, id in ipairs(C_ClassTalents.GetConfigIDsBySpecID(specID) or {}) do
 		valid[id] = true
@@ -83,6 +92,9 @@ local function SavedLoadouts(specID)
 end
 
 local function LoadoutName(id)
+	if ns.FOREVER then
+		return id == 1 and DUAL_SPEC_PRIMARY or id == 2 and DUAL_SPEC_SECONDARY or nil
+	end
 	local info = id and C_Traits.GetConfigInfo(id)
 	return info and info.name or nil
 end
@@ -124,7 +136,7 @@ local function State()
 		place = CurrentPlace(),
 		spec = spec,
 		active = ActiveConfig(specID),
-		starter = C_ClassTalents.GetStarterBuildActive() and true or false,
+		starter = not ns.FOREVER and C_ClassTalents.GetStarterBuildActive() and true or false,
 		keyRunning = KeyRunning(),
 		valid = valid,
 		count = count,
@@ -138,9 +150,11 @@ local Check -- defined below; a failed switch asks again
 
 -- Blizzard's frame writes the selection after a switch (LoadConfig doesn't), so the talent window's dropdown shows it.
 local function WriteSelection(specID, configID)
-	writing = true
-	C_ClassTalents.UpdateLastSelectedSavedConfigID(specID, configID)
-	writing = false
+	if not ns.FOREVER then
+		writing = true
+		C_ClassTalents.UpdateLastSelectedSavedConfigID(specID, configID)
+		writing = false
+	end
 	seen.spec, seen.config = specID, configID
 end
 
@@ -157,8 +171,21 @@ local function Switched(specID, configID, name)
 	ns.Print(("switched to %s."):format(NameText(name)))
 end
 
+-- Starts the switch: an Enum.LoadConfigResult, and the game's error text. Forever swaps spec group as its talent
+-- frame's Activate button does.
+local function Load(configID)
+	if not ns.FOREVER then
+		return C_ClassTalents.LoadConfig(configID, true)
+	end
+	if C_SpecializationInfo.GetActiveSpecGroup() == configID then
+		return Enum.LoadConfigResult.NoChangesNecessary
+	end
+	C_SpecializationInfo.SetActiveSpecGroup(configID)
+	return Enum.LoadConfigResult.Ready
+end
+
 -- A button click (a hardware event); out of combat. The result of the cast arrives later (TRAIT_CONFIG_UPDATED or
--- CONFIG_COMMIT_FAILED).
+-- CONFIG_COMMIT_FAILED; on Forever ACTIVE_TALENT_GROUP_CHANGED, and only the timeout tells a cast that failed).
 local function Switch(specID, configID)
 	if not module.active or pending then
 		return
@@ -175,7 +202,7 @@ local function Switch(specID, configID)
 		ns.Print("that loadout no longer exists.")
 		return
 	end
-	local result, changeError = C_ClassTalents.LoadConfig(configID, true)
+	local result, changeError = Load(configID)
 	local results = Enum.LoadConfigResult
 	if result == results.NoChangesNecessary then
 		Switched(specID, configID, name)
@@ -434,7 +461,21 @@ function events:CONFIG_COMMIT_FAILED()
 	Check("retry")
 end
 
-local EVENTS = {
+-- Forever only: the spec group changed, by our switch or by hand in the talent frame.
+function events:ACTIVE_TALENT_GROUP_CHANGED(group)
+	if pending then
+		local p = pending
+		EndPending()
+		if group == p.config then
+			Switched(p.spec, p.config, p.name)
+		end
+		return
+	end
+	observeSoon()
+end
+
+local EVENTS = ns.FOREVER and { "PLAYER_ENTERING_WORLD", "READY_CHECK", "PLAYER_REGEN_DISABLED",
+	"ACTIVE_TALENT_GROUP_CHANGED" } or {
 	"PLAYER_ENTERING_WORLD", "READY_CHECK", "PLAYER_REGEN_DISABLED", "TRAIT_CONFIG_UPDATED", "CONFIG_COMMIT_FAILED",
 }
 
@@ -506,7 +547,7 @@ local function Why()
 		names[#names + 1] = LoadoutLabel(id)
 	end
 	table.sort(names)
-	ns.Print("saved loadouts: " .. (#names > 0 and table.concat(names, ", ") or "none"))
+	ns.Print(("saved %ss: "):format(LOADOUT) .. (#names > 0 and table.concat(names, ", ") or "none"))
 	if place and s.spec then
 		local kindID = s.spec.kinds[place.kind]
 		local override = place.instanceID and s.spec.instances[place.instanceID]
@@ -554,8 +595,8 @@ end
 -- Settings preview (Panel/Preview.lua): the card that offers to remember a hand switch, drawn in Card.lua.
 local function OfferPreview(host)
 	return ns.TalentsCard_DrawSample(host, {
-		text = ns.Talents_OfferText("Mythic+", { kind = "dungeon" }),
-		detail = "Until now: Raid.",
+		text = ns.Talents_OfferText(ns.FOREVER and DUAL_SPEC_SECONDARY or "Mythic+", { kind = "dungeon" }),
+		detail = ("Until now: %s."):format(ns.FOREVER and DUAL_SPEC_PRIMARY or "Raid"),
 		buttons = { { text = "Yes" }, { text = "No" } },
 	})
 end
@@ -563,22 +604,23 @@ end
 local options = {
 	{ type = "header", label = "Checks" },
 	{ type = "checkbox", key = "check.onEnter", label = "When entering an instance",
-		tooltip = "A few seconds after entering a dungeon, raid, delve, battleground or arena." },
+		tooltip = ns.FOREVER and "A few seconds after entering a dungeon, raid or battleground."
+			or "A few seconds after entering a dungeon, raid, delve, battleground or arena." },
 	{ type = "checkbox", key = "check.onReadyCheck", label = "On ready checks" },
 	{ type = "checkbox", key = "check.afterInstance", label = "Back in the open world",
-		tooltip = "After leaving an instance, check the loadout saved for the open world." },
+		tooltip = ("After leaving an instance, check the %s saved for the open world."):format(LOADOUT) },
 	{ type = "button", label = "Check now", text = "Run", onClick = function()
 		Check("command")
 	end },
 
 	{ type = "header", label = "Learning" },
 	{ type = "checkbox", key = "learn", label = "Learn on its own",
-		tooltip = "The first time you're somewhere with nothing saved, remember the loadout you're on for that kind of place." },
+		tooltip = ("The first time you're somewhere with nothing saved, remember the %s you're on for that kind of place."):format(LOADOUT) },
 	{ type = "checkbox", key = "offer", label = "Offer to remember a switch",
 		preview = ns.Preview_When("offer", OfferPreview),
-		tooltip = "When you change loadout by hand inside a place, ask whether to use it there from now on." },
+		tooltip = ("When you change %s by hand inside a place, ask whether to use it there from now on."):format(LOADOUT) },
 
-	{ type = "header", label = "Saved loadouts" },
+	{ type = "header", label = ("Saved %ss"):format(LOADOUT) },
 	{ type = "status", label = "Nothing saved yet", status = function()
 		return "", "textMuted"
 	end, shown = function()
@@ -589,7 +631,7 @@ for _, row in ipairs(savedRows) do
 	options[#options + 1] = row
 end
 options[#options + 1] = { type = "button", label = "Everything for this character", text = "Forget all",
-	confirm = "Forget every loadout Talent check saved for this character?",
+	confirm = ("Forget every %s Talent check saved for this character?"):format(LOADOUT),
 	shown = function()
 		return Entries()[1] ~= nil
 	end,
@@ -630,10 +672,15 @@ module = ns.RegisterModule({
 	end,
 	commands = {
 		{ "why", "explain what Talent check decides here and why", Why },
-		{ "list", "list the loadouts saved for this character", List },
+		{ "list", ("list the %ss saved for this character"):format(LOADOUT), List },
 		{ "check", "run the talent check now", function()
 			Check("command")
 		end },
 	},
 	options = options,
 })
+
+if ns.FOREVER then
+	module.summary = "Remembers which of your dual specs you use per kind of place and offers a one-click switch."
+	module.description = "Once you have dual spec: remembers which spec you use in the open world, dungeons, raids and PvP (or in one particular dungeon). When you arrive somewhere, or at a ready check, on the wrong spec, a card offers to switch with one click. Switch by hand inside a place and it asks whether to remember that."
+end

@@ -242,8 +242,26 @@ local REASONS = {
 	wrong = "You're not on the loadout saved for this place: the card offers the switch.",
 }
 
+-- Forever has dual spec, not loadouts, and no delves.
+local REASONS_FOREVER = {
+	noPlace = "This isn't a place Talent check knows (it checks the open world, dungeons, raids and PvP).",
+	noLoadouts = "You haven't unlocked dual spec yet.",
+	learn = "Nothing saved for this place yet: Talent check remembers the spec you're on.",
+	onIt = "You're on the spec saved for this place.",
+	wrong = "You're not on the spec saved for this place: the card offers the switch.",
+}
+
 function ns.Talents_ReasonText(reason)
-	return REASONS[reason] or reason
+	return ns.FOREVER and REASONS_FOREVER[reason] or REASONS[reason] or reason
+end
+
+-- Forever's dual spec as the rules' saved loadouts: the two spec groups are the "configIDs". numGroups:
+-- GetNumSpecGroups() (1 until dual spec is unlocked: nothing to switch to). Returns valid, count as Talents_Decide reads.
+function ns.Talents_DualSpec(numGroups)
+	if (numGroups or 0) < 2 then
+		return {}, 0
+	end
+	return { [1] = true, [2] = true }, 2
 end
 
 -- Texts -----------------------------------------------------------------------------------------------------------

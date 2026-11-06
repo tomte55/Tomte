@@ -100,7 +100,10 @@ local function Draw(f, spec)
 end
 
 -- What Edit Mode shows while there's no question.
-local PREVIEW = {
+local PREVIEW = ns.FOREVER and {
+	text = ns.Talents_WrongText(DUAL_SPEC_PRIMARY, DUAL_SPEC_SECONDARY, "dungeons"),
+	buttons = { { text = "Switch to " .. DUAL_SPEC_SECONDARY }, { text = "Not now" } },
+} or {
 	text = "You're on Raid; for dungeons you use Mythic+.",
 	buttons = { { text = "Switch to Mythic+" }, { text = "Not now" } },
 }
