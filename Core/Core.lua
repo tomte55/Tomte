@@ -76,6 +76,23 @@ function ns.WeekStart()
 	return GetServerTime() + left - 7 * 86400
 end
 
+-- Whether one of Blizzard's bag frames is open. Not IsAnyBagOpen: it builds a list ContainerFrame.lua keeps
+-- (ContainerFrameUtil_EnumerateContainerFrames), and built from addon code that list stays tainted. Esc's CloseAllBags
+-- reads it first, so the map, closed next, is refused in combat with "Interface action failed".
+local LAST_BAG_FRAME = 7 -- ContainerFrame1..6, and Forever's keyring
+function ns.AnyBagFrameShown()
+	if ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown() then
+		return true
+	end
+	for i = 1, LAST_BAG_FRAME do
+		local frame = _G["ContainerFrame" .. i]
+		if frame and frame:IsShown() then
+			return true
+		end
+	end
+	return false
+end
+
 -- 12.x secret values (opaque to tainted code). IsSecret is true when any argument is secret; without the API (older
 -- clients, tests) nothing is. Readable is true when every argument can be read (always on clients without
 -- canaccessallvalues).

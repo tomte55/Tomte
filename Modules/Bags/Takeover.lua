@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Bags: takes over from Blizzard's bags while the module is on. Blizzard's container frames are parented to a hidden
 -- frame instead of being stopped: Blizzard keeps opening and closing them as always (the bag keys, merchants, mail,
 -- the bank, Esc through CloseAllBags' return value), they just can't be seen, and Tomte's window follows their state
--- (IsAnyBagOpen) after each of Blizzard's open and close functions. Blizzard moves its bag frames to a full-screen
+-- (ns.AnyBagFrameShown) after each of Blizzard's open and close functions. Blizzard moves its bag frames to a full-screen
 -- frame and back (ContainerFrame_SetFullScreenFrame / _ClearFullScreenFrame in ContainerFrame.lua); that parent is
 -- remembered as theirs and they go back under the hidden frame. Stop gives each frame the parent Blizzard last chose.
 --
@@ -88,7 +88,7 @@ local function Sync()
 		suppress = false
 		CloseBlizzard()
 	end
-	local open = IsAnyBagOpen()
+	local open = ns.AnyBagFrameShown()
 	if next(autoOpened) then
 		if what == "toggle" and open then
 			-- The bag key while the bags were open for another window: the player wants them closed.
@@ -172,7 +172,7 @@ function ns.BagsTakeover_WindowHidden(key)
 		return
 	end
 	autoOpened[key] = nil
-	if not next(autoOpened) and not IsAnyBagOpen() then
+	if not next(autoOpened) and not ns.AnyBagFrameShown() then
 		ns.BagsWindow_Hide()
 	end
 end

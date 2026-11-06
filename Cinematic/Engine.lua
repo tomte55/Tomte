@@ -315,7 +315,7 @@ local function PlayerBusy()
 	if InCombatLockdown() or IsMouseButtonDown() or GetCurrentKeyBoardFocus() then
 		return true
 	end
-	if IsAnyBagOpen and IsAnyBagOpen() then
+	if ns.AnyBagFrameShown() then
 		return true
 	end
 	for _, key in ipairs(UI_PANEL_KEYS) do

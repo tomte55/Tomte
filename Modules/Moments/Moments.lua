@@ -49,7 +49,7 @@ local UI_PANEL_KEYS = { "left", "center", "right", "doublewide", "fullscreen" }
 -- A window, bag, menu or edit box is open: the player is using the UI. Same checks as the engine's own
 -- (Cinematic/Engine.lua PlayerBusy, which isn't exported).
 local function UIBusy()
-	if GetCurrentKeyBoardFocus() or (IsAnyBagOpen and IsAnyBagOpen()) then
+	if GetCurrentKeyBoardFocus() or ns.AnyBagFrameShown() then
 		return true
 	end
 	for _, key in ipairs(UI_PANEL_KEYS) do
