@@ -62,6 +62,10 @@ events:On(OWNER, "PLAYER_REGEN_ENABLED", function()
 end)
 
 local function OnEnteringWorld()
+	if ns.FOREVER then -- no houses or Mythic+ there
+		Dirty()
+		return
+	end
 	if not requestedHouses and C_Housing and C_Housing.GetPlayerOwnedHouses then
 		requestedHouses = true
 		C_Housing.GetPlayerOwnedHouses() -- answers with PLAYER_HOUSE_LIST_UPDATED
@@ -137,7 +141,8 @@ module = ns.RegisterModule({
 	category = "travel",
 	icon = 237508, -- spell_arcane_portaldalaran
 	summary = "Your hearthstones and teleports in one list on the world map.",
-	description = "A Teleports tab in the world map's side panel: your hearthstone (and a random hearthstone toy), house, dungeon teleports (this season first), class teleports and teleport items, with cooldowns. Teleports that go to the map you're looking at float to the top. Click to use, right-click to favorite.",
+	description = ns.FOREVER and "A Teleports tab in the world map's side panel: your hearthstone, class teleports and teleport items, with cooldowns. Teleports that go to the map you're looking at float to the top. Click to use, right-click to favorite."
+		or "A Teleports tab in the world map's side panel: your hearthstone (and a random hearthstone toy), house, dungeon teleports (this season first), class teleports and teleport items, with cooldowns. Teleports that go to the map you're looking at float to the top. Click to use, right-click to favorite.",
 	enabledByDefault = true,
 	home = {
 		{ kind = "map", key = "teleports", order = 2, name = "Teleports", icon = PORTAL_ICON,
@@ -200,16 +205,19 @@ module = ns.RegisterModule({
 		{ "scan", "list what was found (to check the data)", Scan },
 	},
 	options = {
-		{ type = "header", label = "List" },
+		-- Forever has no dungeon teleports and no hearthstone toys we know of: this whole card and the Dungeons row go.
+		{ type = "header", label = "List", shown = ns.NotForever },
 		{ type = "checkbox", key = "showUnearned", label = "Show unearned dungeon teleports", onChange = Dirty,
+			shown = ns.NotForever,
 			tooltip = "This season's dungeon teleports you haven't earned yet, greyed out: what's left to get." },
 		{ type = "checkbox", key = "allToys", label = "List every hearthstone toy", onChange = Dirty,
+			shown = ns.NotForever,
 			tooltip = "Off: one \"Random hearthstone toy\" row." },
 		{ type = "header", label = "Sections" },
 		{ type = "checkbox", key = "sections.favorites", label = "Favorites", onChange = Dirty },
 		{ type = "checkbox", key = "sections.here", label = "To this map", onChange = Dirty },
 		{ type = "checkbox", key = "sections.hearth", label = "Hearthstone", onChange = Dirty },
-		{ type = "checkbox", key = "sections.dungeon", label = "Dungeons", onChange = Dirty },
+		{ type = "checkbox", key = "sections.dungeon", label = "Dungeons", onChange = Dirty, shown = ns.NotForever },
 		{ type = "checkbox", key = "sections.class", label = "Class", onChange = Dirty },
 		{ type = "checkbox", key = "sections.items", label = "Items and toys", onChange = Dirty },
 	},

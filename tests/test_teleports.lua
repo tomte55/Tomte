@@ -110,4 +110,29 @@ test("empty text: teleports there, their sections hidden", function()
 	eq(ns.Tp_EmptyText(list, { hidden = { class = true } }), "Your teleports are all in sections hidden in settings.")
 end)
 
+test("has entry", function()
+	local list = { { key = "spell:1" }, { key = "toy:2" } }
+	eq(ns.Tp_HasEntry(list, "toy:2"), true)
+	eq(ns.Tp_HasEntry(list, "spell:2"), false)
+	eq(ns.Tp_HasEntry({}, "spell:1"), false)
+end)
+
+test("Forever's data: registered for Forever only, spells listed once, items usable either way", function()
+	local fns = { CONTENT_FOREVER = 0 }
+	assert(loadfile("Tomte/Core/Content.lua"))("Tomte", fns)
+	assert(loadfile("Tomte/Data/Forever/Teleports.lua"))("Tomte", fns)
+	local data = fns.Content_Get(fns.CONTENT_FOREVER, "teleports")
+	local seen = {}
+	for _, spellID in ipairs(data.spells) do
+		eq(seen[spellID], nil, "twice: " .. spellID)
+		seen[spellID] = true
+	end
+	eq(seen[6948], nil, "the hearthstone is an item")
+	eq(#data.hearthToys, 0)
+	for _, item in ipairs(data.items) do
+		eq(item.kind, "either")
+	end
+	eq(fns.Content_Get(11, "teleports"), nil)
+end)
+
 H.done()

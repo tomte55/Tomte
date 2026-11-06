@@ -38,6 +38,11 @@ local function HeroPath()
 	return heroPath or HERO_PATH
 end
 
+-- Forever's own lists (Data/Forever/Teleports.lua), or nil on retail, which uses Data.lua's.
+local function ForeverData()
+	return ns.FOREVER and ns.Content_Get(ns.CONTENT_FOREVER, "teleports") or nil
+end
+
 local entries
 local houses = {} -- from PLAYER_HOUSE_LIST_UPDATED
 local mapNameCache = {} -- [mapID] = { names, entrances = { [lowerName] = position } }
@@ -72,6 +77,9 @@ end
 
 local function SeasonNames()
 	local names = {}
+	if ns.FOREVER then
+		return names -- no Mythic+ there
+	end
 	for _, mapID in ipairs(C_ChallengeMode.GetMapTable() or {}) do
 		local name = C_ChallengeMode.GetMapUIInfo(mapID)
 		if name then
@@ -108,9 +116,10 @@ end
 local function AddFlyouts(list, seasonNames)
 	for index, flyout in ipairs(Flyouts()) do
 		local _, _, numSlots = GetFlyoutInfo(flyout.id)
-		local dungeon = HERO_PATH_FLYOUTS[flyout.id] or flyout.name:find(HeroPath(), 1, true) ~= nil
-			or flyout.name:find(HERO_PATH, 1, true) ~= nil
-		local slots, teleports = {}, dungeon or TELEPORT_FLYOUTS[flyout.id] == true
+		-- Forever has no Hero's Path; its flyout IDs may mean something else there.
+		local dungeon = not ns.FOREVER and (HERO_PATH_FLYOUTS[flyout.id] or flyout.name:find(HeroPath(), 1, true) ~= nil
+			or flyout.name:find(HERO_PATH, 1, true) ~= nil)
+		local slots, teleports = {}, dungeon or (not ns.FOREVER and TELEPORT_FLYOUTS[flyout.id] == true)
 		for s = 1, numSlots or 0 do
 			local spellID, overrideID, isKnown, spellName = GetFlyoutSlotInfo(flyout.id, s)
 			local id = overrideID and overrideID ~= 0 and overrideID or spellID
@@ -139,8 +148,10 @@ local function AddFlyouts(list, seasonNames)
 end
 
 local function AddSpells(list)
-	for i, spellID in ipairs(ns.TP_CLASS_SPELLS) do
-		if C_SpellBook.IsSpellKnown(spellID) then
+	local forever = ForeverData()
+	for i, spellID in ipairs(forever and forever.spells or ns.TP_CLASS_SPELLS) do
+		-- Forever's list has the mage's spells, which a flyout may have added already.
+		if C_SpellBook.IsSpellKnown(spellID) and not (forever and ns.Tp_HasEntry(list, "spell:" .. spellID)) then
 			local info = C_Spell.GetSpellInfo(spellID)
 			Add(list, {
 				key = "spell:" .. spellID, kind = "spell", id = spellID, section = "class",
@@ -180,7 +191,8 @@ end
 
 function ns.Tp_OwnedHearthToys()
 	local owned = {}
-	for _, itemID in ipairs(ns.TP_HEARTH_TOYS) do
+	local forever = ForeverData()
+	for _, itemID in ipairs(forever and forever.hearthToys or ns.TP_HEARTH_TOYS) do
 		if PlayerHasToy(itemID) then
 			owned[#owned + 1] = itemID
 		end
@@ -219,7 +231,8 @@ local function AddHearth(list, db)
 			})
 		end
 	end
-	for i, itemID in ipairs(ns.TP_HEARTH_ITEMS) do
+	local forever = ForeverData()
+	for i, itemID in ipairs(forever and forever.hearthItems or ns.TP_HEARTH_ITEMS) do
 		if PlayerHasToy(itemID) then
 			Add(list, ItemEntry("toy", itemID, "hearth", 5 + i))
 		elseif HasItem(itemID) then
@@ -229,10 +242,15 @@ local function AddHearth(list, db)
 end
 
 local function AddItems(list)
-	for i, item in ipairs(ns.TP_ITEMS) do
-		local owned = item.kind == "toy" and PlayerHasToy(item.id) or (item.kind == "item" and HasItem(item.id))
+	local forever = ForeverData()
+	for i, item in ipairs(forever and forever.items or ns.TP_ITEMS) do
+		local kind = item.kind
+		if kind == "either" then -- Forever: see Data/Forever/Teleports.lua
+			kind = PlayerHasToy(item.id) and "toy" or "item"
+		end
+		local owned = kind == "toy" and PlayerHasToy(item.id) or (kind == "item" and HasItem(item.id))
 		if owned then
-			Add(list, ItemEntry(item.kind, item.id, "items", i))
+			Add(list, ItemEntry(kind, item.id, "items", i))
 		end
 	end
 end
@@ -249,6 +267,13 @@ function ns.Tp_Entries(db)
 	return entries
 end
 
+local function Entrances(mapID)
+	if ns.FOREVER then
+		return {} -- no Encounter Journal there, and Camelot's map turns its dungeon entrance filter off
+	end
+	return C_EncounterJournal.GetDungeonEntrancesForMap(mapID) or {}
+end
+
 -- Names of the map, everything under it, and the dungeon entrances on it and its zones, for "To this map".
 -- entrances: [lower-case name] = position on this map (only for entrances on the map itself).
 function ns.Tp_MapNames(mapID)
@@ -261,14 +286,14 @@ function ns.Tp_MapNames(mapID)
 	if info then
 		names[#names + 1] = info.name
 	end
-	for _, e in ipairs(C_EncounterJournal.GetDungeonEntrancesForMap(mapID) or {}) do
+	for _, e in ipairs(Entrances(mapID)) do
 		names[#names + 1] = e.name
 		entrances[e.name:lower()] = e.position
 	end
 	for _, child in ipairs(C_Map.GetMapChildrenInfo(mapID, nil, true) or {}) do
 		names[#names + 1] = child.name
 		if child.mapType == Enum.UIMapType.Zone then
-			for _, e in ipairs(C_EncounterJournal.GetDungeonEntrancesForMap(child.mapID) or {}) do
+			for _, e in ipairs(Entrances(child.mapID)) do
 				names[#names + 1] = e.name
 			end
 		end

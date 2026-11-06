@@ -218,6 +218,16 @@ function ns.Tp_EmptyText(entries, opts)
 	return "No teleports on this character."
 end
 
+-- Whether the entry list already has this key.
+function ns.Tp_HasEntry(list, key)
+	for _, e in ipairs(list) do
+		if e.key == key then
+			return true
+		end
+	end
+	return false
+end
+
 -- "1:23:45", "12:34" or "45s" for a cooldown in seconds.
 function ns.Tp_FormatCooldown(seconds)
 	return ns.Clock(math.ceil(seconds))
