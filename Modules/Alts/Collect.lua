@@ -60,7 +60,10 @@ local function ReadSpec(c)
 	local index = C_SpecializationInfo.GetSpecialization()
 	if index and index > 0 then
 		local specID, name, _, _, _, primaryStat = C_SpecializationInfo.GetSpecializationInfo(index)
-		c.spec = name
+		-- Forever: the API can answer one spec per class, which Blizzard's level line only names when spec selection is
+		-- on for the class (Camelot PaperDollFrame_SetLevel).
+		local named = not ns.FOREVER or C_SpecializationInfo.IsSpecSelectionEnabled(select(3, UnitClass("player")))
+		c.spec = named and name or nil
 		if specID and specID > 0 then
 			c.specID = specID
 			c.primary = PRIMARY_KEYS[primaryStat]
@@ -102,7 +105,8 @@ end
 -- gear tab. Read only once the worn gear has (at login neither has arrived yet), and not while a link is missing.
 local PROF_SLOTS = { 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 }
 local function ReadProfGear(c)
-	if not c.gear then
+	-- Forever: the Profession gear tab is left out there (Alts.lua), so nothing reads these slots' links.
+	if ns.FOREVER or not c.gear then
 		return
 	end
 	local gear = {}
@@ -125,7 +129,9 @@ end
 
 -- Rested XP matters until the account's level cap (not the content expansion's: a Midnight owner's 80 still levels).
 local function ReadRest(c)
-	local maxLevel = GetMaxLevelForPlayerExpansion and GetMaxLevelForPlayerExpansion()
+	-- Forever has its own fixed cap (Core/Content.lua), whatever the client's expansion numbers say.
+	local maxLevel = ns.FOREVER and ns.ContentMaxLevel(ns.CONTENT_FOREVER)
+		or (GetMaxLevelForPlayerExpansion and GetMaxLevelForPlayerExpansion())
 	if maxLevel and c.level and c.level >= maxLevel then
 		c.rested = nil
 		return
@@ -139,6 +145,10 @@ end
 -- Professions aren't tied to level: a low-level alt (no data for its level band) gets the newest expansion the
 -- account owns that has data.
 local function ExpansionLine(base)
+	-- Forever: Weekly isn't loaded and there's no expansion data; StartScan reads the window's own line instead.
+	if not ns.Weekly_ProfDef then
+		return nil
+	end
 	local def = ns.Weekly_ProfDef(ns.ContentExpansion(), base)
 	if not def then
 		local owned = GetExpansionLevel()
@@ -161,6 +171,9 @@ local function ReadTiers(base, before)
 	local tiers = {}
 	for line, level in pairs(before or {}) do
 		tiers[line] = level
+	end
+	if not ns.Weekly_ProfDef then -- Forever, as in ExpansionLine
+		return tiers
 	end
 	for _, expansion in ipairs(ns.Content_Expansions()) do
 		local def = ns.Weekly_ProfDef(expansion, base)
@@ -430,6 +443,10 @@ local function StartScan(force)
 	end
 	local child = C_TradeSkillUI.GetChildProfessionInfo()
 	local line = child and child.professionID and child.professionID > 0 and child.professionID or prof.line
+	if ns.FOREVER then
+		-- No expansion data there: without a child line the window lists the base one (Professions.GetProfessionInfo).
+		line = line or base
+	end
 	if not line then
 		return "no expansion skill line"
 	end
@@ -455,7 +472,8 @@ local function StartScan(force)
 	if #ids == 0 then
 		return ("none of the %d recipes belong to skill line %d"):format(#all, line)
 	end
-	scan = { ids = ids, i = 1, prof = prof, line = line, lineName = child and child.professionName or nil, updated = 0,
+	local lineName = child and child.professionName
+	scan = { ids = ids, i = 1, prof = prof, line = line, lineName = lineName ~= "" and lineName or nil, updated = 0,
 		force = force, first = not lastScan[line] }
 	scan.ticker = C_Timer.NewTicker(0, StepScan)
 	return nil, #ids, child and child.professionName

@@ -23,6 +23,9 @@ local reagentIndex -- [itemID] = recipeIDs that use it, for Material uses; rebui
 local drawnKey, drawnAt -- the tab ShowTab last drew and GetTime() then (one value per frame)
 
 local function ShowTab(key)
+	if ns.FOREVER and key == "prof" then
+		key = "chars" -- no such tab there; a settings string from retail can still carry it
+	end
 	db.view = key
 	drawnKey, drawnAt = key, GetTime()
 	page.craft:SetShown(key == "craft")
@@ -95,7 +98,11 @@ local AltsPage = {
 		baseline:SetPoint("BOTTOMLEFT")
 		baseline:SetPoint("BOTTOMRIGHT")
 		page.tabs = { CreateTab(bar, "craft", "Crafting"), CreateTab(bar, "list", "Crafting list"),
-			CreateTab(bar, "chars", "Characters"), CreateTab(bar, "prof", "Profession gear") }
+			CreateTab(bar, "chars", "Characters") }
+		-- Forever: left out until the game shows profession tools and accessories exist there.
+		if not ns.FOREVER then
+			page.tabs[4] = CreateTab(bar, "prof", "Profession gear")
+		end
 		page.tabs[1]:SetPoint("BOTTOMLEFT")
 		for i = 2, #page.tabs do
 			page.tabs[i]:SetPoint("BOTTOMLEFT", page.tabs[i - 1], "BOTTOMRIGHT", 20, 0)
@@ -130,7 +137,9 @@ local AltsPage = {
 		ns.AltsCraft_Create(page.craft, db)
 		ns.AltsRoster_Create(page.roster, db)
 		ns.AltsListTab_Create(page.list)
-		ns.AltsProfTab_Create(page.prof, db)
+		if not ns.FOREVER then
+			ns.AltsProfTab_Create(page.prof, db)
+		end
 		page:HookScript("OnShow", function()
 			ns.AltsCollect_Request() -- this character's gold and zone are current
 			ShowTab(db.view)
@@ -361,19 +370,33 @@ local function TrackerPreview(host, get)
 	return ns.AltsList_DrawSample(host, get)
 end
 
+-- Forever: the Next up row for the Profession gear tab goes with the tab.
+local function HomeEntries(entries)
+	if ns.FOREVER then
+		for i = #entries, 1, -1 do
+			if entries[i].key == "nextprofgear" then
+				table.remove(entries, i)
+			end
+		end
+	end
+	return entries
+end
+
 module = ns.RegisterModule({
 	key = "alts",
 	name = "Alts",
 	category = "week",
 	icon = 236448, -- achievement_character_human_male
 	summary = "All your characters at a glance, and who crafts what.",
-	description = "Every character at a glance (level, spec, item level, gold, where they are, professions and unspent "
-		.. "knowledge) and crafting across them: search a recipe to see who makes it, whether the account has the "
+	description = (ns.FOREVER and "Every character at a glance (level, item level, gold, where they are and professions) "
+		or "Every character at a glance (level, spec, item level, gold, where they are, professions and unspent "
+		.. "knowledge) ") .. "and crafting across them: search a recipe to see who makes it, whether the account has the "
 		.. "materials and where they are, and who crafts what in which order. A character's recipes are read when it "
 		.. "opens its profession window.",
 	enabledByDefault = true,
 	uses = { { addon = "Syndicator", why = "item counts on every character, when Tomte's Item counts is off",
-		without = "only this character's bags, bank and the Warband bank are counted: turn on Tomte's Item counts",
+		without = ns.FOREVER and "only this character's bags and bank are counted: turn on Tomte's Item counts"
+			or "only this character's bags, bank and the Warband bank are counted: turn on Tomte's Item counts",
 		unneeded = function()
 			return ns.Counts_Active and ns.Counts_Active()
 		end },
@@ -409,7 +432,7 @@ module = ns.RegisterModule({
 		listBaganator = true,
 		listPrice = true,
 	},
-	home = {
+	home = HomeEntries({
 		ns.AltsHomeSection,
 		{ kind = "next", key = "nextprofgear", name = "Better profession gear", score = 40,
 			description = "Somebody can craft a better profession tool or accessory for one of your characters, and the "
@@ -441,17 +464,19 @@ module = ns.RegisterModule({
 			end,
 			pillTip = "Crafting list steps for this character" },
 		{ kind = "next", key = "nextsend", name = "Materials for your alts", score = 40,
-			description = "You carry materials another character crafts with: the mailbox and the bank have a \"For your alts\" panel.",
+			description = ns.FOREVER and "You carry materials another character crafts with: the mailbox has a \"For your alts\" panel."
+				or "You carry materials another character crafts with: the mailbox and the bank have a \"For your alts\" panel.",
 			candidates = function()
 				local text = ns.AltsSend_Summary()
 				if not text then
 					return {}
 				end
 				return { { key = "alts:send", state = text, text = "Send " .. text,
-					why = "At a mailbox (or the Warband bank), the \"For your alts\" panel sends them.",
+					why = ns.Alts_WarbandLive() and "At a mailbox (or the Warband bank), the \"For your alts\" panel sends them."
+						or "At a mailbox, the \"For your alts\" panel sends them.",
 					icon = "Interface\\Icons\\INV_Letter_15" } }
 			end },
-	},
+	}),
 	init = function(saved)
 		db = saved
 		ns.altsDB = saved
@@ -477,7 +502,7 @@ module = ns.RegisterModule({
 			return { { value = "full", text = "Full chain" }, { value = "one", text = "One step" } }
 		end, tooltip = "How far the Crafting tab works out crafted materials: all the way down to what you gather, "
 			.. "or only the recipe's own materials." },
-		{ type = "dropdown", key = "gearQuality", label = "Compare crafted gear at", onChange = function()
+		{ type = "dropdown", key = "gearQuality", label = "Compare crafted gear at", shown = ns.NotForever, onChange = function()
 			ns.Alts_GearQualityChanged()
 		end, choices = function()
 			return ns.Alts_GearQualityChoices()
@@ -489,11 +514,15 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "sendMail", label = "\"For your alts\" at the mailbox",
 			tooltip = "Beside the mail frame: what you carry that another character crafts with (and you don't), grouped by who gets it. Attach fills the Send Mail tab, Send sends it (12 stacks a mail)." },
 		{ type = "checkbox", key = "sendWarband", label = "\"Deposit for alts\" at the bank",
+			shown = function()
+				return ns.Alts_WarbandLive()
+			end,
 			tooltip = "At the bank, a button that puts those items into the Warband bank when they're allowed there." },
 		{ type = "checkbox", key = "sendPlan", label = "Use the Crafting tab's plan",
 			tooltip = "Materials for the recipe picked in the Crafting tab go to the character who crafts that step." },
 		{ type = "input", key = "sendRules", label = "Always send", placeholder = "item ID or name = character, ...",
-			tooltip = "Manual rules that win over the rest, e.g. \"210796 = Mira, mycobloom = Tolvan\". Separate them with commas." },
+			tooltip = ("Manual rules that win over the rest, e.g. \"%s\". Separate them with commas."):format(
+				ns.FOREVER and "linen cloth = Mira, copper bar = Tolvan" or "210796 = Mira, mycobloom = Tolvan") },
 		{ type = "slider", key = "sendGold", label = "Keep gold on alts (thousands)", min = 0, max = 100, step = 1,
 			format = function(v)
 				return v == 0 and "off" or (v .. "k")
@@ -504,7 +533,8 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "tracker.shown", label = "Craft tracker on screen", onChange = function()
 			ns.AltsList_Refresh()
 		end, preview = ns.Preview_When("tracker.shown", TrackerPreview),
-			tooltip = "The tracked crafts with what this character has to do for them: grab, mail, take from the Warband bank, buy, craft." },
+			tooltip = ns.FOREVER and "The tracked crafts with what this character has to do for them: grab, mail, buy, craft."
+				or "The tracked crafts with what this character has to do for them: grab, mail, take from the Warband bank, buy, craft." },
 		{ type = "dropdown", key = "tracker.mode", label = "Show the tracker", onChange = function()
 			ns.AltsList_Refresh()
 		end, parent = "tracker.shown", choices = function()
@@ -531,7 +561,9 @@ module = ns.RegisterModule({
 		{ type = "dropdown", key = "listMail", label = "Mail tracked crafts", choices = function()
 			return { { value = "exact", text = "Exact amounts" }, { value = "stacks", text = "Whole stacks" } }
 		end, tooltip = "Exact amounts split stacks so only what the craft needs is sent." },
-		{ type = "checkbox", key = "listBaganator", label = "Mark items in Baganator", onChange = function()
+		{ type = "checkbox", key = "listBaganator", label = "Mark items in Baganator", shown = function()
+			return not ns.FOREVER or C_AddOns.IsAddOnLoaded("Baganator") -- Forever: nothing to mark without it
+		end, onChange = function()
 			ns.AltsList_Changed()
 		end, tooltip = "Items your to-do moves get a gold count on their icon in Baganator's bags and bank. In "
 			.. "Baganator's settings (Icons), \"Tomte Crafting list\" has to be in a corner for it to show." },

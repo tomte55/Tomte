@@ -107,7 +107,16 @@ local function Mailable(s)
 	return not s.bound
 end
 
+-- Whether this game has the Warband bank. Forever's bank window has the tab, but Blizzard only shows it when
+-- CanViewBank says so (BankFrameBaseMixin:RefreshTabVisibility); it isn't confirmed live there, so the game decides.
+function ns.Alts_WarbandLive()
+	return not ns.FOREVER or C_Bank.CanViewBank(Enum.BankType.Account) == true
+end
+
 local function Warbandable(s)
+	if not ns.Alts_WarbandLive() then
+		return false
+	end
 	if not (C_Bank and C_Bank.IsItemAllowedInBankType and Enum.BankType and Enum.BankType.Account) then
 		return false
 	end
@@ -763,7 +772,7 @@ function ns.AltsSend_Summary()
 	end
 	-- Only stacks the mailbox or the Warband bank can actually move (not soulbound ones; mail only: not to
 	-- characters mail can't reach).
-	local list = ns.Alts_SendGroups(BagStacks(), Context(not db.sendWarband), function(s)
+	local list = ns.Alts_SendGroups(BagStacks(), Context(not (db.sendWarband and ns.Alts_WarbandLive())), function(s)
 		return (db.sendMail and Mailable(s)) or (db.sendWarband and Warbandable(s))
 	end)
 	if #list == 0 then

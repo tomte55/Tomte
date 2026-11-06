@@ -207,6 +207,16 @@ test("group: profession > expansion (current first, then newest) > category", fu
 		current = function(r) return r.line == 2822 end,
 		collapsed = {},
 	}
+	-- Forever's child lines have an empty name: no nameless header, straight to the category.
+	local nameless = ns.Alts_Group({
+		{ recipe = { name = "Camp Chair", base = 393, line = 3000, lineName = "", category = "Camping" } },
+		{ recipe = { name = "Odd", base = 393, line = 3000, lineName = "", category = "" } },
+	}, { profName = function() return "Skinning" end, current = function() return false end, collapsed = {} })
+	eq(nameless[1].text, "Skinning", "the profession")
+	eq(nameless[2].kind, "cat", "no expansion row")
+	eq(nameless[2].text, "Camping", "its category")
+	eq(nameless[4].text, "Other", "an empty category reads Other")
+
 	local rows = ns.Alts_Group(results, opts)
 	eq(rows[1].kind, "prof", "prof first")
 	eq(rows[1].text, "Alchemy", "professions by name")

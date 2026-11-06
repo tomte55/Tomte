@@ -331,6 +331,7 @@ function ns.AltsList_Todos()
 		canMail = function(guid)
 			return ns.Alts_Reachable(alts.chars[guid], realms)
 		end,
+		noWarband = not ns.Alts_WarbandLive(), -- Forever, unless its Warband bank is live: no such line
 	})
 	cache, cacheAt = ok and todos or {}, now
 	return cache

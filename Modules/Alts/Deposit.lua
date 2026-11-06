@@ -48,6 +48,18 @@ local function DepositGroups()
 	return list
 end
 
+-- Forever numbers its bags differently (AccountBankTab_1 is 15 there): the game's own list of tabs answers.
+local function WarbandTabs()
+	if not ns.FOREVER then
+		return WARBAND_TABS
+	end
+	local tabs = {}
+	for _, tab in ipairs(C_Bank.FetchPurchasedBankTabData(Enum.BankType.Account) or {}) do
+		tabs[#tabs + 1] = tab.ID
+	end
+	return tabs
+end
+
 -- Why the Warband bank takes nothing: "closed" (can't be used now), "tabs" (no tab bought), with full also
 -- "full" (no free slot; up front a full bank may still take stacks that merge into partial ones), else nil.
 local function WarbandProblem(full)
@@ -59,7 +71,7 @@ local function WarbandProblem(full)
 	end
 	if full then
 		local free = 0
-		for _, bag in ipairs(WARBAND_TABS) do
+		for _, bag in ipairs(WarbandTabs()) do
 			free = free + (C_Container.GetContainerNumFreeSlots(bag) or 0)
 		end
 		if free == 0 then

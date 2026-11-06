@@ -89,6 +89,15 @@ ns.ALTS_PROFESSIONS = {
 	{ 393, "Skinning", "Interface\\Icons\\INV_Misc_Pelt_Wolf_01" },
 	{ 197, "Tailoring", "Interface\\Icons\\Trade_Tailoring" },
 }
+-- Forever has nine of them (warcraft.wiki.gg): no Inscription or Jewelcrafting.
+if ns.FOREVER then
+	local NOT_THERE = { [773] = true, [755] = true }
+	for i = #ns.ALTS_PROFESSIONS, 1, -1 do
+		if NOT_THERE[ns.ALTS_PROFESSIONS[i][1]] then
+			table.remove(ns.ALTS_PROFESSIONS, i)
+		end
+	end
+end
 
 -- Names of the main professions none of the characters has, in name order.
 function ns.Alts_Uncovered(chars)

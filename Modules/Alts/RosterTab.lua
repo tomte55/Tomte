@@ -142,8 +142,9 @@ local function RowMenu(owner, c)
 		root:CreateTitle(name)
 		root:CreateButton("Forget " .. (c.name or "?"), function()
 			local guid = c.guid
-			ns.Confirm_Show(("Forget %s?\n\nTomte drops everything it saved for this character (Alts, Weekly board, "
-				.. "session history, stat weights, ...). Logging in on it adds it again."):format(name), function()
+			ns.Confirm_Show(("Forget %s?\n\nTomte drops everything it saved for this character (Alts, " .. (ns.FOREVER and ""
+				or "Weekly board, ") .. "session history" .. (ns.FOREVER and "" or ", stat weights")
+				.. ", ...). Logging in on it adds it again."):format(name), function()
 				ns.Alts_ForgetCharacter(guid)
 			end)
 		end)
@@ -391,7 +392,7 @@ function ns.AltsRoster_Create(frame, altsDB)
 		GameTooltip:SetText("Professions", 1, 1, 1)
 		local r, g, b = UI.Color("text")
 		if #self.uncovered == 0 then
-			GameTooltip:AddLine("Somebody has each of the eleven.", r, g, b)
+			GameTooltip:AddLine(ns.FOREVER and "Somebody has each of the nine." or "Somebody has each of the eleven.", r, g, b)
 		else
 			GameTooltip:AddLine(ns.Alts_GapText(self.uncovered, ns.Alts_FreeSlots(db.chars)), r, g, b, true)
 		end

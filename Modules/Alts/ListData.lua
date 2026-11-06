@@ -206,7 +206,8 @@ end
 -- One tracked craft: its plan, where the materials come from, and the to-do lines for `me`.
 -- ctx = { me, chars, recipes, plan = function(recipeID, crafts, count, entry) -> plan, pool, itemName(itemID, noRank),
 --         recipeName(recipeID, quality?), price(itemID) -> copper | nil (optional), gold(copper) -> text,
---         canMail(guid) -> bool (optional: false for a character on a realm mail can't reach) }
+--         canMail(guid) -> bool (optional: false for a character on a realm mail can't reach),
+--         noWarband (optional: true where the game has no Warband bank, so such a character can only be told about) }
 -- Line kinds: "grab" (your bank), "collect" (your mail), "take" (Warband bank), "mail" (from your bags to the
 -- crafter), "deposit" (from your bags to the Warband bank, for a crafter mail can't reach), "fetch" (your bank or
 -- mail, then mail it), "other" (someone else has it), "missing", "craft" (a step someone does), "ready" (you can
@@ -265,6 +266,9 @@ function ns.Alts_CraftTodo(entry, ctx)
 					line.kind = t.where == "mail" and "collect" or "grab"
 					line.text = FetchText(t, name)
 					line.mine = true
+				elseif t.guid == me and t.where == "bags" and ctx.noWarband and ctx.canMail and not ctx.canMail(dest) then
+					line.kind = "other"
+					line.text = ("You have %d %s for %s, but mail doesn't reach their realm"):format(t.n, name, Name(dest))
 				elseif t.guid == me then
 					if t.where == "bags" and ctx.canMail and not ctx.canMail(dest) then
 						-- Mail doesn't reach their realm: the Warband bank does.

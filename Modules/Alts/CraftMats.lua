@@ -85,7 +85,8 @@ function ns.AltsCraft_Why(text)
 		return
 	end
 	ns.Print(ns.Alts_HasSyndicator() and "Counting every character's materials."
-		or "Item counts is off: only this character and the Warband bank are counted.")
+		or (ns.FOREVER and "Item counts is off: only this character is counted."
+			or "Item counts is off: only this character and the Warband bank are counted."))
 	for _, r in ipairs(found) do
 		local ok, plan = pcall(ns.Alts_Plan, r.id, 1, {
 			recipes = S.db.recipes, chars = S.db.chars, producers = S.producers,

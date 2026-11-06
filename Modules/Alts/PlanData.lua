@@ -214,12 +214,13 @@ function ns.Alts_Group(results, opts)
 		local e = p.byLine[line]
 		if not e then
 			local lineName = r.lineName or (opts.lineName and opts.lineName(r))
-			e = { line = line, name = lineName or p.name, current = opts.current(r) == true, cats = {}, byCat = {},
-				count = 0 }
+			-- Forever's professions have no expansions: their child line's name comes back empty.
+			e = { line = line, name = lineName ~= "" and lineName or p.name, current = opts.current(r) == true, cats = {},
+				byCat = {}, count = 0 }
 			p.byLine[line] = e
 			p.exps[#p.exps + 1] = e
 		end
-		local catName = r.category or "Other"
+		local catName = r.category ~= "" and r.category or "Other"
 		local c = e.byCat[catName]
 		if not c then
 			c = { name = catName, results = {} }
@@ -608,6 +609,9 @@ function ns.Alts_RecipeItemLines(chars, recipes, ids, req)
 		local prof = ProfOf(c, base)
 		profName = profName or (prof and prof.name)
 		local skill = prof and line and prof.tiers and prof.tiers[line]
+		if ns.FOREVER and prof then
+			skill = skill or prof.skill -- no expansion lines there: the profession's own skill is the one required
+		end
 		local list = (need and skill and skill < need) and low or ready
 		list[#list + 1] = { c = c, skill = skill }
 	end

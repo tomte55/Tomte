@@ -14,6 +14,10 @@ local Loaded, Ilvl = ns.AltsItem_Loaded, ns.AltsItem_Ilvl -- ProfGear.lua
 
 -- The character the "Gear for" filter names, nil for anyone.
 local function ForChar()
+	-- Forever: "Gear for" is left out. Its class rules are retail's (armor, weapons, no ranged slot) and would be wrong.
+	if ns.FOREVER then
+		return nil
+	end
 	local v = S.db.filterFor
 	if v == "me" then
 		return S.db.chars[UnitGUID("player")]

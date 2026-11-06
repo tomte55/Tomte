@@ -338,7 +338,7 @@ local function CreateFilters(frame)
 		Filter(frame, "filterChar", CharChoices),
 		Filter(frame, "filterProf", ProfChoices),
 		Filter(frame, "filterShow", function()
-			return { { value = "learnable", text = "Known + learnable" }, { value = "known", text = "Known only" } }
+			return { { value = "learnable", text = "All recipes" }, { value = "known", text = "Known only" } }
 		end),
 	}
 	frame.filters[1]:SetPoint("TOPLEFT", frame.search, "BOTTOMLEFT", 0, -8)
@@ -361,9 +361,10 @@ local function CreateFilters(frame)
 		GameTooltip:Show()
 	end)
 	frame.forFilter:HookScript("OnLeave", GameTooltip_Hide)
+	frame.forFilter:SetShown(not ns.FOREVER) -- Forever: see ForChar (CraftGear.lua)
 	local have = CreateFrame("Button", nil, frame)
 	have:SetSize(260, 20)
-	have:SetPoint("TOPLEFT", frame.forFilter, "BOTTOMLEFT", 0, -8)
+	have:SetPoint("TOPLEFT", ns.FOREVER and frame.filters[1] or frame.forFilter, "BOTTOMLEFT", 0, -8)
 	have.check = UI.Checkbox(have)
 	have.check:SetPoint("LEFT", 2, 0)
 	have.label = UI.Text(have, 12, "text")
@@ -373,7 +374,9 @@ local function CreateFilters(frame)
 	local function Tip()
 		GameTooltip:SetOwner(have, "ANCHOR_RIGHT")
 		GameTooltip:SetText("Materials on hand", 1, 1, 1)
-		GameTooltip:AddLine("Only recipes the account can make right now: every material is on one of your characters "
+		GameTooltip:AddLine(ns.FOREVER and "Only recipes the account can make right now: every material is on one of "
+			.. "your characters (or can be crafted from what is), and somebody knows each recipe on the way."
+			or "Only recipes the account can make right now: every material is on one of your characters "
 			.. "or in the Warband bank (or can be crafted from what is), and somebody knows each recipe on the way.",
 			nil, nil, nil, true)
 		GameTooltip:Show()
@@ -392,6 +395,9 @@ local function CreateFilters(frame)
 	frame.haveMats = have
 	frame.expandAll = UI.Button(frame, 78, "Expand all")
 	frame.collapseAll = UI.Button(frame, 78, "Collapse all")
+	-- To their labels: a theme's small capitals run wider than a fixed width allows.
+	UI.FitButton(frame.expandAll, 78, 16)
+	UI.FitButton(frame.collapseAll, 78, 16)
 	frame.expandAll:SetScript("OnClick", function()
 		SetAllCollapsed(false)
 	end)
