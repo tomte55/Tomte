@@ -163,10 +163,15 @@ local function Celebrate(row, from, to)
 	end
 end
 
+-- Open, the panel fits the rows it has, at least one (an empty list still has something to drag while unlocked).
+local function OpenHeight(count)
+	return TITLE_H + math.max(math.min(count, ROWS), 1) * ROW_H + 8
+end
+
 -- The tracker's look on f: the panel, the title and ROWS rows (f.rows). Shared by the real tracker and the settings
 -- preview.
 local function Dress(f)
-	f:SetSize(WIDTH, TITLE_H + ROWS * ROW_H + 8)
+	f:SetSize(WIDTH, OpenHeight(ROWS))
 	UI.Panel(f, { alpha = 0.55, subtle = true })
 	f.title = UI.Text(f, 10, "textMuted", "label")
 	f.title:SetPoint("TOPLEFT", 10, -6)
@@ -273,7 +278,7 @@ function ns.AchTracker_Apply(combat)
 	end
 	frame:SetScale(db.scale)
 	local collapsed = db.collapsed
-	frame:SetHeight(collapsed and TITLE_H + 2 or TITLE_H + ROWS * ROW_H + 8)
+	frame:SetHeight(collapsed and TITLE_H + 2 or OpenHeight(frame.count or 0))
 	ns.EditMode_FoldKeep(frame)
 	for i, row in ipairs(rows) do
 		row:SetShown(not collapsed and i <= (frame.count or 0))
@@ -314,6 +319,7 @@ function ns.AchTracker_DrawSample(host, get)
 			FillRow(row, entry)
 		end
 	end
+	f:SetHeight(OpenHeight(#top))
 	local scale = get("tracker.scale") or 1
 	f:SetScale(scale)
 	return f:GetWidth() * scale, f:GetHeight() * scale
