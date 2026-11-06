@@ -423,6 +423,30 @@ end)
 BINDING_NAME_TOMTE_WAY_NEXT = "Waypoints: focus the next tracked quest"
 BINDING_NAME_TOMTE_WAY_PREV = "Waypoints: focus the previous tracked quest"
 
+local COMMANDS = {
+	{ "test", "place a map pin ahead of you and track it", TestPin },
+	{ "clear", "stop tracking (and remove the map pin)", Clear },
+	{ "next", "focus the next tracked quest (also a key binding)", function()
+		CycleFocus(1)
+	end },
+	{ "prev", "focus the previous tracked quest (also a key binding)", function()
+		CycleFocus(-1)
+	end },
+	{ "ping", "ping your arrow on the open world map", function()
+		if not ns.WayPing_Play() then
+			ns.Print("open the world map on the zone you're in first.")
+		end
+	end },
+}
+-- Router.lua and the retail route tables don't load on Forever: its maps aren't on that network.
+if ns.WayRouter_Print then
+	table.insert(COMMANDS, 3, { "route", "show the portal route to a map pin on another continent", function()
+		if ns.Module_RequireOn(module) then
+			ns.WayRouter_Print()
+		end
+	end })
+end
+
 module = ns.RegisterModule({
 	key = "way",
 	conflicts = { { addon = "WaypointUI", why = "Waypoints stays off while it's enabled" } },
@@ -433,8 +457,9 @@ module = ns.RegisterModule({
 	summary = "A marker in the world that shows the way to what you track.",
 	description = "An in-world marker for whatever you track: icon, beam, distance and arrival time, a close-up card "
 		.. "with the objective, and an arrow at the screen edge when it's off-screen. Map pins are tracked as soon as "
-		.. "you place them, world quests and events show a countdown, the map pings your arrow when it opens, and two "
-		.. "keys cycle the focus through your tracked quests. Replaces WaypointUI.",
+		.. "you place them, " .. (ns.FOREVER and "" or "world quests and events show a countdown, ")
+		.. "the map pings your arrow when it opens, and two keys cycle the focus through your tracked quests. "
+		.. "Replaces WaypointUI.",
 	enabledByDefault = true,
 	defaults = {
 		style = "classic",
@@ -476,11 +501,15 @@ module = ns.RegisterModule({
 			Start()
 			ClaimWay()
 			ns.WayGuard_Toggle(true, db)
-			ns.WayRouter_Toggle(db.portals, db)
+			if ns.WayRouter_Toggle then
+				ns.WayRouter_Toggle(db.portals, db)
+			end
 			ns.WayPing_Toggle(db.mapPing)
 		else
 			ns.WayGuard_Toggle(false, db)
-			ns.WayRouter_Toggle(false, db)
+			if ns.WayRouter_Toggle then
+				ns.WayRouter_Toggle(false, db)
+			end
 			ns.WayPing_Toggle(false)
 			events:UnwatchAll(OWNER)
 			ticker:Hide()
@@ -491,26 +520,7 @@ module = ns.RegisterModule({
 			end
 		end
 	end,
-	commands = {
-		{ "test", "place a map pin ahead of you and track it", TestPin },
-		{ "clear", "stop tracking (and remove the map pin)", Clear },
-		{ "route", "show the portal route to a map pin on another continent", function()
-			if ns.Module_RequireOn(module) then
-				ns.WayRouter_Print()
-			end
-		end },
-		{ "next", "focus the next tracked quest (also a key binding)", function()
-			CycleFocus(1)
-		end },
-		{ "prev", "focus the previous tracked quest (also a key binding)", function()
-			CycleFocus(-1)
-		end },
-		{ "ping", "ping your arrow on the open world map", function()
-			if not ns.WayPing_Play() then
-				ns.Print("open the world map on the zone you're in first.")
-			end
-		end },
-	},
+	commands = COMMANDS,
 	fallbackCommand = { "<x> <y> [name]", "pin and track a spot on this map (also /way <x> <y> when TomTom isn't loaded)",
 		PinAt, pattern = "^[#%d.]" },
 	options = {
@@ -564,7 +574,7 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "metric", label = "Use meters", onChange = Refresh, preview = MarkerPreview },
 		{ type = "checkbox", key = "autoTrack", label = "Track map pins when placed",
 			tooltip = "Placing a pin on the world map tracks it right away." },
-		{ type = "checkbox", key = "portals", label = "Route to other continents",
+		{ type = "checkbox", key = "portals", label = "Route to other continents", shown = ns.NotForever,
 			onChange = function()
 				ns.WayRouter_Toggle(module.active and db.portals, db)
 			end,
@@ -583,7 +593,7 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "showWhenHidden", label = "Show when the UI is hidden", onChange = ApplyLook,
 			tooltip = "Keep the marker visible after Alt+Z." },
 		{ type = "checkbox", key = "countdown", label = "Countdown on timed waypoints", onChange = ApplyLook,
-			preview = BothPreview,
+			preview = BothPreview, shown = ns.NotForever,
 			tooltip = "World quests and events that end soon show the time left under the marker and on the card." },
 		{ type = "checkbox", key = "mapPing", label = "Ping your arrow when the map opens",
 			onChange = function()
