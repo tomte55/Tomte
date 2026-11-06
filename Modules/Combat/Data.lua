@@ -42,6 +42,30 @@ local PROFILES = {
 	},
 }
 
+-- World of Warcraft: Forever's pets. No spec wants a pet more than another there (talents, not retail's spec IDs), so
+-- wantsAnySpec. Spell IDs checked on wowhead.com/forever, 2026-11-05. sacrifice: the four Demonic Sacrifice buffs
+-- (Burning Shadow, Fel Stamina, Touch of Fire, Fel Energy). Revive and call list every demon the warlock can have.
+local FOREVER_DEMONS = { 691, 712, 697, 688 } -- Felhunter, Succubus, Voidwalker, Imp
+local FOREVER_PROFILES = {
+	HUNTER = {
+		unit = "pet",
+		spells = { { id = 136, buff = true } }, -- Mend Pet
+		revive = { 982 }, -- Revive Pet
+		call = { 883 }, -- Call Pet
+		wantsPet = {},
+		wantsAnySpec = true,
+	},
+	WARLOCK = {
+		unit = "pet",
+		spells = { { id = 755 }, { id = 18708 } }, -- Health Funnel, Fel Domination
+		revive = FOREVER_DEMONS,
+		call = FOREVER_DEMONS,
+		wantsPet = {},
+		wantsAnySpec = true,
+		sacrifice = { 18789, 18790, 18791, 18792 },
+	},
+}
+
 local THROTTLE = 10 -- seconds between two of the same reminder
 
 -- Health colors (green full, orange hurt, red low), as Blizzard's own health bars read: game meaning, not theme.
@@ -49,8 +73,21 @@ local GREEN = { 0.25, 0.85, 0.3 } -- theme: health color (game meaning)
 local ORANGE = { 1, 0.7, 0.2 } -- theme: health color (game meaning)
 local RED = { 1, 0.2, 0.15 } -- theme: health color (game meaning)
 
-function ns.PetBar_Profile(class)
-	return class and PROFILES[class] or nil
+function ns.PetBar_Profile(class, forever)
+	return class and (forever and FOREVER_PROFILES or PROFILES)[class] or nil
+end
+
+-- Whether the sacrifice aura (one spell ID or a list) is on the player. hasAura(spellID) -> bool.
+function ns.PetBar_Sacrificed(sacrifice, hasAura)
+	if type(sacrifice) ~= "table" then
+		return hasAura(sacrifice)
+	end
+	for _, id in ipairs(sacrifice) do
+		if hasAura(id) then
+			return true
+		end
+	end
+	return false
 end
 
 -- Whether the bar and reminders apply to this spec. A profile without specs covers every spec; with specs, an
@@ -66,6 +103,9 @@ end
 function ns.PetBar_WantsPet(profile, specID, optionOn, sacrificed)
 	if sacrificed then
 		return false
+	end
+	if profile.wantsAnySpec then
+		return true
 	end
 	local want = specID and profile.wantsPet[specID]
 	return want == true or (want == "option" and optionOn == true)

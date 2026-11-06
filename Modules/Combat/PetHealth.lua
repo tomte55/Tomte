@@ -60,7 +60,9 @@ local function ReadSacrifice()
 	if not profile.sacrifice or inCombat then
 		return
 	end
-	sacrificed = C_UnitAuras.GetPlayerAuraBySpellID(profile.sacrifice) ~= nil
+	sacrificed = ns.PetBar_Sacrificed(profile.sacrifice, function(spellID)
+		return C_UnitAuras.GetPlayerAuraBySpellID(spellID) ~= nil
+	end)
 end
 
 local function Situation()
@@ -419,7 +421,9 @@ module = ns.RegisterModule({
 	category = "class",
 	icon = 132179, -- ability_hunter_mendpet
 	summary = "A pet health bar for Hunters, Warlocks and Unholy Death Knights that warns you when your pet needs healing.",
-	description = "A pet health bar under your character that turns red and glows when your pet needs healing, and reminders when your pet dies or you pull without one. Under the bar: Mend Pet and Exhilaration for Hunters, Fel Domination for Warlocks (no reminders with Grimoire of Sacrifice), Dark Transformation for Unholy Death Knights.",
+	description = ns.FOREVER
+		and "A pet health bar under your character that turns red and glows when your pet needs healing, and reminders when your pet dies or you pull without one. Under the bar: Mend Pet for Hunters, Health Funnel and Fel Domination for Warlocks (no reminders with Demonic Sacrifice)."
+		or "A pet health bar under your character that turns red and glows when your pet needs healing, and reminders when your pet dies or you pull without one. Under the bar: Mend Pet and Exhilaration for Hunters, Fel Domination for Warlocks (no reminders with Grimoire of Sacrifice), Dark Transformation for Unholy Death Knights.",
 	enabledByDefault = true,
 	toasts = "Pet health (banners)",
 	defaults = {
@@ -435,11 +439,12 @@ module = ns.RegisterModule({
 	init = function(moduleDB)
 		db = moduleDB
 		local _, class = UnitClass("player")
-		profile = ns.PetBar_Profile(class)
+		profile = ns.PetBar_Profile(class, ns.FOREVER)
 	end,
 	blocked = function()
 		if not profile then
-			return "Only for Hunters, Warlocks and Unholy Death Knights."
+			return ns.FOREVER and "Only for Hunters and Warlocks."
+				or "Only for Hunters, Warlocks and Unholy Death Knights."
 		end
 	end,
 	toggle = function(active)
@@ -489,3 +494,6 @@ module = ns.RegisterModule({
 			end, tooltip = "Remind a Marksmanship hunter about the pet too." },
 	},
 })
+if ns.FOREVER then
+	module.summary = "A pet health bar for Hunters and Warlocks that warns you when your pet needs healing."
+end

@@ -209,4 +209,26 @@ test("Visible: never for an off spec, unless unlocked", function()
 	eq(ns.PetBar_Visible("combat", situation({ offSpec = true, unlocked = true })), true)
 end)
 
+test("Forever: its own profiles, any spec wants a pet, unless sacrificed", function()
+	eq(ns.PetBar_Profile("DEATHKNIGHT", true), nil, "no death knights there")
+	local hunter = ns.PetBar_Profile("HUNTER", true)
+	eq(hunter.spells[1].id, 136, "Mend Pet")
+	eq(#hunter.spells, 1, "no Exhilaration")
+	eq(ns.PetBar_WantsPet(hunter, 1, false, false), true, "whatever the spec")
+	eq(ns.PetBar_WantsPet(hunter, nil, false, false), true, "no spec")
+	eq(ns.PetBar_HasOption(hunter), false, "no Marksmanship setting")
+	eq(ns.PetBar_WantsPet(ns.PetBar_Profile("WARLOCK", true), 1, false, true), false, "sacrificed")
+	eq(ns.PetBar_Profile("HUNTER").spells[2].id, 109304, "retail stays")
+end)
+
+test("Sacrificed takes one aura or a list", function()
+	local function has(id)
+		return id == 18790
+	end
+	eq(ns.PetBar_Sacrificed(18790, has), true)
+	eq(ns.PetBar_Sacrificed(1, has), false)
+	eq(ns.PetBar_Sacrificed({ 18789, 18790 }, has), true)
+	eq(ns.PetBar_Sacrificed({ 18789 }, has), false)
+end)
+
 H.done()
