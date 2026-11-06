@@ -41,6 +41,7 @@ local SHINE_DELAY = 0.1 -- seconds after the card has settled before the shine s
 local LEAVE_DRIFT = 24 -- pixels a leaving card drifts back towards the edge it came from while it fades
 local FADE_IN, FADE_OUT = 0.15, 0.6
 local PULSE = 0.5 -- a merged message: the card flashes in its accent color and bounces
+local FOREVER_EDGE = 3 -- px the Forever theme's tooltip border takes
 local BOUNCE = 10 -- pixels, towards the middle of the screen
 local MOVE_SPEED = 12 -- reflow easing
 local HOLD_MIN, HOLD_PER_CHAR, HOLD_MAX = 7, 0.06, 18
@@ -193,22 +194,26 @@ end
 -- the real cards (NewCard adds the clicks) and the still samples in settings previews (ns.Toast_DrawSample).
 local function Dress(card)
 	card:SetWidth(WIDTH)
-	UI.Panel(card, { alpha = 0.92, subtle = true })
+	UI.Panel(card, { alpha = 0.92, subtle = true, toast = true })
+	-- The Forever theme's tooltip frame has rounded corners: the card's own layers stay inside them.
+	local inset = ns.Theme.panel == "forever" and FOREVER_EDGE or 0
 	card.glow = card:CreateTexture(nil, "BORDER")
-	card.glow:SetAllPoints()
+	card.glow:SetPoint("TOPLEFT", inset, -inset)
+	card.glow:SetPoint("BOTTOMRIGHT", -inset, inset)
 	card.glow:SetColorTexture(UI.Color("hover"))
 	card.glow:Hide()
 	card.flash = card:CreateTexture(nil, "BORDER", nil, 1)
-	card.flash:SetAllPoints()
+	card.flash:SetPoint("TOPLEFT", inset, -inset)
+	card.flash:SetPoint("BOTTOMRIGHT", -inset, inset)
 	card.flash:SetColorTexture(1, 1, 1, 1)
 	card.flash:SetAlpha(0)
 	card.bar = card:CreateTexture(nil, "ARTWORK")
-	card.bar:SetPoint("TOPLEFT")
-	card.bar:SetPoint("BOTTOMLEFT")
+	card.bar:SetPoint("TOPLEFT", inset, -inset)
+	card.bar:SetPoint("BOTTOMLEFT", inset, inset)
 	card.bar:SetWidth(2)
 	card.line = card:CreateTexture(nil, "ARTWORK")
-	card.line:SetPoint("BOTTOMLEFT", 2, 0)
-	card.line:SetPoint("BOTTOMRIGHT")
+	card.line:SetPoint("BOTTOMLEFT", 2 + inset, inset)
+	card.line:SetPoint("BOTTOMRIGHT", -inset, inset)
 	card.line:SetHeight(1)
 	card.line:SetColorTexture(1, 1, 1, 1)
 

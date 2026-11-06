@@ -103,6 +103,25 @@ function UI.Forever_Panel(frame, opts)
 	return p
 end
 
+-- Toasts: the game's tooltip frame and fill, so they look like its own messages over the world without a window's
+-- weight. The pieces are on `frame` itself, under its own text, as UI.Panel's BlizzardPanel. The fill is that theme's
+-- bgTop, the game's tooltip color; this theme's own is brown.
+function UI.Forever_TooltipPanel(frame)
+	local p = { frame = frame }
+	NineSliceUtil.ApplyLayoutByName(frame, "TooltipDefaultLayout")
+	local fill = Theme.Get("blizzard").colors.bgTop
+	frame.Center:SetVertexColor(fill[1], fill[2], fill[3], 1)
+	UI.Border(frame, "frame", 0) -- invisible, so UI.SetBorderColor still works on the frame
+
+	function p:SetAlpha()
+	end
+
+	function p:Layout()
+	end
+
+	return p
+end
+
 -- The theme preview's mock window (Panel/Window.lua).
 function UI.Forever_MockPanel(parent)
 	local holder = CreateFrame("Frame", nil, parent)

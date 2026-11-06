@@ -313,10 +313,14 @@ end
 -- opts.corner: where the contours sit (default "BOTTOMRIGHT"). opts.alpha: fill opacity (default 1).
 -- opts.subtle: for widgets and toasts over the game world (Almost Done, Crafting list, flight bar, toasts): only the
 -- fill and a faint rule on the edge; no grain, glow, contours, vignette or dark outer edge.
+-- opts.toast: a toast card; the Forever theme gives it the game's tooltip frame (Panel/ForeverArt.lua).
 -- Returns a handle: handle:SetAlpha(a) changes the fill's opacity (the Tomte window's Background opacity).
 -- A theme whose panel is "blizzard" draws the game's tooltip border and fill instead (BlizzardPanel).
 function UI.Panel(frame, opts)
 	opts = opts or {}
+	if Theme.panel == "forever" and opts.toast then
+		return UI.Forever_TooltipPanel(frame)
+	end
 	if Theme.panel == "blizzard" and not opts.subtle then
 		return BlizzardPanel(frame, opts.size)
 	end

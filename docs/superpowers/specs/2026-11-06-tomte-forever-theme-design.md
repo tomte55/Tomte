@@ -37,6 +37,7 @@ it is an exact match instead of a lookalike.
   `SimplePanelTemplate` was the first try, but it's grey on Forever (seen in game).
 - **Rock:** the game's rock is pale grey beside its warm dark windows (seen in game), so the theme's `bg` lies over it.
 - **Widgets over the game world** (`subtle` panels, `small` panels) stay light: a flat fill and a faint bronze rule.
+- **Toasts** use the game's tooltip frame and fill, to look like the game's own messages over the world.
 - **Buttons** use the game's red `UI-Panel-Button` art; every "x" button becomes the real `RedButton-Exit`, the bags'
   close glyph too. Dropdowns are not red: they read as a field.
 - **Headings:** Home's section headings and the settings cards' titles sit on the stat plaque, three-sliced so it
