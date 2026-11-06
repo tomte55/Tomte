@@ -116,13 +116,14 @@ end
 -- Bars ------------------------------------------------------------------------------------------------------------------
 
 -- actions: { { spellID, name, subtext, highest, consumable, count } } from the action bars. A spell on two bars counts once.
--- Old ranks by name: "Frostbolt (Rank 1)".
+-- Old ranks by name: "Frostbolt (Rank 1)". Only a spell with a rank in its subtext: the game also says "not the highest"
+-- for Tame Beast, which has no ranks (seen on Forever). A number, as "Rank" is translated and "Racial" has none.
 function ns.Leveling_OldRanks(actions)
 	local seen, list = {}, {}
 	for _, a in ipairs(actions) do
-		if a.highest == false and a.name and not seen[a.spellID] then
+		if a.highest == false and a.name and a.subtext and a.subtext:find("%d") and not seen[a.spellID] then
 			seen[a.spellID] = true
-			list[#list + 1] = (a.subtext and a.subtext ~= "") and (a.name .. " (" .. a.subtext .. ")") or a.name
+			list[#list + 1] = a.name .. " (" .. a.subtext .. ")"
 		end
 	end
 	table.sort(list)

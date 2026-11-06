@@ -118,12 +118,13 @@ test("old ranks: only known low ones, once each", function()
 		{ spellID = 1, name = "Frostbolt", subtext = "Rank 1", highest = false },
 		{ spellID = 1, name = "Frostbolt", subtext = "Rank 1", highest = false },
 		{ spellID = 2, name = "Frostbolt", subtext = "Rank 2", highest = true },
-		{ spellID = 3, name = "Blink", highest = false },
+		{ spellID = 3, name = "Tame Beast", highest = false },
+		{ spellID = 5, name = "Tame Beast", subtext = "", highest = false },
+		{ spellID = 6, name = "Berserking", subtext = "Racial", highest = false },
 		{ spellID = 4, name = "Unknown" },
 	})
-	eq(#list, 2)
-	eq(list[1], "Blink")
-	eq(list[2], "Frostbolt (Rank 1)")
+	eq(#list, 1, "a spell with no rank is never an old rank")
+	eq(list[1], "Frostbolt (Rank 1)")
 end)
 
 test("low reagents: consumable spells only, fewest first, a name once at its lowest", function()
