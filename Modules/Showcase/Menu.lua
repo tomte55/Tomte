@@ -174,8 +174,8 @@ local function GemCandidates()
 		return ns.CharShow_IsGem(classID, subclassID) and "gem" or nil
 	end)
 	for _, g in ipairs(list) do
-		local stats = ns.GearItems_GemStats(g.itemID)
-		g.detail = stats and ns.Gear_StatLabel(stats) or nil
+		local stats = ns.GearItems_GemStats and ns.GearItems_GemStats(g.itemID)
+		g.detail = stats and ns.Gear_StatLabel and ns.Gear_StatLabel(stats) or nil
 		if g.itemID == best and ctx.spec then
 			g.best = true
 			g.headline, g.role = ("Best for %s"):format(ctx.spec.name), "success"
@@ -568,6 +568,9 @@ local function ShowRoot()
 		{ view = "gems", title = "Gems", icon = GEMS_ICON,
 			status = { ns.CharShow_GemStatus(sockets, math.max(sockets - (desc.gems or 0), 0)) } },
 	}
+	if ns.FOREVER then
+		list[3] = nil -- Forever's Gear Check reads no sockets: this row could only say "No sockets"
+	end
 	for i, def in ipairs(list) do
 		local e = entries[i] or CreateEntry(i)
 		e.view = def.view

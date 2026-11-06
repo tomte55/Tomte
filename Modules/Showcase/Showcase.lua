@@ -234,6 +234,13 @@ local function Percent(v)
 	return ("%d%%"):format(math.floor(v * 100 + 0.5))
 end
 
+-- For settings that drive one of ActionCam's test_ CVars. Forever's UI source shows no sign of them, so they're asked for.
+local function CVarRow(name)
+	return function()
+		return not ns.FOREVER or C_CVar.GetCVar(name) ~= nil
+	end
+end
+
 module = ns.RegisterModule({
 	key = "showcase",
 	name = "Showcase",
@@ -241,7 +248,9 @@ module = ns.RegisterModule({
 	icon = 132624, -- inv_chest_chain
 	summary = "Show off your character, gear and stats in a slow camera view.",
 	description = "A character view in the game world: the camera glides in on your character, the UI fades out, "
-		.. "and your gear (item level, upgrade track, enchants and gems) and stats sit around it. The camera turns "
+		.. (ns.FOREVER and "and your gear (item level and enchants) and stats sit around it. "
+			or "and your gear (item level, upgrade track, enchants and gems) and stats sit around it. ")
+		.. "The camera turns "
 		.. "slowly until you drag it; scroll to zoom. Open it with /tomte showcase, a key binding or its minimap "
 		.. "button. Esc closes it, and so does combat.",
 	enabledByDefault = true,
@@ -316,14 +325,17 @@ module = ns.RegisterModule({
 		{ type = "slider", key = "distance", label = "Camera distance", min = 0.7, max = 1.6, step = 0.05,
 			format = Percent, tooltip = "How far the camera stays from your character. 100% frames the whole body." },
 		{ type = "checkbox", key = "dynamicPitch", label = "Head above center",
+			shown = CVarRow("test_cameraDynamicPitch"),
 			tooltip = "ActionCam's dynamic pitch while the Showcase is open: the camera aims a little lower, so your head "
 				.. "sits above the middle of the screen." },
 		{ type = "checkbox", key = "toSide", label = "Character to the side",
+			shown = CVarRow("test_cameraOverShoulder"),
 			tooltip = "Your character stands left of center, between the gear columns. Off: in the middle." },
 		{ type = "checkbox", key = "bands", label = "Letterbox bars",
 			tooltip = "Black bars at the top and bottom of the screen, as in the other cinematics." },
 		{ type = "header", label = "Gear" },
 		{ type = "checkbox", key = "hints", label = "Gear hints on slots",
-			tooltip = "Upgrade track, enchant (or \"No enchant\" at max level) and gems under each item." },
+			tooltip = ns.FOREVER and "The enchant under each item."
+				or "Upgrade track, enchant (or \"No enchant\" at max level) and gems under each item." },
 	},
 })

@@ -12,8 +12,15 @@ ns.CHARSHOW_RIGHT = { 10, 6, 7, 8, 11, 12, 13, 14, 17 } -- hands, waist, legs, f
 ns.CHARSHOW_SLOT_NAMES = {
 	"HEADSLOT", "NECKSLOT", "SHOULDERSLOT", "SHIRTSLOT", "CHESTSLOT", "WAISTSLOT", "LEGSSLOT", "FEETSLOT", "WRISTSLOT",
 	"HANDSSLOT", "FINGER0SLOT", "FINGER1SLOT", "TRINKET0SLOT", "TRINKET1SLOT", "BACKSLOT", "MAINHANDSLOT",
-	"SECONDARYHANDSLOT",
+	"SECONDARYHANDSLOT", "RANGEDSLOT",
 }
+-- World of Warcraft: Forever's ranged slot sits above the main hand.
+local LEFT_RANGED = { 1, 2, 3, 15, 5, 9, false, 18, 16 }
+
+-- The left column: with the ranged slot where the client shows one.
+function ns.CharShow_LeftColumn(hasRanged)
+	return hasRanged and LEFT_RANGED or ns.CHARSHOW_LEFT
+end
 
 -- Camera -----------------------------------------------------------------------------------------------------------
 
@@ -180,6 +187,22 @@ function ns.CharShow_StatText(e)
 	return value, rating
 end
 
+-- World of Warcraft: Forever's character sheet has no primary stat per spec, no secondary ratings on gear and a
+-- different list of stats. attributes: { { key, label, value } } (strength, agility, intellect, spirit, in that order).
+-- The tiles take the highest one (the first on a tie, nil when all are 0); the rest are chips. Sets .group: 1 or 3.
+function ns.CharShow_ForeverAttributes(attributes)
+	local best
+	for _, a in ipairs(attributes) do
+		if (a.value or 0) > 0 and (not best or a.value > best.value) then
+			best = a
+		end
+	end
+	for _, a in ipairs(attributes) do
+		a.group = a == best and 1 or 3
+	end
+	return attributes
+end
+
 -- "Level 80 Beast Mastery Hunter" style subtitle parts, empty ones skipped.
 function ns.CharShow_Subtitle(level, spec, class)
 	local parts = {}
@@ -232,6 +255,24 @@ function ns.CharShow_CardStats(stats, primary, labels)
 	return rows
 end
 
+-- Forever's card: every attribute on the item (its classes share gear far more than specs do), and spirit.
+function ns.CharShow_ForeverCardStats(stats, labels)
+	local rows = {}
+	local primary = stats and stats.PRIMARY or {}
+	local list = { { "ARMOR", stats and stats.ARMOR }, { "STR", primary.STR }, { "AGI", primary.AGI },
+		{ "STA", stats and stats.STA }, { "INT", primary.INT }, { "SPI", stats and stats.SPI } }
+	for _, entry in ipairs(list) do
+		local key, amount = entry[1], entry[2]
+		if amount and amount > 0 then
+			local label = labels[key] or key
+			rows[#rows + 1] = { key = key, amount = amount, secondary = false,
+				text = key == "ARMOR" and ("%s %s"):format(ns.Thousands(amount), label)
+					or ("+%s %s"):format(ns.Thousands(amount), label) }
+		end
+	end
+	return rows
+end
+
 -- "Head · Mail · Soulbound": the non-empty parts.
 function ns.CharShow_MetaLine(...)
 	local parts = {}
@@ -270,6 +311,8 @@ function ns.CharShow_EnchantStatus(takes, current, count)
 		return "No enchant", "danger"
 	elseif count > 0 then
 		return ("%d in your bags"):format(count), "textMuted"
+	elseif ns.FOREVER then
+		return "None in your bags", "textMuted" -- Forever has no list of slots that take one
 	end
 	return "Doesn't take one", "textMuted"
 end

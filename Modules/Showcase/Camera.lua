@@ -251,9 +251,15 @@ function Cam.Start(state, opts)
 		local default = C_CVar.GetCVarDefault and tonumber(C_CVar.GetCVarDefault(CVAR_PAD))
 		padTarget = (default and default > 0) and default or PAD_FALLBACK
 	end
-	Backup(CVAR_SHOULDER)
-	shoulderNow = GetCVarNumber(CVAR_SHOULDER)
-	shoulderTarget = shoulderNow
+	-- Forever: nothing in its UI source shows this test_ CVar, so only when the client has it (Showcase.lua hides the
+	-- setting then too). A nil target leaves the easing below idle.
+	if C_CVar.GetCVar(CVAR_SHOULDER) ~= nil then
+		Backup(CVAR_SHOULDER)
+		shoulderNow = GetCVarNumber(CVAR_SHOULDER)
+		shoulderTarget = shoulderNow
+	else
+		shoulderNow, shoulderTarget = nil, nil
+	end
 	popupEvents:RegisterEvent("EXPERIMENTAL_CVAR_CONFIRMATION_NEEDED")
 	phase = "swing"
 	swingT = 0

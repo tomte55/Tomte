@@ -258,4 +258,44 @@ test("PickView: the highest view with no key bound, none when all are", function
 	eq(ns.CharShow_PickView(IsBound), nil)
 end)
 
+test("the ranged slot joins the left column only where the client shows one", function()
+	eq(ns.CharShow_LeftColumn(false), ns.CHARSHOW_LEFT)
+	local left = ns.CharShow_LeftColumn(true)
+	eq(#left, 9, "rows")
+	eq(left[8], 18)
+	eq(left[9], 16, "main hand stays on the bottom row")
+	eq(ns.CHARSHOW_SLOT_NAMES[18], "RANGEDSLOT")
+end)
+
+test("Forever: the highest attribute goes to the tiles, the rest to chips", function()
+	local list = ns.CharShow_ForeverAttributes({ { key = "strength", value = 50 }, { key = "agility", value = 80 },
+		{ key = "intellect", value = 80 }, { key = "spirit", value = 10 } })
+	eq(list[1].group, 3)
+	eq(list[2].group, 1, "the first on a tie")
+	eq(list[3].group, 3)
+	eq(list[4].group, 3)
+	list = ns.CharShow_ForeverAttributes({ { key = "strength", value = 0 } })
+	eq(list[1].group, 3, "none above 0: no tile")
+end)
+
+test("Forever's card lists every attribute on the item", function()
+	local labels = { ARMOR = "Armor", STR = "Strength", AGI = "Agility", STA = "Stamina", INT = "Intellect", SPI = "Spirit" }
+	local rows = ns.CharShow_ForeverCardStats({ ARMOR = 1200, STA = 5, SPI = 3, PRIMARY = { STR = 7, INT = 2 } }, labels)
+	eq(#rows, 5)
+	eq(rows[1].text, "1,200 Armor")
+	eq(rows[2].text, "+7 Strength")
+	eq(rows[3].text, "+5 Stamina")
+	eq(rows[4].text, "+2 Intellect")
+	eq(rows[5].text, "+3 Spirit")
+	eq(#ns.CharShow_ForeverCardStats(nil, labels), 0)
+end)
+
+test("Forever: no enchant in the bags doesn't claim the slot takes none", function()
+	eq((ns.CharShow_EnchantStatus(false, nil, 0)), "Doesn't take one")
+	ns.FOREVER = true
+	eq((ns.CharShow_EnchantStatus(false, nil, 0)), "None in your bags")
+	eq((ns.CharShow_EnchantStatus(false, "+5 Stamina", 0)), "+5 Stamina")
+	ns.FOREVER = nil
+end)
+
 H.done()

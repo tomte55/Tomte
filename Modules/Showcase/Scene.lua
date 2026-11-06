@@ -110,6 +110,17 @@ local function AtMaxLevel()
 	return maxLevel ~= nil and UnitLevel("player") >= maxLevel
 end
 
+-- The item descriptor the slots, card and menu read. Forever's Gear Check reads no sockets or tracks: its own
+-- descriptor plus the enchant from the link. nil while the item loads, or without Gear Check's files.
+local function Describe(link)
+	if ns.GearItems_Describe then
+		return ns.GearItems_Describe(link)
+	end
+	local item = ns.GearForever_Describe and ns.GearForever_Describe(link)
+	return item and { equipLoc = item.equipLoc, classID = item.classID, subclassID = item.subclassID, stats = item.stats,
+		enchanted = (ns.Gear_LinkInfo(link)) } or nil
+end
+
 -- Slots --------------------------------------------------------------------------------------------------------------
 
 local function SlotOnEnter(self)
@@ -338,19 +349,77 @@ local function RefreshSlot(w)
 	w.name:SetText(C_Item.GetItemNameByID(link) or C_Item.GetItemInfo(link) or "")
 
 	local ilvl = C_Item.GetCurrentItemLevel(ItemLocation:CreateFromEquipmentSlot(slot))
-	local desc = ns.GearItems_Describe and ns.GearItems_Describe(link)
+	local desc = Describe(link)
 	local hints = desc and ns.CharShow_Hints(desc, ns.Gear_EnchantSlot(slot, desc.equipLoc), AtMaxLevel(),
 		desc.enchanted and EnchantText(slot)) or { gems = 0, empty = 0, missing = false }
 	w.desc, w.hints, w.ilvl, w.color = desc, hints, ilvl, color -- for the card and the menu
-	w.better:SetShown(ns.Gear_BagBetter ~= nil and ns.Gear_BagBetter(slot) ~= nil)
+	w.better:SetShown(ns.Gear_BagBetter and ns.Gear_BagBetter(slot) ~= nil or false)
 	local reach = LayoutDetails(w, color, ilvl, desc, hints)
 	SetHitWidth(w, math.max(reach, TEXT_X + math.min(w.name:GetUnboundedStringWidth(), TEXT_W)))
 end
 
 -- Stats --------------------------------------------------------------------------------------------------------------
 
+-- The best of the crit chances, as Blizzard's sheet picks it: chance, the rating it goes by.
+local function BestCrit()
+	local spellCrit = GetSpellCritChance(2)
+	for school = 3, MAX_SPELL_SCHOOLS or 7 do
+		spellCrit = math.min(spellCrit, GetSpellCritChance(school))
+	end
+	local rangedCrit, meleeCrit = GetRangedCritChance(), GetCritChance()
+	if spellCrit >= rangedCrit and spellCrit >= meleeCrit then
+		return spellCrit, CR_CRIT_SPELL
+	elseif rangedCrit >= meleeCrit then
+		return rangedCrit, CR_CRIT_RANGED
+	end
+	return meleeCrit, CR_CRIT_MELEE
+end
+
+-- World of Warcraft: Forever's list, from its character sheet (Camelot/PaperDollFrameConstants.lua): tiles for health,
+-- armor, stamina and the highest attribute, chips for the rest. Nothing goes by rating there. Dodge and parry show
+-- when above 0, whatever the role, as on that sheet.
+local function ReadForeverStats()
+	local entries = {}
+	local function Add(key, label, value, percent, group)
+		if label and ns.Readable(value) then
+			entries[#entries + 1] = { key = key, label = label, value = value, percent = percent, group = group }
+		end
+	end
+	local function Power(base, up, down)
+		if ns.Readable(base, up, down) then
+			return base + up + down
+		end
+		return nil
+	end
+	Add("health", HEALTH, UnitHealthMax("player"), false, 1)
+	Add("armor", STAT_ARMOR, select(2, UnitArmor("player")), false, 1)
+	Add("stamina", SPELL_STAT3_NAME, select(2, UnitStat("player", 3)), false, 1)
+	local attributes = {}
+	for _, a in ipairs({ { "strength", 1 }, { "agility", 2 }, { "intellect", 4 }, { "spirit", 5 } }) do
+		local value = select(2, UnitStat("player", a[2]))
+		if ns.Readable(value) then
+			attributes[#attributes + 1] = { key = a[1], label = _G["SPELL_STAT" .. a[2] .. "_NAME"], value = value }
+		end
+	end
+	for _, a in ipairs(ns.CharShow_ForeverAttributes(attributes)) do
+		Add(a.key, a.label, a.value, false, a.group)
+	end
+	Add("crit", STAT_CRITICAL_STRIKE, (BestCrit()), true, 3)
+	Add("dodge", STAT_DODGE, GetDodgeChance(), true, 4)
+	Add("parry", STAT_PARRY, GetParryChance(), true, 4)
+	Add("block", STAT_BLOCK, GetBlockChance(), true, 4)
+	Add("attackPower", STAT_ATTACK_POWER, Power(UnitAttackPower("player")), false, 3)
+	Add("rangedPower", RANGED_ATTACK_POWER, Power(UnitRangedAttackPower("player")), false, 3)
+	Add("spellPower", STAT_SPELLPOWER, GetSpellBonusDamage(2), false, 3)
+	local hasShield = C_PaperDollInfo.OffhandHasShield and C_PaperDollInfo.OffhandHasShield()
+	return entries, true, hasShield
+end
+
 -- Every stat entry ({ key, label, value, rating, percent, group }), unfiltered; the role and a shield.
 local function ReadStats()
+	if ns.FOREVER then
+		return ReadForeverStats()
+	end
 	local entries = {}
 	local function Add(key, label, value, rating, percent, group)
 		if not ns.Readable(value) or (rating ~= nil and not ns.Readable(rating)) then
@@ -374,20 +443,7 @@ local function ReadStats()
 	Add("health", HEALTH, UnitHealthMax("player"), nil, false, 1)
 	Add("armor", STAT_ARMOR, select(2, UnitArmor("player")), nil, false, 1)
 
-	-- Crit as Blizzard's sheet picks it: the best of spell (lowest school), ranged and melee.
-	local spellCrit = GetSpellCritChance(2)
-	for school = 3, MAX_SPELL_SCHOOLS or 7 do
-		spellCrit = math.min(spellCrit, GetSpellCritChance(school))
-	end
-	local rangedCrit, meleeCrit = GetRangedCritChance(), GetCritChance()
-	local crit, critRating
-	if spellCrit >= rangedCrit and spellCrit >= meleeCrit then
-		crit, critRating = spellCrit, CR_CRIT_SPELL
-	elseif rangedCrit >= meleeCrit then
-		crit, critRating = rangedCrit, CR_CRIT_RANGED
-	else
-		crit, critRating = meleeCrit, CR_CRIT_MELEE
-	end
+	local crit, critRating = BestCrit()
 	Add("crit", STAT_CRITICAL_STRIKE, crit, GetCombatRating(critRating), true, 2)
 	Add("haste", STAT_HASTE, GetHaste(), GetCombatRating(CR_HASTE_MELEE), true, 2)
 	Add("mastery", STAT_MASTERY, GetMasteryEffect(), GetCombatRating(CR_MASTERY), true, 2)
@@ -506,6 +562,8 @@ local function CreateSplit()
 	stats.splitNote = UI.Text(stats, 12, "textFaint")
 	stats.splitNote:SetPoint("TOPRIGHT", 0, SPLIT_Y)
 	stats.splitNote:SetText("share of your rating")
+	stats.splitTitle:SetShown(not ns.FOREVER) -- no secondary ratings there
+	stats.splitNote:SetShown(not ns.FOREVER)
 	stats.bars, stats.legend = {}, {}
 	local colW = (STATS_W - 18) / 2
 	for i = 1, 4 do
@@ -556,6 +614,9 @@ local function RefreshStats()
 	local spec = C_SpecializationInfo.GetSpecialization()
 	local specName = spec and select(2, C_SpecializationInfo.GetSpecializationInfo(spec, false, false, nil,
 		UnitSex("player")))
+	if ns.FOREVER then
+		specName = nil -- one spec per class there: it would only say the class again
+	end
 	stats.sub:SetText(ns.CharShow_Subtitle(UnitLevel("player"), specName, UnitClass("player")))
 
 	local best, equipped = GetAverageItemLevel()
@@ -612,7 +673,7 @@ local function RefreshStats()
 			rest[#rest + 1] = e
 		end
 	end
-	local cx, cy, n = 0, SPLIT_Y - 46 - 2 * LEGEND_ROW - 6, 0
+	local cx, cy, n = 0, ns.FOREVER and SPLIT_Y or SPLIT_Y - 46 - 2 * LEGEND_ROW - 6, 0
 	for i, e in ipairs(ns.CharShow_FilterStats(rest, isTank, hasShield)) do
 		local chip = Chip(i)
 		chip.text:SetText(("%s  %s"):format(e.label, (ns.CharShow_StatText(e))))
@@ -689,7 +750,7 @@ function SCENE.Create(parent)
 	shadeFrame:SetFrameLevel(root:GetFrameLevel()) -- under the gear and stats groups
 	CreateShade("LEFT", SHADE_LEFT)
 	CreateShade("RIGHT", SHADE_RIGHT)
-	CreateGearGroup("left", ns.CHARSHOW_LEFT, "LEFT")
+	CreateGearGroup("left", ns.CharShow_LeftColumn(ns.FOREVER and C_PaperDollInfo.IsRangedSlotShown()), "LEFT")
 	CreateGearGroup("right", ns.CHARSHOW_RIGHT, "RIGHT")
 	CreateStats()
 	ns.CharShowCard.Create(root, tooltip)

@@ -159,7 +159,7 @@ local function StatLabels()
 	return {
 		ARMOR = RESISTANCE0_NAME or "Armor", STR = SPELL_STAT1_NAME, AGI = SPELL_STAT2_NAME, INT = SPELL_STAT4_NAME,
 		STA = SPELL_STAT3_NAME, CRIT = STAT_CRITICAL_STRIKE, HASTE = STAT_HASTE, MASTERY = STAT_MASTERY,
-		VERS = STAT_VERSATILITY,
+		VERS = STAT_VERSATILITY, SPI = SPELL_STAT5_NAME,
 	}
 end
 
@@ -200,7 +200,7 @@ local function MetaLine(slot, desc, link)
 		and desc.subclassID <= 4 and desc.equipLoc ~= "INVTYPE_CLOAK") then
 		subType = C_Item.GetItemSubClassInfo(desc.classID, desc.subclassID)
 	end
-	local state = ns.GearItems_BindState(link, ItemLocation:CreateFromEquipmentSlot(slot))
+	local state = ns.GearItems_BindState and ns.GearItems_BindState(link, ItemLocation:CreateFromEquipmentSlot(slot))
 	local bind = state and _G[BIND_LABELS[state]]
 	return ns.CharShow_MetaLine(slotName, subType, bind)
 end
@@ -456,7 +456,9 @@ local function FillHeader(w, desc, link, color)
 end
 
 local function FillStats(desc, ctx, y)
-	for _, row in ipairs(ns.CharShow_CardStats(desc.stats, PrimaryKey(ctx), StatLabels())) do
+	local rows = ns.FOREVER and ns.CharShow_ForeverCardStats(desc.stats, StatLabels())
+		or ns.CharShow_CardStats(desc.stats, PrimaryKey(ctx), StatLabels())
+	for _, row in ipairs(rows) do
 		if row.secondary then
 			Put(Swatch(STAT_ROLES[row.key] or "accent"), PAD, y - 1)
 			local t = Text(15, "text")
@@ -519,8 +521,8 @@ local function FillEnchantAndGems(w, desc, ctx, y)
 			local t = Text(14, "text")
 			t:SetText(C_Item.GetItemNameByID(id) or "")
 			Put(t, PAD + 24, y)
-			local stats = ns.GearItems_GemStats(id)
-			if stats then
+			local stats = ns.GearItems_GemStats and ns.GearItems_GemStats(id)
+			if stats and ns.Gear_StatLabel then
 				local s = Text(12, "textFaint")
 				s:SetText(ns.Gear_StatLabel(stats))
 				PutRight(s, y + 1)
