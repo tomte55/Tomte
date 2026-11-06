@@ -16,6 +16,22 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
+- **Fishing:** on Forever, the key equips your rod from your bags and can put a lure on it (off by default). Your weapons go back when you mount, change zone or get pulled, or when you right-click the fishing button.
+- **Pet care:** a toast and a button that opens Beast Training when your pet has the points and level to learn something new.
+
+### Improved
+
+- **Pet care:** the feed button says what to do: it counts down while your pet eats so no food is wasted, asks again if it's still hungry, and warns about food too low for its level. It also picks food that does a full feeding.
+- **Bags:** with Group identical items on, a right-click at a merchant sells every stack of the item, up to 12 per click.
+- **Almost Done:** the tracker is only as tall as the achievements in it.
+- **Themes:** in the Forever theme, the Pet Health bar and the fishing button use the game's own frames.
+
+### Fixed
+
+- **Pet Health:** the "No pet" warning only comes when you pull, not after combat too. On Forever it stays quiet until the character has a pet to call.
+- **Hunter Pets:** on Forever, the "No pet out" check stays quiet for a hunter with no pet to call.
+- **Pet care:** the feed button no longer makes you eat the food yourself. It stays away until you've learned Feed Pet and tells you so.
+- **Fishing:** the fishing button shows its icon on Forever.
 
 ## v1.28.0 - 2026-11-06
 
