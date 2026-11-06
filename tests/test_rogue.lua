@@ -141,4 +141,71 @@ test("Lockpick macros", function()
 		"/cast [@none] Skeleton Pinkie\n/click TradeRecipientItem7ItemButton")
 end)
 
+-- World of Warcraft: Forever: poisons are items, one on each weapon.
+local FAMILIES = {
+	{ key = "instant", items = { 1, 2, 3 } },
+	{ key = "deadly", items = { 11, 12 } },
+}
+local LOW = { lowSeconds = 600 }
+
+test("Forever: a stone beside no poison isn't a poison, charges or an imbue are", function()
+	local STONE = { hasEnchant = true, enchantType = 2, charges = 0, timeLeft = 1000000 }
+	eq(ns.Rogue_ForeverPoisonLeft({}), nil, "nothing")
+	eq(ns.Rogue_ForeverPoisonLeft({ STONE }), nil, "stone")
+	eq(ns.Rogue_ForeverPoisonLeft({ { hasEnchant = false, charges = 5 } }), nil, "not on")
+	eq(ns.Rogue_ForeverPoisonLeft({ STONE, { hasEnchant = true, enchantType = 2, charges = 60, timeLeft = 90000 } }), 90)
+	eq(ns.Rogue_ForeverPoisonLeft({ { hasEnchant = true, enchantType = 3, charges = 0, timeLeft = 0 } }), math.huge)
+end)
+
+test("Forever: offers the highest rank in the bags, per weapon", function()
+	local p = ns.Rogue_ForeverProblems({ known = true, families = FAMILIES, bags = { [1] = 2, [2] = 1 },
+		weapons = { { slot = 16 }, { slot = 17, left = 100 }, } }, LOW)
+	eq(#p, 2)
+	eq(p[1].slot, 16)
+	eq(p[1].reason, "missing")
+	eq(p[1].itemID, 2, "rank II over rank I")
+	eq(p[1].family, "instant")
+	eq(p[2].reason, "low")
+	eq(p[2].left, 100)
+end)
+
+test("Forever: the family last used on that weapon wins while it's in the bags", function()
+	local s = { known = true, families = FAMILIES, bags = { [1] = 1, [11] = 1 }, weapons = { { slot = 17 } },
+		last = { [17] = "deadly" } }
+	eq(ns.Rogue_ForeverProblems(s, LOW)[1].itemID, 11)
+	s.bags = { [1] = 1 }
+	eq(ns.Rogue_ForeverProblems(s, LOW)[1].itemID, 1, "falls back")
+end)
+
+test("Forever: no poison in the bags: no item, still reported; nothing before the skill", function()
+	local s = { known = true, families = FAMILIES, bags = {}, weapons = { { slot = 16 } } }
+	local p = ns.Rogue_ForeverProblems(s, LOW)
+	eq(#p, 1)
+	eq(p[1].itemID, nil)
+	s.known = false
+	eq(#ns.Rogue_ForeverProblems(s, LOW), 0, "not learned")
+	s.bags = { [1] = 1 }
+	eq(#ns.Rogue_ForeverProblems(s, LOW), 1, "a poison in the bags means it's learned")
+end)
+
+test("Forever: a poison with time left is fine; low warning 0 is off", function()
+	local s = { known = true, families = FAMILIES, bags = { [1] = 1 }, weapons = { { slot = 16, left = 700 } } }
+	eq(#ns.Rogue_ForeverProblems(s, LOW), 0)
+	s.weapons[1].left = 10
+	eq(#ns.Rogue_ForeverProblems(s, { lowSeconds = 0 }), 0)
+end)
+
+test("Forever: remembers per weapon and builds the macro", function()
+	local last = { lethal = {} }
+	ns.Rogue_ForeverRemember(last, 16, "deadly")
+	eq(last.forever[16], "deadly")
+	eq(ns.Rogue_ForeverMacro(8928, 17), "/use item:8928\n/use 17")
+end)
+
+test("Forever: weapons only take poison", function()
+	eq(ns.Rogue_TakesPoison(2, 7), true, "sword")
+	eq(ns.Rogue_TakesPoison(2, 20), false, "fishing pole")
+	eq(ns.Rogue_TakesPoison(4, 6), false, "shield")
+end)
+
 H.done()

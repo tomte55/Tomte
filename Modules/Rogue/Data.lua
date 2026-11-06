@@ -121,6 +121,95 @@ function ns.Rogue_FormatLeft(seconds)
 	return math.max(0, math.floor(seconds)) .. " sec"
 end
 
+-- World of Warcraft: Forever ----------------------------------------------------------------------------------------
+
+-- Poisons are bag items there, one on each weapon. Read in Forever.lua.
+ns.ROGUE_FOREVER_POISONS_SPELL = 2842 -- the Poisons skill, learned at level 20
+ns.ROGUE_FOREVER_SLOTS = { 16, 17 } -- main and off hand (INVSLOT_MAINHAND, INVSLOT_OFFHAND)
+-- Enum.ItemClass.Weapon, and the Enum.ItemWeaponSubclass values that aren't real weapons: Generic and Fishingpole.
+local WEAPON_CLASS = 2
+local NO_POISON_SUBCLASS = { [14] = true, [20] = true }
+local IMBUE = 3 -- Enum.ItemEnchantType.Imbue
+
+function ns.Rogue_TakesPoison(classID, subclassID)
+	return classID == WEAPON_CLASS and not NO_POISON_SUBCLASS[subclassID]
+end
+
+-- Seconds left on a weapon's poison, nil when it has none. enchants: C_Item.GetWeaponEnchantInfo's list, timeLeft in
+-- milliseconds. A poison sits beside a stone there; a poison has charges and a stone doesn't, or it's an Imbue.
+function ns.Rogue_ForeverPoisonLeft(enchants)
+	for _, e in ipairs(enchants) do
+		if e.hasEnchant and ((e.charges or 0) > 0 or e.enchantType == IMBUE) then
+			return (e.timeLeft and e.timeLeft > 0) and e.timeLeft / 1000 or math.huge
+		end
+	end
+	return nil
+end
+
+-- The family to offer: the one last used on this weapon when it's in the bags, else the first one that is. Returns
+-- its key and its highest rank in the bags, or nil. families: lowest rank first; bags: { [itemID] = count }.
+local function PickPoison(families, bags, last)
+	local function best(family)
+		for i = #family.items, 1, -1 do
+			if (bags[family.items[i]] or 0) > 0 then
+				return family.items[i]
+			end
+		end
+		return nil
+	end
+	for _, family in ipairs(families) do
+		if family.key == last and best(family) then
+			return family.key, best(family)
+		end
+	end
+	for _, family in ipairs(families) do
+		if best(family) then
+			return family.key, best(family)
+		end
+	end
+	return nil
+end
+
+-- What's wrong with the poisons. s = {
+--   weapons = { { slot, left = seconds | nil (no poison) } }, the weapons that take a poison,
+--   families (Data/Forever/Rogue.lua), bags = { [itemID] = count }, last = { [slot] = family key },
+--   known = the Poisons skill is learned,
+-- }
+-- rules = { lowSeconds = number }. Returns a list of { slot, reason = "missing" | "low", left (low only), family,
+-- itemID }; no itemID when the bags have no poison to apply. Nothing for a rogue with neither the skill nor a poison.
+function ns.Rogue_ForeverProblems(s, rules)
+	local problems = {}
+	local anyInBags = false
+	for _, family in ipairs(s.families) do
+		for _, id in ipairs(family.items) do
+			anyInBags = anyInBags or (s.bags[id] or 0) > 0
+		end
+	end
+	if not (s.known or anyInBags) then
+		return problems
+	end
+	for _, weapon in ipairs(s.weapons) do
+		if not weapon.left or weapon.left < rules.lowSeconds then
+			local family, itemID = PickPoison(s.families, s.bags, s.last and s.last[weapon.slot])
+			problems[#problems + 1] = { slot = weapon.slot, reason = weapon.left and "low" or "missing",
+				left = weapon.left, family = family, itemID = itemID }
+		end
+	end
+	return problems
+end
+
+-- Remembers the family just applied to a weapon. last is the character's saved table.
+function ns.Rogue_ForeverRemember(last, slot, family)
+	last.forever = last.forever or {} -- [slot] = family key
+	last.forever[slot] = family
+end
+
+-- The macro that applies a poison item to a weapon: using the item leaves it waiting for a target, then /use picks
+-- the equipped slot.
+function ns.Rogue_ForeverMacro(itemID, slot)
+	return ("/use item:%d\n/use %d"):format(itemID, slot)
+end
+
 -- Handy Lockpick --------------------------------------------------------------------------------------------------
 
 ns.ROGUE_PICK_LOCK = 1804

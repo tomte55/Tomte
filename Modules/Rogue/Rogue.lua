@@ -4,7 +4,8 @@ local addonName, ns = ...
 -- that poison with a click (or the "Apply missing poison" key binding), plus a poison check with a banner when
 -- you enter a dungeon, raid or delve and on ready checks. Out of combat only: applying a poison is a protected
 -- action, so the buttons are secure and can't change in combat. Also Handy Lockpick (Lockpick.lua), which
--- Mechagnomes of any class get too; the poison parts stay off for them. Pure rules in Data.lua.
+-- Mechagnomes of any class get too; the poison parts stay off for them. Pure rules in Data.lua; on World of Warcraft:
+-- Forever, where poisons are items, Forever.lua reads them.
 
 local BUTTONS = 4 -- two lethal and two non-lethal with Dragon-Tempered Blades
 local SIZE, GAP = 40, 6
@@ -22,6 +23,9 @@ local BUTTON_PREFIX = "TomtePoison"
 local BINDING = "CLICK " .. BUTTON_PREFIX .. "1:LeftButton"
 -- What Edit Mode shows: Deadly Poison missing, Crippling Poison with 7 minutes left.
 local PREVIEW = { { spellID = 2823, reason = "missing" }, { spellID = 3408, reason = "low", left = 420 } }
+if ns.FOREVER then -- Forever's poisons are items: Instant Poison, Crippling Poison
+	PREVIEW = { { itemID = 6947, reason = "missing", label = "Main" }, { itemID = 3775, reason = "low", left = 420 } }
+end
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
 local GetSpecializationInfo = C_SpecializationInfo.GetSpecializationInfo
 
@@ -102,11 +106,18 @@ local function Rules()
 	return { lethal = db.lethal, nonLethal = db.nonLethal, lowSeconds = db.lowMinutes * 60 }
 end
 
+-- What the buttons offer.
 local function Problems()
+	if ns.FOREVER then
+		return ns.RogueForever_Buttons(CharDB(), Rules())
+	end
 	return ns.Rogue_PoisonProblems(Situation(), Rules())
 end
 
 local function ProblemText(p)
+	if p.text then -- Forever's reader words its own
+		return p.text
+	end
 	local name = C_Spell.GetSpellName(p.spellID) or "Poison"
 	if p.reason == "low" then
 		return name .. ": " .. ns.Rogue_FormatLeft(p.left) .. " left"
@@ -122,10 +133,14 @@ local function ButtonOnEnter(self)
 		return
 	end
 	GameTooltip:SetOwner(self, "ANCHOR_TOP")
-	GameTooltip:SetSpellByID(p.spellID)
+	if p.itemID then
+		GameTooltip:SetItemByID(p.itemID)
+	else
+		GameTooltip:SetSpellByID(p.spellID)
+	end
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine(p.reason == "low" and ("Runs out in " .. ns.Rogue_FormatLeft(p.left) .. ".")
-		or "Not on your weapons.", UI.RGB(p.reason == "low" and "warning" or "danger"))
+		or p.notOn or "Not on your weapons.", UI.RGB(p.reason == "low" and "warning" or "danger"))
 	GameTooltip:AddLine("Click to apply it.", UI.RGB("success"))
 	local key = GetBindingKey(BINDING)
 	if key and self:GetID() == 1 then
@@ -163,12 +178,19 @@ local function Decorate(b, row, previous)
 	fade:SetDuration(0.7)
 end
 
+local function ProblemIcon(p)
+	if p.itemID then
+		return C_Item.GetItemIconByID(p.itemID) or ICON
+	end
+	return C_Spell.GetSpellTexture(p.spellID) or ICON
+end
+
 -- What a button shows for problem p (icon, border and label colored by how urgent, the pulse).
 local function Paint(b, p)
-	b.icon:SetTexture(C_Spell.GetSpellTexture(p.spellID) or ICON)
+	b.icon:SetTexture(ProblemIcon(p))
 	local role = p.reason == "low" and "warning" or "danger"
 	b.border:SetVertexColor(UI.Color(role))
-	b.label:SetText(p.reason == "low" and ns.Rogue_FormatLeft(p.left) or "Missing")
+	b.label:SetText(p.reason == "low" and ns.Rogue_FormatLeft(p.left) or p.label or "Missing")
 	UI.SetTextRole(b.label, role)
 	if not b.pulse:IsPlaying() then
 		b.pulse:Play()
@@ -184,6 +206,14 @@ local function CreateButton(i)
 	b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 	b:SetScript("OnEnter", ButtonOnEnter)
 	b:SetScript("OnLeave", GameTooltip_Hide)
+	if ns.FOREVER then -- the item's use leaves no spell to recognise on the cast event, so the click is the record
+		b:HookScript("PostClick", function(self)
+			local p = self.problem
+			if p and p.family then
+				ns.Rogue_ForeverRemember(CharDB().last, p.slot, p.family)
+			end
+		end)
+	end
 	buttons[i] = b
 	return b
 end
@@ -220,9 +250,10 @@ end
 local function SetButton(b, p, preview)
 	b.problem = p
 	if p then
-		local name = C_Spell.GetSpellName(p.spellID)
-		b:SetAttribute("type", (name and not preview) and "macro" or nil)
-		b:SetAttribute("macrotext", (name and not preview) and ("/cast " .. name) or nil)
+		local name = p.spellID and C_Spell.GetSpellName(p.spellID)
+		local macro = p.macro or (name and ("/cast " .. name)) or nil
+		b:SetAttribute("type", (macro and not preview) and "macro" or nil)
+		b:SetAttribute("macrotext", (macro and not preview) and macro or nil)
 		Paint(b, p)
 		b:Show()
 	else
@@ -278,7 +309,24 @@ end
 -- Poison check (banner) ---------------------------------------------------------------------------------------
 
 -- verbose: also report when everything's fine, and list what was found (the slash command and options button).
+local function FindForeverProblems(verbose)
+	local char = CharDB()
+	if verbose then
+		ns.RogueForever_Describe(char)
+	end
+	local lines = {}
+	local problems = ns.RogueForever_Problems(char, Rules())
+	for i, p in ipairs(problems) do
+		lines[i] = ProblemText(p)
+	end
+	local first = problems[1]
+	return lines, first and (first.itemID and ProblemIcon(first) or ICON)
+end
+
 local function FindProblems(verbose)
+	if ns.FOREVER then
+		return FindForeverProblems(verbose)
+	end
 	local s = Situation()
 	if verbose then
 		local known, active = {}, {}
@@ -302,7 +350,7 @@ local function FindProblems(verbose)
 	for i, p in ipairs(problems) do
 		lines[i] = ProblemText(p)
 	end
-	return lines, problems[1] and (C_Spell.GetSpellTexture(problems[1].spellID) or ICON)
+	return lines, problems[1] and ProblemIcon(problems[1])
 end
 
 local function Check(verbose)
@@ -395,6 +443,12 @@ function events:UNIT_AURA()
 	end
 end
 
+-- Forever's poisons are weapon enchants and bag items, which no aura event reports.
+local FOREVER_EVENTS = { "WEAPON_ENCHANT_CHANGED", "WEAPON_SLOT_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "BAG_UPDATE_DELAYED" }
+for _, event in ipairs(FOREVER_EVENTS) do
+	events[event] = events.UNIT_AURA
+end
+
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "READY_CHECK", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PLAYER_ALIVE",
 	"PLAYER_UNGHOST", "SPELLS_CHANGED", "TRAIT_CONFIG_UPDATED", "PLAYER_UPDATE_RESTING", "PLAYER_CONTROL_GAINED",
@@ -435,6 +489,11 @@ local function Start()
 		end
 		for _, event in ipairs(UNIT_EVENTS) do
 			events:RegisterUnitEvent(event, "player")
+		end
+		if ns.FOREVER then
+			for _, event in ipairs(FOREVER_EVENTS) do
+				events:RegisterEvent(event)
+			end
 		end
 		ticker = ticker or C_Timer.NewTicker(TICK, Refresh)
 		Refresh()
@@ -479,7 +538,7 @@ ns.EditMode_Register({
 		db.frame.point, db.frame.relPoint, db.frame.x, db.frame.y = point, relPoint, x, y
 	end,
 	module = "rogue",
-	options = { "scale", "lethal", "nonLethal", "hideResting" },
+	options = ns.FOREVER and { "scale", "hideResting" } or { "scale", "lethal", "nonLethal", "hideResting" },
 	reset = ResetPosition,
 })
 
@@ -491,12 +550,17 @@ end
 -- lockpick card.
 local function Options(poisonRows)
 	for _, row in ipairs(poisonRows) do
-		row.shown = IsRogue
+		local own = row.shown
+		row.shown = own and function()
+			return own() and IsRogue()
+		end or IsRogue
 	end
 	poisonRows[#poisonRows + 1] = { type = "header", label = "Handy Lockpick" }
 	poisonRows[#poisonRows + 1] = { type = "checkbox", key = "lockpick", label = "Right-click to pick lockboxes",
 		onChange = ApplyLockpick,
-		tooltip = "Right-click a locked lockbox in your bags, or in the trade window's \"will not be traded\" slot, to pick its lock (Pick Lock, or the Mechagnome racial). Out of combat only. Left-click still works as usual." }
+		tooltip = "Right-click a locked lockbox in your bags, or in the trade window's \"will not be traded\" slot, to pick its lock ("
+			.. (ns.FOREVER and "Pick Lock" or "Pick Lock, or the Mechagnome racial")
+			.. "). Out of combat only. Left-click still works as usual." }
 	return poisonRows
 end
 
@@ -541,7 +605,9 @@ module = ns.RegisterModule({
 	category = "class",
 	icon = 132273, -- ability_poisons
 	summary = "One click to reapply a missing poison, a poison check, and right-click to pick lockboxes.",
-	description = "Buttons that appear when a poison is missing from your weapons or about to run out: click one to apply that poison. A poison check when you enter a dungeon, raid or delve and on ready checks. Handy Lockpick: right-click a locked lockbox in your bags or the trade window to pick it (rogues, and Mechagnomes of any class).",
+	description = ns.FOREVER
+		and "Buttons that appear when a poison is missing from a weapon or about to run out: click one to apply a poison from your bags. A poison check when you enter a dungeon or raid and on ready checks. Handy Lockpick: right-click a locked lockbox in your bags or the trade window to pick it."
+		or "Buttons that appear when a poison is missing from your weapons or about to run out: click one to apply that poison. A poison check when you enter a dungeon, raid or delve and on ready checks. Handy Lockpick: right-click a locked lockbox in your bags or the trade window to pick it (rogues, and Mechagnomes of any class).",
 	enabledByDefault = true,
 	toasts = "Rogue poison check (banners)",
 	replaces = { { addon = "Plumber", why = "Handy Lockpick: right-click a lockbox to pick it" } },
@@ -555,14 +621,16 @@ module = ns.RegisterModule({
 		scale = 1,
 		frame = { point = "CENTER", relPoint = "CENTER", x = 0, y = -120 }, -- ResetPosition repeats it
 		check = { onEnter = true, onReadyCheck = true, banner = true },
-		chars = {}, -- [player GUID] = { last = { lethal = { spellIDs }, nonLethal = { spellIDs } } }, newest first
+		-- [player GUID] = { last = { lethal = { spellIDs }, nonLethal = { spellIDs } } }, newest first. Forever adds
+		-- last.forever = { [weapon slot] = poison family key }.
+		chars = {},
 	},
 	init = function(moduleDB)
 		db = moduleDB
 	end,
 	blocked = function()
 		if not IsRogue() and not IsMechagnome() then
-			return "Only for rogues and Mechagnomes."
+			return ns.FOREVER and "Only for rogues." or "Only for rogues and Mechagnomes."
 		end
 	end,
 	toggle = function(active)
@@ -588,23 +656,27 @@ module = ns.RegisterModule({
 			onChange = Relayout, parent = "bar", preview = ns.Preview_When("bar", BarPreview) },
 		{ type = "button", label = "Position", text = "Reset", onClick = ResetPosition, parent = "bar",
 			tooltip = "Move the buttons back to just below the middle of the screen. Blizzard's Edit Mode moves them too." },
-		{ type = "checkbox", key = "lethal", label = "Lethal poison", onChange = Refresh,
+		-- Forever's weapons each take one poison, whichever kind: these two choices don't exist there.
+		{ type = "checkbox", key = "lethal", label = "Lethal poison", onChange = Refresh, shown = ns.NotForever,
 			tooltip = "Deadly, Instant, Wound or Amplifying Poison. The button offers the one you applied last." },
-		{ type = "checkbox", key = "nonLethal", label = "Non-lethal poison", onChange = Refresh,
+		{ type = "checkbox", key = "nonLethal", label = "Non-lethal poison", onChange = Refresh, shown = ns.NotForever,
 			tooltip = "Crippling, Atrophic or Numbing Poison. The button offers the one you applied last." },
-		{ type = "slider", key = "lowMinutes", label = "Warn when less than", min = 0, max = 30, step = 1,
-			format = Minutes, onChange = Refresh,
-			tooltip = "Poisons last an hour. Below this the button appears to refresh it." },
+		{ type = "slider", key = "lowMinutes", label = "Warn when less than", min = 0, max = ns.FOREVER and 20 or 30,
+			step = 1, format = Minutes, onChange = Refresh,
+			tooltip = (ns.FOREVER and "Poisons last 30 minutes." or "Poisons last an hour.")
+				.. " Below this the button appears to refresh it." },
 
 		{ type = "header", label = "Poison check" },
 		{ type = "checkbox", key = "check.onEnter", label = "When entering an instance",
-			tooltip = "Check a few seconds after entering a dungeon, raid or delve." },
+			tooltip = "Check a few seconds after entering a "
+				.. (ns.FOREVER and "dungeon or raid." or "dungeon, raid or delve.") },
 		{ type = "checkbox", key = "check.onReadyCheck", label = "On ready checks" },
 		{ type = "checkbox", key = "check.banner", label = "Banner and sound",
 			tooltip = "Show problems as a banner with a warning sound. Off: chat only." },
 		{ type = "button", label = "Poison check", text = "Run", onClick = function()
 			Check(true)
-		end, tooltip = "List the poisons you know and have on, and what's missing." },
+		end, tooltip = ns.FOREVER and "List the poisons in your bags and on your weapons, and what's missing."
+			or "List the poisons you know and have on, and what's missing." },
 	}),
 })
 
