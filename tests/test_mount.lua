@@ -137,6 +137,55 @@ test("pick: takes the preferred mount when it suits, ignores it otherwise", func
 	eq(ns.Mount_PickTiered(tiers, "flying", { prefer = 6 }, first), FLYER, "an earlier tier still wins")
 end)
 
+local function sources(tiers)
+	local out = {}
+	for i, t in ipairs(tiers) do
+		out[i] = t.source
+	end
+	return table.concat(out, ", ")
+end
+
+test("tiers: order and pools", function()
+	local zone = { id = 1, zone = true, favorite = true }
+	local class = { id = 2, class = true }
+	local seat = { id = 3, passenger = true }
+	local fav = { id = 4, favorite = true }
+	local all = { zone, class, seat, fav }
+	eq(sources(ns.Mount_Tiers(all, { pool = "favorites", zoneName = "Dornogal" })),
+		"zone favorites (Dornogal), journal favorites, all mounts")
+	eq(sources(ns.Mount_Tiers(all, { pool = "favorites", classFirst = true, passengerFirst = true })),
+		"passenger mounts, zone favorites, class mounts, journal favorites, all mounts")
+	eq(sources(ns.Mount_Tiers(all, { pool = "all" })), "zone favorites, all mounts", "favorites skipped")
+	eq(sources(ns.Mount_Tiers(all, { pool = "favoritesOnly" })), "zone favorites, journal favorites", "no all mounts")
+	eq(sources(ns.Mount_Tiers({ class, seat }, { pool = "favoritesOnly" })), "all mounts", "no favorites: all mounts")
+	eq(sources(ns.Mount_Tiers({}, { pool = "favorites", classFirst = true })), "all mounts", "empty tiers left out")
+	eq(#ns.Mount_Tiers(all, { pool = "favorites" })[2].candidates, 2, "journal favorites include zone ones")
+end)
+
+test("tiers: favorites only keeps a favorite that doesn't suit the spot", function()
+	local tiers = ns.Mount_Tiers({ { id = 1, favorite = true }, FLYER }, { pool = "favoritesOnly" })
+	eq(ns.Mount_PickTiered(tiers, "flying", {}, first).id, 1)
+end)
+
+test("lists: class, passenger and repair mounts", function()
+	eq(ns.MOUNT_CLASS[84], true, "Charger")
+	eq(ns.MOUNT_PASSENGER[460], true, "Yak")
+	eq(ns.MOUNT_REPAIR[1039], true, "Brutosaur")
+	eq(ns.MOUNT_REPAIR[407], nil, "Sandstone Drake has no vendor")
+end)
+
+test("use form: when the travel form beats a mount", function()
+	eq(ns.Mount_UseForm({ mode = "never", moving = true }), false)
+	eq(ns.Mount_UseForm({ mode = "moving", moving = true, context = "flying" }), true)
+	eq(ns.Mount_UseForm({ mode = "moving", context = "ground" }), false, "standing: mount")
+	eq(ns.Mount_UseForm({ mode = "moving", moving = true, indoors = true }), false, "indoors: the indoor form")
+	eq(ns.Mount_UseForm({ mode = "always", context = "flying", formFlies = true }), true, "druid flies")
+	eq(ns.Mount_UseForm({ mode = "always", context = "flying" }), false, "Ghost Wolf can't fly")
+	eq(ns.Mount_UseForm({ mode = "always", context = "ground" }), true)
+	eq(ns.Mount_UseForm({ mode = "always", context = "water" }), false, "Ghost Wolf can't swim")
+	eq(ns.Mount_UseForm({ mode = "always", moving = true, context = "flying" }), true, "moving: any form")
+end)
+
 test("macro body", function()
 	local click = "#showtooltip\n/click Btn LeftButton 1\n/click Btn LeftButton"
 	eq(ns.Mount_MacroBody("Swift Razorwing", "Btn"), "#showtooltip Swift Razorwing\n"
@@ -144,8 +193,19 @@ test("macro body", function()
 	eq(ns.Mount_MacroBody("Swift Razorwing", "Btn", { form = 3, keepFlying = true }), "#showtooltip Swift Razorwing\n"
 		.. "/cast [nomounted,novehicleui,noform:3] Swift Razorwing\n/leavevehicle [canexitvehicle]\n"
 		.. "/dismount [mounted,noflying]\n/cancelform [form:3,noflying]", "travel form, stay flying")
+	eq(ns.Mount_MacroBody("Swift Razorwing", "Btn", { form = 3, formToMount = true }), "#showtooltip Swift Razorwing\n"
+		.. "/cancelform [form:3,noflying]\n/cast [nomounted,novehicleui,noflying] Swift Razorwing\n"
+		.. "/leavevehicle [canexitvehicle]\n/dismount [mounted]\n/cancelform [form:3]", "from travel form onto the mount")
+	eq(ns.Mount_MacroBody("!Cat Form", "Btn"), "#showtooltip Cat Form\n"
+		.. "/cast [nomounted,novehicleui] !Cat Form\n/leavevehicle [canexitvehicle]\n/dismount [mounted]", "stay in form")
 	eq(ns.Mount_MacroBody(nil, "Btn"), click, "nothing picked: the button")
 	eq(ns.Mount_MacroBody(("x"):rep(150), "Btn"), click, "too long")
+end)
+
+test("use form: a form with a cast time can't be taken on the move (Forever's Ghost Wolf)", function()
+	eq(ns.Mount_UseForm({ mode = "moving", moving = true, castTime = true }), false)
+	eq(ns.Mount_UseForm({ mode = "always", moving = true, castTime = true, context = "ground" }), false)
+	eq(ns.Mount_UseForm({ mode = "always", castTime = true, context = "ground" }), true, "standing")
 end)
 
 H.done()

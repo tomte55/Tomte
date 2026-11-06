@@ -2,15 +2,24 @@ local addonName, ns = ...
 
 -- Smart Mount: one key binding (Tomte > Smart Mount) on a secure button. Out of combat its PreClick looks at the
 -- situation and sets the button up: leave the vehicle, dismount, leave travel form / Ghost Wolf, or cast a mount
--- picked for where you are (zone favorites, then journal favorites, then every usable mount). In combat the
--- attributes can't change, so entering combat leaves a macro that only gets you out. Picking rules and the action bar
--- macro's text in Data.lua, the zone favorite star in Journal.lua, the panel's Zones tab in ZonesPage.lua.
+-- picked for where you are (zone favorites, then journal favorites, then every usable mount; the settings add
+-- passenger and class mounts and a travel form). In combat the attributes can't change, so entering combat leaves a
+-- macro that only gets you out (or into the travel form). Picking rules, mount lists and the action bar macro's text in
+-- Data.lua, class forms in Forms.lua, the zone favorite star in Journal.lua, the panel's Zones tab in ZonesPage.lua.
 
 local BUTTON_NAME = "TomteSmartMount" -- global: the CLICK binding in Bindings.xml needs it
 local SKYRIDING_AURA = 404464 -- "Flight Style: Skyriding" on the player (confirmed in game)
 local TRAVEL_FORMS = { [783] = true, [210053] = true, [2645] = true } -- Travel Form, Mount Form, Ghost Wolf
 local MAX_DEPTH = 10 -- map levels walked up from where you stand; a guard against a parent loop
 local MOUNT_ICON = "Interface\\Icons\\Ability_Mount_Charger"
+local POOL_CHOICES = { { value = "favorites", text = "Favorites first" },
+	{ value = "favoritesOnly", text = "Favorites only" }, { value = "all", text = "All mounts" } }
+local TRAVEL_FORM_CHOICES = { { value = "never", text = "Never" }, { value = "moving", text = "While moving" },
+	{ value = "always", text = "Outdoors" } }
+-- Forever's Ghost Wolf has a cast time: no form on the move, so "moving" only leaves the form's line in the combat macro.
+local CAST_FORM_CHOICES = { { value = "never", text = "Never" }, { value = "moving", text = "In combat" },
+	{ value = "always", text = "Outdoors" } }
+local FROM_FORM_CHOICES = { { value = "leave", text = "Leaves the form" }, { value = "mount", text = "Summons a mount" } }
 
 local module, db, button
 local lastMount
@@ -98,6 +107,7 @@ local function Candidate(mountID, stats)
 	return {
 		id = mountID, name = name, spellID = spellID, icon = icon, typeID = typeID, steady = isSteadyFlight,
 		favorite = isFavorite, flying = info.flying, aquatic = info.aquatic, swimOnly = info.swimOnly,
+		class = ns.MOUNT_CLASS[mountID] or false, passenger = ns.MOUNT_PASSENGER[mountID] or false,
 	}
 end
 
@@ -123,32 +133,34 @@ local function ZoneFavorites()
 	return set, tostring(mapID)
 end
 
--- Candidate tiers, in order: zone favorites, journal favorites, all usable mounts (one pass over the journal).
+local function PassengerFirst()
+	return db.passenger and IsInGroup()
+end
+
+-- Candidate tiers, in order (Data.lua's Mount_Tiers), from one pass over the journal.
 local function Tiers(stats)
 	local zoneSet, zoneName = ZoneFavorites()
-	local zone, favorites, all = {}, {}, {}
+	local all = {}
 	for _, mountID in ipairs(MountIDs()) do
 		local c = Candidate(mountID, stats)
 		if c then
+			c.zone = zoneSet and zoneSet[mountID] or false
 			all[#all + 1] = c
-			if c.favorite then
-				favorites[#favorites + 1] = c
-			end
-			if zoneSet and zoneSet[mountID] then
-				zone[#zone + 1] = c
-			end
 		end
 	end
 	stats.usable = #all
-	local tiers = {}
-	if #zone > 0 then
-		tiers[#tiers + 1] = { source = "zone favorites (" .. zoneName .. ")", candidates = zone }
-	end
-	if #favorites > 0 then
-		tiers[#tiers + 1] = { source = "journal favorites", candidates = favorites }
-	end
-	tiers[#tiers + 1] = { source = "all mounts", candidates = all }
-	return tiers
+	return ns.Mount_Tiers(all, {
+		pool = db.pool, classFirst = db.classMounts, passengerFirst = PassengerFirst(), zoneName = zoneName,
+	})
+end
+
+-- Forever has no flying of any kind, so every context there is ground or water, whatever a mount's type says.
+local function CanFlyHere()
+	return not ns.FOREVER and (IsFlyableArea() or IsAdvancedFlyableArea())
+end
+
+local function Skyriding()
+	return not ns.FOREVER and C_UnitAuras.GetPlayerAuraBySpellID(SKYRIDING_AURA) ~= nil
 end
 
 -- Below the water surface: the breath timer is running down. IsSubmerged and IsSwimming are true on the surface too
@@ -166,14 +178,18 @@ end
 
 -- Picks a mount for where you are, taking `prefer` (the one the macro shows) when it suits. Returns the mount (or
 -- nil) and the details for /tomte mount why.
-local function Choose(prefer)
-	local context = ns.Mount_Context({
+local function Context()
+	return ns.Mount_Context({
 		submerged = IsSubmerged(),
 		underwater = Underwater(),
-		flyable = IsFlyableArea() or IsAdvancedFlyableArea(),
+		flyable = CanFlyHere(),
 		indoors = IsIndoors(),
 	})
-	local skyriding = C_UnitAuras.GetPlayerAuraBySpellID(SKYRIDING_AURA) ~= nil
+end
+
+local function Choose(prefer)
+	local context = Context()
+	local skyriding = Skyriding()
 	local stats = { collected = 0, notUsable = 0, usable = 0, errors = {} }
 	local mount, source = ns.Mount_PickTiered(Tiers(stats), context, {
 		preferGround = db.preferGround,
@@ -184,18 +200,60 @@ local function Choose(prefer)
 	return mount, { context = context, skyriding = skyriding, source = source, stats = stats, mount = mount }
 end
 
+-- A repair mount (the Ctrl press), suiting the spot when one does.
+local function ChooseRepair()
+	local stats = { collected = 0, notUsable = 0, usable = 0, errors = {} }
+	local repair = {}
+	for mountID in pairs(ns.MOUNT_REPAIR) do
+		local c = Candidate(mountID, stats)
+		if c then
+			repair[#repair + 1] = c
+		end
+	end
+	stats.usable = #repair
+	local context = Context()
+	local mount = ns.Mount_Pick(repair, context, {}, math.random)
+	return mount, { context = context, source = "repair mounts", stats = stats, mount = mount }
+end
+
+-- The travel form's spell name when it beats a mount here (Data.lua's Mount_UseForm), or nil. moving: false for the
+-- action bar macro, which can't tell.
+local function FormFirst(moving)
+	local spell, flies = ns.MountForms_Travel()
+	if not spell then
+		return nil
+	end
+	local use = ns.Mount_UseForm({
+		mode = db.travelForm, moving = moving, indoors = IsIndoors(), formFlies = flies and not ns.FOREVER,
+		context = Context(), castTime = ns.MountForms_CastTime(),
+	})
+	return use and spell or nil
+end
+
+-- The form to take indoors when no mount can be, or nil.
+local function IndoorForm()
+	return db.indoorForm and IsIndoors() and ns.MountForms_Indoor() or nil
+end
+
 local function SetMacro(text)
 	button:SetAttribute("type", "macro")
 	button:SetAttribute("macrotext", text)
 end
 
--- What the key does in combat: only ways out (mounting isn't possible in combat).
+-- What the key does in combat: only ways out (mounting isn't possible in combat), and with the travel form setting on,
+-- into the form (forms work in combat). The /cast comes first so leaving the form can't be followed by taking it again.
 local function CombatMacro()
 	local ground = db.keepFlying and ",noflying" or ""
 	local lines = { "/leavevehicle [canexitvehicle]", ("/dismount [mounted%s]"):format(ground) }
 	local form = TravelFormIndex()
 	if form then
 		lines[#lines + 1] = ("/cancelform [form:%d%s]"):format(form, ground)
+		local spell, flies = ns.MountForms_Travel()
+		if spell and db.travelForm ~= "never" then
+			-- Travel Form is outdoors only; Ghost Wolf runs indoors too.
+			table.insert(lines, 1, ("/cast [%snomounted,novehicleui,noform:%d] %s"):format(flies and "outdoors," or "",
+				form, spell))
+		end
 	end
 	return table.concat(lines, "\n")
 end
@@ -236,6 +294,9 @@ local function StillUsable(mountID)
 end
 
 local function G99Spell()
+	if ns.FOREVER then
+		return nil -- Undermine's mount: no such place there
+	end
 	for _, ability in ipairs(C_ZoneAbility.GetActiveAbilities() or {}) do
 		local name = C_Spell.GetSpellName(ability.spellID)
 		if name and (G99_SPELLS[ability.spellID] or name:find(G99_PATTERN)) then
@@ -249,8 +310,78 @@ local function G99Spell()
 	return StillUsable(mountID)
 end
 
--- LeftButton = the Smart Mount key, RightButton = "normal mount" (its own binding, and Shift + your Smart Mount key).
--- Modifiers can't be read here: during a binding's click IsShiftKeyDown() is false even with Shift held (measured).
+-- Casts mount (after `before`, a line run first), for the key and /tomte mount why.
+local function CastMount(mount, before)
+	lastMount = mount.id
+	-- /cast by name, like a hand-made mount macro. The spell name, not the journal name: they can differ.
+	local text = (before or "") .. "/cast " .. (C_Spell.GetSpellName(mount.spellID) or mount.name)
+	SetMacro(text)
+	lastWhy.macro = text
+end
+
+local function CastForm(spell, why)
+	SetMacro("/cast " .. spell)
+	lastWhy = { context = why, macro = "/cast " .. spell }
+end
+
+-- In travel form / Ghost Wolf: leave it, or with "summons a mount" go straight onto one (not in the air or on the move,
+-- where a mount can't be cast).
+local function LeaveForm()
+	if db.fromForm == "mount" and not IsFlying() and not ns.MountForms_Moving() then
+		local mount
+		mount, lastWhy = Choose()
+		nextMount = nil
+		if mount then
+			CastMount(mount, "/cancelform\n")
+			return
+		end
+	end
+	SetMacro("/cancelform")
+end
+
+-- Not mounted: the repair mount (MiddleButton), the G-99, the travel form, a mount, or the indoor form.
+local function MountUp(mouseButton)
+	if mouseButton == "MiddleButton" and not ns.FOREVER then -- no repair mounts confirmed there: an ordinary press
+		local mount
+		mount, lastWhy = ChooseRepair()
+		if mount then
+			CastMount(mount)
+		else
+			SetMacro("")
+			UIErrorsFrame:AddMessage("Smart Mount: no repair mount you can use here.", ns.UI.RGB("heading"))
+		end
+		return
+	end
+	local g99 = db.g99 and mouseButton ~= "RightButton" and G99Spell()
+	if g99 then
+		CastForm(g99, "G-99 (Shift or the \"normal mount\" key for a mount)")
+		return
+	end
+	local form = FormFirst(ns.MountForms_Moving())
+	if form then
+		CastForm(form, "travel form (settings: Druids and shamans)")
+		return
+	end
+	local mount
+	mount, lastWhy = Choose(nextMount)
+	nextMount = nil
+	if mount then
+		CastMount(mount)
+		return
+	end
+	local indoor = IndoorForm()
+	if indoor then
+		CastForm(indoor, "indoors, no mount")
+		return
+	end
+	SetMacro("")
+	UIErrorsFrame:AddMessage(IsIndoors() and "Smart Mount: you can't mount indoors."
+		or "Smart Mount: no usable mount here.", ns.UI.RGB("heading"))
+end
+
+-- LeftButton = the Smart Mount key, RightButton = "normal mount" (its own binding, and Shift + your Smart Mount key),
+-- MiddleButton = "repair mount" (its own binding, and Ctrl + your Smart Mount key). Modifiers can't be read here:
+-- during a binding's click IsShiftKeyDown() is false even with Shift held (measured).
 local downSeen = false
 local function PreClick(_, mouseButton, down)
 	-- Every press brings a down and an up click: the key binding (the button is registered for both), and the action
@@ -275,32 +406,15 @@ local function PreClick(_, mouseButton, down)
 		SetMacro("/leavevehicle")
 	elseif (IsMounted() or InTravelForm()) and IsFlying() and db.keepFlying then
 		SetMacro("")
-		UIErrorsFrame:AddMessage("Smart Mount: land first (or turn off \"Don't dismount while flying\").", ns.UI.RGB("heading"))
+		-- Forever has no such setting: a flight path is the only way to be in the air.
+		UIErrorsFrame:AddMessage(ns.FOREVER and "Smart Mount: land first."
+			or "Smart Mount: land first (or turn off \"Don't dismount while flying\").", ns.UI.RGB("heading"))
 	elseif IsMounted() then
 		SetMacro("/dismount")
 	elseif InTravelForm() then
-		SetMacro("/cancelform")
+		LeaveForm()
 	else
-		local g99 = db.g99 and mouseButton ~= "RightButton" and G99Spell()
-		if g99 then
-			SetMacro("/cast " .. g99)
-			lastWhy = { context = "G-99 (Shift or the \"normal mount\" key for a mount)", macro = "/cast " .. g99 }
-			return
-		end
-		local mount
-		mount, lastWhy = Choose(nextMount)
-		nextMount = nil
-		if mount then
-			lastMount = mount.id
-			-- /cast by name, like a hand-made mount macro. The spell name, not the journal name: they can differ.
-			local spell = C_Spell.GetSpellName(mount.spellID) or mount.name
-			SetMacro("/cast " .. spell)
-			lastWhy.macro = "/cast " .. spell
-		else
-			SetMacro("")
-			UIErrorsFrame:AddMessage(IsIndoors() and "Smart Mount: you can't mount indoors."
-				or "Smart Mount: no usable mount here.", ns.UI.RGB("heading"))
-		end
+		MountUp(mouseButton)
 	end
 end
 
@@ -323,27 +437,39 @@ function events:PLAYER_REGEN_DISABLED()
 	SetMacro(CombatMacro())
 end
 
--- Shift + your Smart Mount key works as the "normal mount" key (a mount instead of the G-99), unless you've bound
--- that Shift combination to something else. Override bindings can't change in combat: redone after it.
+-- Shift + your Smart Mount key works as the "normal mount" key (a mount instead of the G-99), and Ctrl + it as the
+-- "repair mount" key (with that setting on), unless you've bound that combination to something else. Override bindings
+-- can't change in combat: redone after it.
 local BINDING = "CLICK " .. BUTTON_NAME .. ":LeftButton"
-local NORMAL_BINDING = "CLICK " .. BUTTON_NAME .. ":RightButton"
-local shiftPending = false
+local OUR_BINDINGS = {
+	[""] = true, [BINDING] = true, ["CLICK " .. BUTTON_NAME .. ":RightButton"] = true,
+	["CLICK " .. BUTTON_NAME .. ":MiddleButton"] = true,
+}
+local modifierPending = false
 
-local function UpdateShiftBindings()
+local function BindModifier(combo, mouseButton)
+	if OUR_BINDINGS[GetBindingAction(combo)] then
+		SetOverrideBindingClick(events, false, combo, BUTTON_NAME, mouseButton)
+	end
+end
+
+local function UpdateModifierBindings()
 	if InCombatLockdown() then
-		shiftPending = true
+		modifierPending = true
 		return
 	end
-	shiftPending = false
+	modifierPending = false
 	ClearOverrideBindings(events)
-	if not module.active then
+	-- Forever: no G-99 or repair mount for these combinations to reach, so they stay free for the player's own use.
+	if not module.active or ns.FOREVER then
 		return
 	end
 	for _, key in ipairs({ GetBindingKey(BINDING) }) do
-		local shifted = "SHIFT-" .. key
-		local taken = GetBindingAction(shifted)
-		if not key:find("-", 2, true) and (taken == "" or taken == BINDING or taken == NORMAL_BINDING) then
-			SetOverrideBindingClick(events, false, shifted, BUTTON_NAME, "RightButton")
+		if not key:find("-", 2, true) then
+			BindModifier("SHIFT-" .. key, "RightButton")
+			if db.repairKey then
+				BindModifier("CTRL-" .. key, "MiddleButton")
+			end
 		end
 	end
 end
@@ -385,29 +511,38 @@ local function PickKey()
 		list, zoneMap = ns.Mount_ZoneList(ns.Mount_Chain(), db.zones)
 	end
 	return table.concat({
-		tostring(IsSubmerged()), tostring(Underwater()), tostring(IsFlyableArea() or IsAdvancedFlyableArea()), tostring(IsIndoors()),
-		tostring(C_UnitAuras.GetPlayerAuraBySpellID(SKYRIDING_AURA) ~= nil), tostring(zoneMap),
-		list and table.concat(list, ",") or "", tostring(db.preferGround),
+		tostring(IsSubmerged()), tostring(Underwater()), tostring(CanFlyHere()), tostring(IsIndoors()),
+		tostring(Skyriding()), tostring(zoneMap),
+		list and table.concat(list, ",") or "", tostring(db.preferGround), tostring(PassengerFirst()),
+		tostring(InTravelForm()),
 	}, ":")
 end
 
--- The spell the macro shows: the mount you ride, the G-99, or the next pick (kept while it still suits).
+-- The spell the macro shows: the mount you ride, the G-99, the travel form ("Outdoors" setting), the next pick (kept
+-- while it still suits) or the indoor form. Second return: true when it's a mount.
 local function MacroSpell()
 	if IsMounted() then
-		return ActiveMountSpell()
+		return ActiveMountSpell(), true
 	end
 	local g99 = db.g99 and G99Spell()
 	if g99 then
 		return g99
 	end
+	local form = not InTravelForm() and FormFirst(false)
+	if form then
+		return form
+	end
 	local key = PickKey()
 	local kept = nextMount and key == pickKey and StillUsable(nextMount)
 	if kept then
-		return kept
+		return kept, true
 	end
 	local mount = Choose(nextMount)
 	nextMount, pickKey = mount and mount.id, key
-	return mount and (C_Spell.GetSpellName(mount.spellID) or mount.name)
+	if mount then
+		return C_Spell.GetSpellName(mount.spellID) or mount.name, true
+	end
+	return IndoorForm()
 end
 
 local function UpdateMacro()
@@ -418,11 +553,13 @@ local function UpdateMacro()
 	if index == 0 then
 		return
 	end
-	local spell = MacroSpell()
+	local spell, isMount = MacroSpell()
 	if not spell then -- nothing usable: the mount it shows is greyed out anyway
 		return
 	end
-	local body = ns.Mount_MacroBody(spell, BUTTON_NAME, { form = TravelFormIndex(), keepFlying = db.keepFlying })
+	local body = ns.Mount_MacroBody(spell, BUTTON_NAME, {
+		form = TravelFormIndex(), keepFlying = db.keepFlying, formToMount = isMount and db.fromForm == "mount",
+	})
 	if GetMacroBody(index) ~= body then
 		EditMacro(index, nil, nil, body)
 	end
@@ -460,19 +597,23 @@ local function MacroCommand()
 	ns.Print("drop the \"" .. MACRO_NAME .. "\" macro on your action bar. It's greyed out when you can't mount.")
 end
 
-events.UPDATE_BINDINGS = UpdateShiftBindings
+events.UPDATE_BINDINGS = UpdateModifierBindings
 
 function events:PLAYER_ENTERING_WORLD()
-	UpdateShiftBindings()
+	UpdateModifierBindings()
 	QueueMacroUpdate()
 end
 
 function events:PLAYER_REGEN_ENABLED()
-	if shiftPending then
-		UpdateShiftBindings()
+	if modifierPending then
+		UpdateModifierBindings()
 	end
 	QueueMacroUpdate()
 end
+
+-- Joining or leaving a group (passenger mounts) and taking or leaving a form (the macro's form lines).
+events.GROUP_ROSTER_UPDATE = QueueMacroUpdate
+events.UPDATE_SHAPESHIFT_FORM = QueueMacroUpdate
 
 events.ZONE_CHANGED = QueueMacroUpdate
 events.ZONE_CHANGED_INDOORS = QueueMacroUpdate
@@ -520,7 +661,7 @@ local function Why()
 		return
 	end
 	local w, st = lastWhy, lastWhy.stats
-	if not st then -- the G-99, no mount was picked
+	if not st then -- the G-99 or a form, no mount was picked
 		ns.Print(("%s: %s"):format(w.context, w.macro))
 		return
 	end
@@ -613,7 +754,8 @@ module = ns.RegisterModule({
 	category = "travel",
 	icon = 132226, -- ability_mount_charger
 	summary = "One key that picks the right mount for where you are.",
-	description = "One key (Key Bindings > Tomte > Smart Mount) that summons a mount that fits where you are: swimming, flying or ground, from your zone favorites, then your journal favorites. Pressed again it dismounts, leaves a vehicle or leaves travel form. Set zone favorites with the star in the Mount Journal. /tomte mount macro makes an action bar macro that does the same and is greyed out when you can't mount.",
+	description = ns.FOREVER and "One key (Key Bindings > Tomte > Smart Mount) that summons a mount, from your zone favorites, then your journal favorites. Pressed again it dismounts, leaves a vehicle or leaves travel form. Set zone favorites with the star in the Mount Journal. /tomte mount macro makes an action bar macro that does the same and is greyed out when you can't mount."
+		or "One key (Key Bindings > Tomte > Smart Mount) that summons a mount that fits where you are: swimming, flying or ground, from your zone favorites, then your journal favorites. Pressed again it dismounts, leaves a vehicle or leaves travel form. Set zone favorites with the star in the Mount Journal. /tomte mount macro makes an action bar macro that does the same and is greyed out when you can't mount.",
 	enabledByDefault = true,
 	defaults = {
 		zones = {}, -- [mapID] = { mountID, ... }, account-wide like mounts
@@ -622,6 +764,13 @@ module = ns.RegisterModule({
 		noRepeat = true,
 		keepFlying = true,
 		g99 = true,
+		pool = "favorites", -- "favorites" | "favoritesOnly" | "all" (Data.lua's Mount_Tiers)
+		classMounts = false,
+		passenger = false,
+		repairKey = true,
+		travelForm = "moving", -- "never" | "moving" | "always" (Data.lua's Mount_UseForm)
+		indoorForm = true,
+		fromForm = "leave", -- in travel form the key: "leave" | "mount"
 	},
 	init = function(moduleDB)
 		db = moduleDB
@@ -644,11 +793,13 @@ module = ns.RegisterModule({
 			events:RegisterEvent("MOUNT_JOURNAL_SEARCH_UPDATED")
 			events:RegisterEvent("MIRROR_TIMER_START")
 			events:RegisterEvent("MIRROR_TIMER_STOP")
+			events:RegisterEvent("GROUP_ROSTER_UPDATE")
+			events:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
 			QueueMacroUpdate()
 		else
 			events:UnregisterAllEvents()
 		end
-		UpdateShiftBindings()
+		UpdateModifierBindings()
 		if not InCombatLockdown() then
 			button:SetAttribute("type", nil)
 		end
@@ -661,15 +812,44 @@ module = ns.RegisterModule({
 	},
 	options = {
 		{ type = "header", label = "Picking" },
+		{ type = "dropdown", key = "pool", label = "Pick from", onChange = SettingChanged, choices = function()
+			return POOL_CHOICES
+		end, tooltip = "Favorites first: your journal favorites, and every mount when none of them suits the spot. Favorites only: never a mount you didn't favorite (unless you have none). All mounts: favorites count like any other mount." },
 		{ type = "checkbox", key = "useZones", label = "Use zone favorites", onChange = SettingChanged,
 			tooltip = "Mounts starred for the zone you're in (or its continent) come first. Set them with the star in the Mount Journal." },
+		{ type = "checkbox", key = "classMounts", label = "Class mounts first", onChange = SettingChanged,
+			tooltip = ns.FOREVER and "Your class's own mounts (a paladin's charger, a warlock's dreadsteed) come before your journal favorites."
+				or "Your class's own mounts (a paladin's charger, a warlock's dreadsteed, the class hall mounts) come before your journal favorites." },
+		{ type = "checkbox", key = "passenger", label = "Passenger mount in a group", onChange = SettingChanged,
+			shown = ns.NotForever, -- its list is retail's mounts
+			tooltip = "In a party or raid, a mount with a seat for a friend comes first (Traveler's Tundra Mammoth, Grand Expedition Yak, Sandstone Drake and others), if one suits the spot." },
 		{ type = "checkbox", key = "preferGround", label = "Ground mounts on the ground", onChange = SettingChanged,
+			shown = ns.NotForever, -- no flying there
 			tooltip = "Where you can't fly, use ground mounts if the pool has any. Off: flying mounts can be picked too." },
 		{ type = "checkbox", key = "noRepeat", label = "Avoid the same mount twice in a row", onChange = SettingChanged },
 		{ type = "checkbox", key = "g99", label = "G-99 Breakneck in Undermine", onChange = SettingChanged,
+			shown = ns.NotForever,
 			tooltip = "Where the G-99 can be called, the key calls it instead of a mount. Shift + your Smart Mount key (or the \"normal mount\" key binding) gives a normal mount." },
-		{ type = "header", label = "Dismounting" },
+		{ type = "checkbox", key = "repairKey", label = "Ctrl for a repair mount", onChange = function()
+			UpdateModifierBindings()
+		end, shown = ns.NotForever, tooltip = "Ctrl + your Smart Mount key summons a mount with a vendor who repairs (Grand Expedition Yak, Traveler's Tundra Mammoth, Mighty Caravan Brutosaur or Grizzly Hills Packmaster). Not when that Ctrl combination is bound to something else. The \"repair mount\" key binding works either way." },
+		{ type = "header", label = "Druids and shamans" },
+		{ type = "dropdown", key = "travelForm", label = "Travel form instead of a mount", onChange = SettingChanged,
+			shown = ns.MountForms_Class, choices = function()
+				return ns.FOREVER and ns.MountForms_CastTime() and CAST_FORM_CHOICES or TRAVEL_FORM_CHOICES
+			end, tooltip = ns.FOREVER and "Travel Form or Ghost Wolf. While moving (druid): when you're running or falling, where a mount can't be summoned, and in combat. In combat (shaman): Ghost Wolf takes a moment to cast, so not on the move. Outdoors: always on land."
+				or "Travel Form or Ghost Wolf. While moving: when you're running or falling, where a mount can't be summoned (also in combat). Outdoors: always, except where Ghost Wolf can't fly or swim and a mount can." },
+		{ type = "checkbox", key = "indoorForm", label = ns.FOREVER and "Cat Form indoors" or "Cat Form or Ghost Wolf indoors", onChange = SettingChanged,
+			shown = ns.FOREVER and ns.MountForms_HasIndoor or ns.MountForms_Class,
+			tooltip = ns.FOREVER and "Where you can't mount, the key takes Cat Form instead."
+				or "Where you can't mount, the key takes Cat Form (druid) or Ghost Wolf (shaman) instead." },
+		{ type = "dropdown", key = "fromForm", label = "In travel form, the key", onChange = SettingChanged,
+			shown = ns.MountForms_Class, choices = function()
+				return FROM_FORM_CHOICES
+			end, tooltip = "Summons a mount: on the ground, the key goes straight from the form onto a mount." },
+		{ type = "header", label = "Dismounting", shown = ns.NotForever },
 		{ type = "checkbox", key = "keepFlying", label = "Don't dismount while flying", onChange = SettingChanged,
+			shown = ns.NotForever,
 			tooltip = "The key does nothing in the air, so you can't fall off by accident." },
 	},
 	home = {
@@ -686,4 +866,8 @@ module = ns.RegisterModule({
 ns.mountModule = module
 
 _G["BINDING_NAME_CLICK " .. BUTTON_NAME .. ":LeftButton"] = "Smart Mount"
-_G["BINDING_NAME_CLICK " .. BUTTON_NAME .. ":RightButton"] = "Smart Mount: normal mount (not the G-99)"
+-- Bindings.xml is shared, so Forever keeps these two rows; with no G-99 or repair mount there they're the same key.
+_G["BINDING_NAME_CLICK " .. BUTTON_NAME .. ":RightButton"] = ns.FOREVER and "Smart Mount (second key)"
+	or "Smart Mount: normal mount (not the G-99)"
+_G["BINDING_NAME_CLICK " .. BUTTON_NAME .. ":MiddleButton"] = ns.FOREVER and "Smart Mount (third key)"
+	or "Smart Mount: repair mount"
