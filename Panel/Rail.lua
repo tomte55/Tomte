@@ -14,13 +14,15 @@ local PILL_RULE = 0.3 -- the pill's border alpha at rest
 local PILL_FLASH = 0.3 -- peak of the accent wash behind a count that changed
 local PILL_FLASH_SECONDS = 0.6
 
+-- entry nil: the Home row.
 local function SetIcon(texture, entry)
-	if entry.atlas then
+	if entry and entry.atlas then
 		texture:SetAtlas(entry.atlas)
 	else
-		texture:SetTexture(entry.icon or ns.ICON)
+		texture:SetTexture(entry and entry.icon or ns.ICON)
 	end
 end
+ns.PanelRail_SetIcon = SetIcon
 
 -- A count that changed while shown: its digits light up and ease back to accent, the border brightens and settles,
 -- and an accent wash rises behind them. Text flashes rather than scales (scaled text steps; Motion.lua).
@@ -34,6 +36,44 @@ local function FlashPill(pill)
 	UI.BorderTo(pill, "frame", PILL_RULE, PILL_FLASH_SECONDS)
 	UI.Flash(pill, "accent", PILL_FLASH)
 end
+
+-- A page's pill (entry.pill, "Counts on the rail"); map entries never have one. Returns its text and tooltip line.
+local function Pill(entry)
+	local window = ns.db.window
+	if not (entry and entry.kind == "page" and entry.pill and (not window or window.pills ~= false)) then
+		return ""
+	end
+	local n = ns.HomeCall(entry.pill)
+	local tip = entry.pillTip
+	if type(tip) == "function" then
+		tip = ns.HomeCall(tip, n)
+	end
+	return ns.Home_PillText(n), tip
+end
+
+-- The row's tooltip (self.pillTip: its count's line, if it has one).
+local function EntryTooltip(self)
+	local entry = self.entry
+	if entry then
+		local summary = ns.HomeCall(entry.summary)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText(entry.name, UI.Color("heading"))
+		if type(summary) == "string" and summary ~= "" then
+			TipLine(GameTooltip, summary, "text")
+		end
+		if self.pillTip then
+			TipLine(GameTooltip, self.pillTip, "heading")
+		end
+		if entry.kind == "map" then
+			TipLine(GameTooltip, "Opens the world map on this tab", "accent")
+		end
+		ns.MapTabs_CombatTip(self)
+		GameTooltip:Show()
+	end
+end
+
+-- For the Forever theme's tabs (ForeverTabs.lua), which do the same job.
+ns.PanelRail_Pill, ns.PanelRail_Tooltip = Pill, EntryTooltip
 
 -- Rail -----------------------------------------------------------------------------------------------------
 
@@ -93,23 +133,7 @@ local function CreateRailRow(parent, onSelect)
 	end
 	row:SetScript("OnEnter", function(self)
 		UI.WashTo(self.bg, true)
-		local entry = self.entry
-		if entry then
-			local summary = ns.HomeCall(entry.summary)
-			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			GameTooltip:SetText(entry.name, UI.Color("heading"))
-			if type(summary) == "string" and summary ~= "" then
-				TipLine(GameTooltip, summary, "text")
-			end
-			if self.pillTip then
-				TipLine(GameTooltip, self.pillTip, "heading")
-			end
-			if entry.kind == "map" then
-				TipLine(GameTooltip, "Opens the world map on this tab", "accent")
-			end
-			ns.MapTabs_CombatTip(self)
-			GameTooltip:Show()
-		end
+		EntryTooltip(self)
 	end)
 	row:SetScript("OnLeave", function(self)
 		UI.WashTo(self.bg, self.selected)
@@ -150,31 +174,12 @@ function ns.PanelRail_Create(parent, onSelect)
 		return row
 	end
 
-	-- A page's pill (entry.pill, "Counts on the rail"); map entries never have one.
-	local function Pill(entry)
-		local window = ns.db.window
-		if not (entry and entry.kind == "page" and entry.pill and (not window or window.pills ~= false)) then
-			return ""
-		end
-		local n = ns.HomeCall(entry.pill)
-		local tip = entry.pillTip
-		if type(tip) == "function" then
-			tip = ns.HomeCall(tip, n)
-		end
-		return ns.Home_PillText(n), tip
-	end
-
 	local function Place(row, entry, y, selected)
 		row.entry = entry
 		ns.MapTabs_OpenerSync(row)
 		row.selected = selected
-		if entry then
-			SetIcon(row.icon, entry)
-			row.text:SetText(entry.name)
-		else
-			row.icon:SetTexture(ns.ICON)
-			row.text:SetText("Home")
-		end
+		SetIcon(row.icon, entry)
+		row.text:SetText(entry and entry.name or "Home")
 		row:SetPill(Pill(entry))
 		SetColor(row.text, selected and "heading" or (entry and entry.kind == "map" and "accent" or "text"))
 

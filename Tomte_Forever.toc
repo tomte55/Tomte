@@ -14,6 +14,7 @@ Core/Theme.lua
 Themes/Blizzard.lua
 Themes/Classic.lua
 Themes/Cartographer.lua
+Themes/Forever.lua
 Themes/Frost.lua
 Themes/Forge.lua
 Themes/Emerald.lua
@@ -49,6 +50,7 @@ Cinematic/Showcase.lua
 Cinematic/Banner.lua
 Panel/Layout.lua
 Panel/Widgets.lua
+Panel/ForeverArt.lua
 Panel/Controls.lua
 Panel/Motion.lua
 Panel/Menu.lua
@@ -63,6 +65,7 @@ Panel/HomeHero.lua
 Panel/HomeAround.lua
 Panel/Home.lua
 Panel/Rail.lua
+Panel/ForeverTabs.lua
 Panel/Sidebar.lua
 Panel/ModulePage.lua
 Panel/Panel.lua

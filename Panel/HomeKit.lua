@@ -74,6 +74,9 @@ function Kit.Heading(parent)
 			self.link.onClick = onLink
 		end
 	end
+	if ns.Theme.panel == "forever" then
+		UI.Forever_Heading(h)
+	end
 	return h
 end
 
@@ -181,6 +184,9 @@ function Kit.PoolRow(pool, i, parent, opensMap)
 	if not row then
 		row = Kit.Row(parent, opensMap)
 		pool[i] = row
+	end
+	if ns.Theme.panel == "forever" then
+		UI.Forever_Stripe(row, i % 2 == 1)
 	end
 	row.onClick, row.onRightClick, row.onEnter = nil, nil, nil
 	if row.progress then

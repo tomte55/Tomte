@@ -218,7 +218,7 @@ controls: any key or click ends them.
 
 ### Themes
 
-Pick Tomte's look in Settings > Tomte window > Theme.
+Pick Tomte's look in Settings > Tomte window > Theme. On World of Warcraft: Forever there's also a Forever theme, drawn with that game's own frames, buttons and tabs.
 
 <table>
 <tr>

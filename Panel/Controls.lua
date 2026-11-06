@@ -47,6 +47,9 @@ local SKELETON_SWEEP, SKELETON_PAUSE = 1.1, 0.5 -- seconds for one sweep, and th
 -- of the kit: a knob slides across and the accent gradient (as in UI.Bar) fills the track behind it. Only a click
 -- animates; SetChecked from code (a page being built) shows the state at once.
 function UI.Switch(parent)
+	if ns.Theme.panel == "forever" then
+		return UI.Forever_Switch(parent)
+	end
 	local b = CreateFrame("Button", nil, parent)
 	-- Everything is measured in whole screen pixels and drawn unsnapped, like UI.Border's edges: in UI units below a
 	-- UI scale of 1, pixel-grid snapping rounded each knob edge on its own, so knobs came out a pixel off-center or a

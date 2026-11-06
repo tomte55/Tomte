@@ -33,6 +33,10 @@ return {
 	},
 	drop = {},
 	extra = {
+		-- The Forever theme (docs/superpowers/specs/2026-11-06-tomte-forever-theme-design.md): needs the game's art.
+		{ after = "Themes/Cartographer.lua", files = { "Themes/Forever.lua" } },
+		{ after = "Panel/Widgets.lua", files = { "Panel/ForeverArt.lua" } },
+		{ after = "Panel/Rail.lua", files = { "Panel/ForeverTabs.lua" } },
 		{ after = "Core/Content.lua", files = { "Data/Forever/Teleports.lua", "Data/Forever/Buffs.lua", "Data/Forever/Rogue.lua" } },
 		{ after = "Modules/Materials/Data.lua", files = { "Modules/Materials/GeneratedForever.lua" } },
 		{ after = "Modules/Rogue/Lockpick.lua", files = { "Modules/Rogue/Forever.lua" } },

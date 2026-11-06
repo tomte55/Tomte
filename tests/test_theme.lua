@@ -15,7 +15,7 @@ end
 local function LoadTheme()
 	local ns = {}
 	assert(loadfile("Tomte/Core/Theme.lua"))("Tomte", ns)
-	for line in io.lines("Tomte/Tomte.toc") do
+	for line in io.lines("Tomte/Tomte_Forever.toc") do -- every retail theme, and the Forever-only one
 		local file = line:match("^(Themes[/\\][%w_]+%.lua)%s*$")
 		if file then
 			assert(loadfile("Tomte/" .. file:gsub("\\", "/")))("Tomte", ns)
@@ -205,7 +205,7 @@ local MIN_CONTRAST = { text = 9, heading = 7, textMuted = 4.5, textFaint = 2.8, 
 for _, name in ipairs(Theme.Names()) do
 	test("theme " .. name .. ": colors, fonts, art, media", function()
 		local def = Theme.Get(name)
-		assert(def.panel == "art" or def.panel == "blizzard", "panel")
+		assert(def.panel == "art" or def.panel == "blizzard" or def.panel == "forever", "panel")
 		for _, role in ipairs(ROLES) do
 			local c = def.colors[role]
 			assert(c, "missing role " .. role)

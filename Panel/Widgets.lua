@@ -320,6 +320,9 @@ function UI.Panel(frame, opts)
 	if Theme.panel == "blizzard" and not opts.subtle then
 		return BlizzardPanel(frame, opts.size)
 	end
+	if Theme.panel == "forever" and not opts.subtle and opts.size ~= "small" then
+		return UI.Forever_Panel(frame, opts)
+	end
 	local art = Theme.art
 	local GLOW_ALPHA, CONTOUR_ALPHA, GRAIN_ALPHA = art.glow, art.contours, art.grain
 	local p = { frame = frame, corner = opts.corner or "BOTTOMRIGHT" }
@@ -490,6 +493,9 @@ function UI.Bar(parent, height)
 	bar:SetScript("OnSizeChanged", function(self)
 		self:SetValue(self.value)
 	end)
+	if Theme.panel == "forever" then
+		UI.Forever_BarArt(bar) -- replaces SetColorRole and wraps SetValue
+	end
 	bar:SetColorRole(nil)
 	bar:SetValue(0)
 	return bar
@@ -498,6 +504,9 @@ end
 -- Controls ----------------------------------------------------------------------------------------------------
 
 function UI.Checkbox(parent)
+	if Theme.panel == "forever" then
+		return UI.Forever_Checkbox(parent)
+	end
 	local b = CreateFrame("Button", nil, parent)
 	b:SetSize(14, 14)
 	b:SetHitRectInsets(-4, -4, -4, -4)
@@ -546,16 +555,31 @@ UI.BUTTON_RULE = BUTTON_RULE -- for buttons that recolor their rules themselves
 function UI.Button(parent, width, text)
 	local b = CreateFrame("Button", nil, parent)
 	b:SetSize(width, 20)
-	local bg = b:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetColorTexture(Theme.Color("surface"))
+	-- The Forever theme draws the game's own buttons: its art has rounded ends, so no square wash or border on it.
+	local forever = Theme.panel == "forever"
+	if not forever then
+		local bg = b:CreateTexture(nil, "BACKGROUND")
+		bg:SetAllPoints()
+		bg:SetColorTexture(Theme.Color("surface"))
+	end
 	UI.HoverWash(b)
 	UI.Border(b, "frame", BUTTON_RULE)
+	if forever then
+		b.hoverWash:Hide()
+		for _, t in ipairs(b.borderEdges) do
+			t:Hide()
+		end
+		if text == "x" then
+			UI.Forever_CloseArt(b)
+		else
+			UI.Forever_ButtonArt(b)
+		end
+	end
 	local single = text ~= nil and #text == 1
 	b.label = single and UI.Text(b, 13, "heading") or UI.Text(b, 11, "heading", "label")
 	b.label:SetJustifyH("CENTER")
 	b.label:SetPoint("CENTER", 0, single and 0 or LABEL_Y)
-	b.label:SetText(text)
+	b.label:SetText((forever and text == "x") and "" or text) -- the close art has its own x
 	b.labelY = single and 0 or LABEL_Y
 	b:SetScript("OnEnter", function(self)
 		UI.HoverOn(self)
@@ -568,9 +592,15 @@ function UI.Button(parent, width, text)
 		if self:IsEnabled() then
 			UI.Press(self)
 		end
+		if self.artState then
+			self.artState(self, "Down")
+		end
 	end)
 	b:SetScript("OnMouseUp", function(self)
 		self.label:SetPoint("CENTER", 0, self.labelY)
+		if self.artState then
+			self.artState(self, "Up")
+		end
 	end)
 	return b
 end
@@ -732,6 +762,9 @@ end
 -- getValue, setValue and choices; optional onHover(value, text, item) follows the mouse over the open list.
 function UI.Dropdown(parent, width)
 	local b = UI.Button(parent, width, "")
+	if b.artPlain then
+		b.artPlain(b) -- a field, not a red button
+	end
 	b.label:ClearAllPoints()
 	Theme.SetFont(b.label, "body", 12)
 	b.label:SetPoint("LEFT", 8, 0)

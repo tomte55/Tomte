@@ -12,7 +12,9 @@ local UI = ns.UI
 local DEFAULT_W, DEFAULT_H = 1040, 680 -- room for two columns of option cards (ModulePage.lua)
 local MIN_W, MIN_H = 820, 560
 local TITLE_H = 36
+local FOREVER_TITLE_H = 54 -- the Forever theme: the frame's title strip, a row for Settings, and the badge's depth
 local PAD = ns.PANEL_PAD
+local FOREVER_BAR_LEVEL = 14 -- the title bar's frame level above the window: over the frame's metal (ForeverArt.lua)
 
 local panel
 local view, openEntry = "home", nil -- this session; openEntry is the page shown in the page view
@@ -63,7 +65,8 @@ end
 
 local function CreatePageView(parent)
 	local pv = CreateFrame("Frame", nil, parent)
-	pv.rail = ns.PanelRail_Create(pv, function(entry)
+	local forever = ns.Theme.panel == "forever"
+	local function OnSelect(entry)
 		local current = view == "page" and openEntry or nil
 		if entry ~= current and not (entry and entry.kind == "map") then
 			UI.Sound("nav")
@@ -76,11 +79,18 @@ local function CreatePageView(parent)
 		else
 			ns.Panel_OpenPage(entry.key)
 		end
-	end)
-	pv.rail:SetPoint("TOPLEFT")
-	pv.rail:SetPoint("BOTTOMLEFT")
+	end
 	local host = CreateFrame("Frame", nil, pv)
-	host:SetPoint("TOPLEFT", pv.rail, "TOPRIGHT")
+	if forever then
+		-- Tabs outside the window's right edge (they place themselves), so the pages get its whole width.
+		pv.rail = ns.PanelRail_CreateTabs(pv, panel, OnSelect)
+		host:SetPoint("TOPLEFT")
+	else
+		pv.rail = ns.PanelRail_Create(pv, OnSelect)
+		pv.rail:SetPoint("TOPLEFT")
+		pv.rail:SetPoint("BOTTOMLEFT")
+		host:SetPoint("TOPLEFT", pv.rail, "TOPRIGHT")
+	end
 	host:SetPoint("BOTTOMRIGHT")
 	host.title = UI.Text(host, 19, "heading", "title")
 	host.title:SetPoint("TOPLEFT", PAD, -16)
@@ -147,7 +157,11 @@ end
 
 local function UpdateTitle()
 	local tb = panel.titleBar
-	if view == "page" and openEntry then
+	if ns.Theme.panel == "forever" then
+		-- One centered title in the frame's strip, as the game's windows have.
+		local where = view == "page" and openEntry and openEntry.name or view == "settings" and "Settings"
+		tb.title:SetText(where and ("Tomte - " .. where) or "Tomte")
+	elseif view == "page" and openEntry then
 		tb.sub:SetText("- " .. openEntry.name)
 	elseif view == "settings" then
 		tb.sub:SetText("- Settings")
@@ -188,7 +202,11 @@ local function CreateTitleBar()
 	local titleBar = CreateFrame("Frame", nil, panel)
 	titleBar:SetPoint("TOPLEFT")
 	titleBar:SetPoint("TOPRIGHT")
-	titleBar:SetHeight(TITLE_H)
+	local forever = ns.Theme.panel == "forever"
+	titleBar:SetHeight(forever and FOREVER_TITLE_H or TITLE_H)
+	if forever then
+		titleBar:SetFrameLevel(panel:GetFrameLevel() + FOREVER_BAR_LEVEL)
+	end
 	titleBar:EnableMouse(true)
 	titleBar:RegisterForDrag("LeftButton")
 	titleBar:SetScript("OnDragStart", function()
@@ -198,23 +216,40 @@ local function CreateTitleBar()
 		panel:StopMovingOrSizing()
 		SaveLayout()
 	end)
-	local icon = titleBar:CreateTexture(nil, "ARTWORK")
-	icon:SetSize(20, 20)
-	icon:SetPoint("LEFT", 14, 0)
-	icon:SetTexture(ns.ICON)
-	local title = UI.Text(titleBar, 18, "heading", "title")
-	title:SetPoint("LEFT", icon, "RIGHT", 8, -2)
+	local title
+	if forever then
+		UI.Forever_Badge(panel, ns.ICON)
+		title = UI.Text(titleBar, 13, "heading", "title")
+		title:SetPoint("TOP", panel, "TOP", 0, -5)
+	else
+		local icon = titleBar:CreateTexture(nil, "ARTWORK")
+		icon:SetSize(20, 20)
+		icon:SetPoint("LEFT", 14, 0)
+		icon:SetTexture(ns.ICON)
+		title = UI.Text(titleBar, 18, "heading", "title")
+		title:SetPoint("LEFT", icon, "RIGHT", 8, -2)
+	end
 	title:SetText("Tomte")
+	titleBar.title = title
 	titleBar.sub = UI.Text(titleBar, 13, "textMuted", "title")
 	titleBar.sub:SetPoint("LEFT", title, "RIGHT", 10, 0)
 	local close = UI.Button(titleBar, 20, "x")
-	close:SetPoint("RIGHT", -10, 0)
+	if forever then
+		close:SetSize(28, 28) -- UIPanelCloseButtonDefaultAnchorsMixin (Camelot)
+		close:SetPoint("TOPRIGHT", 0, 3)
+	else
+		close:SetPoint("RIGHT", -10, 0)
+	end
 	close:SetScript("OnClick", function()
 		UI.Disappear(panel)
 	end)
 	-- Settings from Home or a page; back to Home from Settings.
 	local nav = UI.Button(titleBar, 84, "Settings")
-	nav:SetPoint("RIGHT", close, "LEFT", -8, 0)
+	if forever then
+		nav:SetPoint("BOTTOMRIGHT", -12, 4) -- on the row under the strip: the strip only has room for the close button
+	else
+		nav:SetPoint("RIGHT", close, "LEFT", -8, 0)
+	end
 	nav:SetScript("OnClick", function()
 		UI.Sound("nav")
 		view = view == "settings" and "home" or "settings"
@@ -232,6 +267,7 @@ local function CreateTitleBar()
 	line:ClearAllPoints()
 	line:SetPoint("BOTTOMLEFT", 20, 0)
 	line:SetPoint("BOTTOMRIGHT", -20, 0)
+	line:SetShown(not forever)
 	-- The ink flourish's diamond in the middle of the line.
 	local diamond = titleBar:CreateTexture(nil, "OVERLAY")
 	diamond:SetTexture(ns.Theme.media.flourish)
@@ -252,12 +288,12 @@ local function Build()
 	panel:SetDontSavePosition(true) -- we save it ourselves (TomteDB.panel.layout)
 	panel:SetClampedToScreen(true)
 	panel:Hide()
-	panel.look = UI.Panel(panel, { size = "large" })
+	panel.look = UI.Panel(panel, { size = "large", portrait = true })
 	ns.Panel_ApplyLook()
 	CreateTitleBar()
 
 	local body = CreateFrame("Frame", nil, panel)
-	body:SetPoint("TOPLEFT", 0, -TITLE_H)
+	body:SetPoint("TOPLEFT", 0, -(ns.Theme.panel == "forever" and FOREVER_TITLE_H or TITLE_H))
 	body:SetPoint("BOTTOMRIGHT")
 
 	panel.pageView = CreatePageView(body)

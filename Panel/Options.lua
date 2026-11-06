@@ -16,6 +16,7 @@ local MIN_COLUMN = 360 -- narrowest card in two columns: a long label beside a 1
 local MAX_CARD = 540 -- widest card: past this a switch ends up far from its label
 local FOOTER_H = 34
 local DIMMED = 0.45
+local CARD_PLAQUE_H = 27 -- the Forever theme's plaque behind a card's title
 local CARD_RULE = 0.35 -- a card's border alpha at rest (it eases toward accent while hovered)
 
 local parent -- the options scroll's content frame
@@ -68,6 +69,11 @@ local function AcquireCard()
 		card.title:SetPoint("TOPLEFT", 14, -11)
 		card.title:SetPoint("RIGHT", -14, 0)
 		card.title:SetWordWrap(false)
+		if ns.Theme.panel == "forever" then
+			card.plaque = UI.Forever_Plaque(card, 2, 2, -3, CARD_PLAQUE_H)
+			card.title:SetJustifyH("CENTER") -- white and centered, as the game's plaques have it
+			UI.SetTextRole(card.title, "text")
+		end
 		UI.CardHover(card, { role = "frame", alpha = CARD_RULE }) -- its rows light it too (OptionRows.lua)
 	end
 	card:Show()
@@ -261,8 +267,12 @@ function Build(scroll, module, enter)
 
 	for _, sec in ipairs(Sections(module)) do
 		local card = AcquireCard()
-		card.title:SetText(sec.title and sec.title:upper() or "")
+		local title = sec.title and (card.plaque and sec.title or sec.title:upper()) or ""
+		card.title:SetText(title)
 		card.title:SetShown(sec.title ~= nil)
+		if card.plaque then
+			UI.Forever_PlaqueShow(card.plaque, sec.title ~= nil)
+		end
 		local y = sec.title and CARD_TITLE_H or CARD_PAD
 		for i, spec in ipairs(sec.specs) do
 			local row = ns.OptionRows_Acquire(spec.type, card, spec)

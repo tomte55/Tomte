@@ -97,6 +97,10 @@ local function ClusterButton(cluster, spec)
 		b.icon:SetTexture(GLYPHS .. spec.glyph)
 		b.icon:SetVertexColor(UI.RGB(GLYPH_ROLE))
 		b:SetWidth(ICON_BUTTON_W)
+		if spec.glyph == "Close" and ns.Theme.panel == "forever" then
+			b.icon:Hide()
+			UI.Forever_CloseArt(b)
+		end
 	elseif spec.icon then
 		b.icon = b:CreateTexture(nil, "ARTWORK")
 		b.icon:SetSize(ICON, ICON)
@@ -267,6 +271,11 @@ end
 
 -- A thin fill meter: meter:SetValue(0..1).
 function ns.BagsKit_Meter(parent, width)
+	if ns.Theme.panel == "forever" then
+		local bar = UI.Bar(parent, 5) -- the game's progress bar, which has the same SetValue
+		bar:SetWidth(width)
+		return bar
+	end
 	local meter = CreateFrame("Frame", nil, parent)
 	meter:SetSize(width, 5)
 	Fill(meter, "BACKGROUND", 1, 0.5)

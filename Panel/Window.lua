@@ -9,6 +9,8 @@ local SURFACE_RULE = 0.35 -- the surface box's rule alpha, as UI.Surface
 local SWITCH_W, SWITCH_H = 28, 14
 local CHIP_H = 18
 local CHIP_FILL = 0.16 -- a chip's fill: its status color, faint
+local MOCK_BAR_H, MOCK_BAR_X, MOCK_BAR_Y = 5, 12, 7 -- the Forever preview's bar: its frame hangs outside these
+local MOCK_BAR_VALUE = 3 / 8 -- the "3/8" in the mock
 local NINE_SLICE_PIECES = { "TopLeftCorner", "TopRightCorner", "BottomLeftCorner", "BottomRightCorner", "TopEdge",
 	"BottomEdge", "LeftEdge", "RightEdge" }
 
@@ -273,8 +275,33 @@ local function ThemePreview(host, get)
 	local art = def.art or {}
 
 	local blizzard = def.panel == "blizzard"
+	local forever = def.panel == "forever"
 	m.nine:SetShown(blizzard)
-	m.art:SetShown(not blizzard)
+	m.art:SetShown(not blizzard and not forever)
+	if forever and not m.forever then
+		m.forever = UI.Forever_MockPanel(m)
+		-- The game's bar and checkbox, whichever theme is on now. On another theme UI.Bar comes without the art.
+		m.foreverBar = UI.Bar(m.surface, MOCK_BAR_H)
+		if ns.Theme.panel ~= "forever" then
+			UI.Forever_BarArt(m.foreverBar)
+			m.foreverBar:SetColorRole(nil)
+		end
+		m.foreverBar:SetPoint("BOTTOMLEFT", MOCK_BAR_X, MOCK_BAR_Y)
+		m.foreverBar:SetPoint("BOTTOMRIGHT", -MOCK_BAR_X, MOCK_BAR_Y)
+		m.foreverBar:SetValue(MOCK_BAR_VALUE)
+		m.foreverCheck = UI.Forever_Switch(m.content)
+		m.foreverCheck:SetPoint("RIGHT", m.switch, "RIGHT")
+		m.foreverCheck:SetChecked(true)
+		m.foreverCheck:EnableMouse(false)
+	end
+	if m.forever then
+		m.forever:SetShown(forever)
+		m.foreverBar:SetShown(forever)
+		m.foreverCheck:SetShown(forever)
+	end
+	m.track:SetShown(not forever)
+	m.bar:SetShown(not forever)
+	m.switch:SetShown(not forever)
 	if blizzard then
 		m.nine.Center:SetVertexColor(colors.bgTop[1], colors.bgTop[2], colors.bgTop[3], 1)
 		for _, key in ipairs(NINE_SLICE_PIECES) do
