@@ -10,6 +10,20 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.28.0", date = "2026-11-06",
+		new = {
+			{ label = "Forever theme", text = "On Forever: Tomte drawn with that game's own frames, buttons, bars and "
+				.. "tabs, so it looks like part of the game. Pick it in the Tomte window's settings." },
+		},
+		improved = {
+			{ module = "bags", text = "A category can fade or hide its items while a vendor is open, so you can't "
+				.. "sell them by accident, and can have its own color." },
+			{ module = "leveling", text = "The ammo button fills your quiver in one click, and can buy by itself." },
+			{ module = "bags", text = "Gear whose armor or weapon type you can't use shows as unusable. On Forever, "
+				.. "profession tools and fishing poles no longer count as weapons." },
+		},
+	},
+	{
 		version = "1.27.0", date = "2026-11-06",
 		new = {
 			{ label = "World of Warcraft: Forever", text = "Tomte now runs there too, with every module that works in "
