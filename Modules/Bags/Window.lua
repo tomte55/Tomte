@@ -31,6 +31,7 @@ local COIN_ICONS = {
 	silver = "%s|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t",
 	copper = "%s|TInterface\\MoneyFrame\\UI-CopperIcon:0:0:2:0|t",
 }
+local REAGENT_BAG = 5 -- Enum.BagIndex.ReagentBag; bags 0 to 4 are the backpack and the four bags
 
 local UI = ns.UI
 
@@ -202,14 +203,27 @@ local function FooterEntries()
 	return entries
 end
 
--- Free slots and all slots of the backpack, bags 1-4 and the reagent bag.
+-- Free slots that take anything, all such slots, and the other kinds (a quiver, the reagent bag): Bags_FreeSummary.
 local function FreeSlots()
-	local free, total = 0, 0
-	for bag = 0, 5 do
-		free = free + (C_Container.GetContainerNumFreeSlots(bag) or 0)
-		total = total + (C_Container.GetContainerNumSlots(bag) or 0)
+	local bags = {}
+	for bag = 0, REAGENT_BAG do
+		local free, family = C_Container.GetContainerNumFreeSlots(bag)
+		bags[#bags + 1] = { free = free, total = C_Container.GetContainerNumSlots(bag),
+			kind = ns.Bags_SlotKind(family, bag == REAGENT_BAG) }
 	end
-	return free, total
+	return ns.Bags_FreeSummary(bags)
+end
+
+-- Hovering the free slots: every kind of bag with its free and total slots.
+local function FreeTooltip(self)
+	local free, total, others = FreeSlots()
+	GameTooltip:SetOwner(self, "ANCHOR_TOP")
+	GameTooltip:SetText("Free slots")
+	UI.TipLine(("Bags: %d of %d"):format(free, total), "text")
+	for _, other in ipairs(others) do
+		UI.TipLine(("%s: %d of %d"):format(other.name, other.free, other.total), "textMuted")
+	end
+	GameTooltip:Show()
 end
 
 local function DrawFooter()
@@ -217,8 +231,11 @@ local function DrawFooter()
 	if not (frame and frame:IsShown()) then
 		return
 	end
-	local free, total = FreeSlots()
-	footer.free:SetText(free == 1 and "1 free slot" or ("%s free slots"):format(ns.Thousands(free)))
+	local free, total, others = FreeSlots()
+	local text = free == 1 and "1 free slot" or ("%s free slots"):format(ns.Thousands(free))
+	local other = ns.Bags_OtherFreeText(others)
+	UI.SetTextRole(footer.free, free == 0 and "warning" or "textMuted")
+	footer.free:SetText(other and (text .. UI.Wrap("  ·  " .. other, "textFaint")) or text)
 	footer.meter:SetValue(total > 0 and (total - free) / total or 0)
 	footer.gold:SetText(ns.Coins(GetMoney(), "exact", COIN_ICONS))
 	local meterRight, footerLeft = footer.meter:GetRight(), footer:GetLeft()
@@ -404,9 +421,12 @@ local function DropInFree()
 	end
 	local itemID = C_Item.GetItemID(location)
 	local isReagent = itemID and select(17, C_Item.GetItemInfo(itemID))
+	local itemFamily = itemID and C_Item.GetItemFamily(itemID)
 	for _, bag in ipairs(isReagent and REAGENT_ORDER or NORMAL_ORDER) do
 		local free = C_Container.GetContainerFreeSlots(bag)
-		if free and free[1] then
+		local _, family = C_Container.GetContainerNumFreeSlots(bag)
+		-- A special bag only takes its own kind (a quiver: arrows); the reagent bag is sorted out by the order above.
+		if free and free[1] and (bag == REAGENT_BAG or ns.Bags_BagTakes(family, itemFamily)) then
 			C_Container.PickupContainerItem(bag, free[1])
 			return
 		end
@@ -547,7 +567,7 @@ local function KeywordHelp(owner)
 	GameTooltip:SetOwner(owner, "ANCHOR_BOTTOM")
 	GameTooltip:SetText("Search")
 	UI.TipLine("Words find names and types. is: finds a kind of item. Combine with and, or, not, -, ( ).", "textMuted", true)
-	UI.TipLine("ilvl>=600, count>20, price>10 (gold), exp:tww", "textMuted", true)
+	UI.TipLine(ns.BAGS_SEARCH_EXAMPLES, "textMuted", true)
 	local words = {}
 	for _, k in ipairs(ns.BagsSearch_Keywords()) do
 		words[#words + 1] = k[1]
@@ -622,7 +642,9 @@ local function Build()
 		end },
 	})
 	rightCluster:SetPoint("RIGHT", -PAD, 0)
-	search = ns.BagsKit_Search(header, "Search, try is:upgrade", OnSearchChanged)
+	-- Gear Check's arrows may not exist on Forever: a hint that finds nothing is no hint.
+	search = ns.BagsKit_Search(header, ns.Gear_BagArrow and "Search, try is:upgrade" or "Search, try is:rare",
+		OnSearchChanged)
 	search:SetPoint("LEFT", title, "RIGHT", 12, 0)
 	search:SetPoint("RIGHT", rightCluster, "LEFT", -10, 0)
 	search.help:SetScript("OnEnter", KeywordHelp)
@@ -647,6 +669,18 @@ local function Build()
 	footer.free:SetPoint("LEFT", currencies, "RIGHT", 10, 0)
 	footer.meter = ns.BagsKit_Meter(footer, METER_W)
 	footer.meter:SetPoint("LEFT", footer.free, "RIGHT", 8, 0)
+	local freeHover = CreateFrame("Frame", nil, footer)
+	freeHover:SetPoint("TOPLEFT", footer.free, "TOPLEFT")
+	freeHover:SetPoint("BOTTOMRIGHT", footer.meter, "BOTTOMRIGHT")
+	freeHover:SetScript("OnEnter", FreeTooltip)
+	freeHover:SetScript("OnLeave", GameTooltip_Hide)
+	-- It sits over the window: a held item dropped on it still goes in the bags.
+	freeHover:SetScript("OnReceiveDrag", DropInFree)
+	freeHover:SetScript("OnMouseUp", function(_, button)
+		if button == "LeftButton" and CursorHasItem() then
+			DropInFree()
+		end
+	end)
 	footer.gold = UI.Text(footer, 12, "text", "number")
 	footer.gold:SetPoint("RIGHT", -PAD - 2, 0)
 

@@ -63,7 +63,7 @@ local KEYWORDS = {
 	{ "hearth", "hearthstones", Field("hearth", true) },
 	{ "keystone", "Mythic+ keystones", function(item)
 		return item.keystone == true or (item.classID == REAGENT and item.subclassID == KEYSTONE)
-	end },
+	end, retail = true },
 	{ "reagent", "crafting reagents", function(item)
 		return item.classID == REAGENT and item.subclassID ~= KEYSTONE and not item.keystone
 	end },
@@ -84,8 +84,8 @@ local KEYWORDS = {
 	{ "pet", "pets", function(item)
 		return item.pet == true or item.classID == BATTLEPET or (item.classID == MISC and item.subclassID == COMPANION)
 	end },
-	{ "battlepet", "battle pet items", Class(BATTLEPET) },
-	{ "decor", "housing decor", Field("decor", true) },
+	{ "battlepet", "battle pet items", Class(BATTLEPET), retail = true },
+	{ "decor", "housing decor", Field("decor", true), retail = true },
 	{ "misc", "miscellaneous", Class(MISC) },
 	{ "junk", "junk (grey items)", Field("junk", true) },
 	{ "new", "new since you last looked", Field("new", true) },
@@ -345,11 +345,18 @@ function ns.BagsSearch_Compile(text)
 	error(result, 0) -- a bug in the parser, not a bad search
 end
 
--- The is: keywords for the "?" list: { { word, help } } in display order.
+-- The is: keywords for the "?" list: { { word, help } } in display order. Forever's list leaves out what it has no
+-- content for (the words still compile, so a shared or saved rule keeps working).
 function ns.BagsSearch_Keywords()
 	local list = {}
-	for i, k in ipairs(KEYWORDS) do
-		list[i] = { k[1], k[2] }
+	for _, k in ipairs(KEYWORDS) do
+		if not (ns.FOREVER and k.retail) then
+			list[#list + 1] = { k[1], k[2] }
+		end
 	end
 	return list
 end
+
+-- The comparisons line of the search help. Forever's items stop near item level 90 and all come from one game.
+ns.BAGS_SEARCH_EXAMPLES = ns.FOREVER and "ilvl>=50, count>20, price>10 (gold)"
+	or "ilvl>=600, count>20, price>10 (gold), exp:tww"

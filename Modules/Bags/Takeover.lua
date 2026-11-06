@@ -12,7 +12,8 @@ local addonName, ns = ...
 -- functions (from addon code they'd taint FRAME_THAT_OPENED_BAGS, which Esc's CloseAllWindows reads): it only shows
 -- its own window, and closes by hiding Blizzard's (invisible) frames, which runs none of their scripts.
 
-local SINGLE_FRAMES = 6 -- ContainerFrame1..6: the backpack, four bags and the reagent bag (NUM_CONTAINER_FRAMES)
+-- ContainerFrame1..6: the backpack, four bags and the reagent bag (NUM_CONTAINER_FRAMES); Forever's keyring adds a 7th.
+local SINGLE_FRAMES = ns.FOREVER and 7 or 6
 -- Blizzard's functions that open or close bags, and what each means when it's the outermost call (post-hooks run
 -- innermost first, so the last one to fire is the one the player's action called).
 local INTENTS = {

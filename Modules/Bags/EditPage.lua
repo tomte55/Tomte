@@ -87,7 +87,7 @@ local function KeywordHelp(owner)
 	GameTooltip:SetText("Rules")
 	UI.TipLine("The same search as the bag window's: words find names and types, is: finds a kind of item, and, or, "
 		.. "not, - and ( ) combine them.", "textMuted", true)
-	UI.TipLine("ilvl>=600, count>20, price>10 (gold), exp:tww", "textMuted", true)
+	UI.TipLine(ns.BAGS_SEARCH_EXAMPLES, "textMuted", true)
 	GameTooltip:Show()
 end
 
@@ -292,8 +292,11 @@ local function BuildEditor()
 	editor.places = UI.Segmented(editor.where)
 	editor.places:SetPoint("TOPLEFT", GROUP_PAD, -editor.where.top)
 	editor.places.choices = function()
-		return { { value = "bags", text = "Bags" }, { value = "bank", text = "Bank" },
-			{ value = "warband", text = "Warband bank" } }
+		local places = { { value = "bags", text = "Bags" }, { value = "bank", text = "Bank" } }
+		if ns.BagsBank_HasWarband() then
+			places[3] = { value = "warband", text = "Warband bank" }
+		end
+		return places
 	end
 	editor.places.isOn = function(value)
 		local node = Selected()

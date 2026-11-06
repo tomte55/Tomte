@@ -195,6 +195,60 @@ test("junk is grey, sellable and not soulbound", function()
 	eq(ns.Bags_IsJunk(1, false, nil), false)
 end)
 
+test("a bag's slots go by its family, the reagent bag by its place", function()
+	eq(ns.Bags_SlotKind(0, false), "normal")
+	eq(ns.Bags_SlotKind(nil, false), "normal")
+	eq(ns.Bags_SlotKind(1, false), "quiver")
+	eq(ns.Bags_SlotKind(4, false), "soul")
+	eq(ns.Bags_SlotKind(33554432, false), "skinning")
+	eq(ns.Bags_SlotKind(1, true), "reagent")
+	eq(ns.Bags_SlotKind(4194304, false), "special", "a family without a name")
+	eq(ns.Bags_SlotKindName("quiver"), "Quiver")
+end)
+
+test("a special bag takes only its own kind", function()
+	eq(ns.Bags_BagTakes(0, 0), true, "ordinary bag, ordinary item")
+	eq(ns.Bags_BagTakes(nil, 1), true, "ordinary bag, arrows")
+	eq(ns.Bags_BagTakes(1, 0), false, "quiver, ordinary item")
+	eq(ns.Bags_BagTakes(1, nil), false, "quiver, unknown item")
+	eq(ns.Bags_BagTakes(1, 1), true, "quiver, arrows")
+	eq(ns.Bags_BagTakes(1, 2), false, "quiver, bullets")
+	eq(ns.Bags_BagTakes(32, 33), true, "an item of two families")
+end)
+
+test("free slots count ordinary bags; other kinds are apart, added up, in order", function()
+	local free, total, others = ns.Bags_FreeSummary({
+		{ free = 3, total = 16, kind = "normal" },
+		{ free = 2, total = 12, kind = "soul" },
+		{ free = 5, total = 16, kind = "quiver" },
+		{ free = 1, total = 8, kind = "normal" },
+		{ free = 1, total = 16, kind = "quiver" },
+		{ free = 0, total = 0, kind = "herb" },
+	})
+	eq(free, 4)
+	eq(total, 24)
+	eq(#others, 2, "no slots, no line")
+	eq(others[1].name, "Quiver")
+	eq(others[1].free, 6)
+	eq(others[1].total, 32)
+	eq(others[2].name, "Soul")
+	eq(ns.Bags_OtherFreeText(others), "Quiver 6, Soul 2")
+end)
+
+test("free slots with only special bags, and with no others", function()
+	local free, total, others = ns.Bags_FreeSummary({ { free = 5, total = 16, kind = "quiver" } })
+	eq(free, 0, "a full bag is full, whatever the quiver has")
+	eq(total, 0)
+	eq(#others, 1)
+	eq(ns.Bags_OtherFreeText({}), nil)
+end)
+
+test("a grey upgrade isn't junk", function()
+	eq(ns.Bags_IsJunk(0, false, nil, "upgrade"), false)
+	eq(ns.Bags_IsJunk(0, false, nil, "maybe"), false)
+	eq(ns.Bags_IsJunk(0, false, nil, nil), true)
+end)
+
 test("keeping places: a sold item leaves its slot empty where it was, new items go last", function()
 	local a = { bag = 0, slot = 1, name = "A" }
 	local b = { bag = 0, slot = 2, name = "B" }
@@ -383,6 +437,23 @@ test("why lists the winner first", function()
 	assert(lines[2]:find("^also Armor"), tostring(lines[2]))
 	lines = ns.Bags_Why({ classID = 18 }, categories)
 	assert(lines[1]:find("Other"), lines[1])
+end)
+
+test("Forever's default categories have no keystone or decor", function()
+	local function Keys(flags)
+		assert(loadfile("Tomte/Modules/Bags/Search.lua"))("Tomte", flags)
+		assert(loadfile("Tomte/Modules/Bags/Data.lua"))("Tomte", flags)
+		local keys = {}
+		for _, node in ipairs(flags.Bags_Flatten(flags.BAGS_LAYOUT)) do
+			keys[node.key] = true
+		end
+		return keys
+	end
+	local forever, retail = Keys({ FOREVER = true }), Keys({})
+	eq(forever.keystone, nil, "no Mythic+")
+	eq(forever.decor, nil, "no housing")
+	eq(forever.key and forever.other and forever.empty, true, "the rest stay")
+	eq(retail.keystone and retail.decor, true, "retail keeps them")
 end)
 
 H.done()

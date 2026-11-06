@@ -12,9 +12,11 @@ local BUTTON = 37 -- the template's own size; ours are scaled from it (its art d
 -- Every mark has Gear Check's arrow look (ns.Gear_Arrow): the plain glyph in its color, no plate or outline, over a
 -- black copy of itself SHADOW_X, SHADOW_Y away.
 local SHADOW_X, SHADOW_Y, SHADOW_ALPHA = 1.5, -1.5, 0.9
--- The transmog mark (on a 37 px button; the button's scale shrinks it with the icon): an X of two CROSS_LEN by
--- CROSS_W bars in a BADGE square.
-local BADGE, CROSS_LEN, CROSS_W = 16, 16, 4
+-- The transmog mark (on a 37 px button; the button's scale shrinks it with the icon): a BADGE circle in the mark's
+-- color with a dark X of two CROSS_LEN by CROSS_W bars on it. A bare X in the accent color got lost on busy icons
+-- (seen in game with Cartographer's lavender).
+local BADGE, CROSS_LEN, CROSS_W = 15, 9, 2.5
+local CROSS_ALPHA = 0.85
 local SET_MARK = 7 -- the equipment set square's side
 local CRAFT_DOT = 9 -- the crafting list's dot (how many is on the item's tooltip: Alts/List.lua)
 -- Hairline slots (docs/superpowers/specs/2026-10-27-tomte-bags-ui-design.md): Blizzard's slot art and thick quality
@@ -107,17 +109,21 @@ local function Mark(button, w, h, draw)
 	return mark
 end
 
--- The transmog mark: an X of two crossed bars.
-local function Cross(holder, sub)
-	local bars = {}
-	for i, angle in ipairs({ math.pi / 4, -math.pi / 4 }) do
-		local bar = holder:CreateTexture(nil, "ARTWORK", nil, sub)
-		bar:SetSize(CROSS_LEN, CROSS_W)
-		bar:SetPoint("CENTER")
-		bar:SetRotation(angle)
-		bars[i] = bar
+-- The transmog mark: a filled circle (with Mark's shadow under it) and a dark X on top, not recolored by SetColor.
+local function Badge(holder, sub)
+	local t = holder:CreateTexture(nil, "ARTWORK", nil, sub)
+	t:SetAllPoints()
+	UI.CircleMask(t, holder)
+	if sub == 2 then
+		for _, angle in ipairs({ math.pi / 4, -math.pi / 4 }) do
+			local bar = holder:CreateTexture(nil, "ARTWORK", nil, 3)
+			bar:SetSize(CROSS_LEN, CROSS_W)
+			bar:SetPoint("CENTER")
+			bar:SetRotation(angle)
+			bar:SetColorTexture(0, 0, 0, CROSS_ALPHA)
+		end
 	end
-	return bars
+	return { t }
 end
 
 -- The crafting list's mark: a dot (a number there read as a stack count, measured in game).
@@ -156,14 +162,25 @@ local function Extras(button)
 	UI.Border(button, "rule")
 	button:HookScript("OnEnter", function(self)
 		UI.BorderTo(self, "accent")
+		local name = extras[self].kindName
+		if name then
+			-- Owned by a child: the tooltip calls its owner's UpdateTooltip every 0.2 s, and the item button's rebuilds it for
+			-- the empty slot, which wipes this text (ContainerFrameItemButtonMixin:OnUpdate).
+			GameTooltip:SetOwner(extras[self].tipOwner, "ANCHOR_RIGHT")
+			GameTooltip:SetText(("Free slots: %s"):format(name))
+			GameTooltip:Show()
+		end
 	end)
 	button:HookScript("OnLeave", function(self)
 		local ex = extras[self]
 		UI.BorderTo(self, ex.edge or "rule", ex.edgeAlpha)
+		if ex.kindName then
+			GameTooltip:Hide()
+		end
 	end)
 	e.ilvl = button:CreateFontString(nil, "OVERLAY")
 	e.pet = button:CreateFontString(nil, "OVERLAY")
-	e.mark = Mark(button, BADGE, BADGE, Cross)
+	e.mark = Mark(button, BADGE, BADGE, Badge)
 	e.set = Mark(button, SET_MARK, SET_MARK, Square)
 	e.craft = Mark(button, CRAFT_DOT, CRAFT_DOT, Dot)
 	if button.JunkIcon then
@@ -190,6 +207,14 @@ local function Extras(button)
 	e.leaf:SetSize(LEAF, LEAF)
 	e.leaf:SetPoint("CENTER")
 	e.leaf:SetAlpha(LEAF_ALPHA)
+	-- A special bag's picture on Empty's button for its slots, so a quiver's free slots read as the quiver's.
+	e.bagIcon = button:CreateTexture(nil, "OVERLAY", nil, 1)
+	e.bagIcon:SetSize(LEAF, LEAF)
+	e.bagIcon:SetPoint("CENTER")
+	e.bagIcon:SetAlpha(LEAF_ALPHA)
+	e.bagIcon:Hide()
+	e.tipOwner = CreateFrame("Frame", nil, button) -- takes no mouse: only owns the Empty tooltip
+	e.tipOwner:SetAllPoints()
 	extras[button] = e
 	return e
 end
@@ -379,6 +404,8 @@ local function PaintView(button, e, item, opts)
 	PlaceMarks(button, e, item, opts)
 	e.free:SetText("")
 	e.leaf:Hide()
+	e.bagIcon:Hide()
+	e.kindName = nil
 	button:SetMatchesSearch(opts.matches ~= false)
 	button:Show()
 end
@@ -429,6 +456,12 @@ function ns.BagsButtons_Paint(button, item, opts)
 		UI.SetTextRole(e.free, "textMuted")
 		e.free:SetText(opts.free and ns.Thousands(opts.free) or "")
 		e.leaf:SetShown(opts.free ~= nil and item.kind == "reagent") -- Empty's buttons only, not a kept place
+		local special = opts.free ~= nil and item.kind ~= "normal" and item.kind ~= "reagent"
+		e.kindName = opts.free ~= nil and item.kind ~= "normal" and ns.Bags_SlotKindName(item.kind) or nil
+		if special then
+			e.bagIcon:SetTexture(GetInventoryItemTexture("player", C_Container.ContainerIDToInventoryID(item.bag)))
+		end
+		e.bagIcon:SetShown(special)
 	else
 		button:SetHasItem(item.icon)
 		button:SetItemButtonTexture(item.icon)
@@ -444,7 +477,8 @@ function ns.BagsButtons_Paint(button, item, opts)
 			button.flashAnim:Stop()
 			button.newitemglowAnim:Stop()
 		end
-		button:UpdateJunkItem(item.quality, not item.price or item.price == 0)
+		-- Blizzard's coin at a merchant goes by quality alone: an upgrade (a grey one while leveling) counts as no value.
+		button:UpdateJunkItem(item.quality, not item.price or item.price == 0 or item.upgrade ~= nil)
 		if opts.context then
 			button:UpdateItemContextMatching()
 		else
@@ -456,6 +490,8 @@ function ns.BagsButtons_Paint(button, item, opts)
 		PlaceMarks(button, e, item, opts)
 		e.free:SetText("")
 		e.leaf:Hide()
+		e.bagIcon:Hide()
+		e.kindName = nil
 	end
 	button:SetMatchesSearch(opts.matches ~= false)
 	button:CheckUpdateTooltip(GameTooltip:GetOwner())

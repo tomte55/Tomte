@@ -83,11 +83,11 @@ function View:CategoryBlocks(items, layout, place)
 				end
 			end
 			list = {}
-			for _, kind in ipairs({ "normal", "reagent" }) do
-				if firstOfKind[kind] then
+			for _, kind in ipairs(ns.BAGS_SLOT_KINDS) do
+				if firstOfKind[kind.key] then
 					-- A copy: the slot's own record may also stand in its old place while places are kept, as a plain
 					-- empty slot without Empty's count and leaf.
-					list[#list + 1] = setmetatable({ free = free[kind] }, { __index = firstOfKind[kind] })
+					list[#list + 1] = setmetatable({ free = free[kind.key] }, { __index = firstOfKind[kind.key] })
 				end
 			end
 		else

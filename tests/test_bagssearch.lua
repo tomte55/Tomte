@@ -151,4 +151,26 @@ test("the keyword list has every is: word with help", function()
 	end
 end)
 
+test("Forever's help leaves out what it has no content for, and old rules still compile", function()
+	local forever = { FOREVER = true }
+	assert(loadfile("Tomte/Modules/Bags/Search.lua"))("Tomte", forever)
+	local words = {}
+	for _, k in ipairs(forever.BagsSearch_Keywords()) do
+		words[k[1]] = true
+	end
+	eq(words.keystone, nil, "no Mythic+")
+	eq(words.decor, nil, "no housing")
+	eq(words.battlepet, nil, "no pet battles")
+	eq(words.rare, true, "the rest stay")
+	eq(forever.BAGS_SEARCH_EXAMPLES:find("tww", 1, true), nil, "no retail example")
+	eq(type((forever.BagsSearch_Compile("is:decor"))), "function", "a saved rule still compiles")
+	local retail = {}
+	assert(loadfile("Tomte/Modules/Bags/Search.lua"))("Tomte", retail)
+	local all = {}
+	for _, k in ipairs(retail.BagsSearch_Keywords()) do
+		all[k[1]] = true
+	end
+	eq(all.keystone and all.decor and all.battlepet, true, "retail lists them all")
+end)
+
 H.done()

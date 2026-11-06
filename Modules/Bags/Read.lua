@@ -8,6 +8,13 @@ local addonName, ns = ...
 -- The bags read, in the game's order: backpack, bags 1-4, reagent bag (Enum.BagIndex 0-5).
 local BAGS = { 0, 1, 2, 3, 4, 5 }
 local REAGENT_BAG = 5
+-- Forever has a keyring (Blizzard_MainMenuBarBagButtons/Camelot). Its button opens the bags through Blizzard's
+-- ToggleBag, into a frame Takeover.lua hides, so the keys have to show in Tomte's window. Only filled slots: the game
+-- puts keys there by itself, so an empty key slot is no use to the player and doesn't count as a free slot.
+local KEYRING = -1 -- Enum.BagIndex.Keyring
+if ns.FOREVER and C_ActionBar.ShouldShowKeyring() then
+	BAGS[#BAGS + 1] = KEYRING
+end
 local WEAPON, ARMOR, RECIPE, BATTLEPET, PROFESSION = 2, 4, 9, 17, 19 -- Enum.ItemClass
 -- Classes whose tooltip can say in red that you can't use the item (armor type, class, skill, level).
 local CAN_BE_UNUSABLE = { [WEAPON] = true, [ARMOR] = true, [RECIPE] = true, [PROFESSION] = true }
@@ -57,6 +64,16 @@ end
 -- Housing decor (C_Item.IsDecorItem, as Blizzard's item buttons ask; missing on clients without housing).
 local function IsDecor(itemID)
 	return C_Item.IsDecorItem ~= nil and C_Item.IsDecorItem(itemID) == true
+end
+
+-- Neither call is in Forever's API documentation (C_ToyBox isn't documented anywhere), though its Blizzard UI calls
+-- them. A missing one mustn't stop the whole bag window drawing.
+local function IsToy(itemID)
+	return C_ToyBox ~= nil and C_ToyBox.GetToyInfo ~= nil and C_ToyBox.GetToyInfo(itemID) ~= nil
+end
+
+local function IsPet(itemID)
+	return C_PetJournal.GetPetInfoByItemID ~= nil and C_PetJournal.GetPetInfoByItemID(itemID) ~= nil
 end
 
 -- Red tooltip lines that don't mean "you can't use this": the game adds them in combat ("can't change equipment in
@@ -139,9 +156,9 @@ local function Record(bag, slot, info)
 		bind = BindState(bindType, info.isBound),
 		junk = ns.Bags_IsJunk(info.quality or quality, info.hasNoValue, BindState(bindType, info.isBound)),
 		hearth = HEARTHS[itemID] == true,
-		toy = C_ToyBox.GetToyInfo(itemID) ~= nil,
+		toy = IsToy(itemID),
 		mount = C_MountJournal.GetMountFromItem(itemID) ~= nil,
-		pet = C_PetJournal.GetPetInfoByItemID(itemID) ~= nil,
+		pet = IsPet(itemID),
 		decor = IsDecor(itemID),
 	}
 	local quest = C_Container.GetContainerItemQuestInfo(bag, slot)
@@ -156,6 +173,7 @@ local function Record(bag, slot, info)
 		item.look = ns.NewAppearance(link)
 		if ns.Gear_BagArrow then
 			item.upgrade = ns.Gear_BagArrow(link, location, info.isBound)
+			item.junk = ns.Bags_IsJunk(item.quality, item.noValue, item.bind, item.upgrade)
 		end
 	end
 	return item
@@ -168,13 +186,16 @@ function ns.BagsRead_Bags(containers)
 	local items, pending = {}, false
 	local sets = SetSlots()
 	for _, bag in ipairs(containers or BAGS) do
+		local _, family = C_Container.GetContainerNumFreeSlots(bag)
+		local slotKind = ns.Bags_SlotKind(family, bag == REAGENT_BAG)
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
 			local key = Key(bag, slot)
 			local info = C_Container.GetContainerItemInfo(bag, slot)
 			if not info then
 				cache[key] = nil
-				items[#items + 1] = { empty = true, kind = bag == REAGENT_BAG and "reagent" or "normal",
-					bag = bag, slot = slot }
+				if bag ~= KEYRING then
+					items[#items + 1] = { empty = true, kind = slotKind, bag = bag, slot = slot }
+				end
 			else
 				local item = cache[key]
 				if not (item and item.link == info.hyperlink and item.count == (info.stackCount or 1)) then

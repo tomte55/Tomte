@@ -82,6 +82,9 @@ events.EQUIPMENT_SETS_CHANGED = events.BAG_UPDATE_DELAYED
 function events:BAG_CONTAINER_UPDATE()
 	ns.BagsRead_Invalidate(nil)
 	ns.BagsWindow_Refresh()
+	if ns.FOREVER then
+		ns.BagsBank_Refresh() -- Forever's bank has real bags in its tabs; one was put in or taken out
+	end
 end
 
 -- The bank: a tab bought or changed, the Warband bank's gold.
@@ -256,9 +259,9 @@ local function Corners()
 		{ value = "off", text = "Off" } }
 end
 
-local function CornerRow(key, label, tooltip)
+local function CornerRow(key, label, tooltip, shown)
 	return { type = "dropdown", key = "corners." .. key, label = label, choices = Corners,
-		onChange = ns.BagsWindow_Relayout, tooltip = tooltip }
+		onChange = ns.BagsWindow_Relayout, tooltip = tooltip, shown = shown }
 end
 
 local function Check(key, label, tooltip)
@@ -268,15 +271,16 @@ end
 -- Auto open rows: the windows the game opens the bags for, then the ones Tomte can add.
 local AUTO_OPEN = {
 	{ "vendor", "Vendor" }, { "mail", "Mailbox" }, { "bank", "Bank" }, { "auction", "Auction House" },
-	{ "scrapping", "Scrapping machine" }, { "catalyst", "Catalyst and item conversion" },
-	{ "upgrade", "Item upgrade" }, { "guildbank", "Guild bank" }, { "crafting", "Professions" },
-	{ "character", "Character panel" }, { "socket", "Socketing gems" }, { "trade", "Trade" },
+	{ "scrapping", "Scrapping machine", retail = true }, { "catalyst", "Catalyst and item conversion", retail = true },
+	{ "upgrade", "Item upgrade", retail = true }, { "guildbank", "Guild bank" }, { "crafting", "Professions" },
+	{ "character", "Character panel" }, { "socket", "Socketing gems", retail = true }, { "trade", "Trade" },
 }
 
 local function AutoOpenRows(rows)
 	rows[#rows + 1] = { type = "header", label = "Open the bags with" }
 	for _, entry in ipairs(AUTO_OPEN) do
-		rows[#rows + 1] = { type = "checkbox", key = "autoOpen." .. entry[1], label = entry[2] }
+		rows[#rows + 1] = { type = "checkbox", key = "autoOpen." .. entry[1], label = entry[2],
+			shown = entry.retail and ns.NotForever or nil }
 	end
 	return rows
 end
@@ -287,7 +291,9 @@ module = ns.RegisterModule({
 	category = "gear",
 	icon = 133633, -- inv_misc_bag_08
 	summary = "Your bags sorted into categories, with upgrade and transmog marks.",
-	description = "Replaces the game's bags with one window: items sorted into categories (or one big bag), Gear Check's upgrade arrows, a mark on appearances you haven't collected, item levels, and a search that understands things like is:upgrade or ilvl>600.",
+	description = ns.FOREVER
+		and "Replaces the game's bags with one window: items sorted into categories (or one big bag), a mark on appearances you haven't collected, item levels, your keys, and a search that understands things like is:rare or ilvl>50."
+		or "Replaces the game's bags with one window: items sorted into categories (or one big bag), Gear Check's upgrade arrows, a mark on appearances you haven't collected, item levels, and a search that understands things like is:upgrade or ilvl>600.",
 	enabledByDefault = false,
 	conflicts = (function()
 		local list = {}
@@ -327,7 +333,8 @@ module = ns.RegisterModule({
 		bankPosition = {}, -- the bank window's, the same way
 		bankWidth = 22, -- icons per row in the bank window (wide rather than tall)
 		bankFolded = {}, -- the bank window's folded sections, apart from the bags' (folded)
-		bankStart = "warband", -- warband | character: which bank shows when you open the bank
+		-- warband | character: which bank shows when you open the bank. On Forever a Warband bank isn't a given.
+		bankStart = ns.FOREVER and "character" or "warband",
 		-- The player's categories (Data.lua's node shape, every node keyed: EditData.lua); empty until the first edit,
 		-- and then the defaults stay as they were.
 		layout = {},
@@ -381,7 +388,9 @@ module = ns.RegisterModule({
 			onChange = ns.BagsWindow_Relayout, tooltip = "How many icons fit in one row." },
 		{ type = "slider", key = "iconSize", label = "Icon size", min = 28, max = 44, step = 1, format = Pixels,
 			onChange = ns.BagsWindow_Relayout },
-		{ type = "dropdown", key = "bankStart", label = "Bank opens on", choices = function()
+		{ type = "dropdown", key = "bankStart", label = "Bank opens on", shown = function()
+			return ns.BagsBank_HasWarband()
+		end, choices = function()
 			return { { value = "warband", text = "Warband bank" }, { value = "character", text = "Character bank" } }
 		end, tooltip = "Which bank shows first when you talk to a banker. A banker with only one of them opens that one." },
 		{ type = "slider", key = "bankWidth", label = "Bank width", min = 8, max = 36, step = 1, format = Columns,
@@ -409,14 +418,20 @@ module = ns.RegisterModule({
 				return { { value = "quality", text = "Quality" }, { value = "plain", text = "Plain" } }
 			end, tooltip = "Quality: the item level in the item's quality color (blue for rare, purple for epic)." },
 		CornerRow("upgrade", "Upgrade arrow",
-			"Gear Check's arrows: green for an upgrade, yellow for maybe, in Tomte's color for another character. Needs Gear Check on."),
+			"Gear Check's arrows: green for an upgrade, yellow for maybe, in Tomte's color for another character. Needs Gear Check on.",
+			function()
+				return ns.Gear_BagArrow ~= nil -- Gear Check's retail files; Forever's has to offer it
+			end),
 		CornerRow("transmog", "Transmog mark",
-			"An X on items whose appearance you haven't collected: in the accent color when this character can learn it, grey when only another class can."),
+			"A round badge with an X on items whose appearance you haven't collected: in the accent color when this character can learn it, grey when only another class can."),
 		CornerRow("junk", "Junk coin", "The coin on grey items, not only at a merchant."),
 		CornerRow("crafting", "Crafting list",
-			"A dot on items your crafting list (Alts) wants moved; the item's tooltip says how many."),
+			"A dot on items your crafting list (Alts) wants moved; the item's tooltip says how many.",
+			function()
+				return ns.AltsList_Marked ~= nil
+			end),
 		CornerRow("set", "Equipment set", "A small blue square on items in one of your equipment sets."),
-		CornerRow("petlevel", "Battle pet level", "The level of a caged battle pet."),
+		CornerRow("petlevel", "Battle pet level", "The level of a caged battle pet.", ns.NotForever),
 		{ type = "slider", key = "looks.fontSize", label = "Number size", min = 9, max = 16, step = 1, format = Pixels,
 			onChange = ns.BagsWindow_Relayout, tooltip = "Stack counts, item levels, pet levels and free slots." },
 		Check("looks.newGlow", "New item glow", "The glow on items you just got."),
@@ -424,7 +439,8 @@ module = ns.RegisterModule({
 		Check("looks.redUnusable", "Red when you can't use it",
 			"Gear and recipes your character can't use (armor type, class, skill or level) get a red tint."),
 		Check("looks.context", "Fade what doesn't fit",
-			"Items that can't go into the open window fade: a merchant won't buy them (what the merchant takes as payment stays bright, framed in the accent color), they can't be mailed, traded or auctioned, or they don't fit the scrapper, a socket, an upgrade or the catalyst."),
+			ns.FOREVER and "Items that can't go into the open window fade: a merchant won't buy them (what the merchant takes as payment stays bright, framed in the accent color), or they can't be mailed, traded or auctioned."
+			or "Items that can't go into the open window fade: a merchant won't buy them (what the merchant takes as payment stays bright, framed in the accent color), they can't be mailed, traded or auctioned, or they don't fit the scrapper, a socket, an upgrade or the catalyst."),
 
 		{ type = "header", label = "Sorting" },
 		{ type = "dropdown", key = "sortMethod", label = "Order in a category", onChange = ns.BagsWindow_Relayout,

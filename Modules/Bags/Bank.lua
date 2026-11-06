@@ -27,6 +27,8 @@ local TAB_SIZE = 32 -- a bank tab on the right edge
 local TAB_GAP = 2
 local EVERYTHING_GAP = 6 -- extra room under the "Everything" tab, apart from the bank's own tabs
 local EVERYTHING_ICON = "Interface\\Icons\\Achievement_GuildPerk_MobileBanking"
+local BANK_TAB_ICON = "Interface\\Icons\\INV_SideTab_Bank_c60" -- Forever: the tab that is the bank itself
+local EMPTY_BAG_ICON = "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag" -- Forever: a bought slot with no bag in it yet
 local DRAWER_H = 34 -- the gold drawer under the footer
 local TITLE_W = 110 -- "Character bank" at 14; the search box takes the rest
 local DRAWER_SLIDE = 0.15 -- seconds
@@ -122,18 +124,54 @@ function RenameTab(tab)
 	})
 end
 
+-- Whether this bank's tabs are bag slots, as on Forever (C_Bank.ShouldUsePlayerBagsInBank; Blizzard's
+-- Camelot/BankFrame.lua): the first tab is the bank itself, each later one holds a real bag the player buys a slot for
+-- and then puts a bag in. Such tabs have no name or icon of their own to edit.
+local function BagTabs()
+	return ns.FOREVER and C_Bank.ShouldUsePlayerBagsInBank()
+end
+
+-- Where a tab's bag sits (the i-th tab of the list; as BankItemButtonBagMixin:GetBagAndSlot): container and slot, or
+-- nil for a tab that holds no bag.
+local function TabBagLocation(i, bankType)
+	if i > 1 and BagTabs() then
+		return bankType == ACCOUNT and Enum.BagIndex.Accountbanktab or Enum.BagIndex.Characterbanktab, i
+	end
+	return nil
+end
+
+-- Picks up the tab's bag, or puts the one on the cursor in (Blizzard's bag slot button does just this).
+local function SwapTabBag(tab)
+	if tab.bagContainer then
+		C_Container.PickupContainerItem(tab.bagContainer, tab.bagSlot)
+	end
+end
+
 local function TabButton(i)
 	local b = tabButtons[i]
 	if b then
 		return b
 	end
 	b = ns.BagsKit_Tab(frame, TAB_SIZE, "right")
+	if BagTabs() then
+		b:RegisterForDrag("LeftButton")
+		b:SetScript("OnDragStart", SwapTabBag)
+		b:SetScript("OnReceiveDrag", SwapTabBag)
+	end
 	b:SetScript("OnEnter", function(self)
 		UI.WashTo(self.hoverWash, true)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText(self.tabName ~= "" and self.tabName or "Bank tab")
+		if not (self.bagContainer and GameTooltip:SetBagItem(self.bagContainer, self.bagSlot)) then
+			GameTooltip:SetText(self.tabName ~= "" and self.tabName or "Bank tab")
+		end
 		UI.TipLine("Click: show only this tab", "textMuted")
-		UI.TipLine("Right-click: rename it", "textMuted")
+		if BagTabs() then
+			if self.bagContainer then
+				UI.TipLine("Drag a bag here to use it in the bank, or drag it away", "textMuted")
+			end
+		else
+			UI.TipLine("Right-click: rename it", "textMuted")
+		end
 		GameTooltip:Show()
 	end)
 	b:SetScript("OnLeave", function(self)
@@ -141,8 +179,14 @@ local function TabButton(i)
 		GameTooltip:Hide()
 	end)
 	b:SetScript("OnClick", function(self, button)
+		if self.bagContainer and CursorHasItem() then
+			SwapTabBag(self)
+			return
+		end
 		if button == "RightButton" then
-			RenameTab(self.tab)
+			if not BagTabs() then
+				RenameTab(self.tab)
+			end
 			return
 		end
 		if tabFilter == self.containerID then
@@ -174,8 +218,18 @@ local function DrawTabs(tabs)
 	for i, tab in ipairs(tabs) do
 		local b = TabButton(i)
 		b.containerID, b.tabName, b.tab = tab.ID, tab.name, tab
-		b.icon:SetTexture(tab.icon)
-		b.icon:SetDesaturated(tabFilter ~= nil and tabFilter ~= tab.ID)
+		b.bagContainer, b.bagSlot = TabBagLocation(i, tab.bankType)
+		local bagIcon, noBag
+		if BagTabs() then
+			bagIcon = BANK_TAB_ICON
+			if b.bagContainer then
+				local location = ItemLocation:CreateFromBagAndSlot(b.bagContainer, b.bagSlot)
+				noBag = not C_Item.DoesItemExist(location)
+				bagIcon = noBag and EMPTY_BAG_ICON or C_Item.GetItemIcon(location)
+			end
+		end
+		b.icon:SetTexture(bagIcon or tab.icon)
+		b.icon:SetDesaturated(noBag or (tabFilter ~= nil and tabFilter ~= tab.ID))
 		b:SetSelected(tabFilter == tab.ID)
 		TabPoint(b, i)
 		b:Show()
@@ -185,6 +239,9 @@ local function DrawTabs(tabs)
 	end
 	local bankType = tabs[1] and tabs[1].bankType or ns.BagsBank_ActiveType()
 	local canBuy = bankType and C_Bank.CanPurchaseBankTab and C_Bank.CanPurchaseBankTab(bankType)
+	if ns.FOREVER and bankType == ACCOUNT and #tabs == 0 then
+		canBuy = false -- Blizzard's Forever bank offers nothing to buy here (BankFrameMixin:OnShowOrHideBagCost)
+	end
 	TabPoint(buyTab, #tabs + 1)
 	buyTab:SetShown(canBuy == true)
 	if bankType then
@@ -270,7 +327,7 @@ local function DrawRemembered()
 	local name = remembered.guid ~= UnitGUID("player") and ns.Counts_CharName(remembered.guid)
 	title:SetText(bankType == ACCOUNT and "Warband bank" or name and (name .. "'s bank") or "Character bank")
 	for i, t in ipairs({ CHARACTER, ACCOUNT }) do
-		typeSwitch.buttons[i]:Show()
+		typeSwitch.buttons[i]:SetShown(t ~= ACCOUNT or ns.BagsBank_HasWarband())
 		typeSwitch:SetLit(i, t == bankType)
 	end
 	typeSwitch:Layout()
@@ -636,7 +693,7 @@ local function Build()
 	buyTab.buy:SetScript("OnEnter", function()
 		UI.WashTo(buyTab.hoverWash, true)
 		GameTooltip:SetOwner(buyTab, "ANCHOR_RIGHT")
-		GameTooltip:SetText("Buy a bank tab")
+		GameTooltip:SetText(BagTabs() and "Buy a bank bag slot" or "Buy a bank tab")
 		local bankType = ActiveType()
 		local data = bankType and C_Bank.FetchNextPurchasableBankTabData(bankType)
 		if data then
@@ -767,6 +824,14 @@ local function Hook()
 		return
 	end
 	hooked = true
+	if ns.FOREVER then
+		-- Forever's BankFrame has no tab system, so nothing but this shows the panel the OnHide below hid. Blizzard's
+		-- OnShow reads its type and errors without one (RefreshBagButtons). BankFrame_Open calls this just before
+		-- ShowUIPanel: the frame is still hidden, so the panel's own OnShow runs in Blizzard's code, after its SetTab.
+		hooksecurefunc(BankFrame, "SetPortraitToUnit", function()
+			BankFrame.BankPanel:Show()
+		end)
+	end
 	BankFrame:HookScript("OnShow", function()
 		if active then
 			Opened()
@@ -804,6 +869,15 @@ local function Hook()
 end
 
 -- API ----------------------------------------------------------------------------------------------------------------
+
+-- Whether to offer the Warband bank at all: always on retail; on Forever once it has a tab or Item counts has read it.
+function ns.BagsBank_HasWarband()
+	if not ns.FOREVER then
+		return true
+	end
+	return (C_Bank.FetchNumPurchasedBankTabs(ACCOUNT) or 0) > 0
+		or (ns.Counts_Bank ~= nil and #(ns.Counts_Bank(nil)) > 0)
+end
 
 -- The bank as Item counts last read it, away from a banker (the bag window's Bank button): guid's character bank (nil:
 -- yours). At a banker the real bank is already showing; it comes to the front.

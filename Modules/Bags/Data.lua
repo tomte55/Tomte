@@ -3,7 +3,28 @@ local addonName, ns = ...
 -- Bags: pure logic (no WoW API calls; unit-tested in tests/test_bags.lua): the default categories, which category
 -- gets an item, and the order of items inside one. Rules are search texts (Search.lua). The item record (Read.lua):
 -- the fields Search.lua lists, plus itemID, link, icon, bag, slot, locked, readable; an empty slot is
--- { empty = true, kind = "normal" | "reagent", bag, slot }.
+-- { empty = true, kind = a key of BAGS_SLOT_KINDS, bag, slot }.
+
+-- The kinds of free slot, in the order they show. A bag's family is the bit C_Container.GetContainerNumFreeSlots returns
+-- for what it can hold (warcraft.wiki.gg ItemFamily); 0 holds anything. The reagent bag goes by its place, not its family.
+ns.BAGS_SLOT_KINDS = {
+	{ key = "normal", name = "Bags" },
+	{ key = "reagent", name = "Reagents" },
+	{ key = "quiver", name = "Quiver", family = 1 },
+	{ key = "ammo", name = "Ammo", family = 2 },
+	{ key = "soul", name = "Soul", family = 4 },
+	{ key = "herb", name = "Herbs", family = 32 },
+	{ key = "enchanting", name = "Enchanting", family = 64 },
+	{ key = "engineering", name = "Engineering", family = 128 },
+	{ key = "leatherworking", name = "Leather", family = 8 },
+	{ key = "inscription", name = "Inscription", family = 16 },
+	{ key = "gem", name = "Gems", family = 512 },
+	{ key = "mining", name = "Mining", family = 1024 },
+	{ key = "skinning", name = "Skinning", family = 33554432 },
+	{ key = "tackle", name = "Fishing", family = 32768 },
+	{ key = "cooking", name = "Cooking", family = 65536 },
+	{ key = "special", name = "Special" }, -- a family not listed here
+}
 
 -- The default layout: Tomte's own list, from the game's item classes. A node is
 --   { kind = "category", key, name, rule = "<search>" | auto = "new" | "set" | "empty" | "other", priority,
@@ -44,6 +65,16 @@ ns.BAGS_LAYOUT = {
 	{ kind = "category", key = "junk", name = "Junk", rule = "is:junk", priority = 8 },
 	{ kind = "category", key = "empty", name = "Empty", auto = "empty", priority = 20 },
 }
+
+-- Forever has no Mythic+ and no housing: those categories would only be clutter on its categories page.
+if ns.FOREVER then
+	local RETAIL_ONLY = { keystone = true, decor = true }
+	for i = #ns.BAGS_LAYOUT, 1, -1 do
+		if RETAIL_ONLY[ns.BAGS_LAYOUT[i].key] then
+			table.remove(ns.BAGS_LAYOUT, i)
+		end
+	end
+end
 
 -- Rule texts compiled once: [text] = matcher, or false when the text doesn't compile; [text] = true in withText when
 -- the rule has words (they also look in the tooltip text, item.text).
@@ -240,7 +271,7 @@ function ns.Bags_SortItems(list, method, reverse)
 end
 
 -- The marks an item can carry, in the order they win a shared corner: junk coin, Gear Check's arrow, the crafting
--- list's count, the transmog X, the equipment set mark, a battle pet's level, the item level.
+-- list's count, the transmog badge, the equipment set mark, a battle pet's level, the item level.
 ns.BAGS_MARKS = { "junk", "upgrade", "crafting", "transmog", "set", "petlevel", "ilvl" }
 
 -- Which mark each corner shows: has[mark] is true (or a value) when the item carries it, corners[mark] is the corner
@@ -277,9 +308,84 @@ function ns.Bags_Fits(item, situation, pays)
 end
 
 -- Junk: grey, sells for something, and not soulbound (a soulbound grey is a keepsake like a rolled message or a
--- quest leftover, not vendor trash). quality: Enum.ItemQuality (0 = Poor).
-function ns.Bags_IsJunk(quality, noValue, bind)
-	return quality == 0 and not noValue and bind ~= "soulbound"
+-- quest leftover, not vendor trash), and not gear Gear Check calls an upgrade (while leveling a grey can be one).
+-- quality: Enum.ItemQuality (0 = Poor). upgrade: the item's Gear Check arrow, if any.
+function ns.Bags_IsJunk(quality, noValue, bind, upgrade)
+	return quality == 0 and not noValue and bind ~= "soulbound" and not upgrade
+end
+
+-- Free slots ----------------------------------------------------------------------------------------------------------
+
+local KIND_BY_FAMILY, KIND_NAMES = {}, {}
+for _, kind in ipairs(ns.BAGS_SLOT_KINDS) do
+	KIND_NAMES[kind.key] = kind.name
+	if kind.family then
+		KIND_BY_FAMILY[kind.family] = kind.key
+	end
+end
+
+-- The kind of slot a bag has, from its family.
+function ns.Bags_SlotKind(family, isReagentBag)
+	if isReagentBag then
+		return "reagent"
+	elseif not family or family == 0 then
+		return "normal"
+	end
+	return KIND_BY_FAMILY[family] or "special"
+end
+
+function ns.Bags_SlotKindName(kind)
+	return KIND_NAMES[kind]
+end
+
+-- Whether a bag of this family takes an item of this family: an ordinary bag takes anything, a special one only what
+-- shares a bit with it. Lua 5.1 has no bit operators and the game's bit library isn't in the tests, so the bits are walked.
+function ns.Bags_BagTakes(bagFamily, itemFamily)
+	if not bagFamily or bagFamily == 0 then
+		return true
+	end
+	local a, b = bagFamily, itemFamily or 0
+	while a > 0 and b > 0 do
+		if a % 2 == 1 and b % 2 == 1 then
+			return true
+		end
+		a, b = math.floor(a / 2), math.floor(b / 2)
+	end
+	return false
+end
+
+-- bags: { { free, total, kind } }. Returns free and total slots that take anything, and the other kinds this character
+-- has: { { kind, name, free, total } } in BAGS_SLOT_KINDS' order. The reagent bag counts as another kind: it holds only
+-- reagents, so it's no room for gear.
+function ns.Bags_FreeSummary(bags)
+	local byKind = {}
+	for _, bag in ipairs(bags) do
+		if (bag.total or 0) > 0 then
+			local sum = byKind[bag.kind] or { kind = bag.kind, name = KIND_NAMES[bag.kind], free = 0, total = 0 }
+			sum.free, sum.total = sum.free + (bag.free or 0), sum.total + bag.total
+			byKind[bag.kind] = sum
+		end
+	end
+	local others = {}
+	for _, kind in ipairs(ns.BAGS_SLOT_KINDS) do
+		if kind.key ~= "normal" and byKind[kind.key] then
+			others[#others + 1] = byKind[kind.key]
+		end
+	end
+	local normal = byKind.normal
+	return normal and normal.free or 0, normal and normal.total or 0, others
+end
+
+-- "Quiver 5, Soul 3", or nil with no other kinds.
+function ns.Bags_OtherFreeText(others)
+	if #others == 0 then
+		return nil
+	end
+	local parts = {}
+	for i, other in ipairs(others) do
+		parts[i] = ("%s %d"):format(other.name, other.free)
+	end
+	return table.concat(parts, ", ")
 end
 
 -- Keeping places while a window that takes items is open (selling, mailing): items don't move, a slot that emptied
