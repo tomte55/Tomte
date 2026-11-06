@@ -40,6 +40,7 @@ Core/Content.lua
 Data/Forever/Teleports.lua
 Data/Forever/Buffs.lua
 Data/Forever/Rogue.lua
+Data/Forever/Tools.lua
 Core/Journal.lua
 Core/CheckData.lua
 Core/Check.lua

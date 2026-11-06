@@ -164,6 +164,13 @@ local HOLDING = {
 	[53] = true, [67] = true, [68] = true,
 }
 local holdingOpen = {} -- [interaction type] = true while open
+local VENDOR_MERCHANT, VENDOR_VENDOR = 5, 12 -- Enum.PlayerInteractionType: Merchant, Vendor
+
+-- Whether a vendor's window is open. From the event, which comes before the first draw of the visit: a category hidden
+-- at a vendor must never be on screen with the window open. Used by the bag window (Window.lua).
+function ns.Bags_AtVendor()
+	return holdingOpen[VENDOR_MERCHANT] or holdingOpen[VENDOR_VENDOR] or false
+end
 
 function events:PLAYER_INTERACTION_MANAGER_FRAME_SHOW(kind)
 	if HOLDING[kind] then

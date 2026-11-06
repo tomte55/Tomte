@@ -275,6 +275,12 @@ local function Flags(node)
 	if node.hidden then
 		flags[#flags + 1] = "h"
 	end
+	if node.vendor then
+		flags[#flags + 1] = "v:" .. node.vendor
+	end
+	if node.color then
+		flags[#flags + 1] = "c:" .. node.color
+	end
 	for _, place in ipairs(PLACES) do
 		if node.shows and node.shows[place] == false then
 			flags[#flags + 1] = "-" .. place
@@ -289,6 +295,15 @@ local function ReadFlags(node, text)
 			node.ownLine = true
 		elseif flag == "h" then
 			node.hidden = true
+		elseif flag == "v:fade" or flag == "v:hide" then
+			node.vendor = flag:sub(3)
+		elseif flag:sub(1, 2) == "c:" then
+			-- Shared text comes from someone else: only a color this list knows.
+			for _, tint in ipairs(ns.BAGS_TINTS) do
+				if tint.role == flag:sub(3) then
+					node.color = tint.role
+				end
+			end
 		elseif flag:sub(1, 1) == "-" then
 			node.shows = node.shows or {}
 			node.shows[flag:sub(2)] = false

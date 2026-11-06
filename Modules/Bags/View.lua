@@ -94,7 +94,7 @@ function View:CategoryBlocks(items, layout, place)
 			ns.Bags_SortItems(list, db.sortMethod, db.sortReverse)
 		end
 		blocks[#blocks + 1] = { kind = "category", key = node.key, label = node.name, count = #list, section = section,
-			ownLine = node.ownLine }
+			ownLine = node.ownLine, color = node.color }
 		contents[node.key] = list
 	end
 	for _, node in ipairs(layout) do
@@ -126,7 +126,8 @@ function View:Release()
 	self.snapshot = nil
 end
 
--- Draws items. opts: layout (category nodes), place ("bags" | "bank" | "warband"), holding (keep places),
+-- Draws items. opts: layout (category nodes), place ("bags" | "bank" | "warband"), holding (keep places), atVendor (a
+-- vendor is open: categories fade or hide by their setting; self.vendorHidden says how many items went),
 -- matches(item) -> bright or faded, pays(item) -> the open vendor takes it as payment (optional), paint (Buttons.lua's
 -- paint options), button(item) -> the item's button (default: its bag slot's). Returns the drawn width and height.
 function View:Draw(items, opts)
@@ -159,6 +160,25 @@ function View:Draw(items, opts)
 		self.snapshot, self.was = ns.Bags_Snapshot(contents)
 	else
 		self.snapshot, self.was = nil, nil
+	end
+	-- After the kept places, so the snapshot still holds these slots: dropped from the kept places instead, a slot with
+	-- a hidden item would draw as an empty hole whose button still sells the item on a right-click.
+	local marks
+	self.vendorHidden = 0
+	if opts.atVendor then
+		local categories = ns.Bags_Flatten(opts.layout)
+		if db.view == "single" and ns.Bags_RulesUseText(categories) then
+			ns.BagsRead_LoadText(items) -- the category view has read them already
+		end
+		marks, self.vendorHidden = ns.Bags_VendorMarks(items, categories, opts.place)
+		if self.vendorHidden > 0 then
+			contents = ns.Bags_DropHidden(contents, marks)
+			for _, block in ipairs(blocks) do
+				if block.kind == "category" then
+					block.count = #(contents[block.key] or {})
+				end
+			end
+		end
 	end
 	local size = db.iconSize
 	local measure = self:Label(0) -- never shown: measures category labels for Layout.lua
@@ -201,8 +221,9 @@ function View:Draw(items, opts)
 			for i, cell in ipairs(p.cells) do
 				local item = list[i]
 				local button = opts.button and opts.button(item, i) or ns.BagsButtons_Get(item.bag, item.slot, body)
-				paint.matches = opts.matches(item)
+				paint.matches = opts.matches(item) and not (marks and marks[item] == "fade")
 				paint.free = item.free
+				paint.tint = block.color
 				paint.pays = opts.pays ~= nil and opts.pays(item) or nil
 				anyMatch = anyMatch or paint.matches
 				ns.BagsButtons_Place(button, body, cell.x, cell.y, size)
@@ -213,6 +234,7 @@ function View:Draw(items, opts)
 				nLabels = nLabels + 1
 				local fs = self:Label(nLabels)
 				fs:SetText(block.label)
+				UI.SetTextRole(fs, block.color or "textMuted")
 				fs:SetWidth(math.max(p.width, size))
 				fs:ClearAllPoints()
 				fs:SetPoint("TOPLEFT", body, "TOPLEFT", p.x, -p.y)

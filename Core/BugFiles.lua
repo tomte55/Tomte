@@ -453,6 +453,7 @@ ns.BUG_FILES = {
 	"Data/Forever/Teleports.lua",
 	"Data/Forever/Buffs.lua",
 	"Data/Forever/Rogue.lua",
+	"Data/Forever/Tools.lua",
 	"Panel/ForeverArt.lua",
 	"Panel/ForeverTabs.lua",
 	"Modules/Rogue/Forever.lua",

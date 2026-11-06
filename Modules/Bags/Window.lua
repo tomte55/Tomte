@@ -138,6 +138,7 @@ local function Draw()
 	local n = 0
 	local width, height = view:Draw(items, {
 		layout = ns.Bags_Layout(), place = "bags", holding = holding and not viewChar, paint = PaintOptions(),
+		atVendor = not viewChar and (ns.Bags_AtVendor() or (MerchantFrame and MerchantFrame:IsShown())),
 		matches = function(item)
 			return Matches(item, situation, pays)
 		end,
@@ -234,6 +235,10 @@ local function DrawFooter()
 	local free, total, others = FreeSlots()
 	local text = free == 1 and "1 free slot" or ("%s free slots"):format(ns.Thousands(free))
 	local other = ns.Bags_OtherFreeText(others)
+	if view.vendorHidden and view.vendorHidden > 0 then
+		local hidden = ("%d hidden at the vendor"):format(view.vendorHidden)
+		other = other and (other .. "  ·  " .. hidden) or hidden
+	end
 	UI.SetTextRole(footer.free, free == 0 and "warning" or "textMuted")
 	footer.free:SetText(other and (text .. UI.Wrap("  ·  " .. other, "textFaint")) or text)
 	footer.meter:SetValue(total > 0 and (total - free) / total or 0)

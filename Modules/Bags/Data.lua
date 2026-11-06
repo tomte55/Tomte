@@ -5,6 +5,9 @@ local addonName, ns = ...
 -- the fields Search.lua lists, plus itemID, link, icon, bag, slot, locked, readable; an empty slot is
 -- { empty = true, kind = a key of BAGS_SLOT_KINDS, bag, slot }.
 
+local CLASS_WEAPON, CLASS_PROFESSION = 2, 19 -- Enum.ItemClass
+local SUBCLASS_FISHING_POLE = 20 -- Enum.ItemWeaponSubclass.Fishingpole
+
 -- The kinds of free slot, in the order they show. A bag's family is the bit C_Container.GetContainerNumFreeSlots returns
 -- for what it can hold (warcraft.wiki.gg ItemFamily); 0 holds anything. The reagent bag goes by its place, not its family.
 ns.BAGS_SLOT_KINDS = {
@@ -29,7 +32,8 @@ ns.BAGS_SLOT_KINDS = {
 -- The default layout: Tomte's own list, from the game's item classes. A node is
 --   { kind = "category", key, name, rule = "<search>" | auto = "new" | "set" | "empty" | "other", priority,
 --     ownLine (a row of its own: nothing shares its line), hidden (its items aren't shown), shows ([place] = false
---     for "bags" / "bank" / "warband" it stays out of), items ([itemID] = true: always in it, before any rule) }
+--     for "bags" / "bank" / "warband" it stays out of), items ([itemID] = true: always in it, before any rule),
+--     vendor ("fade" | "hide": what an open vendor does to its items), color (a role from BAGS_TINTS) }
 --   { kind = "section", key, name, children = { nodes } }
 --   { kind = "divider" }
 -- An item goes to the matching category with the highest priority (default 0); on a tie, the one higher in the list.
@@ -286,6 +290,65 @@ function ns.Bags_CornerMarks(has, corners)
 		end
 	end
 	return shown
+end
+
+-- The item class Tomte files an item under. tools ([itemID] = true) is given only where the game has no profession
+-- equipment class (Forever): tools and fishing poles count as that class, so they stop being weapons to the categories
+-- and to Gear Check.
+function ns.Bags_ItemClass(itemID, classID, subclassID, tools)
+	if tools and (tools[itemID] or (classID == CLASS_WEAPON and subclassID == SUBCLASS_FISHING_POLE)) then
+		return CLASS_PROFESSION
+	end
+	return classID
+end
+
+-- The colors a category can have: theme roles, so they stay readable in every theme.
+ns.BAGS_TINTS = {
+	{ role = "accent", name = "Theme" },
+	{ role = "success", name = "Green" },
+	{ role = "warning", name = "Orange" },
+	{ role = "danger", name = "Red" },
+	{ role = "info", name = "Blue" },
+}
+
+-- What an open vendor does to each item, by its category's setting: [item record] = "fade" | "hide", and how many are
+-- hidden. Items a hidden category already leaves out aren't counted, and Empty's slots have nothing to protect.
+function ns.Bags_VendorMarks(items, categories, place)
+	local marks, hidden = {}, 0
+	local any = false
+	for _, category in ipairs(categories) do
+		any = any or category.vendor ~= nil
+	end
+	if not any then
+		return marks, hidden
+	end
+	local byKey = ns.Bags_Assign(items, categories, place)
+	for _, category in ipairs(categories) do
+		if category.vendor and not category.hidden and category.auto ~= "empty" then
+			for _, item in ipairs(byKey[category.key] or {}) do
+				marks[item] = category.vendor
+				if category.vendor == "hide" then
+					hidden = hidden + 1
+				end
+			end
+		end
+	end
+	return marks, hidden
+end
+
+-- contents ([category key] = { records }) without the records marked "hide".
+function ns.Bags_DropHidden(contents, marks)
+	local out = {}
+	for key, list in pairs(contents) do
+		local kept = {}
+		for _, record in ipairs(list) do
+			if marks[record] ~= "hide" then
+				kept[#kept + 1] = record
+			end
+		end
+		out[key] = kept
+	end
+	return out
 end
 
 -- Whether an item can go where the open window wants it (the windows Blizzard's item context matching doesn't

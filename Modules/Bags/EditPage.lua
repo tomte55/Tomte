@@ -4,9 +4,9 @@ local addonName, ns = ...
 -- 2026-10-27-tomte-bags-ui-design.md). A band with two clusters (add a category, section or divider; share, import,
 -- defaults), the list left in a tray (EditList.lua, rows drag to reorder), and the picked node right: its name as a
 -- large title you can type in, then "What goes in" (the rule, saved as you type, and the items it matches), "When two
--- categories want an item" (priority), "Where it shows" (bags, bank, Warband bank, own row, hidden), "Always in it"
--- (items dropped there, as icons) and a bottom row (section, move up / down, delete). The editing is EditData.lua's;
--- registered in Bags.lua.
+-- categories want an item" (priority), "Where it shows" (bags, bank, Warband bank, own row, hidden), "At a vendor",
+-- "Color", "Always in it" (items dropped there, as icons) and a bottom row (section, move up / down, delete). The editing
+-- is EditData.lua's; registered in Bags.lua.
 
 local LIST_W = 270
 local BAND_H = 34
@@ -17,6 +17,16 @@ local PREVIEW_ICON = 24
 local ALWAYS = 18 -- items shown in "Always in it"
 local ALWAYS_ICON = 28
 local SLIDER_W = 170
+local PRIORITY_W = 22 -- room for the number beside the slider: "-10"
+local LOOK_H = 86 -- the "At a vendor" and "Color" groups: heading, buttons, two lines of help
+local VENDOR_CHOICES = {
+	{ value = "show", text = "Show" }, { value = "fade", text = "Fade" }, { value = "hide", text = "Hide" },
+}
+local VENDOR_HELP = {
+	show = "Its items show as usual when a vendor is open.",
+	fade = "Its items are dimmed when a vendor is open, as a warning. A right-click still sells them.",
+	hide = "Its items are gone while a vendor is open, so you can't sell them from your bags by accident.",
+}
 
 local UI = ns.UI
 
@@ -269,8 +279,12 @@ local function BuildEditor()
 	editor.priority:SetMinMaxValues(-10, 20)
 	editor.priority:SetValueStep(1)
 	editor.priority:SetObeyStepOnDrag(true)
+	editor.priorityValue = UI.Text(editor.prio, 12, "text", "number")
+	editor.priorityValue:SetPoint("TOPRIGHT", -GROUP_PAD, -editor.prio.top - 4)
+	editor.priorityValue:SetWidth(PRIORITY_W)
+	editor.priorityValue:SetJustifyH("RIGHT")
 	local higher = UI.Text(editor.prio, 11, "textFaint")
-	higher:SetPoint("TOPRIGHT", -GROUP_PAD, -editor.prio.top - 4)
+	higher:SetPoint("RIGHT", editor.priorityValue, "LEFT", -4, 0)
 	higher:SetText("higher")
 	editor.priority:SetPoint("RIGHT", higher, "LEFT", -8, 0) -- the slider stretches to the group's width
 	editor.priority.onChange = function(value)
@@ -328,9 +342,62 @@ local function BuildEditor()
 	end)
 	editor.hidden:SetPoint("TOPLEFT", editor.ownLine, "BOTTOMLEFT", 0, -6)
 
+	-- At a vendor: its items show, fade or hide while a vendor is open.
+	editor.vendorGroup = Group(editor, "At a vendor")
+	editor.vendorGroup:SetPoint("TOPLEFT", editor.prio, "BOTTOMLEFT", 0, -GAP)
+	editor.vendorGroup:SetPoint("RIGHT", editor, "CENTER", -GAP / 2, 0)
+	editor.vendorGroup:SetHeight(LOOK_H)
+	editor.vendor = UI.Segmented(editor.vendorGroup)
+	editor.vendor:SetPoint("TOPLEFT", GROUP_PAD, -editor.vendorGroup.top)
+	editor.vendor.choices = function()
+		return VENDOR_CHOICES
+	end
+	editor.vendor.getValue = function()
+		local node = Selected()
+		return node and node.vendor or "show"
+	end
+	editor.vendor.setValue = function(value)
+		Edit(function(node)
+			node.vendor = value ~= "show" and value or nil
+		end)
+	end
+	editor.vendorHelp = UI.Text(editor.vendorGroup, 11, "textMuted")
+	editor.vendorHelp:SetPoint("TOPLEFT", editor.vendor, "BOTTOMLEFT", 0, -6)
+	editor.vendorHelp:SetPoint("RIGHT", -GROUP_PAD, 0)
+	editor.vendorHelp:SetJustifyH("LEFT")
+
+	-- Color: its label and its items' frames.
+	editor.colorGroup = Group(editor, "Color")
+	editor.colorGroup:SetPoint("TOPLEFT", editor.where, "BOTTOMLEFT", 0, -GAP)
+	editor.colorGroup:SetPoint("RIGHT", 0, 0)
+	editor.colorGroup:SetHeight(LOOK_H)
+	editor.color = UI.Segmented(editor.colorGroup)
+	editor.color:SetPoint("TOPLEFT", GROUP_PAD, -editor.colorGroup.top)
+	local colorChoices = { { value = "none", text = "None" } }
+	for _, tint in ipairs(ns.BAGS_TINTS) do
+		colorChoices[#colorChoices + 1] = { value = tint.role, text = tint.name }
+	end
+	editor.color.choices = function()
+		return colorChoices
+	end
+	editor.color.getValue = function()
+		local node = Selected()
+		return node and node.color or "none"
+	end
+	editor.color.setValue = function(value)
+		Edit(function(node)
+			node.color = value ~= "none" and value or nil
+		end)
+	end
+	local colorHelp = UI.Text(editor.colorGroup, 11, "textMuted")
+	colorHelp:SetPoint("TOPLEFT", editor.color, "BOTTOMLEFT", 0, -6)
+	colorHelp:SetPoint("RIGHT", -GROUP_PAD, 0)
+	colorHelp:SetJustifyH("LEFT")
+	colorHelp:SetText("Colors its label and the frames of its items.")
+
 	-- Always in it: items dropped here go in whatever the rules say.
 	editor.alwaysGroup = Group(editor, "Always in it")
-	editor.alwaysGroup:SetPoint("TOPLEFT", editor.prio, "BOTTOMLEFT", 0, -GAP)
+	editor.alwaysGroup:SetPoint("TOPLEFT", editor.vendorGroup, "BOTTOMLEFT", 0, -GAP)
 	editor.alwaysGroup:SetPoint("RIGHT", 0, 0)
 	editor.alwaysGroup:SetHeight(26 + ALWAYS_ICON + 12 + GROUP_PAD)
 	editor.drop = CreateFrame("Button", nil, editor.alwaysGroup)
@@ -418,7 +485,7 @@ local function BuildEditor()
 end
 
 -- What shows for each kind of node.
-local CATEGORY_ONLY = { "what", "prio", "where", "alwaysGroup", "section" }
+local CATEGORY_ONLY = { "what", "prio", "where", "vendorGroup", "colorGroup", "alwaysGroup", "section" }
 
 local function DrawEditor(items)
 	local node = Selected()
@@ -489,9 +556,14 @@ local function DrawEditor(items)
 		end
 	end
 	editor.priority:SetValue(node.priority or 0)
+	editor.priorityValue:SetText(tostring(node.priority or 0))
 	editor.ownLine:SetChecked(node.ownLine == true)
 	editor.hidden:SetChecked(node.hidden == true)
 	editor.places:Refresh()
+	editor.vendorGroup:SetShown(node.auto ~= "empty") -- empty slots have nothing to sell
+	editor.vendor:Refresh()
+	editor.vendorHelp:SetText(VENDOR_HELP[node.vendor or "show"])
+	editor.color:Refresh()
 	DrawAlways(node)
 	editor.section:Refresh()
 end

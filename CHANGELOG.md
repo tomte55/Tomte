@@ -16,13 +16,15 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
-- **Themes:** a Forever theme, on World of Warcraft: Forever only, that makes Tomte look like part of the game: its metal frames, rock background, red buttons, stat headings, progress bars and checkboxes, with the Tomte window's pages as icon tabs on its right edge. Pick it in Settings > Tomte window > Theme.
+- **Themes:** a Forever theme, on World of Warcraft: Forever only, that makes Tomte look like part of the game: its metal frames, rock background, red buttons, stat headings, progress bars and checkboxes, search boxes and tooltip-style toasts, with the Tomte window's pages as icon tabs on its right edge and Whispers written like chat. Pick it in Settings > Tomte window > Theme.
 
 ### Improved
 
 - **Leveling:** the ammo button at vendors fills your quiver or ammo pouch in one click, exactly to the brim with nothing spilling into your other bags, and shows the total price. A new setting buys by itself when you open the vendor, spending at most a quarter of your gold. The button no longer goes away with the ammo warning.
 - **Leveling:** the low supplies toast names the ammo with its icon and how much is left, and its title says what ran low.
 - **Bags:** gear whose armor or weapon type you can't use now shows as unusable, not only gear with a red class, skill or level line.
+- **Bags:** a category can now fade or hide its items while a vendor is open, so you can't sell them by accident, and can have its own color on its label and item frames.
+- **Bags:** on Forever, profession tools and fishing poles go in Profession equipment, and stop counting as weapons for categories and Gear Check.
 
 ## v1.27.0 - 2026-11-06
 

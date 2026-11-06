@@ -33,7 +33,8 @@ local function Record(id)
 	end
 	return {
 		itemID = id, icon = icon, name = C_Item.GetItemNameByID(id), typeName = typeName, subTypeName = subTypeName,
-		equipLoc = equipLoc, classID = classID, subclassID = subclassID, quality = C_Item.GetItemQualityByID(id),
+		equipLoc = equipLoc, classID = ns.BagsRead_ItemClass(id, classID, subclassID), subclassID = subclassID,
+		quality = C_Item.GetItemQualityByID(id),
 		readable = true,
 	}
 end

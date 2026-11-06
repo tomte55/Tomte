@@ -22,6 +22,13 @@ local CAN_BE_UNUSABLE = { [WEAPON] = true, [ARMOR] = true, [RECIPE] = true, [PRO
 local RED_MIN, OTHER_MAX = 0.99, 0.2
 -- Hearthstones that are bag items, not toys: Hearthstone, Garrison Hearthstone, Dalaran Hearthstone.
 local HEARTHS = { [6948] = true, [110560] = true, [140192] = true }
+-- Forever has no profession equipment class: Bags_ItemClass files its tools under it. Nil on retail.
+local TOOLS = ns.FOREVER and ns.Content_Get(ns.CONTENT_FOREVER, "professionTools") or nil
+
+-- The class to file an item under on this client, for records made elsewhere (Find.lua).
+function ns.BagsRead_ItemClass(itemID, classID, subclassID)
+	return ns.Bags_ItemClass(itemID, classID, subclassID, TOOLS)
+end
 
 local IsSecret = ns.IsSecret
 local BindState = ns.Bags_BindState
@@ -154,6 +161,7 @@ local function Record(bag, slot, info)
 		return { bag = bag, slot = slot, link = link, itemID = itemID, icon = info.iconFileID,
 			count = info.stackCount or 1, quality = info.quality, readable = false }, true
 	end
+	classID = ns.Bags_ItemClass(itemID, classID, subclassID, TOOLS)
 	local location = ItemLocation:CreateFromBagAndSlot(bag, slot)
 	local item = {
 		bag = bag, slot = slot, link = link, itemID = itemID, icon = info.iconFileID, readable = true,
@@ -256,6 +264,7 @@ function ns.BagsRead_FromList(list)
 		elseif name then
 			item.readable = true
 			item.name, item.typeName, item.subTypeName, item.equipLoc = name, typeName, subTypeName, equipLoc
+			classID = ns.Bags_ItemClass(entry.id, classID, subclassID, TOOLS)
 			item.quality, item.price, item.classID, item.subclassID = quality, price, classID, subclassID
 			item.expansion = expansion
 			item.bind = BindState(bindType, nil)

@@ -367,12 +367,14 @@ end
 
 -- The hairline frame and fill for an item (nil: an empty slot), kept for the hover to come back to. pays: the open
 -- vendor takes the item as payment, framed in the accent instead of its quality.
-local function Frame(button, e, item, pays)
+local function Frame(button, e, item, pays, tint)
 	if item then
 		e.fill:SetColorTexture(0, 0, 0, FILL)
 		local q = item.quality
 		if pays then
 			e.edge, e.edgeAlpha = "accent", 1
+		elseif tint then
+			e.edge, e.edgeAlpha = tint, 1
 		elseif q and q >= QUALITY_FRAME then
 			local r, g, b = C_Item.GetItemQualityColor(q)
 			e.edge, e.edgeAlpha = { r, g, b }, 1
@@ -398,7 +400,7 @@ local function PaintView(button, e, item, opts)
 	button.link = item.link
 	button:SetItemButtonTexture(item.icon)
 	SetItemButtonQuality(button, item.quality, item.link)
-	Frame(button, e, item)
+	Frame(button, e, item, nil, opts.tint)
 	SetItemButtonCount(button, item.count)
 	SetItemButtonDesaturated(button, opts.greyJunk and item.junk)
 	PlaceMarks(button, e, item, opts)
@@ -423,7 +425,8 @@ end
 -- Paints a button for its record. opts: matches (false: faded by the search), free (the free-slot count an Empty
 -- slot shows, or nil), corners ([mark] = "TOPLEFT" | "TOPRIGHT" | "BOTTOMLEFT" | "BOTTOMRIGHT" | "off"), ilvlColor
 -- ("quality" | "plain"), fontSize, newGlow, greyJunk, redUnusable, context (fade items that don't fit the open
--- window: Blizzard's item context matching), pays (the open vendor takes the item as payment).
+-- window: Blizzard's item context matching), pays (the open vendor takes the item as payment), tint (its category's
+-- color role, for the frame).
 function ns.BagsButtons_Paint(button, item, opts)
 	local e = Extras(button)
 	SetNumberFont(button, e, opts.fontSize)
@@ -466,7 +469,7 @@ function ns.BagsButtons_Paint(button, item, opts)
 		button:SetHasItem(item.icon)
 		button:SetItemButtonTexture(item.icon)
 		SetItemButtonQuality(button, item.quality, item.link, false, item.bind == "soulbound")
-		Frame(button, e, item, opts.pays)
+		Frame(button, e, item, opts.pays, opts.tint)
 		SetItemButtonCount(button, item.count)
 		SetItemButtonDesaturated(button, item.locked or (opts.greyJunk and item.junk))
 		e.red = opts.redUnusable and item.unusable or false -- painted by UpdateCooldown below

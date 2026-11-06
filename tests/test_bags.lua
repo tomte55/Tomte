@@ -8,6 +8,70 @@ local test, eq = H.test, H.eq
 
 local categories = ns.Bags_Flatten(ns.BAGS_LAYOUT)
 
+test("ItemClass: tools count as profession equipment where the game has no such class", function()
+	local WEAPON, TRADE, PROFESSION, DAGGER, FISHING = 2, 7, 19, 15, 20
+	local tools = { [7005] = true, [5956] = true }
+	eq(ns.Bags_ItemClass(7005, WEAPON, DAGGER, tools), PROFESSION, "skinning knife, a dagger")
+	eq(ns.Bags_ItemClass(5956, TRADE, 0, tools), PROFESSION, "a tool that isn't a weapon")
+	eq(ns.Bags_ItemClass(6256, WEAPON, FISHING, tools), PROFESSION, "a fishing pole, by its subclass")
+	eq(ns.Bags_ItemClass(1234, WEAPON, DAGGER, tools), WEAPON, "any other dagger")
+	eq(ns.Bags_ItemClass(1234, TRADE, FISHING, tools), TRADE, "the subclass only means a pole on a weapon")
+	eq(ns.Bags_ItemClass(7005, WEAPON, DAGGER, nil), WEAPON, "retail: no list, the game's own class")
+	eq(ns.Bags_ItemClass(6256, WEAPON, FISHING, nil), WEAPON)
+end)
+
+test("the profession rule takes a tool, and the weapon rule no longer does", function()
+	local tool = { classID = ns.Bags_ItemClass(7005, 2, 15, { [7005] = true }), subclassID = 15, name = "Skinning Knife" }
+	local byKey = ns.Bags_Assign({ tool }, categories)
+	eq(byKey.profession and #byKey.profession, 1)
+	eq(byKey.weapon, nil)
+end)
+
+test("VendorMarks: each item gets its winning category's setting", function()
+	local knife, bread, arrow = { name = "Knife" }, { name = "Bread" }, { name = "Arrow" }
+	local cats = {
+		{ key = "keep", rule = "knife", vendor = "hide" },
+		{ key = "food", rule = "bread", vendor = "fade" },
+		{ key = "rest", rule = "arrow" },
+	}
+	local marks, hidden = ns.Bags_VendorMarks({ knife, bread, arrow }, cats, "bags")
+	eq(marks[knife], "hide")
+	eq(marks[bread], "fade")
+	eq(marks[arrow], nil)
+	eq(hidden, 1, "only hidden ones are counted")
+end)
+
+test("VendorMarks: a higher priority category decides", function()
+	local knife = { name = "Knife" }
+	local marks, hidden = ns.Bags_VendorMarks({ knife }, {
+		{ key = "keep", rule = "knife", vendor = "hide" },
+		{ key = "sell", rule = "knife", priority = 5 },
+	}, "bags")
+	eq(marks[knife], nil, "the item is in the category that doesn't hide")
+	eq(hidden, 0)
+end)
+
+test("VendorMarks: nothing set, a hidden category, and Empty", function()
+	local knife = { name = "Knife" }
+	local marks, hidden = ns.Bags_VendorMarks({ knife }, { { key = "a", rule = "knife" } }, "bags")
+	eq(next(marks), nil, "no category asks")
+	marks, hidden = ns.Bags_VendorMarks({ knife }, { { key = "a", rule = "knife", vendor = "hide", hidden = true } }, "bags")
+	eq(hidden, 0, "already left out")
+	local slot = { empty = true, kind = "normal" }
+	marks, hidden = ns.Bags_VendorMarks({ slot }, { { key = "empty", auto = "empty", vendor = "hide" } }, "bags")
+	eq(marks[slot], nil)
+	eq(hidden, 0)
+end)
+
+test("DropHidden: removes hidden records, keeps order and the rest", function()
+	local a, b, c = { name = "a" }, { name = "b" }, { name = "c" }
+	local out = ns.Bags_DropHidden({ one = { a, b, c }, two = { b } }, { [b] = "hide", [c] = "fade" })
+	eq(#out.one, 2)
+	eq(out.one[1], a)
+	eq(out.one[2], c, "faded stays")
+	eq(#out.two, 0)
+end)
+
 test("rules with words need the tooltip text read first", function()
 	eq(ns.Bags_RulesUseText({ { rule = "is:junk" }, { rule = "ilvl>600" } }), false, "keywords only")
 	eq(ns.Bags_RulesUseText({ { rule = "is:junk" }, { rule = "artifact" } }), true, "a word")

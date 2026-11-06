@@ -180,6 +180,27 @@ test("saving a search under the same name replaces it", function()
 	eq(searches[1].text, "is:upgrade ilvl>600")
 end)
 
+test("export and import carry the vendor setting and color", function()
+	local c = { kind = "category", key = "k", name = "Keep", rule = "is:tool", vendor = "hide", color = "danger" }
+	local other = small()
+	assert(ns.BagsEdit_Import(other, ns.BagsEdit_Export({ c })))
+	eq(other[1].vendor, "hide")
+	eq(other[1].color, "danger")
+	other = small()
+	assert(ns.BagsEdit_Import(other, ns.BagsEdit_Export({ { kind = "category", key = "p", name = "Plain", rule = "" } })))
+	eq(other[1].vendor, nil, "unset stays unset")
+	eq(other[1].color, nil)
+end)
+
+test("import ignores a color or vendor setting it doesn't know", function()
+	local text = ns.BagsEdit_Export({ { kind = "category", key = "k", name = "Keep", rule = "", vendor = "sell",
+		color = "chartreuse" } })
+	local other = small()
+	assert(ns.BagsEdit_Import(other, text))
+	eq(other[1].vendor, nil)
+	eq(other[1].color, nil)
+end)
+
 test("export and import round-trip, with odd characters", function()
 	local layout = small()
 	local c = ns.BagsEdit_AddCategory(layout, "Pipes | and \\ slashes", "is:potion | is:food")
