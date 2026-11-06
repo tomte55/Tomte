@@ -234,6 +234,8 @@ Modules/Leveling/HomeSection.lua
 Modules/Leveling/Leveling.lua
 Modules/PetCare/Data.lua
 Modules/PetCare/PetCare.lua
+Modules/Rest/Data.lua
+Modules/Rest/Rest.lua
 Modules/Alts/PlanData.lua
 Modules/Alts/RosterData.lua
 Modules/Alts/GearData.lua

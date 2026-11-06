@@ -469,6 +469,8 @@ ns.BUG_FILES = {
 	"Modules/Leveling/Leveling.lua",
 	"Modules/PetCare/Data.lua",
 	"Modules/PetCare/PetCare.lua",
+	"Modules/Rest/Data.lua",
+	"Modules/Rest/Rest.lua",
 	"Modules/Materials/GeneratedForever.lua",
 	"Modules/Fishing/Rod.lua",
 }

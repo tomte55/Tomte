@@ -305,6 +305,8 @@ function Tomte_Binding(name)
 	end
 end
 BINDING_NAME_TOMTE_TOGGLE = "Toggle Tomte"
+-- Here, not in Modules/Rest: Bindings.xml is the same on both clients, and that module only loads on Forever.
+_G["BINDING_NAME_CLICK TomteRest:LeftButton"] = "Eat and drink (World of Warcraft: Forever)"
 
 -- A key binding of moduleKey's: fn runs while that module is on; while it's off the key says so.
 function ns.Binding_Add(name, moduleKey, fn)
