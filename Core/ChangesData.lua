@@ -10,6 +10,25 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.30.0", date = "2026-11-06",
+		new = {
+			{ module = "sources", text = "On Forever: type any item's name to see who sells it, what it's gathered "
+				.. "from and which mobs drop it, the best places for your level first, with map pins." },
+			{ module = "loot", text = "On Forever: when your bags are full, one click destroys your cheapest grey "
+				.. "junk and loots what didn't fit." },
+			{ module = "leveling", text = "On Forever: a button that puts your armor kit on worn gear with nothing on it." },
+		},
+		improved = {
+			{ module = "gear", text = "On Forever: lighter armor is no longer an upgrade on item level alone, and "
+				.. "enchants and armor kits count." },
+			{ label = "Tomte window", text = "A shorter side column: Stable, Flight coverage, Mount zones, Recent and "
+				.. "Friend sharing open from their settings." },
+		},
+		fixed = {
+			{ module = "whispers", text = "On Forever: the reply key opens the right name the first time." },
+		},
+	},
+	{
 		version = "1.29.0", date = "2026-11-06",
 		new = {
 			{ module = "rest", text = "On Forever: one key or button uses your best food, and drink if you're low on "
