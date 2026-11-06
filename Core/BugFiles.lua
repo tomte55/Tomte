@@ -480,4 +480,6 @@ ns.BUG_FILES = {
 	"Modules/ChatGroups/ChatGroups.lua",
 	"Modules/Materials/GeneratedForever.lua",
 	"Modules/Fishing/Rod.lua",
+	"Modules/Loot/RoomData.lua",
+	"Modules/Loot/Room.lua",
 }

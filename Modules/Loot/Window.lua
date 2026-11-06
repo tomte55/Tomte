@@ -230,6 +230,9 @@ function ns.LootWindow_Draw()
 	state.page, state.pages = ctx.page or 1, ctx.pages or 1
 	frame:SetSize(w, h)
 	SetEscape(state.open or state.preview)
+	if ns.LootRoom_Update then -- Forever only
+		ns.LootRoom_Update(frame, live, state.entries)
+	end
 end
 
 -- API for Loot.lua ------------------------------------------------------------------------------------------------

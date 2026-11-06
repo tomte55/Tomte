@@ -312,9 +312,11 @@ Modules/Share/Page.lua
 Modules/Share/Share.lua
 
 Modules/Loot/Data.lua
+Modules/Loot/RoomData.lua
 Modules/Loot/Read.lua
 Modules/Loot/Parts.lua
 Modules/Loot/Window.lua
+Modules/Loot/Room.lua
 Modules/Loot/Feed.lua
 Modules/Loot/LookStrips.lua
 Modules/Loot/LookPanel.lua

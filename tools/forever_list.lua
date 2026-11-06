@@ -39,6 +39,9 @@ return {
 		{ after = "Panel/Rail.lua", files = { "Panel/ForeverTabs.lua" } },
 		{ after = "Core/Content.lua", files = { "Data/Forever/Teleports.lua", "Data/Forever/Buffs.lua", "Data/Forever/Rogue.lua", "Data/Forever/Tools.lua", "Data/Forever/Fishing.lua", "Data/Forever/Dungeons.lua", "Data/Forever/ArmorKits.lua" } },
 		{ after = "Modules/Fishing/Helpers.lua", files = { "Modules/Fishing/Rod.lua" } },
+		-- The button under the loot window when your bags are full.
+		{ after = "Modules/Loot/Data.lua", files = { "Modules/Loot/RoomData.lua" } },
+		{ after = "Modules/Loot/Window.lua", files = { "Modules/Loot/Room.lua" } },
 		{ after = "Modules/Materials/Data.lua", files = { "Modules/Materials/GeneratedForever.lua" } },
 		{ after = "Modules/Rogue/Lockpick.lua", files = { "Modules/Rogue/Forever.lua" } },
 		-- ForeverItems.lua makes the event bus RewardCard.lua takes at file load; Forever.lua is the main file, so last.

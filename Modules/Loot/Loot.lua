@@ -450,6 +450,9 @@ local function Preview()
 end
 
 local function Why()
+	if ns.LootRoom_Why then -- Forever only
+		ns.LootRoom_Why()
+	end
 	if not last.look then
 		ns.Print("Loot: nothing looted since you logged in.")
 		return
@@ -517,6 +520,7 @@ module = ns.RegisterModule({
 		look = "strips", -- the loot window when looting by hand: "strips" | "panel" | "tiles" (Look*.lua)
 		feedManual = true, -- what you take by hand from the window also goes to the feed
 		fastLoot = true,
+		makeRoom = true, -- Forever: the button under the loot window when your bags are full (Room.lua)
 		lootKey = "E", -- takes all while a loot window is open, out of combat: "E" | "SPACE" | "F" | "off"
 		popups = true, -- replace Blizzard's loot pop-ups with feed lines
 		banner = "blizzard", -- boss loot banner: "blizzard" (unchanged) | "solo" (hidden while solo) | "valuable"
@@ -544,6 +548,9 @@ module = ns.RegisterModule({
 		db = moduleDB
 		ns.LootParts_Init(db)
 		ns.LootWindow_Init(db, module)
+		if ns.LootRoom_Init then -- Forever only
+			ns.LootRoom_Init(db)
+		end
 		ns.LootFeed_Init(db, module)
 		ns.LootToasts_Init(db, module)
 	end,
@@ -573,6 +580,12 @@ module = ns.RegisterModule({
 			tooltip = "What you take from the loot window also slides into the feed, so you see it was looted. Auto loot always uses the feed." },
 		{ type = "checkbox", key = "fastLoot", label = "Fast loot",
 			tooltip = "With auto loot on, take everything the moment the loot opens. Follows the game's auto loot setting and its auto loot key (hold it to loot by hand). Whatever can't be taken stays in the window." },
+		{ type = "checkbox", key = "makeRoom", label = "Make room when your bags are full", shown = function()
+			return ns.FOREVER
+		end, onChange = function()
+			ns.LootRoom_Refresh()
+		end,
+			tooltip = "A button under the loot window when something won't fit. One click destroys your cheapest grey junk and loots it. With no junk left it offers the cheapest common or uncommon item, and that takes a second click. It tells you to leave loot worth less than anything you'd destroy, and never touches quest items, soulbound items, upgrades, food, ammo, bags, profession tools, your hearthstone or anything rare." },
 		{ type = "dropdown", key = "lootKey", label = "Take all key while looting", choices = function()
 			return {
 				{ value = "E", text = "E" },
