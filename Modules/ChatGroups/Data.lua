@@ -61,9 +61,28 @@ local function SaysMore(words)
 	return rest:find("%w") ~= nil
 end
 
+-- The quest a message links: name, level (nil when it doesn't say). A real quest link, or its text as Forever's chat shows it:
+-- "[[12] Hallkor's Hoof (96877)]".
+local function FindQuest(text)
+	local level, name = text:match("|Hquest:%d+:(%-?%d+)[^|]*|h%[(.-)%]|h")
+	if not name then
+		name = text:match("%[(%[%d+%]%s*.-)%]")
+	end
+	if not name then
+		return nil
+	end
+	local inName, rest = name:match("^%[(%d+)%]%s*(.*)$")
+	if inName then
+		level, name = inName, rest
+	end
+	name = name:gsub("%s*%(%d+%)$", "")
+	level = tonumber(level)
+	return name ~= "" and name or nil, level and level > 0 and level or nil
+end
+
 -- What a message says, or nil if it isn't someone looking: { kind = "group" (a group wants people) | "player" (someone wants
--- a group), dungeon = key, or nil for anything else such as a quest, tank, heal, dps }. dungeons: Data/Forever/Dungeons.lua's
--- list.
+-- a group), dungeon = key, or nil for anything else such as a quest, quest and questLevel when it links one, tank, heal, dps }.
+-- dungeons: Data/Forever/Dungeons.lua's list.
 function ns.ChatGroups_Parse(text, dungeons)
 	if type(text) ~= "string" then
 		return nil
@@ -89,7 +108,8 @@ function ns.ChatGroups_Parse(text, dungeons)
 	else
 		return nil
 	end
-	return { kind = kind, dungeon = dungeon and dungeon.key, tank = roles.tank, heal = roles.heal, dps = roles.dps }
+	local quest, questLevel = FindQuest(text)
+	return { kind = kind, dungeon = dungeon and dungeon.key, quest = quest, questLevel = questLevel, tank = roles.tank, heal = roles.heal, dps = roles.dps }
 end
 
 -- Adds an entry { sender, at, ... } at the top: a sender's new message replaces the old one. The oldest fall off the end.
@@ -128,13 +148,22 @@ function ns.ChatGroups_Near(dungeon, level)
 	return dungeon ~= nil and level >= dungeon.min - NEAR_LEVELS and level <= dungeon.max + NEAR_LEVELS
 end
 
--- The entries to show. kind: "all" | "group" | "player". near: only dungeons near level; what names no dungeon stays, as its
--- level isn't known and most of it comes from your own zone's channels.
+-- Whether an entry is near a level: by its dungeon or linked quest. With neither its level isn't known, and it stays: most of those
+-- come from your own zone's channels.
+local function EntryNear(entry, level, byKey)
+	if entry.dungeon then
+		return ns.ChatGroups_Near(byKey[entry.dungeon], level)
+	elseif entry.questLevel then
+		return ns.ChatGroups_Near({ min = entry.questLevel, max = entry.questLevel }, level)
+	end
+	return true
+end
+
+-- The entries to show. kind: "all" | "group" | "player". near: only what's near level.
 function ns.ChatGroups_View(list, kind, near, level, byKey)
 	local out = {}
 	for _, entry in ipairs(list) do
-		if (kind == "all" or entry.kind == kind) and (not near or not entry.dungeon
-			or ns.ChatGroups_Near(byKey[entry.dungeon], level)) then
+		if (kind == "all" or entry.kind == kind) and (not near or EntryNear(entry, level, byKey)) then
 			out[#out + 1] = entry
 		end
 	end
@@ -144,7 +173,11 @@ end
 -- A row's heading: the dungeon, or a word for anything else.
 function ns.ChatGroups_Title(entry, byKey)
 	local dungeon = entry.dungeon and byKey[entry.dungeon]
-	return ("%s: %s"):format(dungeon and dungeon.name or "Quest or other", ns.ChatGroups_RoleText(entry))
+	local what = dungeon and dungeon.name or entry.quest or "Quest or other"
+	if not dungeon and entry.questLevel then
+		what = ("[%d] %s"):format(entry.questLevel, what)
+	end
+	return ("%s: %s"):format(what, ns.ChatGroups_RoleText(entry))
 end
 
 -- "Needs tank, healer", "Looking for a group as a healer", or the plain version when no role was named.
