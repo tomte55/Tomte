@@ -14,9 +14,24 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### New
 
-- **Tomte:** runs on World of Warcraft: Forever, with the modules that work there: Mail, Loot, Vendor Helper, Durability, Gold & value, Flight Timer, Fishing, Drawers, Nameplates, Quests, the chat modules, Whispers, Mentions, Friends, Group Alerts, Friend sharing, AFK Screen, Casino, Recent, Minimap Buttons, Next up and Cursor highlight. `/tomte unlock` moves Tomte's widgets, since that game has no Edit Mode.
+- **Tomte:** runs on World of Warcraft: Forever, with the modules that work there: Bags, Item counts, Alts, Mail, Loot, Vendor Helper, Durability, Gold & value, Gear Check, Smart Mount, Teleports, Waypoints, Flight Timer, Fishing, Gathering, Material uses, Almost Done, Moments, Session recap, Dressing room, Showcase, Talent check, Hunter Pets, Rogue Poisons, Pet Health, Buff reminders, Instances, Tooltip extras, Drawers, Nameplates, Quests, the chat modules, Whispers, Mentions, Friends, Group Alerts, Friend sharing, AFK Screen, Casino, Recent, Minimap Buttons, Next up, Cursor highlight, Graphics presets and Performance. `/tomte unlock` moves Tomte's widgets there.
+- **Leveling (new module):** on Forever, a page and a Home section for leveling: your XP with what your finished quests and rested XP add, what's new at your class trainer, old spell ranks on your bars, talent points, low ammo and reagents, weapon skills that are behind, and your quests sorted by what's worth doing. A button at vendors buys the right ammo, one click per purchase.
+- **Pet care (new module):** on Forever, for Hunters: a button that feeds your pet when it's below happy and you carry food it eats, and a toast naming its diet when you don't.
+- **Gear Check:** on Forever, upgrade verdicts for that game's gear, with a warning on a weapon whose skill is far behind.
+- **Smart Mount:** new settings: pick from favorites first, favorites only or all mounts, class mounts first, a passenger mount in a group, Ctrl for a repair mount (with its own key binding), and when druids and shamans take a travel form instead of a mount.
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
+
+### Improved
+
+- **Bags:** the mark on appearances you haven't collected is a round badge that stands out on busy icons. Free slots count what fits anything, and hovering them lists your reagent bag and special bags, each with its own picture on its free slots.
+
+### Fixed
+
+- **Bags:** a grey item Gear Check calls an upgrade no longer counts as junk.
+- **Loot:** a grey item Gear Check calls an upgrade no longer counts as junk in the loot feed.
+- **Quests:** the talking head line draws above your action bars.
+- **Flight coverage:** flight masters Blizzard retired no longer show up as ones to visit.
 
 ## v1.26.0 - 2026-10-29
 

@@ -118,6 +118,7 @@ Modules/Travel/Guard.lua
 Modules/Travel/Router.lua
 Modules/Travel/Waypoint.lua
 Modules/Mount/Data.lua
+Modules/Mount/Forms.lua
 Modules/Mount/Journal.lua
 Modules/Mount/ZonesPage.lua
 Modules/Mount/Mount.lua
@@ -197,6 +198,7 @@ Modules/Gear/SlotLevels.lua
 Modules/Gear/Context.lua
 Modules/Gear/Tooltip.lua
 Modules/Gear/Hints.lua
+Modules/Gear/Arrow.lua
 Modules/Gear/Baganator.lua
 Modules/Gear/Weights.lua
 Modules/Gear/Gear.lua

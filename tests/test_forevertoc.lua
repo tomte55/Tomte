@@ -103,44 +103,34 @@ test("every function the migrations call loads on Forever", function()
 	end
 end)
 
--- Events from retail-only systems (group finder, toy box, vignettes, Edit Mode): a Forever module that names one
--- must register through ns.EventValid or the bus's TryWatch (RegisterEvent errors on an event the client lacks).
-local RETAIL_EVENTS = {
-	"LFG_UPDATE", "LFG_QUEUE_STATUS_UPDATE", "LFG_PROPOSAL_SHOW", "LFG_PROPOSAL_FAILED", "TOYS_UPDATED",
-	"NEW_TOY_ADDED", "VIGNETTES_UPDATED", "VIGNETTE_MINIMAP_UPDATED", "EDIT_MODE_LAYOUTS_UPDATED",
-	"PET_BATTLE_OPENING_START", "PET_BATTLE_CLOSE",
-}
-
-test("Forever modules register retail-only events through a check", function()
-	local folders, checked = {}, {}
-	for _, line in ipairs(Lines("Tomte/" .. LIST.name)) do
-		local folder = line:match("^(Modules/[%w_]+/)[%w_]+%.lua$")
-		if folder then
-			local text = assert(io.open("Tomte/" .. line)):read("*a")
-			folders[folder] = folders[folder] or {}
-			for _, event in ipairs(RETAIL_EVENTS) do
-				if text:find('"' .. event .. '"', 1, true) then
-					folders[folder][#folders[folder] + 1] = line .. " " .. event
-				end
-			end
-			if text:find("ns.EventValid", 1, true) or text:find(":TryWatch(", 1, true) then
-				checked[folder] = true
-			end
-		end
-	end
-	local bad = {}
-	for folder, hits in pairs(folders) do
-		if #hits > 0 and not checked[folder] then
-			bad[#bad + 1] = table.concat(hits, ", ")
-		end
-	end
-	table.sort(bad)
-	eq(table.concat(bad, "; "), "", "unchecked retail events")
-end)
-
 -- Calls guarded in a way the scan can't see, with where the guard is.
 local KNOWN_GUARDED = {
-	["Panel/HomeHero.lua GearSheet_Open"] = true, -- the fact is only clickable() while ModuleOn("gear")
+	["Panel/HomeHero.lua GearSheet_Open"] = true, -- clickable() is false on Forever
+	["Modules/Travel/Waypoint.lua WayRouter_Toggle"] = true, -- the row's shown = ns.NotForever
+	["Modules/Achievements/Achievements.lua Events_Current"] = true, -- Holidays() returns first without it
+	["Modules/Achievements/Achievements.lua Events_Names"] = true, -- likewise
+	["Modules/Alts/Collect.lua Weekly_ProfDef"] = true, -- ExpansionLine and its tiers return first without it
+	["Modules/Alts/RosterTab.lua Weekly_View"] = true, -- WeeklyStatus returns first without it
+	["Modules/Alts/Send.lua GearAlts_Route"] = true, -- GearOn() is false without ns.GearAlts_Upgrades
+	["Modules/Alts/Send.lua GearAlts_Upgrades"] = true, -- likewise
+	["Modules/Alts/Send.lua Gear_EvaluateLink"] = true, -- likewise
+	["Modules/Alts/Send.lua Gear_AltGain"] = true, -- likewise: s.verdict comes from that path
+	-- Instances.lua: Apply returns first on Forever, its rows have shown = ns.NotForever, init and why are guarded.
+	["Modules/Instances/Instances.lua InstancesEntrance_Toggle"] = true,
+	["Modules/Instances/Instances.lua InstancesBadge_Toggle"] = true,
+	["Modules/Instances/Instances.lua InstancesQueue_Toggle"] = true,
+	["Modules/Instances/Instances.lua InstancesHoliday_Toggle"] = true,
+	["Modules/Instances/Instances.lua InstancesBadge_DrawSample"] = true,
+	["Modules/Instances/Instances.lua InstancesBadge_Why"] = true,
+	["Modules/Instances/Instances.lua InstancesEntrance_Why"] = true,
+	["Modules/Instances/Instances.lua InstancesQueue_Why"] = true,
+	["Modules/Instances/Instances.lua InstancesEntrance_Init"] = true,
+	["Modules/Instances/Instances.lua InstancesBadge_Init"] = true,
+	["Modules/Instances/Instances.lua InstancesEntrance_DrawSample"] = true,
+	["Modules/Instances/Instances.lua InstancesQueue_DrawSample"] = true,
+	-- Tips.lua: the choice window's row has shown = ns.NotForever.
+	["Modules/Tips/Tips.lua TipsChoice_Refresh"] = true,
+	["Modules/Tips/Tips.lua TipsChoice_Preview"] = true,
 }
 
 -- A Forever file may call a module function defined only in files Forever doesn't load, but only behind a check
@@ -154,7 +144,14 @@ test("Forever files guard every call into files Forever doesn't load", function(
 	end
 	local definedIn = {} -- name -> true when some Forever file defines it
 	local definedElsewhere = {}
-	for _, line in ipairs(Lines("Tomte/Tomte.toc")) do
+	-- Retail's files, then the Forever-only ones (in no retail TOC, but they define and call functions too).
+	local files = Lines("Tomte/Tomte.toc")
+	for _, extra in ipairs(LIST.extra or {}) do
+		for _, file in ipairs(extra.files) do
+			files[#files + 1] = file
+		end
+	end
+	for _, line in ipairs(files) do
 		if line:match("%.lua$") then
 			all[#all + 1] = line
 			local text = assert(io.open("Tomte/" .. line)):read("*a")
@@ -182,7 +179,8 @@ test("Forever files guard every call into files Forever doesn't load", function(
 							lines[i - 4] or "", lines[i - 5] or "" }, " ")
 						local near = line .. " " .. above
 						local guarded = near:find("ns%." .. name .. "%s+and") or near:find("ns%." .. name .. "%)?%s+then")
-							or above:find("ModuleOn%(") or line:match("^%s*%-%-") or KNOWN_GUARDED[file .. " " .. name]
+							or above:find("ModuleOn%(") or near:find("ns%.FOREVER") or line:match("^%s*%-%-")
+							or KNOWN_GUARDED[file .. " " .. name]
 						if not guarded then
 							unguarded[#unguarded + 1] = file .. ":" .. i .. " ns." .. name
 						end

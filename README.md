@@ -49,10 +49,13 @@ Works better with (all optional): Auctionator or TradeSkillMaster, Mount Journal
 counts do what Baganator and Syndicator do; if you keep those, Tomte works with them too.
 
 **World of Warcraft: Forever:** the same download works there; unzip it into `_forever_\Interface\AddOns`. Forever gets
-Mail, Loot, Vendor Helper, Durability, Gold & value, Flight Timer, Fishing, Drawers, Nameplates, Quests, the chat
-modules, Whispers, Mentions, Friends, Group Alerts, Friend sharing, AFK Screen, Casino, Recent, Minimap Buttons, Next up
-and Cursor highlight. Anything else in this README is retail only for now. Move Tomte's widgets with `/tomte unlock`
-and `/tomte lock`.
+Bags, Item counts, Alts, Mail, Loot, Vendor Helper, Durability, Gold & value, Gear Check, Smart Mount, Teleports,
+Waypoints, Flight Timer, Fishing, Gathering, Material uses, Almost Done, Moments, Session recap, Dressing room, Showcase,
+Talent check, Hunter Pets, Rogue Poisons, Pet Health, Buff reminders, Instances, Tooltip extras, Drawers, Nameplates,
+Quests, the chat modules, Whispers, Mentions, Friends, Group Alerts, Friend sharing, AFK Screen, Casino, Recent, Minimap
+Buttons, Next up, Cursor highlight, Graphics presets and Performance, some with fewer features where that game has less to
+work with. Leveling and Pet care are Forever only. Anything else in this README is retail only for now. Move Tomte's
+widgets with `/tomte unlock` and `/tomte lock`.
 
 ## A tour
 
@@ -317,7 +320,9 @@ are Tomte window settings.
 | Holidays & events | Collections | The world events on now and starting soon, what you're still missing from each holiday (mounts, battle pets, toys, achievements), the holiday's daily boss and the Darkmoon Faire profession quests. On Home, on an Events page, in Next up, in the Weekly board's "Still open" list, and as a toast when a holiday starts (optionally a day before). |
 | Flight Timer | Travel | Times flight paths account-wide and shows a countdown while flying, with an optional cinematic flight mode (with a games drawer on the right to play the Casino while you fly). Coverage tab and a flight master map show which routes you've timed. |
 | Waypoints | Travel | An in-world marker for whatever you track (quest, map pin, POI, rare, corpse): icon, optional beam, name, distance and arrival time. Up close it turns into a card with the objectives; off-screen, an arrow at the edge points to it. Classic or Minimal style. Map pins are tracked as soon as you place them, a map pin on another continent is routed through the portals, zeppelins and boats on the way, and a guard's directions can become a map pin (Never, Ask or Always). World quests and events show a countdown, the map pings your arrow when it opens, and two keys cycle the focus through your tracked quests. Replaces WaypointUI. |
-| Smart Mount | Travel | One key (Key Bindings > Tomte > Smart Mount) that summons a mount that fits where you are (underwater, flying or ground) from your zone favorites, then journal favorites, then all usable mounts (a favorite list is skipped when nothing in it suits the spot). Pressed again it dismounts (not while flying), leaves a vehicle or leaves travel form / Ghost Wolf. In Undermine it calls the G-99 Breakneck instead (hold Shift for a normal mount). A star in the Mount Journal makes the selected mount a favorite for the zone or continent you're in; the Zones tab lists them. |
+| Smart Mount | Travel | One key (Key Bindings > Tomte > Smart Mount) that summons a mount that fits where you are (underwater, flying or ground) from your zone favorites, then journal favorites, then all usable mounts (a favorite list is skipped when nothing in it suits the spot). Pressed again it dismounts (not while flying), leaves a vehicle or leaves travel form / Ghost Wolf. In Undermine it calls the G-99 Breakneck instead (hold Shift for a normal mount). A star in the Mount Journal makes the selected mount a favorite for the zone or continent you're in; the Zones tab lists them. Settings choose favorites first, favorites only or all mounts, class mounts first, a passenger mount in a group, Ctrl for a repair mount, and when druids and shamans take a travel form instead. |
+| Leveling | Your characters | World of Warcraft: Forever only. A page and a Home section: your XP with what your finished quests and rested XP add, what's new at your class trainer (visit once so Tomte knows the list), old spell ranks on your bars, talent points, low ammo and reagents, weapon skills that are behind, and your quests sorted by what's worth doing. Toasts after a level up, and a button at vendors that buys the right ammo, one click per purchase. |
+| Pet care | Class & combat | World of Warcraft: Forever only, for Hunters. A button that feeds your pet when it's below happy and you carry food it eats, and a toast naming its diet when you don't. |
 | Teleports | Travel | A Teleports tab in the world map's side panel: Hearthstone, a random hearthstone toy, your house, dungeon teleports (this season first, unearned ones greyed out), class teleports and teleport items, with cooldowns. Teleports to the map you're viewing float to the top, with a pin on dungeon entrances. Click to use (out of combat), right-click to favorite. |
 | AFK Screen | Ambience | A cinematic screen while you're AFK: orbiting camera, your character, time away, clock, session stats and missed whispers. It gets out of the way for queue pops, ready checks, invites, summons, duels and trades. |
 | Session recap | Ambience | What you got done this session: time, gold (and where it came from), notable loot, achievements, rares, tames, levels and renown. A card with the time left during the /camp logout countdown (Esc cancels the logout) and on `/tomte recap`, a highlights page on the AFK screen, and a toast at login for your last session (covers instant logouts). A Sessions page keeps past sessions: a gold-per-hour chart (with loot value), this character / all and this week / all time with totals, optional play nights, and each session's recap card. An optional break reminder. |
@@ -397,6 +402,8 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte graphics why` (which place this counts as and what's applied), `/tomte graphics restore` (your own graphics settings back now)
 - `/tomte cursor test` (show the ring for a few seconds)
 - `/tomte casino` (open or close the casino), `/tomte casino blackjack`, `/tomte casino poker`, `/tomte casino slots` (open on that game), `/tomte casino stats` (all three games, in chat), `/tomte casino today` (chips earned today), `/tomte casino split` (your next blackjack hand is a pair), `/tomte casino reset` (window position)
+- `/tomte leveling open`, `/tomte leveling why` (what it reads right now: trainer list, bars, ammo, talents)
+- `/tomte petcare why` (your pet's mood, diet, food in your bags and training points)
 - `/tomte decorate panel` (the Decorating panel, in the house editor), `/tomte decorate keys` (list the decorating keys), `/tomte decorate unlock` (unlock every locked decor)
 - `/tomte decor open`, `/tomte decor scan` (read the housing catalog again and count decor per source), `/tomte decor why <item link or ID>` (what the catalog says about a decor item), `/tomte decor vendors` (the vendors Tomte has learned the spot of), `/tomte decor houses` (the Houses window), `/tomte decor home` (how to teleport home: commands can't, the key or a click can)
 - `/tomte quests why` (why the last NPC's quests and gossip were or weren't done for you), `/tomte quests ignore` (the NPCs you left to yourself; `ignore <ID>` takes one off, `ignore clear` empties the list)
@@ -434,7 +441,7 @@ Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, 
              Achievements, Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value,
              Minimap, Pets, Fishing, Gather, Delves, TradingPost, Holidays, Share, Materials, Mail, Talents, Graphics,
              Cursor, Buffs, Decor, Games, Quests, Loot, Instances, Tips, Nameplates, Drawers, Summary, Prey, Bags,
-             Counts, Performance)
+             Counts, Performance, Leveling, PetCare)
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 tools/       dev scripts (waynet.py builds Modules/Travel/Network*.lua from Blizzard's waypoint tables, events.py
              builds Modules/Holidays/Generated.lua from the client's toy and holiday tables, materials.py builds
