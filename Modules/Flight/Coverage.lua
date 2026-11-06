@@ -112,6 +112,12 @@ function ns.Coverage_OnMap(pos)
 	return pos.x >= 0 and pos.x <= 1 and pos.y >= 0 and pos.y <= 1
 end
 
+-- A flight master Blizzard retired but left in the game's data, named with a "zz" prefix ("zzOLDPowderfuse Port", seen on
+-- Forever). No player can reach it, so it never counts as one to visit.
+function ns.Coverage_Retired(name)
+	return name ~= nil and name:lower():find("^zz") ~= nil
+end
+
 -- Flight masters on one map you haven't timed a route from (known or still undiscovered), nearest first, then by
 -- name. nodes = { { nodeID, name, undiscovered, x, y } } (x, y 0..1 on the map). px, py: the player on the same
 -- map, w, h: the map's size in yards (any of them nil: no distances, by name only). Returns

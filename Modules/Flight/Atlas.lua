@@ -46,6 +46,9 @@ local function BuildZones()
 end
 
 local function ForPlayer(info, faction)
+	if ns.Coverage_Retired(info.name) then
+		return false
+	end
 	if not Enum.FlightPathFaction then -- may be missing on Forever: count every flight master
 		return true
 	end

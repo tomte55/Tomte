@@ -126,4 +126,12 @@ test("OnMap keeps positions inside the map, and nodes without one", function()
 	eq(ns.Coverage_OnMap({ x = -0.1, y = 0.5 }), false, "left of the map")
 end)
 
+test("Retired flight masters are the ones named with zz", function()
+	eq(ns.Coverage_Retired("zzOLDPowderfuse Port, Riverglades"), true, "Blizzard's prefix")
+	eq(ns.Coverage_Retired("ZZ Old Camp"), true, "any case")
+	eq(ns.Coverage_Retired("Ratchet, The Barrens"), false, "a real one")
+	eq(ns.Coverage_Retired("Zul'Aman"), false, "only a double z counts")
+	eq(ns.Coverage_Retired(nil), false, "no name yet")
+end)
+
 H.done()
