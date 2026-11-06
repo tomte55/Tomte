@@ -10,6 +10,8 @@ local addonName, ns = ...
 local WIDTH, HEIGHT = 220, 16
 local ICON = 30
 local ICON_GAP = 4
+local GLOW_REACH = 9 -- px the warning glow reaches outside the bar
+local FOREVER_GLOW_REACH = 12 -- the same on the Forever theme, past the game's frame (8 px)
 local UI = ns.UI
 local SKULL = "Interface\\TargetingFrame\\UI-TargetingFrame-Skull"
 local BAR_TEXTURE = "Interface\\RaidFrame\\Raid-Bar-Hp-Fill"
@@ -42,6 +44,20 @@ local function Edge(parent, layer, inset, r, g, b, a)
 	t:SetPoint("TOPLEFT", -inset, inset)
 	t:SetPoint("BOTTOMRIGHT", inset, -inset)
 	return t
+end
+
+-- A frame on parent's rect that keeps fading between full and dim.
+local function Pulsing(parent)
+	local pulse = CreateFrame("Frame", nil, parent)
+	pulse:SetAllPoints()
+	local anim = pulse:CreateAnimationGroup()
+	anim:SetLooping("BOUNCE")
+	local fade = anim:CreateAnimation("Alpha")
+	fade:SetFromAlpha(1)
+	fade:SetToAlpha(0.3)
+	fade:SetDuration(0.45)
+	anim:Play()
+	return pulse
 end
 
 local UnitBar = {}
@@ -120,18 +136,39 @@ function UnitBar:ShowFake(name, fraction)
 	self.percent:SetFormattedText("%.0f%%", fraction * 100)
 end
 
+-- The icon's "its buff is on" mark: an accent border, or on the Forever theme the action button's light.
+local function SetBuffMark(icon, on)
+	if icon.buffLight then
+		icon.buffLight:SetShown(on)
+	elseif on then
+		icon.border:SetColorTexture(UI.Color("accent"))
+	else
+		icon.border:SetColorTexture(0, 0, 0, 1)
+	end
+end
+
 local function CreateIcon(self)
+	local forever = ns.Theme.panel == "forever"
 	local icon = CreateFrame("Frame", nil, self)
 	icon:SetSize(ICON, ICON)
-	icon.border = icon:CreateTexture(nil, "BACKGROUND")
-	icon.border:SetPoint("TOPLEFT", -1, 1)
-	icon.border:SetPoint("BOTTOMRIGHT", 1, -1)
-	icon.border:SetColorTexture(0, 0, 0, 1)
 	icon.texture = icon:CreateTexture(nil, "ARTWORK")
 	icon.texture:SetAllPoints()
-	icon.texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 	icon.cooldown = CreateFrame("Cooldown", nil, icon, "CooldownFrameTemplate")
-	icon.cooldown:SetAllPoints()
+	if forever then
+		UI.Forever_IconFrame(icon, icon.texture, ICON)
+		icon.buffLight = UI.Forever_IconLight(icon, ICON)
+		icon.buffLight:SetVertexColor(UI.Color("accent"))
+		local inset = UI.Forever_IconInset(ICON)
+		icon.cooldown:SetPoint("TOPLEFT", inset, -inset)
+		icon.cooldown:SetPoint("BOTTOMRIGHT", -inset, inset)
+	else
+		icon.border = icon:CreateTexture(nil, "BACKGROUND")
+		icon.border:SetPoint("TOPLEFT", -1, 1)
+		icon.border:SetPoint("BOTTOMRIGHT", 1, -1)
+		icon.border:SetColorTexture(0, 0, 0, 1)
+		icon.texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+		icon.cooldown:SetAllPoints()
+	end
 	icon.cooldown:SetDrawEdge(false)
 	icon.cooldown:SetSwipeColor(0, 0, 0, 0.8)
 	icon.cooldown:SetHideCountdownNumbers(false)
@@ -162,7 +199,7 @@ function UnitBar:SetSpells(spells)
 		if previous then
 			icon:SetPoint("LEFT", previous, "RIGHT", ICON_GAP, 0)
 		else
-			icon:SetPoint("TOPLEFT", self.bar, "BOTTOMLEFT", 1, -ICON_GAP - 1)
+			icon:SetPoint("TOPLEFT", self.bar, "BOTTOMLEFT", 1, -ICON_GAP - 1 - self.artOver)
 		end
 		icon:Show()
 		if spell.buff and not self.buffIcon then
@@ -198,7 +235,7 @@ function UnitBar:ClearBuff()
 	self.buffUntil = nil
 	self.buffText:SetText("")
 	if self.buffIcon then
-		self.buffIcon.border:SetColorTexture(0, 0, 0, 1)
+		SetBuffMark(self.buffIcon, false)
 	end
 	self.buffTicker:Hide()
 end
@@ -215,7 +252,7 @@ function UnitBar:RefreshBuff(unit)
 		self:ClearBuff()
 		return
 	end
-	self.buffIcon.border:SetColorTexture(UI.Color("accent"))
+	SetBuffMark(self.buffIcon, true)
 	if IsSecretTable(aura) or IsSecret(aura.expirationTime) then
 		self.buffUntil = nil
 		self.buffText:SetText(self.buffName)
@@ -253,7 +290,13 @@ end
 function ns.UnitBar_Create(onMoved, parent)
 	local f = CreateFrame("Frame", nil, parent or UIParent)
 	Mixin(f, UnitBar)
-	f:SetSize(WIDTH, HEIGHT + ICON + 24)
+	-- The Forever theme's bar is the game's progress bar, whose frame hangs outside the bar: the name above and the icons
+	-- under it move out by that much, and the frame grows the same both ways so the bar stays where it was on screen.
+	local forever = ns.Theme.panel == "forever"
+	local over = forever and math.ceil((UI.Forever_BarOverhang(HEIGHT))) or 0
+	f.artOver = over
+	f.glowReach = forever and FOREVER_GLOW_REACH or GLOW_REACH
+	f:SetSize(WIDTH, HEIGHT + ICON + 24 + 2 * over)
 	if not parent then
 		f:SetFrameStrata("MEDIUM")
 		f:SetClampedToScreen(true)
@@ -270,32 +313,36 @@ function ns.UnitBar_Create(onMoved, parent)
 
 	-- Warning glow behind the bar: alpha from the curve on this frame, a looping pulse on the inner one.
 	f.glow = CreateFrame("Frame", nil, f)
-	f.glow:SetPoint("BOTTOMLEFT", 0, ICON + ICON_GAP + 2)
+	f.glow:SetPoint("BOTTOMLEFT", 0, ICON + ICON_GAP + 2 + over)
 	f.glow:SetSize(WIDTH, HEIGHT)
 	f.glow:SetAlpha(0)
-	local pulse = CreateFrame("Frame", nil, f.glow)
-	pulse:SetAllPoints()
+	local pulse = Pulsing(f.glow)
 	local gr, gg, gb = UI.Color("danger")
-	Edge(pulse, "BACKGROUND", 9, gr, gg, gb, 0.18)
-	Edge(pulse, "BACKGROUND", 5, gr, gg, gb, 0.35)
-	Edge(pulse, "BORDER", 3, gr, gg, gb, 1)
-	local anim = pulse:CreateAnimationGroup()
-	anim:SetLooping("BOUNCE")
-	local fade = anim:CreateAnimation("Alpha")
-	fade:SetFromAlpha(1)
-	fade:SetToAlpha(0.3)
-	fade:SetDuration(0.45)
-	anim:Play()
+	if forever then -- the rings stand clear of the game's frame, which reddens itself below
+		Edge(pulse, "BACKGROUND", FOREVER_GLOW_REACH, gr, gg, gb, 0.18)
+		Edge(pulse, "BACKGROUND", FOREVER_GLOW_REACH - 3, gr, gg, gb, 0.35)
+	else
+		Edge(pulse, "BACKGROUND", GLOW_REACH, gr, gg, gb, 0.18)
+		Edge(pulse, "BACKGROUND", 5, gr, gg, gb, 0.35)
+		Edge(pulse, "BORDER", 3, gr, gg, gb, 1)
+	end
 
 	local bar = CreateFrame("StatusBar", nil, f)
 	bar:SetAllPoints(f.glow)
 	bar:SetFrameLevel(f.glow:GetFrameLevel() + 2)
-	bar:SetStatusBarTexture(BAR_TEXTURE)
 	bar:SetMinMaxValues(0, 1)
-	Edge(bar, "BACKGROUND", 1, 0, 0, 0, 1)
-	local bg = bar:CreateTexture(nil, "BACKGROUND", nil, 1)
-	bg:SetAllPoints()
-	bg:SetColorTexture(UI.RGBA("bgBottom", 0.85))
+	if forever then
+		UI.Forever_StatusBarArt(bar, HEIGHT)
+		local reddening = Pulsing(f.glow)
+		reddening:SetFrameLevel(bar:GetFrameLevel() + 1)
+		UI.Forever_BarGlow(reddening, bar, HEIGHT, gr, gg, gb)
+	else
+		bar:SetStatusBarTexture(BAR_TEXTURE)
+		Edge(bar, "BACKGROUND", 1, 0, 0, 0, 1)
+		local bg = bar:CreateTexture(nil, "BACKGROUND", nil, 1)
+		bg:SetAllPoints()
+		bg:SetColorTexture(UI.RGBA("bgBottom", 0.85))
+	end
 	f.bar = bar
 
 	f.tick = bar:CreateTexture(nil, "OVERLAY")
@@ -321,12 +368,12 @@ function ns.UnitBar_Create(onMoved, parent)
 	UI.SetFont(f.name, "body", 12)
 	f.name:SetShadowOffset(1, -1)
 	UI.SetTextRole(f.name, "text")
-	f.name:SetPoint("BOTTOMLEFT", bar, "TOPLEFT", 1, 4)
+	f.name:SetPoint("BOTTOMLEFT", bar, "TOPLEFT", 1, 4 + over)
 
 	f.moveHint = f:CreateFontString(nil, "OVERLAY")
 	UI.SetFont(f.moveHint, "body", 10)
 	UI.SetTextRole(f.moveHint, "accent")
-	f.moveHint:SetPoint("BOTTOMRIGHT", bar, "TOPRIGHT", 0, 4)
+	f.moveHint:SetPoint("BOTTOMRIGHT", bar, "TOPRIGHT", 0, 4 + over)
 	f.moveHint:SetText("drag to move")
 	f.moveHint:Hide()
 
@@ -361,7 +408,7 @@ function ns.UnitBar_DrawSample(host, opts)
 		f = ns.UnitBar_Create(nil, host)
 		host.unitBar = f
 	end
-	local reach = 9 -- the glow's outer edge outside the bar (Edge insets above)
+	local reach = f.glowReach -- the glow's outer edge outside the bar
 	f:SetScale(opts.scale)
 	f:ClearAllPoints()
 	f:SetPoint("TOPLEFT", reach, -reach)

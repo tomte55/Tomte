@@ -46,6 +46,11 @@ local BAR_ATLAS = { success = "common-stat-bar-green", danger = "common-stat-bar
 local BAR_DEFAULT = "common-stat-bar-blue" -- what the game's skill bars use
 local BAR_TINTED = "common-stat-bar-white" -- any other color role: its color on the white bar
 
+-- ActionButtonTemplate: a 45 px button in a 46 x 45 frame, its cooldown swipe 3 px inside the icon.
+local ICON_FRAME_ATLAS, ICON_LIGHT_ATLAS = "UI-HUD-ActionBar-IconFrame", "UI-HUD-ActionBar-IconFrame-Mouseover"
+local ICON_FRAME_W, ICON_FRAME_H, ICON_COOLDOWN_INSET = 46, 45, 3
+local ICON_MASK_ATLAS = "UI-HUD-ActionBar-IconFrame-Mask"
+
 local SWITCH_SIZE, CHECK_SIZE = 24, 18 -- the game's are 26: a little less fits Tomte's rows
 local DISABLED_ALPHA = 0.35
 
@@ -287,11 +292,42 @@ end
 
 -- UI.Bar in the game's progress bar. The bar's own rect stays the caller's, so layouts don't change: the frame hangs
 -- outside it, and a thin bar's fill grows into the frame's track.
+-- How far the frame of a bar this high hangs outside it, up and down, then to the sides, then the frame's height.
+function UI.Forever_BarOverhang(h)
+	local artH = math.max(h * BAR_ART_H / BAR_FILL_H, BAR_MIN_ART_H)
+	return (artH - h) / 2, artH * BAR_ART_X / BAR_ART_H, artH
+end
+
+-- A StatusBar (a unit's health, which can be secret, so it can't be a UI.Bar) in the same art. Its fill is the white
+-- bar: the owner tints it with SetStatusBarColor. height: the bar's, as its anchors may not be resolved yet.
+function UI.Forever_StatusBarArt(bar, height)
+	local overY, overX = UI.Forever_BarOverhang(height)
+	local track = bar:CreateTexture(nil, "BACKGROUND")
+	track:SetPoint("TOPLEFT", -overX, overY)
+	track:SetPoint("BOTTOMRIGHT", overX, -overY)
+	track:SetAtlas("common-stat-bar-BG")
+	bar:SetStatusBarTexture(BAR_TINTED)
+	local mask = bar:CreateMaskTexture()
+	mask:SetAtlas("common-stat-bar-Mask")
+	mask:SetAllPoints(track)
+	bar:GetStatusBarTexture():AddMaskTexture(mask)
+end
+
+-- The warning version of a bar's frame: the frame's art in a color, added over the bar (`parent` draws above it).
+function UI.Forever_BarGlow(parent, bar, height, r, g, b)
+	local overY, overX = UI.Forever_BarOverhang(height)
+	local glow = parent:CreateTexture(nil, "OVERLAY")
+	glow:SetPoint("TOPLEFT", bar, "TOPLEFT", -overX, overY)
+	glow:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", overX, -overY)
+	glow:SetAtlas("common-stat-bar-BG")
+	glow:SetVertexColor(r, g, b)
+	glow:SetBlendMode("ADD")
+	return glow
+end
+
 function UI.Forever_BarArt(bar)
 	local h = bar:GetHeight()
-	local artH = math.max(h * BAR_ART_H / BAR_FILL_H, BAR_MIN_ART_H)
-	local overY = (artH - h) / 2
-	local overX = artH * BAR_ART_X / BAR_ART_H
+	local overY, overX, artH = UI.Forever_BarOverhang(h)
 	local fillOver = (artH * BAR_FILL_H / BAR_ART_H - h) / 2
 
 	bar.shade:Hide()
@@ -347,6 +383,47 @@ function UI.Forever_BarArt(bar)
 		setValue(self, value)
 		Cut(self)
 	end
+end
+
+-- Action icons ----------------------------------------------------------------------------------------------------------
+
+-- A spell icon on `parent` (`size` px square) in the game's action button frame (ActionButtonTemplate): the icon is cut
+-- to the frame's shape, and the frame goes on top.
+function UI.Forever_IconFrame(parent, icon, size)
+	icon:SetTexCoord(0, 1, 0, 1)
+	local mask = parent:CreateMaskTexture()
+	mask:SetAtlas(ICON_MASK_ATLAS)
+	-- The art has a margin around its opening: fitted to the icon it cuts the icon too small (seen in game). The template
+	-- leaves it at its own size on a 45 px button, so it's that, scaled to this button.
+	local info = C_Texture.GetAtlasInfo(ICON_MASK_ATLAS)
+	if info then
+		mask:SetSize(info.width * size / ICON_FRAME_H, info.height * size / ICON_FRAME_H)
+		mask:SetPoint("CENTER", icon)
+	else
+		mask:SetAllPoints(icon)
+	end
+	icon:AddMaskTexture(mask)
+	local frame = parent:CreateTexture(nil, "OVERLAY")
+	frame:SetAtlas(ICON_FRAME_ATLAS)
+	frame:SetPoint("TOPLEFT")
+	frame:SetSize(size * ICON_FRAME_W / ICON_FRAME_H, size)
+	return frame
+end
+
+-- The action button's light (a hovered button's, or here a marked one's), `size` as the frame. Hidden until shown.
+function UI.Forever_IconLight(parent, size)
+	local light = parent:CreateTexture(nil, "OVERLAY", nil, 1)
+	light:SetAtlas(ICON_LIGHT_ATLAS)
+	light:SetPoint("TOPLEFT")
+	light:SetSize(size * ICON_FRAME_W / ICON_FRAME_H, size)
+	light:SetBlendMode("ADD")
+	light:Hide()
+	return light
+end
+
+-- How far a button's cooldown swipe stays inside an icon this size, so it stops at the frame's inner edge.
+function UI.Forever_IconInset(size)
+	return math.floor(size * ICON_COOLDOWN_INSET / ICON_FRAME_H + 0.5)
 end
 
 -- Toggles ---------------------------------------------------------------------------------------------------------------
