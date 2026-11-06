@@ -10,6 +10,26 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.29.0", date = "2026-11-06",
+		new = {
+			{ module = "rest", text = "On Forever: one key or button uses your best food, and drink if you're low on "
+				.. "mana. It lights up when you're low and keeps buff food for last." },
+			{ module = "chatgroups", text = "On Forever: a page of everyone looking for a group in chat, for a dungeon, "
+				.. "a quest or anything else. Click to whisper." },
+			{ module = "leveling", text = "On Forever: an ammo counter with your full count, past the quiver's 999. "
+				.. "Hover it for all your ammo, click it to switch." },
+		},
+		improved = {
+			{ module = "fishing", text = "On Forever: the key equips your rod and can put on a lure, and your weapons "
+				.. "go back afterwards." },
+			{ module = "bags", text = "With Group identical items on, the tooltip says how big a stack gets and how "
+				.. "many more fit, and a right-click at a merchant sells every stack." },
+		},
+		fixed = {
+			{ label = "World map", text = "On Forever: Esc closes the map in combat again." },
+		},
+	},
+	{
 		version = "1.28.0", date = "2026-11-06",
 		new = {
 			{ label = "Forever theme", text = "On Forever: Tomte drawn with that game's own frames, buttons, bars and "

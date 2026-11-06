@@ -14,11 +14,16 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### New
 
+- **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
+- **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
+
+## v1.29.0 - 2026-11-06
+
+### New
+
 - **Eat and drink (new module):** on Forever, one key or button uses your best food, and drink if you're low on mana, or a bandage with no food left. It lights up when you're low, keeps buff food for last and warns when you're running out. The game hides your health from addons, so a press eats whatever your health is.
 - **Groups in chat (new module):** on Forever, a page listing everyone looking for a group in the chat channels you've joined, for a dungeon, a quest or anything else. Click to whisper, right-click to invite. Reads English messages.
 - **Leveling:** on Forever, an on-screen ammo counter with your full count, past the 999 the quiver stops at. Hover it for every ammo you carry, and click it to equip the next one.
-- **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
-- **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
 - **Fishing:** on Forever, the key equips your rod from your bags and can put a lure on it (off by default). Your weapons go back when you mount, change zone or get pulled, or when you right-click the fishing button.
 - **Pet care:** a toast and a button that opens Beast Training when your pet has the points and level to learn something new.
 
