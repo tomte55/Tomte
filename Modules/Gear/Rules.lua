@@ -833,12 +833,12 @@ function ns.Gear_PickReveals(items, minPct)
 	return list
 end
 
--- The moment's label: "Upgrade +4.2%", or "Upgrade for an empty slot".
+-- The moment's label: "Upgrade +4.2%", or "Upgrade, empty slot". Short: a toast's spaced label fits about 23 letters.
 function ns.Gear_RevealLabel(v)
 	if v.kind == "empty" then
-		return "Upgrade for an empty slot"
+		return "Upgrade, empty slot"
 	elseif v.kind == "noStats" then
-		return "Upgrade over gear with no stats"
+		return "Upgrade, more stats"
 	elseif v.kind == "levelUp" then
 		return ("Upgrade, item level +%d"):format(v.ilvlDiff)
 	end

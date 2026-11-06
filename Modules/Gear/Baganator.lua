@@ -16,33 +16,8 @@ local Evaluate = ns.Gear_EvaluateLink
 local BAGANATOR_ID = "tomte_gear"
 local BAGANATOR_ALT_ID = "tomte_gear_alt"
 local BAGANATOR_MAYBE_ID = "tomte_gear_maybe"
-local ALT_ROLE = "accent" -- the color of Tomte's map markers, so it can't pass for your own arrow
-local MAYBE_ROLE = "warning" -- the tooltip's "Can't judge" color
-
--- Bigger than Blizzard's bag arrow, with a dark copy behind it so it reads on bright icons. role: theme color to
--- tint with (the arrow is desaturated first so the tint is the color), nil for the atlas's own. Also drawn in
--- Tomte's own bags (Modules/Bags/Buttons.lua).
-function ns.Gear_Arrow(itemButton, role)
-	local widget = CreateFrame("Frame", nil, itemButton)
-	widget:SetSize(22, 24)
-	widget.padding = 0.5
-	local shadow = widget:CreateTexture(nil, "ARTWORK")
-	shadow:SetAtlas("bags-greenarrow")
-	shadow:SetVertexColor(0, 0, 0, 0.9)
-	shadow:SetPoint("TOPLEFT", 1.5, -1.5)
-	shadow:SetPoint("BOTTOMRIGHT", 1.5, -1.5)
-	local arrow = widget:CreateTexture(nil, "OVERLAY")
-	arrow:SetAtlas("bags-greenarrow")
-	arrow:SetAllPoints()
-	if role then
-		arrow:SetDesaturated(true)
-		arrow:SetVertexColor(UI.Color(role))
-	end
-	return widget
-end
-
--- The tint of each ns.Gear_BagArrow kind (nil: the arrow's own green).
-ns.GEAR_ARROW_ROLES = { maybe = MAYBE_ROLE, alt = ALT_ROLE }
+local ALT_ROLE = ns.GEAR_ARROW_ROLES.alt
+local MAYBE_ROLE = ns.GEAR_ARROW_ROLES.maybe
 
 local function RegisterBaganator()
 	local module = ns.gearModule
