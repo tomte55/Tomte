@@ -60,9 +60,9 @@ local function SessionTooltip(owner, h)
 	GameTooltip:AddDoubleLine("Gold per hour", Signed(n.perHour), mr, mg, mb, 1, 1, 1)
 	if n.value then
 		local vr, vg, vb = UI.Color(VALUE)
-		GameTooltip:AddDoubleLine("Loot worth", ns.Alts_Gold(n.value), mr, mg, mb, vr, vg, vb)
+		GameTooltip:AddDoubleLine("Loot worth", ns.Gold(n.value), mr, mg, mb, vr, vg, vb)
 	end
-	local gathered = h.gather and ns.Gather_SessionLine and ns.Gather_SessionLine(h.gather, ns.Alts_Gold)
+	local gathered = h.gather and ns.Gather_SessionLine and ns.Gather_SessionLine(h.gather, ns.Gold)
 	if gathered then
 		GameTooltip:AddDoubleLine("Gathering", gathered, mr, mg, mb, 1, 1, 1)
 	end
@@ -147,7 +147,7 @@ local function DrawChart(chart, list)
 	chart.zero:SetPoint("BOTTOMLEFT", 0, zeroY)
 	chart.zero:SetPoint("BOTTOMRIGHT", 0, zeroY)
 	chart.label:SetText(db.mainNumber == "net" and "Net gold per session" or "Gold per hour")
-	chart.max:SetText(n > 0 and ns.Alts_Gold(high) or "")
+	chart.max:SetText(n > 0 and ns.Gold(high) or "")
 	local slotW = n > 0 and math.min(width / n, 48) or 0
 	for i, num in ipairs(numbers) do
 		local slot = Slot(chart, i)
@@ -256,7 +256,7 @@ local function FillSession(row, h, width, indent)
 	SetColor(c[5], n.net < 0 and LOSS or MONEY)
 	c[6]:SetText(Signed(n.perHour))
 	SetColor(c[6], n.perHour < 0 and LOSS or "text")
-	c[7]:SetText(n.value and ns.Alts_Gold(n.value) or "")
+	c[7]:SetText(n.value and ns.Gold(n.value) or "")
 	SetColor(c[7], VALUE)
 end
 
@@ -277,7 +277,7 @@ local function FillNight(row, night, width)
 	SetColor(c[5], t.net < 0 and LOSS or MONEY)
 	c[6]:SetText(Signed(t.perHour))
 	SetColor(c[6], MONEY)
-	c[7]:SetText(t.value > 0 and ns.Alts_Gold(t.value) or "")
+	c[7]:SetText(t.value > 0 and ns.Gold(t.value) or "")
 	SetColor(c[7], VALUE)
 end
 
@@ -302,7 +302,7 @@ local function Refresh()
 	local t = ns.Recap_HistoryTotals(list)
 	page.totals:SetText(("%d session%s · %s · net %s · %s/h%s"):format(t.count, t.count == 1 and "" or "s",
 		ns.Recap_Duration(t.duration), Signed(t.net), Signed(t.perHour),
-		t.value > 0 and (" · loot worth " .. ns.Alts_Gold(t.value)) or ""))
+		t.value > 0 and (" · loot worth " .. ns.Gold(t.value)) or ""))
 	DrawChart(page.chart, list)
 
 	local width = math.max(page.scroll:GetWidth(), 400)

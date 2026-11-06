@@ -66,7 +66,7 @@ local function Summarize(session, label, live)
 		entries = #session.log,
 		xp = gain ~= nil,
 		lootText = ns.Value_SessionLootText and ns.Value_SessionLootText(session)
-			or (session.lootValue and session.lootValue > 0 and ("loot worth " .. ns.Alts_Gold(session.lootValue))) or nil,
+			or (session.lootValue and session.lootValue > 0 and ("loot worth " .. ns.Gold(session.lootValue))) or nil,
 		gatherText = ns.Gather_SessionText and ns.Gather_SessionText(session) or nil,
 	}
 	if live then
@@ -225,15 +225,25 @@ local SAMPLE_LOG = {
 	{ kind = "renown", title = "Council of Dornogal", icon = "Interface\\Icons\\Achievement_Reputation_01", from = 18, to = 19, factionID = 1, ago = 900 },
 	{ kind = "loot", title = "Sample Cloak", icon = "Interface\\Icons\\INV_Misc_Cape_01", quality = 4, ago = 600 },
 }
+-- The same for Forever's vanilla world.
+local FOREVER_SAMPLE_LOG = {
+	{ kind = "upgrade", title = "Sample Helm of the Hollow", icon = "Interface\\Icons\\INV_Helmet_03", quality = 4, ago = 4000 },
+	{ kind = "achievement", title = "Sample Legacy Challenge", icon = "Interface\\Icons\\Achievement_General", ago = 3000 },
+	{ kind = "rare", title = "Sample Rare", icon = "Interface\\Icons\\INV_Misc_Head_Dragon_01", ago = 2500 },
+	{ kind = "tame", title = "Broken Tooth", icon = "Interface\\Icons\\Ability_Hunter_BeastTaming", ago = 1500 },
+	{ kind = "renown", title = "Legacy", icon = "Interface\\Icons\\Achievement_Reputation_01", from = 18, to = 19, factionID = 1, ago = 900 },
+	{ kind = "loot", title = "Sample Cloak", icon = "Interface\\Icons\\INV_Misc_Cape_01", quality = 4, ago = 600 },
+}
 
 -- A made-up session (2 h 14 min, gold, SAMPLE_LOG) for the preview card and the login toast's settings preview.
 local function SampleSession()
 	local now = GetServerTime()
+	local sampleLog = ns.FOREVER and FOREVER_SAMPLE_LOG or SAMPLE_LOG
 	local session = ns.Session_New("preview", now - 8040, { money = 10000000, level = UnitLevel("player"), xpFraction = XPFraction() })
 	session.moneyNow = session.money + 34200000
 	session.seen = now
 	session.gold = { ["in"] = { loot = 12000000, vendor = 25000000 }, out = { auction = 3500000 } }
-	for _, sample in ipairs(SAMPLE_LOG) do
+	for _, sample in ipairs(sampleLog) do
 		local entry = {}
 		for k, v in pairs(sample) do
 			entry[k] = v
@@ -454,7 +464,8 @@ module = ns.RegisterModule({
 	category = "ambience",
 	icon = 133785, -- inv_misc_coin_02
 	summary = "What you got done each session: gold, loot and progress.",
-	description = "What you got done this session: time, gold and where it came from, notable loot, achievements, rares, tames and progress. A card while you log out, on /tomte recap and on the AFK screen; a toast at login for your last session. Optionally a reminder to take a break after an hour or so of play.",
+	description = (ns.FOREVER and "What you got done this session: time, gold and where it came from, notable loot, Legacy Challenges, rares, tames and progress. "
+		or "What you got done this session: time, gold and where it came from, notable loot, achievements, rares, tames and progress. ") .. "A card while you log out, on /tomte recap and on the AFK screen; a toast at login for your last session. Optionally a reminder to take a break after an hour or so of play.",
 	enabledByDefault = true,
 	replaces = { { addon = "Plumber", why = "the break time reminder" } },
 	toasts = true,
@@ -505,7 +516,8 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "afkPage", label = "On the AFK screen",
 			tooltip = "Add a highlights page to the AFK screen's rotating session stats." },
 		{ type = "dropdown", key = "lootQuality", label = "Notable loot", choices = QualityChoices,
-			tooltip = "Items you receive at this quality or better are listed. Achievements, new mounts, pets, toys and renown come from Moments (also when their style is off, but not with Moments turned off)." },
+			tooltip = ns.FOREVER and "Items you receive at this quality or better are listed. Legacy Challenges, new mounts, pets and toys come from Moments (also when their style is off, but not with Moments turned off)."
+				or "Items you receive at this quality or better are listed. Achievements, new mounts, pets, toys and renown come from Moments (also when their style is off, but not with Moments turned off)." },
 		{ type = "button", label = "Preview", text = "Show", onClick = Preview,
 			tooltip = "Show the recap card with sample data. Any key or click closes it." },
 		{ type = "header", label = "Break reminder" },

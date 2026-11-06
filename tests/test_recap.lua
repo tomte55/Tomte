@@ -385,4 +385,20 @@ test("BreakDue: one reminder per interval, late ones once", function()
 	eq(ns.Recap_BreakDue(nil, hour, nil), nil)
 end)
 
+---------------------------------------------------------------------------------------------------------------
+-- Forever's wording
+
+test("Forever says Legacy Challenge and Legacy points", function()
+	local forever = { FOREVER = true }
+	assert(loadfile("Tomte/Core/SessionData.lua"))("Tomte", forever)
+	assert(loadfile("Tomte/Core/Format.lua"))("Tomte", forever)
+	assert(loadfile("Tomte/Modules/Moments/Data.lua"))("Tomte", forever)
+	assert(loadfile("Tomte/Modules/Recap/Data.lua"))("Tomte", forever)
+	local counts = forever.Recap_Counts({ { kind = "achievement" }, { kind = "renown", from = 2, to = 5 } })
+	eq(forever.Recap_CountsLine(counts), "1 Legacy Challenge · +3 Legacy points")
+	eq(forever.Recap_RowLabel({ kind = "renown", from = 2, to = 5 }), "Legacy 5 (+3)")
+	eq(forever.Recap_RowLabel({ kind = "pet" }), "New pet")
+	eq(forever.Recap_RowLabel({ kind = "achievement" }), "Legacy Challenge")
+end)
+
 H.done()

@@ -144,7 +144,7 @@ function ns.Recap_Counts(log)
 end
 
 local COUNT_WORDS = {
-	{ "achievement", "achievement" }, { "rare", "rare" }, { "tame", "tame" }, { "mount", "mount" },
+	{ "achievement", ns.FOREVER and "Legacy Challenge" or "achievement" }, { "rare", "rare" }, { "tame", "tame" }, { "mount", "mount" },
 	{ "pet", "pet" }, { "toy", "toy" }, { "items", "item" },
 }
 
@@ -157,7 +157,8 @@ function ns.Recap_CountsLine(counts)
 		end
 	end
 	if counts.renownLevels > 0 then
-		parts[#parts + 1] = ("+%d renown"):format(counts.renownLevels)
+		-- Forever's only renown is the Legacy track, whose level is the character's Legacy points.
+		parts[#parts + 1] = (ns.FOREVER and "+%d Legacy points" or "+%d renown"):format(counts.renownLevels)
 	end
 	return table.concat(parts, " · ")
 end
@@ -237,13 +238,16 @@ local KIND_LABELS = {
 	upgrade = "Upgrade", mount = "New mount", pet = "New battle pet", toy = "New toy", achievement = "Achievement",
 	rare = "Rare killed", tame = "Tamed", mail = "Mail",
 }
+if ns.FOREVER then
+	KIND_LABELS.pet, KIND_LABELS.achievement = "New pet", "Legacy Challenge"
+end
 local QUALITY_LABELS = { [3] = "Rare", [4] = "Epic", [5] = "Legendary", [6] = "Artifact", [7] = "Heirloom" }
 
 function ns.Recap_RowLabel(e)
 	if e.kind == "loot" then
 		return QUALITY_LABELS[e.quality or 0] or "Loot"
 	elseif e.kind == "renown" then
-		return ("Renown %d (+%d)"):format(e.to or 0, math.max((e.to or 0) - (e.from or 0), 0))
+		return (ns.FOREVER and "Legacy %d (+%d)" or "Renown %d (+%d)"):format(e.to or 0, math.max((e.to or 0) - (e.from or 0), 0))
 	end
 	return KIND_LABELS[e.kind] or e.kind
 end
