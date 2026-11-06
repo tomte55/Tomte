@@ -123,7 +123,11 @@ local function CreateBar()
 	bar = CreateFrame("StatusBar", nil, UIParent)
 	ns.ownFrames[bar] = true
 	bar:SetSize(WIDTH, HEIGHT)
-	bar:SetStatusBarTexture("Interface\\RaidFrame\\Raid-Bar-Hp-Fill")
+	if ns.Theme.panel == "forever" then
+		UI.Forever_StatusBarArt(bar, HEIGHT) -- the game's progress bar, its frame in place of the border below
+	else
+		bar:SetStatusBarTexture("Interface\\RaidFrame\\Raid-Bar-Hp-Fill")
+	end
 	bar:SetMinMaxValues(0, 1)
 	bar:SetMovable(true)
 	bar:SetClampedToScreen(true)
@@ -136,11 +140,13 @@ local function CreateBar()
 	bar:SetScript("OnUpdate", ns.Perf_Wrap(OnUpdate, "OnUpdate"))
 	bar.ticks = {}
 
-	local border = CreateFrame("Frame", nil, bar)
-	border:SetPoint("TOPLEFT", -4, 4)
-	border:SetPoint("BOTTOMRIGHT", 4, -4)
-	border:SetFrameLevel(math.max(bar:GetFrameLevel() - 1, 0))
-	UI.Panel(border, { size = "small", alpha = 0.85, subtle = true })
+	if ns.Theme.panel ~= "forever" then
+		local border = CreateFrame("Frame", nil, bar)
+		border:SetPoint("TOPLEFT", -4, 4)
+		border:SetPoint("BOTTOMRIGHT", 4, -4)
+		border:SetFrameLevel(math.max(bar:GetFrameLevel() - 1, 0))
+		UI.Panel(border, { size = "small", alpha = 0.85, subtle = true })
+	end
 
 	bar.spark = bar:CreateTexture(nil, "OVERLAY", nil, -1)
 	bar.spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")

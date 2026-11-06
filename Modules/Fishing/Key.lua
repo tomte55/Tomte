@@ -316,13 +316,8 @@ end
 local function Decorate(b)
 	b.icon = b:CreateTexture(nil, "ARTWORK")
 	b.icon:SetAllPoints()
-	if ns.Theme.panel == "forever" then
-		UI.Forever_IconFrame(b, b.icon, SIZE)
-	else
-		b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-		UI.Border(b, "frame", 0.8)
-	end
-	b.label = UI.Text(b, 10, "textMuted", "label")
+	UI.ActionIcon(b, b.icon, SIZE, 0.8)
+	b.label =UI.Text(b, 10, "textMuted", "label")
 	b.label:SetPoint("TOP", b, "BOTTOM", 0, -3)
 end
 
@@ -351,21 +346,8 @@ local function Create()
 	button:SetAttribute("useOnKeyDown", true)
 	button:SetScript("PreClick", PreClick)
 	Decorate(button)
-	if ns.Theme.panel == "forever" then
-		local light = UI.Forever_IconLight(button, SIZE)
-		button:SetScript("OnEnter", function(self)
-			light:Show()
-			ButtonOnEnter(self)
-		end)
-		button:SetScript("OnLeave", function()
-			light:Hide()
-			GameTooltip_Hide()
-		end)
-	else
-		button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-		button:SetScript("OnEnter", ButtonOnEnter)
-		button:SetScript("OnLeave", GameTooltip_Hide)
-	end
+	button:SetScript("OnEnter", ButtonOnEnter)
+	button:SetScript("OnLeave", GameTooltip_Hide)
 	ApplyLayout()
 end
 

@@ -22,6 +22,11 @@ local GLYPH_ROLE, GLYPH_HOVER = "textMuted", "text" -- white shapes, tinted by t
 local TOOLBAR_GAP = 2 -- between the buttons of an icon-only cluster (no frame, no dividers)
 local CLUSTER_EDGE = 0.6 -- a text cluster's faint outline (the theme's rule color)
 
+local FOREVER_STRIP_H = 21 -- the metal title strip, where the rock starts (Panel/ForeverArt.lua)
+local FOREVER_LAYOUT = "HeldBagLayout" -- the game's bags: the portrait frame with the small ring (ContainerFrame.xml)
+local FOREVER_BADGE_SIZE, FOREVER_BADGE_X, FOREVER_BADGE_Y = 36, -4, 1 -- SetPortraitTextureSizeAndOffset in ContainerFrame.lua
+local FOREVER_BADGE_ROOM = 28 -- the band's buttons start past the ring
+local FOREVER_BAR_LEVEL = 14 -- over the frame's metal, as the Tomte window's title bar
 local UI = ns.UI
 
 local function Fill(frame, layer, sub, alpha)
@@ -55,6 +60,43 @@ end
 
 -- A band across a window (header or footer): a step darker, a rule on its bottom edge (band:SetRuleTop(true) for a
 -- footer). The caller anchors it and sets its height.
+-- The Forever theme's window top, as the game's own bags have it: the metal title strip with a round badge in its corner,
+-- the title centered on the strip and the red close button in the corner. The band with the window's buttons sits under the
+-- strip. Other themes keep everything in the band, so these give 0 and nil there.
+function ns.BagsKit_StripH()
+	return ns.Theme.panel == "forever" and FOREVER_STRIP_H or 0
+end
+
+-- How far the band's first buttons stay from the left edge, to clear the badge hanging down from the corner.
+function ns.BagsKit_BadgeRoom()
+	return ns.Theme.panel == "forever" and FOREVER_BADGE_ROOM or 0
+end
+
+-- The window's frame. Call before the band is made.
+function ns.BagsKit_Panel(frame)
+	UI.Panel(frame, ns.Theme.panel == "forever" and { portrait = true, layout = FOREVER_LAYOUT } or nil)
+end
+
+-- Badge, title and close button on the Forever theme. Returns the title's font string, nil on other themes.
+function ns.BagsKit_Titlebar(frame, icon, onClose)
+	if ns.Theme.panel ~= "forever" then
+		return nil
+	end
+	UI.Forever_Badge(frame, icon, FOREVER_BADGE_SIZE, FOREVER_BADGE_X, FOREVER_BADGE_Y)
+	local bar = CreateFrame("Frame", nil, frame)
+	bar:SetAllPoints()
+	bar:SetFrameLevel(frame:GetFrameLevel() + FOREVER_BAR_LEVEL)
+	local title = UI.Text(bar, 13, "heading", "title")
+	title:SetPoint("TOP", frame, "TOP", 0, -5)
+	title:SetJustifyH("CENTER")
+	title:SetWordWrap(false)
+	local close = UI.Button(bar, 20, "x")
+	close:SetSize(28, 28) -- UIPanelCloseButtonDefaultAnchorsMixin (Camelot), as the Tomte window's
+	close:SetPoint("TOPRIGHT", 0, 3)
+	close:SetScript("OnClick", onClose)
+	return title
+end
+
 function ns.BagsKit_Band(parent)
 	local band = CreateFrame("Frame", nil, parent)
 	Fill(band, "BACKGROUND", 2, BAND_SHADE)

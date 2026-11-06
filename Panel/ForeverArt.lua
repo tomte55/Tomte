@@ -70,7 +70,8 @@ UI.FOREVER_SEARCH_X = 22 -- past the magnifying glass (UI.SearchTextX)
 
 -- Panels ---------------------------------------------------------------------------------------------------------------
 
--- UI.Panel's look on this theme. opts.portrait: the Tomte window's frame. The handle's SetAlpha does nothing: the game's
+-- UI.Panel's look on this theme. opts.portrait: the Tomte window's frame; opts.layout: the game's layout to use for it
+-- instead (the bags' smaller ring). The handle's SetAlpha does nothing: the game's
 -- windows are solid. It sets no frame.themePanel, so UI.Scroll finds no flat color to fade to and keeps a hard edge.
 function UI.Forever_Panel(frame, opts)
 	local p = { frame = frame }
@@ -90,7 +91,7 @@ function UI.Forever_Panel(frame, opts)
 	edge:SetAllPoints()
 	edge:SetFrameLevel(frame:GetFrameLevel() + EDGE_LEVEL)
 	if opts.portrait then
-		NineSliceUtil.ApplyLayoutByName(edge, WINDOW_LAYOUT)
+		NineSliceUtil.ApplyLayoutByName(edge, opts.layout or WINDOW_LAYOUT)
 	else
 		NineSliceUtil.ApplyLayout(edge, PANEL_LAYOUT)
 		-- Coordinates before the atlas, the way NineSlice.lua itself mirrors a piece.
@@ -147,15 +148,16 @@ function UI.Forever_MockPanel(parent)
 	return holder
 end
 
--- The window's round badge, in the frame's portrait hole (PortraitFrameBaseTemplate's anchors). Above the metal.
-function UI.Forever_Badge(window, texture)
+-- The window's round badge, in the frame's portrait hole (PortraitFrameBaseTemplate's anchors, or the ones given, for the
+-- bags' smaller ring). Above the metal.
+function UI.Forever_Badge(window, texture, size, x, y)
 	local holder = CreateFrame("Frame", nil, window)
 	holder:SetSize(1, 1)
 	holder:SetPoint("TOPLEFT")
 	holder:SetFrameLevel(window:GetFrameLevel() + EDGE_LEVEL + 2)
 	local badge = holder:CreateTexture(nil, "OVERLAY")
-	badge:SetSize(62, 62)
-	badge:SetPoint("TOPLEFT", -5, 7)
+	badge:SetSize(size or 62, size or 62)
+	badge:SetPoint("TOPLEFT", x or -5, y or 7)
 	badge:SetTexture(texture)
 	UI.CircleMask(badge, holder)
 	return holder
@@ -419,6 +421,11 @@ function UI.Forever_IconLight(parent, size)
 	light:SetBlendMode("ADD")
 	light:Hide()
 	return light
+end
+
+-- The same light as a Button's own hover highlight.
+function UI.Forever_IconHighlight(b)
+	b:SetHighlightAtlas(ICON_LIGHT_ATLAS, "ADD")
 end
 
 -- How far a button's cooldown swipe stays inside an icon this size, so it stops at the frame's inner edge.

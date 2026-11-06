@@ -45,6 +45,15 @@ it is an exact match instead of a lookalike.
 - **Bars and toggles:** `UI.Bar` is the game's progress bar (`common-stat-bar-*`), and `UI.Switch` and `UI.Checkbox` are
   its checkbox (`checkbox-minimal`). A bar's own rect stays the caller's and the frame hangs outside it, so layouts stay
   put. Default fill is blue, like the skill bars. The thin progress lines (`UI.ProgressLine`) stay as they are.
+- **Action icons** (added 2026-11-06, when the user asked for everything to match): anything you press on screen, the
+  fishing, feed, poison, seed and drawer buttons, the missing buffs and Pet Health's spells, is the game's action button
+  (`UI.ActionIcon`). Its light replaces the colored edge that says how urgent a poison or buff is (`UI.ActionIconMark`).
+- **StatusBars:** Pet Health and the Flight Timer can't be a `UI.Bar` (health can be secret, the flight bar's fill is the
+  game's), so `UI.Forever_StatusBarArt` gives a StatusBar the same frame, its fill tinted on the white bar.
+- **Bag slots** keep the template's own slot art and quality border instead of the hairline look. A line only shows for
+  what the art can't say: a category's color, or what a vendor takes as payment.
+- **Left as they are on purpose:** the Casino, cinematics and Loot's strips and tiles have designs of their own, and
+  list rows inside windows only have small icons.
 - **Search boxes** use the game's field and magnifying glass, applied where every search box already calls
   `UI.SearchBoxClear`. Other text fields keep the plain surface.
 - **Whispers** reads as chat: messages are the game's chat lines rather than bubbles, theirs in the player's whisper
@@ -53,6 +62,9 @@ it is an exact match instead of a lookalike.
   `common-insideframe` art) for depth rather than being divided by lines. Other themes keep the bubbles.
 - **No Background opacity setting and no scroll edge fades:** rock isn't a flat color a fade could match, and the
   game's own windows are solid.
+- **The bag and bank windows have the game's bag top** (the user's call): metal title strip, round badge, centered title and
+  the red close button in the corner, with the search and buttons on a band under the strip. Other themes keep them in the band.
+- **Settings cards don't light up under the mouse** (the user's call): the game's own panels don't. Other themes keep it.
 - **Text:** the client's font everywhere, white text and yellow headings from Blizzard's color globals.
 
 ## Where the code lives

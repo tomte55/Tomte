@@ -519,6 +519,51 @@ function UI.Bar(parent, height)
 	return bar
 end
 
+-- Action icons ------------------------------------------------------------------------------------------------
+
+-- The look of a spell or item icon you press, on b (a Button, or a settings preview's plain frame): a crop and a hover
+-- light, or on the Forever theme the game's action button (UI.Forever_IconFrame). borderAlpha: a frame-colored border at
+-- this alpha, nil for none (the Forever theme's frame stands in for it). size: b's, which may not be resolved yet.
+function UI.ActionIcon(b, icon, size, borderAlpha)
+	if Theme.panel == "forever" then
+		UI.Forever_IconFrame(b, icon, size)
+		if b.SetHighlightAtlas then
+			UI.Forever_IconHighlight(b)
+		end
+		if borderAlpha then
+			UI.Border(b, "frame", 0) -- invisible, so callers' UI.SetBorderColor still works
+		end
+		return
+	end
+	icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	if b.SetHighlightTexture then
+		b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+	end
+	if borderAlpha then
+		UI.Border(b, "frame", borderAlpha)
+	end
+end
+
+-- How far a cooldown swipe stays inside an action icon this size.
+function UI.ActionIconInset(size)
+	return Theme.panel == "forever" and UI.Forever_IconInset(size) or 0
+end
+
+-- A texture that marks an action icon as needing attention, colored with SetVertexColor: a colored edge around it, or on
+-- the Forever theme the action button's light.
+function UI.ActionIconMark(b, size)
+	if Theme.panel == "forever" then
+		local light = UI.Forever_IconLight(b, size)
+		light:Show()
+		return light
+	end
+	local mark = b:CreateTexture(nil, "BACKGROUND")
+	mark:SetPoint("TOPLEFT", -2, 2)
+	mark:SetPoint("BOTTOMRIGHT", 2, -2)
+	mark:SetColorTexture(1, 1, 1)
+	return mark
+end
+
 -- Controls ----------------------------------------------------------------------------------------------------
 
 function UI.Checkbox(parent)

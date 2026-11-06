@@ -172,22 +172,26 @@ local function Extras(button)
 		return e
 	end
 	e = { arrows = {} }
+	-- The Forever theme keeps the template's own slot art and quality border: that's how the game's bags look there.
+	local gameArt = ns.Theme.panel == "forever"
 	local normal = button:GetNormalTexture()
-	if normal then
+	if normal and not gameArt then
 		normal:SetAlpha(0)
 	end
 	e.fill = button:CreateTexture(nil, "BACKGROUND", nil, -1)
 	e.fill:SetAllPoints()
 	local icon = button.icon or button.Icon
-	if icon then
+	if icon and not gameArt then
 		icon:ClearAllPoints()
 		icon:SetPoint("TOPLEFT", ICON_INSET, -ICON_INSET)
 		icon:SetPoint("BOTTOMRIGHT", -ICON_INSET, ICON_INSET)
 	end
-	UI.Border(button, "rule")
+	UI.Border(button, "rule", gameArt and 0 or nil)
 	button:HookScript("OnClick", SellOtherStacks)
 	button:HookScript("OnEnter", function(self)
-		UI.BorderTo(self, "accent")
+		if not gameArt then
+			UI.BorderTo(self, "accent")
+		end
 		local name = extras[self].kindName
 		if name then
 			-- Owned by a child: the tooltip calls its owner's UpdateTooltip every 0.2 s, and the item button's rebuilds it for
@@ -394,6 +398,17 @@ end
 -- The hairline frame and fill for an item (nil: an empty slot), kept for the hover to come back to. pays: the open
 -- vendor takes the item as payment, framed in the accent instead of its quality.
 local function Frame(button, e, item, pays, tint)
+	if ns.Theme.panel == "forever" then
+		-- The template's art shows the slot and the quality: a line only for what it can't say.
+		e.fill:SetColorTexture(0, 0, 0, 0)
+		if pays or tint then
+			e.edge, e.edgeAlpha = pays and "accent" or tint, 1
+		else
+			e.edge, e.edgeAlpha = "rule", 0
+		end
+		UI.SetBorderColor(button, e.edge, e.edgeAlpha)
+		return
+	end
 	if item then
 		e.fill:SetColorTexture(0, 0, 0, FILL)
 		local q = item.quality
@@ -466,9 +481,9 @@ function ns.BagsButtons_Paint(button, item, opts)
 		button:SetHasItem(nil)
 		button:SetItemButtonTexture(nil)
 		-- An empty slot shows the template's slot picture (emptyBackgroundAtlas, ItemButtonTemplate.lua) in the icon;
-		-- ours is the faint square. Setting an item's texture shows the icon again.
+		-- ours is the faint square (the Forever theme keeps the picture). Setting an item's texture shows the icon again.
 		local icon = button.icon or button.Icon
-		if icon then
+		if icon and ns.Theme.panel ~= "forever" then
 			icon:Hide()
 		end
 		SetItemButtonQuality(button, nil)

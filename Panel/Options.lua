@@ -73,8 +73,9 @@ local function AcquireCard()
 			card.plaque = UI.Forever_Plaque(card, 2, 2, -3, CARD_PLAQUE_H)
 			card.title:SetJustifyH("CENTER") -- white and centered, as the game's plaques have it
 			UI.SetTextRole(card.title, "text")
+		else -- the game's own panels don't light up under the mouse
+			UI.CardHover(card, { role = "frame", alpha = CARD_RULE }) -- its rows light it too (OptionRows.lua)
 		end
-		UI.CardHover(card, { role = "frame", alpha = CARD_RULE }) -- its rows light it too (OptionRows.lua)
 	end
 	card:Show()
 	cards[#cards + 1] = card

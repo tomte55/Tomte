@@ -81,10 +81,8 @@ local function ButtonLooks(button)
 	button:SetSize(SIZE, SIZE)
 	button.icon = button:CreateTexture(nil, "ARTWORK")
 	button.icon:SetAllPoints()
-	button.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-	UI.Border(button, "frame", 0.8)
-	button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-	button.count = UI.Text(button, 11, "text", "number")
+	UI.ActionIcon(button, button.icon, SIZE, 0.8)
+	button.count =UI.Text(button, 11, "text", "number")
 	button.count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -2, 2)
 end
 

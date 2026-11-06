@@ -15,6 +15,7 @@ local SLOT_SIZE = 32 -- an equipped bag's tab on the top edge
 local SLOT_GAP = 2
 local SLOTS_LEFT = 12 -- the first bag tab from the window's left edge
 local METER_W = 60
+local BAGS_ICON = "Interface\\Icons\\INV_Misc_Bag_08" -- the Forever theme's badge: the backpack
 local TITLE_MAX_W = 150 -- the title ("Bags: <name>") never squeezes the search box
 local HOVER_POLL = 0.1 -- seconds between mouse checks while the clusters show only on hover
 local ICON_SIZE = 12 -- footer currency icons
@@ -152,7 +153,7 @@ local function Draw()
 	})
 	DrawSlots()
 	local w = math.max(width + 2 * (PAD + TRAY_PAD), MIN_W)
-	frame:SetSize(w, BAND_H + PAD + 2 * TRAY_PAD + height + PAD + FOOT_H)
+	frame:SetSize(w, ns.BagsKit_StripH() + BAND_H + PAD + 2 * TRAY_PAD + height + PAD + FOOT_H)
 	if pending or viewChar then
 		-- Some items' data is still on its way (another character's often is): GET_ITEM_INFO_RECEIVED redraws
 		-- (Bags.lua).
@@ -360,7 +361,7 @@ function DrawSlots()
 			b.free:SetText(texture and C_Container.GetContainerNumFreeSlots(bag) or "")
 			UI.SetTextRole(b.free, "text")
 			b:ClearAllPoints()
-			b:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", SLOTS_LEFT + (i - 1) * (SLOT_SIZE + SLOT_GAP), -1)
+			b:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", SLOTS_LEFT + ns.BagsKit_BadgeRoom() + (i - 1) * (SLOT_SIZE + SLOT_GAP), -1)
 		end
 	end
 	leftCluster:SetLit(1, showSlots)
@@ -584,7 +585,7 @@ ns.BagsWindow_KeywordHelp = KeywordHelp
 
 local function Build()
 	frame = CreateFrame("Frame", "TomteBagsWindow", UIParent)
-	frame:SetSize(MIN_W, BAND_H + FOOT_H + 4 * PAD) -- Draw sizes it; until then it can still be seen
+	frame:SetSize(MIN_W, ns.BagsKit_StripH() + BAND_H + FOOT_H + 4 * PAD) -- Draw sizes it; until then it can still be seen
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetToplevel(true)
 	frame:EnableMouse(true)
@@ -602,12 +603,17 @@ local function Build()
 		db.position.point, db.position.relPoint, db.position.x, db.position.y = point, relPoint, x, y
 	end)
 	frame:Hide()
-	UI.Panel(frame)
+	ns.BagsKit_Panel(frame)
+
+	local function Close()
+		ns.BagsTakeover_Close() -- Blizzard's bags close too, so the bag key opens them again
+	end
+	local stripTitle = ns.BagsKit_Titlebar(frame, BAGS_ICON, Close) -- the Forever theme's title and close are on the strip
 
 	-- Header band: bag slots and characters, the title, the search, then saved searches, sort, settings and close.
 	header = ns.BagsKit_Band(frame)
-	header:SetPoint("TOPLEFT", 1, -1)
-	header:SetPoint("TOPRIGHT", -1, -1)
+	header:SetPoint("TOPLEFT", 1, -1 - ns.BagsKit_StripH())
+	header:SetPoint("TOPRIGHT", -1, -1 - ns.BagsKit_StripH())
 	header:SetHeight(BAND_H)
 	leftCluster = ns.BagsKit_Cluster(header, {
 		{ glyph = "Bag", tip = "Bag slots", tipLine = "Show your equipped bags on top of the window.", onClick = function()
@@ -624,12 +630,15 @@ local function Build()
 				ns.BagsBank_ShowRemembered(viewChar)
 			end },
 	})
-	leftCluster:SetPoint("LEFT", PAD, 0)
-	title = UI.Text(header, 14, "heading", "title")
-	title:SetPoint("LEFT", leftCluster, "RIGHT", 10, 0)
-	title:SetWordWrap(false)
+	leftCluster:SetPoint("LEFT", PAD + ns.BagsKit_BadgeRoom(), 0)
+	title = stripTitle
+	if not title then
+		title = UI.Text(header, 14, "heading", "title")
+		title:SetPoint("LEFT", leftCluster, "RIGHT", 10, 0)
+		title:SetWordWrap(false)
+	end
 	title:SetText("Bags")
-	rightCluster = ns.BagsKit_Cluster(header, {
+	local rightButtons = {
 		{ glyph = "Star", tip = "Saved searches",
 			tipLine = "Save the search in the box, use a saved one, or make a category of it.", onClick = SearchMenu },
 		{ glyph = "Broom", tip = "Clean up bags", onClick = function()
@@ -642,15 +651,20 @@ local function Build()
 		{ glyph = "Gear", tip = "Bags settings", onClick = function()
 			ns.Panel_OpenModule("bags")
 		end },
-		{ glyph = "Close", tip = "Close", onClick = function()
-			ns.BagsTakeover_Close() -- Blizzard's bags close too, so the bag key opens them again
-		end },
-	})
+	}
+	if not stripTitle then
+		rightButtons[#rightButtons + 1] = { glyph = "Close", tip = "Close", onClick = Close }
+	end
+	rightCluster = ns.BagsKit_Cluster(header, rightButtons)
 	rightCluster:SetPoint("RIGHT", -PAD, 0)
 	-- Gear Check's arrows may not exist on Forever: a hint that finds nothing is no hint.
 	search = ns.BagsKit_Search(header, ns.Gear_BagArrow and "Search, try is:upgrade" or "Search, try is:rare",
 		OnSearchChanged)
-	search:SetPoint("LEFT", title, "RIGHT", 12, 0)
+	if stripTitle then
+		search:SetPoint("LEFT", leftCluster, "RIGHT", 10, 0)
+	else
+		search:SetPoint("LEFT", title, "RIGHT", 12, 0)
+	end
 	search:SetPoint("RIGHT", rightCluster, "LEFT", -10, 0)
 	search.help:SetScript("OnEnter", KeywordHelp)
 

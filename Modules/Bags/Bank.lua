@@ -203,7 +203,7 @@ end
 -- The tabs hang off the right edge below the header band: "Everything" first (i = 0), then the bank's tabs and "+".
 -- The one shown is framed in the accent.
 local function TabOffset(i)
-	return BAND_H + PAD + i * (TAB_SIZE + TAB_GAP) + (i > 0 and EVERYTHING_GAP or 0)
+	return ns.BagsKit_StripH() + BAND_H + PAD + i * (TAB_SIZE + TAB_GAP) + (i > 0 and EVERYTHING_GAP or 0)
 end
 
 local function TabPoint(b, i)
@@ -352,7 +352,7 @@ local function DrawRemembered()
 		money:SetText(ns.Coins(gold, "exact", COIN_ICONS))
 	end
 	frame:SetSize(math.max(width + 2 * (PAD + TRAY_PAD), MIN_W),
-		BAND_H + PAD + 2 * TRAY_PAD + height + PAD + FOOT_H) -- items whose data arrives later: Bags.lua redraws
+		ns.BagsKit_StripH() + BAND_H + PAD + 2 * TRAY_PAD + height + PAD + FOOT_H) -- items whose data arrives later: Bags.lua redraws
 end
 
 local function Draw()
@@ -399,7 +399,7 @@ local function Draw()
 	DrawTabs(tabs)
 	DrawFooter(bankType)
 	frame:SetSize(math.max(width + 2 * (PAD + TRAY_PAD), MIN_W, FooterWidth()),
-		math.max(BAND_H + PAD + 2 * TRAY_PAD + height + PAD + FOOT_H, TabOffset(#tabs + 2)))
+		math.max(ns.BagsKit_StripH() + BAND_H + PAD + 2 * TRAY_PAD + height + PAD + FOOT_H, TabOffset(#tabs + 2)))
 end
 
 function ns.BagsBank_Refresh()
@@ -586,12 +586,21 @@ local function Build()
 		Place()
 	end)
 	frame:Hide()
-	UI.Panel(frame)
+	ns.BagsKit_Panel(frame)
+
+	local function Close()
+		if remembered then
+			frame:Hide()
+		else
+			C_Bank.CloseBankFrame()
+		end
+	end
+	local stripTitle = ns.BagsKit_Titlebar(frame, BANK_TAB_ICON, Close) -- the Forever theme's title and close are on the strip
 
 	-- Header band: the Character / Warband switch, the title, Clean Up and close.
 	header = ns.BagsKit_Band(frame)
-	header:SetPoint("TOPLEFT", 1, -1)
-	header:SetPoint("TOPRIGHT", -1, -1)
+	header:SetPoint("TOPLEFT", 1, -1 - ns.BagsKit_StripH())
+	header:SetPoint("TOPRIGHT", -1, -1 - ns.BagsKit_StripH())
 	header:SetHeight(BAND_H)
 	-- At a banker it switches the bank; for the remembered bank, which one is shown.
 	local function Pick(bankType)
@@ -613,26 +622,26 @@ local function Build()
 			Pick(ACCOUNT)
 		end },
 	})
-	typeSwitch:SetPoint("LEFT", PAD, 0)
-	title = UI.Text(header, 14, "heading", "title")
-	title:SetPoint("LEFT", typeSwitch, "RIGHT", 12, 0)
-	title:SetWordWrap(false)
-	title:SetWidth(TITLE_W)
-	right = ns.BagsKit_Cluster(header, {
+	typeSwitch:SetPoint("LEFT", PAD + ns.BagsKit_BadgeRoom(), 0)
+	title = stripTitle
+	if not title then
+		title = UI.Text(header, 14, "heading", "title")
+		title:SetPoint("LEFT", typeSwitch, "RIGHT", 12, 0)
+		title:SetWordWrap(false)
+		title:SetWidth(TITLE_W)
+	end
+	local rightButtons = {
 		{ glyph = "Broom", tip = "Clean up this bank", onClick = function()
 			local bankType = ActiveType()
 			if bankType and not InCombatLockdown() then
 				C_Container.SortBank(bankType)
 			end
 		end },
-		{ glyph = "Close", tip = "Close the bank", onClick = function()
-			if remembered then
-				frame:Hide()
-			else
-				C_Bank.CloseBankFrame()
-			end
-		end },
-	})
+	}
+	if not stripTitle then
+		rightButtons[#rightButtons + 1] = { glyph = "Close", tip = "Close the bank", onClick = Close }
+	end
+	right = ns.BagsKit_Cluster(header, rightButtons)
 	right:SetPoint("RIGHT", -PAD, 0)
 	-- The bank's own search (the bags keep theirs), the same words and keywords.
 	search = ns.BagsKit_Search(header, "Search the bank", function()
@@ -645,7 +654,11 @@ local function Build()
 		end
 		ns.BagsBank_Refresh()
 	end)
-	search:SetPoint("LEFT", title, "RIGHT", 10, 0)
+	if stripTitle then
+		search:SetPoint("LEFT", typeSwitch, "RIGHT", 10, 0)
+	else
+		search:SetPoint("LEFT", title, "RIGHT", 10, 0)
+	end
 	search:SetPoint("RIGHT", right, "LEFT", -10, 0)
 	search.help:SetScript("OnEnter", ns.BagsWindow_KeywordHelp)
 

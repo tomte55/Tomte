@@ -163,9 +163,7 @@ end
 local function Icon(b)
 	b.icon = b:CreateTexture(nil, "ARTWORK")
 	b.icon:SetAllPoints()
-	b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-	UI.Border(b, "frame", 0.8)
-	b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+	UI.ActionIcon(b, b.icon, SIZE, 0.8)
 end
 
 -- The looks of an entry button, a drawer's button and its flyout, shared by the real (secure) frames and the
@@ -174,8 +172,10 @@ local function EntryLooks(b)
 	b:SetSize(SIZE, SIZE)
 	Icon(b)
 	b.cooldown = CreateFrame("Cooldown", nil, b, "CooldownFrameTemplate")
-	b.cooldown:SetAllPoints()
-	b.count = UI.Text(b, 11, "text", "number")
+	local inset = UI.ActionIconInset(SIZE)
+	b.cooldown:SetPoint("TOPLEFT", inset, -inset)
+	b.cooldown:SetPoint("BOTTOMRIGHT", -inset, inset)
+	b.count =UI.Text(b, 11, "text", "number")
 	b.count:SetPoint("BOTTOMRIGHT", -2, 2)
 end
 
