@@ -218,6 +218,7 @@ local function Dress(card)
 
 	card.label = ns.SceneText(card, 10, "textMuted")
 	card.label:SetJustifyH("LEFT")
+	card.label:SetWordWrap(false) -- spaced letters would wrap mid-word, and the card's height counts one line
 	card.count = ns.SceneText(card, 10, "textMuted", "number")
 	card.count:SetJustifyH("RIGHT")
 	card.count:SetPoint("TOPRIGHT", -PAD, -PAD)

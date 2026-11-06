@@ -8,6 +8,7 @@ local addonName, ns = ...
 -- lockdown, so watched guildmates are missed inside instances).
 
 local OWNER = "friends"
+local GAME_TOAST_CVAR = "showToastOnline" -- the game's Social setting "Online Friends"
 local CHAT_TYPE = "BN_INLINE_TOAST_ALERT" -- the chat color of Blizzard's own "has come online" lines (Battle.net blue)
 local GUILD_CHAT_TYPE = "GUILD"
 local SETTLE = 15 -- seconds after login in which "came online" is the login catch-up, not news
@@ -232,10 +233,33 @@ local function RebuildWatch()
 	end
 end
 
+-- Off while Tomte announces every friend, so nobody comes online twice. Blizzard reads this CVar once at login, so a change
+-- also goes to its frame directly (Blizzard_BNet: BNToastMixin:UpdateToastEvent, as its settings row does).
+local function ApplyGameToast()
+	local db = ns.friendsDB
+	local value
+	if module.active and db.hideGameToast and db.notify == "all" then
+		if db.gameToastSaved == "none" then
+			db.gameToastSaved = C_CVar.GetCVar(GAME_TOAST_CVAR) or "1"
+		end
+		value = "0"
+	elseif db.gameToastSaved ~= "none" then
+		value = db.gameToastSaved
+		db.gameToastSaved = "none"
+	end
+	if value then
+		C_CVar.SetCVar(GAME_TOAST_CVAR, value)
+		if BNToastFrame and BNToastFrame.UpdateToastEvent then
+			BNToastFrame:UpdateToastEvent(GAME_TOAST_CVAR, value)
+		end
+	end
+end
+
 function events:PLAYER_ENTERING_WORLD(isInitialLogin, isReload)
 	if not (isInitialLogin or isReload) then
 		return -- a loading screen: nothing new
 	end
+	ApplyGameToast() -- again: CVars may not have loaded yet when the module started
 	settleUntil = GetTime() + SETTLE
 	C_FriendList.ShowFriends()
 	if IsInGuild() then
@@ -349,6 +373,7 @@ local function Activate()
 	for _, event in ipairs(EVENTS) do
 		events:RegisterEvent(event)
 	end
+	ApplyGameToast()
 	RebuildWatch()
 	if ns.inWorld then
 		friendsOnline = nil
@@ -361,6 +386,7 @@ local function Deactivate()
 	friendsOnline = nil
 	friendsKnown = nil
 	ns.Toast_Clear(OWNER)
+	ApplyGameToast()
 end
 
 local NOTIFY_CHOICES = {
@@ -374,9 +400,14 @@ local options = {
 	{ type = "checkbox", key = "summary", label = "Who's online", preview = ns.Preview_When("summary", SummaryPreview),
 		tooltip = "A card a few seconds after login: how many friends are online, who's in WoW (with their character), friends in other games and how many guildmates are on. Click it for the friends list." },
 	{ type = "header", label = "Coming online" },
-	{ type = "dropdown", key = "notify", label = "Toast when", preview = NotifyPreview, choices = function()
+	{ type = "dropdown", key = "notify", label = "Toast when", preview = NotifyPreview, onChange = ApplyGameToast, choices = function()
 		return NOTIFY_CHOICES
 	end, tooltip = "All friends: every character friend, and Battle.net friends who come online in a game (only in the Battle.net app: watch list only). Watch list only: just the people below. Guildmates only ever come from the watch list." },
+	{ type = "checkbox", key = "hideGameToast", label = "Hide the game's own online toast", onChange = ApplyGameToast,
+		shown = function()
+			return ns.friendsDB.notify == "all"
+		end,
+		tooltip = "With All friends, the game's Battle.net toast tells you the same thing. Hides only its online toast, and puts your own setting back when you turn this or Friends Online off. Battle.net friends who are only in the app then have no toast unless they're on your watch list." },
 	{ type = "input", key = "watch", label = "Watch list", placeholder = "Anna, Thrall, Bjorn#2345", onChange = RebuildWatch,
 		tooltip = "Character names, guildmates or BattleTags (the number is optional), separated by commas. Watched people also flash the taskbar icon." },
 	{ type = "checkbox", key = "flash", label = "Flash for watched people",
@@ -391,6 +422,7 @@ ns.Toast_Options(options)
 
 module = ns.RegisterModule({
 	key = "friends",
+	noShare = { "gameToastSaved" }, -- not in settings strings (Core/Profile.lua)
 	name = "Friends Online",
 	category = "social",
 	icon = 413589, -- achievement_guildperk_mrpopularity
@@ -402,6 +434,9 @@ module = ns.RegisterModule({
 	defaults = {
 		summary = true,
 		notify = "watched",
+		hideGameToast = true,
+		-- The game's showToastOnline ("0" or "1") before Tomte turned it off, put back when it stops; "none" while it hasn't.
+		gameToastSaved = "none",
 		watch = "",
 		flash = true,
 		sound = "off",
