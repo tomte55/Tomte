@@ -22,6 +22,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Leveling:** the ammo button at vendors fills your quiver or ammo pouch in one click, exactly to the brim with nothing spilling into your other bags, and shows the total price. A new setting buys by itself when you open the vendor, spending at most a quarter of your gold. The button no longer goes away with the ammo warning.
 - **Leveling:** the low supplies toast names the ammo with its icon and how much is left, and its title says what ran low.
+- **Bags:** gear whose armor or weapon type you can't use now shows as unusable, not only gear with a red class, skill or level line.
 
 ## v1.27.0 - 2026-11-06
 

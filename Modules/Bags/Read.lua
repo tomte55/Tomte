@@ -84,15 +84,22 @@ local function NotUnusable(text)
 		or text == ITEM_DISENCHANT_NOT_DISENCHANTABLE or text == ERR_NOT_IN_COMBAT
 end
 
--- The item's tooltip lines in red: wrong armor type, class, skill or level. { line } (empty when it's usable).
+local function SaysUnusable(text, color)
+	return text and color and text ~= "" and not IsSecret(color.r) and color.r >= RED_MIN and color.g <= OTHER_MAX
+		and color.b <= OTHER_MAX and not (IsSecret(text) or NotUnusable(text))
+end
+
+-- What the item's tooltip says in red: class, skill or level on the left of a line, armor or weapon type on the right
+-- ("Legs    Mail"). { { type, text } } (empty when it's usable).
 local function RedLines(bag, slot)
 	local red = {}
 	local data = C_TooltipInfo.GetBagItem(bag, slot)
 	for _, line in ipairs(data and data.lines or {}) do
-		local color = line.leftColor
-		if color and not IsSecret(color.r) and color.r >= RED_MIN and color.g <= OTHER_MAX and color.b <= OTHER_MAX
-			and not (IsSecret(line.leftText) or NotUnusable(line.leftText)) then
-			red[#red + 1] = line
+		if SaysUnusable(line.leftText, line.leftColor) then
+			red[#red + 1] = { type = line.type, text = line.leftText }
+		end
+		if SaysUnusable(line.rightText, line.rightColor) then
+			red[#red + 1] = { type = line.type, text = line.rightText }
 		end
 	end
 	return red
@@ -113,7 +120,7 @@ function ns.BagsRead_PrintRed()
 				for _, line in ipairs(RedLines(bag, slot)) do
 					found = true
 					print(("  %s: line type %s, \"%s\""):format(info.hyperlink, tostring(line.type),
-						tostring(line.leftText)))
+						tostring(line.text)))
 				end
 			end
 		end
