@@ -23,8 +23,9 @@ local hooked = false
 local view -- our list over the pane
 local rows = {}
 
+-- Not on Forever: a level 60 game's handful of titles needs no search, and "Missing" would list retail's.
 local function On()
-	return module and module.active and db.titles
+	return not ns.FOREVER and module and module.active and db.titles
 end
 
 local function Pane()

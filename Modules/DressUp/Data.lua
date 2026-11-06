@@ -10,8 +10,25 @@ ns.DRESSUP_SLOTS = { 1, 3, 15, 5, 9, false, 10, 6, 7, 8, false, 16, 17, false, 4
 ns.DRESSUP_SLOT_NAMES = {
 	[1] = "HEADSLOT", [3] = "SHOULDERSLOT", [4] = "SHIRTSLOT", [5] = "CHESTSLOT", [6] = "WAISTSLOT", [7] = "LEGSSLOT",
 	[8] = "FEETSLOT", [9] = "WRISTSLOT", [10] = "HANDSSLOT", [15] = "BACKSLOT", [16] = "MAINHANDSLOT",
-	[17] = "SECONDARYHANDSLOT", [19] = "TABARDSLOT",
+	[17] = "SECONDARYHANDSLOT", [18] = "RANGEDSLOT", [19] = "TABARDSLOT",
 }
+-- World of Warcraft: Forever's character sheet has a ranged slot, and its transmog dresses it apart from the hands.
+local SLOTS_RANGED = { 1, 3, 15, 5, 9, false, 10, 6, 7, 8, false, 16, 17, 18, false, 4, 19 }
+
+-- The slot bar's list: with the ranged slot where the client shows one.
+function ns.DressUp_SlotList(hasRanged)
+	return hasRanged and SLOTS_RANGED or ns.DRESSUP_SLOTS
+end
+
+-- Whether an ItemTransmogInfo list dresses nothing: no list, or every slot at noTransmog (Constants.Transmog).
+function ns.DressUp_ListEmpty(list, noTransmog)
+	for _, info in ipairs(list or {}) do
+		if info.appearanceID and info.appearanceID ~= noTransmog then
+			return false
+		end
+	end
+	return true
+end
 
 local MIN_SCALE, MAX_SCALE = 0.6, 3
 

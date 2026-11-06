@@ -77,20 +77,39 @@ local function TargetOutfit()
 	end)
 end
 
+-- The target's worn items as links, for try-on. Read before the inspect is cleared.
+local function WornLinks()
+	local links = {}
+	for _, slot in ipairs(BAR.SlotList()) do
+		links[#links + 1] = slot and GetInventoryItemLink("target", slot) or nil
+	end
+	return links
+end
+
 events:On(OWNER, "INSPECT_READY", function(_, guid)
 	if not pending or guid ~= pending.guid then
 		return
 	end
 	StopInspect()
 	local list = C_TransmogCollection.GetInspectItemTransmogInfoList()
+	-- Blizzard's Inspect window on Forever never asks for this list (Camelot/Blizzard_InspectUI.lua), and transmog is
+	-- optional there: with nothing in it, the items the target wears are what it looks like.
+	local worn = ns.FOREVER and UnitGUID("target") == guid
+		and ns.DressUp_ListEmpty(list, Constants.Transmog.NoTransmogID) and WornLinks() or nil
 	if not InspectWindowUnit() then
 		ClearInspectPlayer() -- ours alone; the Inspect window clears its own when it closes
 	end
 	local actor = BAR.Actor()
-	if not (actor and list) then
+	if not (actor and (list or worn)) then
 		return
 	end
 	actor:Undress()
+	if worn then
+		for _, link in ipairs(worn) do
+			pcall(actor.TryOn, actor, link) -- pcall: TryOn errors on an item the model can't dress
+		end
+		return
+	end
 	for slot, info in ipairs(list) do
 		pcall(actor.SetItemTransmogInfo, actor, info, slot, slot ~= INVSLOT_MAINHAND)
 	end
@@ -124,7 +143,7 @@ end
 
 local function ItemList()
 	local lines = {}
-	for _, slot in ipairs(ns.DRESSUP_SLOTS) do
+	for _, slot in ipairs(BAR.SlotList()) do
 		local info = slot and not BAR.IsHidden(slot) and BAR.Wearing(slot)
 		if info then
 			local source, name = SourceText(info.appearanceID)

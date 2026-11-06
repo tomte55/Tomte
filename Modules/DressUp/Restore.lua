@@ -41,10 +41,12 @@ local function Options(slot)
 		return { Enum.TransmogOutfitSlotOption.None }
 	end
 	local options = {}
-	local weapons, artifacts = C_TransmogOutfitInfo.GetWeaponOptionsForSlot(slot)
+	-- Forever's API is GetOptionsForSlot, and its entries name the option .type (TransmogOutfitOptionInfo).
+	local read = C_TransmogOutfitInfo.GetWeaponOptionsForSlot or C_TransmogOutfitInfo.GetOptionsForSlot
+	local weapons, artifacts = read(slot)
 	for _, list in ipairs({ weapons or {}, artifacts or {} }) do
 		for _, info in ipairs(list) do
-			options[#options + 1] = info.weaponOption
+			options[#options + 1] = info.weaponOption or info.type
 		end
 	end
 	return options

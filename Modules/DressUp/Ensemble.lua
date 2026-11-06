@@ -12,7 +12,7 @@ local module, db
 local hooked = false
 
 local function On()
-	return module and module.active and db.ensemble
+	return not ns.FOREVER and module and module.active and db.ensemble -- Forever: no sign of items that teach a set
 end
 
 -- The set's pieces as { appearanceID, collected }, or nil for an item that teaches no set.

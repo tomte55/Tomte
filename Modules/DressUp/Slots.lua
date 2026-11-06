@@ -63,6 +63,10 @@ local function SlotName(slot)
 end
 BAR.SlotName = SlotName
 
+function BAR.SlotList()
+	return ns.DressUp_SlotList(ns.FOREVER and C_PaperDollInfo.IsRangedSlotShown())
+end
+
 -- Buttons ------------------------------------------------------------------------------------------------------------
 
 local function OnEnter(self)
@@ -97,7 +101,8 @@ local function OnClick(self)
 		return
 	end
 	if hidden[slot] then
-		actor:SetItemTransmogInfo(hidden[slot], slot, slot ~= INVSLOT_MAINHAND)
+		-- Forever's ranged slot: no slot named, as Blizzard's transmog preview does (TransmogCharacterMixin).
+		actor:SetItemTransmogInfo(hidden[slot], slot ~= INVSLOT_RANGED and slot or nil, slot ~= INVSLOT_MAINHAND)
 		hidden[slot] = nil
 	else
 		local info = Wearing(slot)
@@ -160,7 +165,7 @@ local function Create()
 	bar = CreateFrame("Frame", nil, DressUpFrame)
 	bar:SetFrameLevel(DressUpFrame.ModelScene:GetFrameLevel() + 10)
 	local x = 0
-	for _, slot in ipairs(ns.DRESSUP_SLOTS) do
+	for _, slot in ipairs(BAR.SlotList()) do
 		if slot then
 			local b = CreateButton(slot)
 			b:SetPoint("LEFT", bar, "LEFT", x, 0)

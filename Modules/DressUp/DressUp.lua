@@ -208,7 +208,8 @@ module = ns.RegisterModule({
 	},
 	noShare = { "debug" }, -- a debug switch: not in settings strings (Core/Profile.lua)
 	replaces = {
-		{ addon = "Plumber", why = "the Catalyst preview, outfit picking, restoring transmog changes, ensemble "
+		{ addon = "Plumber", why = ns.FOREVER and "outfit picking and restoring transmog changes"
+			or "the Catalyst preview, outfit picking, restoring transmog changes, ensemble "
 			.. "counts and the title search" },
 		{ addon = "CanIMogIt", why = "whether you have an item's look, on its tooltip" },
 	},
@@ -255,16 +256,28 @@ module = ns.RegisterModule({
 			tooltip = "Target's outfit dresses your own character instead of the target's." },
 		{ type = "header", label = "Transmog" },
 		{ type = "checkbox", key = "catalyst", label = "Catalyst preview", onChange = UpdateOthers,
+			shown = ns.NotForever,
 			tooltip = "In the Catalyst, the piece you'd get is named under it with whether its look is new. "
 				.. "Ctrl-click it to try it on, Shift-click to link it." },
 		{ type = "checkbox", key = "restore", label = "Restore transmog changes", onChange = UpdateOthers,
 			tooltip = "Closed the transmogrifier before applying? Next time, a button puts your changes back." },
 		{ type = "checkbox", key = "ensemble", label = "Ensemble counts", onChange = UpdateOthers,
+			shown = ns.NotForever,
 			tooltip = "Ensemble tooltips say how many of their appearances you have." },
 		{ type = "checkbox", key = "appearance", label = "Appearance on gear tooltips", onChange = UpdateOthers,
 			tooltip = "Gear tooltips say whether you have the item's look: not collected (or only for another class), collected from another item, or collected." },
 		{ type = "header", label = "Titles" },
 		{ type = "checkbox", key = "titles", label = "Title search", onChange = UpdateOthers,
+			shown = ns.NotForever,
 			tooltip = "The character window's title list gets a search box and an Owned / Missing / All filter." },
 	},
 })
+
+-- Forever has no Catalyst, ensembles or title search (Catalyst.lua, Ensemble.lua, Titles.lua).
+if ns.FOREVER then
+	module.summary = "A bigger dressing room with a slot bar and outfit tools, plus transmog helpers."
+	module.description = "The dressing room (Ctrl-click an item) opens bigger, with a slot bar under the model (click "
+		.. "a piece to hide it, Shift-click to link it) and buttons to undress, show your target's outfit, list the "
+		.. "outfit with where each piece comes from and try on your saved outfits. The transmogrifier keeps changes "
+		.. "you closed it on, and gear tooltips say whether you have the item's look."
+end

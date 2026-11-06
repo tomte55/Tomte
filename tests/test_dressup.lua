@@ -137,4 +137,25 @@ test("appearance state and its tooltip line", function()
 	eq(ns.DressUp_AppearanceLine(nil), nil)
 end)
 
+test("the slot bar has the ranged slot only where the client shows one", function()
+	eq(ns.DressUp_SlotList(false), ns.DRESSUP_SLOTS)
+	eq(ns.DressUp_SlotList(nil), ns.DRESSUP_SLOTS)
+	local found
+	for _, slot in ipairs(ns.DressUp_SlotList(true)) do
+		found = found or slot == 18
+	end
+	eq(found, true)
+	eq(ns.DRESSUP_SLOT_NAMES[18], "RANGEDSLOT")
+	for _, slot in ipairs(ns.DRESSUP_SLOTS) do
+		eq(slot == 18, false)
+	end
+end)
+
+test("an empty transmog list: none, or every slot at no transmog", function()
+	eq(ns.DressUp_ListEmpty(nil, 0), true)
+	eq(ns.DressUp_ListEmpty({}, 0), true)
+	eq(ns.DressUp_ListEmpty({ { appearanceID = 0 }, { appearanceID = 0 } }, 0), true)
+	eq(ns.DressUp_ListEmpty({ { appearanceID = 0 }, { appearanceID = 12 } }, 0), false)
+end)
+
 H.done()

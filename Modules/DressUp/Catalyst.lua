@@ -18,7 +18,7 @@ local hooked = false
 local strip
 
 local function On()
-	return module and module.active and db.catalyst
+	return not ns.FOREVER and module and module.active and db.catalyst -- Forever has no Catalyst
 end
 
 local function OutputSlot()
