@@ -192,4 +192,55 @@ test("underlight angler: fixed only for the Angler at tier 0", function()
 	eq(ns.Fishing_AnglerShowsTier(nil), false)
 end)
 
+test("rods: only a fishing pole counts, the highest level wins", function()
+	eq(ns.Fishing_IsRod(2, 20), true)
+	eq(ns.Fishing_IsRod(2, 7), false, "a sword")
+	eq(ns.Fishing_IsRod(4, 20), false, "not a weapon")
+	eq(ns.Fishing_IsRod(nil, nil), false)
+	eq(ns.Fishing_PickRod({}), nil)
+	eq(ns.Fishing_PickRod({ { itemID = 1, ilvl = 5 }, { itemID = 2, ilvl = 30 }, { itemID = 3, ilvl = 30 } }), 2)
+	eq(ns.Fishing_PickRod({ { itemID = 1 } }), 1, "level unknown")
+end)
+
+test("lures: the strongest on hand", function()
+	local function has(ids)
+		return function(id)
+			return ids[id] == true
+		end
+	end
+	eq(ns.Fishing_PickLure({ 1, 2, 3 }, has({ [1] = true, [2] = true })), 2)
+	eq(ns.Fishing_PickLure({ 1, 2, 3 }, has({})), nil)
+	eq(ns.Fishing_PickLure({}, has({ [1] = true })), nil)
+end)
+
+test("next action: the rod, then a lure, then the cast", function()
+	local opts = { dismount = true }
+	local function act(extra)
+		local s = { known = true }
+		for k, v in pairs(extra) do
+			s[k] = v
+		end
+		return ns.Fishing_NextAction(s, opts)
+	end
+	eq(act({}).kind, "cast", "retail never sets these")
+	eq(act({ needsRod = true, rod = 7 }).kind, "equip")
+	eq(act({ needsRod = true, rod = 7 }).item, 7)
+	eq(act({ needsRod = true }).reason, "norod")
+	eq(act({ needsRod = true }).kind, "none")
+	eq(act({ needsRod = true, rod = 7, lure = 9 }).kind, "equip", "the rod first")
+	eq(act({ lure = 9 }).kind, "lure")
+	eq(act({ lure = 9 }).item, 9)
+	eq(act({ lure = 9, lureUp = true }).kind, "cast", "already on")
+	eq(act({ lureUp = true }).kind, "cast", "none carried")
+	eq(act({ needsRod = true, rod = 7, swimming = true }).reason, "swimming", "not in the water")
+	eq(act({ needsRod = true, rod = 7, mounted = true }).kind, "equip", "before the dismount")
+	eq(act({ mounted = true }).kind, "dismount")
+	eq(act({ needsRod = true, rod = 7, mounted = true, flying = true }).reason, "mounted", "not while flying")
+end)
+
+test("macros for the rod and a lure", function()
+	eq(ns.Fishing_MacroText({ kind = "equip", item = 6256 }, {}), "/equip item:6256")
+	eq(ns.Fishing_MacroText({ kind = "lure", item = 6529 }, {}), "/use item:6529\n/use 16")
+end)
+
 H.done()

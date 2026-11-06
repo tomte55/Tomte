@@ -4,6 +4,9 @@ local addonName, ns = ...
 -- Fishing channel spell IDs come from the client's spell tables (tools/fishing.py has the rule); the idea of matching
 -- the variants by ID came from Angleur. Toy and aura IDs checked on wowhead.
 
+local CLASS_WEAPON, SUBCLASS_FISHING_POLE = 2, 20 -- Enum.ItemClass, Enum.ItemWeaponSubclass
+local MAIN_HAND_SLOT = 16 -- inventory slot
+
 ns.FISHING_SPELL = 131474 -- the Fishing spell you cast (spellbook); its channel is 131476
 -- Forever (Classic-style) has ranked Fishing spells instead: Apprentice, Journeyman, Expert, Artisan.
 ns.FISHING_SPELL_RANKS = { 7620, 7731, 7732, 18248 }
@@ -76,12 +79,52 @@ local function Action(kind, reason, item)
 	return { kind = kind, reason = reason, item = item }
 end
 
--- What the next press of the key does: { kind = "none"|"cast"|"dismount"|"toy", reason, item (toy only) }.
+-- Forever (Rod.lua): whether an item is a fishing rod. classID, subclassID: C_Item.GetItemInfoInstant's.
+function ns.Fishing_IsRod(classID, subclassID)
+	return classID == CLASS_WEAPON and subclassID == SUBCLASS_FISHING_POLE
+end
+
+-- The best of rods ({ { itemID, ilvl } }): the highest level, the first of equals. nil: none.
+function ns.Fishing_PickRod(rods)
+	local best
+	for _, rod in ipairs(rods) do
+		if not best or (rod.ilvl or 0) > (best.ilvl or 0) then
+			best = rod
+		end
+	end
+	return best and best.itemID
+end
+
+-- The strongest lure on hand. lures: item IDs, weakest first. has(itemID) -> carried and usable. nil: none.
+function ns.Fishing_PickLure(lures, has)
+	for i = #lures, 1, -1 do
+		if has(lures[i]) then
+			return lures[i]
+		end
+	end
+	return nil
+end
+
+-- What has to happen to the gear before a cast (Forever): the rod, then a lure on it. nil: nothing.
+local function GearAction(s)
+	if s.needsRod then
+		return s.rod and Action("equip", "rod", s.rod) or Action("none", "norod")
+	end
+	if s.lure and not s.lureUp then
+		return Action("lure", "lure", s.lure)
+	end
+	return nil
+end
+
+-- What the next press of the key does: { kind = "none"|"cast"|"dismount"|"toy"|"equip"|"lure", reason, item (the toy, rod
+-- or lure) }.
 -- s, the game right now (Key.lua Situation): lootOpen, fishing (a channel is out), dead, blocked (vehicle, taxi, pet
 -- battle), known (Fishing learned), mounted, flying, swimming, rafts (owned raft item IDs), raftLeft (seconds on a raft
--- aura, nil when none), bobberOwned, bobberReady (off cooldown), bobberUp (buff on).
+-- aura, nil when none), bobberOwned, bobberReady (off cooldown), bobberUp (buff on). On Forever, by the settings
+-- (Rod.lua): needsRod (no rod in hand), rod (the one in the bags to equip), lure (the one to put on), lureUp.
 -- opts, the settings: lootProtect, dismount, raft = { on, pick }, bobber, random (math.random, injectable for tests).
--- Order: loot protection, a cast already out, can't act, not learned, mounted, swimming, bobber toy, raft renew, cast.
+-- Order: loot protection, a cast already out, can't act, not learned, mounted, swimming, gear, bobber toy, raft renew,
+-- cast.
 function ns.Fishing_NextAction(s, opts)
 	local raftOn = opts.raft and opts.raft.on
 	if s.lootOpen and opts.lootProtect then
@@ -101,7 +144,7 @@ function ns.Fishing_NextAction(s, opts)
 	end
 	if s.mounted then
 		if opts.dismount and not s.flying then
-			return Action("dismount", "mounted")
+			return GearAction(s) or Action("dismount", "mounted")
 		end
 		return Action("none", "mounted")
 	end
@@ -111,6 +154,10 @@ function ns.Fishing_NextAction(s, opts)
 			return Action("toy", "raft", raft)
 		end
 		return Action("none", "swimming")
+	end
+	local gear = GearAction(s)
+	if gear then
+		return gear
 	end
 	if opts.bobber and s.bobberOwned and s.bobberReady and not s.bobberUp then
 		return Action("toy", "bobber", ns.FISHING_BOBBER_TOY.item)
@@ -195,6 +242,12 @@ function ns.Fishing_MacroText(action, names)
 	end
 	if action.kind == "toy" then
 		return names.toy and ("/use " .. names.toy) or ""
+	end
+	if action.kind == "equip" then
+		return ("/equip item:%d"):format(action.item)
+	end
+	if action.kind == "lure" then -- as a poison on a weapon: the item waits for a target, then /use picks the rod's slot
+		return ("/use item:%d\n/use %d"):format(action.item, MAIN_HAND_SLOT)
 	end
 	return ""
 end

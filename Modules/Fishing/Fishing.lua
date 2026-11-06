@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Fishing module: one key (Key Bindings > Tomte > Fishing) to cast and, while the bobber is out, to reel in and loot.
 -- Helpers while a cast is out: auto loot, no recast while looting, an optional louder splash, raft and Oversized
 -- Bobber toys (one press each), and an optional on-screen button. Pure rules in Data.lua, the CVar backup in
--- Helpers.lua, the key and button in Key.lua, the Underlight Angler fix in Angler.lua. Does nothing until a key is
+-- Helpers.lua, the key and button in Key.lua, Forever's rod and lures in Rod.lua, the Underlight Angler fix in Angler.lua. Does nothing until a key is
 -- bound or the button is shown (the Angler fix only acts in the artifact window).
 
 local UI = ns.UI
@@ -69,6 +69,10 @@ local function Relayout()
 	ns.FishingKey_Refresh()
 end
 
+local function IsForever()
+	return ns.FOREVER
+end
+
 local function Percent(v)
 	return ("%d%%"):format(math.floor(v * 100 + 0.5))
 end
@@ -124,6 +128,9 @@ module = ns.RegisterModule({
 		bobber = false, -- Reusable Oversized Bobber
 		button = { shown = false, frame = { point = "CENTER", relPoint = "CENTER", x = 0, y = -180 }, scale = 1 },
 		restore = {}, -- [cvar] = { old, set }: the CVar backup while a cast is out (a collection: Reset keeps it)
+		-- Forever only (Rod.lua). lure is off by default: it spends items the player may be saving.
+		rod = { equip = true, back = true, lure = false },
+		swap = {}, -- [player GUID] = { main, off } (item links): the weapons a rod replaced
 		angler = true, -- show the Underlight Angler's traits in the artifact window (Angler.lua)
 	},
 	conflicts = {
@@ -137,10 +144,16 @@ module = ns.RegisterModule({
 		ns.FishingHelpers_Init(db)
 		ns.FishingKey_Init(db, module)
 		ns.FishingAngler_Init(db)
+		if ns.FOREVER then
+			ns.FishingRod_Init(db)
+		end
 	end,
 	toggle = function(active)
 		ns.FishingKey_Toggle(active)
 		ns.FishingAngler_Toggle(active)
+		if ns.FOREVER then
+			ns.FishingRod_Toggle(active)
+		end
 	end,
 	commands = {
 		{ "", "open the Fishing options", Open, hidden = true, whileOff = true },
@@ -157,6 +170,15 @@ module = ns.RegisterModule({
 			tooltip = "While the loot window is open (3 seconds at most), the key does nothing, so a double press or lag can't recast and lose the loot." },
 		{ type = "checkbox", key = "dismount", label = "Dismount with the key (never while flying)",
 			tooltip = "Off: the key does nothing while you're mounted. On: on the ground it dismounts you and casts." },
+
+		{ type = "header", label = "Rod and lures", shown = IsForever },
+		{ type = "checkbox", key = "rod.equip", label = "Equip your rod with the key", shown = IsForever, onChange = Refresh,
+			tooltip = "With no rod in your hands, a press equips your best one from your bags. The next press casts." },
+		{ type = "checkbox", key = "rod.back", label = "Put your weapons back automatically", shown = IsForever,
+			parent = "rod.equip",
+			tooltip = "Your previous weapons go back when you mount, change zone or get pulled into combat. A right-click on the fishing button does it any time." },
+		{ type = "checkbox", key = "rod.lure", label = "Put a lure on the rod", shown = IsForever, onChange = Refresh,
+			tooltip = "When the rod has no lure on it, a press puts on the strongest one you carry, such as a Shiny Bauble. It raises your fishing skill for a few minutes. The next press casts." },
 
 		{ type = "header", label = "Louder splash" },
 		{ type = "checkbox", key = "loud.on", label = "Louder splash",

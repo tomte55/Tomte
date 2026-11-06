@@ -14,6 +14,7 @@ local BUTTON_NAME, BAR_NAME = "TomteFishing", "TomteFishingBar"
 local BINDING = "CLICK " .. BUTTON_NAME .. ":LeftButton" -- also in Bindings.xml
 ns.FISHING_BINDING = BINDING -- Fishing.lua (loads after this file) reads the key from it
 local SIZE = 40
+local ICON = 136245 -- trade_fishing, as the module's own icon
 local LABEL_H = 16 -- the label under the button: its 3 px gap and a 10 pt line
 local WAIT_STEP, WAIT_LIMIT = 0.05, 10 -- seconds between key checks, and when to give up waiting for a release
 local TICK = 1 -- the visible button's refresh
@@ -164,6 +165,9 @@ local function Situation()
 		local start = C_Container.GetItemCooldown(bobber.item)
 		s.bobberReady = not start or start == 0
 	end
+	if ns.FOREVER then
+		ns.FishingRod_Situation(s)
+	end
 	return s
 end
 
@@ -185,7 +189,18 @@ local function Message(text)
 	UIErrorsFrame:AddMessage("Fishing: " .. text, UI.RGB("warning"))
 end
 
-local function PreClick()
+local function PreClick(_, mouseButton)
+	-- Forever: a right-click puts the weapons back, and the macro below stays empty so it doesn't cast too. In combat the
+	-- macro is empty already (PLAYER_REGEN_DISABLED) and can't change, and swapping weapons may still work.
+	if ns.FOREVER and mouseButton == "RightButton" and module.active then
+		if not InCombatLockdown() then
+			SetMacro("")
+		end
+		if not ns.FishingRod_PutBack() then
+			Message("no weapons to put back.")
+		end
+		return
+	end
 	if InCombatLockdown() then
 		return
 	end
@@ -198,10 +213,15 @@ local function PreClick()
 		button:SetAttribute("type", "toy") -- the toy type, as on the Teleports map tab
 		button:SetAttribute("toy", action.item)
 	else
+		if action.kind == "equip" then
+			ns.FishingRod_Remember()
+		end
 		SetMacro(ns.Fishing_MacroText(action, { fishing = FishingName() }))
 	end
 	if action.reason == "unknown" then
 		Message("you haven't learned Fishing.")
+	elseif action.reason == "norod" then
+		Message("no fishing rod in your bags.")
 	elseif action.reason == "loot" then
 		Message("still looting.")
 	elseif action.reason == "mounted" and action.kind == "none" then
@@ -286,6 +306,9 @@ local function ButtonOnEnter(self)
 		GameTooltip:AddLine("No key: Key Bindings > Tomte > Fishing.", UI.RGB("warning"))
 	end
 	GameTooltip:AddLine("A click casts, but can't reel in: use the key or click the bobber.", UI.RGB("textMuted"))
+	if ns.FOREVER and ns.FishingRod_HasSaved() then
+		GameTooltip:AddLine("Right-click: put your weapons back.", UI.RGB("text"))
+	end
 	GameTooltip:Show()
 end
 
@@ -293,8 +316,12 @@ end
 local function Decorate(b)
 	b.icon = b:CreateTexture(nil, "ARTWORK")
 	b.icon:SetAllPoints()
-	b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-	UI.Border(b, "frame", 0.8)
+	if ns.Theme.panel == "forever" then
+		UI.Forever_IconFrame(b, b.icon, SIZE)
+	else
+		b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+		UI.Border(b, "frame", 0.8)
+	end
 	b.label = UI.Text(b, 10, "textMuted", "label")
 	b.label:SetPoint("TOP", b, "BOTTOM", 0, -3)
 end
@@ -324,15 +351,28 @@ local function Create()
 	button:SetAttribute("useOnKeyDown", true)
 	button:SetScript("PreClick", PreClick)
 	Decorate(button)
-	button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-	button:SetScript("OnEnter", ButtonOnEnter)
-	button:SetScript("OnLeave", GameTooltip_Hide)
+	if ns.Theme.panel == "forever" then
+		local light = UI.Forever_IconLight(button, SIZE)
+		button:SetScript("OnEnter", function(self)
+			light:Show()
+			ButtonOnEnter(self)
+		end)
+		button:SetScript("OnLeave", function()
+			light:Hide()
+			GameTooltip_Hide()
+		end)
+	else
+		button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+		button:SetScript("OnEnter", ButtonOnEnter)
+		button:SetScript("OnLeave", GameTooltip_Hide)
+	end
 	ApplyLayout()
 end
 
 -- What a press does now: the icon, the label and its color role.
 local function CurrentLook()
-	local icon = C_Spell.GetSpellTexture(ns.FISHING_SPELL)
+	-- Forever has no retail Fishing spell to ask (its Fishing is ranked), so the same picture by file ID.
+	local icon = C_Spell.GetSpellTexture(ns.FISHING_SPELL) or ICON
 	local key = KeyText()
 	local text, role
 	if fishing then
@@ -348,8 +388,16 @@ local function CurrentLook()
 		if action.kind == "toy" then
 			icon = ToyIcon(action.item) or icon
 			text = action.reason == "bobber" and "Bobber" or "Raft"
+		elseif action.kind == "equip" then
+			icon = C_Item.GetItemIconByID(action.item) or icon
+			text = "Equip rod"
+		elseif action.kind == "lure" then
+			icon = C_Item.GetItemIconByID(action.item) or icon
+			text = "Put on lure"
 		elseif action.kind == "cast" or action.kind == "dismount" then
 			text = "Cast"
+		elseif action.reason == "norod" then
+			text = "No rod"
 		elseif action.reason == "unknown" then
 			text = "Not learned"
 		elseif action.reason == "mounted" then
