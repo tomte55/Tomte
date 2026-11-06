@@ -30,7 +30,28 @@ local function ChatAPI(name, classic)
 	return (ChatFrameUtil and ChatFrameUtil[name]) or _G[classic]
 end
 
+-- Forever's character names can have a space ("Mira Ashvale"). SendTell types "/w name" for the chat box to read, which takes
+-- "Mira Ashvale-Realm" as written and can't send to it (seen in game). So there the box gets the name directly, without your own
+-- realm, the way the game's own reply does it (ChatFrameUtil.ReplyTell).
+local function ForeverTell(name)
+	local util = ChatFrameUtil
+	if not (ns.FOREVER and util and util.ChooseBoxForSend and util.GetActiveWindow and util.OpenChat) then
+		return false
+	end
+	local box = util.ChooseBoxForSend()
+	box:SetChatType("WHISPER")
+	box:SetTellTarget(Ambiguate and Ambiguate(name, "none") or name)
+	box:UpdateHeader()
+	if box ~= util.GetActiveWindow() then
+		util.OpenChat("")
+	end
+	return true
+end
+
 function ns.Chat_SendTell(name)
+	if ForeverTell(name) then
+		return
+	end
 	return ChatAPI("SendTell", "ChatFrame_SendTell")(name)
 end
 

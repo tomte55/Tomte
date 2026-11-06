@@ -6,7 +6,7 @@ local GLOBALS = {
 	"C_AddOns", "GetAddOnMetadata", "ChatFrameUtil", "ChatFrame_SendTell", "ChatFrame_SendBNetTell",
 	"ChatFrame_ReplyTell", "ChatFrame_OpenChat", "ChatEdit_InsertLink", "ChatFrame_AddMessageEventFilter",
 	"ChatFrame_RemoveMessageEventFilter", "C_ChatInfo", "SendChatMessage", "C_SpecializationInfo", "hooksecurefunc",
-	"C_SpellBook", "IsSpellKnown", "C_EventUtils", "CreateFrame",
+	"C_SpellBook", "IsSpellKnown", "C_EventUtils", "CreateFrame", "Ambiguate",
 }
 
 -- Loads Compat.lua with only the given game globals present.
@@ -68,6 +68,50 @@ test("retail chat calls ChatFrameUtil only", function()
 	ns.Chat_SendTell("Aldric")
 	eq(#calls, 1, "one call")
 	eq(calls[1], "util:Aldric", "retail API")
+end)
+
+test("on Forever a whisper goes straight to the chat box, without your own realm", function()
+	local box = {}
+	function box:SetChatType(kind)
+		self.kind = kind
+	end
+	function box:SetTellTarget(target)
+		self.target = target
+	end
+	function box:UpdateHeader()
+		self.updated = true
+	end
+	local typed, opened
+	local ns = Load({
+		C_AddOns = { GetAddOnMetadata = function(_, field)
+			return field == "X-Tomte-Flavor" and "forever" or nil
+		end },
+		Ambiguate = function(name)
+			return (name:gsub("%-MyRealm$", ""))
+		end,
+		ChatFrameUtil = {
+			SendTell = function(name)
+				typed = name
+			end,
+			ChooseBoxForSend = function()
+				return box
+			end,
+			GetActiveWindow = function()
+				return nil
+			end,
+			OpenChat = function(text)
+				opened = text
+			end,
+		},
+	})
+	ns.Chat_SendTell("Mira Ashvale-MyRealm")
+	eq(box.kind, "WHISPER")
+	eq(box.target, "Mira Ashvale", "your own realm comes off")
+	eq(box.updated, true)
+	eq(opened, "", "opens the box")
+	eq(typed, nil, "nothing typed for the box to read")
+	ns.Chat_SendTell("Mira Ashvale-OtherRealm")
+	eq(box.target, "Mira Ashvale-OtherRealm", "another realm stays")
 end)
 
 test("classic chat falls back to the ChatFrame_ globals", function()
