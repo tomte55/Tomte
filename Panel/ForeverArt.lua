@@ -302,15 +302,33 @@ function UI.Forever_BarArt(bar)
 		self.fill:SetTexCoord(0, self.value or 0, 1, 0)
 	end
 
-	function bar:SetColorRole(role)
+	local function Paint(texture, role)
 		local atlas = role and (BAR_ATLAS[role] or BAR_TINTED) or BAR_DEFAULT
-		self.fill:SetAtlas(atlas)
+		texture:SetAtlas(atlas)
 		if atlas == BAR_TINTED then
-			self.fill:SetVertexColor(Theme.RGB(role))
+			texture:SetVertexColor(Theme.RGB(role))
 		else
-			self.fill:SetVertexColor(1, 1, 1)
+			texture:SetVertexColor(1, 1, 1)
 		end
+	end
+
+	function bar:SetColorRole(role)
+		Paint(self.fill, role)
 		Cut(self)
+	end
+
+	-- A second fill laid over the bar by its owner (Leveling's finished quests), in the same art as the main fill. The
+	-- owner places it, then cuts it with SetPartRange(part, from, to) (shares of the bar's width).
+	function bar:SetPartRole(part, role)
+		Paint(part, role)
+		if not part.masked then
+			part:AddMaskTexture(mask)
+			part.masked = true
+		end
+	end
+
+	function bar:SetPartRange(part, from, to)
+		part:SetTexCoord(from, to, 1, 0)
 	end
 
 	local setValue = bar.SetValue

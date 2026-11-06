@@ -19,6 +19,9 @@ local function PlacePart(bar, part, from, to)
 		part:ClearAllPoints()
 		part:SetPoint(part.anchor, bar, part.anchor, bar:GetWidth() * from, 0)
 		part:SetWidth(width)
+		if part.barArt then
+			bar:SetPartRange(part, from, to)
+		end
 	end
 end
 
@@ -89,7 +92,12 @@ function ns.LevelingXP_Create(parent, compact)
 		if v then
 			self.text:SetPoint("TOPLEFT", self.bar, "BOTTOMLEFT", 0, -TEXT_GAP)
 			self.bar.view = v
-			self.bar.turnIn:SetColorTexture(UI.RGBA("success", 0.75))
+			if self.bar.SetPartRole then -- a bar drawn with the game's art (Forever theme) has a green of its own
+				self.bar.turnIn.barArt = true
+				self.bar:SetPartRole(self.bar.turnIn, "success")
+			else
+				self.bar.turnIn:SetColorTexture(UI.RGBA("success", 0.75))
+			end
 			self.bar.rested:SetColorTexture(UI.RGBA("info"))
 			self.bar:SetValue(v.fraction)
 			PlaceParts(self.bar)
