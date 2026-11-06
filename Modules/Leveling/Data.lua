@@ -27,6 +27,7 @@ local ICONS = {
 	ranks = "Interface\\Icons\\INV_Misc_Book_11",
 	reagents = "Interface\\Icons\\INV_Misc_Dust_02",
 	ammo = "Interface\\Icons\\INV_Ammo_Arrow_02",
+	kits = "Interface\\Icons\\INV_Misc_ArmorKit_17",
 }
 
 -- Trainer --------------------------------------------------------------------------------------------------------------
@@ -189,6 +190,75 @@ function ns.Leveling_PickAmmo(items, weaponSubclass, level, money)
 	end
 	return best
 end
+
+-- Armor kits -----------------------------------------------------------------------------------------------------------
+
+-- Where a kit goes, in the order the button fills them. slot: the inventory slot (INVSLOT_CHEST and so on).
+ns.LEVELING_KIT_SLOTS = {
+	{ slot = 5, label = "chest" },
+	{ slot = 7, label = "legs" },
+	{ slot = 10, label = "hands" },
+	{ slot = 8, label = "feet" },
+}
+
+-- The enchant on an item, from its link ("item:ID:enchant:..."): nil when there's none. An armor kit counts as one.
+function ns.Leveling_ItemEnchant(link)
+	if type(link) ~= "string" then
+		return nil
+	end
+	local enchant = tonumber(link:match("item:%-?%d+:(%-?%d*)") or "")
+	return enchant and enchant ~= 0 and enchant or nil
+end
+
+-- The worn pieces with nothing on them. gear: { { slot, label, name, link } }. A piece whose link can't be read isn't offered.
+function ns.Leveling_EmptyGear(gear)
+	local empty = {}
+	for _, piece in ipairs(gear) do
+		if type(piece.link) == "string" and not ns.Leveling_ItemEnchant(piece.link) then
+			empty[#empty + 1] = piece
+		end
+	end
+	return empty
+end
+
+-- What a press does: { kit, slot, label, gear (its name), empty }, or nil when there's nothing to do. kits: what you carry,
+-- best first: { { itemID, name, count, minLevel } }.
+function ns.Leveling_KitPlan(kits, gear, level)
+	local empty = ns.Leveling_EmptyGear(gear)
+	if #empty == 0 then
+		return nil
+	end
+	for _, kit in ipairs(kits) do
+		if (kit.count or 0) > 0 and (kit.minLevel or 0) <= level then
+			local piece = empty[1]
+			return { kit = kit, slot = piece.slot, label = piece.label, gear = piece.name, empty = empty }
+		end
+	end
+	return nil
+end
+
+-- As a poison on a weapon: the item waits for a target, then /use picks the slot.
+function ns.Leveling_KitMacro(itemID, slot)
+	return ("/use item:%d\n/use %d"):format(itemID, slot)
+end
+
+function ns.Leveling_KitPieces(empty)
+	local labels = {}
+	for i, piece in ipairs(empty) do
+		labels[i] = piece.label
+	end
+	return table.concat(labels, ", ")
+end
+
+-- The line on a kit's tooltip.
+function ns.Leveling_KitTipLine(empty)
+	if #empty == 0 then
+		return "Nothing empty to put it on"
+	end
+	return "Can go on: " .. ns.Leveling_KitPieces(empty)
+end
+
+-- Ammo counter ---------------------------------------------------------------------------------------------------------
 
 -- Whether an item is ammo at all, so the bag scan can skip the rest.
 function ns.Leveling_IsAmmo(classID)
@@ -437,7 +507,8 @@ end
 -- To do --------------------------------------------------------------------------------------------------------------
 
 -- What's waiting, most useful first, and the checks that came up clean. s: { visited (the trainer list is saved), ready
--- (trainer rows), talents, oldRanks (names), reagents ({ name, count }), ammoState, ammoText, turnIns (quest rows) }.
+-- (trainer rows), talents, oldRanks (names), reagents ({ name, count }), ammoState, ammoText, turnIns (quest rows), kit (the
+-- armor kit plan, or nil) }.
 -- Returns todo: { { key, icon, text, sub, role, cost (copper), xp } } and fine: "All fine: ..." or nil.
 function ns.Leveling_Checklist(s)
 	local todo, clean = {}, {}
@@ -495,6 +566,12 @@ function ns.Leveling_Checklist(s)
 		Add("ammo", ("Low on ammo: %s left"):format(s.ammoText), "Buy more at a vendor.", "warning")
 	elseif s.ammoState == "ok" then
 		clean[#clean + 1] = ("ammo (%s)"):format(s.ammoText)
+	end
+
+	if s.kit then
+		local count = #s.kit.empty
+		Add("kits", ("%s could take your %s"):format(count == 1 and "1 piece" or (count .. " pieces"), s.kit.kit.name or "armor kit"),
+			"Use the armor kit button: " .. ns.Leveling_KitPieces(s.kit.empty) .. ".")
 	end
 
 	return todo, #clean > 0 and ("All fine: " .. table.concat(clean, ", ")) or nil

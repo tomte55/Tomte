@@ -43,6 +43,7 @@ Data/Forever/Rogue.lua
 Data/Forever/Tools.lua
 Data/Forever/Fishing.lua
 Data/Forever/Dungeons.lua
+Data/Forever/ArmorKits.lua
 Core/Journal.lua
 Core/CheckData.lua
 Core/Check.lua
@@ -233,6 +234,7 @@ Modules/Leveling/XPBar.lua
 Modules/Leveling/Page.lua
 Modules/Leveling/HomeSection.lua
 Modules/Leveling/AmmoCounter.lua
+Modules/Leveling/ArmorKit.lua
 Modules/Leveling/Leveling.lua
 Modules/PetCare/Data.lua
 Modules/PetCare/PetCare.lua

@@ -81,6 +81,51 @@ function ns.LevelingRead_AmmoItem()
 	return (C_Item.GetItemInfo(itemID)), GetInventoryItemTexture("player", slot)
 end
 
+-- Armor kits ------------------------------------------------------------------------------------------------------------
+
+local function KitList()
+	return ns.Content_Get(ns.CONTENT_FOREVER, "armorKits") or {}
+end
+
+function ns.LevelingRead_IsKit(itemID)
+	for _, id in ipairs(KitList()) do
+		if id == itemID then
+			return true
+		end
+	end
+	return false
+end
+
+-- The kits in your bags, best first, for Leveling_KitPlan.
+local function CarriedKits()
+	local kits = {}
+	for _, itemID in ipairs(KitList()) do
+		local count = C_Item.GetItemCount(itemID)
+		if count > 0 then
+			local name, _, _, _, minLevel = C_Item.GetItemInfo(itemID)
+			kits[#kits + 1] = { itemID = itemID, name = name, count = count, minLevel = minLevel }
+		end
+	end
+	return kits
+end
+
+-- What you wear where a kit fits: { { slot, label, name, link } }.
+function ns.LevelingRead_KitGear()
+	local gear = {}
+	for _, place in ipairs(ns.LEVELING_KIT_SLOTS) do
+		local link = GetInventoryItemLink("player", place.slot)
+		if link then
+			gear[#gear + 1] = { slot = place.slot, label = place.label, link = link,
+				name = C_Item.GetItemNameByID(GetInventoryItemID("player", place.slot)) }
+		end
+	end
+	return gear
+end
+
+function ns.LevelingRead_KitPlan()
+	return ns.Leveling_KitPlan(CarriedKits(), ns.LevelingRead_KitGear(), UnitLevel("player"))
+end
+
 -- The item in the ammo slot, nil when it's empty.
 function ns.LevelingRead_AmmoSlot()
 	local ok, slot = pcall(GetInventorySlotInfo, "AmmoSlot")
@@ -215,6 +260,7 @@ function ns.LevelingRead_State()
 		ammoState = ns.Leveling_AmmoState(needs, count, db.ammoLow),
 		ammoText = ns.Thousands(count),
 		turnIns = groups.done,
+		kit = db.armorKit and ns.LevelingRead_KitPlan() or nil,
 	})
 	local turnIn = 0
 	for _, q in ipairs(groups.done) do

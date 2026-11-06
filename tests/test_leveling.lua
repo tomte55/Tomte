@@ -8,6 +8,55 @@ local test, eq = H.test, H.eq
 local BOWS, GUNS, CROSSBOW, WAND = 2, 3, 18, 19
 local PROJECTILE, ARROW, BULLET = 6, 2, 3
 
+test("ItemEnchant reads the link", function()
+	eq(ns.Leveling_ItemEnchant("|cffffffff|Hitem:2304:15:::::::|h[Grips]|h|r"), 15)
+	eq(ns.Leveling_ItemEnchant("|cffffffff|Hitem:2304::::::::|h[Grips]|h|r"), nil, "no enchant")
+	eq(ns.Leveling_ItemEnchant("item:2304:0:0"), nil, "zero is none")
+	eq(ns.Leveling_ItemEnchant("item:2304"), nil)
+	eq(ns.Leveling_ItemEnchant(nil), nil)
+end)
+
+local function kitGear()
+	return {
+		{ slot = 5, label = "chest", name = "Vest", link = "item:1:15:" },
+		{ slot = 7, label = "legs", name = "Pants", link = "item:2::" },
+		{ slot = 10, label = "hands", name = "Grips", link = "item:3::" },
+	}
+end
+
+test("KitPlan: the best kit you can use, on the first empty piece", function()
+	local kits = { { itemID = 3, name = "Heavy", count = 1, minLevel = 20 }, { itemID = 1, name = "Light", count = 5, minLevel = 0 } }
+	local plan = ns.Leveling_KitPlan(kits, kitGear(), 10)
+	eq(plan.kit.itemID, 1, "Heavy is too high a level")
+	eq(plan.slot, 7, "the chest has an enchant")
+	eq(plan.gear, "Pants")
+	eq(#plan.empty, 2)
+	eq(ns.Leveling_KitPlan(kits, kitGear(), 25).kit.itemID, 3)
+end)
+
+test("KitPlan: nothing to do", function()
+	local light = { { itemID = 1, count = 5 } }
+	eq(ns.Leveling_KitPlan({}, kitGear(), 10), nil, "no kit")
+	eq(ns.Leveling_KitPlan({ { itemID = 1, count = 0 } }, kitGear(), 10), nil, "none left")
+	eq(ns.Leveling_KitPlan(light, { { slot = 5, label = "chest", link = "item:1:15:" } }, 10), nil, "every piece has something")
+	eq(ns.Leveling_KitPlan(light, { { slot = 5, label = "chest" } }, 10), nil, "a link that can't be read isn't offered")
+	eq(ns.Leveling_KitPlan(light, {}, 10), nil, "nothing worn")
+end)
+
+test("the kit's macro and tooltip line", function()
+	eq(ns.Leveling_KitMacro(2304, 10), "/use item:2304\n/use 10")
+	eq(ns.Leveling_KitTipLine(ns.Leveling_EmptyGear(kitGear())), "Can go on: legs, hands")
+	eq(ns.Leveling_KitTipLine({}), "Nothing empty to put it on")
+end)
+
+test("the To do row for armor kits", function()
+	local plan = ns.Leveling_KitPlan({ { itemID = 1, name = "Light Armor Kit", count = 5 } }, kitGear(), 10)
+	local todo = ns.Leveling_Checklist({ visited = true, ready = {}, oldRanks = {}, reagents = {}, turnIns = {}, kit = plan })
+	eq(todo[1].key, "kits")
+	eq(todo[1].text, "2 pieces could take your Light Armor Kit")
+	eq(#ns.Leveling_Checklist({ visited = true, ready = {}, oldRanks = {}, reagents = {}, turnIns = {} }), 0)
+end)
+
 test("AmmoTypes merges stacks, usable and best first", function()
 	local items = {
 		{ itemID = 1, name = "Rough", count = 200, subclassID = ARROW, minLevel = 1 },

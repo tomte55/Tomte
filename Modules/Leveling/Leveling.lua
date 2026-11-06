@@ -305,6 +305,7 @@ local function Why()
 	ns.Print(("%d spells on your bars, %d old ranks, %d low on reagents."):format(#bars, #ns.Leveling_OldRanks(bars),
 		#ns.Leveling_LowReagents(bars, db.reagentLow)))
 	ns.LevelingAmmo_Why()
+	ns.LevelingKit_Why()
 	ns.Print(("Uses ammo: %s, count %s, weapon type %s. Talent points: %s."):format(tostring(needs), tostring(count),
 		tostring(weapon), tostring(ns.LevelingRead_UnspentTalents())))
 	ns.Print(("%d quests, %d weapon skills."):format(#ns.LevelingRead_Quests(), #ns.LevelingRead_Skills()))
@@ -328,6 +329,8 @@ module = ns.RegisterModule({
 		trainer = true,
 		ranks = true,
 		talents = true,
+		armorKit = true,
+		armorKitFrame = { point = "CENTER", relPoint = "CENTER", x = 120, y = -180 }, -- the button's spot (/tomte unlock)
 		ammoCounter = true,
 		ammoFrame = { point = "CENTER", relPoint = "CENTER", x = -120, y = -180 }, -- the counter's spot (/tomte unlock)
 		ammo = true,
@@ -363,9 +366,11 @@ module = ns.RegisterModule({
 			end
 			check()
 			ns.LevelingAmmo_Start(db)
+			ns.LevelingKit_Start(db)
 		else
 			events:UnregisterAllEvents()
 			ns.LevelingAmmo_Stop()
+			ns.LevelingKit_Stop()
 			merchantOpen = false
 			oldRanksKnown = nil
 			wipe(lowSupplies)
@@ -393,6 +398,10 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "ranks", label = "Old ranks on your bars",
 			tooltip = "A toast when a spell on your bars has a higher rank you know. Tomte names it; you drag the new one on." },
 		{ type = "header", label = "Supplies" },
+		{ type = "checkbox", key = "armorKit", label = "Armor kit button", onChange = function()
+			ns.LevelingKit_Update()
+			ns.LevelingPage_Refresh()
+		end, tooltip = "Shows while you carry an armor kit and gear it fits has nothing on it. One click puts the best kit you can use on that piece. It never offers a piece with an enchant or kit on it. Also a line on the kit's tooltip and a row under To do. Blizzard's Edit Mode moves it." },
 		{ type = "checkbox", key = "ammoCounter", label = "Ammo counter on screen", onChange = function()
 			ns.LevelingAmmo_Update()
 		end, tooltip = "Your full ammo count, past the 999 the game's quiver stops at. Hover it for every ammo you carry, and click it to equip the next one. Shows while you have a bow, gun or crossbow. Blizzard's Edit Mode moves it." },
