@@ -81,6 +81,36 @@ function ns.LevelingRead_AmmoItem()
 	return (C_Item.GetItemInfo(itemID)), GetInventoryItemTexture("player", slot)
 end
 
+-- The item in the ammo slot, nil when it's empty.
+function ns.LevelingRead_AmmoSlot()
+	local ok, slot = pcall(GetInventorySlotInfo, "AmmoSlot")
+	return ok and slot and GetInventoryItemID("player", slot) or nil
+end
+
+function ns.LevelingRead_ItemFits(itemID, weaponSubclass)
+	local _, _, _, _, _, _, subclassID = C_Item.GetItemInfoInstant(itemID)
+	return ns.Leveling_AmmoFitsWeapon(subclassID, weaponSubclass)
+end
+
+-- All the ammo in your bags, one entry per slot, for Leveling_AmmoTypes.
+function ns.LevelingRead_AmmoCarried()
+	local items = {}
+	for bag = 0, LAST_CARRIED_BAG do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) do
+			local info = C_Container.GetContainerItemInfo(bag, slot)
+			if info then
+				local _, _, _, _, _, classID, subclassID = C_Item.GetItemInfoInstant(info.itemID)
+				if ns.Leveling_IsAmmo(classID) then
+					local name, _, _, itemLevel, minLevel = C_Item.GetItemInfo(info.itemID)
+					items[#items + 1] = { itemID = info.itemID, name = name, count = info.stackCount, subclassID = subclassID,
+						minLevel = minLevel, itemLevel = itemLevel }
+				end
+			end
+		end
+	end
+	return items
+end
+
 -- What the open merchant sells, for Leveling_PickAmmo. Items with another price than gold aren't offered. maxStack is how
 -- many fit in a bag slot, maxBuy how many one purchase can buy.
 function ns.LevelingRead_Merchant()

@@ -8,6 +8,61 @@ local test, eq = H.test, H.eq
 local BOWS, GUNS, CROSSBOW, WAND = 2, 3, 18, 19
 local PROJECTILE, ARROW, BULLET = 6, 2, 3
 
+test("AmmoTypes merges stacks, usable and best first", function()
+	local items = {
+		{ itemID = 1, name = "Rough", count = 200, subclassID = ARROW, minLevel = 1 },
+		{ itemID = 3, name = "Heavy", count = 150, subclassID = BULLET, minLevel = 1 },
+		{ itemID = 2, name = "Sharp", count = 50, subclassID = ARROW, minLevel = 10 },
+		{ itemID = 1, name = "Rough", count = 150, subclassID = ARROW, minLevel = 1 },
+		{ itemID = 4, name = "Jagged", count = 20, subclassID = ARROW, minLevel = 40 },
+	}
+	local types = ns.Leveling_AmmoTypes(items, BOWS, 20)
+	eq(#types, 4)
+	eq(types[1].itemID, 2, "best you can use")
+	eq(types[2].itemID, 1)
+	eq(types[2].count, 350, "two stacks")
+	eq(types[3].fits, false)
+	eq(types[3].itemID, 4, "too high a level, listed after what you can use")
+	eq(types[4].itemID, 3, "bullets for a bow")
+	eq(types[4].fits, false)
+	eq(ns.Leveling_AmmoTypes(items, GUNS, 20)[1].itemID, 3)
+	eq(ns.Leveling_AmmoTypes(items, CROSSBOW, 20)[1].itemID, 2, "crossbows fire arrows")
+	eq(ns.Leveling_AmmoTypes({ { itemID = 1, count = 5, subclassID = ARROW } }, BOWS, 1)[1].fits, true, "item data not loaded")
+	eq(ns.Leveling_AmmoTypes(items, nil, 20)[1].fits, false, "no weapon")
+end)
+
+test("AmmoNext goes round what you can use", function()
+	local types = { { itemID = 2, fits = true }, { itemID = 1, fits = true }, { itemID = 3, fits = false } }
+	eq(ns.Leveling_AmmoNext(types, 1).itemID, 2, "from the cheap one to the best")
+	eq(ns.Leveling_AmmoNext(types, 2).itemID, 1, "and back")
+	eq(ns.Leveling_AmmoNext(types, nil).itemID, 2, "an empty slot gets the best")
+	eq(ns.Leveling_AmmoNext(types, 3).itemID, 2, "unusable in the slot gets the best")
+	eq(ns.Leveling_AmmoNext({ { itemID = 2, fits = true } }, 2), nil, "only one: nothing to switch to")
+	eq(ns.Leveling_AmmoNext({ { itemID = 3, fits = false } }, nil), nil)
+	eq(ns.Leveling_AmmoNext({}, nil), nil)
+end)
+
+test("AmmoView", function()
+	eq(ns.Leveling_AmmoView(false, 500, 100, true, false), nil, "no use for ammo")
+	local fine = ns.Leveling_AmmoView(true, 1578, 100, true, true)
+	eq(fine.count, 1578, "past the quiver's 999")
+	eq(fine.role, "text")
+	eq(fine.hint, nil, "nothing to say, even with another kind carried")
+	eq(ns.Leveling_AmmoView(true, 100, 100, true, false).role, "warning")
+	local out = ns.Leveling_AmmoView(true, 0, 100, true, true)
+	eq(out.role, "danger")
+	eq(out.hint, "Click to switch")
+	eq(ns.Leveling_AmmoView(true, 0, 100, true, false).hint, "No ammo")
+	local wrong = ns.Leveling_AmmoView(true, 500, 100, false, true)
+	eq(wrong.count, 0, "bullets in a bow's slot can't be fired")
+	eq(wrong.hint, "Click to switch")
+	eq(ns.Leveling_AmmoView(true, 0, 100, nil, false).hint, "No ammo", "empty slot")
+end)
+
+test("AmmoMacro", function()
+	eq(ns.Leveling_AmmoMacro(2512), "/equip item:2512")
+end)
+
 test("SlimService keeps what can still be learned", function()
 	local s = ns.Leveling_SlimService("Frostbolt", "available", "Rank 2", 4, 100)
 	eq(s.name, "Frostbolt")

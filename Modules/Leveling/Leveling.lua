@@ -304,6 +304,7 @@ local function Why()
 	local needs, count, weapon = ns.LevelingRead_Ammo()
 	ns.Print(("%d spells on your bars, %d old ranks, %d low on reagents."):format(#bars, #ns.Leveling_OldRanks(bars),
 		#ns.Leveling_LowReagents(bars, db.reagentLow)))
+	ns.LevelingAmmo_Why()
 	ns.Print(("Uses ammo: %s, count %s, weapon type %s. Talent points: %s."):format(tostring(needs), tostring(count),
 		tostring(weapon), tostring(ns.LevelingRead_UnspentTalents())))
 	ns.Print(("%d quests, %d weapon skills."):format(#ns.LevelingRead_Quests(), #ns.LevelingRead_Skills()))
@@ -327,6 +328,8 @@ module = ns.RegisterModule({
 		trainer = true,
 		ranks = true,
 		talents = true,
+		ammoCounter = true,
+		ammoFrame = { point = "CENTER", relPoint = "CENTER", x = -120, y = -180 }, -- the counter's spot (/tomte unlock)
 		ammo = true,
 		ammoLow = 100,
 		ammoTarget = 400,
@@ -359,8 +362,10 @@ module = ns.RegisterModule({
 				events:RegisterEvent(event)
 			end
 			check()
+			ns.LevelingAmmo_Start(db)
 		else
 			events:UnregisterAllEvents()
+			ns.LevelingAmmo_Stop()
 			merchantOpen = false
 			oldRanksKnown = nil
 			wipe(lowSupplies)
@@ -388,6 +393,9 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "ranks", label = "Old ranks on your bars",
 			tooltip = "A toast when a spell on your bars has a higher rank you know. Tomte names it; you drag the new one on." },
 		{ type = "header", label = "Supplies" },
+		{ type = "checkbox", key = "ammoCounter", label = "Ammo counter on screen", onChange = function()
+			ns.LevelingAmmo_Update()
+		end, tooltip = "Your full ammo count, past the 999 the game's quiver stops at. Hover it for every ammo you carry, and click it to equip the next one. Shows while you have a bow, gun or crossbow. Blizzard's Edit Mode moves it." },
 		{ type = "checkbox", key = "ammo", label = "Ammo warning", onChange = check },
 		{ type = "slider", key = "ammoLow", label = "Warn at", min = 20, max = 400, step = 20, parent = "ammo",
 			onChange = check },

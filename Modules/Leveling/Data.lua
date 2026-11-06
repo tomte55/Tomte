@@ -189,6 +189,84 @@ function ns.Leveling_PickAmmo(items, weaponSubclass, level, money)
 	return best
 end
 
+-- Whether an item is ammo at all, so the bag scan can skip the rest.
+function ns.Leveling_IsAmmo(classID)
+	return classID == AMMO_CLASS
+end
+
+-- Whether this ammo goes with this weapon.
+function ns.Leveling_AmmoFitsWeapon(subclassID, weaponSubclass)
+	return AMMO_FOR[weaponSubclass] ~= nil and AMMO_FOR[weaponSubclass] == subclassID
+end
+
+-- Every ammo carried, one row per kind, what you can fire first and then the best: { itemID, name, count, fits }. items: {
+-- itemID, name, count, subclassID, minLevel, itemLevel }, one per bag slot.
+function ns.Leveling_AmmoTypes(items, weaponSubclass, level)
+	local byID, types = {}, {}
+	for _, item in ipairs(items) do
+		local row = byID[item.itemID]
+		if row then
+			row.count = row.count + item.count
+		else
+			row = { itemID = item.itemID, name = item.name, count = item.count, minLevel = item.minLevel or 0,
+				itemLevel = item.itemLevel or 0,
+				fits = ns.Leveling_AmmoFitsWeapon(item.subclassID, weaponSubclass) and (item.minLevel or 0) <= level }
+			byID[item.itemID] = row
+			types[#types + 1] = row
+		end
+	end
+	table.sort(types, function(a, b)
+		if a.fits ~= b.fits then
+			return a.fits
+		elseif a.minLevel ~= b.minLevel then
+			return a.minLevel > b.minLevel
+		elseif a.itemLevel ~= b.itemLevel then
+			return a.itemLevel > b.itemLevel
+		end
+		return a.itemID < b.itemID
+	end)
+	return types
+end
+
+-- The ammo a click equips: the one after what's equipped, round and round, so the first click from anything else is the
+-- best and you can still get back to the cheap one you were saving it with. nil when there's nothing else to switch to.
+function ns.Leveling_AmmoNext(types, equippedID)
+	local usable = {}
+	for _, row in ipairs(types) do
+		if row.fits then
+			usable[#usable + 1] = row
+		end
+	end
+	if #usable == 0 then
+		return nil
+	end
+	for i, row in ipairs(usable) do
+		if row.itemID == equippedID then
+			local following = usable[i % #usable + 1]
+			return following ~= row and following or nil
+		end
+	end
+	return usable[1]
+end
+
+-- What the counter shows, nil when this character has no use for ammo. count: of what's in the slot. equippedFits: it goes
+-- with your weapon, as a bow can't fire bullets however many you have. canSwitch: a click would equip something.
+function ns.Leveling_AmmoView(needs, count, low, equippedFits, canSwitch)
+	if not needs then
+		return nil
+	end
+	local usable = equippedFits and count or 0
+	local state = ns.Leveling_AmmoState(needs, usable, low)
+	if state == "none" then
+		return { count = usable, role = "danger", hint = canSwitch and "Click to switch" or "No ammo" }
+	end
+	return { count = usable, role = state == "low" and "warning" or "text" }
+end
+
+function ns.Leveling_AmmoMacro(itemID)
+	return ("/equip item:%d"):format(itemID)
+end
+
 -- How much of an ammo fits. bags: { { family, free, topUp } } for the bags that take it; topUp is the room left in its
 -- part stacks. Returns the room in ammo bags (quivers, pouches; nil without one) and the room in ordinary bags.
 function ns.Leveling_AmmoRoom(bags, maxStack)

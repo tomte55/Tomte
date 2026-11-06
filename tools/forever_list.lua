@@ -47,7 +47,8 @@ return {
 		-- Forever-only modules (docs/superpowers/specs/2026-11-05-tomte-forever-leveling.md), after Gear Check's weapon skills.
 		{ after = "Modules/Upkeep/Durability.lua", files = {
 			"Modules/Leveling/Data.lua", "Modules/Leveling/Read.lua", "Modules/Leveling/XPBar.lua",
-			"Modules/Leveling/Page.lua", "Modules/Leveling/HomeSection.lua", "Modules/Leveling/Leveling.lua",
+			"Modules/Leveling/Page.lua", "Modules/Leveling/HomeSection.lua", "Modules/Leveling/AmmoCounter.lua",
+			"Modules/Leveling/Leveling.lua",
 			"Modules/PetCare/Data.lua", "Modules/PetCare/PetCare.lua",
 			-- docs/superpowers/specs/2026-11-06-tomte-forever-rest-and-chat-groups.md
 			"Modules/Rest/Data.lua", "Modules/Rest/Rest.lua",
