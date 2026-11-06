@@ -463,6 +463,16 @@ test("grouping merges stacks of the same item, keeping the first stack's slot", 
 	eq(out[4].readable, false)
 end)
 
+test("StackLine says how a grouped item is split up and how much more fits", function()
+	eq(ns.Bags_StackLine(22, 2, 20), "Stacks to 20: 2 stacks, 18 more fit")
+	eq(ns.Bags_StackLine(40, 2, 20), "Stacks to 20: 2 stacks, full")
+	eq(ns.Bags_StackLine(2, 1, 20), "Stacks to 20: 1 stack, 18 more fit")
+	eq(ns.Bags_StackLine(22, 3, 20), "Stacks to 20: 3 stacks, 38 more fit", "not packed tight")
+	eq(ns.Bags_StackLine(1, 1, 1), nil, "doesn't stack")
+	eq(ns.Bags_StackLine(5, 1, nil), nil, "stack size not loaded yet")
+	eq(ns.Bags_StackLine(5, nil, 20), nil, "not grouped")
+end)
+
 test("StacksToSell: a grouped item's other stacks, as many as buyback can still hold", function()
 	eq(#ns.Bags_StacksToSell({}), 0, "not grouped")
 	local more = {}

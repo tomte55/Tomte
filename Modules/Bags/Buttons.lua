@@ -166,6 +166,22 @@ local function SellOtherStacks(button, mouseButton)
 	end
 end
 
+-- A grouped item's tooltip says how its stacks are split up. A post-call, as the item button rebuilds its tooltip every
+-- 0.2 s. Post-calls can't be removed: it does nothing for any other owner, and a button only has a record while drawn.
+local stackLineHooked = false
+local function OnItemTooltip(tooltip)
+	local e = tooltip == GameTooltip and extras[tooltip:GetOwner()]
+	local item = e and e.stacked
+	if not item then
+		return
+	end
+	local _, _, _, _, _, _, _, maxStack = C_Item.GetItemInfo(item.itemID)
+	local line = ns.Bags_StackLine(item.count, item.stacks, maxStack)
+	if line then
+		UI.TipLine(line, "textMuted")
+	end
+end
+
 local function Extras(button)
 	local e = extras[button]
 	if e then
@@ -471,6 +487,11 @@ end
 function ns.BagsButtons_Paint(button, item, opts)
 	local e = Extras(button)
 	e.grouped = item.more and item or nil
+	e.stacked = item.stacks and item or nil
+	if e.stacked and not stackLineHooked then
+		stackLineHooked = true
+		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, ns.Perf_Wrap(OnItemTooltip, "tooltip"))
+	end
 	SetNumberFont(button, e, opts.fontSize)
 	if button.viewOnly then
 		PaintView(button, e, item, opts)

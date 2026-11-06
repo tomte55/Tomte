@@ -627,6 +627,17 @@ function ns.Bags_Group(items)
 	return out
 end
 
+-- The line a grouped item's tooltip adds: how it's split up, and how much more fits before it takes another bag slot.
+-- nil for what doesn't stack, or when the stack size isn't known yet.
+function ns.Bags_StackLine(count, stacks, maxStack)
+	if not (maxStack and maxStack > 1 and stacks) then
+		return nil
+	end
+	local room = stacks * maxStack - count
+	return ("Stacks to %d: %d %s, %s"):format(maxStack, stacks, stacks == 1 and "stack" or "stacks",
+		room > 0 and (("%d more fit"):format(room)) or "full")
+end
+
 -- The other stacks a right-click on a grouped item also sells at a merchant: empty for an item that sells for nothing,
 -- and no more than the buyback page still holds with the clicked stack, so one click can't sell what can't be bought
 -- back. Another click sells the rest.

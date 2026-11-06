@@ -405,7 +405,7 @@ module = ns.RegisterModule({
 		{ type = "slider", key = "spacing", label = "Category spacing", min = 4, max = 30, step = 1, format = Pixels,
 			onChange = ns.BagsWindow_Relayout, tooltip = "The gap between categories that share a line." },
 		Check("group", "Group identical items",
-			"Stacks of the same item show as one icon with the total. Clicking it uses or picks up the first stack, but a right-click at a merchant sells them all (12 stacks per click, as many as you can buy back). Not in the one bag view."),
+			"Stacks of the same item show as one icon with the total, and its tooltip says how they're split up. Clicking it uses or picks up the first stack, but a right-click at a merchant sells them all (12 stacks per click, as many as you can buy back). Not in the one bag view."),
 		Check("foldSections", "Fold sections",
 			"Click a section's heading to fold or unfold it. The bag window grows and shrinks at the top, so headings move."),
 		Check("buttonsOnHover", "Buttons only on hover", "The buttons in the top bar show while the mouse is over the window."),
