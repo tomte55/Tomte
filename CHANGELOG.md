@@ -12,6 +12,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+## v1.27.0 - 2026-11-06
+
 ### New
 
 - **Tomte:** runs on World of Warcraft: Forever, with the modules that work there: Bags, Item counts, Alts, Mail, Loot, Vendor Helper, Durability, Gold & value, Gear Check, Smart Mount, Teleports, Waypoints, Flight Timer, Fishing, Gathering, Material uses, Almost Done, Moments, Session recap, Dressing room, Showcase, Talent check, Hunter Pets, Rogue Poisons, Pet Health, Buff reminders, Instances, Tooltip extras, Drawers, Nameplates, Quests, the chat modules, Whispers, Mentions, Friends, Group Alerts, Friend sharing, AFK Screen, Casino, Recent, Minimap Buttons, Next up, Cursor highlight, Graphics presets and Performance. `/tomte unlock` moves Tomte's widgets there.

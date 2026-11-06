@@ -10,6 +10,25 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.27.0", date = "2026-11-06",
+		new = {
+			{ label = "World of Warcraft: Forever", text = "Tomte now runs there too, with every module that works in "
+				.. "that game: bags, alts, Smart Mount, Gear Check and many more." },
+			{ module = "leveling", text = "On Forever: your XP, what's new at your trainer, old spell ranks, supplies "
+				.. "and your quests sorted by what's worth doing." },
+			{ module = "petcare", text = "On Forever, for Hunters: a button that feeds your pet when it's hungry." },
+			{ module = "mount", text = "Pick from favorites only or all mounts, class mounts first, a passenger mount "
+				.. "in a group, and when druids and shamans take a travel form." },
+		},
+		improved = {
+			{ module = "bags", text = "A clearer mark on appearances you haven't collected, and free slots that say "
+				.. "which of your bags they're in." },
+		},
+		fixed = {
+			{ module = "bags", text = "A grey item Gear Check calls an upgrade no longer counts as junk." },
+		},
+	},
+	{
 		version = "1.26.0", date = "2026-10-29",
 		new = {
 			{ module = "perf", text = "Performance: see how much of the game's time Tomte takes, which module, and "
