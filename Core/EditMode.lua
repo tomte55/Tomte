@@ -262,7 +262,9 @@ local function SetKit(spec)
 	else
 		ns.UI.Border(box, spec == selected and "heading" or "accent")
 	end
+	-- Keyboard settings are protected in combat, and the game lets you open Edit Mode there: a box made in a fight gets them later.
 	if not InCombatLockdown() then
+		box:SetPropagateKeyboardInput(true)
 		box:EnableKeyboard(spec == selected)
 	end
 end
@@ -387,7 +389,6 @@ local function Box(spec, frame)
 	box:SetIgnoreParentAlpha(true)
 	box:EnableMouse(true)
 	box:RegisterForDrag("LeftButton")
-	box:SetPropagateKeyboardInput(true)
 	box:SetScript("OnKeyDown", function(self, key)
 		OnKeyDown(spec, frame, self, key)
 	end)
