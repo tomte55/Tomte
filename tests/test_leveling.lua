@@ -189,6 +189,42 @@ test("NewlyLow warns once until it recovers", function()
 	eq(fresh[1], "a")
 end)
 
+test("SupplyToast says what ran low", function()
+	local ARROW_ICON = "Interface\\Icons\\INV_Ammo_Arrow_02"
+	local REAGENT_ICON = "Interface\\Icons\\INV_Misc_Dust_02"
+	local arrows = { kind = "ammo", name = "Sharp Arrow", countText = "1,097", icon = 12345 }
+	local rebirth = { kind = "reagent", name = "Rebirth", count = 1 }
+	local portal = { kind = "reagent", name = "Portal", count = 3 }
+
+	local title, text, icon = ns.Leveling_SupplyToast({ arrows })
+	eq(title, "Low on ammo")
+	eq(text, "Sharp Arrow: 1,097 left. Buy more at a vendor.")
+	eq(icon, 12345, "the ammo's own icon")
+
+	title, text, icon = ns.Leveling_SupplyToast({ { kind = "ammo", countText = "97" } })
+	eq(text, "Ammo: 97 left. Buy more at a vendor.", "the item hasn't loaded")
+	eq(icon, ARROW_ICON)
+
+	title, text, icon = ns.Leveling_SupplyToast({ { kind = "ammo", out = true } })
+	eq(title, "Out of ammo")
+	eq(text, "Buy more at a vendor.")
+	eq(icon, ARROW_ICON)
+
+	title, text, icon = ns.Leveling_SupplyToast({ rebirth, portal })
+	eq(title, "Low on reagents")
+	eq(text, "Rebirth: 1 cast left. Portal: 3 casts left.")
+	eq(icon, REAGENT_ICON)
+
+	title, text, icon = ns.Leveling_SupplyToast({ arrows, rebirth })
+	eq(title, "Low on ammo and reagents")
+	eq(text, "Sharp Arrow: 1,097 left. Rebirth: 1 cast left. Buy more at a vendor.")
+	eq(icon, 12345)
+
+	title, text = ns.Leveling_SupplyToast({ { kind = "ammo", out = true }, rebirth })
+	eq(title, "Out of ammo, low on reagents")
+	eq(text, "Rebirth: 1 cast left. Buy more at a vendor.")
+end)
+
 test("quest groups, in order of what decides", function()
 	local G = ns.Leveling_QuestGroup
 	eq(G({ complete = true, timeLeft = 5, elite = true }), "done")

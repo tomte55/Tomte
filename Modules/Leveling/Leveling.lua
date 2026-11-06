@@ -95,28 +95,31 @@ local function CheckRanks(bars)
 end
 
 local function CheckSupplies(bars)
-	local keys, texts = {}, {}
+	local keys, entries = {}, {}
 	local needs, count = ns.LevelingRead_Ammo()
 	local state = db.ammo and ns.Leveling_AmmoState(needs, count, db.ammoLow)
 	if state == "none" or state == "low" then
+		local name, icon = ns.LevelingRead_AmmoItem()
 		keys[1] = "ammo:" .. state
-		texts[keys[1]] = state == "none" and "You're out of ammo." or ("%s left."):format(ns.Thousands(count))
+		entries[keys[1]] = { kind = "ammo", out = state == "none", name = name, icon = icon,
+			countText = ns.Thousands(count) }
 	end
 	if db.reagents then
 		for _, r in ipairs(ns.Leveling_LowReagents(bars, db.reagentLow)) do
 			local key = "reagent:" .. r.name
 			keys[#keys + 1] = key
-			texts[key] = ("%s: %d %s left."):format(r.name, r.count, r.count == 1 and "cast" or "casts")
+			entries[key] = { kind = "reagent", name = r.name, count = r.count }
 		end
 	end
 	local fresh
 	fresh, lowSupplies = ns.Leveling_NewlyLow(lowSupplies, keys)
 	if #fresh > 0 then
-		local lines = {}
+		local list = {}
 		for i, key in ipairs(fresh) do
-			lines[i] = texts[key]
+			list[i] = entries[key]
 		end
-		Toast("Supplies", "Running low", table.concat(lines, " "))
+		local title, text, icon = ns.Leveling_SupplyToast(list)
+		Toast("Supplies", title, text, icon)
 	end
 end
 

@@ -236,6 +236,35 @@ function ns.Leveling_BuyBatches(amount, maxBuy)
 	return batches
 end
 
+-- What a toast says about supplies that just ran low: title, text, icon. entries: { kind = "ammo", out (none left), name
+-- (the item's, nil until it has loaded), countText, icon } and { kind = "reagent", name (the spell's), count }.
+function ns.Leveling_SupplyToast(entries)
+	local ammo, hasReagents, lines = nil, false, {}
+	for _, e in ipairs(entries) do
+		if e.kind == "ammo" then
+			ammo = e
+			if not e.out then
+				lines[#lines + 1] = ("%s: %s left."):format(e.name or "Ammo", e.countText)
+			end
+		else
+			hasReagents = true
+			lines[#lines + 1] = ("%s: %d %s left."):format(e.name, e.count, e.count == 1 and "cast" or "casts")
+		end
+	end
+	if ammo then
+		lines[#lines + 1] = "Buy more at a vendor."
+	end
+	local title
+	if ammo and ammo.out then
+		title = hasReagents and "Out of ammo, low on reagents" or "Out of ammo"
+	elseif ammo then
+		title = hasReagents and "Low on ammo and reagents" or "Low on ammo"
+	else
+		title = "Low on reagents"
+	end
+	return title, table.concat(lines, " "), ammo and (ammo.icon or ICONS.ammo) or ICONS.reagents
+end
+
 -- Warning once: which keys are low now and weren't before. prev and the returned table: [key] = true.
 function ns.Leveling_NewlyLow(prev, keys)
 	local now, fresh = {}, {}
