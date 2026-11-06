@@ -4,6 +4,7 @@ local addonName, ns = ...
 -- and the readiness rules.
 
 local SPEC_BM, SPEC_MM, SPEC_SV = 253, 254, 255
+local HAPPY = 3 -- C_PetInfo.GetPetHappiness()'s top level (Blizzard's PetHappiness.lua)
 
 -- Call Pet 1-5, in slot order (Stable.lua and Tooltips.lua).
 ns.CALL_PET_SPELLS = { 883, 83242, 83243, 83244, 83245 }
@@ -274,11 +275,14 @@ ns.HUNTER_PET_SPEC = { [74] = "Ferocity", [79] = "Cunning", [81] = "Tenacity" }
 
 -- The readiness warnings for a situation. s = {
 --   specID, hasPet, petDead, petSpec ("Ferocity"...), content ("dungeon"...), passive, growl (nil = no Growl
---   on the bar, else autocast on/off), inGroup (other players), groupHasTank (companions count) }
+--   on the bar, else autocast on/off), inGroup (other players), groupHasTank (companions count),
+--   wantsAnySpec (World of Warcraft: Forever: every hunter wants a pet, retail's spec IDs don't apply),
+--   happiness (Forever: 1 mad, 2 neutral, 3 happy; retail has none) }
 -- rules = the module's check settings.
 function ns.Hunter_Problems(s, rules)
 	local problems = {}
-	local wantsPet = s.specID == SPEC_BM or s.specID == SPEC_SV or (s.specID == SPEC_MM and rules.marksman)
+	local wantsPet = s.wantsAnySpec or s.specID == SPEC_BM or s.specID == SPEC_SV
+		or (s.specID == SPEC_MM and rules.marksman)
 	if not s.hasPet then
 		if wantsPet and rules.noPet then
 			problems[#problems + 1] = s.petDead and "Your pet is dead" or "No pet out"
@@ -297,6 +301,9 @@ function ns.Hunter_Problems(s, rules)
 	end
 	if rules.passive and s.passive then
 		problems[#problems + 1] = "Pet is on Passive"
+	end
+	if rules.happy and s.happiness and s.happiness < HAPPY then
+		problems[#problems + 1] = "Pet isn't happy: feed it"
 	end
 	if rules.growl and s.growl ~= nil then
 		if s.growl and s.inGroup and s.groupHasTank and s.content ~= "delve" then

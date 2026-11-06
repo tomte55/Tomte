@@ -37,6 +37,9 @@ local function OnSpell(tooltip, data)
 	tooltip:AddLine(" ")
 	local family = pet and pet.family and UI.Wrap(pet.family, "textMuted") or ""
 	tooltip:AddDoubleLine(UI.Wrap(name, "heading"), family)
+	if pet and pet.loyalty and pet.loyalty ~= "" then
+		tooltip:AddLine(UI.Wrap(pet.loyalty, "textMuted"))
+	end
 	if pet and pet.spec then
 		local ability = pet.specAbility and C_Spell.GetSpellName(pet.specAbility)
 		tooltip:AddLine(UI.Wrap(pet.spec .. (ability and ("  -  " .. ability) or ""), "textMuted"))

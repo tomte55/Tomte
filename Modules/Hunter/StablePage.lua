@@ -14,7 +14,8 @@ local TURN_SPEED = 0.35 -- radians per second
 local DEFAULT_SCENE = 718 -- PetInfo.uiModelSceneID's default: Blizzard's pet model scene (camera + framing)
 local PET_ACTOR = "pet" -- the actor tag in pet model scenes
 local RETRY_LOOKUP = 0.5 -- seconds; a creature the client hasn't cached yet takes a moment to load
-local SLOT_LABEL = { "1", "2", "3", "4", "5", "B" } -- B = the BM bonus slot
+-- B = the BM bonus slot. Forever has one pet you call; the rest are stabled.
+local SLOT_LABEL = ns.FOREVER and { "1" } or { "1", "2", "3", "4", "5", "B" }
 
 local page
 local summary
@@ -31,6 +32,19 @@ local function PetLine(pet)
 	end
 	if pet.spec then
 		parts[#parts + 1] = pet.spec
+	end
+	return table.concat(parts, "  -  ")
+end
+
+-- Forever's line under the level: how the pet feels and its loyalty (Blizzard's PET_HAPPINESS1-3 name the levels).
+local function FeelingLine(pet)
+	local parts = {}
+	local feeling = pet.happiness and _G["PET_HAPPINESS" .. pet.happiness]
+	if feeling then
+		parts[#parts + 1] = feeling
+	end
+	if pet.loyalty and pet.loyalty ~= "" then
+		parts[#parts + 1] = pet.loyalty
 	end
 	return table.concat(parts, "  -  ")
 end
@@ -120,9 +134,12 @@ function ShowPreview()
 	end
 	p.info:SetText(PetLine(entry))
 	local where = entry.slot and entry.slot <= #SLOT_LABEL and (entry.slot == 6 and "Bonus slot" or ("Call Pet " .. entry.slot)) or "Stabled"
+	if ns.FOREVER and entry.slot then
+		where = "Call Pet"
+	end
 	p.level:SetText(("Level %d   -   %s"):format(entry.level or 0, where))
 	local ability = entry.specAbility and C_Spell.GetSpellName(entry.specAbility)
-	p.ability:SetText(ability or "")
+	p.ability:SetText(ns.FOREVER and FeelingLine(entry) or ability or "")
 	SetModel(p, entry.uiModelSceneID or DEFAULT_SCENE, entry.displayID)
 end
 

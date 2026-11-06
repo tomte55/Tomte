@@ -76,7 +76,8 @@ module = ns.RegisterModule({
 	category = "class",
 	icon = 132161, -- ability_hunter_beastcall
 	summary = "Pet tooltips, a stable overview and a pet check before you pull.",
-	description = "Call Pet tooltips, a Stable tab with your pets and a tame log of beasts you've seen, and a pet check when you enter a dungeon, raid or delve and on ready checks.",
+	description = "Call Pet tooltips, a Stable tab with your pets and a tame log of beasts you've seen, and a pet check when you enter a "
+		.. (ns.FOREVER and "dungeon or raid" or "dungeon, raid or delve") .. " and on ready checks.",
 	enabledByDefault = true,
 	toasts = "Hunter pet check (banners)",
 	defaults = {
@@ -89,6 +90,7 @@ module = ns.RegisterModule({
 			noPet = true,
 			marksman = false,
 			passive = true,
+			happy = true, -- only Forever's pets have happiness
 			growl = true,
 			specs = { dungeon = "Ferocity", raid = "any", delve = "any" },
 		},
@@ -138,26 +140,36 @@ module = ns.RegisterModule({
 	options = {
 		{ type = "header", label = "Tooltips" },
 		{ type = "checkbox", key = "callPetTooltip", label = "Call Pet tooltips",
-			tooltip = "Call Pet 1-5 tooltips show the pet's name, family, spec and spec ability." },
+			tooltip = ns.FOREVER and "The Call Pet tooltip shows your pet's name, family and loyalty."
+				or "Call Pet 1-5 tooltips show the pet's name, family, spec and spec ability." },
 		{ type = "checkbox", key = "tameTooltip", label = "Tame log on beasts",
 			tooltip = "Beast tooltips show their family and whether you have it, and every beast you hover goes into the tame log on the Stable tab." },
 
 		{ type = "header", label = "Pet check" },
 		{ type = "checkbox", key = "check.onEnter", label = "When entering an instance",
-			tooltip = "Check a few seconds after entering a dungeon, raid or delve." },
+			tooltip = "Check a few seconds after entering a "
+				.. (ns.FOREVER and "dungeon or raid." or "dungeon, raid or delve.") },
 		{ type = "checkbox", key = "check.onReadyCheck", label = "On ready checks" },
 		{ type = "checkbox", key = "check.banner", label = "Banner and sound",
 			tooltip = "Show problems as a banner with a warning sound. Off: chat only." },
 		{ type = "checkbox", key = "check.noPet", label = "No pet or dead pet",
-			tooltip = "For Beast Mastery and Survival." },
-		{ type = "checkbox", key = "check.marksman", label = "Marksmanship wants a pet too" },
+			tooltip = not ns.FOREVER and "For Beast Mastery and Survival." or nil },
+		{ type = "checkbox", key = "check.marksman", label = "Marksmanship wants a pet too", shown = ns.NotForever },
 		{ type = "checkbox", key = "check.passive", label = "Pet on Passive" },
+		{ type = "checkbox", key = "check.happy", label = "Pet not happy",
+			shown = function()
+				return ns.FOREVER
+			end, tooltip = "An unhappy pet does less damage and loses loyalty. Feed Pet fixes it." },
 		{ type = "checkbox", key = "check.growl", label = "Growl autocast",
-			tooltip = "Growl on in a group with a tank, or off when you're alone in a delve." },
+			tooltip = ns.FOREVER and "Growl on in a group that has a tank."
+				or "Growl on in a group with a tank, or off when you're alone in a delve." },
+		-- Forever's pets have no specs (Blizzard's camelot stable shows none), and it has no delves.
 		{ type = "dropdown", key = "check.specs.dungeon", label = "Pet spec in dungeons", choices = SpecChoices,
-			tooltip = "Ferocity brings Primal Rage (Bloodlust)." },
-		{ type = "dropdown", key = "check.specs.raid", label = "Pet spec in raids", choices = SpecChoices },
-		{ type = "dropdown", key = "check.specs.delve", label = "Pet spec in delves", choices = SpecChoices },
+			shown = ns.NotForever, tooltip = "Ferocity brings Primal Rage (Bloodlust)." },
+		{ type = "dropdown", key = "check.specs.raid", label = "Pet spec in raids", choices = SpecChoices,
+			shown = ns.NotForever },
+		{ type = "dropdown", key = "check.specs.delve", label = "Pet spec in delves", choices = SpecChoices,
+			shown = ns.NotForever },
 		{ type = "button", label = "Pet check", text = "Run", onClick = Check,
 			tooltip = "Run the pet check now." },
 

@@ -4,7 +4,9 @@ local addonName, ns = ...
 -- cache, so the tooltips and the stable page work wherever the API answers (or doesn't). A pet number
 -- that wasn't in the previous read is a fresh tame (there's no tame event) and becomes a Moment.
 
-local ACTIVE_SLOTS = 6 -- Call Pet 1-5, then the BM bonus slot
+-- Call Pet 1-5, then the BM bonus slot. Forever's stable has one pet you call and two stabled (PetConsts_Camelot).
+local ACTIVE_SLOTS = ns.FOREVER and 1 or 6
+local FOREVER_LAST_SLOT = 3 -- Constants.PetConsts.NUM_PET_SLOTS_HUNTER there: 1 is the current pet, 2-3 the stable
 local READ_DELAY = 0.5 -- coalesces bursts of stable events
 local SETTLE = 10 -- seconds after a loading screen when reads may be incomplete (no tame moments)
 local TAME_BEAST = 1515
@@ -37,20 +39,46 @@ function ns.Stable_Snapshot()
 	return chars[CharKey()]
 end
 
+-- Forever's pets have loyalty and happiness instead of a spec (its field is there but doesn't apply).
+local function Slim(info)
+	local pet = ns.Hunter_SlimPet(info)
+	if ns.FOREVER then
+		pet.spec, pet.specAbility = nil, nil
+		pet.loyalty, pet.happiness = info.loyaltyName, info.happinessLevel
+	end
+	return pet
+end
+
+-- Forever: Blizzard's stable reads each slot by index and never asks for GetStabledPetList, so neither do we.
+local function StabledInfos()
+	if not ns.FOREVER then
+		return C_StableInfo.GetStabledPetList() or {}
+	end
+	local infos = {}
+	for slot = ACTIVE_SLOTS + 1, FOREVER_LAST_SLOT do
+		infos[#infos + 1] = C_StableInfo.GetStablePetInfo(slot)
+	end
+	return infos
+end
+
 local function Read()
 	local active, count = {}, 0
 	for slot = 1, ACTIVE_SLOTS do
 		local info = C_StableInfo.GetStablePetInfo(slot)
 		if info and info.name then
-			active[slot] = ns.Hunter_SlimPet(info)
+			active[slot] = Slim(info)
 			active[slot].slot = slot
 			count = count + 1
 		end
 	end
 	local stabled = {}
-	for _, info in ipairs(C_StableInfo.GetStabledPetList() or {}) do
+	for _, info in ipairs(StabledInfos()) do
 		if info.name then
-			stabled[#stabled + 1] = ns.Hunter_SlimPet(info)
+			local pet = Slim(info)
+			if ns.FOREVER then
+				pet.slot = nil -- the page would call slot 2 "Call Pet 2"
+			end
+			stabled[#stabled + 1] = pet
 			count = count + 1
 		end
 	end
@@ -116,6 +144,9 @@ end
 
 -- Which Call Pet slot is summoned right now (Blizzard's StableUI asks the same way).
 function ns.Stable_SummonedSlot()
+	if ns.FOREVER then -- one Call Pet, and Blizzard's camelot stable never asks IsCurrentSpell
+		return UnitExists("pet") and 1 or nil
+	end
 	for i, spellID in ipairs(ns.CALL_PET_SPELLS) do
 		if C_Spell.IsCurrentSpell(spellID) then
 			return i

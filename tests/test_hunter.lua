@@ -220,4 +220,16 @@ test("Problems: passive and growl", function()
 	eq(#ns.Hunter_Problems({ specID = 253, hasPet = true, growl = nil, inGroup = true, groupHasTank = true }, RULES), 0)
 end)
 
+test("Forever: any spec wants a pet, and an unhappy pet is a problem", function()
+	eq(ns.Hunter_Problems({ specID = 1, wantsAnySpec = true, hasPet = false }, RULES)[1], "No pet out")
+	eq(#ns.Hunter_Problems({ specID = 1, hasPet = false }, RULES), 0, "retail's spec IDs only")
+	local rules = { noPet = true, specs = {}, happy = true }
+	eq(ns.Hunter_Problems({ hasPet = true, happiness = 1 }, rules)[1], "Pet isn't happy: feed it")
+	eq(ns.Hunter_Problems({ hasPet = true, happiness = 2 }, rules)[1], "Pet isn't happy: feed it")
+	eq(#ns.Hunter_Problems({ hasPet = true, happiness = 3 }, rules), 0, "happy")
+	eq(#ns.Hunter_Problems({ hasPet = true }, rules), 0, "no happiness on retail")
+	rules.happy = false
+	eq(#ns.Hunter_Problems({ hasPet = true, happiness = 1 }, rules), 0, "setting off")
+end)
+
 H.done()

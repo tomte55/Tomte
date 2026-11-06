@@ -12,6 +12,9 @@ local GetSpecialization = C_SpecializationInfo.GetSpecialization
 local GetSpecializationInfo = C_SpecializationInfo.GetSpecializationInfo
 
 local function PetSpecName()
+	if ns.FOREVER then -- pets have no specs there
+		return nil
+	end
 	local index = GetSpecialization(false, true)
 	if not index then
 		return nil
@@ -23,12 +26,14 @@ end
 -- Passive mode and Growl autocast, from the pet action bar.
 local function PetBar()
 	local passive, growl = false, nil
+	-- Forever has ranks: only rank 1 is GROWL's ID, so its pet bar is matched by the spell's name.
+	local growlName = ns.FOREVER and C_Spell.GetSpellName(GROWL)
 	for i = 1, NUM_PET_ACTION_SLOTS or 10 do
 		local name, _, isToken, isActive, autoCastAllowed, autoCastEnabled, spellID = GetPetActionInfo(i)
 		if isToken and name == "PET_MODE_PASSIVE" and isActive then
 			passive = true
 		end
-		if spellID == GROWL and autoCastAllowed then
+		if (spellID == GROWL or (growlName and name == growlName)) and autoCastAllowed then
 			growl = autoCastEnabled and true or false
 		end
 	end
@@ -65,6 +70,7 @@ local function Situation()
 		specID = specID,
 		hasPet = UnitExists("pet"),
 		content = ns.Check_ContentKind(instanceType, difficultyID),
+		wantsAnySpec = ns.FOREVER,
 	}
 	local players, tank = Group()
 	s.inGroup, s.groupHasTank = players > 0, tank
@@ -72,6 +78,10 @@ local function Situation()
 		s.petDead = UnitIsDead("pet")
 		s.petSpec = PetSpecName()
 		s.passive, s.growl = PetBar()
+		if ns.FOREVER then
+			local happiness = C_PetInfo.GetPetHappiness()
+			s.happiness = not ns.IsSecret(happiness) and happiness or nil
+		end
 	end
 	return s
 end
