@@ -70,7 +70,7 @@ local function Situation()
 		specID = specID,
 		hasPet = UnitExists("pet"),
 		content = ns.Check_ContentKind(instanceType, difficultyID),
-		wantsAnySpec = ns.FOREVER,
+		wantsAnySpec = ns.FOREVER and ns.PetBar_HasPet(),
 	}
 	local players, tank = Group()
 	s.inGroup, s.groupHasTank = players > 0, tank

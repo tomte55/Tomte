@@ -7,7 +7,8 @@ local addonName, ns = ...
 -- buff on the pet), filtered to known spells at run time. revive / call: the spells a "dead" / "no pet" reminder
 -- names (see ns.PetBar_SummonSpell). wantsPet: [specID] = true (always) or "option" (only with the "Marksmanship
 -- uses a pet" style setting on). specs: when set, the bar and reminders are for these specs only. sacrifice: a
--- player aura that means the pet was given up on purpose.
+-- player aura that means the pet was given up on purpose. owned: how to tell the character has a pet at all (see
+-- ns.PetBar_HasPetToCall).
 -- Warlock demons in the order a reminder names them before any summon this session: Felguard (Demonology), then
 -- the ones every spec has.
 local DEMONS = { 30146, 691, 697, 366222, 688 } -- Felguard, Felhunter, Voidwalker, Sayaad, Imp
@@ -54,6 +55,7 @@ local FOREVER_PROFILES = {
 		call = { 883 }, -- Call Pet
 		wantsPet = {},
 		wantsAnySpec = true,
+		owned = "tame", -- no pet before the level 10 quest, and an abandoned one is gone
 	},
 	WARLOCK = {
 		unit = "pet",
@@ -62,6 +64,7 @@ local FOREVER_PROFILES = {
 		call = FOREVER_DEMONS,
 		wantsPet = {},
 		wantsAnySpec = true,
+		owned = "summon", -- no demon before the first summon spell is learned
 		sacrifice = { 18789, 18790, 18791, 18792 },
 	},
 }
@@ -109,6 +112,23 @@ function ns.PetBar_WantsPet(profile, specID, optionOn, sacrificed)
 	end
 	local want = specID and profile.wantsPet[specID]
 	return want == true or (want == "option" and optionOn == true)
+end
+
+-- Whether this character has a pet to bring out, by the profile's `owned`: "summon" knows a summon spell, "tame" has
+-- one tamed (tamed: what the game last showed). Without `owned` (retail) every character has one.
+function ns.PetBar_HasPetToCall(profile, isKnown, tamed)
+	if profile.owned == "tame" then
+		return tamed == true
+	end
+	if profile.owned == "summon" then
+		for _, id in ipairs(profile.call) do
+			if isKnown(id) then
+				return true
+			end
+		end
+		return false
+	end
+	return true
 end
 
 -- The spell a reminder names from list: the summon cast last when it's in the list and known, else the first known
@@ -180,7 +200,7 @@ function ns.PetBar_Reminder(trigger, s)
 	if s.dead then
 		return "dead"
 	end
-	if trigger ~= "died" and not s.hasPet then
+	if trigger == "combatStart" and not s.hasPet then
 		return "missing"
 	end
 	return nil

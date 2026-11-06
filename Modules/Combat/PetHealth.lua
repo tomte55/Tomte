@@ -8,6 +8,7 @@ local addonName, ns = ...
 local PREVIEW_PERIOD = 6 -- seconds for the unlocked preview to sweep 100% -> 5% -> 100%
 -- Seconds after combat before the "pet is dead" reminder; a new pull within it skips the reminder.
 local COMBAT_END_DELAY = 1
+local STABLE_CURRENT_SLOT = 1 -- Forever's stable: slot 1 is the pet Call Pet brings, 2-3 are stabled
 local GetSpecialization = C_SpecializationInfo.GetSpecialization
 local GetSpecializationInfo = C_SpecializationInfo.GetSpecializationInfo
 
@@ -22,6 +23,7 @@ local spellsDirty = true -- the spell row is rebuilt on the next Update (spellbo
 -- combat, and the value from before the pull holds through the fight.
 local sacrificed = false
 local lastSummon -- the profile's summon spell cast last this session: the demon a reminder names
+local abandoning = false -- the abandon dialog was accepted and the pet hasn't left yet
 
 local IsSecret = ns.IsSecret
 
@@ -65,7 +67,34 @@ local function ReadSacrifice()
 	end)
 end
 
+-- Profiles with owned = "tame": what the game last showed about this character's pet, kept between sessions so a
+-- dismissed pet still counts. Only the stable can say "none", and the abandon dialog.
+local function SetTamed(tamed)
+	db.tamed[UnitGUID("player")] = tamed
+end
+
+local function ReadStablePet()
+	local info = C_StableInfo.GetStablePetInfo(STABLE_CURRENT_SLOT)
+	return info and info.name ~= nil
+end
+
+-- Called on every Update, so it stops looking once the answer is yes. Out of combat only: the reads could be secret.
+local function NoteTamed()
+	if profile.owned ~= "tame" or inCombat or db.tamed[UnitGUID("player")] then
+		return
+	end
+	local _, isHunterPet = HasPetUI() -- a mind-controlled creature is a "pet" too, but not one Call Pet brings back
+	if (UnitExists("pet") and isHunterPet) or ReadStablePet() then
+		SetTamed(true)
+	end
+end
+
+local function HasPetToCall()
+	return ns.PetBar_HasPetToCall(profile, Known, db.tamed[UnitGUID("player")])
+end
+
 local function Situation()
+	NoteTamed()
 	local hasPet = UnitExists("pet")
 	local spec = SpecID()
 	return {
@@ -74,7 +103,7 @@ local function Situation()
 		hasPet = hasPet,
 		dead = hasPet and PetDead(),
 		hurt = hasPet and PetHurt() or nil,
-		wantsPet = ns.PetBar_WantsPet(profile, spec, db.marksman, sacrificed),
+		wantsPet = ns.PetBar_WantsPet(profile, spec, db.marksman, sacrificed) and HasPetToCall(),
 		inCombat = inCombat,
 		vehicle = UnitHasVehicleUI("player"),
 		petBattle = C_PetBattles.IsInBattle(),
@@ -241,7 +270,16 @@ end
 events.UNIT_HEALTH = HealthChanged
 events.UNIT_MAXHEALTH = HealthChanged
 events.UNIT_FLAGS = Update
-events.UNIT_PET = Update
+
+-- An abandoned pet counts as gone when it has left, not when the dialog is accepted: until then NoteTamed still sees it.
+function events:UNIT_PET()
+	if abandoning and not UnitExists("pet") then
+		abandoning = false
+		SetTamed(false)
+	end
+	Update()
+end
+
 events.SPELLS_CHANGED = SpellsChanged
 events.PLAYER_SPECIALIZATION_CHANGED = SpellsChanged
 events.UNIT_ENTERED_VEHICLE = Update
@@ -286,6 +324,17 @@ function events:SPELL_UPDATE_COOLDOWN()
 	end
 end
 
+-- At the stable the read is the truth: nothing in the current slot and none out means nothing for Call Pet to bring.
+local function StableChanged()
+	if not UnitExists("pet") then
+		SetTamed(ReadStablePet() and true or false)
+	end
+	Update()
+end
+
+events.PET_STABLE_SHOW = StableChanged
+events.PET_STABLE_UPDATE = StableChanged
+
 function events:PLAYER_REGEN_DISABLED()
 	inCombat = true
 	Update()
@@ -303,9 +352,21 @@ function events:PLAYER_REGEN_ENABLED()
 	end)
 end
 
+local abandonHooked = false
+
 local function Start()
 	for _, event in ipairs(EVENTS) do
 		events:RegisterEvent(event)
+	end
+	if profile.owned == "tame" then
+		events:RegisterEvent("PET_STABLE_SHOW")
+		events:RegisterEvent("PET_STABLE_UPDATE")
+		if not abandonHooked then
+			abandonHooked = true
+			hooksecurefunc(C_PetInfo, "PetAbandon", function()
+				abandoning = module.active
+			end)
+		end
 	end
 	for _, event in ipairs(UNIT_EVENTS) do
 		events:RegisterUnitEvent(event, "pet")
@@ -415,6 +476,12 @@ local function Command(fn)
 	end
 end
 
+-- Whether this character has a pet to bring out, for other modules' checks. While Pet Health is off nothing keeps
+-- track, so the answer is yes.
+function ns.PetBar_HasPet()
+	return not (module.active and profile) or HasPetToCall()
+end
+
 module = ns.RegisterModule({
 	key = "pet",
 	name = "Pet Health",
@@ -435,6 +502,7 @@ module = ns.RegisterModule({
 		marksman = false,
 		remind = { died = true, pull = true, after = true },
 		sound = true,
+		tamed = {}, -- [player GUID] = whether this hunter has a pet to call (Forever only: see NoteTamed)
 	},
 	init = function(moduleDB)
 		db = moduleDB
@@ -485,7 +553,8 @@ module = ns.RegisterModule({
 
 		{ type = "header", label = "Reminders" },
 		{ type = "checkbox", key = "remind.died", label = "When your pet dies" },
-		{ type = "checkbox", key = "remind.pull", label = "When you pull without a pet" },
+		{ type = "checkbox", key = "remind.pull", label = "When you pull without a pet",
+			tooltip = ns.FOREVER and "Only once this character has a pet to call." or nil },
 		{ type = "checkbox", key = "remind.after", label = "After combat if it's dead" },
 		{ type = "checkbox", key = "sound", label = "Warning sound" },
 		{ type = "checkbox", key = "marksman", label = "Marksmanship uses a pet", onChange = Update,
