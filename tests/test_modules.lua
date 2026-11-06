@@ -292,7 +292,7 @@ test("HomeEntries lists visible entries of a kind in registration order", functi
 	eq(#ns.ModulePages(ns.modulesByKey.b), 2, "module pages ignore shown()")
 end)
 
-test("HomeEntries has no map entries on Forever (no world map side panel there)", function()
+test("HomeEntries lists map entries on Forever too (its side panel has Tomte's tabs)", function()
 	reset()
 	newModule("a", { enabledByDefault = true, home = {
 		{ kind = "page", key = "pa" },
@@ -302,8 +302,8 @@ test("HomeEntries has no map entries on Forever (no world map side panel there)"
 	ns.FOREVER = true
 	local maps, pages = #ns.HomeEntries("map"), #ns.HomeEntries("page")
 	ns.FOREVER = nil
-	eq(maps, 0, "maps")
-	eq(pages, 1, "pages still listed")
+	eq(maps, 1, "maps")
+	eq(pages, 1, "pages")
 	eq(#ns.HomeEntries("map"), 1, "retail")
 end)
 

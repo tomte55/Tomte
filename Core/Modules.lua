@@ -177,10 +177,6 @@ end
 -- Sorted by entry.order (lowest first, default 100), then registration order.
 function ns.HomeEntries(kind)
 	local list, index = {}, {}
-	-- Map entries open a world map side tab (Panel/MapTabs.lua), which Forever's map doesn't have.
-	if kind == "map" and ns.FOREVER then
-		return list
-	end
 	for _, module in ipairs(ns.modules) do
 		for _, entry in ipairs(module.home or {}) do
 			if entry.kind == kind and ns.HomeEntryVisible(entry) and not (kind == "around" and AroundHidden(entry)) then

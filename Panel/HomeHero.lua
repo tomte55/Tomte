@@ -77,7 +77,7 @@ local FACTS = {
 			local overall, equipped = GetAverageItemLevel()
 			TipPair(tip, "Equipped", ("%.1f"):format(equipped or 0))
 			TipPair(tip, "Overall", ("%.1f"):format(overall or 0))
-			if ModuleOn("gear") then
+			if ModuleOn("gear") and not ns.FOREVER then -- Forever's Gear Check has no audit or character sheet panel
 				local worn = ns.GearItems_Equipped()
 				local text = worn and ns.Gear_AuditText(ns.Gear_Audit(worn))
 				if text then
@@ -86,7 +86,7 @@ local FACTS = {
 			end
 		end,
 		clickable = function()
-			return ModuleOn("gear")
+			return ModuleOn("gear") and not ns.FOREVER
 		end,
 		clickText = "Click: character pane with Gear Check",
 		click = function()

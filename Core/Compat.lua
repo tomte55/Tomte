@@ -1,9 +1,9 @@
 local addonName, ns = ...
 
 -- Compat: one place for game APIs that retail moved or renamed, so the same code runs on retail and on World of
--- Warcraft: Forever (a Classic-style client). Each helper looks the API up when it's called, retail name first,
--- the Classic name second, so retail calls exactly what it called before. Unit-tested in tests/test_compat.lua.
--- See docs/superpowers/specs/2026-10-25-tomte-forever-design.md.
+-- Warcraft: Forever (game type camelot, on the retail engine). Each helper looks the API up when it's called, retail
+-- name first, the older name second, so retail calls exactly what it called before. Unit-tested in
+-- tests/test_compat.lua. See docs/superpowers/specs/2026-11-05-tomte-forever-all-modules.md.
 
 -- An addon's TOC field. pcall: the API errors on an addon name the client doesn't know.
 function ns.AddOnMetadata(addon, field)

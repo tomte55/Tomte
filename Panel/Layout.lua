@@ -9,10 +9,13 @@ local addonName, ns = ...
 -- short: the label under the icon on the rail, which is only about 60 pixels wide.
 ns.PANEL_GROUPS = {
 	{ key = "tomte", name = "Tomte", short = "Tomte", description = "The window, minimap buttons and Home." },
-	{ key = "week", name = "Your week", short = "Week", icon = 134376,
-		description = "What to do this week, on every character." },
+	-- Forever has no Weekly, World Quests or Gold Quests: only Alts is left in the first of these, Quests in the second.
+	{ key = "week", name = ns.FOREVER and "Your characters" or "Your week", short = ns.FOREVER and "Chars" or "Week",
+		icon = 134376,
+		description = ns.FOREVER and "All your characters, and who crafts what."
+			or "What to do this week, on every character." },
 	{ key = "quests", name = "Quests", short = "Quests", icon = 236672, -- achievement_quests_completed_daily_01
-		description = "Quest givers, world quests and gold quests." },
+		description = ns.FOREVER and "Quest givers and your quest log." or "Quest givers, world quests and gold quests." },
 	{ key = "gear", name = "Gear & loot", short = "Gear", icon = 132751,
 		description = "Your gear, its upkeep, your loot and your looks." },
 	{ key = "professions", name = "Professions & gold", short = "Profs", icon = 134708,

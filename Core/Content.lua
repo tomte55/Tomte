@@ -7,6 +7,9 @@ local addonName, ns = ...
 -- Content_AddCheck. See docs/superpowers/specs/2026-10-09-tomte-content-expansion-design.md.
 
 ns.EXPANSION_NAMES = { [10] = "The War Within", [11] = "Midnight" }
+-- Forever's "expansion" for Data/Forever/: it has no expansions (warcraft.wiki.gg: level cap 60, no raises planned).
+ns.CONTENT_FOREVER = 0
+local FOREVER_MAX_LEVEL = 60
 
 local data = {} -- [expansion][key] = table
 local checks = {} -- { { name, fn(expansion) -> lines } }
@@ -30,6 +33,9 @@ local CHROMIE_EXPANSION = { [5] = 3, [6] = 1, [7] = 2, [8] = 4, [9] = 5, [10] = 
 -- The existence checks on UnitChromieTimeID, GetExpansionForLevel, GetExpansionLevel and
 -- GetMaxLevelForExpansionLevel (here and below) are for the unit tests, which stub only some of them.
 function ns.ContentExpansion(level)
+	if ns.FOREVER then
+		return ns.CONTENT_FOREVER -- whatever the client's expansion numbers say: never retail's data there
+	end
 	local chromie
 	if not level and UnitChromieTimeID then
 		chromie = CHROMIE_EXPANSION[UnitChromieTimeID("player") or 0]
@@ -44,6 +50,9 @@ end
 
 -- That expansion's max level (80 for The War Within, 90 for Midnight); nil when the game doesn't say.
 function ns.ContentMaxLevel(expansion)
+	if ns.FOREVER then
+		return FOREVER_MAX_LEVEL
+	end
 	return expansion and GetMaxLevelForExpansionLevel and GetMaxLevelForExpansionLevel(expansion)
 end
 
@@ -59,6 +68,9 @@ function ns.ContentAtMax(level)
 end
 
 function ns.ExpansionName(expansion)
+	if ns.FOREVER then
+		return "World of Warcraft: Forever"
+	end
 	return ns.EXPANSION_NAMES[expansion] or (expansion and _G["EXPANSION_NAME" .. expansion])
 		or ("expansion " .. tostring(expansion))
 end

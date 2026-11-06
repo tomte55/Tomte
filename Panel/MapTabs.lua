@@ -24,9 +24,20 @@ local COMBAT_ALPHA = 0.45 -- an opener button in combat, when its click can't op
 local dimmed = setmetatable({}, { __mode = "k" }) -- [opener button] = its opensMap, for buttons that dim in combat
 local combatWatch, inCombat
 local WatchCombat
+-- Forever hides all of Blizzard's tabs (Camelot/QuestMapFrameOverrides.lua) and ValidateTabs hides them again, so once
+-- one of ours is picked nothing leads back to the quest list: this tab of ours does. Nil on retail.
+local questsTab
 
 local function Layout()
 	local anchor = QuestMapFrame.MapLegendTab
+	if questsTab then
+		local any = false
+		for _, t in ipairs(tabs) do
+			any = any or t.shown
+		end
+		questsTab:SetShown(any)
+		anchor = questsTab
+	end
 	for _, t in ipairs(tabs) do
 		if t.shown then
 			t.tab:ClearAllPoints()
@@ -58,6 +69,9 @@ local function GiveBack(questMap)
 	for _, b in ipairs(questMap.TabButtons) do
 		b:SetChecked(b.displayMode == questMap.displayMode)
 	end
+	if questsTab then
+		questsTab:SetChecked(true)
+	end
 end
 
 function ns.MapTabs_Select(key)
@@ -73,6 +87,9 @@ function ns.MapTabs_Select(key)
 	end
 	if activeKey and activeKey ~= key then
 		Deactivate(byKey[activeKey])
+	end
+	if questsTab then
+		questsTab:SetChecked(false)
 	end
 	activeKey = key
 	t.tab:SetChecked(true)
@@ -166,7 +183,7 @@ function ns.MapTabs_Opener(button, opensMap, dims)
 	-- Else, with the ActionButtonUseKeyDown CVar on, the template acts on the down press, which this button never gets.
 	button:SetAttribute("useOnKeyDown", false)
 	button:SetScript("PreClick", function(self, mouseButton)
-		-- Already open: ToggleQuestLog would close it. No QuestMapFrame (Forever): the micro button opens a quest log
+		-- Already open: ToggleQuestLog would close it. Without a QuestMapFrame the micro button would open a quest log
 		-- without the map, so the button only does its own action.
 		local open = QuestLogMicroButton ~= nil and QuestMapFrame ~= nil and not InCombatLockdown()
 			and opensMap(self, mouseButton)
@@ -189,17 +206,36 @@ function ns.MapTabs_SetShown(key, shown)
 	Layout()
 end
 
+local function TabSetChecked(self, checked)
+	self.Icon:SetDesaturated(not checked)
+	self.Icon:SetAlpha(checked and 1 or 0.7)
+	self.SelectedTexture:SetShown(checked)
+end
+
+-- Forever only: sits where Blizzard's hidden Quests tab sits, and gives Blizzard's frames back.
+local function CreateQuestsTab()
+	local tab = CreateFrame("Frame", nil, QuestMapFrame, "LargeSideTabButtonTemplate")
+	tab.tooltipText = QUESTS_LABEL
+	tab.Icon:SetAtlas("questlog-tab-icon-quest")
+	tab.Icon:SetSize(24, 24)
+	tab.SetChecked = TabSetChecked
+	tab:SetChecked(true)
+	tab:SetPoint("TOP", QuestMapFrame.QuestsTab, "TOP")
+	tab:SetCustomOnMouseUpHandler(function(_, button, upInside)
+		if button == "LeftButton" and upInside then
+			GiveBack(QuestMapFrame)
+		end
+	end)
+	return tab
+end
+
 local function CreateTab(spec)
 	local tab = CreateFrame("Frame", nil, QuestMapFrame, "LargeSideTabButtonTemplate")
 	tab.tooltipText = spec.tooltip
 	tab.Icon:SetTexture(spec.icon)
 	tab.Icon:SetSize(24, 24)
 	tab.Icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-	function tab:SetChecked(checked)
-		self.Icon:SetDesaturated(not checked)
-		self.Icon:SetAlpha(checked and 1 or 0.7)
-		self.SelectedTexture:SetShown(checked)
-	end
+	tab.SetChecked = TabSetChecked
 	tab:SetChecked(false)
 	tab:SetCustomOnMouseUpHandler(function(_, button, upInside)
 		if button == "LeftButton" and upInside then
@@ -244,6 +280,9 @@ function ns.MapTabs_Add(spec)
 	end
 	if not QuestMapFrame or not QuestMapFrame.MapLegendTab then
 		return nil
+	end
+	if ns.FOREVER and not questsTab then
+		questsTab = CreateQuestsTab()
 	end
 	local t = { key = spec.key, spec = spec, shown = true }
 	t.tab = CreateTab(spec)
