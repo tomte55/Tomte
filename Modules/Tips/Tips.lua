@@ -73,13 +73,15 @@ module = ns.RegisterModule({
 	name = "Tooltip extras",
 	category = "interface",
 	icon = 134332, -- inv_misc_note_06
+	-- Forever: no tips data, so only the lines the game itself answers (reagents, no use left).
 	summary = "Extra lines on tooltips: keys, reputation tokens, reagents, where to spend tokens and items with no use left.",
-	description = "Adds small lines to tooltips: which key opens a delve chest and how many you have, which faction a reputation token raises and whether you're already maxed, what a combine item needs and how many you own, and where a token is spent (Ctrl-click it in your bags for a waypoint). Items in your bags say when they have no use left (a book you've read, a toy you already know) and when an unfinished achievement needs them. Choice windows show how many you own of what they take and give.",
+	description = ns.FOREVER and "Adds small lines to tooltips: what a combine item needs and how many you own. Items in your bags say when they have no use left (a book with nothing else to it, a mount you already know) and when something unfinished still needs them."
+		or "Adds small lines to tooltips: which key opens a delve chest and how many you have, which faction a reputation token raises and whether you're already maxed, what a combine item needs and how many you own, and where a token is spent (Ctrl-click it in your bags for a waypoint). Items in your bags say when they have no use left (a book you've read, a toy you already know) and when an unfinished achievement needs them. Choice windows show how many you own of what they take and give.",
 	enabledByDefault = true,
-	replaces = {
+	replaces = not ns.FOREVER and {
 		{ addon = "Plumber",
 			why = "chest keys, reputation tokens, reagents and vendor places on tooltips, and choice window counts" },
-	},
+	} or nil,
 	defaults = {
 		keys = true,
 		rep = true,
@@ -94,13 +96,17 @@ module = ns.RegisterModule({
 	toggle = function(active)
 		if active then
 			ns.TipsTooltip_Start(db)
-			ns.TipsChoice_Start(db)
+			if ns.TipsChoice_Start then -- Choice.lua doesn't load on Forever: nothing shows a choice window there
+				ns.TipsChoice_Start(db)
+			end
 			if db.use then
 				ns.TipsScan_Start()
 			end
 		else
 			ns.TipsTooltip_Stop()
-			ns.TipsChoice_Stop()
+			if ns.TipsChoice_Stop then
+				ns.TipsChoice_Stop()
+			end
 			ns.TipsScan_Stop()
 		end
 	end,
@@ -112,26 +118,30 @@ module = ns.RegisterModule({
 	},
 	options = {
 		{ type = "header", label = "Tooltip lines" },
-		{ type = "checkbox", key = "keys", label = "Keys for chests",
+		{ type = "checkbox", key = "keys", label = "Keys for chests", shown = ns.NotForever,
 			preview = ns.Preview_When("keys", PreviewLine("keys")),
 			tooltip = "On a delve's Bountiful Coffer: the key it needs and how many you have." },
-		{ type = "checkbox", key = "rep", label = "Reputation tokens",
+		{ type = "checkbox", key = "rep", label = "Reputation tokens", shown = ns.NotForever,
 			preview = ns.Preview_When("rep", PreviewLine("rep")),
 			tooltip = "On an item or currency that gives reputation: the faction, your standing, and a warning when you're already maxed." },
 		{ type = "checkbox", key = "reagents", label = "Reagents of combine items",
 			preview = ns.Preview_When("reagents", PreviewLine("reagents")),
 			tooltip = "On an item you combine or craft into something else: what it takes, how many you own, and how many you can make." },
-		{ type = "checkbox", key = "vendors", label = "Where to spend tokens",
+		{ type = "checkbox", key = "vendors", label = "Where to spend tokens", shown = ns.NotForever,
 			preview = ns.Preview_When("vendors", PreviewLine("vendors")),
 			tooltip = "On a token traded at a particular vendor: who and where. Ctrl-click it in your bags to set a waypoint there." },
 		{ type = "checkbox", key = "use", label = "Items with no use left", onChange = ToggleUse,
 			tooltip = "On items in your bags: says when one is safe to delete or sell (a book with nothing else to it, a toy, mount, pet or recipe you already know), and when an unfinished achievement still needs it. Items it can't be sure about get no line." },
 
 		{ type = "header", label = "Choice windows" },
-		{ type = "checkbox", key = "choice", label = "Show what you own", onChange = RefreshChoice,
+		{ type = "checkbox", key = "choice", label = "Show what you own", onChange = RefreshChoice, shown = ns.NotForever,
 			preview = ns.Preview_When("choice", function(host)
 				return ns.TipsChoice_Preview(host, module)
 			end),
 			tooltip = "Under a choice window: how many you own of the token it takes and of each reward on offer." },
 	},
 })
+
+if ns.FOREVER then
+	module.summary = "Extra lines on tooltips: reagents of combine items and items with no use left."
+end

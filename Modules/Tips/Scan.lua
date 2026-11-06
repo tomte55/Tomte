@@ -34,6 +34,11 @@ function ns.TipsScan_Start()
 	if scanned or building or timer then
 		return
 	end
+	-- Forever without the Achievements files: nothing can name an item, so the check is done.
+	if not ns.AchWalk_Join then
+		scanned = true
+		return
+	end
 	timer = C_Timer.NewTimer(SCAN_DELAY, function()
 		timer = nil
 		building = {}
