@@ -14,8 +14,24 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### New
 
+- **Where to get it (new module):** on Forever, type any item's name to see who sells it, what it's gathered from and which mobs drop it, the best places for your level and side first. Click a place for a map pin. Also a line on item tooltips, and Ctrl+right-click on an item opens it. It's Classic's data, so Forever may differ.
+- **Leveling:** on Forever, a button that puts the armor kit you carry on worn gear with nothing on it, never over an enchant, with a row under To do and a line on the kit's tooltip.
+- **Loot:** on Forever, a button under the loot window when your bags are full: one click destroys your cheapest grey junk and loots what didn't fit. Anything else takes a second click, and it tells you when the loot isn't worth it.
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
+
+### Improved
+
+- **Gear Check:** on Forever, lighter armor is no longer an upgrade on item level alone. Gear less than 5 item levels apart goes by its stats and armor, and enchants and armor kits count, with a warning when an upgrade would cost you one.
+- **Tomte window:** Stable, Flight coverage, Mount zones, Recent and Friend sharing moved off the side column. Each opens from its settings page.
+- **Groups in chat:** a linked quest names the row, and its level counts for Near my level.
+
+### Fixed
+
+- **Whispers:** on Forever, the reply key and whisper toasts open the right name the first time, also for names with a space.
+- **Leveling:** on Forever, spells with no ranks, like Tame Beast, are no longer called an old rank.
+- **Pet care:** on Forever, abilities your pet already knows no longer count as something to learn when the game lists them at 0 points.
+- **Edit Mode:** opening it in combat no longer causes an error.
 
 ## v1.29.0 - 2026-11-06
 
