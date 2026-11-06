@@ -5,10 +5,13 @@ local addonName, ns = ...
 -- on; open one to see its children). A List row whose progress went up while the dock is open pops and shines.
 -- Hovering a row shows its tooltip beside the dock and, for mounts, pets and
 -- appearances, a reward preview next to the tooltip. When closed, a small tab on the window's edge opens it again.
--- Built once Blizzard_AchievementUI has loaded.
+-- Built once Blizzard_AchievementUI has loaded; on Forever, where the Achievements window never shows, on the Legacy
+-- window's challenges page once Blizzard_LegacySystem has.
 
 local UI = ns.UI
-local WIDTH = 380
+local Word = ns.Ach_Word
+-- Forever: narrower, because the Legacy window takes 1005 of a 16:9 screen's 1365 wide (Blizzard_LegacySystemRegistration).
+local WIDTH = ns.FOREVER and 340 or 380
 local ROW_H = 34
 local META_ROW_H = 28
 local INDENT = 16
@@ -28,6 +31,9 @@ local REWARD_FILTERS = {
 	{ value = "appearance", text = "Appearances" },
 	{ value = "decor", text = "Decor" },
 }
+if ns.FOREVER then -- no housing there
+	table.remove(REWARD_FILTERS)
+end
 local SORTS = {
 	{ value = "percent", text = "Percent" },
 	{ value = "steps", text = "Fewest steps" },
@@ -58,11 +64,16 @@ end
 -- Preview (Panel/ModelPreview.lua) ------------------------------------------------------------------------
 
 local function HidePreview()
-	ns.ModelPreview_Hide(dock.preview)
+	if dock.preview then -- Panel/ModelPreview.lua may not load on Forever
+		ns.ModelPreview_Hide(dock.preview)
+	end
 end
 
 -- After the row's tooltip is shown: the reward's model next to it, when it has one.
 local function ShowPreview(record)
+	if not dock.preview then
+		return
+	end
 	local info = record and DB().preview and ns.Ach_RewardInfo(record)
 	local model
 	if info and (info.type == "mount" or info.type == "pet") then
@@ -105,7 +116,11 @@ local function ShowAchievementTooltip(owner, id, record)
 		return
 	end
 	GameTooltip:SetOwner(owner, "ANCHOR_NONE")
-	GameTooltip:SetPoint("TOPLEFT", owner, "TOPRIGHT", TOOLTIP_GAP, 0)
+	if ns.FOREVER then -- the dock ends near the screen's edge there: over the Legacy window, not off the screen
+		GameTooltip:SetPoint("TOPRIGHT", owner, "TOPLEFT", -TOOLTIP_GAP, 0)
+	else
+		GameTooltip:SetPoint("TOPLEFT", owner, "TOPRIGHT", TOOLTIP_GAP, 0)
+	end
 	GameTooltip:SetHyperlink(link)
 	if record then
 		AddExtraLines(record)
@@ -175,11 +190,13 @@ local function FilterMenu(owner)
 				return db.categories[top] ~= false
 			end, Toggle(db.categories, top))
 		end
-		local exp = root:CreateButton("Expansions")
-		for _, e in ipairs(expansions) do
-			exp:CreateCheckbox(e, function()
-				return db.expansions[e] ~= false
-			end, Toggle(db.expansions, e))
+		if not ns.FOREVER then -- one expansion there
+			local exp = root:CreateButton("Expansions")
+			for _, e in ipairs(expansions) do
+				exp:CreateCheckbox(e, function()
+					return db.expansions[e] ~= false
+				end, Toggle(db.expansions, e))
+			end
 		end
 		local function Radio(menu, key, value, text)
 			menu:CreateRadio(text, function()
@@ -189,24 +206,30 @@ local function FilterMenu(owner)
 				FiltersChanged()
 			end)
 		end
-		local prof = root:CreateButton("Professions")
-		Radio(prof, "professions", "mine", "My professions")
-		Radio(prof, "professions", "all", "All")
-		Radio(prof, "professions", "none", "None")
-		local ev = root:CreateButton("World events")
-		Radio(ev, "events", "running", "Running now")
-		Radio(ev, "events", "all", "All")
-		Radio(ev, "events", "none", "None")
-		local scope = root:CreateButton("Completed means")
-		for _, choice in ipairs({ { "account", "Done on the account" }, { "character", "Done by this character" } }) do
-			scope:CreateRadio(choice[2], function()
-				return db.scope == choice[1]
-			end, function()
-				if db.scope ~= choice[1] then
-					db.scope = choice[1]
-					ns.Ach_StartScan()
-				end
-			end)
+		-- Forever: the filter's category ID is retail's, so it only shows if a challenge is really under it.
+		if not ns.FOREVER or ns.Ach_HasTop(ns.ACH_TOP_PROFESSIONS) then
+			local prof = root:CreateButton("Professions")
+			Radio(prof, "professions", "mine", "My professions")
+			Radio(prof, "professions", "all", "All")
+			Radio(prof, "professions", "none", "None")
+		end
+		-- Forever: no holiday reader for "Running now", and a challenge counts for its own character only (IsDone in Scan.lua).
+		if not ns.FOREVER then
+			local ev = root:CreateButton("World events")
+			Radio(ev, "events", "running", "Running now")
+			Radio(ev, "events", "all", "All")
+			Radio(ev, "events", "none", "None")
+			local scope = root:CreateButton("Completed means")
+			for _, choice in ipairs({ { "account", "Done on the account" }, { "character", "Done by this character" } }) do
+				scope:CreateRadio(choice[2], function()
+					return db.scope == choice[1]
+				end, function()
+					if db.scope ~= choice[1] then
+						db.scope = choice[1]
+						ns.Ach_StartScan()
+					end
+				end)
+			end
 		end
 		root:CreateDivider()
 		root:CreateCheckbox("Show ignored", function()
@@ -218,7 +241,7 @@ local function FilterMenu(owner)
 		root:CreateButton("Reset filters", function()
 			wipe(db.categories)
 			wipe(db.expansions)
-			db.professions, db.events, db.reward = "mine", "running", "any"
+			db.professions, db.events, db.reward = "mine", ns.ACH_DEFAULT_EVENTS, "any"
 			FiltersChanged()
 		end)
 	end)
@@ -361,12 +384,12 @@ local function RefreshList()
 	empty:SetShown(#list == 0)
 	if #list == 0 then
 		if progress and not next(ns.Ach_Records()) then
-			empty:SetText("Scanning your achievements...")
+			empty:SetText(Word("Scanning your achievements..."))
 		else
 			empty:SetText(("Nothing at %d%% or more with these filters."):format(DB().threshold))
 		end
 	end
-	dock.count:SetText(("%s at %d%% or more"):format(#list == 1 and "1 achievement" or (#list .. " achievements"),
+	dock.count:SetText(("%s at %d%% or more"):format(Word(#list == 1 and "1 achievement" or (#list .. " achievements")),
 		DB().threshold))
 	ScanStatus(progress)
 	dock.threshold:SetValue(DB().threshold)
@@ -514,8 +537,11 @@ local function RefreshMetas()
 			y = y + ChildRows(y, node, 0, 1)
 		end
 	else
-		y = y + Header(y, "Expansion metas")
-		for _, root in ipairs(ns.Ach_MetaRoots()) do
+		local roots = ns.Ach_MetaRoots()
+		if #roots > 0 then -- none on Forever
+			y = y + Header(y, "Expansion metas")
+		end
+		for _, root in ipairs(roots) do
 			local _, name, _, completed, _, _, _, _, _, icon = GetAchievementInfo(root.id)
 			if name then
 				y = y + MetaRow(y, 0, { id = root.id, icon = icon, text = name, done = completed,
@@ -631,10 +657,10 @@ local function CreateListView()
 	search:SetPoint("TOPLEFT", 0, 0)
 	search:SetPoint("RIGHT", -14, 0)
 
-	local reward = UI.Dropdown(view, 130)
+	local reward = UI.Dropdown(view, ns.FOREVER and 118 or 130)
 	reward:SetPoint("TOPLEFT", search, "BOTTOMLEFT", 0, -8)
 
-	local sortBy = UI.Dropdown(view, 120)
+	local sortBy = UI.Dropdown(view, ns.FOREVER and 108 or 120)
 	sortBy:SetPoint("LEFT", reward, "RIGHT", 6, 0)
 
 	local filters = UI.Button(view, 60, "Filters")
@@ -711,7 +737,7 @@ local function CreateListView()
 	dock.empty:SetJustifyH("CENTER")
 	dock.empty:SetWordWrap(true)
 
-	dock.preview = ns.ModelPreview_Create(dock)
+	dock.preview = ns.ModelPreview_Create and ns.ModelPreview_Create(dock)
 end
 
 local function CreateMetaView()
@@ -740,10 +766,17 @@ end
 
 local function Build()
 	local parent = AchievementFrame
-	dock = CreateFrame("Frame", nil, parent)
+	local gap, handleY = 2, -60
+	if ns.FOREVER then
+		parent = LegacySystemFrame -- anchored to it, parented to its challenges page: the list shows with that page only
+		gap = parent.LegacyChallengeTab:GetWidth() + 2 -- past its side tabs, which start at -60 and run three tabs down
+		handleY = -60 - 3 * (parent.LegacyChallengeTab:GetHeight() + 2)
+	end
+	local owner = ns.FOREVER and parent.ChallengesPage or parent
+	dock = CreateFrame("Frame", nil, owner)
 	dock:SetWidth(WIDTH)
-	dock:SetPoint("TOPLEFT", parent, "TOPRIGHT", 2, 0)
-	dock:SetPoint("BOTTOMLEFT", parent, "BOTTOMRIGHT", 2, 0)
+	dock:SetPoint("TOPLEFT", parent, "TOPRIGHT", gap, 0)
+	dock:SetPoint("BOTTOMLEFT", parent, "BOTTOMRIGHT", gap, 0)
 	dock:EnableMouse(true)
 	dock:SetFrameStrata(parent:GetFrameStrata())
 	UI.Panel(dock)
@@ -812,9 +845,9 @@ local function Build()
 	end)
 
 	-- Shown while the dock is closed: a narrow tab on the window's edge that opens it.
-	handle = CreateFrame("Button", nil, parent)
+	handle = CreateFrame("Button", nil, owner)
 	handle:SetSize(18, 64)
-	handle:SetPoint("TOPLEFT", parent, "TOPRIGHT", 0, -60)
+	handle:SetPoint("TOPLEFT", parent, "TOPRIGHT", 0, handleY)
 	UI.Panel(handle, { size = "small", subtle = true })
 	local arrow = UI.Text(handle, 13, "heading")
 	arrow:SetPoint("CENTER", 1, 0)
@@ -822,7 +855,7 @@ local function Build()
 	handle:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		GameTooltip:SetText("Almost Done", UI.Color("heading"))
-		GameTooltip:AddLine("Show near-complete achievements.", 1, 1, 1)
+		GameTooltip:AddLine(Word("Show near-complete achievements."), 1, 1, 1)
 		GameTooltip:Show()
 	end)
 	handle:SetScript("OnLeave", function()
@@ -836,6 +869,15 @@ end
 function Refresh()
 	if not (dock and dock:IsVisible()) then
 		return
+	end
+	-- Forever has no built-in metas: the tab is there once a challenge's criteria turn out to be other challenges.
+	if ns.FOREVER then
+		local hasMetas = next(ns.Ach_MetaLinks()) ~= nil
+		dock.metaTab:SetShown(hasMetas)
+		if not hasMetas and tab == "metas" then
+			SetTab("list")
+			return
+		end
 	end
 	if tab == "list" then
 		RefreshList()
@@ -864,7 +906,7 @@ function ns.AchDock_Refresh()
 end
 
 local function Hook()
-	if hooked or not AchievementFrame then
+	if hooked or not (ns.FOREVER and LegacySystemFrame or AchievementFrame) then
 		return
 	end
 	hooked = true
@@ -879,5 +921,5 @@ function ns.AchDock_Init()
 		return
 	end
 	waiting = true
-	EventUtil.ContinueOnAddOnLoaded("Blizzard_AchievementUI", Hook)
+	EventUtil.ContinueOnAddOnLoaded(ns.FOREVER and "Blizzard_LegacySystem" or "Blizzard_AchievementUI", Hook)
 end

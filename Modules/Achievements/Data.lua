@@ -11,6 +11,16 @@ ns.ACH_EXPANSIONS = {
 }
 ns.ACH_OTHER = "Other"
 
+-- Player wording: Forever surfaces achievements as Legacy Challenges (Blizzard_AchievementUI/Camelot), so texts written
+-- with "achievement" say that there. Retail gets the text as it is.
+function ns.Ach_Word(text)
+	if not ns.FOREVER then
+		return text
+	end
+	return (text:gsub("An achievement", "A Legacy Challenge"):gsub("an achievement", "a Legacy Challenge")
+		:gsub("[Aa]chievement", "Legacy Challenge"))
+end
+
 -- Top-level category IDs (Achievement_Category, 12.1.0), so the filters work in any client language.
 ns.ACH_TOP_PROFESSIONS = 169
 ns.ACH_TOP_WORLD_EVENTS = 155

@@ -9,7 +9,8 @@ local MAX_DEPTH = 3 -- how deep the expansion fill follows nested metas
 
 -- Newest first. The achievement IDs (game facts) are the ones in the AlmostCompletedAchievements addon's meta list;
 -- no code was taken from it.
-local ROOTS = {
+-- Forever has none of these; a meta there is only what its own criteria say (the scan's links).
+local ROOTS = ns.FOREVER and {} or {
 	{ id = 62386, expansion = "Midnight" }, -- Light Up the Night
 	{ id = 61451, expansion = "The War Within" }, -- Worldsoul-Searching
 	{ id = 19458, expansion = "Dragonflight" }, -- A World Awoken
@@ -21,7 +22,7 @@ local ROOTS = {
 
 -- Children that aren't criteria of the meta (Light Up the Night tracks some through other achievements). Which
 -- achievements belong to it is a game fact; this list is the one in AlmostCompletedAchievements' data.
-local EXTRA_CHILDREN = {
+local EXTRA_CHILDREN = ns.FOREVER and {} or {
 	[62386] = { 62261, 61453, 62260, 62256, 62873, 62874, 62563, 61906, 61380, 61568, 61839 },
 }
 

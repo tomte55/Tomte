@@ -83,6 +83,11 @@ end
 
 -- Done for the scope setting: account = completed on the account, character = earned by this character.
 local function IsDone(completed, wasEarnedByMe)
+	-- Forever: another character's challenge counts as incomplete (Blizzard_LegacyAchievementOverrides.lua), so the
+	-- setting doesn't apply there.
+	if ns.FOREVER then
+		return completed and wasEarnedByMe and true or false
+	end
 	if Settings().scope == "character" then
 		return wasEarnedByMe and true or false
 	end
@@ -97,6 +102,15 @@ local function CritNames(criteria)
 	return names
 end
 
+-- Forever's challenges are worth Legacy points, which Blizzard's own cards read like this
+-- (AchievementFrame_GetOverridePoints in Blizzard_LegacyAchievementOverrides.lua).
+local function Points(id, points)
+	if ns.FOREVER then
+		return C_Traits.GetTraitCurrencyForAchievement(Constants.LegacyConsts.LEGACY_POINTS_TRAIT_CURRENCY_ID, id)
+	end
+	return points
+end
+
 -- A live read of one achievement: { id, name, icon, points, description, completed, percent, done, total, last,
 -- reward, criteria }. percent is nil when it has no criteria.
 function ns.Ach_ReadAchievement(id)
@@ -106,7 +120,7 @@ function ns.Ach_ReadAchievement(id)
 	end
 	local criteria = ns.Ach_ReadCriteria(id)
 	local percent, done, total, last, have, need = ns.Ach_Percent(criteria)
-	return { id = id, name = name, icon = icon, points = points, description = description,
+	return { id = id, name = name, icon = icon, points = Points(id, points), description = description,
 		completed = IsDone(completed, wasEarnedByMe), percent = percent, done = done, total = total, last = last,
 		have = have, need = need, reward = rewardText or "", criteria = criteria }
 end
@@ -145,7 +159,7 @@ local function BuildRecord(id, categoryID, pinned, links)
 	end
 	local cat = CategoryInfo(categoryID)
 	return {
-		id = id, name = name, icon = icon, points = points, category = categoryID, catName = cat.name, top = cat.top,
+		id = id, name = name, icon = icon, points = Points(id, points), category = categoryID, catName = cat.name, top = cat.top,
 		topID = cat.topID, expansion = cat.expansion or ns.Ach_MetaExpansion(id), percent = percent, done = done,
 		total = total, last = last, have = have, need = need, reward = rewardText or "",
 	}, criteria

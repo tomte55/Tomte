@@ -317,4 +317,20 @@ test("MetaPercent", function()
 	eq((ns.Ach_MetaPercent({})), 0)
 end)
 
+-- Forever's wording -------------------------------------------------------------------------------------------
+
+test("Word leaves retail's text alone", function()
+	eq(ns.Ach_Word("When an achievement is done"), "When an achievement is done")
+end)
+
+test("Word says Legacy Challenge on Forever, with the right article and capitals", function()
+	ns.FOREVER = true
+	eq(ns.Ach_Word("When an achievement is done"), "When a Legacy Challenge is done")
+	eq(ns.Ach_Word("An achievement"), "A Legacy Challenge")
+	eq(ns.Ach_Word("Achievements at or above"), "Legacy Challenges at or above")
+	eq(ns.Ach_Word("3 achievements"), "3 Legacy Challenges")
+	eq(ns.Ach_Word("Rescan"), "Rescan")
+	ns.FOREVER = nil
+end)
+
 H.done()

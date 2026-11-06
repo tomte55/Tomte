@@ -42,6 +42,10 @@ local function MountInfo(itemID)
 end
 
 local function PetInfo(itemID)
+	-- Forever's pet journal is the Classic one (Blizzard_Collections.toc); nothing in Blizzard's source for it uses this.
+	if not C_PetJournal.GetPetInfoByItemID then
+		return nil
+	end
 	local name, icon, _, _, _, _, _, _, _, _, _, displayID, speciesID = C_PetJournal.GetPetInfoByItemID(itemID)
 	if not speciesID then
 		return nil
@@ -63,7 +67,8 @@ end
 -- Housing decor. The housing API is checked first in case it's missing, and both journal lookups here are
 -- pcalled: any reward item gets asked, and one the journal can't take must mean "not this type", never an error.
 local function DecorInfo(itemID)
-	if not (C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem) then
+	-- Forever: the API is documented but Blizzard's housing addons don't load, so there's no decor to ask about.
+	if ns.FOREVER or not (C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem) then
 		return nil
 	end
 	local ok, entry = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemID)

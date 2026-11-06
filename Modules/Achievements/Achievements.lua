@@ -6,6 +6,7 @@ local addonName, ns = ...
 -- pure logic in Data.lua. Holiday names for the world events filter come from Holidays' calendar reader
 -- (Modules/Holidays/Calendar.lua). Replaces AlmostCompletedAchievements.
 
+local Word = ns.Ach_Word
 local OWNER = "ach"
 local MAX_PINS = 5
 local SCAN_DELAY = 5 -- seconds after the first loading screen
@@ -17,6 +18,10 @@ local LABELS = { almost = "Almost done", lastStep = "One step left", pinned = "P
 -- Strange Trip It's Been, with its name, icon, reward and last step from the game and made-up progress.
 local SAMPLE_ID = 2144
 local SAMPLE_LEFT = 1 -- steps the sample has left
+-- Forever has no holiday reader (Holidays & events isn't loaded there), so world event challenges can't be told
+-- "running" from not: they are all listed.
+local DEFAULT_EVENTS = ns.FOREVER and "all" or "running"
+ns.ACH_DEFAULT_EVENTS = DEFAULT_EVENTS
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "CRITERIA_UPDATE", "CRITERIA_EARNED", "ACHIEVEMENT_EARNED", "NEW_MOUNT_ADDED",
 	"NEW_PET_ADDED", "NEW_TOY_ADDED", "TRANSMOG_COLLECTION_UPDATED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
@@ -78,7 +83,7 @@ function ns.Ach_Pin(id)
 		return
 	end
 	if #pins >= MAX_PINS then
-		ns.Print(("you can pin %d achievements. Unpin one first."):format(MAX_PINS))
+		ns.Print(Word("you can pin %d achievements. Unpin one first."):format(MAX_PINS))
 		return
 	end
 	pins[#pins + 1] = id
@@ -128,6 +133,9 @@ end
 -- (Holidays & events, whatever its "Other events" setting). With each event's achievement category name too, which
 -- is exactly what IsRunningEvent looks for (the finder's Timewalking dungeon name may not contain it).
 local function Holidays()
+	if not ns.Events_Current then -- Forever: Holidays & events isn't loaded
+		return {}
+	end
 	if holidays and GetTime() - holidaysAt < HOLIDAY_TTL then
 		return holidays
 	end
@@ -199,12 +207,36 @@ function ns.Ach_FilterChoices()
 	return tops, expansions
 end
 
+-- Any record under this top category (Forever: its categories aren't known ahead, so the filter menu asks).
+function ns.Ach_HasTop(topID)
+	for _, record in pairs(ns.Ach_Records()) do
+		if record.topID == topID then
+			return true
+		end
+	end
+	return false
+end
+
+-- Forever's check before its window opens (CanShowLegacyChallenges in Blizzard_AchievementUI/Camelot); Blizzard's
+-- opener does nothing without a word when it fails.
+local function LegacyLocked()
+	return C_GameRules.IsGameRuleActive(Enum.GameRule.AchievementsPanelDisabled)
+		or C_MajorFactions.GetCurrentRenownLevel(Constants.LegacyConsts.LEGACY_REWARD_TRACK_FACTION_ID) <= 0
+end
+
 -- The Achievements window is load-on-demand, and loading a Blizzard addon from addon code in combat is presumably
 -- blocked or tainting (not measured), so in combat it only opens once it's loaded. ShowAchievementFrameForAchievement is the
--- opener (Blizzard_AchievementUI_Bootstrap, loads the window).
+-- opener (Blizzard_AchievementUI_Bootstrap, loads the window; on Forever it opens the Legacy window's challenges page,
+-- from Blizzard_LegacySystem).
+local WINDOW_ADDON = ns.FOREVER and "Blizzard_LegacySystem" or "Blizzard_AchievementUI"
+
 function ns.Ach_Open(id)
-	if InCombatLockdown() and not C_AddOns.IsAddOnLoaded("Blizzard_AchievementUI") then
-		ns.Print_Combat("open the Achievements window")
+	if ns.FOREVER and LegacyLocked() then
+		ns.Print("Legacy Challenges aren't open on this character yet.")
+		return
+	end
+	if InCombatLockdown() and not C_AddOns.IsAddOnLoaded(WINDOW_ADDON) then
+		ns.Print_Combat(Word("open the Achievements window"))
 		return
 	end
 	ShowAchievementFrameForAchievement(id)
@@ -331,11 +363,15 @@ end
 local function Rescan()
 	if ns.Module_RequireOn(module) then
 		ns.Ach_StartScan()
-		ns.Print("scanning achievements...")
+		ns.Print(Word("scanning achievements..."))
 	end
 end
 
 local function SampleRecord()
+	if ns.FOREVER then -- SAMPLE_ID is retail's
+		return { id = SAMPLE_ID, name = "Sample Legacy Challenge", icon = module.icon, done = 2, total = 3, percent = 66,
+			last = "Last step", reward = "" }
+	end
 	local _, name, _, _, _, _, _, _, _, icon, rewardText = GetAchievementInfo(SAMPLE_ID)
 	local total = GetAchievementNumCriteria(SAMPLE_ID) or 0
 	local done = math.max(total - SAMPLE_LEFT, 0)
@@ -427,7 +463,7 @@ module = ns.RegisterModule({
 		threshold = 80, sort = "percent", reward = "any", scope = "account", showIgnored = false,
 		categories = {}, -- [top category name] = false when hidden
 		expansions = {}, -- [expansion or "Other"] = false when hidden
-		professions = "mine", events = "running",
+		professions = "mine", events = DEFAULT_EVENTS,
 		ignored = {}, -- [achievementID] = true, account-wide
 		pins = {}, -- [player GUID] = { achievementID, ... }
 		-- [player GUID] = { at, scope, records, floor (lowest percent the records hold), links ([child id] =
@@ -439,9 +475,9 @@ module = ns.RegisterModule({
 		preview = true,
 	},
 	home = {
-		{ kind = "next", key = "nextach", name = "Achievements one step from done", score = 65,
-			description = "Achievements with one step left, and your pinned ones (from Almost Done's list and filters). "
-				.. "The ones named after where you are come first.",
+		{ kind = "next", key = "nextach", name = Word("Achievements one step from done"), score = 65,
+			description = Word("Achievements with one step left, and your pinned ones (from Almost Done's list and filters). "
+				.. "The ones named after where you are come first."),
 			candidates = function()
 				local list = {}
 				local here = HereNames()
@@ -495,7 +531,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "scan", "scan all achievements again", Rescan },
+		{ "scan", Word("scan all achievements again"), Rescan },
 		{ "cache", "what's saved for this character and how this login's scan ran", function()
 			if ns.Module_RequireOn(module) then
 				for _, line in ipairs(ns.Ach_CacheLines()) do
@@ -531,12 +567,14 @@ module = ns.RegisterModule({
 			format = function(v)
 				return v .. "%"
 			end, onChange = ThresholdChanged,
-			tooltip = "Achievements at or above this share of their criteria are listed and tracked." },
-		{ type = "checkbox", key = "dock.open", label = "Open with the Achievements window", onChange = function()
+			tooltip = Word("Achievements at or above this share of their criteria are listed and tracked.") },
+		{ type = "checkbox", key = "dock.open", label = Word("Open with the Achievements window"), onChange = function()
 			ns.AchDock_Refresh()
-		end, tooltip = "Show the list next to the Achievements window. Off: a small tab on its edge opens it." },
+		end, tooltip = Word("Show the list next to the Achievements window. Off: a small tab on its edge opens it.") },
 		{ type = "checkbox", key = "preview", label = "Reward preview", onChange = function()
 			ns.AchDock_Refresh()
+		end, shown = function()
+			return ns.ModelPreview_Create ~= nil -- Panel/ModelPreview.lua may not load on Forever
 		end, tooltip = "Show a model of mount, pet and appearance rewards under the list." },
 
 		{ type = "header", label = "Tracker" },
@@ -561,26 +599,31 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Toasts" },
 		{ type = "checkbox", key = "toasts.almost", label = "Almost done",
 			preview = ns.Preview_When("toasts.almost", ToastPreview("almost")),
-			tooltip = "When an achievement reaches the threshold." },
+			tooltip = Word("When an achievement reaches the threshold.") },
 		{ type = "checkbox", key = "toasts.lastStep", label = "One step left",
 			preview = ns.Preview_When("toasts.lastStep", ToastPreview("lastStep")),
 			tooltip = "When only one criterion is left." },
-		{ type = "checkbox", key = "toasts.pinned", label = "Progress on pinned achievements",
-			preview = ns.Preview_When("toasts.pinned", ToastPreview("pinned")), tooltip = "Every step on an achievement you pinned." },
+		{ type = "checkbox", key = "toasts.pinned", label = Word("Progress on pinned achievements"),
+			preview = ns.Preview_When("toasts.pinned", ToastPreview("pinned")), tooltip = Word("Every step on an achievement you pinned.") },
 		{ type = "button", label = "Sample toasts", text = "Show", onClick = Test },
 
 		{ type = "header", label = "Data" },
-		{ type = "button", label = "Scan all achievements again", text = "Rescan", onClick = Rescan },
+		{ type = "button", label = Word("Scan all achievements again"), text = "Rescan", onClick = Rescan },
 		{ type = "button", label = function()
 			local n = 0
 			for _ in pairs(db and db.ignored or {}) do
 				n = n + 1
 			end
-			return ("Ignored achievements: %d"):format(n)
-		end, text = "Clear", confirm = "Show every ignored achievement again?", onClick = function()
+			return Word("Ignored achievements: %d"):format(n)
+		end, text = "Clear", confirm = Word("Show every ignored achievement again?"), onClick = function()
 			wipe(db.ignored)
 			Changed()
 		end },
 	},
 })
 ns.achModule = module
+
+if ns.FOREVER then
+	module.summary = Word("Achievements you've nearly finished, with rewards and a tracker.")
+	module.description = "Near-complete Legacy Challenges in a list next to the Legacy window's challenges, with a Top 5 tracker and toasts when something is almost done."
+end
