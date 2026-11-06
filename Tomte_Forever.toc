@@ -44,6 +44,7 @@ Data/Forever/Tools.lua
 Data/Forever/Fishing.lua
 Data/Forever/Dungeons.lua
 Data/Forever/ArmorKits.lua
+Data/Forever/ItemSources.lua
 Core/Journal.lua
 Core/CheckData.lua
 Core/Check.lua
@@ -243,6 +244,9 @@ Modules/Rest/Rest.lua
 Modules/ChatGroups/Data.lua
 Modules/ChatGroups/Page.lua
 Modules/ChatGroups/ChatGroups.lua
+Modules/Sources/Data.lua
+Modules/Sources/Page.lua
+Modules/Sources/Sources.lua
 Modules/Alts/PlanData.lua
 Modules/Alts/RosterData.lua
 Modules/Alts/GearData.lua
