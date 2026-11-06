@@ -15,6 +15,18 @@ local BAGS = { 0, 1, 2, 3, 4, 5 } -- Backpack .. ReagentBag (Enum.BagIndex)
 local BANK = { 6, 7, 8, 9, 10, 11 } -- CharacterBankTab_1..6
 local WARBAND = { 12, 13, 14, 15, 16 } -- AccountBankTab_1..5
 
+-- Forever numbers its bank tabs differently (its AccountBankTab_1 is 15): ask the game which containers there are.
+local function BankBags(bankType, retail)
+	if not ns.FOREVER then
+		return retail
+	end
+	local bags = {}
+	for _, tab in ipairs(C_Bank.FetchPurchasedBankTabData(bankType) or {}) do
+		bags[#bags + 1] = tab.ID
+	end
+	return bags
+end
+
 local module, db
 local bankOpen = false
 local worthTimer
@@ -200,8 +212,8 @@ local function ReadWorth()
 	c.worth = c.worth or {}
 	c.worth.bags = BagsValue(BAGS)
 	if bankOpen then
-		c.worth.bank = BagsValue(BANK)
-		ns.altsDB.warbandWorth = { v = BagsValue(WARBAND), at = GetServerTime() }
+		c.worth.bank = BagsValue(BankBags(Enum.BankType.Character, BANK))
+		ns.altsDB.warbandWorth = { v = BagsValue(BankBags(Enum.BankType.Account, WARBAND)), at = GetServerTime() }
 	end
 	c.worth.at = GetServerTime()
 	if ns.Alts_Changed then
@@ -431,7 +443,7 @@ module = ns.RegisterModule({
 		end, tooltip = "When looted: each item keeps the price it had the day you looted it. At today's price: past "
 			.. "sessions are priced again with today's prices (an item with no price today keeps its old one)." },
 		{ type = "header", label = "Alts and crafting" },
-		{ type = "checkbox", key = "alts", label = "Carried value in Alts", shown = ns.NotForever,
+		{ type = "checkbox", key = "alts", label = "Carried value in Alts",
 			tooltip = "What each character's bags and bank are worth (the bank is read when you open it), and the Warband bank." },
 		{ type = "dropdown", key = "owned", label = "Materials you have", shown = ns.NotForever, choices = function()
 			return { { value = "market", text = "Count at market price" }, { value = "free", text = "Count as free" } }
