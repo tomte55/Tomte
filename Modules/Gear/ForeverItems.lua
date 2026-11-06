@@ -45,7 +45,22 @@ local function IsRed(color)
 end
 
 -- Patterns are built on first use: every Blizzard string is there by then.
-local dpsPattern, durabilityPattern
+local dpsPattern, durabilityPattern, enchantPattern, enchantNames
+
+-- C_Item.GetItemStats leaves out what's enchanted on an item, so that comes from its tooltip line.
+local function ReadEnchant(desc, text)
+	if not enchantNames then
+		enchantNames = { STA = ITEM_MOD_STAMINA_SHORT, STR = ITEM_MOD_STRENGTH_SHORT, AGI = ITEM_MOD_AGILITY_SHORT,
+			INT = ITEM_MOD_INTELLECT_SHORT, SPI = ITEM_MOD_SPIRIT_SHORT, ARMOR = RESISTANCE0_NAME }
+		enchantPattern = ENCHANTED_TOOLTIP_LINE and ns.Gear_FormatPattern(ENCHANTED_TOOLTIP_LINE)
+	end
+	local what = enchantPattern and text:match(enchantPattern)
+	if what then
+		desc.enchantText = what
+		desc.enchant = ns.GearForever_ParseEnchant(what, enchantNames)
+	end
+end
+
 local function ReadTooltip(desc, link)
 	if not (C_TooltipInfo and C_TooltipInfo.GetHyperlink) then
 		return
@@ -58,6 +73,9 @@ local function ReadTooltip(desc, link)
 		if text and not Secret(text) and text ~= "" then
 			desc.unique = desc.unique or ns.Gear_ParseUnique(text)
 			desc.dps = desc.dps or ns.GearForever_ParseDps(text, dpsPattern)
+			if not desc.enchantText then
+				ReadEnchant(desc, text)
+			end
 			-- Line 1 is the name; a broken item (red durability) is still usable gear.
 			if i > 1 and IsRed(line.leftColor) and not (durabilityPattern and text:find(durabilityPattern)) then
 				desc.redText = desc.redText or text

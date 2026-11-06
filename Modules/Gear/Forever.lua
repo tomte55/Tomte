@@ -398,7 +398,8 @@ local function Why()
 		local desc = worn[slot]
 		if desc then
 			ns.Print(("%d: %s, item level %s%s"):format(slot, desc.link, tostring(desc.ilvl),
-				desc.dps and (", %.1f damage per second"):format(desc.dps) or ""))
+				(desc.dps and (", %.1f damage per second"):format(desc.dps) or "")
+				.. (desc.enchantText and (", enchanted: " .. desc.enchantText) or "")))
 		end
 	end
 end
@@ -472,7 +473,7 @@ module = ns.RegisterModule({
 			tooltip = "Short lines under the verdict, e.g. the damage of both weapons." },
 		{ type = "checkbox", key = "showDowngrades", label = "Show downgrades" },
 		{ type = "checkbox", key = "levelingIlvl", label = "While leveling, higher item level wins", onChange = Invalidate,
-			tooltip = "Below level 60, gear with a higher item level is an upgrade and gear with a lower one a downgrade. "
+			tooltip = "Below level 60, gear 5 or more item levels higher is an upgrade and 5 or more lower a downgrade. Closer than that, or lighter armor, goes by the stats and armor on it, enchants included. "
 				.. "Weapons still go by damage for the classes that swing them. Off, rough stat values for your class "
 				.. "decide." },
 		{ type = "checkbox", key = "compareTooltips", label = "Also on comparison tooltips",

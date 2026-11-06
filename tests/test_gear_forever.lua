@@ -105,6 +105,72 @@ test("lighter armor at a higher level warns and isn't a clean upgrade", function
 	eq(ns.Gear_IsMaybeUpgrade(v), true)
 end)
 
+test("lighter armor with less in it is a downgrade, whatever its item level", function()
+	local vest = Chest(10, LEATHER, { ARMOR = 33 })
+	vest.enchant, vest.enchantText = { STA = 1, ARMOR = 8 }, "Stamina +1 and Armor +8"
+	local v = ns.GearForever_Evaluate(Chest(12, CLOTH, { ARMOR = 13 }), { [5] = vest }, Ctx("HUNTER", 12))
+	eq(v.kind, "downgrade")
+	eq(v.levelDown, nil, "by what's in it")
+	eq(#v.reasons, 0, "it stays where it is")
+	eq(ns.Gear_Headline(v):find("Downgrade", 1, true) ~= nil, true)
+	v = ns.GearForever_Evaluate(Chest(30, CLOTH, { ARMOR = 13 }), { [5] = Chest(10, LEATHER, { ARMOR = 33 }) }, Ctx("HUNTER", 30))
+	eq(v.kind, "downgrade", "even far above it")
+end)
+
+test("lighter armor with better stats is an upgrade, with the warning", function()
+	local v = ns.GearForever_Evaluate(Chest(12, CLOTH, { ARMOR = 13, STA = 8 }), { [5] = Chest(10, LEATHER, { ARMOR = 33 }) },
+		Ctx("HUNTER", 12))
+	eq(v.kind, "upgradeBut")
+	eq(v.warnings, 1)
+end)
+
+test("a small item level gap goes by what's on the item", function()
+	local worn = { [5] = Chest(10, MAIL, { ARMOR = 100, STR = 10 }) }
+	eq(ns.GearForever_Evaluate(Chest(12, MAIL, { ARMOR = 100 }), worn, Ctx("WARRIOR", 12)).kind, "downgrade", "higher, but worse")
+	eq(ns.GearForever_Evaluate(Chest(8, MAIL, { ARMOR = 100, STR = 20 }), worn, Ctx("WARRIOR", 12)).kind, "upgrade", "lower, but better")
+	eq(ns.GearForever_Evaluate(Chest(14, MAIL, { ARMOR = 100 }), worn, Ctx("WARRIOR", 12)).kind, "downgrade", "4 apart")
+end)
+
+test("a clear item level gap still wins while leveling", function()
+	local worn = { [5] = Chest(10, MAIL, { ARMOR = 100, STR = 10 }) }
+	local v = ns.GearForever_Evaluate(Chest(15, MAIL, { ARMOR = 100 }), worn, Ctx("WARRIOR", 15))
+	eq(v.kind, "levelUp")
+	eq(v.ilvlDiff, 5)
+	v = ns.GearForever_Evaluate(Chest(5, MAIL, { ARMOR = 100, STR = 90 }), worn, Ctx("WARRIOR", 15))
+	eq(v.kind, "downgrade")
+	eq(v.levelDown, true)
+end)
+
+test("with no stats on either, the item level still decides", function()
+	local v = ns.GearForever_Evaluate(Chest(12, MAIL), { [5] = Chest(10, MAIL) }, Ctx("WARRIOR", 12))
+	eq(v.kind, "levelUp")
+	eq(ns.GearForever_Evaluate(Chest(9, MAIL), { [5] = Chest(10, MAIL) }, Ctx("WARRIOR", 12)).kind, "downgrade")
+end)
+
+test("what's enchanted counts, and losing it says so", function()
+	local kitted = Chest(10, MAIL, { ARMOR = 30 })
+	kitted.enchant, kitted.enchantText = { STA = 1, ARMOR = 8 }, "Stamina +1 and Armor +8"
+	local plain = Chest(10, MAIL, { ARMOR = 33 })
+	eq(ns.GearForever_Evaluate(plain, { [5] = kitted }, Ctx("WARRIOR", 12)).kind, "downgrade", "a little more armor doesn't pay for the kit")
+	local better = Chest(16, MAIL, { ARMOR = 80 })
+	local v = ns.GearForever_Evaluate(better, { [5] = kitted }, Ctx("WARRIOR", 16))
+	eq(v.kind, "levelUp")
+	eq(v.warnings, 1)
+	eq(v.reasons[1], "You'd lose the enchant on yours (Stamina +1 and Armor +8)")
+	better.enchantText = "Agility +1"
+	eq(ns.GearForever_Evaluate(better, { [5] = kitted }, Ctx("WARRIOR", 16)).warnings, 0, "the new one has its own")
+end)
+
+test("ParseEnchant reads both ways round", function()
+	local names = { STA = "Stamina", AGI = "Agility", ARMOR = "Armor" }
+	local e = ns.GearForever_ParseEnchant("Stamina +1 and Armor +8", names)
+	eq(e.STA, 1)
+	eq(e.ARMOR, 8)
+	eq(ns.GearForever_ParseEnchant("+3 Agility", names).AGI, 3)
+	eq(ns.GearForever_ParseEnchant("Minor Speed Increase", names), nil, "nothing it can count")
+	eq(ns.GearForever_ParseEnchant(nil, names), nil)
+end)
+
 test("heavier armor doesn't warn", function()
 	local v = ns.GearForever_Evaluate(Chest(14, MAIL), { [5] = Chest(10, LEATHER) }, Ctx("WARRIOR"))
 	eq(v.warnings, 0)

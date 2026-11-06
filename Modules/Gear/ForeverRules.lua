@@ -1,11 +1,12 @@
 local addonName, ns = ...
 
 -- Gear Check on World of Warcraft: Forever: pure logic (no WoW API calls; unit-tested in tests/test_gear_forever.lua).
--- A leveling helper: while leveling a higher item level wins, weapons go by damage for the classes that swing them, and
--- rough per-class stat values only settle ties. Forever has no specs (one per class in the API) and a ranged slot.
+-- A leveling helper: while leveling a clearly higher item level wins, weapons go by damage for the classes that swing them, and
+-- rough per-class stat values decide the rest, counting what's enchanted on the item. Forever has no specs (one per class in the
+-- API) and a ranged slot.
 -- Verdicts use retail's kinds, so Gear_Headline, Gear_IsCleanUpgrade, Gear_PickReveals and the reward card (Rules.lua,
 -- Rewards.lua) work on them. Items are the descriptors from ForeverItems.lua: { link, itemID, equipLoc, classID,
--- subclassID, ilvl, minLevel, stats, dps, unique, redText }.
+-- subclassID, ilvl, minLevel, stats, dps, unique, redText, enchant, enchantText }.
 
 local MAX_LEVEL = 60 -- warcraft.wiki.gg: Forever's level cap, with no raises planned
 local UPGRADE_PCT = 1 -- above +1% is an upgrade, within +-1% a sidegrade (as on retail)
@@ -35,6 +36,9 @@ local WEIGHTS = {
 }
 local ANY_CLASS = { STR = 1, AGI = 1, INT = 1, STA = 0.5, SPI = 0.2 }
 local ARMOR_WEIGHT = 0.02 -- per point of armor: enough to split two items that are otherwise the same
+-- Item levels apart before the item level alone decides while leveling. Closer than this says little: Patchwork Armor is 2 levels
+-- above a leather vest with almost three times its armor.
+local CLEAR_ILVL_GAP = 5
 
 -- Who judges melee weapons and ranged weapons by their damage; for the others item level and stats decide.
 local MELEE_DPS = { WARRIOR = true, PALADIN = true, ROGUE = true, SHAMAN = true }
@@ -80,11 +84,33 @@ function ns.GearForever_Slots(equipLoc, rangedSlot)
 	return ns.Gear_Slots(equipLoc)
 end
 
+-- What an "Enchanted:" tooltip line gives: { [stat] = amount }, nil when it names none of them. text: what comes after the prefix,
+-- as "Stamina +1 and Armor +8" or "+3 Agility". names: { [stat] = this client's name for it }.
+function ns.GearForever_ParseEnchant(text, names)
+	if type(text) ~= "string" then
+		return nil
+	end
+	local lower = text:lower()
+	local found
+	for stat, name in pairs(names) do
+		local plain = name:lower():gsub("%p", "%%%0")
+		local amount = lower:match(plain .. "%s*%+(%d+)") or lower:match("%+(%d+)%s*" .. plain)
+		if amount then
+			found = found or {}
+			found[stat] = tonumber(amount)
+		end
+	end
+	return found
+end
+
 local function Score(desc, weights)
 	if not desc then
 		return 0
 	end
 	local total = 0
+	for stat, amount in pairs(desc.enchant or {}) do
+		total = total + amount * (stat == "ARMOR" and ARMOR_WEIGHT or (weights[stat] or 0))
+	end
 	for key, amount in pairs(desc.stats or {}) do
 		if key == "PRIMARY" then
 			for stat, value in pairs(amount) do
@@ -273,6 +299,14 @@ function ns.GearForever_Evaluate(cand, equipped, ctx)
 		verdict.warnings = 1
 		verdict.reasons[1] = ("Lighter armor than yours (%s)"):format(lighter)
 	end
+	-- Replacing it costs the enchant or armor kit on it. It's in the scores too; this says so in words.
+	for slot in pairs(replaced) do
+		local old = equipped[slot]
+		if old and old.enchantText and not cand.enchantText then
+			verdict.warnings = verdict.warnings + 1
+			verdict.reasons[#verdict.reasons + 1] = ("You'd lose the enchant on yours (%s)"):format(old.enchantText)
+		end
+	end
 	local skill = BehindSkill(cand, replaced, equipped, ctx)
 	if skill then
 		verdict.warnings = verdict.warnings + 1
@@ -284,27 +318,39 @@ function ns.GearForever_Evaluate(cand, equipped, ctx)
 		return ByPercent(verdict, (Dps(cand) - oldDps) / oldDps * 100, verdict.warnings > 0)
 	end
 
-	if ctx.leveling and cand.ilvl and topIlvl and cand.ilvl > topIlvl then
-		verdict.kind = "levelUp"
-		verdict.ilvlDiff = cand.ilvl - topIlvl
-		return verdict
-	end
-	if ctx.leveling and cand.ilvl and lowIlvl and cand.ilvl < lowIlvl then
-		verdict.kind = "downgrade"
-		verdict.levelDown = true
-		verdict.ilvlDiff = cand.ilvl - lowIlvl
-		verdict.reasons, verdict.warnings = {}, 0 -- it stays where it is, so nothing to warn about
-		return verdict
+	-- The item level decides while leveling, unless the stats can say better: it's only a little apart, or lighter armor, where a
+	-- higher item level still means less armor. With no stats on either there's only the item level to go by.
+	local newScore = Score(cand, ctx.weights)
+	local hasStats = oldScore > 0 or newScore > 0
+	local higher = cand.ilvl and topIlvl and cand.ilvl > topIlvl
+	local lower = cand.ilvl and lowIlvl and cand.ilvl < lowIlvl
+	local clear = (higher and cand.ilvl - topIlvl >= CLEAR_ILVL_GAP) or (lower and lowIlvl - cand.ilvl >= CLEAR_ILVL_GAP)
+	if ctx.leveling and not (hasStats and (lighter or not clear)) then
+		if higher then
+			verdict.kind = "levelUp"
+			verdict.ilvlDiff = cand.ilvl - topIlvl
+			return verdict
+		end
+		if lower then
+			verdict.kind = "downgrade"
+			verdict.levelDown = true
+			verdict.ilvlDiff = cand.ilvl - lowIlvl
+			verdict.reasons, verdict.warnings = {}, 0 -- it stays where it is, so nothing to warn about
+			return verdict
+		end
 	end
 
-	local newScore = Score(cand, ctx.weights)
 	if oldScore <= 0 then
 		verdict.statless = true
 		verdict.kind = newScore > 0 and "noStats" or "ilvl"
 		verdict.ilvlDiff = cand.ilvl and topIlvl and cand.ilvl - topIlvl or 0
 		return verdict
 	end
-	return ByPercent(verdict, (newScore - oldScore) / oldScore * 100, verdict.warnings > 0)
+	ByPercent(verdict, (newScore - oldScore) / oldScore * 100, verdict.warnings > 0)
+	if verdict.kind == "downgrade" then
+		verdict.reasons, verdict.warnings = {}, 0 -- it stays where it is, so nothing to warn about
+	end
+	return verdict
 end
 
 -- Bags: which links are new since the last look. before: [link] = count (replaced by the counts of links). A second
