@@ -140,7 +140,7 @@ function ns.PanelRail_CreateTabs(parent, window, onSelect)
 		local n, y = 1, 0
 		Place(1, nil, y, selected == nil)
 		y = y + tabH
-		for _, entry in ipairs(ns.HomeEntries("page")) do
+		for _, entry in ipairs(ns.HomeRailPages()) do
 			n = n + 1
 			Place(n, entry, y, entry == selected)
 			y = y + tabH

@@ -853,7 +853,7 @@ module = ns.RegisterModule({
 			tooltip = "The key does nothing in the air, so you can't fall off by accident." },
 	},
 	home = {
-		{ kind = "page", key = "mountzones", order = 5, name = "Mount zones", icon = MOUNT_ICON,
+		{ kind = "page", key = "mountzones", noRail = true, order = 5, name = "Mount zones", icon = MOUNT_ICON,
 			page = ns.MountZonesPage,
 			summary = function()
 				local list = ns.Mount_ZoneList(ns.Mount_Chain(), db.zones)

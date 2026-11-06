@@ -48,6 +48,29 @@ local function Keys(list)
 	return table.concat(keys, ",")
 end
 
+test("HomeRailPages leaves out pages reached from settings", function()
+	local module = { key = "railtest", active = true, home = {
+		{ kind = "page", key = "onrail", order = 1, name = "On the rail" },
+		{ kind = "page", key = "insettings", order = 2, name = "In settings", noRail = true },
+	} }
+	for _, entry in ipairs(module.home) do
+		entry.module = module
+	end
+	table.insert(ns.modules, module)
+	local rail = {}
+	for _, entry in ipairs(ns.HomeRailPages()) do
+		rail[entry.key] = true
+	end
+	eq(rail.onrail, true)
+	eq(rail.insettings, nil)
+	local all = {}
+	for _, entry in ipairs(ns.HomeEntries("page")) do
+		all[entry.key] = true
+	end
+	eq(all.insettings, true, "still a page: its settings button opens it")
+	table.remove(ns.modules)
+end)
+
 test("HomeEntries(around) leaves out blocks unticked in Around you shows", function()
 	local db = Setup({ around = { collectaround = true, flightaround = false, mountaround = true } })
 	eq(Keys(ns.HomeEntries("around")), "collectaround,mountaround", "flight off")

@@ -117,6 +117,7 @@ end
 --   "page"     a page in the Tomte window and a rail row: name, icon or atlas, page = { Create(frame), Refresh(frame) },
 --              summary() (rail tooltip), pill() -> n and pillTip (a count on its rail row, shown above 0 while
 --              "Counts on the rail" is on; cheap, existing state only)
+--              noRail (a page with no rail row: its module settings page has an "Open ..." button for it)
 --   "map"      a rail row that opens a world map tab: name, icon or atlas, summary(), open()
 --   "quick"    an action button under the hero: name, count() -> n (shown above 0), open()
 --   "around"   a block in Home's "Around you" column: name, icon, title() ("Name: counts"), items(limit) -> rows
@@ -186,6 +187,17 @@ function ns.HomeEntries(kind)
 		end
 	end
 	SortEntries(list, index)
+	return list
+end
+
+-- The pages that get a row on the rail.
+function ns.HomeRailPages()
+	local list = {}
+	for _, entry in ipairs(ns.HomeEntries("page")) do
+		if not entry.noRail then
+			list[#list + 1] = entry
+		end
+	end
 	return list
 end
 

@@ -524,7 +524,7 @@ module = ns.RegisterModule({
 		{ "why", "<name>: what was exchanged with that friend this session", Why },
 	},
 	home = {
-		{ kind = "page", key = "share", order = 90, name = "Friend sharing", icon = ICON, page = ns.SharePage,
+		{ kind = "page", key = "share", noRail = true, order = 90, name = "Friend sharing", icon = ICON, page = ns.SharePage,
 			summary = function()
 				local n = #ns.Share_Friends()
 				return n == 1 and "1 friend shares with you" or (n .. " friends share with you")

@@ -253,7 +253,7 @@ function ns.PanelRail_Create(parent, onSelect)
 		self.marked = false
 		Place(Row(1), nil, y, selected == nil)
 		y = y + RAIL_ROW_H + 6
-		for _, entry in ipairs(ns.HomeEntries("page")) do
+		for _, entry in ipairs(ns.HomeRailPages()) do
 			n = n + 1
 			Place(Row(n), entry, y, entry == selected)
 			placedY[entry] = y

@@ -548,7 +548,7 @@ module = ns.RegisterModule({
 		return flight
 	end,
 	home = {
-		{ kind = "page", key = "coverage", order = 4, name = "Flight coverage", icon = COVERAGE_ICON,
+		{ kind = "page", key = "coverage", noRail = true, order = 4, name = "Flight coverage", icon = COVERAGE_ICON,
 			page = ns.CoveragePage,
 			summary = function()
 				local n = 0

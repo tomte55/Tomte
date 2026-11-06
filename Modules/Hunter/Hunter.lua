@@ -123,7 +123,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	home = {
-		{ kind = "page", key = "stable", order = 3, name = "Stable", icon = "Interface\\Icons\\Ability_Hunter_BeastCall",
+		{ kind = "page", key = "stable", noRail = true, order = 3, name = "Stable", icon = "Interface\\Icons\\Ability_Hunter_BeastCall",
 			page = ns.StablePage,
 			summary = function()
 				local snapshot = ns.Stable_Snapshot()

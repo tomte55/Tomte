@@ -390,7 +390,7 @@ module = ns.RegisterModule({
 	defaults = Defaults(),
 	keep = { "seenAt" }, -- collected data: a settings reset keeps it
 	home = {
-		{ kind = "page", key = "recentpage", order = 6, name = "Recent", icon = "Interface\\Icons\\INV_Letter_15",
+		{ kind = "page", key = "recentpage", noRail = true, order = 6, name = "Recent", icon = "Interface\\Icons\\INV_Letter_15",
 			page = RecentPage,
 			shown = function()
 				return db.show == "page"
