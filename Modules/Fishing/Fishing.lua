@@ -89,7 +89,7 @@ local BOBBER_TIP = "When the Reusable Oversized Bobber's buff is gone and the to
 local raftSpec = { type = "checkbox", key = "raft.on", label = "Use a raft when swimming", onChange = Refresh }
 raftSpec.shown = function()
 	raftSpec.tooltip = RAFT_TIP .. (#ns.Fishing_OwnedRafts() == 0 and "\n\nYou don't own a fishing raft." or "")
-	return not ns.FOREVER -- no toys there
+	return not ns.FOREVER -- retail's toys: not confirmed to exist on Forever
 end
 local bobberSpec = { type = "checkbox", key = "bobber", label = "Keep the Oversized Bobber up", onChange = Refresh }
 bobberSpec.shown = function()
