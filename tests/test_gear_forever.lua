@@ -53,6 +53,52 @@ test("the same item level goes by this class's stats", function()
 	eq(ns.GearForever_Evaluate(Chest(10, MAIL, { STA = 4 }), weaker, ctx).kind, "downgrade")
 end)
 
+test("attack power counts for the classes that fight with it", function()
+	local dagger = Item({ equipLoc = "INVTYPE_WEAPON", classID = WEAPON, subclassID = 15, ilvl = 13, dps = 6.2,
+		stats = { PRIMARY = { AGI = 1 } } })
+	local hatchet = Item({ equipLoc = "INVTYPE_WEAPONMAINHAND", classID = WEAPON, subclassID = 0, ilvl = 13, dps = 7.5,
+		stats = { AP = 2 } })
+	local v = ns.GearForever_Evaluate(hatchet, { [16] = dagger }, Ctx("HUNTER"))
+	eq(v.kind ~= "downgrade", true, "+2 attack power isn't nothing to a hunter")
+	local warrior = ns.GearForever_Evaluate(Chest(10, MAIL, { AP = 4 }), { [5] = Chest(10, MAIL, { STA = 2 }) }, Ctx("WARRIOR"))
+	eq(warrior.kind, "upgrade")
+	local mage = ns.GearForever_Evaluate(Chest(10, CLOTH, { AP = 4 }), { [5] = Chest(10, CLOTH, { STA = 2 }) }, Ctx("MAGE"))
+	eq(mage.kind, "downgrade", "a caster has no use for it")
+	local ranged = ns.GearForever_Evaluate(Chest(10, MAIL, { RAP = 4 }), { [5] = Chest(10, MAIL, { STA = 2 }) }, Ctx("HUNTER"))
+	eq(ranged.kind, "upgrade", "ranged attack power is a hunter's")
+end)
+
+test("a red weapon or armor type says why: not learned yet, never, or a later level", function()
+	local function Why(class, level, fields)
+		fields.redSkill = true
+		return ns.GearForever_Unusable(Item(fields), Ctx(class, level))
+	end
+	eq(Why("HUNTER", 16, { classID = WEAPON, subclassID = 8, subclassName = "Two-Handed Swords" }),
+		"needs the Two-Handed Swords skill from a weapon trainer")
+	eq(Why("HUNTER", 16, { classID = WEAPON, subclassID = 4, subclassName = "One-Handed Maces" }),
+		"your class can't use One-Handed Maces")
+	eq(Why("HUNTER", 16, { classID = ARMOR, subclassID = MAIL, subclassName = "Mail" }), "you can wear mail from level 40")
+	eq(Why("MAGE", 16, { classID = ARMOR, subclassID = MAIL, subclassName = "Mail" }), "your class can't wear mail")
+	eq(Why("PRIEST", 16, { classID = ARMOR, subclassID = 6, subclassName = "Shields" }), "your class can't wear shields")
+	eq(Why("HUNTER", 16, { classID = WEAPON, subclassID = 99, subclassName = "Odd", redText = "Odd" }), "Odd",
+		"a type it doesn't know: the red text")
+end)
+
+test("assuming training, a weapon type you can learn is judged, and says what to learn", function()
+	local ctx = ns.GearForever_Context({ class = "WARRIOR", level = 20, rangedSlot = RANGED_SLOT, assumeTrained = true })
+	local greatsword = Item({ equipLoc = "INVTYPE_2HWEAPON", classID = WEAPON, subclassID = 8, ilvl = 20, dps = 15,
+		subclassName = "Two-Handed Swords", redSkill = true })
+	local v = ns.GearForever_Evaluate(greatsword, { [16] = Sword(20, 10) }, ctx)
+	eq(v.kind, "upgrade")
+	eq(v.untrained, "Two-Handed Swords")
+	local mace = Item({ equipLoc = "INVTYPE_WEAPON", classID = WEAPON, subclassID = 4, ilvl = 20, dps = 15,
+		subclassName = "One-Handed Maces", redSkill = true })
+	local hunter = ns.GearForever_Context({ class = "HUNTER", level = 20, rangedSlot = RANGED_SLOT, assumeTrained = true })
+	eq(ns.GearForever_Evaluate(mace, { [16] = Sword(20, 10) }, hunter).kind, "notForYou", "never learnable stays out")
+	eq(ns.GearForever_Evaluate(greatsword, { [16] = Sword(20, 10) }, Ctx("WARRIOR")).kind, "notForYou",
+		"without the assumption: not yet")
+end)
+
 test("no stats on either at the same level: nothing to choose", function()
 	local v = ns.GearForever_Evaluate(Chest(10), { [5] = Chest(10) }, Ctx("WARRIOR"))
 	eq(v.kind, "ilvl")

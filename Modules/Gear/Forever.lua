@@ -32,12 +32,15 @@ local equipping -- { itemID, name, icon, oldName, untilTime }: clicked on the to
 
 -- Verdicts for other files --------------------------------------------------------------------------------------------
 
+local function NewContext(level, assumeTrained)
+	local _, class = UnitClass("player")
+	return ns.GearForever_Context({ class = class, level = level, rangedSlot = ns.GearForever_RangedSlot(),
+		levelingIlvl = db.levelingIlvl, weaponSkills = ns.GearForever_WeaponSkills(), assumeTrained = assumeTrained })
+end
+
 local function Context()
 	if not ownCtx then
-		local _, class = UnitClass("player")
-		ownCtx = ns.GearForever_Context({ class = class, level = UnitLevel("player"),
-			rangedSlot = ns.GearForever_RangedSlot(), levelingIlvl = db.levelingIlvl,
-			weaponSkills = ns.GearForever_WeaponSkills() })
+		ownCtx = NewContext(UnitLevel("player"))
 	end
 	return ownCtx
 end
@@ -69,6 +72,19 @@ function ns.Gear_Verdict(link, ctx)
 		return nil
 	end
 	return v, ns.Gear_Headline(v)
+end
+
+-- The roll advice (Roll.lua): the verdict as if you were `level`, for gear that needs a few levels more, and with any
+-- weapon type a trainer can teach you learned. Nil while Gear Check or its roll advice is off.
+function ns.GearForever_RollVerdict(link, level)
+	if not (module and module.active and db.rollAdvice) then
+		return nil
+	end
+	return Evaluate(link, NewContext(level, true))
+end
+
+function ns.GearForever_RollAdviceOn()
+	return module ~= nil and module.active and db.rollAdvice == true
 end
 
 -- The arrow for an item in Tomte's own bags (Modules/Bags): "upgrade", "maybe" or nil, as retail's Baganator.lua says.
@@ -180,6 +196,20 @@ local function CheckEquipped(slot)
 	equipping = nil
 end
 
+-- An upgrade put on another way (from the bags, or a toast's click) needs no toast anymore.
+local function DropWornToasts()
+	local worn = {}
+	for slot = INVSLOT_FIRST_EQUIPPED, INVSLOT_LAST_EQUIPPED do
+		local itemID = GetInventoryItemID("player", slot)
+		if itemID then
+			worn[itemID] = true
+		end
+	end
+	ns.Toast_Drop("gear", function(spec)
+		return spec.upgradeItemID ~= nil and worn[spec.upgradeItemID] == true
+	end)
+end
+
 local function Equip(link, name, icon, oldName)
 	if InCombatLockdown() then
 		ns.Print_Combat("change gear")
@@ -221,6 +251,7 @@ local function Toast(item)
 		icon = icon,
 		hold = TOAST_HOLD,
 		holdInCombat = true,
+		upgradeItemID = C_Item.GetItemInfoInstant(item.link),
 		onClick = function()
 			Equip(item.link, name, icon, oldName)
 		end,
@@ -325,6 +356,7 @@ events:On("gear", "PLAYER_EQUIPMENT_CHANGED", function(_, slot)
 	ns.GearForever_ForgetWorn()
 	Invalidate()
 	CheckEquipped(slot)
+	DropWornToasts()
 end)
 
 events:On("gear", "BAG_UPDATE_DELAYED", function()
@@ -452,6 +484,7 @@ module = ns.RegisterModule({
 		rewardCard = { point = "TOP", relPoint = "TOP", x = 0, y = -120 }, -- the reward card's spot (/tomte unlock)
 		revealToast = true,
 		equipSound = true,
+		rollAdvice = true, -- need, greed or pass beside group loot rolls (Roll.lua)
 	},
 	init = function(moduleDB)
 		db = moduleDB
@@ -462,10 +495,14 @@ module = ns.RegisterModule({
 		else
 			Stop()
 		end
+		ns.GearRoll_Refresh()
 	end,
 	commands = {
 		{ "upgrades", "toast the clean upgrades already in your bags", ShowUpgrades },
 		{ "why", "your class, level and worn gear as Gear Check reads them", Why },
+		{ "roll", "what Gear Check would roll on an item: run it, then shift-click the item", function(_, rawArg)
+			ns.GearRoll_Explain(rawArg)
+		end },
 	},
 	options = {
 		{ type = "header", label = "Tooltip" },
@@ -490,6 +527,10 @@ module = ns.RegisterModule({
 				.. "dismiss. Not in combat." },
 		{ type = "checkbox", key = "equipSound", label = "Sound when equipped", parent = "revealToast",
 			tooltip = "Play the item upgrade sound with the \"Equipped\" toast once the upgrade from the toast is worn." },
+		{ type = "checkbox", key = "rollAdvice", label = "Roll advice", onChange = function()
+			ns.GearRoll_Refresh()
+		end, tooltip = "Beside a group loot roll: need, greed or pass, and why, with that button lit. Gear a few levels "
+			.. "ahead of you is judged as if you had them. It only suggests; you still click." },
 	},
 })
 ns.gearModule = module

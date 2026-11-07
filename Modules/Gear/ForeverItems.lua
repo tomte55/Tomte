@@ -43,9 +43,10 @@ end
 local function IsRed(color)
 	return color and color.r and not Secret(color.r) and color.r > 0.9 and color.g < 0.3 and color.b < 0.3
 end
+ns.GearForever_IsRed = IsRed -- for the roll advice's recipe lines (Roll.lua)
 
 -- Patterns are built on first use: every Blizzard string is there by then.
-local dpsPattern, durabilityPattern, enchantPattern, enchantNames
+local dpsPattern, durabilityPattern, enchantPattern, enchantNames, levelPattern
 
 -- C_Item.GetItemStats leaves out what's enchanted on an item, so that comes from its tooltip line.
 local function ReadEnchant(desc, text)
@@ -67,21 +68,33 @@ local function ReadTooltip(desc, link)
 	end
 	dpsPattern = dpsPattern or (DPS_TEMPLATE and ns.Gear_FormatPattern(DPS_TEMPLATE))
 	durabilityPattern = durabilityPattern or (DURABILITY_TEMPLATE and ns.Gear_FormatPattern(DURABILITY_TEMPLATE, true))
+	levelPattern = levelPattern or (ITEM_MIN_LEVEL and ns.Gear_FormatPattern(ITEM_MIN_LEVEL))
 	local data = C_TooltipInfo.GetHyperlink(link)
+	local slotName = desc.equipLoc and _G[desc.equipLoc] -- "Two-Hand", "Wrist": the line with the type on its right
 	for i, line in ipairs(data and data.lines or {}) do
 		local text, right = line.leftText, line.rightText
-		if text and not Secret(text) and text ~= "" then
+		-- Red there: a weapon type not learned or not for this class, or armor not worn yet. The rules name which, so it
+		-- stays out of redText (the roll advice may judge a weapon you can still learn).
+		local typeLine = slotName and text and not Secret(text) and text == slotName
+		if typeLine then
+			if IsRed(line.leftColor) or IsRed(line.rightColor) then
+				desc.redSkill = true
+				desc.redSkillText = IsRed(line.rightColor) and right or text
+			end
+		elseif text and not Secret(text) and text ~= "" then
 			desc.unique = desc.unique or ns.Gear_ParseUnique(text)
 			desc.dps = desc.dps or ns.GearForever_ParseDps(text, dpsPattern)
 			if not desc.enchantText then
 				ReadEnchant(desc, text)
 			end
-			-- Line 1 is the name; a broken item (red durability) is still usable gear.
-			if i > 1 and IsRed(line.leftColor) and not (durabilityPattern and text:find(durabilityPattern)) then
+			-- Line 1 is the name; a broken item (red durability) is still usable gear. The red "Requires Level 17" is
+			-- left to minLevel, so the roll advice can judge an item a few levels ahead.
+			if i > 1 and IsRed(line.leftColor) and not (durabilityPattern and text:find(durabilityPattern))
+				and not (levelPattern and text:find(levelPattern)) then
 				desc.redText = desc.redText or text
 			end
 		end
-		if right and not Secret(right) and right ~= "" and IsRed(line.rightColor) then
+		if not typeLine and right and not Secret(right) and right ~= "" and IsRed(line.rightColor) then
 			desc.redText = desc.redText or right
 		end
 	end
@@ -94,7 +107,7 @@ function ns.GearForever_Describe(link)
 	end
 	local held = cache[link]
 	if held then
-		if not (held.redText and GetTime() - held.readAt > RED_TTL) then
+		if not ((held.redText or held.redSkill) and GetTime() - held.readAt > RED_TTL) then
 			return held
 		end
 		cache[link] = nil
@@ -104,7 +117,7 @@ function ns.GearForever_Describe(link)
 	if not itemID then
 		return nil
 	end
-	local name, _, _, _, minLevel = C_Item.GetItemInfo(link)
+	local name, _, _, _, minLevel, _, subclassName = C_Item.GetItemInfo(link)
 	local raw = name and C_Item.GetItemStats(link)
 	if not raw then
 		if C_Item.RequestLoadItemDataByID then
@@ -114,6 +127,9 @@ function ns.GearForever_Describe(link)
 	end
 	local stats = ns.Gear_NormalizeStats(raw)
 	stats.SPI = raw.ITEM_MOD_SPIRIT_SHORT
+	-- Retail has no attack power on gear, so Gear_NormalizeStats leaves it out; Forever's "Equip: +2 Attack Power" counts.
+	stats.AP = raw.ITEM_MOD_ATTACK_POWER_SHORT
+	stats.RAP = raw.ITEM_MOD_RANGED_ATTACK_POWER_SHORT
 	local desc = {
 		link = link,
 		itemID = itemID,
@@ -121,6 +137,7 @@ function ns.GearForever_Describe(link)
 		classID = classID,
 		subclassID = subclassID,
 		minLevel = minLevel,
+		subclassName = subclassName, -- "Two-Handed Swords", "Mail": the game's name for the type
 		ilvl = C_Item.GetDetailedItemLevelInfo(link),
 		stats = stats,
 		readAt = GetTime(),

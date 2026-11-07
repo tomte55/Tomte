@@ -48,8 +48,9 @@ return {
 		{ after = "Modules/Materials/Data.lua", files = { "Modules/Materials/GeneratedForever.lua" } },
 		{ after = "Modules/Rogue/Lockpick.lua", files = { "Modules/Rogue/Forever.lua" } },
 		-- ForeverItems.lua makes the event bus RewardCard.lua takes at file load; Forever.lua is the main file, so last.
-		{ after = "Modules/Gear/Rewards.lua", files = { "Modules/Gear/ForeverRules.lua", "Modules/Gear/ForeverItems.lua" } },
-		{ after = "Modules/Gear/RewardCard.lua", files = { "Modules/Gear/Forever.lua" } },
+		{ after = "Modules/Gear/Rewards.lua", files = { "Modules/Gear/ForeverRules.lua", "Modules/Gear/RollData.lua",
+			"Modules/Gear/ForeverItems.lua" } },
+		{ after = "Modules/Gear/RewardCard.lua", files = { "Modules/Gear/Roll.lua", "Modules/Gear/Forever.lua" } },
 		-- Forever-only modules (docs/superpowers/specs/2026-11-05-tomte-forever-leveling.md), after Gear Check's weapon skills.
 		{ after = "Modules/Upkeep/Durability.lua", files = {
 			"Modules/Leveling/Data.lua", "Modules/Leveling/Read.lua", "Modules/Leveling/XPBar.lua",

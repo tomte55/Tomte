@@ -177,10 +177,12 @@ Modules/Chat/Copy.lua
 Modules/Gear/Rules.lua
 Modules/Gear/Rewards.lua
 Modules/Gear/ForeverRules.lua
+Modules/Gear/RollData.lua
 Modules/Gear/ForeverItems.lua
 Modules/Gear/Arrow.lua
 Modules/Gear/Merchant.lua
 Modules/Gear/RewardCard.lua
+Modules/Gear/Roll.lua
 Modules/Gear/Forever.lua
 Modules/Counts/Data.lua
 Modules/Counts/Collect.lua

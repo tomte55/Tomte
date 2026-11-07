@@ -114,6 +114,20 @@ local function CheckEquipped()
 	end
 end
 
+-- An upgrade put on another way (from the bags, or a toast's click) needs no toast anymore.
+local function DropWornToasts()
+	local worn = {}
+	for _, slot in ipairs(EQUIP_SLOTS) do
+		local guid = GUIDAt(ItemLocation:CreateFromEquipmentSlot(slot))
+		if guid then
+			worn[guid] = true
+		end
+	end
+	ns.Toast_Drop("gear", function(spec)
+		return spec.upgradeGUID ~= nil and worn[spec.upgradeGUID] == true
+	end)
+end
+
 local function Equip(item)
 	local guid = item.guid
 	if InCombatLockdown() then
@@ -154,6 +168,7 @@ local function RevealSpec(item, label, color, oldName, sample)
 		hold = TOAST_HOLD,
 		holdInCombat = true,
 		test = sample or nil,
+		upgradeGUID = not sample and item.guid or nil,
 		onClick = not sample and function()
 			Equip(item)
 		end or nil,
@@ -319,6 +334,7 @@ end)
 events:On("reveal", "PLAYER_EQUIPMENT_CHANGED", function()
 	NoteWorn()
 	CheckEquipped()
+	DropWornToasts()
 end)
 
 events:On("reveal", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", function(_, kind)

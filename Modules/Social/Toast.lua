@@ -806,6 +806,22 @@ function ns.Toast_Clear(owner)
 	end
 end
 
+-- Drop this owner's cards that test(spec) says are no longer needed: on screen they fade out, waiting or held they go.
+function ns.Toast_Drop(owner, test)
+	for _, list in ipairs({ queue, held }) do
+		for i = #list, 1, -1 do
+			if list[i].owner == owner and test(list[i]) then
+				table.remove(list, i)
+			end
+		end
+	end
+	for _, card in ipairs(shown) do
+		if card.spec and card.spec.owner == owner and test(card.spec) then
+			Dismiss(card)
+		end
+	end
+end
+
 -- Cards from this owner that were held back come out as one card: fn(heldSpecs) returns its spec.
 function ns.Toast_SetDigest(owner, fn)
 	digests[owner] = fn

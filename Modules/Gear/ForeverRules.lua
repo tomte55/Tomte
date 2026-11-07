@@ -6,7 +6,8 @@ local addonName, ns = ...
 -- API) and a ranged slot.
 -- Verdicts use retail's kinds, so Gear_Headline, Gear_IsCleanUpgrade, Gear_PickReveals and the reward card (Rules.lua,
 -- Rewards.lua) work on them. Items are the descriptors from ForeverItems.lua: { link, itemID, equipLoc, classID,
--- subclassID, ilvl, minLevel, stats, dps, unique, redText, enchant, enchantText }.
+-- subclassID, subclassName, ilvl, minLevel, stats, dps, unique, redText, redSkill and redSkillText (the type line is red),
+-- enchant, enchantText }.
 
 local MAX_LEVEL = 60 -- warcraft.wiki.gg: Forever's level cap, with no raises planned
 local UPGRADE_PCT = 1 -- above +1% is an upgrade, within +-1% a sidegrade (as on retail)
@@ -22,19 +23,20 @@ local ARMOR_LOCS = {
 local RANGED_LOCS = { INVTYPE_RANGED = true, INVTYPE_RANGEDRIGHT = true, INVTYPE_THROWN = true, INVTYPE_RELIC = true }
 
 -- Rough values for telling apart gear of the same item level; item level and damage decide everything else. A primary
--- stat missing here makes an item "wrong main stat". Hybrids keep what any of their ways to level can use.
+-- stat missing here makes an item "wrong main stat". Hybrids keep what any of their ways to level can use. AP (attack power)
+-- is half a point of the stat that gives it: a point of Strength or Agility is worth about two. RAP is ranged attack power.
 local WEIGHTS = {
-	WARRIOR = { STR = 1, AGI = 0.5, STA = 0.5 },
-	PALADIN = { STR = 1, INT = 0.5, STA = 0.5, SPI = 0.1 },
-	HUNTER = { AGI = 1, INT = 0.3, STA = 0.5, SPI = 0.1 },
-	ROGUE = { AGI = 1, STR = 0.5, STA = 0.5 },
+	WARRIOR = { STR = 1, AGI = 0.5, STA = 0.5, AP = 0.5 },
+	PALADIN = { STR = 1, INT = 0.5, STA = 0.5, SPI = 0.1, AP = 0.5 },
+	HUNTER = { AGI = 1, INT = 0.3, STA = 0.5, SPI = 0.1, AP = 0.5, RAP = 0.5 },
+	ROGUE = { AGI = 1, STR = 0.5, STA = 0.5, AP = 0.5 },
 	PRIEST = { INT = 1, STA = 0.5, SPI = 0.7 },
-	SHAMAN = { INT = 0.8, STR = 0.8, AGI = 0.5, STA = 0.5, SPI = 0.2 },
+	SHAMAN = { INT = 0.8, STR = 0.8, AGI = 0.5, STA = 0.5, SPI = 0.2, AP = 0.4 },
 	MAGE = { INT = 1, STA = 0.5, SPI = 0.5 },
 	WARLOCK = { INT = 1, STA = 0.7, SPI = 0.3 },
-	DRUID = { INT = 0.8, STR = 0.8, AGI = 0.8, STA = 0.5, SPI = 0.3 },
+	DRUID = { INT = 0.8, STR = 0.8, AGI = 0.8, STA = 0.5, SPI = 0.3, AP = 0.4 },
 }
-local ANY_CLASS = { STR = 1, AGI = 1, INT = 1, STA = 0.5, SPI = 0.2 }
+local ANY_CLASS = { STR = 1, AGI = 1, INT = 1, STA = 0.5, SPI = 0.2, AP = 0.5, RAP = 0.3 }
 local ARMOR_WEIGHT = 0.02 -- per point of armor: enough to split two items that are otherwise the same
 -- Item levels apart before the item level alone decides while leveling. Closer than this says little: Patchwork Armor is 2 levels
 -- above a leather vest with almost three times its armor.
@@ -53,7 +55,7 @@ ns.GEARFOREVER_WEAPON_SKILLS = {
 }
 
 -- The context to judge with. opts: { level, class, rangedSlot (nil when the client has none), levelingIlvl (setting),
--- weaponSkills ([weapon subclass] = { name, rank, max }) }.
+-- weaponSkills ([weapon subclass] = { name, rank, max }), assumeTrained }.
 function ns.GearForever_Context(opts)
 	local weights = WEIGHTS[opts.class] or ANY_CLASS
 	return {
@@ -63,6 +65,7 @@ function ns.GearForever_Context(opts)
 		weaponSkills = opts.weaponSkills,
 		weights = weights,
 		leveling = opts.levelingIlvl ~= false and (opts.level or 0) < MAX_LEVEL,
+		assumeTrained = opts.assumeTrained, -- judge weapon types a trainer can teach you as if learned (roll advice)
 	}
 end
 
@@ -143,14 +146,77 @@ local function JudgedByDamage(cand, ctx)
 	return RANGED_DPS[ctx.class] == true
 end
 
+-- Which weapon types (Enum.ItemWeaponSubclass) each class can learn, the original game's proficiencies: a red weapon type
+-- in this list is one a weapon trainer teaches.
+local WEAPONS = {
+	WARRIOR = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 15, 16, 18 },
+	PALADIN = { 0, 1, 4, 5, 6, 7, 8 },
+	HUNTER = { 0, 1, 2, 3, 6, 7, 8, 10, 13, 15, 16, 18 },
+	ROGUE = { 2, 3, 4, 7, 13, 15, 16, 18 },
+	PRIEST = { 4, 10, 15, 19 },
+	SHAMAN = { 0, 1, 4, 5, 10, 13, 15 },
+	MAGE = { 7, 10, 15, 19 },
+	WARLOCK = { 7, 10, 15, 19 },
+	DRUID = { 4, 5, 10, 13, 15 },
+}
+local SHIELD_SUBCLASS = 6 -- Enum.ItemArmorSubclass.Shield
+-- Armor types (Enum.ItemArmorSubclass) beyond cloth, and the level each class can wear them from.
+local ARMOR_FROM = {
+	[2] = { WARRIOR = 1, PALADIN = 1, HUNTER = 1, ROGUE = 1, SHAMAN = 1, DRUID = 1 }, -- leather
+	[3] = { WARRIOR = 1, PALADIN = 1, HUNTER = 40, SHAMAN = 40 }, -- mail
+	[4] = { WARRIOR = 40, PALADIN = 40 }, -- plate
+	[SHIELD_SUBCLASS] = { WARRIOR = 1, PALADIN = 1, SHAMAN = 1 },
+}
+
+-- Why a weapon or armor type shows red (cand.redSkill), in words; nil when it's a type these tables don't know. Second:
+-- true when it's a weapon type a trainer can teach this class.
+local function TypeWhy(cand, ctx)
+	local name = cand.subclassName
+	if not name then
+		return nil
+	end
+	if cand.classID == WEAPON_CLASS_ID then
+		local learnable = WEAPONS[ctx.class]
+		if not learnable then
+			return nil
+		end
+		for _, subclass in ipairs(learnable) do
+			if subclass == cand.subclassID then
+				return ("needs the %s skill from a weapon trainer"):format(name), true
+			end
+		end
+		return ns.GEARFOREVER_WEAPON_SKILLS[cand.subclassID] and ("your class can't use %s"):format(name) or nil
+	elseif cand.classID == ARMOR_CLASS_ID and ARMOR_FROM[cand.subclassID] then
+		local from = ARMOR_FROM[cand.subclassID][ctx.class]
+		if from and ctx.level and from > ctx.level then
+			return ("you can wear %s from level %d"):format(name:lower(), from)
+		elseif not from then
+			return ("your class can't wear %s"):format(name:lower())
+		end
+	end
+	return nil
+end
+
 local function NotForYou(why)
 	return { kind = "notForYou", why = why, reasons = {}, warnings = 0 }
 end
 
--- Why this character can't use the item (now), or nil.
+-- Why this character can't use the item (now), or nil. Second: the weapon type it would need training in, when
+-- ctx.assumeTrained let that pass (the roll advice: you can learn it before the item is worth less).
 function ns.GearForever_Unusable(cand, ctx)
 	if cand.minLevel and ctx.level and cand.minLevel > ctx.level then
 		return ("needs level %d"):format(cand.minLevel)
+	end
+	local untrained
+	if cand.redSkill then
+		local why, learnable = TypeWhy(cand, ctx)
+		if learnable and ctx.assumeTrained then
+			untrained = cand.subclassName
+		elseif why then
+			return why
+		elseif cand.redSkillText then
+			return cand.redSkillText
+		end
 	end
 	if cand.redText then
 		return cand.redText
@@ -161,12 +227,12 @@ function ns.GearForever_Unusable(cand, ctx)
 	if primaries and next(primaries) and not JudgedByDamage(cand, ctx) then
 		for stat in pairs(primaries) do
 			if ctx.weights[stat] then
-				return nil
+				return nil, untrained
 			end
 		end
 		return "wrong main stat"
 	end
-	return nil
+	return nil, untrained
 end
 
 -- What the candidate replaces: { mode = "single" | "weaker" | "sum" | "pair" | "empty", slots }.
@@ -241,7 +307,7 @@ function ns.GearForever_Evaluate(cand, equipped, ctx)
 	if not ns.GearForever_Slots(cand.equipLoc, ctx.rangedSlot) then
 		return nil
 	end
-	local why = ns.GearForever_Unusable(cand, ctx)
+	local why, untrained = ns.GearForever_Unusable(cand, ctx)
 	if why then
 		return NotForYou(why)
 	end
@@ -273,7 +339,7 @@ function ns.GearForever_Evaluate(cand, equipped, ctx)
 		end
 	end
 
-	local verdict = { reasons = {}, warnings = 0, slot = target.slots[1] }
+	local verdict = { reasons = {}, warnings = 0, slot = target.slots[1], untrained = untrained }
 	if target.mode == "pair" then
 		verdict.kind = "pair"
 		verdict.reasons = { "Needs an off-hand to go with it" }
