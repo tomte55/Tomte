@@ -93,7 +93,13 @@ local function ReadSupplies()
 	end
 	WarnLow("food", counts.food)
 	WarnLow("drink", counts.drink)
-	return supplies
+	-- Dead or a ghost, IsUsableItem says no to every food and drink: that read isn't kept, or after reviving the button
+	-- said "No food" with full bags until the bags next changed.
+	local read = supplies
+	if UnitIsDeadOrGhost("player") then
+		supplies = nil
+	end
+	return read
 end
 
 local function HasAura(name, filter)
@@ -298,8 +304,13 @@ end
 events.PLAYER_REGEN_ENABLED = updateSoon
 events.PLAYER_ENTERING_WORLD = updateSoon
 events.PLAYER_MOUNT_DISPLAY_CHANGED = updateSoon
-events.PLAYER_ALIVE = updateSoon
-events.PLAYER_UNGHOST = updateSoon
+-- Back alive: what you carry is usable again, so it's read afresh.
+function events:PLAYER_ALIVE()
+	supplies = nil
+	updateSoon()
+end
+
+events.PLAYER_UNGHOST = events.PLAYER_ALIVE
 events.UNIT_HEALTH = updateSoon
 events.UNIT_POWER_UPDATE = updateSoon
 events.UNIT_AURA = updateSoon
