@@ -81,7 +81,11 @@ local function CreateBubble(parent)
 	b:EnableMouse(true) -- for the links (the wheel still reaches the scroll: bubbles don't take it)
 	b:SetHyperlinksEnabled(true)
 	b:SetScript("OnHyperlinkClick", function(_, link, text, button)
-		SetItemRef(link, text, button)
+		if ns.Social_LinkOpensFromAddon(link) then
+			SetItemRef(link, text, button)
+		else
+			ns.Print("Community invites open from your chat window, not the inbox: click it there.")
+		end
 	end)
 	b:SetScript("OnHyperlinkEnter", function(self, link)
 		GameTooltip:SetOwner(self, "ANCHOR_CURSOR")

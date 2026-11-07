@@ -368,6 +368,17 @@ function ns.Social_PlainText(text)
 	return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("|T.-|t", ""):gsub("|A.-|a", ""))
 end
 
+-- Links that start Blizzard's Communities code when clicked (ItemRef.lua). Clicked in a Tomte frame, SetItemRef runs
+-- from addon code: the Communities window loads tainted and its invite listener later calls a protected function
+-- (ADDON_ACTION_FORBIDDEN on C_Club.GetLastTicketResponse, measured on Forever 1.60.1).
+local COMMUNITY_LINKS = { clubTicket = true, clubFinder = true, community = true }
+
+-- Whether a clicked link (SetItemRef's "kind:data") may be opened from addon code.
+function ns.Social_LinkOpensFromAddon(link)
+	local kind = type(link) == "string" and link:match("^([^:]+)")
+	return kind and not COMMUNITY_LINKS[kind] or false
+end
+
 -- Whispered links arrive without a color code ("|Hitem:...|h[Sword]|h"; the chat frame colors them itself). Each
 -- uncolored link is replaced by paint(kind, link) ("item", "|Hitem:...|h[Sword]|h"), or kept when that returns nil.
 -- Links that already carry a color ("|cffa335ee|H...", "|cnIQ4:|H...") are left alone.

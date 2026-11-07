@@ -190,6 +190,15 @@ test("ColorLinks paints uncolored links only", function()
 	eq(ns.Social_ColorLinks("no links", paint), "no links")
 end)
 
+test("LinkOpensFromAddon: community links stay in Blizzard's chat", function()
+	eq(ns.Social_LinkOpensFromAddon("item:123::"), true)
+	eq(ns.Social_LinkOpensFromAddon("achievement:6:x"), true)
+	eq(ns.Social_LinkOpensFromAddon("clubTicket:AbC123"), false)
+	eq(ns.Social_LinkOpensFromAddon("clubFinder:ClubFinder-1-2"), false)
+	eq(ns.Social_LinkOpensFromAddon("community:42"), false)
+	eq(ns.Social_LinkOpensFromAddon(nil), false)
+end)
+
 test("FindMention matches whole words only, any case", function()
 	local words = { "tomte", "tank" }
 	eq(ns.Social_FindMention("hey Tomte, you there?", words), "tomte")
