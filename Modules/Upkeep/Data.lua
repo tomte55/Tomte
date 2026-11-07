@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
 -- Upkeep pure logic (unit-tested with plain Lua): how to pay for a repair, what the junk in the bags is worth,
--- the worst durability among equipped items and when a durability warning fires, and which merchant costs you lack.
+-- the worst durability among equipped items and when a durability warning fires, which merchant costs you lack, and
+-- where a split stack goes on its way to being sold.
 
 -- How to pay for a repair: "guild", "own", "poor" (can't afford it) or nil (nothing to repair).
 -- withdraw is GetGuildBankWithdrawMoney(): what you may still take out today, -1 for the guild leader (no limit).
@@ -136,4 +137,21 @@ function ns.Upkeep_PriceShort(price, money, costs)
 		end
 	end
 	return short
+end
+
+-- Where a split stack can wait to be sold: the bag and slot, nil when there's no room. bags: { { bag, takes (it fits this
+-- bag's kind), free = { slots } } } in the order to try.
+function ns.Upkeep_SplitSlot(bags)
+	for _, entry in ipairs(bags) do
+		if entry.takes and entry.free[1] then
+			return entry.bag, entry.free[1]
+		end
+	end
+	return nil
+end
+
+-- Whether a slot now holds the split and nothing else may be sold by mistake. placed: { itemID, count }; info: the slot's
+-- C_Container.GetContainerItemInfo. The slot stays locked until the server has answered.
+function ns.Upkeep_SplitArrived(placed, info)
+	return info ~= nil and info.itemID == placed.itemID and info.stackCount == placed.count and not info.isLocked
 end

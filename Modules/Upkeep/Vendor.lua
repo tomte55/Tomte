@@ -218,6 +218,9 @@ local function Toggle(active)
 		ns.Toast_Clear("vendor")
 	end
 	ns.UpkeepMerchant_Toggle(active)
+	if ns.UpkeepSellSplit_Toggle then -- Forever only
+		ns.UpkeepSellSplit_Toggle(active)
+	end
 end
 
 module = ns.RegisterModule({

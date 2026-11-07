@@ -227,6 +227,7 @@ Modules/Achievements/Tracker.lua
 Modules/Achievements/Achievements.lua
 Modules/Upkeep/Data.lua
 Modules/Upkeep/Merchant.lua
+Modules/Upkeep/SellSplit.lua
 Modules/Upkeep/Vendor.lua
 Modules/Upkeep/Durability.lua
 Modules/Leveling/Data.lua

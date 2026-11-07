@@ -464,6 +464,7 @@ ns.BUG_FILES = {
 	"Modules/Gear/ForeverRules.lua",
 	"Modules/Gear/ForeverItems.lua",
 	"Modules/Gear/Forever.lua",
+	"Modules/Upkeep/SellSplit.lua",
 	"Modules/Leveling/Data.lua",
 	"Modules/Leveling/Read.lua",
 	"Modules/Leveling/XPBar.lua",

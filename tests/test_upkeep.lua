@@ -159,4 +159,26 @@ test("merchant price: gold short, no gold part, unknown counts", function()
 	eq(s[2], nil, "unknown need is never short")
 end)
 
+test("split sale: the first free slot of a bag that takes the item", function()
+	local bag, slot = ns.Upkeep_SplitSlot({
+		{ bag = 0, takes = true, free = {} },
+		{ bag = 1, takes = false, free = { 3 } },
+		{ bag = 2, takes = true, free = { 7, 9 } },
+	})
+	eq(bag, 2)
+	eq(slot, 7)
+	eq(ns.Upkeep_SplitSlot({ { bag = 0, takes = true, free = {} }, { bag = 1, takes = false, free = { 3 } } }), nil, "no room")
+	eq(ns.Upkeep_SplitSlot({}), nil)
+end)
+
+test("split sale: only sells the split itself, once the server has placed it", function()
+	local placed = { itemID = 2589, count = 5 }
+	local Arrived = ns.Upkeep_SplitArrived
+	eq(Arrived(placed, { itemID = 2589, stackCount = 5, isLocked = false }), true)
+	eq(Arrived(placed, { itemID = 2589, stackCount = 5, isLocked = true }), false, "still moving")
+	eq(Arrived(placed, { itemID = 2589, stackCount = 20, isLocked = false }), false, "a different stack")
+	eq(Arrived(placed, { itemID = 2592, stackCount = 5, isLocked = false }), false, "a different item")
+	eq(Arrived(placed, nil), false, "not there yet")
+end)
+
 H.done()
