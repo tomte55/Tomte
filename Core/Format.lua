@@ -13,15 +13,31 @@ function ns.Thousands(n)
 	return sign .. digits:sub(1, head) .. digits:sub(head + 1):gsub("%d%d%d", ",%0")
 end
 
--- Whole gold: 1234567890 copper -> "123,456g".
+-- Whole gold: 1234567890 copper -> "123,456g". On World of Warcraft: Forever gold is scarce, so the silver and copper
+-- show too ("123g 45s 67c", "45s 67c", "0c"), leaving out the parts that are 0.
 function ns.Gold(copper)
-	return ns.Thousands(floor((copper or 0) / 10000)) .. "g"
+	copper = floor(copper or 0)
+	if not ns.FOREVER then
+		return ns.Thousands(floor(copper / 10000)) .. "g"
+	end
+	local g, s, c = floor(copper / 10000), floor(copper / 100) % 100, copper % 100
+	local parts = {}
+	if g > 0 then
+		parts[1] = ns.Thousands(g) .. "g"
+	end
+	if s > 0 then
+		parts[#parts + 1] = s .. "s"
+	end
+	if c > 0 or #parts == 0 then
+		parts[#parts + 1] = c .. "c"
+	end
+	return table.concat(parts, " ")
 end
 
--- A price: "12g" from a gold up, else "45s" or "80c" (so a cheap reagent isn't "0g").
+-- A price: "12g" from a gold up, else "45s" or "80c" (so a cheap reagent isn't "0g"). On Forever, all of it (ns.Gold).
 function ns.Price(copper)
 	copper = floor(copper or 0)
-	if copper >= 10000 then
+	if copper >= 10000 or ns.FOREVER then
 		return ns.Gold(copper)
 	elseif copper >= 100 then
 		return floor(copper / 100) .. "s"
