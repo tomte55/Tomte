@@ -33,6 +33,21 @@ local function UpgradeText(v)
 	return nil
 end
 
+-- What an upgrade waits for: "Upgrade at level 17", "Upgrade once you learn Two-Handed Swords", or both. ahead: the
+-- level it was judged at, when above yours. nil when it's no upgrade, or there's nothing to wait for. Also the bags'
+-- "later" arrow and its tooltip line (Forever.lua).
+function ns.GearRoll_LaterText(v, ahead)
+	if not UpgradeText(v) or not (ahead or v.untrained) then
+		return nil
+	end
+	if ahead and v.untrained then
+		return ("Upgrade at level %d once you learn %s"):format(ahead, v.untrained)
+	elseif ahead then
+		return ("Upgrade at level %d"):format(ahead)
+	end
+	return ("Upgrade once you learn %s"):format(v.untrained)
+end
+
 local function NoBetterText(v)
 	local kind = v.kind
 	if kind == "notForYou" then
@@ -59,13 +74,7 @@ local function Gear(info)
 	if not upgrade then
 		return { roll = "greed", text = NoBetterText(v) }
 	end
-	local text = upgrade
-	if v.untrained then
-		text = ("Upgrade once you learn %s"):format(v.untrained)
-	elseif info.ahead then
-		text = ("Upgrade at level %d"):format(info.ahead)
-	end
-	local advice = { roll = "need", text = text }
+	local advice = { roll = "need", text = ns.GearRoll_LaterText(v, info.ahead) or upgrade }
 	if (v.warnings or 0) > 0 and v.reasons and v.reasons[1] then
 		advice.reason = v.reasons[1]
 	end

@@ -99,6 +99,98 @@ test("assuming training, a weapon type you can learn is judged, and says what to
 		"without the assumption: not yet")
 end)
 
+test("a melee weapon a class doesn't swing for damage is a stat stick: its stats decide, not its item level", function()
+	local ctx = Ctx("HUNTER", 20)
+	local dagger = Item({ equipLoc = "INVTYPE_WEAPON", classID = WEAPON, subclassID = 15, ilvl = 20, dps = 6,
+		stats = { PRIMARY = { AGI = 3 } } })
+	local lower = Item({ equipLoc = "INVTYPE_WEAPON", classID = WEAPON, subclassID = 0, ilvl = 15, dps = 5,
+		stats = { PRIMARY = { AGI = 5 } } })
+	eq(ns.GearForever_Evaluate(lower, { [16] = dagger }, ctx).kind, "upgrade", "more Agility, five item levels lower")
+	local strength = Item({ equipLoc = "INVTYPE_WEAPON", classID = WEAPON, subclassID = 7, ilvl = 30, dps = 15,
+		stats = { PRIMARY = { STR = 6, AGI = 1 } } })
+	eq(ns.GearForever_Evaluate(strength, { [16] = dagger }, ctx).kind, "downgrade", "ten item levels up, but less Agility")
+	local bow = Item({ equipLoc = "INVTYPE_RANGED", classID = WEAPON, subclassID = BOW, ilvl = 20, dps = 8 })
+	local better = Item({ equipLoc = "INVTYPE_RANGED", classID = WEAPON, subclassID = BOW, ilvl = 20, dps = 10 })
+	eq(ns.GearForever_Evaluate(better, { [RANGED_SLOT] = bow }, ctx).kind, "upgrade", "the bow still goes by damage")
+	local warrior = ns.GearForever_Evaluate(Sword(30, 10), { [16] = Sword(20, 12) }, Ctx("WARRIOR", 20))
+	eq(warrior.kind, "downgrade", "a warrior's sword still goes by damage")
+end)
+
+test("a hunter's stat stick counts Agility, Stamina and attack power, not Intellect", function()
+	local ctx = Ctx("HUNTER", 20)
+	local dagger = Item({ equipLoc = "INVTYPE_WEAPON", classID = WEAPON, subclassID = 15, ilvl = 13, dps = 6,
+		stats = { PRIMARY = { AGI = 1 } } })
+	local sword = Item({ equipLoc = "INVTYPE_2HWEAPON", classID = WEAPON, subclassID = 8, ilvl = 23, dps = 19,
+		stats = { PRIMARY = { STR = 6, INT = 9 } } })
+	local v = ns.GearForever_Evaluate(sword, { [16] = dagger }, ctx)
+	eq(v.kind, "notForYou")
+	eq(v.why, "wrong main stat")
+	local stamina = Item({ equipLoc = "INVTYPE_WEAPON", classID = WEAPON, subclassID = 0, ilvl = 13, dps = 6,
+		stats = { STA = 4, PRIMARY = { INT = 5 } } })
+	eq(ns.GearForever_Evaluate(stamina, { [16] = dagger }, ctx).kind, "upgrade", "Stamina counts, the Intellect doesn't")
+	local staff = Item({ equipLoc = "INVTYPE_2HWEAPON", classID = WEAPON, subclassID = 10, ilvl = 20,
+		stats = { PRIMARY = { INT = 6 } } })
+	eq(ns.GearForever_Evaluate(staff, { [16] = Item({ equipLoc = "INVTYPE_2HWEAPON", classID = WEAPON, subclassID = 10,
+		ilvl = 20, stats = { PRIMARY = { INT = 2 } } }) }, Ctx("MAGE", 20)).kind, "upgrade", "a caster's staff keeps Intellect")
+end)
+
+test("a reason that never goes away comes before the level it needs", function()
+	local ctx = Ctx("HUNTER", 16)
+	local sword = Item({ equipLoc = "INVTYPE_2HWEAPON", classID = WEAPON, subclassID = 8, ilvl = 23, minLevel = 18,
+		stats = { PRIMARY = { STR = 6, INT = 9 } } })
+	eq(ns.GearForever_Unusable(sword, ctx), "wrong main stat")
+	local mace = Item({ equipLoc = "INVTYPE_WEAPON", classID = WEAPON, subclassID = 4, minLevel = 18,
+		subclassName = "One-Handed Maces", redSkill = true, stats = { PRIMARY = { AGI = 2 } } })
+	eq(ns.GearForever_Unusable(mace, ctx), "your class can't use One-Handed Maces")
+	local agile = Item({ equipLoc = "INVTYPE_WEAPON", classID = WEAPON, subclassID = 15, minLevel = 18,
+		stats = { PRIMARY = { AGI = 2 } } })
+	eq(ns.GearForever_Unusable(agile, ctx), "needs level 18", "only waiting: the level")
+	local mail = Item({ equipLoc = "INVTYPE_WRIST", classID = ARMOR, subclassID = MAIL, minLevel = 18,
+		subclassName = "Mail", redSkill = true })
+	eq(ns.GearForever_Unusable(mail, ctx), "needs level 18", "mail at 40 waits too: the nearer wait first")
+end)
+
+test("ParseEquip reads the stats Equip lines give", function()
+	local function P(text)
+		local key, amount = ns.GearForever_ParseEquip(text)
+		return key and (key .. "=" .. amount) or nil
+	end
+	eq(P("Equip: Increases damage and healing done by magical spells and effects by up to 12."), "SP=12")
+	eq(P("Equip: Increases healing done by spells and effects by up to 22."), "HEAL=22")
+	eq(P("Equip: Increases damage done by Fire spells and effects by up to 9."), "SPSCHOOL=9")
+	eq(P("Equip: Improves your chance to get a critical strike with spells by 1%."), "SCRIT=1")
+	eq(P("Equip: Improves your chance to hit with spells by 1%."), "SHIT=1")
+	eq(P("Equip: Improves your chance to get a critical strike by 1%."), "MCRIT=1")
+	eq(P("Equip: Improves your chance to hit by 2%."), "MHIT=2")
+	eq(P("Equip: Increased Defense +7."), "DEF=7")
+	eq(P("Equip: Restores 3 mana per 5 sec."), "MP5=3")
+	eq(P("Equip: +2 Attack Power."), nil, "the game's own stats have it")
+	eq(P("Chance on hit: Blasts the target for 20 Fire damage."), nil)
+end)
+
+test("caster stats from Equip lines count for casters, crit for the physical classes", function()
+	local ring = function(stats)
+		return Item({ equipLoc = "INVTYPE_FINGER", classID = ARMOR, subclassID = 0, ilvl = 20, stats = stats })
+	end
+	local worn = { [11] = ring({ PRIMARY = { INT = 3 } }), [12] = ring({ PRIMARY = { INT = 3 } }) }
+	eq(ns.GearForever_Evaluate(ring({ SP = 12 }), worn, Ctx("MAGE", 20)).kind, "upgrade", "12 spell damage over 3 Intellect")
+	local str = { [11] = ring({ PRIMARY = { STR = 3 } }), [12] = ring({ PRIMARY = { STR = 3 } }) }
+	eq(ns.GearForever_Evaluate(ring({ SP = 12 }), str, Ctx("WARRIOR", 20)).kind, "downgrade", "spell damage is nothing to him")
+	eq(ns.GearForever_Evaluate(ring({ MCRIT = 1 }), str, Ctx("WARRIOR", 20)).kind, "upgrade", "1% crit over 3 Strength")
+end)
+
+test("TeacherText names your side's weapon masters for a type", function()
+	local masters = {
+		{ name = "Archibald", city = "Undercity", faction = "Horde", skills = { 8 } },
+		{ name = "Woo Ping", city = "Stormwind", faction = "Alliance", skills = { 8 } },
+		{ name = "Hanashi", city = "Orgrimmar", faction = "Horde", skills = { 1, 8 } },
+	}
+	eq(ns.GearForever_TeacherText(masters, 8, "Horde"), "Taught by Archibald in Undercity or Hanashi in Orgrimmar")
+	eq(ns.GearForever_TeacherText(masters, 8, "Alliance"), "Taught by Woo Ping in Stormwind")
+	eq(ns.GearForever_TeacherText(masters, 4, "Horde"), nil)
+	eq(ns.GearForever_TeacherText(nil, 8, "Horde"), nil)
+end)
+
 test("no stats on either at the same level: nothing to choose", function()
 	local v = ns.GearForever_Evaluate(Chest(10), { [5] = Chest(10) }, Ctx("WARRIOR"))
 	eq(v.kind, "ilvl")

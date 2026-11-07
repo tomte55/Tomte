@@ -10,7 +10,7 @@ local addonName, ns = ...
 -- It reads these item record fields (filled by Read.lua): name, typeName, subTypeName, text (the tooltip's lines in
 -- lower case, read only when a search has words: Compile says so), count, quality, ilvl,
 -- classID, subclassID, bind ("soulbound" | "warbound" | "boe" | nil), expansion, price (copper), upgrade
--- ("upgrade" | "maybe" | "alt" | nil), look ("you" | "other" | nil), junk, new, set, quest, toy, mount, pet, decor,
+-- ("upgrade" | "maybe" | "alt" | "later" | nil), look ("you" | "other" | nil), junk, new, set, quest, toy, mount, pet, decor,
 -- hearth, keystone.
 
 -- Item classes and subclasses (Enum.ItemClass and its subclass enums, warcraft.wiki.gg/wiki/ItemType).
@@ -50,6 +50,7 @@ local KEYWORDS = {
 	{ "upgrade", "an upgrade for you (Gear Check)", Field("upgrade", "upgrade") },
 	{ "maybe", "maybe an upgrade (Gear Check)", Field("upgrade", "maybe") },
 	{ "altupgrade", "an upgrade for another character (Gear Check)", Field("upgrade", "alt") },
+	{ "later", "an upgrade a few levels on or once trained (Gear Check, Forever)", Field("upgrade", "later") },
 	{ "transmog", "an appearance you haven't collected", function(item)
 		return item.look ~= nil
 	end },

@@ -74,13 +74,39 @@ function ns.Gear_Verdict(link, ctx)
 	return v, ns.Gear_Headline(v)
 end
 
+-- Contexts that look ahead: at `level`, with every weapon type a trainer can teach you learned. Cleared with ownCtx.
+local aheadCtx = {} -- [level] = context
+
+local function AheadContext(level)
+	if not aheadCtx[level] then
+		aheadCtx[level] = NewContext(level, true)
+	end
+	return aheadCtx[level]
+end
+
 -- The roll advice (Roll.lua): the verdict as if you were `level`, for gear that needs a few levels more, and with any
 -- weapon type a trainer can teach you learned. Nil while Gear Check or its roll advice is off.
 function ns.GearForever_RollVerdict(link, level)
 	if not (module and module.active and db.rollAdvice) then
 		return nil
 	end
-	return Evaluate(link, NewContext(level, true))
+	return Evaluate(link, AheadContext(level))
+end
+
+-- Gear you can't use yet that will be an upgrade: a few levels ahead, or once a trainer teaches you its weapon type.
+-- Returns what it waits for ("Upgrade at level 17"), or nil. verdict: the item's verdict now.
+local function Later(link, verdict)
+	if not (verdict and verdict.kind == "notForYou") then
+		return nil
+	end
+	local cand = ns.GearForever_Describe(link)
+	local level = UnitLevel("player")
+	local judgeAt = cand and ns.GearRoll_JudgeLevel(level, cand.minLevel)
+	if not judgeAt then
+		return nil
+	end
+	local later = Evaluate(link, AheadContext(judgeAt))
+	return later and ns.GearRoll_LaterText(later, judgeAt > level and judgeAt or nil) or nil
 end
 
 function ns.GearForever_RollAdviceOn()
@@ -97,12 +123,15 @@ function ns.Gear_BagArrow(link)
 		return "upgrade"
 	elseif ns.Gear_IsMaybeUpgrade(verdict) then
 		return "maybe"
+	elseif Later(link, verdict) then
+		return "later"
 	end
 	return nil
 end
 
 local function Invalidate()
 	ownCtx = nil
+	wipe(aheadCtx)
 	ns.GearRewardCard_Refresh()
 	if ns.Bags_Reread then
 		ns.Bags_Reread()
@@ -137,6 +166,19 @@ local function OnItem(tooltip)
 	end
 	local headline, color = ns.Gear_Headline(verdict)
 	tooltip:AddLine(UI.Wrap("Gear:", "accent") .. " " .. UI.Wrap(headline, COLOR_ROLES[color]), nil, nil, nil, true)
+	local later = Later(link, verdict)
+	if later then
+		tooltip:AddLine(UI.Wrap("   " .. later .. ": keep it", ns.GEAR_ARROW_ROLES.later), nil, nil, nil, true)
+	end
+	-- A weapon skill to learn: who teaches it.
+	if (verdict.why and verdict.why:find("weapon trainer", 1, true)) or (later and later:find("learn", 1, true)) then
+		local cand = ns.GearForever_Describe(link)
+		local teacher = cand and ns.GearForever_TeacherText(ns.Content_Get(ns.CONTENT_FOREVER, "weaponMasters"),
+			cand.subclassID, (UnitFactionGroup("player")))
+		if teacher then
+			tooltip:AddLine(UI.Wrap("   " .. teacher, "textMuted"), nil, nil, nil, true)
+		end
+	end
 	if db.showReasons then
 		for i = 1, math.min(#verdict.reasons, MAX_REASONS) do
 			tooltip:AddLine(UI.Wrap("   " .. verdict.reasons[i], "textMuted"), nil, nil, nil, true)
@@ -511,8 +553,8 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "showDowngrades", label = "Show downgrades" },
 		{ type = "checkbox", key = "levelingIlvl", label = "While leveling, higher item level wins", onChange = Invalidate,
 			tooltip = "Below level 60, gear 5 or more item levels higher is an upgrade and 5 or more lower a downgrade. Closer than that, or lighter armor, goes by the stats and armor on it, enchants included. "
-				.. "Weapons still go by damage for the classes that swing them. Off, rough stat values for your class "
-				.. "decide." },
+				.. "Weapons still go by damage for the classes that swing them, and by their stats for the rest (a "
+				.. "hunter's melee weapon). Off, rough stat values for your class decide." },
 		{ type = "checkbox", key = "compareTooltips", label = "Also on comparison tooltips",
 			tooltip = "The tooltips of your equipped items that appear next to the hovered one." },
 		{ type = "header", label = "New gear" },

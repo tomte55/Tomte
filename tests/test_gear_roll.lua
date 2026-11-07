@@ -43,6 +43,16 @@ test("an upgrade once you train its weapon type is a need, and says what to lear
 	eq(worse.roll, "greed")
 end)
 
+test("LaterText: what a later upgrade waits for, nil when it's no upgrade", function()
+	local up = { kind = "upgrade", pct = 10, reasons = {}, warnings = 0 }
+	eq(ns.GearRoll_LaterText(up, 17), "Upgrade at level 17")
+	up.untrained = "Two-Handed Swords"
+	eq(ns.GearRoll_LaterText(up, nil), "Upgrade once you learn Two-Handed Swords")
+	eq(ns.GearRoll_LaterText(up, 18), "Upgrade at level 18 once you learn Two-Handed Swords")
+	eq(ns.GearRoll_LaterText({ kind = "downgrade", pct = -5, reasons = {}, warnings = 0 }, 17), nil)
+	eq(ns.GearRoll_LaterText({ kind = "upgrade", pct = 10, reasons = {}, warnings = 0 }, nil), nil, "nothing to wait for")
+end)
+
 test("an upgrade with a catch is still a need, with the catch", function()
 	local a = ns.GearRoll_Advice(Info({ gear = true, verdict = { kind = "upgradeBut", pct = 8, warnings = 1,
 		reasons = { "Your Axes skill is behind (20/80)" } } }))

@@ -25,18 +25,38 @@ local RANGED_LOCS = { INVTYPE_RANGED = true, INVTYPE_RANGEDRIGHT = true, INVTYPE
 -- Rough values for telling apart gear of the same item level; item level and damage decide everything else. A primary
 -- stat missing here makes an item "wrong main stat". Hybrids keep what any of their ways to level can use. AP (attack power)
 -- is half a point of the stat that gives it: a point of Strength or Agility is worth about two. RAP is ranged attack power.
+-- From Equip lines (GearForever_ParseEquip): SP spell damage and healing, SPSCHOOL one school's damage, HEAL healing,
+-- SCRIT / SHIT spell crit and hit and MCRIT / MHIT the physical ones (per 1%, about ten points of the main stat), DEF
+-- defense, MP5 mana every 5 seconds.
 local WEIGHTS = {
-	WARRIOR = { STR = 1, AGI = 0.5, STA = 0.5, AP = 0.5 },
-	PALADIN = { STR = 1, INT = 0.5, STA = 0.5, SPI = 0.1, AP = 0.5 },
-	HUNTER = { AGI = 1, INT = 0.3, STA = 0.5, SPI = 0.1, AP = 0.5, RAP = 0.5 },
-	ROGUE = { AGI = 1, STR = 0.5, STA = 0.5, AP = 0.5 },
-	PRIEST = { INT = 1, STA = 0.5, SPI = 0.7 },
-	SHAMAN = { INT = 0.8, STR = 0.8, AGI = 0.5, STA = 0.5, SPI = 0.2, AP = 0.4 },
-	MAGE = { INT = 1, STA = 0.5, SPI = 0.5 },
-	WARLOCK = { INT = 1, STA = 0.7, SPI = 0.3 },
-	DRUID = { INT = 0.8, STR = 0.8, AGI = 0.8, STA = 0.5, SPI = 0.3, AP = 0.4 },
+	WARRIOR = { STR = 1, AGI = 0.5, STA = 0.5, AP = 0.5, MCRIT = 10, MHIT = 8, DEF = 0.5 },
+	PALADIN = { STR = 1, INT = 0.5, STA = 0.5, SPI = 0.1, AP = 0.5, MCRIT = 8, MHIT = 6, DEF = 0.4, SP = 0.3, HEAL = 0.3,
+		SCRIT = 3, MP5 = 1 },
+	HUNTER = { AGI = 1, INT = 0.3, STA = 0.5, SPI = 0.1, AP = 0.5, RAP = 0.5, MCRIT = 10, MHIT = 8, MP5 = 1 },
+	ROGUE = { AGI = 1, STR = 0.5, STA = 0.5, AP = 0.5, MCRIT = 10, MHIT = 10 },
+	PRIEST = { INT = 1, STA = 0.5, SPI = 0.7, SP = 0.8, SPSCHOOL = 0.5, HEAL = 0.8, SCRIT = 8, SHIT = 6, MP5 = 2 },
+	SHAMAN = { INT = 0.8, STR = 0.8, AGI = 0.5, STA = 0.5, SPI = 0.2, AP = 0.4, SP = 0.6, HEAL = 0.5, SCRIT = 6, SHIT = 4,
+		MCRIT = 6, MHIT = 5, MP5 = 1.5 },
+	MAGE = { INT = 1, STA = 0.5, SPI = 0.5, SP = 0.9, SPSCHOOL = 0.6, SCRIT = 10, SHIT = 10, MP5 = 1 },
+	WARLOCK = { INT = 1, STA = 0.7, SPI = 0.3, SP = 0.9, SPSCHOOL = 0.6, SCRIT = 6, SHIT = 10, MP5 = 1 },
+	DRUID = { INT = 0.8, STR = 0.8, AGI = 0.8, STA = 0.5, SPI = 0.3, AP = 0.4, SP = 0.6, HEAL = 0.5, SCRIT = 6, SHIT = 4,
+		MCRIT = 6, MHIT = 5, MP5 = 1.5 },
 }
-local ANY_CLASS = { STR = 1, AGI = 1, INT = 1, STA = 0.5, SPI = 0.2, AP = 0.5, RAP = 0.3 }
+local ANY_CLASS = { STR = 1, AGI = 1, INT = 1, STA = 0.5, SPI = 0.2, AP = 0.5, RAP = 0.3, SP = 0.5, HEAL = 0.3, SCRIT = 5,
+	SHIT = 5, MCRIT = 5, MHIT = 5, MP5 = 1, DEF = 0.2 }
+-- Equip lines that are stats, as English clients write them (the game has no stat for them, and no localized string
+-- either: they're each item's spell text). Each: a pattern with the amount captured, and its stat key.
+local EQUIP_STATS = {
+	{ "Increases damage and healing done by magical spells and effects by up to (%d+)", "SP" },
+	{ "Increases healing done by spells and effects by up to (%d+)", "HEAL" },
+	{ "Increases damage done by %a+ spells and effects by up to (%d+)", "SPSCHOOL" },
+	{ "Improves your chance to get a critical strike with spells by (%d+)%%", "SCRIT" },
+	{ "Improves your chance to hit with spells by (%d+)%%", "SHIT" },
+	{ "Improves your chance to get a critical strike by (%d+)%%", "MCRIT" },
+	{ "Improves your chance to hit by (%d+)%%", "MHIT" },
+	{ "Increased Defense %+(%d+)", "DEF" },
+	{ "Restores (%d+) mana per 5 sec", "MP5" },
+}
 local ARMOR_WEIGHT = 0.02 -- per point of armor: enough to split two items that are otherwise the same
 -- Item levels apart before the item level alone decides while leveling. Closer than this says little: Patchwork Armor is 2 levels
 -- above a leather vest with almost three times its armor.
@@ -44,6 +64,10 @@ local CLEAR_ILVL_GAP = 5
 
 -- Who judges melee weapons and ranged weapons by their damage; for the others item level and stats decide.
 local MELEE_DPS = { WARRIOR = true, PALADIN = true, ROGUE = true, SHAMAN = true }
+-- A hunter's melee weapon is a stat stick for the bow: Agility, Stamina and attack power, not the Intellect WEIGHTS
+-- gives a hunter's armor (a Strength and Intellect sword isn't worth a slot an Agility dagger fills). Casters' staves
+-- keep their WEIGHTS: Intellect is their main stat.
+local STAT_STICK = { HUNTER = { AGI = 1, STA = 0.5, AP = 0.5, RAP = 0.5, MCRIT = 10, MHIT = 8 } }
 local RANGED_DPS = { HUNTER = true }
 local WAND_DPS = { MAGE = true, PRIEST = true, WARLOCK = true } -- a caster's wand is its autoattack
 local SKILL_BEHIND = 10 -- a weapon skill this far under its cap is worth a warning: you'd miss more with it
@@ -104,6 +128,37 @@ function ns.GearForever_ParseEnchant(text, names)
 		end
 	end
 	return found
+end
+
+-- "Taught by Archibald in Undercity or Hanashi in Orgrimmar": who teaches a weapon type (Enum.ItemWeaponSubclass) to
+-- this faction. masters: Data/Forever/WeaponMasters.lua's list. nil when none does.
+function ns.GearForever_TeacherText(masters, subclassID, faction)
+	local names = {}
+	for _, master in ipairs(masters or {}) do
+		if master.faction == faction then
+			for _, skill in ipairs(master.skills) do
+				if skill == subclassID then
+					names[#names + 1] = ("%s in %s"):format(master.name, master.city)
+					break
+				end
+			end
+		end
+	end
+	return #names > 0 and ("Taught by " .. table.concat(names, " or ")) or nil
+end
+
+-- A stat from a tooltip's Equip line: key, amount; nil when the line isn't one of EQUIP_STATS.
+function ns.GearForever_ParseEquip(text)
+	if type(text) ~= "string" then
+		return nil
+	end
+	for _, entry in ipairs(EQUIP_STATS) do
+		local amount = text:match(entry[1])
+		if amount then
+			return entry[2], tonumber(amount)
+		end
+	end
+	return nil
 end
 
 local function Score(desc, weights)
@@ -169,7 +224,7 @@ local ARMOR_FROM = {
 }
 
 -- Why a weapon or armor type shows red (cand.redSkill), in words; nil when it's a type these tables don't know. Second:
--- true when it's a weapon type a trainer can teach this class.
+-- true when it's a weapon type a trainer can teach this class. Third: true when the class can never use it.
 local function TypeWhy(cand, ctx)
 	local name = cand.subclassName
 	if not name then
@@ -185,16 +240,26 @@ local function TypeWhy(cand, ctx)
 				return ("needs the %s skill from a weapon trainer"):format(name), true
 			end
 		end
-		return ns.GEARFOREVER_WEAPON_SKILLS[cand.subclassID] and ("your class can't use %s"):format(name) or nil
+		if ns.GEARFOREVER_WEAPON_SKILLS[cand.subclassID] then
+			return ("your class can't use %s"):format(name), false, true
+		end
+		return nil
 	elseif cand.classID == ARMOR_CLASS_ID and ARMOR_FROM[cand.subclassID] then
 		local from = ARMOR_FROM[cand.subclassID][ctx.class]
 		if from and ctx.level and from > ctx.level then
 			return ("you can wear %s from level %d"):format(name:lower(), from)
 		elseif not from then
-			return ("your class can't wear %s"):format(name:lower())
+			return ("your class can't wear %s"):format(name:lower()), false, true
 		end
 	end
 	return nil
+end
+
+-- The stat values to judge an item with: a weapon a class only carries for its stats (a hunter's melee weapon) counts
+-- what helps that class fight its own way, from STAT_STICK; anything else the class's WEIGHTS.
+local function Weights(cand, ctx)
+	local stick = cand.classID == WEAPON_CLASS_ID and not JudgedByDamage(cand, ctx) and STAT_STICK[ctx.class]
+	return stick or ctx.weights
 end
 
 local function NotForYou(why)
@@ -203,34 +268,61 @@ end
 
 -- Why this character can't use the item (now), or nil. Second: the weapon type it would need training in, when
 -- ctx.assumeTrained let that pass (the roll advice: you can learn it before the item is worth less).
+-- Whether none of the item's main stats is one this class uses.
+local function WrongStat(cand, ctx)
+	local primaries = cand.stats and cand.stats.PRIMARY
+	-- A weapon this class judges by its damage (a hunter's bow) isn't ruled out by a stat it doesn't use: the damage
+	-- decides, as a Heavy Shortbow's +1 Strength showed (6.0 DPS over 3.7, called wrong main stat).
+	if not (primaries and next(primaries)) or JudgedByDamage(cand, ctx) then
+		return false
+	end
+	local weights = Weights(cand, ctx)
+	for stat in pairs(primaries) do
+		if weights[stat] then
+			return false
+		end
+	end
+	-- A stat stick only needs something that counts: Stamina or attack power on it will do.
+	if weights ~= ctx.weights then
+		for key, amount in pairs(cand.stats) do
+			if key ~= "PRIMARY" and weights[key] and amount > 0 then
+				return false
+			end
+		end
+	end
+	return true
+end
+
+-- Why this character can't use the item (now), or nil. A reason that never goes away (a type the class can't use, the
+-- wrong main stat) comes before one you can wait out (a level, a weapon trainer), so "needs level 18" isn't said of
+-- something that will never be for you. Second: the weapon type it would need training in, when ctx.assumeTrained let
+-- that pass (the roll advice: you can learn it before the item is worth less).
 function ns.GearForever_Unusable(cand, ctx)
+	local typeWhy, learnable, never
+	if cand.redSkill then
+		typeWhy, learnable, never = TypeWhy(cand, ctx)
+	end
+	if never then
+		return typeWhy
+	end
+	if WrongStat(cand, ctx) then
+		return "wrong main stat"
+	end
 	if cand.minLevel and ctx.level and cand.minLevel > ctx.level then
 		return ("needs level %d"):format(cand.minLevel)
 	end
 	local untrained
 	if cand.redSkill then
-		local why, learnable = TypeWhy(cand, ctx)
 		if learnable and ctx.assumeTrained then
 			untrained = cand.subclassName
-		elseif why then
-			return why
+		elseif typeWhy then
+			return typeWhy
 		elseif cand.redSkillText then
 			return cand.redSkillText
 		end
 	end
 	if cand.redText then
 		return cand.redText
-	end
-	local primaries = cand.stats and cand.stats.PRIMARY
-	-- A weapon this class judges by its damage (a hunter's bow) isn't ruled out by a stat it doesn't use: the damage
-	-- decides, as a Heavy Shortbow's +1 Strength showed (6.0 DPS over 3.7, called wrong main stat).
-	if primaries and next(primaries) and not JudgedByDamage(cand, ctx) then
-		for stat in pairs(primaries) do
-			if ctx.weights[stat] then
-				return nil, untrained
-			end
-		end
-		return "wrong main stat"
 	end
 	return nil, untrained
 end
@@ -244,15 +336,15 @@ local function Target(cand, equipped, ctx)
 end
 
 -- Which of two slots a candidate replaces: the weaker one by what decides for this item.
-local function WeakerSlot(a, b, equipped, ctx, byDamage)
+local function WeakerSlot(a, b, equipped, ctx, byDamage, weights)
 	local da, db = equipped[a], equipped[b]
 	if byDamage then
 		return Dps(da) <= Dps(db) and a or b
 	end
-	if ctx.leveling and da and db and da.ilvl and db.ilvl and da.ilvl ~= db.ilvl then
+	if ctx.leveling and weights == ctx.weights and da and db and da.ilvl and db.ilvl and da.ilvl ~= db.ilvl then
 		return da.ilvl < db.ilvl and a or b
 	end
-	return Score(da, ctx.weights) <= Score(db, ctx.weights) and a or b
+	return Score(da, weights) <= Score(db, weights) and a or b
 end
 
 -- The item would be lighter armor than what it replaces (a warrior's leather over mail): name it for the warning.
@@ -317,8 +409,9 @@ function ns.GearForever_Evaluate(cand, equipped, ctx)
 		return nil
 	end
 	local byDamage = JudgedByDamage(cand, ctx)
+	local weights = Weights(cand, ctx)
 	if target.mode == "weaker" then
-		local slot = WeakerSlot(target.slots[1], target.slots[2], equipped, ctx, byDamage)
+		local slot = WeakerSlot(target.slots[1], target.slots[2], equipped, ctx, byDamage, weights)
 		target = { mode = "single", slots = { slot } }
 	end
 	local replaced = {}
@@ -354,7 +447,7 @@ function ns.GearForever_Evaluate(cand, equipped, ctx)
 	for slot in pairs(replaced) do
 		local old = equipped[slot]
 		oldDps = oldDps + Dps(old)
-		oldScore = oldScore + Score(old, ctx.weights)
+		oldScore = oldScore + Score(old, weights)
 		local ilvl = old and old.ilvl
 		if ilvl then
 			topIlvl = (not topIlvl or ilvl > topIlvl) and ilvl or topIlvl
@@ -388,12 +481,15 @@ function ns.GearForever_Evaluate(cand, equipped, ctx)
 
 	-- The item level decides while leveling, unless the stats can say better: it's only a little apart, or lighter armor, where a
 	-- higher item level still means less armor. With no stats on either there's only the item level to go by.
-	local newScore = Score(cand, ctx.weights)
+	local newScore = Score(cand, weights)
 	local hasStats = oldScore > 0 or newScore > 0
 	local higher = cand.ilvl and topIlvl and cand.ilvl > topIlvl
 	local lower = cand.ilvl and lowIlvl and cand.ilvl < lowIlvl
 	local clear = (higher and cand.ilvl - topIlvl >= CLEAR_ILVL_GAP) or (lower and lowIlvl - cand.ilvl >= CLEAR_ILVL_GAP)
-	if ctx.leveling and not (hasStats and (lighter or not clear)) then
+	-- A weapon this class doesn't fight with (a hunter's melee weapon, a caster's staff) is a stat stick: what it adds
+	-- decides, and its item level mostly says how hard it hits, which doesn't count.
+	local statStick = cand.classID == WEAPON_CLASS_ID and not byDamage and hasStats
+	if ctx.leveling and not statStick and not (hasStats and (lighter or not clear)) then
 		if higher then
 			verdict.kind = "levelUp"
 			verdict.ilvlDiff = cand.ilvl - topIlvl

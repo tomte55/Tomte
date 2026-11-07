@@ -70,6 +70,8 @@ test("is:upgrade, is:maybe and is:altupgrade read Gear Check's verdict", functio
 	eq(matches("is:upgrade", {}), false)
 	eq(matches("is:maybe", { upgrade = "maybe" }), true)
 	eq(matches("is:altupgrade", { upgrade = "alt" }), true)
+	eq(matches("is:later", { upgrade = "later" }), true)
+	eq(matches("is:upgrade", { upgrade = "later" }), false, "not an upgrade yet")
 end)
 
 test("gear with an item level comparison", function()

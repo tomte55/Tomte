@@ -87,6 +87,11 @@ local function ReadTooltip(desc, link)
 			if not desc.enchantText then
 				ReadEnchant(desc, text)
 			end
+			-- Spell damage, crit, hit, defense, mana regen: Equip lines the game's item stats leave out.
+			local key, amount = ns.GearForever_ParseEquip(text)
+			if key then
+				desc.stats[key] = (desc.stats[key] or 0) + amount
+			end
 			-- Line 1 is the name; a broken item (red durability) is still usable gear. The red "Requires Level 17" is
 			-- left to minLevel, so the roll advice can judge an item a few levels ahead.
 			if i > 1 and IsRed(line.leftColor) and not (durabilityPattern and text:find(durabilityPattern))

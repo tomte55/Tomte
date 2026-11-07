@@ -38,7 +38,7 @@ return {
 		{ after = "Themes/Cartographer.lua", files = { "Themes/Forever.lua" } },
 		{ after = "Panel/Widgets.lua", files = { "Panel/ForeverArt.lua" } },
 		{ after = "Panel/Rail.lua", files = { "Panel/ForeverTabs.lua" } },
-		{ after = "Core/Content.lua", files = { "Data/Forever/Teleports.lua", "Data/Forever/Buffs.lua", "Data/Forever/Rogue.lua", "Data/Forever/Tools.lua", "Data/Forever/Fishing.lua", "Data/Forever/Dungeons.lua", "Data/Forever/ArmorKits.lua", "Data/Forever/ItemSources.lua" } },
+		{ after = "Core/Content.lua", files = { "Data/Forever/Teleports.lua", "Data/Forever/Buffs.lua", "Data/Forever/Rogue.lua", "Data/Forever/Tools.lua", "Data/Forever/Fishing.lua", "Data/Forever/Dungeons.lua", "Data/Forever/ArmorKits.lua", "Data/Forever/ItemSources.lua", "Data/Forever/WeaponMasters.lua" } },
 		{ after = "Modules/Fishing/Helpers.lua", files = { "Modules/Fishing/Rod.lua" } },
 		-- A split stack doesn't sell when dropped on the vendor there.
 		{ after = "Modules/Upkeep/Merchant.lua", files = { "Modules/Upkeep/SellSplit.lua" } },

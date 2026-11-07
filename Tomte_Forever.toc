@@ -45,6 +45,7 @@ Data/Forever/Fishing.lua
 Data/Forever/Dungeons.lua
 Data/Forever/ArmorKits.lua
 Data/Forever/ItemSources.lua
+Data/Forever/WeaponMasters.lua
 Core/Journal.lua
 Core/CheckData.lua
 Core/Check.lua

@@ -9,6 +9,7 @@ local UI = ns.UI
 ns.GEAR_ARROW_ROLES = {
 	maybe = "warning", -- the tooltip's "Can't judge" color
 	alt = "accent", -- the color of Tomte's map markers, so it can't pass for your own arrow
+	later = "info", -- Forever: an upgrade once you're a few levels on or have trained its weapon type (Forever.lua)
 }
 
 -- Bigger than Blizzard's bag arrow, with a dark copy behind it so it reads on bright icons. role: theme color to
