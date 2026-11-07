@@ -168,13 +168,16 @@ function LayoutDetail()
 	d.shop:Hide()
 	d.forWait = d.forWait or UI.ProgressLine(d.content)
 	d.forWait:Stop()
-	local recipe = S.db.selected and S.db.recipes[S.db.selected]
+	-- With friends' crafting: their characters among who knows it, and recipes only they know (FriendsData.lua's merge).
+	-- The plan below still crafts with your own characters only.
+	local chars, recipes = ns.AltsFriends_Merged(S.db.chars, S.db.recipes)
+	local recipe = S.db.selected and recipes[S.db.selected]
 	d.empty:SetShown(not recipe)
 	d.title:SetShown(recipe ~= nil)
 	d.sub:SetShown(recipe ~= nil)
 	d.status:SetShown(recipe ~= nil)
 	d.crafts:SetShown(recipe ~= nil)
-	d.add:SetShown(recipe ~= nil)
+	d.add:SetShown(recipe ~= nil and not recipe.friend) -- a recipe only a friend knows: ask them instead
 	if not recipe then
 		d.quality:Hide()
 		d.scroll:SetContentHeight(1)
@@ -182,7 +185,7 @@ function LayoutDetail()
 	end
 	d.title:SetText(recipe.name or "?")
 	SetColor(d.title, QualityColor(recipe.item) or "heading")
-	local status, who = ns.Alts_RecipeStatus(S.db.chars, recipe, S.db.selected)
+	local status, who = ns.Alts_RecipeStatus(chars, recipe, S.db.selected)
 	local prof = ProfName(recipe.base)
 	if status == "known" then
 		d.sub:SetText(("%s · %s"):format(prof, Names(who, 4)))
@@ -195,7 +198,7 @@ function LayoutDetail()
 	local ok, plan = xpcall(ns.Alts_Plan, function(err)
 		return ns.errorHandler(err)
 	end, S.db.selected, S.db.crafts or 1, {
-		recipes = S.db.recipes, chars = S.db.chars, producers = S.producers,
+		recipes = recipes, chars = S.db.chars, producers = S.producers,
 		maxDepth = S.db.chain == "one" and 1 or ns.ALTS_FULL_DEPTH, ranks = S.db.ranks,
 		count = function(items)
 			return (ns.Alts_Have(items))
@@ -234,6 +237,8 @@ function LayoutDetail()
 		d.quality:Refresh()
 		y = QUALITY_H
 	end
+	-- Friends who know it, each with "Ask" (AskDialog.lua).
+	y = ns.AltsAsk_DrawFriends(content, y, status == "known" and who or {}, S.db.selected)
 	local forChar = ForChar()
 	if forChar then
 		local fs = headers[H_FOR] or UI.Text(content, 12, "text")

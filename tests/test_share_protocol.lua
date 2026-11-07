@@ -77,6 +77,24 @@ test("unknown version, unknown type and garbage are rejected", function()
 	eq((ns.Share_Parse("1^D^flight^1^1^999^x")), nil, "too many chunks")
 end)
 
+test("direct message round trip", function()
+	local msg = ns.Share_Parse(ns.Share_BuildMessage("crafts", "k1;ask;123"))
+	eq(msg.type, "M")
+	eq(msg.set, "crafts")
+	eq(msg.text, "k1;ask;123")
+	eq(ns.Share_MessageID(msg.text), "k1")
+	eq(ns.Share_MessageID(""), nil)
+	eq((ns.Share_Parse("1^M^Crafts^x")), nil, "bad set key")
+end)
+
+test("refusal round trip", function()
+	local msg = ns.Share_Parse(ns.Share_BuildRefusal("crafts", "k1"))
+	eq(msg.type, "X")
+	eq(msg.set, "crafts")
+	eq(msg.id, "k1")
+	eq((ns.Share_Parse("1^X^crafts^")), nil, "a refusal needs an ID")
+end)
+
 local function Parts(payload, rev)
 	local msgs = {}
 	for i, text in ipairs(ns.Share_BuildData("flight", rev or 5, payload)) do

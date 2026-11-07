@@ -49,6 +49,7 @@ local function ReadBasics(c)
 	c.realm = GetNormalizedRealmName()
 	c.class = select(2, UnitClass("player"))
 	c.race = UnitRace("player")
+	c.faction = UnitFactionGroup("player") -- "Horde" | "Alliance": friends see whether mail can reach it (Friends.lua)
 	c.level = c.levelUp or UnitLevel("player")
 	c.levelUp = nil
 	c.money = GetMoney()
@@ -233,6 +234,7 @@ local function ReadProfs(c)
 		end
 	end
 	c.profs = profs
+	ns.AltsFriends_Changed() -- skills go to friends (debounced by Friend sharing)
 	return true
 end
 
@@ -422,6 +424,7 @@ local function StepScan()
 		end
 		StopScan()
 		if tell then
+			ns.AltsFriends_Changed()
 			ns.Alts_RecipesChanged()
 		end
 	end

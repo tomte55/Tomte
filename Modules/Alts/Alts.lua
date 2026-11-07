@@ -394,6 +394,7 @@ module = ns.RegisterModule({
 		.. "materials and where they are, and who crafts what in which order. A character's recipes are read when it "
 		.. "opens its profession window.",
 	enabledByDefault = true,
+	toasts = "Craft requests", -- a friend asks you for a craft (Friends.lua)
 	uses = { { addon = "Syndicator", why = "item counts on every character, when Tomte's Item counts is off",
 		without = ns.FOREVER and "only this character's bags and bank are counted: turn on Tomte's Item counts"
 			or "only this character's bags, bank and the Warband bank are counted: turn on Tomte's Item counts",
@@ -402,7 +403,8 @@ module = ns.RegisterModule({
 		end },
 		{ addon = "Auctionator", why = "shopping lists for missing materials" } },
 	keep = { "sendRules" }, -- typed by the user: a settings reset keeps it
-	noShare = { "filterChar", "filterFor" }, -- character GUIDs: not in settings strings (Core/Profile.lua)
+	-- Character GUIDs and friends' BattleTags: not in settings strings (Core/Profile.lua).
+	noShare = { "filterChar", "filterFor", "friendCrafts", "requests" },
 	defaults = {
 		chars = {},
 		recipes = {},
@@ -431,6 +433,9 @@ module = ns.RegisterModule({
 		listMail = "exact", -- exact | stacks
 		listBaganator = true,
 		listPrice = true,
+		friendsShow = true, -- Crafting tab: friends' characters and recipes (Friend sharing's crafts set)
+		friendCrafts = {}, -- [BattleTag] = { at, data } (FriendsData.lua's AltsFriends_Import)
+		requests = {}, -- [request ID] = craft request between friends (FriendsData.lua's AltsFriends_NewRequest)
 	},
 	home = HomeEntries({
 		ns.AltsHomeSection,
@@ -481,19 +486,28 @@ module = ns.RegisterModule({
 		db = saved
 		ns.altsDB = saved
 		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, ns.Perf_Wrap(OnItem, "tooltip"))
+		ns.AltsFriends_Init(saved)
 	end,
 	toggle = function(active)
 		if active then
 			ns.AltsCollect_Start(db)
 			ns.AltsSend_Start(db)
 			ns.AltsList_Start(db)
+			ns.AltsFriends_Start()
+			ns.AltsFriendMail_Start(db)
 		else
 			ns.AltsCollect_Stop()
 			ns.AltsSend_Stop()
 			ns.AltsList_Stop()
+			ns.AltsFriends_Stop()
+			ns.AltsFriendMail_Stop()
 		end
 	end,
 	options = {
+		{ type = "checkbox", key = "friendsShow", label = "Friends' crafting", onChange = function()
+			ns.AltsCraft_Refresh()
+		end, tooltip = "Show what your friends' characters can craft on the Crafting tab, and ask them for crafts. Needs "
+			.. "Friend sharing; a friend's characters show when mail can reach them (your realm and faction)." },
 		{ type = "checkbox", key = "tooltip", label = "\"Crafted by\" on item tooltips",
 			tooltip = "Item tooltips say which of your characters crafts the item, or who could learn it." },
 		{ type = "dropdown", key = "chain", label = "Crafted materials", onChange = function()

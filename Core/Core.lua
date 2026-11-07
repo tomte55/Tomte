@@ -209,9 +209,10 @@ events:On("core", "ADDON_LOADED", function(self, name)
 		ns.Setup_MarkFresh(db) -- before the migrations: migration 2 marks only older saved variables as done
 		db.changes = { seen = ns.VERSION } -- a new user has no update to hear about
 	end
-	-- First, before anything draws: the theme picked in Settings (Panel/Window.lua).
-	ns.Theme.Apply(type(db.window) == "table" and db.window.theme or nil)
 	ns.RunMigrations(db, ns.MIGRATIONS)
+	-- Before anything draws (migrations draw nothing, and one may change it): the theme picked in Settings
+	-- (Panel/Window.lua), on Forever its own theme when none is saved yet.
+	ns.Theme.Apply(type(db.window) == "table" and db.window.theme or (ns.FOREVER and "forever" or nil))
 	TomteDB = ns.MergeDefaults(CORE_DEFAULTS, db)
 	ns.db = TomteDB
 	ns.Session_Init(TomteDB) -- before the modules: their world handlers read the session

@@ -6,6 +6,10 @@ local addonName, ns = ...
 --   1^H^<tomte version>^<set>=<rev>,...    hello: what I have
 --   1^R^<set>                              request: send me that set
 --   1^D^<set>^<rev>^<i>^<n>^<chunk>        data: chunk i of n of the set's payload at that revision
+--   1^M^<set>^<text>                       message: for that set's owner on this friend's side only (one message,
+--                                          text starts with its ID: "<id>;..."); never relayed
+--   1^X^<set>^<id>                         refusal: that set isn't shared here, so message <id> wasn't taken
+-- Older Tomte rejects M and X as unknown kinds, so a friend without them just never answers.
 
 local VERSION = "1"
 -- Bytes of payload per data message. Battle.net game data takes up to 4078 bytes (warcraft.wiki.gg
@@ -35,6 +39,20 @@ function ns.Share_BuildData(key, rev, payload)
 		list[i] = ("%s^D^%s^%d^%d^%d^%s"):format(VERSION, key, rev, i, count, payload:sub((i - 1) * CHUNK + 1, i * CHUNK))
 	end
 	return list
+end
+
+-- A message for one friend's side of a set; text at most ns.SHARE_CHUNK bytes, starting "<id>;".
+function ns.Share_BuildMessage(key, text)
+	return VERSION .. "^M^" .. key .. "^" .. text
+end
+
+function ns.Share_BuildRefusal(key, id)
+	return VERSION .. "^X^" .. key .. "^" .. id
+end
+
+-- A message's ID: its text up to the first ";", nil when there's none.
+function ns.Share_MessageID(text)
+	return text and text:match("^([^;%^]+);") or nil
 end
 
 local function ParseSets(text)
@@ -80,6 +98,18 @@ function ns.Share_Parse(text)
 			return nil, "bad data"
 		end
 		return { type = "D", set = key, rev = tonumber(rev), index = index, count = count, chunk = chunk }
+	elseif kind == "M" then
+		local key, body = rest:match("^(%l+)%^(.+)$")
+		if not key then
+			return nil, "bad message"
+		end
+		return { type = "M", set = key, text = body }
+	elseif kind == "X" then
+		local key, id = rest:match("^(%l+)%^([^;%^]+)$")
+		if not key then
+			return nil, "bad refusal"
+		end
+		return { type = "X", set = key, id = id }
 	end
 	return nil, "unknown message " .. kind
 end

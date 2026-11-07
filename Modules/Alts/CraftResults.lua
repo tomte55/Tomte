@@ -177,7 +177,8 @@ end
 
 local function LayoutResults()
 	local content = S.tab.list.content
-	results = ns.Alts_Search(S.db.recipes, S.db.chars, {
+	local chars, recipes = ns.AltsFriends_Merged(S.db.chars, S.db.recipes) -- friends' characters too, when shown
+	results = ns.Alts_Search(recipes, chars, {
 		text = searchText,
 		char = S.db.filterChar ~= "all" and S.db.filterChar or nil,
 		base = S.db.filterProf ~= "all" and S.db.filterProf or nil,
@@ -276,6 +277,7 @@ end
 
 -- Filters --------------------------------------------------------------------------------------------------
 
+-- Your characters with professions, then friends' ("Mira (Kesha)"), each by name.
 local function CharChoices()
 	local list = { { value = "all", text = "All characters" } }
 	for _, c in ipairs(ns.Alts_Roster(S.db.chars, "name", nil)) do
@@ -283,13 +285,27 @@ local function CharChoices()
 			list[#list + 1] = { value = c.guid, text = c.name or "?" }
 		end
 	end
+	local friends = {}
+	for key, c in pairs((ns.AltsFriends_Merged(S.db.chars, S.db.recipes))) do
+		if c.friend and next(c.profs or {}) then
+			friends[#friends + 1] = { value = key, text = ("%s (%s)"):format(c.name or "?",
+				c.friend.tag:match("^[^#]+") or c.friend.tag) }
+		end
+	end
+	table.sort(friends, function(a, b)
+		return a.text < b.text
+	end)
+	for _, choice in ipairs(friends) do
+		list[#list + 1] = choice
+	end
 	return list
 end
 
 local function ProfChoices()
 	local list = { { value = "all", text = "All professions" } }
 	local seen = {}
-	for _, r in pairs(S.db.recipes) do
+	local _, recipes = ns.AltsFriends_Merged(S.db.chars, S.db.recipes)
+	for _, r in pairs(recipes) do
 		if r.base and not seen[r.base] then
 			seen[r.base] = true
 			list[#list + 1] = { value = r.base, text = ProfName(r.base) }
@@ -393,6 +409,36 @@ local function CreateFilters(frame)
 		have.check:Click()
 	end)
 	frame.haveMats = have
+	-- Friends' crafting: their characters in the list and the character filter (Alts' friendsShow setting).
+	local friends = CreateFrame("Button", nil, frame)
+	friends:SetHeight(20)
+	friends:SetPoint("TOPLEFT", have, "BOTTOMLEFT", 0, -4) -- its own row: beside Materials on hand it ran under Expand all
+	friends.check = UI.Checkbox(friends)
+	friends.check:SetPoint("LEFT", 2, 0)
+	friends.label = UI.Text(friends, 12, "text")
+	friends.label:SetPoint("LEFT", friends.check, "RIGHT", 8, 0)
+	friends.label:SetText("Friends' crafting")
+	friends:SetWidth(friends.label:GetStringWidth() + 30)
+	local function FriendsTip()
+		GameTooltip:SetOwner(friends, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Friends' crafting", 1, 1, 1)
+		GameTooltip:AddLine("What your friends' characters can craft, from Friend sharing: pick a recipe and ask them "
+			.. "for it. Only characters your mail reaches show (your realm and faction); a green dot means that friend "
+			.. "is online.", nil, nil, nil, true)
+		GameTooltip:Show()
+	end
+	friends:SetScript("OnEnter", FriendsTip)
+	friends:SetScript("OnLeave", GameTooltip_Hide)
+	friends.check:HookScript("OnEnter", FriendsTip)
+	friends.check:HookScript("OnLeave", GameTooltip_Hide)
+	friends.check.onChange = function(checked)
+		S.db.friendsShow = checked
+		ns.AltsCraft_Refresh()
+	end
+	friends:SetScript("OnClick", function()
+		friends.check:Click()
+	end)
+	frame.friendsShow = friends
 	frame.expandAll = UI.Button(frame, 78, "Expand all")
 	frame.collapseAll = UI.Button(frame, 78, "Collapse all")
 	-- To their labels: a theme's small capitals run wider than a fixed width allows.
@@ -429,6 +475,12 @@ local function RefreshFilters()
 	end
 	S.tab.forFilter:Refresh()
 	S.tab.haveMats.check:SetChecked(S.db.haveMats)
+	S.tab.friendsShow.check:SetChecked(S.db.friendsShow)
+	S.tab.friendsShow:SetShown(ns.AltsFriends_Sharing()) -- Friend sharing (and its recipes) on, on Forever
+	-- The list and its hint start under the lowest row of checkboxes (CraftTab.lua sets their other points).
+	local above = S.tab.friendsShow:IsShown() and S.tab.friendsShow or S.tab.haveMats
+	S.tab.list:SetPoint("TOPLEFT", above, "BOTTOMLEFT", -4, -8)
+	S.tab.hint:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, -12)
 end
 
 -- Search ---------------------------------------------------------------------------------------------------

@@ -89,6 +89,15 @@ test("crafter plan turns its modules and the base on, the rest off, never touche
 	eq(plan.enabled.window, nil, "window is always on")
 end)
 
+test("on Forever, presets leave Friend sharing at its default (on there); retail's crafter turns it off", function()
+	eq(ns.Setup_Plan("crafter", ns.modules).enabled.share, false, "retail")
+	ns.FOREVER = true
+	eq(ns.Setup_Plan("crafter", ns.modules).enabled.share, nil, "Forever: left alone")
+	eq(ns.Setup_Plan("minimal", ns.modules).enabled.share, nil)
+	eq(ns.Setup_Plan("everything", ns.modules).keep.share, true, "Everything keeps it too")
+	ns.FOREVER = nil
+end)
+
 test("collector has the collecting modules, minimal none of the new ones", function()
 	Register()
 	local plan = ns.Setup_Plan("collector", ns.modules)

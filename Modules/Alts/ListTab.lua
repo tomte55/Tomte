@@ -740,24 +740,25 @@ function ns.AltsListTab_Refresh()
 	end
 	tab.shop:Hide()
 	local alts = ns.altsDB
-	tab.empty:SetShown(#alts.list == 0)
-	if #alts.list == 0 then
-		tab.scroll:SetContentHeight(1)
-		return
-	end
-	local todos = ns.AltsList_Todos()
-
 	local width = tab.scroll.content:GetWidth()
 	if width <= 1 then
 		width = tab:GetWidth() - 10
 	end
+	-- Friends' craft requests first (RequestsSection.lua); the crafts start under them.
+	local top = ns.AltsRequests_Draw(tab.scroll.content, 0, width)
+	tab.empty:SetShown(#alts.list == 0 and top == 0)
+	if #alts.list == 0 then
+		tab.scroll:SetContentHeight(math.max(top, 1))
+		return
+	end
+	local todos = ns.AltsList_Todos()
 	local stacked = width < STACK_W
 	local leftW = stacked and width or math.floor((width - GAP) * 0.42)
 	local rightX = stacked and 0 or leftW + GAP
 	local rightW = stacked and width or width - rightX
 
 	-- Crafts.
-	local y = Header(1, "Your crafts", 0, 0, leftW)
+	local y = Header(1, "Your crafts", 0, top, leftW)
 	local sum, priced, allSell = { cost = 0, sells = 0, complete = true }, false, true
 	for i, t in ipairs(todos) do
 		local value = PlaceCard(i, t, 0, y, leftW)
@@ -781,7 +782,7 @@ function ns.AltsListTab_Refresh()
 	end
 
 	-- Shopping, beside the crafts or under them.
-	local rightY = PlaceShopping(todos, rightX, stacked and y + 6 or 0, rightW)
+	local rightY = PlaceShopping(todos, rightX, stacked and y + 6 or top, rightW)
 	y = math.max(y, rightY)
 
 	y = PlaceTodo(todos, y + 10)

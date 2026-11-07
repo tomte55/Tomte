@@ -470,7 +470,7 @@ module = ns.RegisterModule({
 		-- { meta id, ... }) }
 		cache = {},
 		dock = { open = true },
-		tracker = { shown = true, locked = false, hideInCombat = true, scale = 1, collapsed = false },
+		tracker = { shown = false, locked = true, hideInCombat = true, scale = 1, collapsed = false },
 		toasts = { almost = true, lastStep = true, pinned = true },
 		preview = true,
 	},

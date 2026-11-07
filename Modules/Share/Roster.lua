@@ -39,6 +39,19 @@ function ns.Share_RosterGet(gameAccountID)
 	return online[gameAccountID]
 end
 
+-- A friend by BattleTag: their gameAccountID and the character they're on, or nil while they aren't reachable.
+function ns.Share_RosterFind(tag)
+	if dirty then
+		Rebuild()
+	end
+	for id, friend in pairs(online) do
+		if friend.tag == tag then
+			return id, friend.character
+		end
+	end
+	return nil
+end
+
 -- Every reachable gameAccountID.
 function ns.Share_RosterIDs()
 	if dirty then

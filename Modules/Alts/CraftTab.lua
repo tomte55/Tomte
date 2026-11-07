@@ -22,11 +22,33 @@ local function SetColor(fs, c)
 	fs:SetTextColor(UI.RGBA(c))
 end
 
+local ONLINE_DOT = "|TInterface\\FriendsFrame\\StatusIcon-Online:12:12|t" -- a friend who's in the game now
+
+-- A character's name in its class color; a friend's character also says whose it is ("Mira (Kesha)"), with a green
+-- dot while that friend is online.
 local function ClassName(c)
-	return UI.ClassColored(c.name or "?", c.class)
+	local name = UI.ClassColored(c.name or "?", c.class)
+	if not c.friend then
+		return name
+	end
+	local who = UI.Wrap(("(%s)"):format(c.friend.tag:match("^[^#]+") or c.friend.tag), "textMuted")
+	return name .. " " .. who .. (c.friend.online and (" " .. ONLINE_DOT) or "")
 end
 
+-- Up to limit names, your own characters before friends'.
 local function Names(chars, limit)
+	local sorted = {}
+	for _, c in ipairs(chars) do
+		if not c.friend then
+			sorted[#sorted + 1] = c
+		end
+	end
+	for _, c in ipairs(chars) do
+		if c.friend then
+			sorted[#sorted + 1] = c
+		end
+	end
+	chars = sorted
 	local parts = {}
 	for i, c in ipairs(chars) do
 		if i > (limit or 3) then
@@ -79,6 +101,7 @@ local function RecipeName(recipe)
 	return color and UI.Wrap(name, color) or name
 end
 
+-- A profession's name from your characters, or from the game for one only a friend has.
 local function ProfName(base)
 	for _, c in pairs(S.db.chars) do
 		local prof = c.profs and c.profs[base]
@@ -86,7 +109,8 @@ local function ProfName(base)
 			return prof.name
 		end
 	end
-	return "?"
+	local name = base and C_TradeSkillUI.GetTradeSkillDisplayName and C_TradeSkillUI.GetTradeSkillDisplayName(base)
+	return name and name ~= "" and name or "?"
 end
 
 ns.AltsCraft_SetColor = SetColor

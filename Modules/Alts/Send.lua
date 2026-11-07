@@ -815,3 +815,36 @@ function ns.AltsSend_Stop()
 	attached = nil
 	ClearTopUp()
 end
+
+-- For FriendMail.lua (the friends' block under this dock) ----------------------------------------------------------
+
+-- The dock while it's shown, nil otherwise.
+function ns.AltsSend_Dock()
+	return dock and dock:IsShown() and dock or nil
+end
+
+ns.AltsSend_BagStacks = BagStacks
+ns.AltsSend_MAX_ATTACH = MAX_ATTACH
+
+-- Whether the Send Mail tab can take attachments now (opens it; says why not in chat).
+function ns.AltsSend_ReadyToAttach()
+	if Busy() then
+		return false
+	end
+	if not SendTabShown() and MailFrameTab_OnClick then
+		MailFrameTab_OnClick(nil, 2)
+	end
+	if not SendTabShown() then
+		ns.Print("open the Send Mail tab first.")
+		return false
+	end
+	if AttachmentCount() > 0 then
+		ns.Print("the Send Mail tab already has items attached: send or remove them first.")
+		return false
+	end
+	return true
+end
+
+function ns.AltsSend_AttachmentCount()
+	return SendTabShown() and AttachmentCount() or 0
+end

@@ -177,4 +177,53 @@ test("Material uses: the Professions book switch goes, the rest stays", function
 	eq(none.materials, nil, "no Material uses settings: nothing made")
 end)
 
+test("Forever theme: a Forever profile on the old default moves to the Forever theme", function()
+	ns.FOREVER = true
+	local db = { schema = 15, window = { theme = "blizzard" } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.window.theme, "forever")
+	ns.FOREVER = nil
+end)
+
+test("Forever theme: a theme picked by hand and retail profiles stay", function()
+	ns.FOREVER = true
+	local db = { schema = 15, window = { theme = "void" } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.window.theme, "void")
+	ns.FOREVER = nil
+	db = { schema = 15, window = { theme = "blizzard" } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.window.theme, "blizzard", "retail keeps its default")
+	db = { schema = 15 }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.window, nil, "a fresh install has nothing to move")
+end)
+
+test("Friend sharing: switched on once for Forever profiles, presets' off included", function()
+	ns.FOREVER = true
+	local db = { schema = 16, enabled = { share = false } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.enabled.share, true)
+	ns.FOREVER = nil
+	db = { schema = 16, enabled = { share = false } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.enabled.share, false, "retail keeps it")
+	ns.FOREVER = true
+	db = { schema = 16 }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.enabled, nil, "fresh install: the module default decides")
+	ns.FOREVER = nil
+end)
+
+test("Achievements: the Top 5 tracker is locked, shown or not as it was", function()
+	local db = { schema = 17, ach = { tracker = { shown = true, locked = false, scale = 1.2 } } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.ach.tracker.locked, true)
+	eq(db.ach.tracker.shown, true, "someone using it keeps it")
+	eq(db.ach.tracker.scale, 1.2)
+	local none = { schema = 17 }
+	ns.RunMigrations(none, ns.MIGRATIONS)
+	eq(none.ach, nil, "no Achievements settings: nothing made")
+end)
+
 H.done()

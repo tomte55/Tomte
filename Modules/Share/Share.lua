@@ -202,7 +202,13 @@ local function OnHello(id, friend, row, msg)
 	for key, rev in pairs(msg.sets) do
 		local set = sets[key]
 		local got = row.sets[key]
-		if Shared(key) and rev ~= set.revision() then
+		-- A per-friend set is that friend's own data: asked for whenever it isn't the revision we have from them.
+		if Shared(key) and set.perFriend then
+			if not (got and got.rev == rev) then
+				Queue(id, friend.tag, ns.Share_BuildRequest(key))
+				Log(friend.tag, "asked for " .. key .. " (theirs changed)")
+			end
+		elseif Shared(key) and rev ~= set.revision() then
 			if got and got.rev == rev then
 				-- Imported before: what still differs merged into our own spots, or is what we reset or forgot.
 				Log(friend.tag, key .. ": already have everything from this revision")
@@ -214,6 +220,38 @@ local function OnHello(id, friend, row, msg)
 	end
 	if GetTime() - (helloAt[id] or -REPLY_WINDOW) >= REPLY_WINDOW then
 		SendHello(id, friend)
+	end
+	for _, key in ipairs(setOrder) do
+		local set = sets[key]
+		if Shared(key) and set.greeted then
+			set.greeted(friend.tag) -- what's kept for this friend (Alts' craft requests) can go now
+		end
+		if set.perFriend and msg.sets[key] == nil and set.withdrawn then
+			set.withdrawn(friend.tag) -- they stopped sharing it: their copy here goes
+		end
+	end
+end
+
+-- A message for one of our sets from this friend; a set we don't share answers with a refusal, so their side knows.
+local function OnMessage(id, friend, msg)
+	local set = sets[msg.set]
+	if set and Shared(msg.set) and set.message then
+		Log(friend.tag, "message for " .. msg.set)
+		set.message(friend.tag, msg.text)
+		return
+	end
+	local messageID = ns.Share_MessageID(msg.text)
+	if messageID then
+		Queue(id, friend.tag, ns.Share_BuildRefusal(msg.set, messageID))
+		Log(friend.tag, "refused a message for " .. msg.set .. " (not shared)")
+	end
+end
+
+local function OnRefusal(friend, msg)
+	local set = sets[msg.set]
+	if set and Shared(msg.set) and set.refused then
+		Log(friend.tag, msg.set .. ": they don't share it")
+		set.refused(friend.tag, msg.id)
 	end
 end
 
@@ -257,15 +295,20 @@ local function OnData(id, friend, row, msg)
 	if not payload then
 		return
 	end
-	local added, reason = set.import(payload)
+	local added, reason = set.import(payload, friend.tag)
 	if not added then
 		Log(friend.tag, msg.set .. " rejected: " .. reason)
 		return
 	end
 	local got = row.sets[msg.set] or {}
 	row.sets[msg.set] = got
-	got.at, got.added, got.rev = time(), (got.added or 0) + added, msg.rev
 	Log(friend.tag, ("%s received, %d new"):format(msg.set, added))
+	if set.perFriend then
+		-- Their own data, replaced each time: no running total, no toast for a skill point, nothing to pass on.
+		got.at, got.added, got.rev = time(), added, msg.rev
+		return
+	end
+	got.at, got.added, got.rev = time(), (got.added or 0) + added, msg.rev
 	if added > 0 then
 		if db.toast then
 			ns.Toast_Show(ReceivedSpec(ShortName(friend.tag), set.count(added, "new")))
@@ -301,6 +344,10 @@ function events:BN_CHAT_MSG_ADDON(prefix, text, _, senderID)
 		OnHello(senderID, friend, row, msg)
 	elseif msg.type == "R" then
 		OnRequest(senderID, friend, msg)
+	elseif msg.type == "M" then
+		OnMessage(senderID, friend, msg)
+	elseif msg.type == "X" then
+		OnRefusal(friend, msg)
 	else
 		OnData(senderID, friend, row, msg)
 	end
@@ -363,12 +410,53 @@ end
 -- For data sets and the page ---------------------------------------------------------------------------------------
 
 -- set = { key, label, count(n, adjective) -> "34 new flight times", export() -> payload, revision() -> number,
--- import(payload) -> added | nil, reason }. Called from the owning module's init (all files are loaded by then).
+-- import(payload, tag) -> added | nil, reason }, and optionally:
+--   active() -> false while the owning module doesn't want it shared
+--   perFriend = true: each friend's own data (import keeps it under their BattleTag; export sends only ours), asked for
+--     whenever their revision isn't the one we have from them; never relayed
+--   message(tag, text): a direct message from that friend (ns.Share_Send on their side)
+--   refused(tag, id): that friend doesn't share this set, so message id wasn't taken
+--   greeted(tag): that friend just said hello (reachable now: a good moment to resend what's waiting for them)
+--   withdrawn(tag): a per-friend set that friend no longer shares (their hello leaves it out, or they were forgotten)
+-- Called from the owning module's init (all files are loaded by then).
 function ns.Share_Register(set)
 	if not sets[set.key] then
 		setOrder[#setOrder + 1] = set.key
 	end
 	sets[set.key] = set
+end
+
+-- Sends text (at most ns.SHARE_CHUNK bytes, starting "<id>;") to a friend's side of a set. False when Friend sharing
+-- is off, the set isn't shared, the friend is blocked or isn't reachable right now.
+function ns.Share_Send(tag, key, text)
+	if not (module and module.active and Shared(key)) or Blocked(tag) or #text > ns.SHARE_CHUNK then
+		return false
+	end
+	local id = ns.Share_RosterFind(tag)
+	if not id then
+		return false
+	end
+	Queue(id, tag, ns.Share_BuildMessage(key, text))
+	Log(tag, "sent a message for " .. key)
+	return true
+end
+
+-- Whether a set is shared right now: Friend sharing on and the set switched on (and wanted by its module).
+function ns.Share_Sharing(key)
+	return module ~= nil and module.active == true and Shared(key)
+end
+
+function ns.Share_IsBlocked(tag)
+	return Blocked(tag) == true
+end
+
+-- The character a friend is on right now, nil while they can't be reached (offline, another game, sharing off here).
+function ns.Share_Online(tag)
+	if not (module and module.active) then
+		return nil
+	end
+	local _, character = ns.Share_RosterFind(tag)
+	return character
 end
 
 -- The owning module's data changed: tell everyone (debounced). Does nothing while Friend sharing is off.
@@ -438,6 +526,11 @@ end
 function ns.Share_Forget(tag)
 	db.friends[tag] = nil
 	log[tag] = nil
+	for _, key in ipairs(setOrder) do
+		if sets[key].perFriend and sets[key].withdrawn then
+			sets[key].withdrawn(tag)
+		end
+	end
 	RefreshPage()
 end
 
@@ -495,12 +588,12 @@ module = ns.RegisterModule({
 	name = "Friend sharing",
 	category = "social",
 	icon = 442272, -- achievement_guildperk_everybodysfriend
-	summary = "Swap flight times and gathering spots with friends who run Tomte.",
-	description = "Shares data with your Battle.net friends who run Tomte, in the background: flight times you've recorded (and those friends sent you) fill in each other's flight timers and coverage maps, and gathering node spots fill in each other's world maps. Also tells you when a friend runs a newer Tomte.",
-	enabledByDefault = false,
+	summary = "Swap flight times, gathering spots and what you can craft with friends who run Tomte.",
+	description = "Shares data with your Battle.net friends who run Tomte, in the background: flight times you've recorded (and those friends sent you) fill in each other's flight timers and coverage maps, gathering node spots fill in each other's world maps, and your characters' professions and recipes show on their Alts Crafting tab, so you can ask each other for crafts. Also tells you when a friend runs a newer Tomte.",
+	enabledByDefault = ns.FOREVER == true, -- on Forever friends craft for each other; retail keeps the quieter default
 	toasts = true,
 	defaults = {
-		sets = { flight = true, nodes = true }, -- [data set key] = shared (sent and accepted)
+		sets = { flight = true, nodes = true, crafts = true }, -- [data set key] = shared (sent and accepted)
 		toast = false,
 		toldVersion = "", -- the newest Tomte version a friend's hello told us about (each version is told once)
 		-- [BattleTag] = { blocked, character, version, seen, sets = { [key] = { at, added, rev } } }; rev is the
@@ -542,6 +635,13 @@ module = ns.RegisterModule({
 				ns.Share_Changed("nodes")
 			end,
 			tooltip = "Send the mining and herbalism spots Gathering remembers to your friends and add theirs to your world map. A friend's spot right next to one of yours is the same node and isn't added twice." },
+		{ type = "checkbox", key = "sets.crafts", label = "Professions and recipes", shown = function()
+			return ns.FOREVER == true -- Alts shares crafting on Forever only (Modules/Alts/Friends.lua)
+		end,
+			onChange = function()
+				ns.Share_Changed("crafts")
+			end,
+			tooltip = "Send your characters' professions and recipes, so friends see what you can craft on their Alts Crafting tab, and see theirs on yours. Off: no craft requests either way." },
 		{ type = "header", label = "Friends" },
 		{ type = "checkbox", key = "toast", label = "Toast when friends send something new",
 			preview = ns.Preview_When("toast", ReceivedPreview) },

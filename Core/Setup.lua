@@ -27,10 +27,14 @@ ns.SETUP_PRESETS = {
 	{ key = "everything", name = "Everything", text = "All of Tomte, as it comes.", all = true },
 }
 
+-- On Forever, Friend sharing is on by default (friends craft for each other) and no preset switches it off.
 local function UntouchedSet()
 	local set = {}
 	for _, k in ipairs(ns.SETUP_UNTOUCHED) do
 		set[k] = true
+	end
+	if ns.FOREVER then
+		set.share = true
 	end
 	return set
 end

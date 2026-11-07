@@ -285,6 +285,7 @@ Modules/Alts/GearData.lua
 Modules/Alts/Forget.lua
 Modules/Alts/SendData.lua
 Modules/Alts/ListData.lua
+Modules/Alts/FriendsData.lua
 Modules/Alts/Collect.lua
 Modules/Alts/ProfGear.lua
 Modules/Alts/CraftTab.lua
@@ -293,13 +294,17 @@ Modules/Alts/CraftMats.lua
 Modules/Alts/CraftResults.lua
 Modules/Alts/Shop.lua
 Modules/Alts/CraftDetail.lua
+Modules/Alts/AskDialog.lua
 Modules/Alts/RosterTab.lua
 Modules/Alts/ProfTab.lua
 Modules/Alts/HomeSection.lua
 Modules/Alts/Send.lua
 Modules/Alts/Deposit.lua
+Modules/Alts/FriendMail.lua
 Modules/Alts/List.lua
+Modules/Alts/RequestsSection.lua
 Modules/Alts/ListTab.lua
+Modules/Alts/Friends.lua
 Modules/Alts/Alts.lua
 Modules/Materials/Generated.lua
 Modules/Materials/Data.lua

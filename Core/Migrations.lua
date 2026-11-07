@@ -163,4 +163,28 @@ ns.MIGRATIONS = {
 			db.materials.knowledge = nil
 		end
 	end,
+	-- 16: on World of Warcraft: Forever the Forever theme is the default (1.31). Every load saved the old default, so a
+	-- profile still on it never chose: it moves over. A theme picked by hand stays, and retail is untouched.
+	function(db)
+		if ns.FOREVER and type(db.window) == "table" and db.window.theme == "blizzard" then
+			db.window.theme = "forever"
+		end
+	end,
+	-- 17: on Forever, Friend sharing is on by default (1.31: friends see what each other can craft). First-run presets
+	-- saved it off without anyone choosing (Core/Setup.lua writes false for every module a preset doesn't list), and a
+	-- preset's off can't be told from a hand-picked one: the user decided every Forever profile gets it on, once.
+	-- Retail keeps migration 11's quieter default.
+	function(db)
+		if ns.FOREVER and type(db.enabled) == "table" then
+			db.enabled.share = true
+		end
+	end,
+	-- 18: Achievements' Top 5 tracker starts hidden and locked (1.31). Unlocked it showed even with nothing in it, so it's
+	-- locked for everyone; whether it shows stays as it was, so nobody using it loses it.
+	function(db)
+		local tracker = type(db.ach) == "table" and type(db.ach.tracker) == "table" and db.ach.tracker
+		if tracker then
+			tracker.locked = true
+		end
+	end,
 }
