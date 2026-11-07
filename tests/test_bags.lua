@@ -571,4 +571,13 @@ test("Forever's default categories have no keystone or decor", function()
 	eq(retail.keystone and retail.decor, true, "retail keeps them")
 end)
 
+test("HoldsSlot: the item's own place or one of a group's stacks", function()
+	local grouped = ns.Bags_Group({ { bag = 0, slot = 1, link = "a", count = 2 }, { bag = 2, slot = 5, link = "a", count = 3 } })[1]
+	eq(ns.Bags_HoldsSlot(grouped, 0, 1), true)
+	eq(ns.Bags_HoldsSlot(grouped, 2, 5), true, "a stack merged into the group")
+	eq(ns.Bags_HoldsSlot(grouped, 2, 6), false)
+	eq(ns.Bags_HoldsSlot({ bag = 1, slot = 3 }, 1, 3), true)
+	eq(ns.Bags_HoldsSlot({ bag = 1, slot = 3 }, nil, nil), false)
+end)
+
 H.done()

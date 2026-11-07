@@ -479,6 +479,81 @@ local function UpdateCooldown(button, hasItem)
 	end
 end
 
+-- Spotlight: one bag slot another module points at (Loot's Make room: what it offers to destroy) ---------------------
+
+local SPOT_OUT = 3 -- pixels the glow reaches past the button
+local SPOT_PULSE = 0.6 -- seconds from bright to faint
+local SPOT_LOW = 0.35 -- the faint end of the pulse
+local spotlight -- { bag, slot } or nil
+local blizzSpot -- the glow on Blizzard's own bag button, while Tomte's bags are off
+local blizzSpots = {} -- [Blizzard's bag button] = its glow, made on first use (kept here, not on their buttons)
+
+local function NewSpot(button)
+	local spot = CreateFrame("Frame", nil, button)
+	spot:SetPoint("TOPLEFT", -SPOT_OUT, SPOT_OUT)
+	spot:SetPoint("BOTTOMRIGHT", SPOT_OUT, -SPOT_OUT)
+	spot:SetFrameLevel(button:GetFrameLevel() + 5)
+	spot.glow = spot:CreateTexture(nil, "OVERLAY")
+	spot.glow:SetAtlas("bags-glow-white")
+	spot.glow:SetAllPoints()
+	UI.Border(spot, "danger")
+	spot.pulse = spot:CreateAnimationGroup()
+	spot.pulse:SetLooping("BOUNCE")
+	local fade = spot.pulse:CreateAnimation("Alpha")
+	fade:SetFromAlpha(1)
+	fade:SetToAlpha(SPOT_LOW)
+	fade:SetDuration(SPOT_PULSE)
+	spot:Hide()
+	return spot
+end
+
+local function ShowSpot(spot, on)
+	if not on then
+		spot.pulse:Stop()
+		spot:Hide()
+		return
+	end
+	spot.glow:SetVertexColor(UI.RGBA("danger"))
+	UI.SetBorderColor(spot, "danger")
+	spot:Show()
+	if UI.MotionLevel() ~= "off" then
+		spot.pulse:Play()
+	end
+end
+
+local function PaintSpot(button, e, item)
+	local on = spotlight ~= nil and not item.empty and ns.Bags_HoldsSlot(item, spotlight.bag, spotlight.slot)
+	if on and not e.spot then
+		e.spot = NewSpot(button)
+	end
+	if e.spot then
+		ShowSpot(e.spot, on)
+	end
+end
+
+-- Lights one bag slot (nil: none) in Tomte's bag window, or in Blizzard's bags while Tomte's are off.
+function ns.Bags_Spotlight(bag, slot)
+	local same = spotlight and bag and spotlight.bag == bag and spotlight.slot == slot
+	if same or (not spotlight and not bag) then
+		return
+	end
+	spotlight = bag and { bag = bag, slot = slot } or nil
+	if blizzSpot then
+		ShowSpot(blizzSpot, false)
+		blizzSpot = nil
+	end
+	if ns.Bags_Active() then
+		ns.BagsWindow_Refresh()
+	elseif bag and ContainerFrameUtil_GetItemButtonAndContainer then
+		local button = ContainerFrameUtil_GetItemButtonAndContainer(bag, slot)
+		if button then
+			blizzSpots[button] = blizzSpots[button] or NewSpot(button)
+			blizzSpot = blizzSpots[button]
+			ShowSpot(blizzSpot, true)
+		end
+	end
+end
+
 -- Paints a button for its record. opts: matches (false: faded by the search), free (the free-slot count an Empty
 -- slot shows, or nil), corners ([mark] = "TOPLEFT" | "TOPRIGHT" | "BOTTOMLEFT" | "BOTTOMRIGHT" | "off"), ilvlColor
 -- ("quality" | "plain"), fontSize, newGlow, greyJunk, redUnusable, context (fade items that don't fit the open
@@ -559,6 +634,7 @@ function ns.BagsButtons_Paint(button, item, opts)
 		e.bagIcon:Hide()
 		e.kindName = nil
 	end
+	PaintSpot(button, e, item)
 	button:SetMatchesSearch(opts.matches ~= false)
 	button:CheckUpdateTooltip(GameTooltip:GetOwner())
 	button:Show()

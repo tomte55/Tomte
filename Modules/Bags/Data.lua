@@ -627,6 +627,19 @@ function ns.Bags_Group(items)
 	return out
 end
 
+-- Whether a drawn record holds this bag slot: its own place, or one of the stacks a group merged into it.
+function ns.Bags_HoldsSlot(item, bag, slot)
+	if item.bag == bag and item.slot == slot and bag ~= nil then
+		return true
+	end
+	for _, place in ipairs(item.more or {}) do
+		if place.bag == bag and place.slot == slot then
+			return true
+		end
+	end
+	return false
+end
+
 -- The line a grouped item's tooltip adds: how it's split up, and how much more fits before it takes another bag slot.
 -- nil for what doesn't stack, or when the stack size isn't known yet.
 function ns.Bags_StackLine(count, stacks, maxStack)

@@ -76,6 +76,12 @@ local function ReadPlan()
 	return loot and ns.LootRoom_Plan(loot, read[loot]) or nil
 end
 
+-- The item the button would destroy, lit in the bags so it can be looked at first.
+local function Spotlight()
+	local target = plan and plan.kind == "destroy" and button and button:IsShown() and plan.target
+	ns.Bags_Spotlight(target and target.bag, target and target.slot)
+end
+
 local function Draw()
 	local isArmed = plan.kind == "destroy" and armedFor and armedFor.bag == plan.target.bag and armedFor.slot == plan.target.slot
 	button.label:SetText(ns.LootRoom_Text(plan, isArmed))
@@ -83,20 +89,26 @@ local function Draw()
 	button:SetWidth(math.max(window:GetWidth(), MIN_WIDTH))
 	button.label:SetWidth(button:GetWidth() - 2 * LABEL_PAD)
 	button:Show()
+	Spotlight()
+end
+
+local function HideButton()
+	if button then
+		button:Hide()
+	end
+	ns.Bags_Spotlight(nil)
 end
 
 local function Refresh()
 	if not (button and window and db.makeRoom) then
-		if button then
-			button:Hide()
-		end
+		HideButton()
 		return
 	end
 	plan = ReadPlan()
 	if plan then
 		Draw()
 	else
-		button:Hide()
+		HideButton()
 		armedFor = nil
 	end
 end
@@ -157,9 +169,16 @@ local function OnClick()
 	end
 end
 
+-- The item it would destroy, as the game shows it, then what Make room is.
 local function ShowTooltip(self)
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-	GameTooltip:SetText("Make room")
+	if plan and plan.kind == "destroy" then
+		GameTooltip:SetBagItem(plan.target.bag, plan.target.slot)
+		GameTooltip:AddLine(" ")
+		UI.TipLine("Make room", "heading")
+	else
+		GameTooltip:SetText("Make room")
+	end
 	if plan and plan.kind == "destroy" then
 		UI.TipLine(plan.confirm and "No grey junk left, so this one takes a second click." or "Grey junk, your cheapest.", "text", true)
 		UI.TipLine("Destroying can't be undone.", "warning")
@@ -182,6 +201,7 @@ local function Build(parent)
 	parent:HookScript("OnHide", function()
 		watcher:UnregisterAllEvents()
 		window, entries, plan, armedFor, pending = nil, nil, nil, nil, nil
+		ns.Bags_Spotlight(nil)
 	end)
 end
 
@@ -199,9 +219,7 @@ end))
 -- From the loot window, each time it draws. live: it's showing real loot that can be taken.
 function ns.LootRoom_Update(parent, live, lootEntries)
 	if not (db and db.makeRoom and live) then
-		if button then
-			button:Hide()
-		end
+		HideButton()
 		return
 	end
 	if not button then
