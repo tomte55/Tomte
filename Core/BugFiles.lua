@@ -193,6 +193,7 @@ ns.BUG_FILES = {
 	"Modules/Gear/Tooltip.lua",
 	"Modules/Gear/Hints.lua",
 	"Modules/Gear/Arrow.lua",
+	"Modules/Gear/Merchant.lua",
 	"Modules/Gear/Baganator.lua",
 	"Modules/Gear/Weights.lua",
 	"Modules/Gear/Gear.lua",

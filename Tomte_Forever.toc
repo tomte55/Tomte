@@ -179,6 +179,7 @@ Modules/Gear/Rewards.lua
 Modules/Gear/ForeverRules.lua
 Modules/Gear/ForeverItems.lua
 Modules/Gear/Arrow.lua
+Modules/Gear/Merchant.lua
 Modules/Gear/RewardCard.lua
 Modules/Gear/Forever.lua
 Modules/Counts/Data.lua

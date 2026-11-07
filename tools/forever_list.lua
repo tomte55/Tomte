@@ -30,6 +30,7 @@ return {
 		"Modules/Materials/Data.lua", "Modules/Materials/Materials.lua",
 		-- Gear Check's Forever version shares these with retail; the rest of its folder is retail's.
 		"Modules/Gear/Rules.lua", "Modules/Gear/Rewards.lua", "Modules/Gear/RewardCard.lua", "Modules/Gear/Arrow.lua",
+		"Modules/Gear/Merchant.lua",
 	},
 	drop = {},
 	extra = {
