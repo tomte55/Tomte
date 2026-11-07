@@ -28,6 +28,9 @@ local ICONS = {
 	reagents = "Interface\\Icons\\INV_Misc_Dust_02",
 	ammo = "Interface\\Icons\\INV_Ammo_Arrow_02",
 	kits = "Interface\\Icons\\INV_Misc_ArmorKit_17",
+	professions = "Interface\\Icons\\INV_Misc_Book_08",
+	dungeons = "Interface\\Icons\\INV_Misc_Key_03",
+	mount = "Interface\\Icons\\Ability_Mount_BlackDireWolf",
 }
 
 -- Trainer --------------------------------------------------------------------------------------------------------------
@@ -511,6 +514,89 @@ function ns.Leveling_XPView(xp, xpMax, rested, turnIn)
 	}
 end
 
+-- Professions, quests to hand in, the mount fund, dungeons ------------------------------------------------------------
+
+-- A profession's cap and the rank that lifts it: Classic's ranks and the levels they need (Journeyman 10, Expert 20,
+-- Artisan 35), not confirmed on Forever.
+local NEXT_RANK = { [75] = { "Journeyman", 10 }, [150] = { "Expert", 20 }, [225] = { "Artisan", 35 } }
+local MOUNT_FROM = 30 -- the level the mount fund shows from: ten levels to save before riding at 40
+local DUNGEON_NEAR = 3 -- levels outside a dungeon's range that still count as near (as Groups in chat's filter)
+
+-- Professions at their cap: { { name, skill, max, rank (the next rank's name), needLevel, ready } }. profs: { { name,
+-- skill, max } }.
+function ns.Leveling_ProfessionRanks(profs, level)
+	local list = {}
+	for _, p in ipairs(profs) do
+		local nextRank = NEXT_RANK[p.max]
+		if nextRank and p.skill >= p.max then
+			list[#list + 1] = { name = p.name, skill = p.skill, max = p.max, rank = nextRank[1], needLevel = nextRank[2],
+				ready = level >= nextRank[2] }
+		end
+	end
+	return list
+end
+
+-- "The Barrens: 2, Mulgore: 1": finished quests by the quest log heading they're under, most first. nil without any.
+function ns.Leveling_TurnInPlaces(quests)
+	local counts, order = {}, {}
+	for _, q in ipairs(quests) do
+		if q.zone then
+			if not counts[q.zone] then
+				order[#order + 1] = q.zone
+			end
+			counts[q.zone] = (counts[q.zone] or 0) + 1
+		end
+	end
+	if #order == 0 then
+		return nil
+	end
+	table.sort(order, function(a, b)
+		if counts[a] ~= counts[b] then
+			return counts[a] > counts[b]
+		end
+		return a < b
+	end)
+	local parts = {}
+	for i, zone in ipairs(order) do
+		parts[i] = ("%s: %d"):format(zone, counts[zone])
+	end
+	return table.concat(parts, ", ")
+end
+
+-- Saving for riding at 40: { goal, left (copper), hours (at perHour copper an hour, one decimal; nil without a pace or
+-- with nothing left) }, or nil below MOUNT_FROM, with a mount or with the goal (gold) set to 0.
+function ns.Leveling_MountFund(money, goalGold, level, mounts, perHour)
+	if not goalGold or goalGold <= 0 or level < MOUNT_FROM or (mounts or 0) > 0 then
+		return nil
+	end
+	local goal = goalGold * 10000
+	local left = math.max(goal - money, 0)
+	local hours = perHour and perHour > 0 and left > 0 and math.floor(left / perHour * 10 + 0.5) / 10 or nil
+	return { goal = goal, have = money, left = left, hours = hours }
+end
+
+-- Dungeons near your level with quests in your log (the log files them under the dungeon's name): { { name, min, max,
+-- quests } }, the most quests first.
+function ns.Leveling_DungeonsNear(dungeons, level, quests)
+	local counts = {}
+	for _, q in ipairs(quests) do
+		if q.zone then
+			counts[q.zone] = (counts[q.zone] or 0) + 1
+		end
+	end
+	local list = {}
+	for _, d in ipairs(dungeons) do
+		local n = counts[d.name] or 0
+		if n > 0 and level >= d.min - DUNGEON_NEAR and level <= d.max + DUNGEON_NEAR then
+			list[#list + 1] = { name = d.name, min = d.min, max = d.max, quests = n }
+		end
+	end
+	table.sort(list, function(a, b)
+		return a.quests > b.quests
+	end)
+	return list
+end
+
 -- To do --------------------------------------------------------------------------------------------------------------
 
 -- What's waiting, most useful first, and the checks that came up clean. s: { visited (the trainer list is saved), ready
@@ -530,7 +616,7 @@ function ns.Leveling_Checklist(s)
 			xp = xp + (q.xp or 0)
 		end
 		Add("turnIns", #names == 1 and "1 quest to turn in" or ("%d quests to turn in"):format(#names),
-			ns.Leveling_JoinNames(names, 2), "success", nil, xp > 0 and xp or nil)
+			ns.Leveling_TurnInPlaces(s.turnIns) or ns.Leveling_JoinNames(names, 2), "success", nil, xp > 0 and xp or nil)
 	end
 
 	if not s.visited then
@@ -579,6 +665,25 @@ function ns.Leveling_Checklist(s)
 		local count = #s.kit.empty
 		Add("kits", ("%s could take your %s"):format(count == 1 and "1 piece" or (count .. " pieces"), s.kit.kit.name or "armor kit"),
 			"Use the armor kit button: " .. ns.Leveling_KitPieces(s.kit.empty) .. ".")
+	end
+
+	for _, p in ipairs(s.professions or {}) do
+		local rank = ("%s %s"):format(p.rank, p.name)
+		Add("professions", ("%s is at %d/%d"):format(p.name, p.skill, p.max),
+			p.ready and ("Learn %s at its trainer."):format(rank) or ("%s needs level %d."):format(rank, p.needLevel),
+			p.ready and "success" or "textMuted")
+	end
+
+	for _, d in ipairs(s.dungeons or {}) do
+		Add("dungeons", ("%s: %d of your quests"):format(d.name, d.quests),
+			("Levels %d-%d. Groups in chat lists who's going."):format(d.min, d.max))
+	end
+
+	if s.mount then
+		Add("mount", ("Riding: %s saved"):format(s.mountText),
+			s.mount.left == 0 and "Enough for riding at level 40." or s.mountHours
+				and ("About %s at your usual gold per hour."):format(s.mountHours) or "At level 40 you can learn to ride.",
+			s.mount.left == 0 and "success" or "text")
 	end
 
 	return todo, #clean > 0 and ("All fine: " .. table.concat(clean, ", ")) or nil

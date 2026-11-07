@@ -200,13 +200,16 @@ function ns.LevelingRead_AmmoBags(item)
 	return bags
 end
 
--- The quest log: { { questID, title, level, difficulty, elite, complete, timeLeft, xp } }. xp is 0 until the game has the
--- quest's rewards.
+-- The quest log: { { questID, title, level, difficulty, elite, complete, timeLeft, xp, zone } }. xp is 0 until the game
+-- has the quest's rewards; zone is the heading it's under (a zone, or a dungeon's name for its quests).
 function ns.LevelingRead_Quests()
 	local list = {}
+	local heading
 	for i = 1, C_QuestLog.GetNumQuestLogEntries() do
 		local info = C_QuestLog.GetInfo(i)
-		if info and not info.isHeader and not info.isHidden and info.questID then
+		if info and info.isHeader then
+			heading = info.title
+		elseif info and not info.isHidden and info.questID then
 			local id = info.questID
 			local total, elapsed = C_QuestLog.GetTimeAllowed(id)
 			local xp = GetQuestLogRewardXP(id)
@@ -219,10 +222,64 @@ function ns.LevelingRead_Quests()
 				elite = C_QuestLog.IsEliteQuest(id),
 				complete = C_QuestLog.ReadyForTurnIn(id) or C_QuestLog.IsComplete(id),
 				timeLeft = total and elapsed and total > elapsed and total - elapsed or nil,
+				zone = heading,
 			}
 		end
 	end
 	return list
+end
+
+-- Your professions: { { name, skill, max } }.
+function ns.LevelingRead_Professions()
+	local list = {}
+	for _, index in pairs({ GetProfessions() }) do
+		local name, _, skill, max = GetProfessionInfo(index)
+		if name and skill and max then
+			list[#list + 1] = { name = name, skill = skill, max = max }
+		end
+	end
+	table.sort(list, function(a, b)
+		return a.name < b.name
+	end)
+	return list
+end
+
+-- How many mounts this character has (only "none or some" matters: the mount fund stops at the first). Once one is
+-- found it stays found for the session.
+local hasMount = false
+function ns.LevelingRead_Mounts()
+	if hasMount then
+		return 1
+	end
+	for _, id in ipairs(C_MountJournal.GetMountIDs() or {}) do
+		local isCollected = select(11, C_MountJournal.GetMountInfoByID(id))
+		if isCollected then
+			hasMount = true
+			return 1
+		end
+	end
+	return 0
+end
+
+-- This character's gold per hour over its kept sessions (Session recap's history), or nil without any.
+local function GoldPerHour()
+	local recap = ns.recapDB
+	if not (recap and recap.history and ns.Recap_HistoryFilter) then
+		return nil
+	end
+	local t = ns.Recap_HistoryTotals(ns.Recap_HistoryFilter(recap.history, "char", UnitGUID("player")))
+	return t.count > 0 and t.perHour or nil
+end
+
+-- The mount fund (Leveling_MountFund) and its words: fund, "47g of 100g", "10h 36m" (nil without a pace).
+local function MountFund(db, level)
+	local fund = ns.Leveling_MountFund(GetMoney(), db.mountGoal, level, ns.LevelingRead_Mounts(), GoldPerHour())
+	if not fund then
+		return nil
+	end
+	local text = ("%dg of %dg"):format(math.floor(fund.have / 10000), math.floor(fund.goal / 10000))
+	local hours = fund.hours and ns.Recap_Duration and ns.Recap_Duration(math.floor(fund.hours * 3600)) or nil
+	return fund, text, hours
 end
 
 -- The weapon skills this character has: { { name, rank, max, worn } }.
@@ -254,7 +311,11 @@ function ns.LevelingRead_State()
 	local quests = ns.LevelingRead_Quests()
 	local groups = ns.Leveling_SortQuests(quests)
 	local needs, count = ns.LevelingRead_Ammo()
+	local mount, mountText, mountHours = MountFund(db, level)
 	local todo, fine = ns.Leveling_Checklist({
+		professions = ns.Leveling_ProfessionRanks(ns.LevelingRead_Professions(), level),
+		dungeons = ns.Leveling_DungeonsNear(ns.Content_Get(ns.CONTENT_FOREVER, "dungeons") or {}, level, quests),
+		mount = mount, mountText = mountText, mountHours = mountHours,
 		visited = services ~= nil,
 		ready = ready,
 		talents = ns.LevelingRead_UnspentTalents(),

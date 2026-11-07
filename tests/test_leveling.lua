@@ -488,4 +488,73 @@ test("Every quest group has its colors", function()
 	end
 end)
 
+test("ProfessionRanks: a profession at its cap, the next rank and the level it needs", function()
+	local profs = { { name = "Skinning", skill = 75, max = 75 }, { name = "Mining", skill = 60, max = 75 },
+		{ name = "Cooking", skill = 150, max = 150 }, { name = "First Aid", skill = 300, max = 300 } }
+	local list = ns.Leveling_ProfessionRanks(profs, 16)
+	eq(#list, 2)
+	eq(list[1].name, "Skinning")
+	eq(list[1].rank, "Journeyman")
+	eq(list[1].ready, true)
+	eq(list[2].rank, "Expert")
+	eq(list[2].needLevel, 20)
+	eq(list[2].ready, false, "level 16 is too low for Expert")
+end)
+
+test("Checklist: capped professions, ready ones first", function()
+	local todo = ns.Leveling_Checklist({ visited = true, ready = {}, oldRanks = {}, reagents = {}, turnIns = {},
+		professions = ns.Leveling_ProfessionRanks({ { name = "Skinning", skill = 75, max = 75 } }, 16) })
+	eq(todo[1].key, "professions")
+	eq(todo[1].text, "Skinning is at 75/75")
+	eq(todo[1].sub, "Learn Journeyman Skinning at its trainer.")
+	local waiting = ns.Leveling_Checklist({ visited = true, ready = {}, oldRanks = {}, reagents = {}, turnIns = {},
+		professions = ns.Leveling_ProfessionRanks({ { name = "Cooking", skill = 150, max = 150 } }, 16) })
+	eq(waiting[1].sub, "Expert Cooking needs level 20.")
+end)
+
+test("TurnInPlaces: finished quests counted by their quest log zone", function()
+	eq(ns.Leveling_TurnInPlaces({ { zone = "The Barrens" }, { zone = "Mulgore" }, { zone = "The Barrens" }, {} }),
+		"The Barrens: 2, Mulgore: 1")
+	eq(ns.Leveling_TurnInPlaces({}), nil)
+	local todo = ns.Leveling_Checklist({ visited = true, ready = {}, oldRanks = {}, reagents = {},
+		turnIns = { { title = "A", zone = "The Barrens" }, { title = "B", zone = "Mulgore" } } })
+	eq(todo[1].sub, "Mulgore: 1, The Barrens: 1", "where to go, rather than the names; a tie goes by name")
+end)
+
+test("Checklist: the mount fund and dungeons with your quests", function()
+	local todo = ns.Leveling_Checklist({ visited = true, ready = {}, oldRanks = {}, reagents = {}, turnIns = {},
+		mount = ns.Leveling_MountFund(470000, 100, 30, 0, 50000), mountText = "47g of 100g", mountHours = "11h",
+		dungeons = { { name = "Wailing Caverns", min = 17, max = 24, quests = 2 } } })
+	local keys = {}
+	for _, item in ipairs(todo) do
+		keys[item.key] = item
+	end
+	eq(keys.mount.text, "Riding: 47g of 100g saved")
+	eq(keys.mount.sub, "About 11h at your usual gold per hour.")
+	eq(keys.dungeons.text, "Wailing Caverns: 2 of your quests")
+	eq(keys.dungeons.sub, "Levels 17-24. Groups in chat lists who's going.")
+end)
+
+test("MountFund: saved, still to go and how long at your pace", function()
+	local f = ns.Leveling_MountFund(470000, 100, 30, 0, 50000)
+	eq(f.goal, 1000000)
+	eq(f.left, 530000)
+	eq(f.hours, 10.6)
+	eq(ns.Leveling_MountFund(470000, 100, 29, 0, 50000), nil, "below level 30")
+	eq(ns.Leveling_MountFund(470000, 100, 35, 1, 50000), nil, "has a mount")
+	eq(ns.Leveling_MountFund(470000, 0, 35, 0, 50000), nil, "goal off")
+	eq(ns.Leveling_MountFund(1200000, 100, 35, 0, 50000).left, 0)
+	eq(ns.Leveling_MountFund(470000, 100, 35, 0, 0).hours, nil, "no pace yet")
+end)
+
+test("DungeonsNear: dungeons around your level with quests in your log", function()
+	local dungeons = { { key = "rfc", name = "Ragefire Chasm", min = 13, max = 18 },
+		{ key = "wc", name = "Wailing Caverns", min = 17, max = 24 }, { key = "sfk", name = "Shadowfang Keep", min = 22, max = 30 } }
+	local quests = { { zone = "Wailing Caverns" }, { zone = "Wailing Caverns" }, { zone = "Shadowfang Keep" }, { zone = "Mulgore" } }
+	local near = ns.Leveling_DungeonsNear(dungeons, 16, quests)
+	eq(#near, 1, "Shadowfang Keep is too far ahead")
+	eq(near[1].name, "Wailing Caverns")
+	eq(near[1].quests, 2)
+end)
+
 H.done()

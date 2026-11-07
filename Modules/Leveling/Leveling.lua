@@ -77,6 +77,33 @@ local function LevelReport()
 	ns.LevelingPage_Refresh()
 end
 
+-- Professions at their cap with the next rank ready to learn, toasted once each. The first read only notes what's
+-- there, so a login doesn't toast what was already waiting.
+local profsKnown
+
+local function CheckProfessions()
+	if not module.active then
+		return
+	end
+	local known, fresh = {}, {}
+	for _, p in ipairs(ns.Leveling_ProfessionRanks(ns.LevelingRead_Professions(), UnitLevel("player"))) do
+		if p.ready then
+			local key = p.name .. p.max
+			known[key] = true
+			if profsKnown and not profsKnown[key] then
+				fresh[#fresh + 1] = p
+			end
+		end
+	end
+	profsKnown = known
+	if db.professions then
+		for _, p in ipairs(fresh) do
+			Toast("Professions", ("%s is at %d/%d"):format(p.name, p.skill, p.max),
+				("Learn %s %s at its trainer to keep skilling up."):format(p.rank, p.name))
+		end
+	end
+end
+
 -- Bars and supplies ----------------------------------------------------------------------------------------------------
 
 local function CheckRanks(bars)
@@ -217,10 +244,14 @@ end)
 
 function events:PLAYER_ENTERING_WORLD()
 	check()
+	CheckProfessions()
 end
 
 function events:PLAYER_LEVEL_UP()
-	C_Timer.After(LEVEL_DELAY, LevelReport)
+	C_Timer.After(LEVEL_DELAY, function()
+		LevelReport()
+		CheckProfessions()
+	end)
 	check()
 end
 
@@ -259,6 +290,7 @@ function events:MERCHANT_CLOSED()
 end
 
 function events:SKILL_LINES_CHANGED()
+	CheckProfessions()
 	ns.LevelingPage_Refresh()
 end
 
@@ -340,6 +372,8 @@ module = ns.RegisterModule({
 		ammoAuto = false,
 		reagents = true,
 		reagentLow = 5,
+		professions = true, -- a toast when a profession's next rank can be learned
+		mountGoal = 100, -- gold to save for riding at 40 (Classic's price, not confirmed on Forever); 0 hides it
 		chars = {}, -- [player GUID] = { services = { { name, rank, level, cost } } } from the last class trainer visit
 	},
 	keep = { "chars" },
@@ -397,6 +431,17 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "talents", label = "Talent points to spend" },
 		{ type = "checkbox", key = "ranks", label = "Old ranks on your bars",
 			tooltip = "A toast when a spell on your bars has a higher rank you know. Tomte names it; you drag the new one on." },
+		{ type = "checkbox", key = "professions", label = "Profession ranks to learn",
+			tooltip = "A toast when a profession reaches its cap (75, 150 or 225) and you're high enough for the next rank. Also a row under To do." },
+		{ type = "header", label = "Mount fund" },
+		{ type = "slider", key = "mountGoal", label = "Save for riding", min = 0, max = 300, step = 10,
+			format = function(v)
+				return v == 0 and "Off" or (v .. "g")
+			end, onChange = function()
+				ns.LevelingPage_Refresh()
+				ns.Panel_Refresh()
+			end,
+			tooltip = "From level 30 until you have a mount, a row under To do says how much you've saved and how long the rest takes at your usual gold per hour (Session recap's history). 100g is what riding and a mount cost in Classic; set what it costs you." },
 		{ type = "header", label = "Supplies" },
 		{ type = "checkbox", key = "armorKit", label = "Armor kit button", onChange = function()
 			ns.LevelingKit_Update()
