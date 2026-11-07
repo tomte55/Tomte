@@ -207,6 +207,14 @@ test("ammo state", function()
 	eq(ns.Leveling_AmmoState(true, 101, 100), "ok")
 end)
 
+test("CaresAboutAmmo: hunters always, other classes only with ammo loaded", function()
+	eq(ns.Leveling_CaresAboutAmmo("HUNTER", false), true)
+	eq(ns.Leveling_CaresAboutAmmo("HUNTER", true), true)
+	eq(ns.Leveling_CaresAboutAmmo("ROGUE", false), false, "a rogue with a bow and no arrows")
+	eq(ns.Leveling_CaresAboutAmmo("WARRIOR", true), true, "a warrior who loaded bullets")
+	eq(ns.Leveling_CaresAboutAmmo(nil, false), false)
+end)
+
 test("PickAmmo: the right kind, the best you can use and afford", function()
 	local items = {
 		{ index = 1, classID = PROJECTILE, subclassID = ARROW, minLevel = 1, price = 10 },

@@ -162,6 +162,13 @@ function ns.Leveling_AmmoFor(weaponSubclass)
 	return AMMO_FOR[weaponSubclass]
 end
 
+-- Whether the ammo helpers care about this character. Any class with a bow or gun "uses ammo" to the game, but only
+-- hunters live on it; a rogue or warrior counts only while they keep ammo loaded, so an empty slot never nags them.
+-- classFile: UnitClass's second return ("HUNTER").
+function ns.Leveling_CaresAboutAmmo(classFile, loaded)
+	return classFile == "HUNTER" or loaded == true
+end
+
 -- "none" | "low" | "ok", nil when this character doesn't use ammo.
 function ns.Leveling_AmmoState(needs, count, low)
 	if not needs then

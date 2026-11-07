@@ -65,6 +65,9 @@ function ns.LevelingRead_Ammo()
 	-- pcall: the API errors on a slot name the client doesn't know.
 	local ok, slot = pcall(GetInventorySlotInfo, "AmmoSlot")
 	local count = ok and slot and GetInventoryItemCount("player", slot) or 0
+	if not ns.Leveling_CaresAboutAmmo(select(2, UnitClass("player")), count > 0) then
+		return false, 0, nil
+	end
 	local rangedOK, ranged = pcall(GetInventorySlotInfo, "RangedSlot")
 	local weapon = rangedOK and ranged and GetInventoryItemID("player", ranged)
 	local subclass = weapon and select(7, C_Item.GetItemInfoInstant(weapon))

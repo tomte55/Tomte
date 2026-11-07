@@ -404,7 +404,7 @@ module = ns.RegisterModule({
 		end, tooltip = "Shows while you carry an armor kit and gear it fits has nothing on it. One click puts the best kit you can use on that piece. It never offers a piece with an enchant or kit on it. Also a line on the kit's tooltip and a row under To do. Blizzard's Edit Mode moves it." },
 		{ type = "checkbox", key = "ammoCounter", label = "Ammo counter on screen", onChange = function()
 			ns.LevelingAmmo_Update()
-		end, tooltip = "Your full ammo count, past the 999 the game's quiver stops at. Hover it for every ammo you carry, and click it to equip the next one. Shows while you have a bow, gun or crossbow. Blizzard's Edit Mode moves it." },
+		end, tooltip = "Your full ammo count, past the 999 the game's quiver stops at. Hover it for every ammo you carry, and click it to equip the next one. Shows while you have a bow, gun or crossbow: always on a hunter, and on other classes only while ammo is loaded. Blizzard's Edit Mode moves it." },
 		{ type = "checkbox", key = "ammo", label = "Ammo warning", onChange = check },
 		{ type = "slider", key = "ammoLow", label = "Warn at", min = 20, max = 400, step = 20, parent = "ammo",
 			onChange = check },
