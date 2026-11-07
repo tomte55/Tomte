@@ -17,6 +17,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
 - **Alts:** friends' crafting: with Friend sharing, your friends' characters show on the Crafting tab, and you can ask them for a craft. They accept it from the new Craft requests list, a request to an offline friend waits until you're both online, and the mailbox attaches the materials and the finished craft with one click each.
+- **Gear Check:** on Forever, roll advice: a card beside each group loot roll says need, greed or pass and why, with that button lit. Gear a few levels ahead of you, or a weapon type a trainer can still teach you, is judged as if you had them, and recipes you can learn and bigger bags are a need. `/tomte gear roll` tries it on any item.
+- **Groups in chat:** a toast when someone in chat groups for a quest you still have to do; click it to whisper them.
 
 ### Improved
 
@@ -28,6 +30,10 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Gear Check:** a vendor's items get the same upgrade arrow as your bags.
 - **Where to get it:** leather and hides now show up, with the zones to skin beasts of the right level in, your level first, and a map pin for each. Item tooltips say where to skin them too.
 - **Where to get it:** every vendor of an item is listed, not just a few, including neutral ones such as Booty Bay's. The zone you're in comes first, then your side's lands.
+- **Eat and drink:** low on mana, the button shows your drink and a press drinks first; the next press eats.
+- **Gear Check:** an upgrade toast goes away when you equip the item yourself from your bags.
+- **Gear Check:** on Forever, a red weapon or armor type says why: a weapon skill a trainer can teach you, one your class can't use, or armor you can wear from level 40.
+- **Groups in chat:** a quest link with "one more", "anyone for" and the like counts as someone grouping for that quest.
 
 ### Fixed
 
@@ -38,6 +44,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Whispers:** a community invite clicked in the whisper inbox no longer causes an error; it says to click it in the chat window.
 - **Eat and drink:** after reviving, the button no longer says "No food" with food in your bags.
 - **Gear Check:** on Forever, a bow, gun or melee weapon with a stat you don't use is judged by its damage, not called "wrong main stat".
+- **Gear Check:** on Forever, "+Attack Power" on gear counts, so such an item is no longer called a downgrade of -100%.
+- **Loot:** on Forever, with several items that don't fit, Make room picks the most valuable one, not one with an appearance you haven't collected.
 - **Bags:** picking up more of something you carry marks only the stack it went onto as new, not every stack of it.
 
 ## v1.30.0 - 2026-11-06
