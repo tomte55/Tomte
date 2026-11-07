@@ -20,6 +20,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 ### Improved
 
 - **Where to get it:** leather and hides now show up, with the zones to skin beasts of the right level in, your level first, and a map pin for each. Item tooltips say where to skin them too.
+- **Where to get it:** every vendor of an item is listed, not just a few, including neutral ones such as Booty Bay's. The zone you're in comes first, then your side's lands.
 
 ### Fixed
 

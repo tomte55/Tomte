@@ -94,6 +94,26 @@ test("Sort: what's on your side", function()
 	eq(#ns.Sources_Sort(only, 6, "Horde").buy, 0, "that vendor won't sell to you")
 	eq(#ns.Sources_Sort(only, 6, "Alliance").buy, 1)
 	eq(#ns.Sources_Sort(ns.Sources_Read(DATA, 1), 6, "Alliance").gather, 1)
+	local neutral = { { kind = "vendor", id = 1, friendly = "", low = 1, high = 1 } }
+	eq(#ns.Sources_Sort(neutral, 6, "Horde").buy, 1, "a neutral vendor (Booty Bay) sells to both")
+end)
+
+test("Sort: vendors in your zone first, then your side's lands, then by zone", function()
+	local vendors = {
+		{ kind = "vendor", id = 1, friendly = "H", zone = 33, zoneName = "Stranglethorn Vale", low = 1, high = 1 },
+		{ kind = "vendor", id = 2, friendly = "H", zone = 17, zoneName = "The Barrens", low = 1, high = 1 },
+		{ kind = "vendor", id = 3, friendly = "H", zone = 1637, zoneName = "Orgrimmar", low = 1, high = 1 },
+		{ kind = "vendor", id = 4, friendly = "", zone = 33, zoneName = "Stranglethorn Vale", low = 1, high = 1 },
+		{ kind = "vendor", id = 5, friendly = "H", zone = 14, zoneName = "Durotar", low = 1, high = 1 },
+	}
+	local buy = ns.Sources_Sort(vendors, 10, "Horde", "The Barrens").buy
+	local ids = {}
+	for i, row in ipairs(buy) do
+		ids[i] = row.id
+	end
+	eq(table.concat(ids, ","), "2,5,3,1,4", "here, then Durotar and Orgrimmar, then the rest by zone")
+	buy = ns.Sources_Sort(vendors, 10, "Horde").buy
+	eq(buy[1].id, 5, "nowhere known: your side's lands first")
 end)
 
 test("Near", function()

@@ -152,16 +152,18 @@ local function Faction(faction)
 	return faction == "Alliance" and "A" or (faction == "Horde" and "H" or nil)
 end
 
--- The sources sorted for this character: { buy, gather, drops, skin }. Only vendors who'd sell to you, and no mobs on your side.
--- Drops and zones to skin in: near your level first, your side's lands before the other's, the best place to farm first; then the
--- ones above you by level and last the ones far below. A zone to skin in counts its creatures (its spawns), a drop its chance too.
-function ns.Sources_Sort(rows, level, faction)
+-- The sources sorted for this character: { buy, gather, drops, skin }. Only vendors who'd sell to you (your side's, or a neutral
+-- one, such as Booty Bay's), and no mobs on your side. Vendors: the zone you're in (here: its name) first, then your side's lands,
+-- then the rest, by zone name. Drops and zones to skin in: near your level first, your side's lands before the other's, the best
+-- place to farm first; then the ones above you by level and last the ones far below. A zone to skin in counts its creatures (its
+-- spawns), a drop its chance too.
+function ns.Sources_Sort(rows, level, faction, here)
 	local letter = Faction(faction)
 	local buy, gather, drops, skin = {}, {}, {}, {}
 	for _, row in ipairs(rows) do
 		local onYourSide = letter ~= nil and (row.friendly or ""):find(letter, 1, true) ~= nil
 		if row.kind == "vendor" then
-			if onYourSide or letter == nil then
+			if onYourSide or letter == nil or (row.friendly or "") == "" then
 				buy[#buy + 1] = row
 			end
 		elseif row.kind == "object" then
@@ -204,7 +206,20 @@ function ns.Sources_Sort(rows, level, faction)
 		end
 		return a.id < b.id
 	end)
+	local function Where(row)
+		if here and row.zoneName == here then
+			return 1
+		end
+		return SIDE_ZONES[row.zone] == letter and 2 or 3
+	end
 	table.sort(buy, function(a, b)
+		local x, y = Where(a), Where(b)
+		if x ~= y then
+			return x < y
+		end
+		if (a.zoneName or "") ~= (b.zoneName or "") then
+			return (a.zoneName or "") < (b.zoneName or "")
+		end
 		return a.id < b.id
 	end)
 	return { buy = buy, gather = gather, drops = drops, skin = skin }

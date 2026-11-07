@@ -17,8 +17,33 @@ function ns.Sources_Tables()
 		skinned = ns.SOURCES_SKINNED }
 end
 
+-- The zone you're in, as the table names it (English), for vendors there first: the map's name is in the client's language, so
+-- it's matched against each zone's own localized name. Item tooltips ask often: kept until you're on another map.
+local hereMap, hereName
+local function HereZone()
+	local mapID = C_Map.GetBestMapForUnit("player")
+	if mapID == hereMap then
+		return hereName
+	end
+	hereMap, hereName = mapID, nil
+	local info = mapID and C_Map.GetMapInfo(mapID)
+	while info and info.mapType > Enum.UIMapType.Zone and info.parentMapID ~= 0 do
+		info = C_Map.GetMapInfo(info.parentMapID) -- a city district or cave: the zone it's in
+	end
+	if info then
+		for areaID, english in pairs(ns.SOURCES_ZONES) do
+			if (C_Map.GetAreaInfo and C_Map.GetAreaInfo(areaID) or english) == info.name then
+				hereName = english
+				break
+			end
+		end
+	end
+	return hereName
+end
+
 function ns.Sources_ForMe(itemID)
-	return ns.Sources_Sort(ns.Sources_Read(ns.Sources_Tables(), itemID), UnitLevel("player"), (UnitFactionGroup("player")))
+	return ns.Sources_Sort(ns.Sources_Read(ns.Sources_Tables(), itemID), UnitLevel("player"), (UnitFactionGroup("player")),
+		HereZone())
 end
 
 local function BuildZoneMaps()

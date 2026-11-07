@@ -94,7 +94,7 @@ local function DrawItem(width)
 	header:Set(C_Item.GetItemIconByID(selected), name, "heading", "Back to the search", "accent", "")
 	y = y + Kit.ROW2_H + PAD
 	local sorted = ns.Sources_ForMe(selected)
-	y = Places(sorted.buy, "Buy it", nil, y, width, function()
+	y = Places(sorted.buy, "Buy it", #sorted.buy > 1 and "Where you are first, then your side's lands" or nil, y, width, function()
 		return nil
 	end)
 	y = Places(sorted.gather, "Gather or find it", nil, y, width, function(source)

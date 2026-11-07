@@ -19,7 +19,7 @@ BAND = 10  # levels: the drops kept are the best in each band of mob levels, so 
 PER_ZONE = 2  # in each band, the best this many in each zone, so each side of the world finds some
 PER_BAND = 12
 SPAWNS_COUNTED = 10  # as Sources_Score in Modules/Sources/Data.lua
-MAX_VENDORS = 12
+MAX_VENDORS = 200  # every vendor: the page keeps those who'd sell to you, and a cap by ID left mostly one side's (Salt: 3 of 78 for Horde)
 MAX_OBJECTS = 12
 MIN_CHANCE = 0.5  # percent: rarer world drops aren't a way to get something. An item with nothing better keeps its best.
 
