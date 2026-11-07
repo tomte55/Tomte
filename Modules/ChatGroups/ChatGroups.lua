@@ -10,6 +10,7 @@ local MAX_AGE = 600 -- seconds a message stays on the list: an older group has f
 local PRUNE_EVERY = 30 -- seconds, so ages and old messages move while the page is open
 local TOAST_AGAIN = 300 -- seconds before the same person's same dungeon can toast again
 local TOAST_HOLD = 8
+local QUEST_TOAST_HOLD = 15 -- seconds: long enough to decide and click to whisper
 
 local module, db, ticker
 local list = {}
@@ -41,6 +42,37 @@ local function Toast(entry)
 		text = ("%s: %s"):format(entry.name, ns.ChatGroups_RoleText(entry)), icon = ICON, hold = TOAST_HOLD })
 end
 
+-- The unfinished quests in your log, for ChatGroups_YourQuest. Read when a message links a quest, which isn't often.
+local function MyQuests()
+	local mine = { byID = {}, byName = {} }
+	for i = 1, C_QuestLog.GetNumQuestLogEntries() do
+		local info = C_QuestLog.GetInfo(i)
+		if info and not info.isHeader and info.questID
+			and not (C_QuestLog.ReadyForTurnIn(info.questID) or C_QuestLog.IsComplete(info.questID)) then
+			mine.byID[info.questID] = true
+			if info.title then
+				mine.byName[info.title:lower()] = true
+			end
+		end
+	end
+	return mine
+end
+
+-- Someone in chat is grouping for a quest you still have to do: click to whisper them.
+local function QuestToast(entry)
+	local key = entry.sender .. ":quest:" .. (entry.questID or entry.quest)
+	if time() - (toasted[key] or 0) < TOAST_AGAIN then
+		return
+	end
+	toasted[key] = time()
+	local sender = entry.sender
+	ns.Toast_Show({ owner = "chatgroups", label = "Your quest in chat", title = entry.quest,
+		text = ("%s: %s. Click to whisper."):format(entry.name, ns.ChatGroups_RoleText(entry)), icon = ICON,
+		hold = QUEST_TOAST_HOLD, onClick = function()
+			ns.Chat_SendTell(sender)
+		end })
+end
+
 function events:CHAT_MSG_CHANNEL(text, sender, _, _, _, _, _, _, _, _, _, guid)
 	if not ns.Readable(text, sender, guid) then
 		return -- chat lockdown
@@ -59,7 +91,9 @@ function events:CHAT_MSG_CHANNEL(text, sender, _, _, _, _, _, _, _, _, _, guid)
 	end
 	ns.ChatGroups_Add(list, entry)
 	ns.ChatGroupsPage_Refresh()
-	if db.toast and entry.kind == "group" and ns.ChatGroups_Near(byKey[entry.dungeon], UnitLevel("player")) then
+	if db.questToast and entry.quest and not entry.dungeon and ns.ChatGroups_YourQuest(entry, MyQuests()) then
+		QuestToast(entry)
+	elseif db.toast and entry.kind == "group" and ns.ChatGroups_Near(byKey[entry.dungeon], UnitLevel("player")) then
 		Toast(entry)
 	end
 end
@@ -103,6 +137,7 @@ module = ns.RegisterModule({
 		kind = "all", -- the page's filter: "all", "group" or "player"
 		near = true, -- the page's filter: only dungeons near your level
 		toast = false,
+		questToast = true, -- a toast when someone groups for a quest you still have to do
 	},
 	home = {
 		{ kind = "page", key = "chatgroups", order = 7, name = "Groups in chat", icon = ICON, page = ns.ChatGroupsPage,
@@ -137,5 +172,7 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Groups in chat" },
 		{ type = "checkbox", key = "toast", label = "Toast for groups near my level",
 			tooltip = "A toast when a group in chat asks for people for a dungeon near your level." },
+		{ type = "checkbox", key = "questToast", label = "Toast for my quests",
+			tooltip = "A toast when someone in chat groups for a quest you still have to do. Click it to whisper them." },
 	},
 })

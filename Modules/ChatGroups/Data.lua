@@ -13,6 +13,11 @@ local FOR_MEMBERS = { "lfm", "lf1m", "lf2m", "lf3m", "lf4m", "need", "needs", "l
 local FOR_GROUP = { "lfg", "lf group", "looking for group", "looking for a group" }
 -- Enough without a dungeon named: a quest group, say. "need" and a plain "lf" aren't: "need a drink", "lf enchanter".
 local PLAIN_ASKING = { "lfm", "lf1m", "lf2m", "lf3m", "lf4m", "lfg", "lf group", "looking for group", "looking for a group" }
+-- With a quest linked, looser asking is enough: "[WANTED: Kesha] one more", "anyone for [The Escape]?". The first list is a
+-- group wanting people, the second someone wanting to be taken along.
+local QUEST_FOR_MEMBERS = { "one more", "1 more", "two more", "2 more", "three more", "3 more", "anyone", "any one", "anybody",
+	"any body", "need", "needs", "group", "grp", "lf", "help", "join" }
+local QUEST_FOR_GROUP = { "inv me", "invite me", "inv for", "inv pls", "inv plz", "can i join" }
 local ROLE_WORDS = {
 	tank = { "tank", "tanks" },
 	heal = { "heal", "heals", "healer", "healers", "healz" },
@@ -61,10 +66,10 @@ local function SaysMore(words)
 	return rest:find("%w") ~= nil
 end
 
--- The quest a message links: name, level (nil when it doesn't say). A real quest link, or its text as Forever's chat shows it:
--- "[[12] Hallkor's Hoof (96877)]".
+-- The quest a message links: name, level, ID (each nil when it doesn't say). A real quest link, or its text as Forever's chat
+-- shows it: "[[12] Hallkor's Hoof (96877)]".
 local function FindQuest(text)
-	local level, name = text:match("|Hquest:%d+:(%-?%d+)[^|]*|h%[(.-)%]|h")
+	local id, level, name = text:match("|Hquest:(%d+):(%-?%d+)[^|]*|h%[(.-)%]|h")
 	if not name then
 		name = text:match("%[(%[%d+%]%s*.-)%]")
 	end
@@ -75,9 +80,13 @@ local function FindQuest(text)
 	if inName then
 		level, name = inName, rest
 	end
+	local inText = name:match("%((%d+)%)$")
 	name = name:gsub("%s*%(%d+%)$", "")
 	level = tonumber(level)
-	return name ~= "" and name or nil, level and level > 0 and level or nil
+	if name == "" then
+		return nil
+	end
+	return name, level and level > 0 and level or nil, tonumber(id or inText)
 end
 
 -- What a message says, or nil if it isn't someone looking: { kind = "group" (a group wants people) | "player" (someone wants
@@ -92,7 +101,12 @@ function ns.ChatGroups_Parse(text, dungeons)
 		return nil
 	end
 	local dungeon = FindDungeon(words, dungeons)
-	if not dungeon and not (Find(words, PLAIN_ASKING) and SaysMore(words)) then
+	local quest, questLevel, questID = FindQuest(text)
+	local questKind
+	if quest then
+		questKind = Find(words, QUEST_FOR_GROUP) and "player" or Find(words, QUEST_FOR_MEMBERS) and "group" or nil
+	end
+	if not dungeon and not questKind and not (Find(words, PLAIN_ASKING) and SaysMore(words)) then
 		return nil
 	end
 	local roles = { tank = Find(words, ROLE_WORDS.tank) ~= nil, heal = Find(words, ROLE_WORDS.heal) ~= nil,
@@ -105,11 +119,22 @@ function ns.ChatGroups_Parse(text, dungeons)
 	elseif words:find(" lf ", 1, true) then
 		-- "lf tank for rfc" is a group wanting a role; "lf rfc" could be either, and most often is someone wanting a group.
 		kind = (roles.tank or roles.heal or roles.dps) and "group" or "player"
+	elseif questKind then
+		kind = questKind
 	else
 		return nil
 	end
-	local quest, questLevel = FindQuest(text)
-	return { kind = kind, dungeon = dungeon and dungeon.key, quest = quest, questLevel = questLevel, tank = roles.tank, heal = roles.heal, dps = roles.dps }
+	return { kind = kind, dungeon = dungeon and dungeon.key, quest = quest, questLevel = questLevel, questID = questID,
+		tank = roles.tank, heal = roles.heal, dps = roles.dps }
+end
+
+-- Whether an entry is about a quest you still have to do. mine: { byID = { [questID] = true }, byName = { [lowercase title]
+-- = true } } of the unfinished quests in your log. The ID decides when the message carries one: names repeat across factions.
+function ns.ChatGroups_YourQuest(entry, mine)
+	if entry.questID then
+		return mine.byID[entry.questID] == true
+	end
+	return entry.quest ~= nil and mine.byName[entry.quest:lower()] == true
 end
 
 -- Adds an entry { sender, at, ... } at the top: a sender's new message replaces the old one. The oldest fall off the end.
