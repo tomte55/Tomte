@@ -102,6 +102,16 @@ test("PickLoot: what's always wanted, then the most valuable", function()
 	eq(ns.LootRoom_PickLoot({}), nil)
 end)
 
+test("PickLoot: a new appearance doesn't beat more valuable loot", function()
+	local look = { slot = 1, quality = 2, sell = 5, quantity = 1, newLook = true }
+	local dear = { slot = 2, quality = 2, sell = 300, quantity = 1 }
+	eq(ns.LootRoom_PickLoot({ look, dear }).slot, 2)
+	local same = { slot = 3, quality = 2, sell = 5, quantity = 1 }
+	eq(ns.LootRoom_PickLoot({ same, look }).slot, 1, "at the same worth, the new look wins")
+	local free = { slot = 4, quality = 1, quantity = 1 }
+	eq(ns.LootRoom_PickLoot({ free, dear }).slot, 2, "no price isn't worth more than a price")
+end)
+
 test("Text says what will happen", function()
 	local loot = { name = "Linen", quality = 1, sell = 500, quantity = 1 }
 	local one = ns.LootRoom_Plan(loot, { grey(0, 1, 3) })
