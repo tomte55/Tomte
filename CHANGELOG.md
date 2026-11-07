@@ -12,6 +12,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ## Unreleased
 
+## v1.31.0 - 2026-11-08
+
 ### New
 
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
@@ -19,6 +21,10 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Alts:** friends' crafting: with Friend sharing, your friends' characters show on the Crafting tab, and you can ask them for a craft. They accept it from the new Craft requests list, a request to an offline friend waits until you're both online, and the mailbox attaches the materials and the finished craft with one click each.
 - **Gear Check:** on Forever, roll advice: a card beside each group loot roll says need, greed or pass and why, with that button lit. Gear a few levels ahead of you, or a weapon type a trainer can still teach you, is judged as if you had them, and recipes you can learn and bigger bags are a need. `/tomte gear roll` tries it on any item.
 - **Groups in chat:** a toast when someone in chat groups for a quest you still have to do; click it to whisper them.
+- **Gear Check:** on Forever, a blue arrow in your bags marks gear that will be an upgrade a few levels on or once a trainer teaches you its weapon type, and it's kept from junk selling and Make room. `is:later` finds it.
+- **Gear Check:** on Forever, the tooltip of a weapon you can still learn names who teaches it.
+- **Leveling:** on Forever, To do says when a profession is at its cap and its next rank can be learned (with a toast), where your finished quests are, which dungeons near your level have quests in your log, and from level 30 how much you've saved for riding at 40.
+- **Session recap:** the Sessions page shows the session going on now, and logs XP: levels gained in the list and a green bar in the chart, with XP per hour on the tooltip.
 
 ### Improved
 
@@ -34,6 +40,11 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Gear Check:** an upgrade toast goes away when you equip the item yourself from your bags.
 - **Gear Check:** on Forever, a red weapon or armor type says why: a weapon skill a trainer can teach you, one your class can't use, or armor you can wear from level 40.
 - **Groups in chat:** a quest link with "one more", "anyone for" and the like counts as someone grouping for that quest.
+- **Gear Check:** on Forever, spell damage, healing, crit, hit, defense and mana regen on gear count, so caster and healer gear is judged fairly.
+- **Gear Check:** on Forever, a hunter's melee weapon is judged as a stat stick: Agility, Stamina, attack power and crit, not its damage or item level.
+- **Gear Check:** a reason that won't go away ("wrong main stat", a type your class can't use) is named before the level an item needs.
+- **Loot:** while Make room is up, the item it would destroy glows in your bags, and hovering the button shows its tooltip.
+- **Session recap:** the Sessions chart has a legend and calmer colors, its tooltip numbers match the bars, and play nights read as blocks.
 
 ### Fixed
 
@@ -47,6 +58,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Gear Check:** on Forever, "+Attack Power" on gear counts, so such an item is no longer called a downgrade of -100%.
 - **Loot:** on Forever, with several items that don't fit, Make room picks the most valuable one, not one with an appearance you haven't collected.
 - **Bags:** picking up more of something you carry marks only the stack it went onto as new, not every stack of it.
+- **Flight coverage:** on Forever, it finds the flight masters, each in its own zone and only your side's, instead of "No flight masters found".
 
 ## v1.30.0 - 2026-11-06
 

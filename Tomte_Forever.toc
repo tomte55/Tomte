@@ -2,7 +2,7 @@
 ## Title: Tomte
 ## Notes: Your gear, your week, your alts, gold, travel and collecting in one window, with a cinematic touch.
 ## Author: tomte55
-## Version: 1.31.0-beta.4
+## Version: 1.31.0
 ## X-Tomte-Flavor: forever
 ## IconTexture: Interface\AddOns\Tomte\Media\Logo
 ## SavedVariables: TomteDB

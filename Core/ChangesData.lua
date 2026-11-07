@@ -10,6 +10,25 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.31.0", date = "2026-11-08",
+		new = {
+			{ module = "alts", text = "With Friend sharing, your friends' crafters show on the Crafting tab: ask them "
+				.. "for a craft, and the mailbox sends the materials and the finished craft." },
+			{ module = "gear", text = "On Forever: need, greed or pass beside each group loot roll, and a blue arrow on "
+				.. "gear that will be an upgrade a few levels on." },
+			{ module = "leveling", text = "On Forever: profession ranks to learn, where your quests turn in, dungeons "
+				.. "with your quests and a mount fund for level 40." },
+		},
+		improved = {
+			{ module = "gear", text = "On Forever: caster stats, attack power and a hunter's stat stick count, and "
+				.. "weapon skills name their trainer." },
+			{ module = "recap", text = "The Sessions page shows the session going on now and logs your XP." },
+		},
+		fixed = {
+			{ module = "flight", text = "On Forever: Flight coverage finds the flight masters." },
+		},
+	},
+	{
 		version = "1.30.0", date = "2026-11-06",
 		new = {
 			{ module = "sources", text = "On Forever: type any item's name to see who sells it, what it's gathered "
