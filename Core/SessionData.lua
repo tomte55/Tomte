@@ -62,6 +62,33 @@ function ns.Session_WarbandMoved(session, delta)
 	session.money = (session.money or 0) - delta
 end
 
+-- XP points earned (session.xpGained), from each read of the bar: xp into level of max. A ding adds what was left of
+-- the old level. Right after a ding UnitLevel can still say the old level while the bar has gone round: that read
+-- counts the ding already (dinged), so the level catching up doesn't count it again. The first read in a session only
+-- notes where the bar is.
+function ns.Session_AddXP(session, xp, max, level)
+	local last = session.xpRead
+	local dinged = false
+	if last then
+		local gained
+		if level == last.level then
+			if xp >= last.xp then
+				gained = xp - last.xp
+				dinged = last.dinged == true
+			else
+				gained = (last.max - last.xp) + xp
+				dinged = true
+			end
+		elseif level == last.level + 1 then
+			gained = last.dinged and xp - last.xp or (last.max - last.xp) + xp
+		end
+		if gained and gained > 0 then
+			session.xpGained = (session.xpGained or 0) + gained
+		end
+	end
+	session.xpRead = { xp = xp, max = dinged and last.max or max, level = level, dinged = dinged or nil }
+end
+
 -- Time per zone: the session moves to `zone` at `now`.
 function ns.Session_ZoneTick(session, zone, now)
 	session.zones = session.zones or {}

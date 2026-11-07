@@ -11,12 +11,7 @@ local FULL = 5 -- newest copies that keep the whole log and the loot list
 local MIN_SECONDS = 120
 local KEEP_HIGHLIGHTS = 8
 
--- The copy kept for a finished session, or nil when it's too short. extra = { zone, lootValue, lootBy }.
-function ns.Recap_Compact(session, extra)
-	local endAt = session.seen or session.start
-	if not session.start or endAt - session.start < MIN_SECONDS then
-		return nil
-	end
+local function Copy(session, endAt, moneyNow, extra)
 	local log = {}
 	for i, e in ipairs(session.log or {}) do
 		log[i] = e
@@ -25,13 +20,34 @@ function ns.Recap_Compact(session, extra)
 	return {
 		guid = session.guid, name = session.name, class = session.class,
 		start = session.start, seen = endAt,
-		money = session.money, moneyNow = session.moneyNow,
+		money = session.money, moneyNow = moneyNow,
 		level = session.level, levelNow = session.levelNow, xpFraction = session.xpFraction, xpNow = session.xpNow,
 		gold = session.gold, log = log, loot = session.loot,
 		counts = ns.Recap_Counts(session.log or {}),
 		zone = extra and extra.zone, lootValue = extra and extra.lootValue, lootBy = extra and extra.lootBy,
 		gather = session.gather, -- { runs, nodes, value } from the Gathering module
+		xpGained = session.xpGained, -- XP points (Session_AddXP); nil for sessions from before it was counted
 	}
+end
+
+-- The copy kept for a finished session, or nil when it's too short. extra = { zone, lootValue, lootBy }.
+function ns.Recap_Compact(session, extra)
+	local endAt = session.seen or session.start
+	if not session.start or endAt - session.start < MIN_SECONDS then
+		return nil
+	end
+	return Copy(session, endAt, session.moneyNow, extra)
+end
+
+-- The session going on now as the Sessions page shows it (live = true): up to now, with the gold you have now, however
+-- short it is so far. Never stored.
+function ns.Recap_Live(session, now, money, extra)
+	if not session.start then
+		return nil
+	end
+	local copy = Copy(session, now, money, extra)
+	copy.live = true
+	return copy
 end
 
 -- Adds a copy to the front of history and prunes it. opts = { by = "count" | "days", count, days }.
@@ -86,27 +102,44 @@ local function Duration(h)
 	return math.max((h.seen or h.start) - h.start, 1)
 end
 
--- One session's numbers: duration, net gold, gold per hour, loot value.
+-- Levels gained (a level and a fraction of the bar at the start and the end), nil when none.
+local function Levels(h)
+	if not (h.level and h.levelNow) then
+		return nil
+	end
+	local gained = (h.levelNow + (h.xpNow or 0)) - (h.level + (h.xpFraction or 0))
+	return gained > 0.001 and gained or nil
+end
+
+-- One session's numbers: duration, net gold, gold per hour, loot value, XP points (nil when not counted) and levels
+-- gained (nil when none), each also per hour.
 function ns.Recap_HistoryNumbers(h)
 	local duration = Duration(h)
 	local net = (h.moneyNow or h.money or 0) - (h.money or 0)
+	local levels = Levels(h)
 	return {
 		duration = duration,
 		net = net,
 		perHour = math.floor(net * 3600 / duration),
 		value = h.lootValue,
 		valuePerHour = h.lootValue and math.floor(h.lootValue * 3600 / duration) or nil,
+		xp = h.xpGained,
+		xpPerHour = h.xpGained and math.floor(h.xpGained * 3600 / duration) or nil,
+		levels = levels,
+		levelsPerHour = levels and levels * 3600 / duration or nil,
 	}
 end
 
--- Totals over a list: count, duration, net, value, perHour.
+-- Totals over a list: count, duration, net, value, perHour, xp, levels.
 function ns.Recap_HistoryTotals(list)
-	local t = { count = #list, duration = 0, net = 0, value = 0 }
+	local t = { count = #list, duration = 0, net = 0, value = 0, xp = 0, levels = 0 }
 	for _, h in ipairs(list) do
 		local n = ns.Recap_HistoryNumbers(h)
 		t.duration = t.duration + n.duration
 		t.net = t.net + n.net
 		t.value = t.value + (n.value or 0)
+		t.xp = t.xp + (n.xp or 0)
+		t.levels = t.levels + (n.levels or 0)
 	end
 	t.perHour = t.duration > 0 and math.floor(t.net * 3600 / t.duration) or 0
 	return t

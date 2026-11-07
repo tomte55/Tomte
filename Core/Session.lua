@@ -26,11 +26,20 @@ local function ZoneTick(session)
 	end
 end
 
+-- XP points for the session (SessionData.lua's Session_AddXP). Nothing at the level cap, where the bar is empty.
+local function ReadXP(session)
+	local xp, max = UnitXP("player"), UnitXPMax("player")
+	if not (ns.IsSecret(xp) or ns.IsSecret(max)) and max > 0 then
+		ns.Session_AddXP(session, xp, max, UnitLevel("player"))
+	end
+end
+
 local function Begin(newLogin)
 	local session = ns.Session_Begin(db, UnitGUID("player"), newLogin, GetServerTime(), Baseline())
 	session.moneyNow = GetMoney()
 	session.levelNow, session.xpNow = UnitLevel("player"), XPFraction()
 	session.seen = GetServerTime()
+	ReadXP(session) -- where the bar starts, so the first kill counts
 	return session
 end
 
@@ -119,6 +128,7 @@ local function OnXPUpdate(_, unit)
 	local session = ns.Session_Current()
 	session.levelNow, session.xpNow = UnitLevel("player"), XPFraction()
 	session.seen = GetServerTime()
+	ReadXP(session)
 end
 
 events:On("session", "PLAYER_XP_UPDATE", OnXPUpdate)

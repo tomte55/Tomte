@@ -479,7 +479,7 @@ module = ns.RegisterModule({
 		keepBy = "count", -- count | days
 		keepCount = 30, -- per character
 		keepDays = 28,
-		mainNumber = "perHour", -- perHour | net
+		mainNumber = "perHour", -- perHour | net: the Sessions chart's gold, loot worth and levels bars
 		nights = false,
 		pageScope = "all", -- char | all
 		pageRange = "all", -- week | all
@@ -544,7 +544,7 @@ module = ns.RegisterModule({
 				return db.keepBy == "days"
 			end },
 		{ type = "dropdown", key = "mainNumber", label = "Chart shows", parent = "keepHistory", choices = function()
-			return { { value = "perHour", text = "Gold per hour" }, { value = "net", text = "Net gold per session" } }
+			return { { value = "perHour", text = "Per hour" }, { value = "net", text = "Per session" } }
 		end },
 		{ type = "checkbox", key = "nights", label = "Group into play nights", parent = "keepHistory",
 			tooltip = "Sessions less than an hour apart (any character) are grouped under one line with their totals." },
