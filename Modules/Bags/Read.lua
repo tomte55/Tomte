@@ -32,7 +32,7 @@ end
 
 local IsSecret = ns.IsSecret
 local BindState = ns.Bags_BindState
-local Counts, MarkGained = ns.Bags_Counts, ns.Bags_MarkGained
+local Held, MarkGained = ns.Bags_Held, ns.Bags_MarkGained
 
 local cache = {} -- [bag * 1000 + slot] = item record
 -- Bumped when whether you can use things may have changed (combat ended, spec, skill, recipes): a cached record whose
@@ -42,7 +42,7 @@ local usableGen = 0
 -- the game's flag whenever the mouse is on it (ContainerFrameItemButtonMixin:OnUpdate, run by the tooltip), and New
 -- then redraws another item under the mouse, so with the flag alone New emptied itself while you looked at it.
 local seenNew = {}
-local countsAtClose -- Bags_Counts of the bags when they last closed, or at the session's first read
+local heldAtClose -- Bags_Held of the bags when they last closed, or at the session's first read
 
 local function Key(bag, slot)
 	return bag * 1000 + slot
@@ -237,8 +237,8 @@ function ns.BagsRead_Bags(containers)
 	if not containers then
 		-- The first read of the session counts what you have, so loot is caught before the bags first close: the
 		-- game's flag alone can be gone before this read (the slot was under the mouse, as when opening a container).
-		countsAtClose = countsAtClose or Counts(items)
-		MarkGained(items, countsAtClose)
+		heldAtClose = heldAtClose or Held(items)
+		MarkGained(items, heldAtClose)
 	end
 	return items, pending
 end
@@ -320,11 +320,11 @@ function ns.BagsRead_ClearNew()
 			end
 			local info = C_Container.GetContainerItemInfo(bag, slot)
 			if info then
-				held[#held + 1] = { itemID = info.itemID, count = info.stackCount or 1 }
+				held[#held + 1] = { bag = bag, slot = slot, itemID = info.itemID, count = info.stackCount or 1 }
 			end
 		end
 	end
-	countsAtClose = Counts(held)
+	heldAtClose = Held(held)
 end
 
 -- Whether you can use gear and recipes may have changed: each cached one checks its red tint again when next read

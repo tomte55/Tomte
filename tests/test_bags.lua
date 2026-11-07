@@ -494,21 +494,44 @@ test("counts add up stacks per item and skip empty slots", function()
 	eq(counts[11], 1)
 end)
 
-test("items there's more of than before are new, every stack of them", function()
+local function Slot(bag, slot, itemID, count)
+	return { bag = bag, slot = slot, itemID = itemID, count = count }
+end
+
+test("only the stack that grew is new, not every stack of the item", function()
+	local before = ns.Bags_Held({
+		Slot(0, 1, 10, 20), Slot(0, 2, 10, 20), Slot(0, 3, 10, 5), Slot(0, 4, 11, 4), Slot(0, 6, 13, 3),
+	})
 	local items = {
-		{ itemID = 10, count = 20 }, { itemID = 10, count = 7 }, -- had 25, got 2 more on top
-		{ itemID = 11, count = 4 }, -- had 4: unchanged
-		{ itemID = 12, count = 1 }, -- didn't have it
-		{ itemID = 13, count = 1 }, -- had 3, used some
-		{ empty = true },
+		Slot(0, 1, 10, 20), Slot(0, 2, 10, 20), Slot(0, 3, 10, 6), -- one Light Leather picked up, onto the 5
+		Slot(0, 4, 11, 4), -- unchanged
+		Slot(0, 5, 12, 1), -- didn't have it
+		Slot(0, 6, 13, 1), -- used some
+		{ empty = true, bag = 0, slot = 7 },
 	}
-	ns.Bags_MarkGained(items, { [10] = 25, [11] = 4, [13] = 3 })
-	eq(items[1].new, true)
-	eq(items[2].new, true)
-	eq(items[3].new, nil)
-	eq(items[4].new, true)
-	eq(items[5].new, nil)
+	ns.Bags_MarkGained(items, before)
+	eq(items[1].new, nil, "a full stack you had")
+	eq(items[2].new, nil)
+	eq(items[3].new, true, "the stack it went onto")
+	eq(items[4].new, nil)
+	eq(items[5].new, true)
 	eq(items[6].new, nil)
+	eq(items[7].new, nil)
+end)
+
+test("moving or splitting a stack isn't new; loot that spills into another slot is", function()
+	local before = ns.Bags_Held({ Slot(0, 1, 10, 20), Slot(0, 2, 10, 18) })
+	local moved = { Slot(0, 1, 10, 20), Slot(1, 4, 10, 18) } -- the 18 moved to another bag
+	ns.Bags_MarkGained(moved, before)
+	eq(moved[2].new, nil, "same total: nothing gained")
+	local split = { Slot(0, 1, 10, 20), Slot(0, 2, 10, 10), Slot(0, 3, 10, 8) }
+	ns.Bags_MarkGained(split, before)
+	eq(split[3].new, nil)
+	local spilled = { Slot(0, 1, 10, 20), Slot(0, 2, 10, 20), Slot(0, 3, 10, 3) } -- 5 looted: 2 on top, 3 in a new slot
+	ns.Bags_MarkGained(spilled, before)
+	eq(spilled[1].new, nil)
+	eq(spilled[2].new, true)
+	eq(spilled[3].new, true)
 end)
 
 test("bind state from the bind type and whether this copy is bound", function()

@@ -667,14 +667,32 @@ function ns.Bags_Counts(items)
 	return counts
 end
 
--- Marks item.new on every stack of an item there's more of than in before (Bags_Counts of an earlier read): the
--- game flags only slots that were empty, so loot that lands on a stack you had wouldn't count as new otherwise.
+-- What the bags held, for Bags_MarkGained: { totals = Bags_Counts, slots = { [bag * 1000 + slot] = { itemID, count } } }.
+function ns.Bags_Held(items)
+	local slots = {}
+	for _, item in ipairs(items) do
+		if not item.empty and item.itemID and item.bag and item.slot then
+			slots[item.bag * 1000 + item.slot] = { itemID = item.itemID, count = item.count or 1 }
+		end
+	end
+	return { totals = ns.Bags_Counts(items), slots = slots }
+end
+
+-- Marks item.new on the stacks that grew since before (Bags_Held of an earlier read): the game flags only slots that
+-- were empty, so loot that lands on a stack you had wouldn't count as new otherwise. Only a slot holding more of the
+-- item than it did, and only while there's more of it in all than before: picking up one Light Leather marks the stack
+-- it went onto, not every stack of it, and moving or splitting a stack marks nothing.
 function ns.Bags_MarkGained(items, before)
 	local now = ns.Bags_Counts(items)
+	local totals, slots = before.totals or {}, before.slots or {}
 	for _, item in ipairs(items) do
 		local id = not item.empty and item.itemID
-		if id and now[id] > (before[id] or 0) then
-			item.new = true
+		if id and now[id] > (totals[id] or 0) then
+			local was = item.bag and item.slot and slots[item.bag * 1000 + item.slot]
+			local had = was and was.itemID == id and was.count or 0
+			if (item.count or 1) > had then
+				item.new = true
+			end
 		end
 	end
 end
