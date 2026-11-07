@@ -25,6 +25,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Almost Done:** the Top 5 tracker is off by default and locked, so it no longer shows an empty box until you move it.
 - **Tomte:** on Forever, gold amounts show their silver and copper too ("45s 67c", not "0g").
 - **Bags:** hovering an empty bag slot in the bag window says what kind it is (a bag slot or the reagent bag slot).
+- **Gear Check:** a vendor's items get the same upgrade arrow as your bags.
 - **Where to get it:** leather and hides now show up, with the zones to skin beasts of the right level in, your level first, and a map pin for each. Item tooltips say where to skin them too.
 - **Where to get it:** every vendor of an item is listed, not just a few, including neutral ones such as Booty Bay's. The zone you're in comes first, then your side's lands.
 
@@ -36,6 +37,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Bags:** on Forever, a pattern or piece of gear stops being red as soon as your skill reaches it, without a reload.
 - **Whispers:** a community invite clicked in the whisper inbox no longer causes an error; it says to click it in the chat window.
 - **Eat and drink:** after reviving, the button no longer says "No food" with food in your bags.
+- **Gear Check:** on Forever, a bow, gun or melee weapon with a stat you don't use is judged by its damage, not called "wrong main stat".
+- **Bags:** picking up more of something you carry marks only the stack it went onto as new, not every stack of it.
 
 ## v1.30.0 - 2026-11-06
 
