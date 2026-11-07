@@ -152,6 +152,7 @@ local function ShowTooltip(self)
 	Line("Drink", s.drink)
 	Line("Bandage", s.bandage)
 	UI.TipLine("Bright when you're low. Click or press the key once, out of combat, and it eats whatever your health. "
+		.. "Low on mana, it drinks first and eats on the next press. "
 		.. "Key Bindings > Tomte > Eat and drink.", "textMuted", true)
 	GameTooltip:Show()
 end

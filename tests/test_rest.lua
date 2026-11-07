@@ -95,6 +95,21 @@ test("Plan: health the game hides counts as low, as a press means you want to re
 	eq(ns.Rest_Plan(s).text, "No food")
 end)
 
+test("Plan: hidden health and low mana drinks first, then eats on the next press", function()
+	local s = situation({ mana = 0.3 })
+	s.health = nil
+	local plan = ns.Rest_Plan(s)
+	eq(plan.text, "Drink")
+	eq(#plan.uses, 1)
+	eq(plan.icon, 2)
+	s.drinking = true
+	eq(ns.Rest_Plan(s).text, "Eat", "already drinking: the next press eats")
+	s.drinking, s.mana = false, 1
+	eq(ns.Rest_Plan(s).text, "Eat", "mana full: eats as before")
+	s.mana, s.drink = 0.3, nil
+	eq(ns.Rest_Plan(s).text, "Eat", "no drink: eats rather than saying No drink")
+end)
+
 test("Plan: mana the game hides counts as low too", function()
 	local s = situation({ manaUnknown = true })
 	eq(ns.Rest_Plan(s).text, "Drink")

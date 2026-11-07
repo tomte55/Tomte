@@ -40,15 +40,17 @@ end
 -- What a press does now. s = { blocked (combat, dead, mounted...), health, mana (0..1, mana nil for a class without it),
 -- manaUnknown (has mana, but the game won't say how much), healthAt, manaAt (0..1, the settings), eating, drinking, bandaged,
 -- food, drink, bandage (item IDs or nil) }. health is nil on Forever, where the game hides it from addons: a press there
--- means the player wants to recover, so it counts as low. The same for mana that can't be read.
+-- means the player wants to recover, so it counts as low. The same for mana that can't be read. But with health hidden and
+-- mana that reads low, the low mana is the one thing known: a press drinks first, and the next one (while drinking) eats.
 -- Returns { uses = { item IDs }, text, role, icon = the first use }; text nil: nothing to say.
 function ns.Rest_Plan(s)
 	local plan = { uses = {} }
 	if s.blocked then
 		return plan
 	end
-	local lowHealth = s.health == nil or s.health < s.healthAt
 	local lowMana = s.manaUnknown or (s.mana ~= nil and s.mana < s.manaAt)
+	local drinkFirst = s.health == nil and s.mana ~= nil and lowMana and s.drink and not s.drinking
+	local lowHealth = not drinkFirst and (s.health == nil or s.health < s.healthAt)
 	local ate, drank, wrapped, noFood, noDrink = false, false, false, false, false
 	if lowHealth and not s.eating then
 		if s.food then
