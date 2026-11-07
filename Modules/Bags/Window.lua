@@ -314,11 +314,21 @@ local function SlotTab(i)
 		b.free = b:CreateFontString(nil, "OVERLAY")
 		UI.SetFont(b.free, "number", 11, "OUTLINE")
 		b.free:SetPoint("BOTTOMRIGHT", -3, 3)
+		-- What kind of slot it is, always: the bag's own tooltip when one is in it, else the slot's name. Whether it's
+		-- empty is read from the slot: SetInventoryItem doesn't report an empty slot as nothing to show on Forever.
 		b:SetScript("OnEnter", function(self)
 			UI.WashTo(self.hoverWash, true)
 			GameTooltip:SetOwner(self, "ANCHOR_TOP")
-			if not GameTooltip:SetInventoryItem("player", self.invID) then
-				GameTooltip:SetText(self.bag == 5 and "Reagent bag slot" or "Bag slot")
+			local reagent = self.bag == REAGENT_BAG
+			if GetInventoryItemID("player", self.invID) then
+				GameTooltip:SetInventoryItem("player", self.invID)
+				if reagent then
+					UI.TipLine("Reagent bag slot: only crafting reagents go in it.", "textMuted", true)
+				end
+			else
+				GameTooltip:SetText(reagent and "Reagent bag slot" or "Bag slot")
+				UI.TipLine(reagent and "Empty. Takes a reagent bag, for crafting reagents only."
+					or "Empty. Drop a bag here to wear it.", "textMuted", true)
 			end
 			GameTooltip:Show()
 		end)
