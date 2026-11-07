@@ -76,6 +76,20 @@ test("what you wear says nothing, nor does what has no slot", function()
 	eq(ns.GearForever_Evaluate(Item({ equipLoc = "INVTYPE_BAG" }), {}, Ctx("WARRIOR")), nil)
 end)
 
+test("a weapon judged by its damage isn't ruled out by a stat you don't use", function()
+	-- Heavy Shortbow (+1 Strength, 6.0 DPS) over Hickory Shortbow (3.7 DPS) for a hunter.
+	local worn = { [RANGED_SLOT] = Item({ equipLoc = "INVTYPE_RANGED", classID = WEAPON, subclassID = BOW, ilvl = 8,
+		dps = 3.7 }) }
+	local heavy = Item({ equipLoc = "INVTYPE_RANGED", classID = WEAPON, subclassID = BOW, ilvl = 10, dps = 6,
+		stats = { PRIMARY = { STR = 1 } } })
+	eq(ns.GearForever_Evaluate(heavy, worn, Ctx("HUNTER")).kind, "upgrade")
+	-- A melee weapon for a class that judges by damage too, but a strength chest for a hunter is still wrong.
+	local sword = Sword(10, 9)
+	sword.stats = { PRIMARY = { INT = 2 } }
+	eq(ns.GearForever_Evaluate(sword, {}, Ctx("WARRIOR")).kind ~= "notForYou", true)
+	eq(ns.GearForever_Evaluate(Chest(10, MAIL, { PRIMARY = { STR = 5 } }), {}, Ctx("HUNTER")).why, "wrong main stat")
+end)
+
 test("level requirements, red tooltip lines and the wrong main stat say not for you", function()
 	local ctx = Ctx("WARRIOR", 10)
 	local high = Chest(30)

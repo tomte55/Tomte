@@ -156,7 +156,9 @@ function ns.GearForever_Unusable(cand, ctx)
 		return cand.redText
 	end
 	local primaries = cand.stats and cand.stats.PRIMARY
-	if primaries and next(primaries) then
+	-- A weapon this class judges by its damage (a hunter's bow) isn't ruled out by a stat it doesn't use: the damage
+	-- decides, as a Heavy Shortbow's +1 Strength showed (6.0 DPS over 3.7, called wrong main stat).
+	if primaries and next(primaries) and not JudgedByDamage(cand, ctx) then
 		for stat in pairs(primaries) do
 			if ctx.weights[stat] then
 				return nil
