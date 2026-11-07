@@ -585,7 +585,7 @@ module = ns.RegisterModule({
 		end, onChange = function()
 			ns.LootRoom_Refresh()
 		end,
-			tooltip = "A button under the loot window when something won't fit. One click destroys your cheapest grey junk and loots it. With no junk left it offers the cheapest common or uncommon item, and that takes a second click. It tells you to leave loot worth less than anything you'd destroy, and never touches quest items, soulbound items, upgrades, food, ammo, bags, profession tools, your hearthstone or anything rare." },
+			tooltip = "A button under the loot window when something won't fit. One click destroys your cheapest grey junk and loots it. With no junk left it offers the cheapest common or uncommon item, and that takes a second click, as does anything worth more than the loot. It never touches quest items, soulbound items, upgrades, food, ammo, bags, profession tools, your hearthstone or anything rare." },
 		{ type = "dropdown", key = "lootKey", label = "Take all key while looting", choices = function()
 			return {
 				{ value = "E", text = "E" },

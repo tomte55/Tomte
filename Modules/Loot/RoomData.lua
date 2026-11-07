@@ -5,6 +5,7 @@ local addonName, ns = ...
 
 local QUALITY_POOR, QUALITY_RARE = 0, 3 -- Enum.ItemQuality
 local CLASS_CONSUMABLE, CLASS_CONTAINER, CLASS_PROJECTILE, CLASS_QUEST, CLASS_KEY = 0, 1, 6, 12, 13 -- Enum.ItemClass
+local CLASS_PROFESSION = 19 -- what Bags_ItemClass files tools and fishing poles under
 -- Food, potions, bags, ammo, quest items and keys are kept, whatever they'd sell for.
 local KEPT_CLASSES = { [CLASS_CONSUMABLE] = true, [CLASS_CONTAINER] = true, [CLASS_PROJECTILE] = true, [CLASS_QUEST] = true,
 	[CLASS_KEY] = true }
@@ -21,11 +22,12 @@ function ns.LootRoom_Fits(quantity, bags)
 	return topUp >= (quantity or 1)
 end
 
--- How an item may go: "grey" (one click), "ask" (a second click to confirm) or nil (never). item: { quality, classID, bound,
--- noValue, upgrade, kept (a profession tool, a hearthstone), locked }. Greys with no vendor price are left: the game doesn't
+-- How an item may go: "grey" (one click), "ask" (a second click to confirm) or nil (never). item: { quality, classID (from
+-- Bags_ItemClass), bound, noValue, upgrade, kept (a hearthstone), locked }. Greys with no vendor price are left: the game doesn't
 -- count them as junk either, and some are quest-like.
 function ns.LootRoom_MayDestroy(item)
-	if item.locked or item.bound or item.upgrade or item.kept or item.noValue or item.quality == nil then
+	if item.locked or item.bound or item.upgrade or item.kept or item.noValue or item.quality == nil
+		or item.classID == CLASS_PROFESSION then
 		return nil
 	end
 	if item.quality == QUALITY_POOR then
@@ -66,8 +68,9 @@ function ns.LootRoom_PickLoot(blocked)
 end
 
 -- What to do for loot, given the items in bags that could take it. Each candidate: { bag, slot, name, count, quality, ... }.
--- Returns { kind = "destroy", target, loot, confirm } | { kind = "leave", loot, target } | { kind = "stuck", loot }. Greys go first,
--- cheapest first, as they're what nobody is saving. Not worth it: everything you could destroy is worth at least what's on the corpse.
+-- Returns { kind = "destroy", target, loot, confirm, badTrade } | { kind = "stuck", loot }. Greys go first,
+-- cheapest first, as they're what nobody is saving. badTrade: what you'd destroy is worth at least what's on the corpse. It's still
+-- offered, with a second click, as a corpse with loot left on it can't be skinned.
 function ns.LootRoom_Plan(loot, candidates)
 	local best, bestTier
 	for _, item in ipairs(candidates) do
@@ -87,10 +90,8 @@ function ns.LootRoom_Plan(loot, candidates)
 	if not best then
 		return { kind = "stuck", loot = loot }
 	end
-	if not AlwaysWanted(loot) and ns.LootRoom_Worth(best) >= ns.LootRoom_Worth(loot) then
-		return { kind = "leave", loot = loot, target = best }
-	end
-	return { kind = "destroy", loot = loot, target = best, confirm = bestTier == "ask" }
+	local badTrade = not AlwaysWanted(loot) and ns.LootRoom_Worth(best) >= ns.LootRoom_Worth(loot)
+	return { kind = "destroy", loot = loot, target = best, confirm = bestTier == "ask" or badTrade, badTrade = badTrade }
 end
 
 local function Named(item)
@@ -103,12 +104,12 @@ function ns.LootRoom_Text(plan, armed)
 	local lootName = plan.loot.name or "this"
 	if plan.kind == "stuck" then
 		return ("Bags full, and nothing safe to destroy.\nMake room by hand for %s."):format(lootName)
-	elseif plan.kind == "leave" then
-		return ("Bags full. Leave %s:\nit's worth less than anything you'd destroy."):format(lootName)
 	end
 	local price = ns.Price(ns.LootRoom_Worth(plan.target))
 	if armed then
 		return ("Click again to destroy for good:\n%s (%s)"):format(Named(plan.target), price)
+	elseif plan.badTrade then
+		return ("Bags full. Destroy %s (%s)?\nWorth more than %s. Click to confirm."):format(Named(plan.target), price, lootName)
 	elseif plan.confirm then
 		return ("Bags full. Destroy %s (%s)?\nFor %s. Click to confirm."):format(Named(plan.target), price, lootName)
 	end

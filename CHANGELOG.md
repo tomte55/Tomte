@@ -20,6 +20,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 ### Fixed
 
 - **Vendor Helper:** on Forever, part of a stack you shift-click and drop on the vendor now sells. It needs one free bag slot and takes about a second, as the game has to move it there first.
+- **Loot:** on Forever, Make room never offers to destroy a fishing pole.
+- **Loot:** on Forever, Make room no longer just tells you to leave cheap loot, which stopped you skinning the corpse. It offers to destroy your cheapest item anyway, with a second click.
 
 ## v1.30.0 - 2026-11-06
 

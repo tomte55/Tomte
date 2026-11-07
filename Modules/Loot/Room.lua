@@ -23,19 +23,15 @@ local armedFor -- the bag and slot of the item the first click named
 local pending -- { slot = the loot slot to take once the bags have changed, at = GetTime() }
 local watcher = CreateFrame("Frame")
 
-local function IsKept(itemID)
-	local tools = ns.Content_Get(ns.CONTENT_FOREVER, "professionTools")
-	return itemID == HEARTHSTONE or (tools ~= nil and tools[itemID] == true)
-end
-
 local function ReadCandidate(bag, slot, info)
-	local _, _, _, _, _, classID = C_Item.GetItemInfoInstant(info.itemID)
+	local _, _, _, _, _, classID, subclassID = C_Item.GetItemInfoInstant(info.itemID)
 	local name, _, _, _, _, _, _, _, _, _, sell = C_Item.GetItemInfo(info.hyperlink)
 	local price = ns.Value_ItemPrice and ns.Value_ItemPrice(info.hyperlink) or nil
 	return {
 		bag = bag, slot = slot, itemID = info.itemID, link = info.hyperlink, name = name or info.itemName,
-		count = info.stackCount or 1, quality = info.quality, classID = classID, bound = info.isBound, noValue = info.hasNoValue,
-		locked = info.isLocked, sell = sell, value = price, kept = IsKept(info.itemID),
+		count = info.stackCount or 1, quality = info.quality, classID = ns.BagsRead_ItemClass(info.itemID, classID, subclassID),
+		bound = info.isBound, noValue = info.hasNoValue, locked = info.isLocked, sell = sell, value = price,
+		kept = info.itemID == HEARTHSTONE,
 		upgrade = ns.Gear_BagArrow ~= nil and ns.Gear_BagArrow(info.hyperlink) ~= nil,
 	}
 end
@@ -165,7 +161,9 @@ local function ShowTooltip(self)
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	GameTooltip:SetText("Make room")
 	if plan and plan.kind == "destroy" then
-		UI.TipLine(plan.confirm and "No grey junk left, so this one takes a second click." or "Grey junk, your cheapest.", "text", true)
+		local why = plan.badTrade and "You'd lose value, but a corpse with loot left on it can't be skinned. Takes a second click."
+			or plan.confirm and "No grey junk left, so this one takes a second click." or "Grey junk, your cheapest."
+		UI.TipLine(why, "text", true)
 		UI.TipLine("Destroying can't be undone.", "warning")
 	end
 	UI.TipLine("Never touches quest items, soulbound items, upgrades, food, ammo, bags, profession tools, your hearthstone or anything rare.",
