@@ -91,6 +91,9 @@ test("top up and mail names", function()
 	eq(ns.Alts_TopUp(100, 500, 400, 500), nil)
 	eq(ns.Alts_MailName(chars.Alch, "Silvermoon"), "Mira")
 	eq(ns.Alts_MailName(chars.Smith, "Silvermoon"), "Tolvan-ArgentDawn")
+	-- Forever: a first name and a surname, unique in the region, so no realm.
+	eq(ns.Alts_MailName({ name = "Dead", fullName = "Dead Nnam", realm = "CAMWOWEU4Realm3PvE" }, "CAMWOWEU4Realm5PvE"),
+		"Dead Nnam")
 end)
 
 test("stacks a tracked craft claims aren't offered again", function()

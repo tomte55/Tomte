@@ -21,18 +21,9 @@ local attached -- { id, kind } of the group in the Send Mail tab
 local sending -- the attached group, from our Send button until the game says the mail went (or failed)
 local Draw
 
--- Groups for the requests, only to friends this character's mail reaches; none while friends' crafting is off.
+-- Groups for the requests, only to friends this character's mail reaches (Friends.lua).
 local function Groups()
-	if not ns.AltsFriends_Sharing() then
-		return {}
-	end
-	local recipes = {}
-	for _, req in pairs(db.requests) do
-		recipes[req.recipeID] = ns.AltsFriends_Recipe(req.recipeID)
-	end
-	local realms, realmKey = ns.AltsFriends_Realms()
-	return ns.AltsFriends_MailGroups(db.requests, recipes,
-		{ faction = UnitFactionGroup("player"), realms = realms, realmKey = realmKey })
+	return ns.AltsFriends_MailGroupsNow()
 end
 
 local function Title(g)
@@ -68,8 +59,9 @@ local function Attach(g)
 		ClickSendMailItemButton(i)
 		ClearCursor()
 	end
-	-- On Forever the name alone: friends on one ruleset have different numbered realms (AltsFriends_Realms).
-	SendMailNameEditBox:SetText(ns.FOREVER and g.to.name or ns.Alts_MailName(g.to, GetRealmName()))
+	-- Name-Realm when the realm differs; on Forever the full name alone ("Dead Nnam": a first name gave "Please enter a
+	-- full name"), which friends send since 1.31.0-beta.4.
+	SendMailNameEditBox:SetText(ns.Alts_MailName(ns.FOREVER and { fullName = g.to.name } or g.to, GetNormalizedRealmName()))
 	SendMailSubjectEditBox:SetText("Tomte: " .. ns.AltsFriends_RecipeName(g.req))
 	attached = { id = g.req.id, kind = g.kind }
 	UI.Sound("confirm")

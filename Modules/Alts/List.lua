@@ -541,6 +541,9 @@ end
 -- A craft's title line and its crafter (name and class file, nil when nobody). The preview's sample crafts carry
 -- their own (t.sample), as their recipes and characters aren't in the saved data.
 local function CraftHead(t)
+	if t.friend then
+		return t.title, nil, nil -- a friend's request (Friends.lua): who it's for is in the title
+	end
 	local s = t.sample
 	local label, crafter, class
 	if s then
@@ -576,7 +579,7 @@ local function Fill(f, todos)
 		local title, crafter, class = CraftHead(t)
 		b.title:SetText(title)
 		local color = class and C_ClassColor.GetClassColor(class)
-		b.crafter:SetText(crafter or "nobody")
+		b.crafter:SetText(crafter or (t.friend and "" or "nobody"))
 		if color then
 			b.crafter:SetTextColor(color.r, color.g, color.b)
 		else
@@ -746,7 +749,7 @@ function Draw(fold)
 	if not db then
 		return
 	end
-	local todos = MayShow() and ns.AltsList_Todos()
+	local todos = MayShow() and ns.AltsFriends_TrackerList() -- crafts, then mail steps for friends
 	if not (todos and WantShown(todos)) then
 		if frame then
 			frame:Hide()

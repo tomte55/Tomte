@@ -196,8 +196,13 @@ function ns.Alts_TopUp(has, target, spare, keep)
 	return math.min(need, can)
 end
 
--- Mail recipient for a character: "Name" on your realm, "Name-Realm" otherwise (realm without spaces or dashes).
+-- Mail recipient for a character: "Name" on your realm, "Name-Realm" otherwise (realm without spaces or dashes). On
+-- Forever a character has a first name and a surname, unique in the region, and mail takes that full name alone
+-- (c.fullName, "Dead Nnam"; "Dead" or "Dead-Realm" don't arrive).
 function ns.Alts_MailName(c, myRealm)
+	if c.fullName and c.fullName ~= "" then
+		return c.fullName
+	end
 	local realm = (c.realm or ""):gsub("[%s%-]", "")
 	local mine = (myRealm or ""):gsub("[%s%-]", "")
 	if realm == "" or realm == mine then

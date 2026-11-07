@@ -54,7 +54,8 @@ function ns.AltsFriends_Export(chars, recipes)
 	local out, used = {}, {}
 	for _, c in ipairs(list) do
 		local faction = c.faction == "Horde" and "H" or (c.faction == "Alliance" and "A" or "")
-		out[#out + 1] = ("c%s,%s,%s,%s,%d;"):format(Clean(c.name), Clean(c.realm), faction, Clean(c.class),
+		-- The full name where there is one (Forever's surnames): it's what mail and requests address.
+		out[#out + 1] = ("c%s,%s,%s,%s,%d;"):format(Clean(c.fullName or c.name), Clean(c.realm), faction, Clean(c.class),
 			tonumber(c.level) or 0)
 		for _, base in ipairs(SortedKeys(c.profs)) do
 			local p = c.profs[base]
@@ -333,6 +334,40 @@ function ns.AltsFriends_MailGroups(requests, recipes, opts)
 		return (a.req.at or 0) > (b.req.at or 0)
 	end)
 	return groups
+end
+
+-- The crafting list tracker's blocks for MailGroups' groups: { { friend = true, entry (a key kept across redraws), title,
+-- crafter (opts.me: yours to do), needed = 1, inPlace = 0, lines = { { kind = "mail", mine = true, itemID, n, text } } } }.
+-- opts = { me, itemName(itemID) -> label, recipeName(req) -> name }.
+function ns.AltsFriends_Todos(groups, opts)
+	local todos = {}
+	for _, g in ipairs(groups or {}) do
+		local name = g.to.name or "?"
+		local recipe = opts.recipeName(g.req)
+		local lines = {}
+		for _, w in ipairs(g.wants) do
+			lines[#lines + 1] = { kind = "mail", mine = true, itemID = w.itemID, n = w.n,
+				text = ("Mail %d %s to %s"):format(w.n, opts.itemName(w.itemID), name) }
+		end
+		todos[#todos + 1] = { friend = true, entry = ("friend:%s:%s"):format(g.kind, g.req.id),
+			title = (g.kind == "item" and "For %s: %s" or "Materials for %s: %s"):format(name, recipe),
+			crafter = opts.me, needed = 1, inPlace = 0, lines = lines }
+	end
+	return todos
+end
+
+-- A friend's asks waiting for your Accept or Decline, newest first: { req }.
+function ns.AltsFriends_Awaiting(requests)
+	local list = {}
+	for _, req in pairs(requests or {}) do
+		if not req.mine and req.state == "delivered" and not req.hidden then
+			list[#list + 1] = req
+		end
+	end
+	table.sort(list, function(a, b)
+		return (a.at or 0) > (b.at or 0)
+	end)
+	return list
 end
 
 -- A recipe's materials for amount crafts: { { itemID, count } } (each reagent's first item).

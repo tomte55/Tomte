@@ -468,6 +468,19 @@ module = ns.RegisterModule({
 				return n
 			end,
 			pillTip = "Crafting list steps for this character" },
+		-- Friends' craft requests that need you, so they aren't missed (Friends.lua).
+		{ kind = "quick", key = "craftrequests", order = 5, name = "Craft requests", count = function()
+			return ns.AltsFriends_HomeCount()
+		end, shown = function()
+			return ns.AltsFriends_HomeCount() > 0
+		end, open = function()
+			ns.AltsFriends_OpenRequests()
+		end },
+		{ kind = "next", key = "nextcraftrequests", name = "Craft requests", score = 60,
+			description = "A friend asked you for a craft, or a craft or its materials wait to be mailed.",
+			candidates = function()
+				return ns.AltsFriends_NextUp()
+			end },
 		{ kind = "next", key = "nextsend", name = "Materials for your alts", score = 40,
 			description = ns.FOREVER and "You carry materials another character crafts with: the mailbox has a \"For your alts\" panel."
 				or "You carry materials another character crafts with: the mailbox and the bank have a \"For your alts\" panel.",

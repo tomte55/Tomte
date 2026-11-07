@@ -44,8 +44,18 @@ end
 
 -- Character -----------------------------------------------------------------------------------------------
 
+-- Forever: a character has a first name and a surname (UnitName's two returns there), unique in the region; mail and
+-- friends need the whole of it ("Dead Nnam"). Blizzard's Camelot NameUtil joins them. nil on retail.
+function ns.Alts_PlayerFullName()
+	if not (ns.FOREVER and NameUtil and NameUtil.GetUnmodifiedUnitFullName) then
+		return nil
+	end
+	return NameUtil.GetUnmodifiedUnitFullName("player")
+end
+
 local function ReadBasics(c)
 	c.name = UnitName("player")
+	c.fullName = ns.Alts_PlayerFullName() -- Forever: "Dead Nnam", for mail (Alts_MailName) and friends
 	c.realm = GetNormalizedRealmName()
 	c.class = select(2, UnitClass("player"))
 	c.race = UnitRace("player")

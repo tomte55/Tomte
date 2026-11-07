@@ -22,6 +22,9 @@ local function Refresh()
 	if ns.AltsListTab_Refresh then
 		ns.AltsListTab_Refresh()
 	end
+	if ns.AltsList_Refresh then
+		ns.AltsList_Refresh() -- the tracker's mail steps for friends
+	end
 end
 
 local function ShortName(tag)
@@ -87,7 +90,8 @@ end
 
 -- The realms a friend's character must be on for mail to reach it, and the key they're compared by. Retail: the
 -- connected realms (ns.Alts_MailRealms). Forever: your realm without its server number (AltsFriends_ForeverRealm),
--- as friends on one ruleset play together from numbered servers (seen in game: Realm5PvE and Realm3PvE).
+-- as friends on one ruleset play together from numbered servers (seen in game: Realm5PvE and Realm3PvE). Mail there
+-- goes to the character's full name, first name and surname (Alts_MailName).
 function ns.AltsFriends_Realms()
 	if ns.FOREVER then
 		local mine = GetNormalizedRealmName()
@@ -144,6 +148,46 @@ function ns.AltsFriends_Why()
 	end
 end
 
+-- What needs a mail for the requests, only to friends this character's mail reaches (FriendsData.lua's MailGroups);
+-- none while friends' crafting is off. The mailbox block (FriendMail.lua) and the crafting list tracker show them.
+function ns.AltsFriends_MailGroupsNow()
+	if not Sharing() then
+		return {}
+	end
+	local recipes = {}
+	for _, req in pairs(db.requests) do
+		recipes[req.recipeID] = ns.AltsFriends_Recipe(req.recipeID)
+	end
+	local realms, realmKey = ns.AltsFriends_Realms()
+	return ns.AltsFriends_MailGroups(db.requests, recipes,
+		{ faction = UnitFactionGroup("player"), realms = realms, realmKey = realmKey })
+end
+
+-- The crafting list tracker's blocks for them: "Mail 1 Camp Tent to Dead" once you've made a friend's craft.
+function ns.AltsFriends_TrackerTodos()
+	return ns.AltsFriends_Todos(ns.AltsFriends_MailGroupsNow(), {
+		me = UnitGUID("player"),
+		itemName = function(itemID)
+			return ns.Alts_ItemLabel(itemID, 13, true)
+		end,
+		recipeName = function(req)
+			return ns.AltsFriends_RecipeName(req)
+		end,
+	})
+end
+
+-- What the crafting list tracker shows: your crafts (List.lua's to-do), then the mail steps for friends.
+function ns.AltsFriends_TrackerList()
+	local list = {}
+	for _, t in ipairs(ns.AltsList_Todos()) do
+		list[#list + 1] = t
+	end
+	for _, t in ipairs(ns.AltsFriends_TrackerTodos()) do
+		list[#list + 1] = t
+	end
+	return list
+end
+
 -- A friend stopped sharing their crafting (or was forgotten): their characters leave your Crafting tab.
 local function Withdrawn(tag)
 	if db.friendCrafts[tag] then
@@ -191,7 +235,7 @@ function ns.AltsFriends_Ask(crafter, recipeID, amount, mats)
 	local recipe = ns.AltsFriends_Recipe(recipeID) or {}
 	local req = ns.AltsFriends_NewRequest({ id = NewID(), mine = true, friend = crafter.friend.tag,
 		recipeID = recipeID, itemID = recipe.item, name = recipe.name, amount = amount, mats = mats,
-		crafter = crafter.name, crafterRealm = crafter.realm, crafterFaction = crafter.faction, asker = UnitName("player"),
+		crafter = crafter.name, crafterRealm = crafter.realm, crafterFaction = crafter.faction, asker = ns.Alts_PlayerFullName() or UnitName("player"),
 		askerRealm = GetNormalizedRealmName(), askerFaction = UnitFactionGroup("player"), at = time() })
 	db.requests[req.id] = req
 	Deliver(req)
@@ -250,6 +294,44 @@ function ns.AltsFriends_RecipeName(req)
 	return RecipeName(req)
 end
 
+-- Home --------------------------------------------------------------------------------------------------------
+
+local function OpenRequests()
+	ns.Panel_OpenPage("alts")
+	ns.Alts_ShowTab("list")
+end
+ns.AltsFriends_OpenRequests = OpenRequests
+
+-- How many requests need you: a friend's asks to answer, and crafts or materials to mail. 0 while it's off.
+function ns.AltsFriends_HomeCount()
+	if not Sharing() then
+		return 0
+	end
+	return #ns.AltsFriends_Awaiting(db.requests) + #ns.AltsFriends_MailGroupsNow()
+end
+
+-- Home's Next up: each of them, a click opens the Crafting list tab with its Craft requests.
+function ns.AltsFriends_NextUp()
+	local list = {}
+	if not Sharing() then
+		return list
+	end
+	for _, req in ipairs(ns.AltsFriends_Awaiting(db.requests)) do
+		list[#list + 1] = { key = "craftreq:ask:" .. req.id, state = req.state, onClick = OpenRequests,
+			text = ("%s asks for %d %s"):format(req.asker or ShortName(req.friend), req.amount or 1, RecipeName(req)),
+			why = "A friend's craft request: Accept or Decline it on the Crafting list tab.",
+			icon = req.itemID and C_Item.GetItemIconByID(req.itemID) or ICON }
+	end
+	for _, g in ipairs(ns.AltsFriends_MailGroupsNow()) do
+		local name = RecipeName(g.req)
+		list[#list + 1] = { key = ("craftreq:%s:%s"):format(g.kind, g.req.id), onClick = OpenRequests,
+			text = g.kind == "item" and ("Mail %s to %s"):format(name, g.to.name or "?")
+				or ("Mail the materials for %s to %s"):format(name, g.to.name or "?"),
+			why = "At a mailbox, the \"For your friends\" block attaches it.", icon = "Interface\\Icons\\INV_Letter_15" }
+	end
+	return list
+end
+
 local function OnMessage(tag, text)
 	local msg = ns.AltsFriends_Decode(text)
 	if not msg then
@@ -265,15 +347,15 @@ local function OnMessage(tag, text)
 				title = ("%s (%s)"):format(req.asker ~= "" and req.asker or "?", ShortName(tag)),
 				text = ("asks %s for %d %s%s."):format(req.crafter or "you", req.amount, RecipeName(req),
 					req.mats and ", and mails the materials" or ", with your materials"),
-				hold = 10, onClick = function()
-					ns.Panel_OpenPage("alts")
-					ns.Alts_ShowTab("list")
-				end })
+				hold = 10, onClick = OpenRequests })
 		end
 	else
 		local req = db.requests[msg.id]
-		if req and req.friend == tag then
-			ns.AltsFriends_Apply(req, msg.kind)
+		if req and req.friend == tag and ns.AltsFriends_Apply(req, msg.kind) and req.mine and msg.kind == "done" then
+			-- Your craft is in the mail: their Tomte saw it go (FriendMail.lua's Send).
+			ns.Toast_Show({ owner = "alts", label = LABEL, accent = "success", icon = ICON,
+				title = ("%s (%s)"):format(req.crafter or "?", ShortName(tag)),
+				text = ("mailed you %d %s. Check your mailbox."):format(req.amount or 1, RecipeName(req)), hold = 10 })
 		end
 	end
 	Refresh()

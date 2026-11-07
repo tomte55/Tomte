@@ -286,6 +286,52 @@ test("MailGroups: only recipients your mail reaches; a made craft counts what ea
 	eq(ns.AltsFriends_ItemCount(requests.e, nil), 2, "unknown recipe: one per craft")
 end)
 
+test("Todos: a made craft and materials to send become tracker blocks with mail steps", function()
+	local groups = {
+		{ req = { id = "e", recipeID = BAG }, kind = "item", to = { name = "Dead" }, wants = { { itemID = 70001, n = 1 } } },
+		{ req = { id = "a", recipeID = BAG }, kind = "mats", to = { name = "Mira" },
+			wants = { { itemID = LEATHER, n = 8 }, { itemID = HIDE, n = 1 } } },
+	}
+	local todos = ns.AltsFriends_Todos(groups, {
+		me = "Player-1-AA",
+		itemName = function(id)
+			return "item" .. id
+		end,
+		recipeName = function(req)
+			return "Camp Tent"
+		end,
+	})
+	eq(#todos, 2)
+	local t = todos[1]
+	eq(t.friend, true)
+	eq(t.entry, "friend:item:e", "a key the tracker follows across redraws")
+	eq(t.title, "For Dead: Camp Tent")
+	eq(t.crafter, "Player-1-AA", "yours to do")
+	eq(#t.lines, 1)
+	eq(t.lines[1].kind, "mail")
+	eq(t.lines[1].mine, true)
+	eq(t.lines[1].text, "Mail 1 item70001 to Dead")
+	eq(todos[2].title, "Materials for Mira: Camp Tent")
+	eq(todos[2].lines[2].text, "Mail 1 item783 to Mira")
+	eq(t.needed, 1, "the tracker's progress bar starts empty (Alts_CraftProgress)")
+	eq(t.inPlace, 0)
+end)
+
+test("Awaiting: a friend's asks you haven't answered, newest first", function()
+	local requests = {
+		a = { id = "a", mine = false, state = "delivered", at = 1 },
+		b = { id = "b", mine = false, state = "delivered", at = 5 },
+		c = { id = "c", mine = false, state = "accepted", at = 9 }, -- answered
+		d = { id = "d", mine = true, state = "delivered", at = 7 }, -- yours, waiting on them
+		e = { id = "e", mine = false, state = "delivered", at = 3, hidden = true },
+	}
+	local list = ns.AltsFriends_Awaiting(requests)
+	eq(#list, 2)
+	eq(list[1].id, "b")
+	eq(list[2].id, "a")
+	eq(#ns.AltsFriends_Awaiting({}), 0)
+end)
+
 test("Materials: each reagent's first item times the amount", function()
 	local _, recipes = Mine()
 	local mats = ns.AltsFriends_Materials(recipes[BAG], 2)
