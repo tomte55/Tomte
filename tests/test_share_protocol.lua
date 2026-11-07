@@ -162,4 +162,11 @@ test("odd version strings are never newer", function()
 	eq(ns.Share_NewerVersion(nil, "1.11.0"), false)
 end)
 
+test("running a beta: its release and anything after are newer, the version before isn't", function()
+	eq(ns.Share_NewerVersion("1.31.0", "1.31.0-beta.1"), true, "the final release of your beta")
+	eq(ns.Share_NewerVersion("1.31.1", "1.31.0-beta.2"), true)
+	eq(ns.Share_NewerVersion("1.30.0", "1.31.0-beta.1"), false)
+	eq(ns.Share_NewerVersion("1.31.0-beta.2", "1.31.0-beta.1"), false, "betas are never announced")
+end)
+
 H.done()

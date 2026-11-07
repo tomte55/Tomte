@@ -164,10 +164,10 @@ ns.CHANGES = {
 	},
 }
 
--- "1.24.0" -> { 1, 24, 0 }.
+-- "1.24.0" -> { 1, 24, 0 }. A beta ("1.31.0-beta.1") is its release's numbers: the part after "-" isn't counted.
 local function Parts(version)
 	local parts = {}
-	for n in tostring(version or ""):gmatch("%d+") do
+	for n in tostring(version or ""):match("^[^%-]*"):gmatch("%d+") do
 		parts[#parts + 1] = tonumber(n)
 	end
 	return parts
@@ -183,6 +183,15 @@ function ns.Changes_Compare(a, b)
 		end
 	end
 	return 0
+end
+
+-- What to remember as seen after this version ran: the version, except a beta ("1.31.0-beta.1"), which keeps the last
+-- release seen, so the release that follows the beta still shows its changes.
+function ns.Changes_Seen(seen, current)
+	if tostring(current or ""):find("-", 1, true) then
+		return seen
+	end
+	return current
 end
 
 -- The releases to show after an update: newer than seen, up to current, newest first. seen nil: someone updating

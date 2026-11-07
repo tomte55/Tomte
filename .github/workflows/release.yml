@@ -1,9 +1,10 @@
 # Push a tag like v1.2.0 to build Tomte-v1.2.0.zip and publish it as a GitHub release.
 # The tag must match "## Version:" in Tomte.toc, and CHANGELOG.md must have a "## v1.2.0" section
 # (its text becomes the release notes).
-# A beta tag like v1.2.0-beta.1 is checked against "## Version: 1.2.0", takes its notes from CHANGELOG.md's
-# "## Unreleased" section, and is published as a GitHub pre-release (the "latest" link stays on the last release) and a
-# CurseForge beta (only people who opted into betas get it).
+# A beta tag like v1.2.0-beta.1 (Tomte.toc says "## Version: 1.2.0-beta.1", so Friend sharing never announces it and
+# What's new waits for 1.2.0) takes its notes from CHANGELOG.md's "## Unreleased" section, and is published as a GitHub
+# pre-release (the "latest" link stays on the last release) and a CurseForge beta (only people who opted into betas
+# get it).
 name: Release
 
 on:
@@ -30,10 +31,9 @@ jobs:
         working-directory: Tomte
         run: |
           tag="${GITHUB_REF_NAME}"
-          base="${tag%%-*}"
           toc="v$(sed -n 's/^## Version: *//p' Tomte.toc | tr -d '\r')"
-          if [ "$base" != "$toc" ]; then echo "Tag $tag doesn't match Tomte.toc ($toc)"; exit 1; fi
-          if [ "$base" != "$tag" ]; then section="## Unreleased"; echo "BETA=1" >> "$GITHUB_ENV"; else section="## $tag"; fi
+          if [ "$tag" != "$toc" ]; then echo "Tag $tag doesn't match Tomte.toc ($toc)"; exit 1; fi
+          if [ "${tag%%-*}" != "$tag" ]; then section="## Unreleased"; echo "BETA=1" >> "$GITHUB_ENV"; else section="## $tag"; fi
           awk -v v="$section" '$0 ~ "^## " { if (found) exit; if (index($0, v) == 1) { found = 1; next } } found' CHANGELOG.md > ../notes.md
           if [ ! -s ../notes.md ]; then echo "CHANGELOG.md has no '$section' section"; exit 1; fi
 

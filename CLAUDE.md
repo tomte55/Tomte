@@ -304,3 +304,9 @@ exist on CurseForge.
 `.gitattributes` (`export-ignore`) keeps `tests/`, `tools/`, `docs/`, `CLAUDE.md`, `.github/` and `Media/Logo.svg` out of
 the zip: add any new dev-only file there. If a run fails, fix it, delete the tag locally and on GitHub
 (`git tag -d vX.Y.Z`, `git push origin :refs/tags/vX.Y.Z`) and tag again.
+
+**Betas** (something to try with friends before a real release): `## Version: X.Y.Z-beta.N` in the TOC and a tag
+`vX.Y.Z-beta.N`. The workflow takes the notes from **Unreleased** and publishes a GitHub pre-release (the "latest"
+link stays on the last release) and a CurseForge beta. No `## vX.Y.Z` section and no `ns.CHANGES` entry for a beta.
+A beta's version is never announced to friends as newer, and What's new keeps waiting for X.Y.Z
+(`ns.Changes_Seen`). After the tag, leave the TOC on the beta version until the real release sets `X.Y.Z`.

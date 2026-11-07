@@ -41,6 +41,17 @@ test("nothing new, or nothing seen yet", function()
 	eq(#ns.Changes_ToShow(LIST, nil, "1.23.0"), 0, "a version without highlights")
 end)
 
+test("a beta: compared as its release, and it doesn't count that release as seen", function()
+	eq(ns.Changes_Compare("1.31.0-beta.1", "1.31.0"), 0, "not 1.31.0.1")
+	eq(ns.Changes_Compare("1.31.0-beta.1", "1.30.0"), 1)
+	eq(ns.Changes_Seen("1.30.0", "1.31.0-beta.1"), "1.30.0", "running the beta: still at the last release")
+	eq(ns.Changes_Seen("1.30.0", "1.31.0"), "1.31.0")
+	eq(ns.Changes_Seen(nil, "1.31.0-beta.1"), nil)
+	local list = { { version = "1.31.0" }, { version = "1.30.0" } }
+	local seen = ns.Changes_Seen("1.30.0", "1.31.0-beta.1")
+	eq(versions(ns.Changes_ToShow(list, seen, "1.31.0")), "1.31.0", "the release after the beta still shows")
+end)
+
 test("every release's lines name a module or a label, and have text", function()
 	for _, entry in ipairs(ns.CHANGES) do
 		assert(entry.version and entry.date, "version and date")

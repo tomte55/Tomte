@@ -181,7 +181,8 @@ local function Build()
 			text = RELEASES .. (entry and entry.version or ns.VERSION), readOnly = true })
 	end)
 	frame:HookScript("OnHide", function()
-		ns.db.changes.seen = ns.VERSION -- closed any way: this version's changes count as seen
+		-- Closed any way: this version's changes count as seen (a beta keeps the last release: Changes_Seen).
+		ns.db.changes.seen = ns.Changes_Seen(ns.db.changes.seen, ns.VERSION)
 	end)
 end
 
@@ -246,7 +247,8 @@ local function TryShow()
 	end
 	local entries = ns.Changes_ToShow(ns.CHANGES, ns.db.changes.seen, ns.VERSION)
 	if #entries == 0 or not ns.Window_WhatsNew() then
-		ns.db.changes.seen = ns.VERSION -- turned off, or nothing to say: next time counts from here
+		-- Turned off, or nothing to say: next time counts from here (a beta keeps the last release: Changes_Seen).
+		ns.db.changes.seen = ns.Changes_Seen(ns.db.changes.seen, ns.VERSION)
 		return
 	end
 	if InCombatLockdown() then

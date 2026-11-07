@@ -148,8 +148,23 @@ local function VersionParts(text)
 end
 
 -- True when Tomte version a is newer than b ("1.12.0" > "1.11.3", missing parts are 0). Anything but dotted
--- numbers (a dev checkout's "?", "1.12.0-beta") is never newer, so nobody is told to update by an odd string.
+-- numbers (a dev checkout's "?", a beta's "1.31.0-beta.1") is never newer, so nobody is told to update by an odd
+-- string. Running a beta (b), its release ("1.31.0") and anything after are newer than it.
 function ns.Share_NewerVersion(a, b)
+	local base, suffix = tostring(b or ""):match("^([^%-]+)%-(.+)$")
+	if base and suffix ~= "" then
+		local pa, pb = VersionParts(a), VersionParts(base)
+		if not (pa and pb) then
+			return false
+		end
+		for i = 1, math.max(#pa, #pb) do
+			local x, y = pa[i] or 0, pb[i] or 0
+			if x ~= y then
+				return x > y
+			end
+		end
+		return true -- the release of the beta you run
+	end
 	local pa, pb = VersionParts(a), VersionParts(b)
 	if not (pa and pb) then
 		return false
