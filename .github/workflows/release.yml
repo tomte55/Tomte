@@ -1,6 +1,9 @@
 # Push a tag like v1.2.0 to build Tomte-v1.2.0.zip and publish it as a GitHub release.
 # The tag must match "## Version:" in Tomte.toc, and CHANGELOG.md must have a "## v1.2.0" section
 # (its text becomes the release notes).
+# A beta tag like v1.2.0-beta.1 is checked against "## Version: 1.2.0", takes its notes from CHANGELOG.md's
+# "## Unreleased" section, and is published as a GitHub pre-release (the "latest" link stays on the last release) and a
+# CurseForge beta (only people who opted into betas get it).
 name: Release
 
 on:
@@ -27,10 +30,12 @@ jobs:
         working-directory: Tomte
         run: |
           tag="${GITHUB_REF_NAME}"
+          base="${tag%%-*}"
           toc="v$(sed -n 's/^## Version: *//p' Tomte.toc | tr -d '\r')"
-          if [ "$tag" != "$toc" ]; then echo "Tag $tag doesn't match Tomte.toc ($toc)"; exit 1; fi
-          awk -v v="## $tag" '$0 ~ "^## " { if (found) exit; if (index($0, v) == 1) { found = 1; next } } found' CHANGELOG.md > ../notes.md
-          if [ ! -s ../notes.md ]; then echo "CHANGELOG.md has no '## $tag' section"; exit 1; fi
+          if [ "$base" != "$toc" ]; then echo "Tag $tag doesn't match Tomte.toc ($toc)"; exit 1; fi
+          if [ "$base" != "$tag" ]; then section="## Unreleased"; echo "BETA=1" >> "$GITHUB_ENV"; else section="## $tag"; fi
+          awk -v v="$section" '$0 ~ "^## " { if (found) exit; if (index($0, v) == 1) { found = 1; next } } found' CHANGELOG.md > ../notes.md
+          if [ ! -s ../notes.md ]; then echo "CHANGELOG.md has no '$section' section"; exit 1; fi
 
       - name: Build zip
         working-directory: Tomte
@@ -39,7 +44,7 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "Tomte-${GITHUB_REF_NAME}.zip" --repo "$GITHUB_REPOSITORY" --title "Tomte $GITHUB_REF_NAME" --notes-file notes.md
+        run: gh release create "$GITHUB_REF_NAME" "Tomte-${GITHUB_REF_NAME}.zip" --repo "$GITHUB_REPOSITORY" --title "Tomte $GITHUB_REF_NAME" --notes-file notes.md ${BETA:+--prerelease}
 
       # Uploads the same zip and notes to CurseForge. Skipped until the repo has a CF_API_TOKEN secret (CurseForge >
       # account > API tokens) and Tomte.toc has "## X-Curse-Project-ID: <id>". The game version comes from the TOC's
@@ -60,7 +65,9 @@ jobs:
           fgv="$((fiface / 10000)).$((fiface / 100 % 100)).$((fiface % 100))"
           fid="$(printf '%s' "$versions" | jq --arg v "$fgv" 'map(select(.name == $v)) | .[0].id // empty')"
           if [ -z "$fid" ]; then echo "CurseForge has no game version $fgv: retail only"; fi
-          jq -n --rawfile notes notes.md --arg name "Tomte $GITHUB_REF_NAME" --argjson gv "[$id${fid:+,$fid}]" \
-            '{changelog: $notes, changelogType: "markdown", displayName: $name, gameVersions: $gv, releaseType: "release"}' > cf.json
+          kind="release"
+          if [ -n "$BETA" ]; then kind="beta"; fi
+          jq -n --rawfile notes notes.md --arg name "Tomte $GITHUB_REF_NAME" --argjson gv "[$id${fid:+,$fid}]" --arg kind "$kind" \
+            '{changelog: $notes, changelogType: "markdown", displayName: $name, gameVersions: $gv, releaseType: $kind}' > cf.json
           curl -sf -H "X-Api-Token: $CF_API_TOKEN" -F "metadata=<cf.json" -F "file=@Tomte-${GITHUB_REF_NAME}.zip" \
             "https://wow.curseforge.com/api/projects/$project/upload-file"
