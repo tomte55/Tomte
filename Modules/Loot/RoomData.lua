@@ -68,9 +68,9 @@ function ns.LootRoom_PickLoot(blocked)
 end
 
 -- What to do for loot, given the items in bags that could take it. Each candidate: { bag, slot, name, count, quality, ... }.
--- Returns { kind = "destroy", target, loot, confirm, badTrade } | { kind = "stuck", loot }. Greys go first,
--- cheapest first, as they're what nobody is saving. badTrade: what you'd destroy is worth at least what's on the corpse. It's still
--- offered, with a second click, as a corpse with loot left on it can't be skinned.
+-- Returns { kind = "destroy", target, loot, confirm } | { kind = "leave", loot, target } | { kind = "stuck", loot }. Greys go first,
+-- cheapest first, as they're what nobody is saving. Not worth it: everything you could destroy is worth at least what's on the corpse.
+-- That isn't offered even with a second click: players click the red button without reading it (seen on Forever, 1.31).
 function ns.LootRoom_Plan(loot, candidates)
 	local best, bestTier
 	for _, item in ipairs(candidates) do
@@ -90,8 +90,10 @@ function ns.LootRoom_Plan(loot, candidates)
 	if not best then
 		return { kind = "stuck", loot = loot }
 	end
-	local badTrade = not AlwaysWanted(loot) and ns.LootRoom_Worth(best) >= ns.LootRoom_Worth(loot)
-	return { kind = "destroy", loot = loot, target = best, confirm = bestTier == "ask" or badTrade, badTrade = badTrade }
+	if not AlwaysWanted(loot) and ns.LootRoom_Worth(best) >= ns.LootRoom_Worth(loot) then
+		return { kind = "leave", loot = loot, target = best }
+	end
+	return { kind = "destroy", loot = loot, target = best, confirm = bestTier == "ask" }
 end
 
 local function Named(item)
@@ -104,12 +106,12 @@ function ns.LootRoom_Text(plan, armed)
 	local lootName = plan.loot.name or "this"
 	if plan.kind == "stuck" then
 		return ("Bags full, and nothing safe to destroy.\nMake room by hand for %s."):format(lootName)
+	elseif plan.kind == "leave" then
+		return ("Bags full. Leave %s:\nit's worth less than anything you'd destroy."):format(lootName)
 	end
 	local price = ns.Price(ns.LootRoom_Worth(plan.target))
 	if armed then
 		return ("Click again to destroy for good:\n%s (%s)"):format(Named(plan.target), price)
-	elseif plan.badTrade then
-		return ("Bags full. Destroy %s (%s)?\nWorth more than %s. Click to confirm."):format(Named(plan.target), price, lootName)
 	elseif plan.confirm then
 		return ("Bags full. Destroy %s (%s)?\nFor %s. Click to confirm."):format(Named(plan.target), price, lootName)
 	end

@@ -161,9 +161,7 @@ local function ShowTooltip(self)
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	GameTooltip:SetText("Make room")
 	if plan and plan.kind == "destroy" then
-		local why = plan.badTrade and "You'd lose value, but a corpse with loot left on it can't be skinned. Takes a second click."
-			or plan.confirm and "No grey junk left, so this one takes a second click." or "Grey junk, your cheapest."
-		UI.TipLine(why, "text", true)
+		UI.TipLine(plan.confirm and "No grey junk left, so this one takes a second click." or "Grey junk, your cheapest.", "text", true)
 		UI.TipLine("Destroying can't be undone.", "warning")
 	end
 	UI.TipLine("Never touches quest items, soulbound items, upgrades, food, ammo, bags, profession tools, your hearthstone or anything rare.",
