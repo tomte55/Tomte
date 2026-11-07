@@ -12,12 +12,13 @@ local module, db
 local zoneMaps -- [zone name] = its map ID, built on first use
 local hooked = false
 
-local function Tables()
-	return { items = ns.SOURCES_ITEMS, units = ns.SOURCES_UNITS, objects = ns.SOURCES_OBJECTS, zones = ns.SOURCES_ZONES }
+function ns.Sources_Tables()
+	return { items = ns.SOURCES_ITEMS, units = ns.SOURCES_UNITS, objects = ns.SOURCES_OBJECTS, zones = ns.SOURCES_ZONES,
+		skinned = ns.SOURCES_SKINNED }
 end
 
 function ns.Sources_ForMe(itemID)
-	return ns.Sources_Sort(ns.Sources_Read(Tables(), itemID), UnitLevel("player"), (UnitFactionGroup("player")))
+	return ns.Sources_Sort(ns.Sources_Read(ns.Sources_Tables(), itemID), UnitLevel("player"), (UnitFactionGroup("player")))
 end
 
 local function BuildZoneMaps()
@@ -38,13 +39,15 @@ local function MapFor(source)
 	return zoneMaps[localized or ""] or zoneMaps[source.zoneName or ""]
 end
 
+-- A zone to skin in is pinned where most of its creatures of the right level are.
 function ns.Sources_Pin(source)
+	local label = source.kind == "skin" and "Beasts to skin" or source.name
 	local mapID = MapFor(source)
-	if not (mapID and ns.Way_SetPoint and ns.Way_SetPoint(mapID, source.x / 100, source.y / 100, source.name)) then
-		ns.Print(("%s is in %s: no pin for that place."):format(source.name, source.zoneName or "a place the map doesn't show"))
+	if not (mapID and ns.Way_SetPoint and ns.Way_SetPoint(mapID, source.x / 100, source.y / 100, label)) then
+		ns.Print(("%s is in %s: no pin for that place."):format(label, source.zoneName or "a place the map doesn't show"))
 		return
 	end
-	ns.Print(("Pin set: %s, %s %.1f, %.1f."):format(source.name, source.zoneName or "?", source.x, source.y))
+	ns.Print(("Pin set: %s, %s %.1f, %.1f."):format(label, source.zoneName or "?", source.x, source.y))
 end
 
 -- Post-calls can't be removed: this does nothing while off.
@@ -84,7 +87,7 @@ module = ns.RegisterModule({
 	icon = ICON,
 	summary = "Find any item and see where to buy, gather or farm it.",
 	description = "Type an item's name to see who sells it, what it's gathered from and which mobs drop it, the best places for your "
-		.. "level first. Click a place to put a pin on the map. Also a line on item tooltips, and Ctrl+right-click on an item opens it. "
+		.. "level first, and for leather and hides the zones to skin beasts in. Click a place to put a pin on the map. Also a line on item tooltips, and Ctrl+right-click on an item opens it. "
 		.. "It's Classic's data, so Forever may differ, and crafted items and quest rewards aren't covered yet.",
 	enabledByDefault = true,
 	defaults = {

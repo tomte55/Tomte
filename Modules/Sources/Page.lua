@@ -53,7 +53,12 @@ end
 local function PinTooltip(row)
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
 	GameTooltip:SetText(row.source.name)
-	UI.TipLine(row.source.spawns > 1 and ("%d spawns around here"):format(row.source.spawns) or "One spawn", "textMuted")
+	if row.source.kind == "skin" then
+		UI.TipLine(("%s creatures of these levels in this zone. Skin the beasts among them."):format(
+			ns.Thousands(row.source.spawns)), "textMuted")
+	else
+		UI.TipLine(row.source.spawns > 1 and ("%d spawns around here"):format(row.source.spawns) or "One spawn", "textMuted")
+	end
 	UI.TipLine("Click to put a pin on the map.", "textMuted")
 	GameTooltip:Show()
 end
@@ -98,7 +103,12 @@ local function DrawItem(width)
 	y = Places(sorted.drops, "Drops from", "Best for your level first", y, width, function(source)
 		return ns.Sources_ChanceText(source.chance)
 	end)
-	if #sorted.buy + #sorted.gather + #sorted.drops == 0 then
+	local skinLevels = ns.Sources_SkinLevels(ns.Sources_Tables(), selected)
+	y = Places(sorted.skin, "Skin beasts", skinLevels and ("Level %s; your level first"):format(skinLevels), y, width,
+		function()
+			return nil
+		end)
+	if #sorted.buy + #sorted.gather + #sorted.drops + #sorted.skin == 0 then
 		y = Heading(y, width, "Nothing for your side", "Vendors of the other faction, or mobs of your own")
 	end
 	return y

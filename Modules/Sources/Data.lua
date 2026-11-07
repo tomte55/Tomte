@@ -84,14 +84,40 @@ local function ReadObject(objects, id)
 	return { id = id, name = f[1], zone = tonumber(f[2]), x = tonumber(f[3]), y = tonumber(f[4]), spawns = tonumber(f[5]) or 1 }
 end
 
--- An item's sources as they are in the table: { { kind = "drop" | "vendor" | "object", id, name, chance, levels, low, high,
--- friendly ("A", "H", "AH" or ""), rank, zone, x, y, spawns } }. Nothing for an item with none.
+-- Zones to skin an item in (data.skinned: "low-high|zone:low-high:x:y:spawns,..."), as rows like a drop's: the zone is the name,
+-- levels are the creatures' there. id is the zone, for a steady order.
+local function ReadSkinned(data, itemID, rows)
+	local entry = data.skinned and data.skinned[itemID]
+	if not entry then
+		return
+	end
+	for _, part in ipairs(Split(entry:match("|(.*)$") or "", ",")) do
+		local zone, low, high, x, y, spawns = part:match("^(%d+):(%d+)%-(%d+):([%d%.]+):([%d%.]+):(%d+)$")
+		zone = tonumber(zone)
+		if zone then
+			local name = data.zones[zone] or "?"
+			rows[#rows + 1] = { kind = "skin", id = zone, name = name, zone = zone, zoneName = name, low = tonumber(low),
+				high = tonumber(high), levels = low == high and low or (low .. "-" .. high), x = tonumber(x), y = tonumber(y),
+				spawns = tonumber(spawns), friendly = "" }
+		end
+	end
+end
+
+-- The creature levels an item is skinned from ("9-25"), nil when it isn't skinned.
+function ns.Sources_SkinLevels(data, itemID)
+	local entry = data.skinned and data.skinned[itemID]
+	return entry and entry:match("^([^|]*)") or nil
+end
+
+-- An item's sources as they are in the table: { { kind = "drop" | "vendor" | "object" | "skin", id, name, chance, levels, low,
+-- high, friendly ("A", "H", "AH" or ""), rank, zone, x, y, spawns } }. Nothing for an item with none.
 function ns.Sources_Read(data, itemID)
 	local entry = data.items[itemID]
 	local rows = {}
 	if not entry then
 		return rows
 	end
+	ReadSkinned(data, itemID, rows)
 	local list = entry:match("|(.*)$") or ""
 	for _, part in ipairs(Split(list, ",")) do
 		local letter, id, chance = part:match("^(%a)(%d+):?([%d%.e%-]*)$")
@@ -126,12 +152,12 @@ local function Faction(faction)
 	return faction == "Alliance" and "A" or (faction == "Horde" and "H" or nil)
 end
 
--- The sources sorted for this character: { buy, gather, drops }. Only vendors who'd sell to you, and no mobs on your side. Drops: near
--- your level first, your side's lands before the other's, the best place to farm first; then the ones above you by level and last the
--- ones far below.
+-- The sources sorted for this character: { buy, gather, drops, skin }. Only vendors who'd sell to you, and no mobs on your side.
+-- Drops and zones to skin in: near your level first, your side's lands before the other's, the best place to farm first; then the
+-- ones above you by level and last the ones far below. A zone to skin in counts its creatures (its spawns), a drop its chance too.
 function ns.Sources_Sort(rows, level, faction)
 	local letter = Faction(faction)
-	local buy, gather, drops = {}, {}, {}
+	local buy, gather, drops, skin = {}, {}, {}, {}
 	for _, row in ipairs(rows) do
 		local onYourSide = letter ~= nil and (row.friendly or ""):find(letter, 1, true) ~= nil
 		if row.kind == "vendor" then
@@ -140,6 +166,8 @@ function ns.Sources_Sort(rows, level, faction)
 			end
 		elseif row.kind == "object" then
 			gather[#gather + 1] = row
+		elseif row.kind == "skin" then
+			skin[#skin + 1] = row
 		elseif not onYourSide then
 			drops[#drops + 1] = row
 		end
@@ -151,7 +179,10 @@ function ns.Sources_Sort(rows, level, faction)
 		end
 		return row.low > level and 3 or 4
 	end
-	table.sort(drops, function(a, b)
+	local function Score(row)
+		return row.kind == "skin" and row.spawns or ns.Sources_Score(row)
+	end
+	local function Better(a, b)
 		local x, y = Band(a), Band(b)
 		if x ~= y then
 			return x < y
@@ -159,12 +190,14 @@ function ns.Sources_Sort(rows, level, faction)
 		if x == 3 and a.low ~= b.low then
 			return a.low < b.low
 		end
-		local p, q = ns.Sources_Score(a), ns.Sources_Score(b)
+		local p, q = Score(a), Score(b)
 		if p ~= q then
 			return p > q
 		end
 		return a.id < b.id
-	end)
+	end
+	table.sort(drops, Better)
+	table.sort(skin, Better)
 	table.sort(gather, function(a, b)
 		if (a.chance or 0) ~= (b.chance or 0) then
 			return (a.chance or 0) > (b.chance or 0)
@@ -174,7 +207,7 @@ function ns.Sources_Sort(rows, level, faction)
 	table.sort(buy, function(a, b)
 		return a.id < b.id
 	end)
-	return { buy = buy, gather = gather, drops = drops }
+	return { buy = buy, gather = gather, drops = drops, skin = skin }
 end
 
 function ns.Sources_ChanceText(chance)
@@ -186,6 +219,9 @@ end
 
 -- The line under a source's name.
 function ns.Sources_SubText(row)
+	if row.kind == "skin" then
+		return "Creatures level " .. row.levels
+	end
 	local parts = {}
 	if row.zoneName and row.zoneName ~= "" then
 		parts[#parts + 1] = row.zoneName
@@ -206,6 +242,13 @@ function ns.Sources_TipLine(sorted, level)
 		return ("Sold by %s, %s"):format(row.name, row.zoneName or "?")
 	end
 	row = sorted.drops[1]
+	local skin = sorted.skin and sorted.skin[1]
+	local function Skinned()
+		return ("Skinned from beasts, for example in %s (level %s)"):format(skin.name, skin.levels)
+	end
+	if skin and ns.Sources_Near(skin, level) and not (row and ns.Sources_Near(row, level)) then
+		return Skinned()
+	end
 	local mined = sorted.gather[1]
 	if mined and not (row and ns.Sources_Near(row, level)) then
 		return ("From %s, %s"):format(mined.name, mined.zoneName or "?")
@@ -214,5 +257,5 @@ function ns.Sources_TipLine(sorted, level)
 		local chance = ns.Sources_ChanceText(row.chance)
 		return ("Drops from %s, %s%s"):format(row.name, row.zoneName or "?", chance and (" (" .. chance .. ")") or "")
 	end
-	return nil
+	return skin and Skinned() or nil
 end

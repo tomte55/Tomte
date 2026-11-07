@@ -17,6 +17,10 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
 
+### Improved
+
+- **Where to get it:** leather and hides now show up, with the zones to skin beasts of the right level in, your level first, and a map pin for each. Item tooltips say where to skin them too.
+
 ### Fixed
 
 - **Vendor Helper:** on Forever, part of a stack you shift-click and drop on the vendor now sells. It needs one free bag slot and takes about a second, as the game has to move it there first.

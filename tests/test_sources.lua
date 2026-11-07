@@ -122,8 +122,60 @@ test("TipLine: buying first, then what's near you", function()
 	eq(ns.Sources_TipLine({ buy = {}, gather = {}, drops = {} }, 6), nil)
 end)
 
+local SKIN = {
+	items = { [783] = "Light Hide|", [2319] = "Medium Leather|v20" },
+	units = DATA.units,
+	objects = {},
+	zones = { [12] = "Elwynn Forest", [14] = "Durotar", [17] = "The Barrens", [40] = "Westfall" },
+	skinned = {
+		[783] = "9-25|17:9-22:49.2:38.9:3354,40:11-18:43.8:46.4:1713,14:9-11:43.7:31.7:556,12:9-10:62.9:65.9:452",
+		[2319] = "20-35|17:20-30:47.6:70.9:868",
+	},
+}
+
+test("Skinning: zones read as rows, your level first, your side's lands first", function()
+	eq(ns.Sources_SkinLevels(SKIN, 783), "9-25")
+	eq(ns.Sources_SkinLevels(SKIN, 1), nil)
+	local rows = ns.Sources_Read(SKIN, 783)
+	eq(#rows, 4)
+	eq(rows[1].kind, "skin")
+	eq(rows[1].name, "The Barrens")
+	eq(rows[1].low, 9)
+	eq(rows[1].high, 22)
+	eq(rows[1].x, 49.2)
+	eq(rows[1].spawns, 3354)
+	eq(ns.Sources_SubText(rows[1]), "Creatures level 9-22")
+	local sorted = ns.Sources_Sort(rows, 10, "Horde")
+	eq(#sorted.drops, 0, "a zone to skin in isn't a drop")
+	eq(sorted.skin[1].name, "The Barrens", "near, the most creatures")
+	eq(sorted.skin[2].name, "Durotar")
+	eq(sorted.skin[3].name, "Westfall", "the other side's lands after yours, the most creatures first")
+	eq(sorted.skin[4].name, "Elwynn Forest")
+	sorted = ns.Sources_Sort(rows, 10, "Alliance")
+	eq(sorted.skin[1].name, "Westfall")
+	eq(sorted.skin[2].name, "Elwynn Forest")
+	eq(sorted.skin[3].name, "The Barrens")
+	sorted = ns.Sources_Sort(rows, 2, "Horde")
+	eq(sorted.skin[4].name, "Westfall", "all above you: lowest first, Westfall starts at 11")
+end)
+
+test("Skinning: the tooltip line", function()
+	local sorted = ns.Sources_Sort(ns.Sources_Read(SKIN, 783), 10, "Horde")
+	eq(ns.Sources_TipLine(sorted, 10), "Skinned from beasts, for example in The Barrens (level 9-22)")
+	eq(ns.Sources_TipLine(sorted, 60), "Skinned from beasts, for example in The Barrens (level 9-22)", "nothing else: still said")
+	sorted = ns.Sources_Sort(ns.Sources_Read(SKIN, 2319), 25, "Horde")
+	eq(ns.Sources_TipLine(sorted, 25), "Sold by Supply Officer, Durotar", "buying still comes first")
+	eq(sorted.skin[1].name, "The Barrens")
+end)
+
 test("the generated data: Linen Cloth, and every source can be read", function()
-	local data = { items = ns.SOURCES_ITEMS, units = ns.SOURCES_UNITS, objects = ns.SOURCES_OBJECTS, zones = ns.SOURCES_ZONES }
+	local data = { items = ns.SOURCES_ITEMS, units = ns.SOURCES_UNITS, objects = ns.SOURCES_OBJECTS, zones = ns.SOURCES_ZONES,
+		skinned = ns.SOURCES_SKINNED }
+	eq(ns.Sources_Search(data.items, "light hide")[1].itemID, 783, "skinned items are found by name")
+	eq(ns.Sources_SkinLevels(data, 783), "9-25")
+	for itemID in pairs(data.skinned) do
+		eq(data.items[itemID] ~= nil, true, "skinned item " .. itemID .. " is in the items")
+	end
 	eq(ns.Sources_Name(data.items, 2589), "Linen Cloth")
 	eq(#ns.Sources_Read(data, 2589) > 0, true)
 	eq(ns.Sources_Search(data.items, "linen cloth")[1].itemID, 2589)
