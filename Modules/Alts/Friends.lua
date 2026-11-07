@@ -80,8 +80,23 @@ function ns.AltsFriends_Merged(chars, recipes)
 			online[tag] = ns.AltsFriends_Online(tag) or nil
 		end
 	end
+	local realms, realmKey = ns.AltsFriends_Realms()
 	return ns.AltsFriends_Merge(chars, recipes, friends,
-		{ faction = UnitFactionGroup("player"), realms = ns.Alts_MailRealms(), online = online })
+		{ faction = UnitFactionGroup("player"), realms = realms, realmKey = realmKey, online = online })
+end
+
+-- The realms a friend's character must be on for mail to reach it, and the key they're compared by. Retail: the
+-- connected realms (ns.Alts_MailRealms). Forever: your realm without its server number (AltsFriends_ForeverRealm),
+-- as friends on one ruleset play together from numbered servers (seen in game: Realm5PvE and Realm3PvE).
+function ns.AltsFriends_Realms()
+	if ns.FOREVER then
+		local mine = GetNormalizedRealmName()
+		if not mine or mine == "" then
+			return nil, ns.AltsFriends_ForeverRealm
+		end
+		return { [ns.AltsFriends_ForeverRealm(mine)] = true }, ns.AltsFriends_ForeverRealm
+	end
+	return ns.Alts_MailRealms(), nil
 end
 
 -- A recipe by ID: yours, or one a friend shared.
@@ -97,6 +112,36 @@ function ns.AltsFriends_Recipe(recipeID)
 		end
 	end
 	return nil
+end
+
+-- /tomte alts friends: what each friend shared and why each of their characters is shown or not.
+function ns.AltsFriends_Why()
+	local faction, realm = UnitFactionGroup("player"), GetNormalizedRealmName()
+	ns.Print(("friends' crafting: %s; you are %s on %s."):format(Sharing() and "on" or "off (Friend sharing, its "
+		.. "Professions and recipes switch, or not on Forever)", tostring(faction), tostring(realm)))
+	if not next(db.friendCrafts) then
+		print("  No friend has shared their crafting yet.")
+		return
+	end
+	local realms, realmKey = ns.AltsFriends_Realms()
+	for tag, entry in pairs(db.friendCrafts) do
+		local data = entry.data or {}
+		print(("  %s%s: %d characters, received %s."):format(ShortName(tag),
+			ns.Share_IsBlocked(tag) and " (blocked)" or "", #(data.chars or {}), ns.AgoText(time() - (entry.at or 0))))
+		for _, c in ipairs(data.chars or {}) do
+			local why = ns.AltsFriends_Reachable(c, faction, realms, realmKey) and "shown"
+				or ((c.faction ~= "" and c.faction ~= (faction or ""):sub(1, 1)) and "hidden: other faction"
+					or "hidden: a realm your mail doesn't reach (on Forever: another ruleset)")
+			local n = 0
+			for _, p in pairs(c.profs or {}) do
+				for _ in pairs(p.known or {}) do
+					n = n + 1
+				end
+			end
+			print(("    %s (%s, %s): %d recipes, %s"):format(c.name, c.realm ~= "" and c.realm or "?",
+				c.faction ~= "" and c.faction or "?", n, why))
+		end
+	end
 end
 
 -- A friend stopped sharing their crafting (or was forgotten): their characters leave your Crafting tab.

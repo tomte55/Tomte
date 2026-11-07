@@ -30,8 +30,9 @@ local function Groups()
 	for _, req in pairs(db.requests) do
 		recipes[req.recipeID] = ns.AltsFriends_Recipe(req.recipeID)
 	end
+	local realms, realmKey = ns.AltsFriends_Realms()
 	return ns.AltsFriends_MailGroups(db.requests, recipes,
-		{ faction = UnitFactionGroup("player"), realms = ns.Alts_MailRealms() })
+		{ faction = UnitFactionGroup("player"), realms = realms, realmKey = realmKey })
 end
 
 local function Title(g)
@@ -67,7 +68,8 @@ local function Attach(g)
 		ClickSendMailItemButton(i)
 		ClearCursor()
 	end
-	SendMailNameEditBox:SetText(ns.Alts_MailName(g.to, GetRealmName()))
+	-- On Forever the name alone: friends on one ruleset have different numbered realms (AltsFriends_Realms).
+	SendMailNameEditBox:SetText(ns.FOREVER and g.to.name or ns.Alts_MailName(g.to, GetRealmName()))
 	SendMailSubjectEditBox:SetText("Tomte: " .. ns.AltsFriends_RecipeName(g.req))
 	attached = { id = g.req.id, kind = g.kind }
 	UI.Sound("confirm")

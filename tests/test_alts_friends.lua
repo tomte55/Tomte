@@ -110,6 +110,32 @@ test("Merge: characters mail can't reach are left out", function()
 	eq(c2["friend:Kesha#1234:Mira-Argent Dawn"].friend.online, false, "offline")
 end)
 
+test("Merge: a friend's recipes only come with a character of theirs that's shown", function()
+	local chars = {}
+	local friends = { ["Kesha#1234"] = { at = 1, data = FriendData() } }
+	local _, r2 = ns.AltsFriends_Merge(chars, {}, friends, { faction = "Alliance", realms = HOME })
+	eq(r2[BAG], nil, "nobody you can reach knows it: not listed with 'no one'")
+	_, r2 = ns.AltsFriends_Merge(chars, {}, friends, { faction = "Horde", realms = HOME })
+	eq(r2[BAG] ~= nil, true)
+end)
+
+test("Forever realms: the server number doesn't count, the ruleset does", function()
+	local key = ns.AltsFriends_ForeverRealm
+	eq(key("CAMWOWEU4Realm5PvE"), key("CAMWOWEU4Realm3PvE"), "two PvE servers, one world")
+	eq(key("CAMWOWEU4Realm5PvE") ~= key("CAMWOWEU4Realm2PvP"), true, "another ruleset")
+	local realms = { [key("CAMWOWEU4Realm5PvE")] = true }
+	local friend = { name = "Mira", realm = "CAMWOWEU4Realm3PvE", faction = "H", profs = {} }
+	eq(ns.AltsFriends_Reachable(friend, "Horde", realms, key), true)
+	friend.realm = "CAMWOWEU4Realm2PvP"
+	eq(ns.AltsFriends_Reachable(friend, "Horde", realms, key), false)
+	local chars, recipes = Mine()
+	local data = FriendData()
+	data.chars[1].realm = "CAMWOWEU4Realm3PvE"
+	local c2 = ns.AltsFriends_Merge(chars, recipes, { ["Kesha#1234"] = { at = 1, data = data } },
+		{ faction = "Horde", realms = realms, realmKey = key })
+	eq(c2["friend:Kesha#1234:Mira-CAMWOWEU4Realm3PvE"] ~= nil, true, "the merge uses the key too")
+end)
+
 test("Reachable: unknown faction counts as reachable", function()
 	eq(ns.AltsFriends_Reachable({ realm = "Argent Dawn", faction = "" }, "Horde", HOME), true)
 	eq(ns.AltsFriends_Reachable({ realm = "Argent Dawn", faction = "A" }, "Horde", HOME), false)

@@ -148,12 +148,14 @@ end
 local function StepText(step, quality)
 	local q = step.quality or quality
 	local what = ("%dx %s"):format(step.crafts, q and ns.Alts_RecipeLabel(step.recipeID, nil, q)
-		or RecipeName(S.db.recipes[step.recipeID]))
+		or RecipeName(ns.AltsFriends_Recipe(step.recipeID))) -- a friend's recipe too
 	if #step.crafters > 0 then
 		return ("%s crafts %s"):format(Names(step.crafters, 2), what)
 	elseif #step.learnable > 0 then
 		return ("%s %s %s"):format(UI.Wrap("nobody knows", "danger"), what,
 			UI.Wrap(("(learnable: %s)"):format(Names(step.learnable, 2)), "textMuted"))
+	elseif not S.db.recipes[step.recipeID] and ns.AltsFriends_Recipe(step.recipeID) then
+		return ("%s %s"):format(UI.Wrap("a friend makes", "warning"), what) -- only a friend knows it: ask them above
 	end
 	return ("%s %s"):format(UI.Wrap("nobody can make", "danger"), what)
 end

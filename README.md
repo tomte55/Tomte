@@ -383,7 +383,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte mount why` (context, pool and pick of the last press), `/tomte mount zone`
 - `/tomte tp open`, `/tomte tp scan` (what the Teleports tab found)
 - `/tomte next list` (what Next up suggests and why), `/tomte next reset` (bring back everything you hid)
-- `/tomte alts list` (the crafting list), `/tomte alts tracker` (show/hide the craft tracker)
+- `/tomte alts list` (the crafting list), `/tomte alts tracker` (show/hide the craft tracker), `/tomte alts friends` (what each friend shared, and why their characters show or not)
 - `/tomte recent open` / `clear`, `/tomte value price <item link or ID>`, `/tomte value track <item link or ID>` (show an item on the bag's currency bar, or stop)
 - `/tomte materials why <item link or ID>` (which characters and professions use an item)
 - `/tomte perf show` (Tomte's busiest modules and last hitches), `/tomte perf report` (all of it as text to copy), `/tomte perf reset` (measure from now), `/tomte perf open`

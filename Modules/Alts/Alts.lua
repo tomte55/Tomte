@@ -593,6 +593,9 @@ module = ns.RegisterModule({
 		{ "why", "why Materials on hand keeps or drops a recipe: /tomte alts why <recipe>", function(text)
 			ns.AltsCraft_Why(text)
 		end },
+		{ "friends", "what each friend shared and why their characters show or not", function()
+			ns.AltsFriends_Why()
+		end },
 		{ "list", "open the crafting list", function()
 			db.view = "list"
 			ns.Panel_OpenPage("alts")

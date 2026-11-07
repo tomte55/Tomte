@@ -148,18 +148,30 @@ end
 
 -- Friends' characters ----------------------------------------------------------------------------------------------
 
+-- A World of Warcraft: Forever realm without its server number: "CAMWOWEU4Realm5PvE" -> "CAMWOWEU4RealmPvE". There's
+-- no realm to pick there, only a ruleset, and friends on one ruleset play together from different numbered servers
+-- (seen in game: Realm5PvE and Realm3PvE). The ruleset stays in the name: players on another can't be reached.
+function ns.AltsFriends_ForeverRealm(realm)
+	return (tostring(realm or ""):gsub("[%s%-]", ""):gsub("Realm%d+", "Realm"))
+end
+
 -- Whether mail reaches a friend's character: your faction ("Horde" | "Alliance"; an unknown one on either side
--- counts as reachable) and a realm mail reaches (ns.Alts_Reachable; realms nil: unknown, reachable).
-function ns.AltsFriends_Reachable(c, faction, realms)
+-- counts as reachable) and a realm mail reaches (ns.Alts_Reachable; realms nil: unknown, reachable). realmKey
+-- (optional): realms is keyed by it (AltsFriends_ForeverRealm on Forever).
+function ns.AltsFriends_Reachable(c, faction, realms, realmKey)
 	local theirs, mine = c.faction or "", (faction or ""):sub(1, 1)
 	if theirs ~= "" and mine ~= "" and theirs ~= mine then
 		return false
+	end
+	if realmKey then
+		return not realms or not c.realm or c.realm == "" or realms[realmKey(c.realm)] == true
 	end
 	return ns.Alts_Reachable(c, realms)
 end
 
 -- Your characters and recipes with each friend's reachable characters added, as new tables (yours aren't changed).
--- friends = { [BattleTag] = { at, data (AltsFriends_Import's) } }; opts = { faction, realms, online = { [tag] = true } }.
+-- friends = { [BattleTag] = { at, data (AltsFriends_Import's) } }; opts = { faction, realms, realmKey (as in
+-- AltsFriends_Reachable), online = { [tag] = true } }.
 -- A friend's character is keyed "friend:<tag>:<name>-<realm>" and carries friend = { tag, online, seen }; a recipe
 -- only a friend knows is added with friend = true.
 function ns.AltsFriends_Merge(chars, recipes, friends, opts)
@@ -173,11 +185,15 @@ function ns.AltsFriends_Merge(chars, recipes, friends, opts)
 	end
 	for tag, entry in pairs(friends or {}) do
 		local data = entry.data or {}
+		local shown = {} -- [recipeID] = true: known by one of this friend's characters that's shown
 		for _, c in ipairs(data.chars or {}) do
-			if ns.AltsFriends_Reachable(c, opts.faction, opts.realms) then
+			if ns.AltsFriends_Reachable(c, opts.faction, opts.realms, opts.realmKey) then
 				local profs = {}
 				for base, p in pairs(c.profs or {}) do
 					profs[base] = { base = base, skill = p.skill, max = p.max, known = p.known }
+					for id in pairs(p.known or {}) do
+						shown[id] = true
+					end
 				end
 				c2["friend:" .. tag .. ":" .. c.name .. "-" .. (c.realm or "")] = { name = c.name, realm = c.realm,
 					faction = c.faction, class = c.class, level = c.level, profs = profs,
@@ -185,7 +201,7 @@ function ns.AltsFriends_Merge(chars, recipes, friends, opts)
 			end
 		end
 		for id, r in pairs(data.recipes or {}) do
-			if not r2[id] then
+			if shown[id] and not r2[id] then
 				r2[id] = { name = r.name, item = r.item, base = r.base, reagents = r.reagents, friend = true }
 			end
 		end
@@ -286,12 +302,13 @@ end
 -- What the mailbox offers to send for requests, newest first: { { req, kind = "mats" | "item", to = { name, realm },
 -- wants = { { itemID, n } } } }. "mats": your open request whose materials you said you'd mail and haven't yet (a
 -- waiting one too: mail reaches offline characters); "item": a friend's request you've made and not yet sent.
--- recipes: yours merged with friends' (for the materials of a recipe only they know). opts = { faction, realms }: only
+-- recipes: yours merged with friends' (for the materials of a recipe only they know). opts = { faction, realms,
+-- realmKey }: only
 -- recipients the character at the mailbox can reach (AltsFriends_Reachable); nil: everyone.
 function ns.AltsFriends_MailGroups(requests, recipes, opts)
 	local groups = {}
 	local function Add(g)
-		if not opts or ns.AltsFriends_Reachable(g.to, opts.faction, opts.realms) then
+		if not opts or ns.AltsFriends_Reachable(g.to, opts.faction, opts.realms, opts.realmKey) then
 			groups[#groups + 1] = g
 		end
 	end

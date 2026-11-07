@@ -121,7 +121,8 @@ end
 local function SetResultRow(row, r)
 	row.id, row.forInfo = r.id, r.forInfo
 	row.mark:SetText(MarkText(r.forInfo))
-	row.icon:SetTexture(r.recipe.icon or 134400)
+	-- A friend's recipe carries no icon (Friend sharing sends what it makes): the item's icon stands in.
+	row.icon:SetTexture(r.recipe.icon or (r.recipe.item and C_Item.GetItemIconByID(r.recipe.item)) or 134400)
 	row.name:SetText(r.recipe.name or ("recipe " .. r.id))
 	-- Rarity color; recipes nobody knows yet are dimmed.
 	local quality = QualityColor(r.recipe.item) or "text"
@@ -263,7 +264,7 @@ local function LayoutResults()
 		S.tab.more:SetShown(more > 0)
 	end
 	S.tab.list:SetContentHeight(y)
-	if next(S.db.recipes) == nil then
+	if next(recipes) == nil then -- friends' recipes count: with them, the list isn't empty
 		S.tab.hint:SetText("No recipes yet. Log in on each crafter and open their profession window once; Tomte reads the recipes from there.")
 	elseif #results == 0 then
 		S.tab.hint:SetText(S.db.haveMats and "Nothing here can be made with what the account has."
