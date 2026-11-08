@@ -7,7 +7,7 @@ local addonName, ns = ...
 
 local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "READY_CHECK", "PET_STABLE_SHOW", "PET_STABLE_UPDATE",
-	"PET_SPECIALIZATION_CHANGED",
+	"PET_SPECIALIZATION_CHANGED", "GROUP_ROSTER_UPDATE",
 }
 
 local module
@@ -20,6 +20,11 @@ end))
 function events:PLAYER_ENTERING_WORLD()
 	ns.Stable_OnEnterWorld()
 	ns.Checks_OnEnterWorld()
+	ns.Checks_GrowlSoon()
+end
+
+function events:GROUP_ROSTER_UPDATE()
+	ns.Checks_GrowlSoon()
 end
 
 function events:READY_CHECK()
@@ -29,6 +34,7 @@ end
 function events:UNIT_PET(unit)
 	if unit == "player" then
 		ns.Stable_Refresh()
+		ns.Checks_GrowlSoon()
 	end
 end
 
@@ -92,8 +98,11 @@ module = ns.RegisterModule({
 			passive = true,
 			happy = true, -- only Forever's pets have happiness
 			growl = true,
+			growlSolo = true, -- a toast when Growl is left off, alone in the open world
 			specs = { dungeon = "Ferocity", raid = "any", delve = "any" },
 		},
+		aspect = true, -- Forever: the aspect button (Aspect.lua)
+		aspectFrame = { point = "CENTER", relPoint = "CENTER", x = 0, y = -140 }, -- its spot (Edit Mode)
 		chars = {}, -- [player GUID] = stable snapshot (Stable.lua)
 		seen = {}, -- tame log, account-wide: [family] = { creatures = { [npcID] = { name, zone, at } } }
 	},
@@ -117,8 +126,14 @@ module = ns.RegisterModule({
 			if ns.inWorld then
 				ns.Stable_Refresh()
 			end
+			if ns.HunterAspect_Start then -- Forever only (Aspect.lua)
+				ns.HunterAspect_Start(ns.hunterDB)
+			end
 		else
 			events:UnregisterAllEvents()
+			if ns.HunterAspect_Stop then
+				ns.HunterAspect_Stop()
+			end
 			ns.Banner_Clear("hunter")
 		end
 	end,
@@ -136,6 +151,11 @@ module = ns.RegisterModule({
 	},
 	commands = {
 		{ "check", "run the pet check now", Check },
+		{ "aspect", "what the aspect button sees (World of Warcraft: Forever)", function()
+			if ns.Module_RequireOn(module) and ns.HunterAspect_Why then
+				ns.HunterAspect_Why()
+			end
+		end },
 	},
 	options = {
 		{ type = "header", label = "Tooltips" },
@@ -144,6 +164,15 @@ module = ns.RegisterModule({
 				or "Call Pet 1-5 tooltips show the pet's name, family, spec and spec ability." },
 		{ type = "checkbox", key = "tameTooltip", label = "Tame log on beasts",
 			tooltip = "Beast tooltips show their family and whether you have it, and every beast you hover goes into the tame log on the Stable tab." },
+
+		{ type = "header", label = "Aspects", shown = function()
+			return ns.FOREVER
+		end },
+		{ type = "checkbox", key = "aspect", label = "Aspect button", onChange = function()
+			ns.HunterAspect_Update()
+		end, shown = function()
+			return ns.FOREVER
+		end, tooltip = "A button when no aspect is on, out of combat and away from inns and cities. One click puts on Aspect of the Hawk, or the Monkey before you learn the Hawk. Also a key binding (Key Bindings > Tomte). Blizzard's Edit Mode moves it." },
 
 		{ type = "header", label = "Pet check" },
 		{ type = "checkbox", key = "check.onEnter", label = "When entering an instance",
@@ -163,6 +192,8 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "check.growl", label = "Growl autocast",
 			tooltip = ns.FOREVER and "Growl on in a group that has a tank."
 				or "Growl on in a group with a tank, or off when you're alone in a delve." },
+		{ type = "checkbox", key = "check.growlSolo", label = "Growl left off",
+			tooltip = "A toast when your pet is out with Growl's autocast off and you're alone in the open world, as after a dungeon. Once, until Growl has been on again." },
 		-- Forever's pets have no specs (Blizzard's camelot stable shows none), and it has no delves.
 		{ type = "dropdown", key = "check.specs.dungeon", label = "Pet spec in dungeons", choices = SpecChoices,
 			shown = ns.NotForever, tooltip = "Ferocity brings Primal Rage (Bloodlust)." },

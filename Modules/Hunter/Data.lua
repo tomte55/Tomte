@@ -269,6 +269,41 @@ function ns.Hunter_StableSummary(snapshot, seen)
 	return { owned = owned, seenOnly = seenOnly, pets = ns.Hunter_PetCount(snapshot) }
 end
 
+-- Aspects (World of Warcraft: Forever, where an aspect is a buff you keep up) ------------------------------------------
+
+-- Rank 1 of each aspect (Classic's IDs): a rank's buff has the same name, so these find any rank. Any one of them on
+-- counts: Cheetah or Pack while travelling is a choice.
+ns.HUNTER_ASPECTS = {
+	13163, -- Monkey
+	13165, -- Hawk
+	5118, -- Cheetah
+	13159, -- Pack
+	13161, -- Beast
+	20043, -- Wild
+}
+-- The aspect the button casts: the first of these you know (Hawk from level 10, Monkey before it).
+ns.HUNTER_ASPECT_BEST = { 13165, 13163 }
+
+-- The aspect to put on, or nil. s = { known = { [spellID] = true }, anyOn (an aspect is on; nil when the buffs can't be
+-- read), combat, dead, resting (an inn or a city), mounted, taxi }.
+function ns.Hunter_AspectToCast(s)
+	if s.anyOn ~= false or s.combat or s.dead or s.resting or s.mounted or s.taxi then
+		return nil
+	end
+	for _, id in ipairs(ns.HUNTER_ASPECT_BEST) do
+		if s.known[id] then
+			return id
+		end
+	end
+	return nil
+end
+
+-- Growl off with your pet out, alone in the open world: after a dungeon it's easy to forget to turn it back on. s as
+-- Hunter_Problems: hasPet, petDead, growl, inGroup, content.
+function ns.Hunter_GrowlForgotten(s)
+	return s.hasPet and not s.petDead and s.growl == false and not s.inGroup and s.content == nil
+end
+
 ns.HUNTER_CONTENT_LABEL = { dungeon = "dungeon", raid = "raid", delve = "delve" }
 -- Pet specialization IDs to the names the settings store, so the check works on any client language.
 ns.HUNTER_PET_SPEC = { [74] = "Ferocity", [79] = "Cunning", [81] = "Tenacity" }

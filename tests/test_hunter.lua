@@ -232,4 +232,25 @@ test("Forever: any spec wants a pet, and an unhappy pet is a problem", function(
 	eq(#ns.Hunter_Problems({ hasPet = true, happiness = 1 }, rules), 0, "setting off")
 end)
 
+test("AspectToCast: the best aspect you know, only when none is on and it makes sense", function()
+	local both = { [13165] = true, [13163] = true }
+	eq(ns.Hunter_AspectToCast({ known = both, anyOn = false }), 13165, "Hawk first")
+	eq(ns.Hunter_AspectToCast({ known = { [13163] = true }, anyOn = false }), 13163, "Monkey before Hawk is learned")
+	eq(ns.Hunter_AspectToCast({ known = {}, anyOn = false }), nil, "none learned")
+	eq(ns.Hunter_AspectToCast({ known = both, anyOn = true }), nil, "an aspect is on")
+	eq(ns.Hunter_AspectToCast({ known = both }), nil, "buffs unreadable")
+	for _, flag in ipairs({ "combat", "dead", "resting", "mounted", "taxi" }) do
+		eq(ns.Hunter_AspectToCast({ known = both, anyOn = false, [flag] = true }), nil, flag)
+	end
+end)
+
+test("GrowlForgotten: off with the pet out, alone in the open world", function()
+	eq(ns.Hunter_GrowlForgotten({ hasPet = true, growl = false }), true)
+	eq(ns.Hunter_GrowlForgotten({ hasPet = true, growl = true }), false)
+	eq(ns.Hunter_GrowlForgotten({ hasPet = true }), false, "no Growl on the bar")
+	eq(ns.Hunter_GrowlForgotten({ hasPet = true, growl = false, inGroup = true }), false)
+	eq(ns.Hunter_GrowlForgotten({ hasPet = true, growl = false, content = "dungeon" }), false)
+	eq(not ns.Hunter_GrowlForgotten({ hasPet = true, growl = false, petDead = true }), true)
+end)
+
 H.done()

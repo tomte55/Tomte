@@ -47,6 +47,7 @@ return {
 		{ after = "Modules/Loot/Window.lua", files = { "Modules/Loot/Room.lua" } },
 		{ after = "Modules/Materials/Data.lua", files = { "Modules/Materials/GeneratedForever.lua" } },
 		{ after = "Modules/Rogue/Lockpick.lua", files = { "Modules/Rogue/Forever.lua" } },
+		{ after = "Modules/Hunter/Checks.lua", files = { "Modules/Hunter/Aspect.lua" } },
 		-- ForeverItems.lua makes the event bus RewardCard.lua takes at file load; Forever.lua is the main file, so last.
 		{ after = "Modules/Gear/Rewards.lua", files = { "Modules/Gear/ForeverRules.lua", "Modules/Gear/RollData.lua",
 			"Modules/Gear/ForeverItems.lua" } },
