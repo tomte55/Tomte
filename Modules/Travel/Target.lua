@@ -2,13 +2,15 @@ local addonName, ns = ...
 
 -- Waypoints: what is super-tracked, as { kind, name, icon, lines, questID, redirect, indoor, endsAt }. icon is
 -- { atlas = } or { texture = }, lines are the card's text lines (objectives, turn-in text, descriptions), indoor the
--- world point of a route step inside a building (WayRouter_Step), endsAt the server time (GetServerTime) a world
--- quest, timed area POI or named pin ends (the countdown). Rebuilt on events,
--- not per frame. API facts checked against the 12.1.0 docs (GetNextWaypointForMap moved to C_Navigation).
+-- world point the compass points at: a route step inside a building (WayRouter_Step), or on World of Warcraft: Forever,
+-- which has no in-world navigation frame, every target with a place on the map. endsAt is the server time
+-- (GetServerTime) a world quest, timed area POI or named pin ends (the countdown). Rebuilt on events, not per frame.
+-- API facts checked against the 12.1.0 docs (GetNextWaypointForMap moved to C_Navigation).
 
 local ST = Enum.SuperTrackingType
 local PIN = Enum.SuperTrackingMapPinType
 local MAX_LINES = 3
+local MAP_CONTINENT = 2 -- Enum.UIMapType.Continent: quest spots are looked for up to here
 
 local ICON_PIN = { atlas = "Waypoint-MapPin-Tracked" }
 local ICON_DEFAULT = { atlas = "Navigation-Tracked-Icon" }
@@ -37,7 +39,7 @@ end
 
 -- When a world quest (or another timed task quest) ends; nil for quests without a time limit.
 local function QuestEnd(questID)
-	return EndsIn(C_TaskQuest.GetQuestTimeLeftSeconds(questID))
+	return C_TaskQuest and EndsIn(C_TaskQuest.GetQuestTimeLeftSeconds(questID)) or nil
 end
 
 local function Asset(asset, isAtlas)
@@ -191,6 +193,57 @@ local function Vignette()
 	}
 end
 
+-- Forever's spots ---------------------------------------------------------------------------------------------
+
+-- A spot on a map as the compass's world point ({ map, x, y }, as UnitPosition gives your own), or nil.
+local function World(mapID, x, y)
+	if not (mapID and x and y) then
+		return nil
+	end
+	local map, pos = C_Map.GetWorldPosFromMapPos(mapID, CreateVector2D(x, y))
+	if map and pos then
+		return { map = map, x = pos.x, y = pos.y }
+	end
+	return nil
+end
+
+-- A quest's spot as the map shows it (its objective, or where it's turned in): from your map and the maps above it,
+-- as Blizzard's quest pins place them; the game's next waypoint toward it when it's further away.
+local function QuestSpot(questID)
+	local mapID, seen = C_Map.GetBestMapForUnit("player"), {}
+	while mapID and not seen[mapID] do
+		seen[mapID] = true
+		for _, info in ipairs(C_QuestLog.GetQuestsOnMap(mapID) or {}) do
+			if info.questID == questID then
+				return World(mapID, info.x, info.y)
+			end
+		end
+		local map = C_Map.GetMapInfo(mapID)
+		if not map or map.mapType <= MAP_CONTINENT then
+			break
+		end
+		mapID = map.parentMapID
+	end
+	if C_QuestLog.GetNextWaypoint then
+		return World(C_QuestLog.GetNextWaypoint(questID))
+	end
+	return nil
+end
+
+local function Spot(trackType, target)
+	if trackType == ST.Quest then
+		return target.questID and QuestSpot(target.questID)
+	elseif trackType == ST.UserWaypoint then
+		local point = C_Map.GetUserWaypoint()
+		return point and World(point.uiMapID, point.position.x, point.position.y)
+	elseif trackType == ST.Corpse then
+		local mapID = C_Map.GetBestMapForUnit("player")
+		local pos = mapID and C_DeathInfo.GetCorpseMapPosition(mapID)
+		return pos and World(mapID, pos.x, pos.y)
+	end
+	return nil
+end
+
 -- The tracked target, or nil when nothing is tracked.
 function ns.WayTarget_Get()
 	local trackType = C_SuperTrack.GetHighestPrioritySuperTrackingType()
@@ -216,11 +269,14 @@ function ns.WayTarget_Get()
 		AddLine(target.lines, description)
 	end
 	target.name = target.name or ""
+	if ns.FOREVER and not target.indoor then
+		target.indoor = Spot(trackType, target)
+	end
 
 	-- A route step on the way (portal, boat, zone exit) replaces the name in the footer and leads the card. Not for
 	-- an indoor step of ours: the game's way there leads out of the building (see WayRouter_Step).
 	local mapID = C_Map.GetBestMapForUnit("player")
-	if mapID and not target.indoor then
+	if mapID and not target.indoor and C_Navigation.GetNextWaypointForMap then
 		local _, _, description = C_Navigation.GetNextWaypointForMap(mapID)
 		if description and description ~= "" then
 			target.redirect = description

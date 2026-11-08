@@ -90,14 +90,19 @@ local function UpdateInfo()
 	if targetDirty then
 		RefreshTarget()
 	end
-	if not target or not navFrame then
+	if not target or not (navFrame or ns.FOREVER) then
 		state = "none"
 		return
 	end
-	local navState = C_Navigation.GetTargetState()
-	local valid = C_Navigation.HasValidScreenPosition()
-		and navState ~= Enum.NavigationState.Invalid and navState ~= Enum.NavigationState.Disabled
-	local distance = C_Navigation.GetDistance()
+	-- Forever has no navigation frame: only the compass, from your position and the target's spot (Target.lua).
+	local navState, valid, distance, offscreen
+	if navFrame then
+		navState = C_Navigation.GetTargetState()
+		valid = C_Navigation.HasValidScreenPosition()
+			and navState ~= Enum.NavigationState.Invalid and navState ~= Enum.NavigationState.Disabled
+		distance = C_Navigation.GetDistance()
+		offscreen = C_Navigation.WasClampedToScreen()
+	end
 	local compassDistance = Compass()
 	if compassDistance then
 		valid, distance = true, compassDistance
@@ -106,7 +111,7 @@ local function UpdateInfo()
 		valid = valid,
 		distance = distance,
 		inQuestArea = ns.WayTarget_InQuestArea(target),
-		offscreen = C_Navigation.WasClampedToScreen(),
+		offscreen = offscreen,
 		-- A countdown is a detail too: a timed target gets its card up close.
 		hasDetails = #target.lines > 0 or (target.endsAt ~= nil and db.countdown),
 		compass = compassDistance ~= nil,
@@ -137,6 +142,9 @@ local function OnUpdate(_, dt)
 	if state == "none" or state == "hidden" then
 		ns.WayMarker_Hide()
 		alpha = 0 -- fade in again when it comes back
+		if ns.FOREVER and not target then
+			ticker:Hide() -- nothing tracked: MarkDirty starts it again
+		end
 		return
 	end
 	if state == "compass" then
@@ -163,7 +171,7 @@ local function Start()
 	navFrame = C_Navigation.GetFrame()
 	targetDirty = true
 	elapsed = TICK -- update info on the first frame
-	ticker:SetShown(navFrame ~= nil)
+	ticker:SetShown(navFrame ~= nil or ns.FOREVER)
 	if not navFrame then
 		ns.WayMarker_Hide()
 	end
@@ -174,6 +182,9 @@ end
 local function MarkDirty()
 	targetDirty = true
 	elapsed = TICK -- don't leave the old name up while the navigation frame already moved
+	if ns.FOREVER and module.active then
+		ticker:Show() -- no navigation frame there to start it
+	end
 end
 
 ns.Way_TargetChanged = MarkDirty
@@ -454,12 +465,16 @@ module = ns.RegisterModule({
 	name = "Waypoints",
 	category = "travel",
 	icon = 237381, -- inv_misc_map02
-	summary = "A marker in the world that shows the way to what you track.",
-	description = "An in-world marker for whatever you track: icon, beam, distance and arrival time, a close-up card "
+	summary = "Shows the way to what you track: a marker in the world, or an arrow on Forever.",
+	-- Forever has no in-world navigation frame to put a marker on: there it's the compass arrow only.
+	description = ns.FOREVER and ("An arrow above your character that points to whatever you track (a quest, a map "
+		.. "pin, your corpse), with its distance and arrival time. Map pins are tracked as soon as you place them, the "
+		.. "map pings your arrow when it opens, and two keys cycle the focus through your tracked quests.")
+		or ("An in-world marker for whatever you track: icon, beam, distance and arrival time, a close-up card "
 		.. "with the objective, and an arrow at the screen edge when it's off-screen. Map pins are tracked as soon as "
-		.. "you place them, " .. (ns.FOREVER and "" or "world quests and events show a countdown, ")
+		.. "you place them, world quests and events show a countdown, "
 		.. "the map pings your arrow when it opens, and two keys cycle the focus through your tracked quests. "
-		.. "Replaces WaypointUI.",
+		.. "Replaces WaypointUI."),
 	enabledByDefault = true,
 	defaults = {
 		style = "classic",
@@ -473,6 +488,7 @@ module = ns.RegisterModule({
 		hideDistance = 25, -- yards
 		arrow = true,
 		arrowScale = 1,
+		pointerFrame = {}, -- Forever: point, the arrow's spot (UI.TopLeftPoint; Edit Mode), nil for over your head
 		metric = true,
 		autoTrack = true,
 		guard = "ask",
@@ -525,7 +541,7 @@ module = ns.RegisterModule({
 		PinAt, pattern = "^[#%d.]" },
 	options = {
 		{ type = "header", label = "Look" },
-		{ type = "dropdown", key = "style", label = "Style",
+		{ type = "dropdown", key = "style", label = "Style", shown = ns.NotForever,
 			tooltip = "Classic: beam, name, distance and arrival time, full card up close. Minimal: no beam, just the "
 				.. "distance, a compact card. Sets the options below; you can still change each one.",
 			choices = function()
@@ -538,13 +554,16 @@ module = ns.RegisterModule({
 				ns.Way_ApplyStyle(db, value)
 				Refresh()
 			end, preview = BothPreview },
-		{ type = "slider", key = "scale", label = "Marker size", min = 0.6, max = 1.6, step = 0.05, format = Times,
+		{ type = "slider", key = "scale", label = "Marker size", shown = ns.NotForever,
+			min = 0.6, max = 1.6, step = 0.05, format = Times,
 			onChange = ApplyLook, preview = BothPreview },
 		{ type = "slider", key = "alpha", label = "Opacity", min = 0.3, max = 1, step = 0.05, format = Percent,
 			onChange = ApplyLook, preview = MarkerPreview },
-		{ type = "checkbox", key = "beam", label = "Beam", onChange = ApplyLook, preview = MarkerPreview,
+		{ type = "checkbox", key = "beam", label = "Beam", shown = ns.NotForever,
+			onChange = ApplyLook, preview = MarkerPreview,
 			tooltip = "A light rising from the marker, easy to spot from far away." },
-		{ type = "slider", key = "beamAlpha", label = "Beam opacity", min = 0.1, max = 1, step = 0.05, format = Percent,
+		{ type = "slider", key = "beamAlpha", label = "Beam opacity", shown = ns.NotForever,
+			min = 0.1, max = 1, step = 0.05, format = Percent,
 			onChange = ApplyLook, parent = "beam", preview = MarkerPreview },
 		{ type = "dropdown", key = "footer", label = "Text under the marker", preview = MarkerPreview,
 			choices = function()
@@ -555,17 +574,20 @@ module = ns.RegisterModule({
 				return list
 			end },
 
-		{ type = "header", label = "Close up" },
-		{ type = "checkbox", key = "card", label = "Close-up card", onChange = ApplyLook, preview = CardPreview,
+		{ type = "header", label = "Close up", shown = ns.NotForever },
+		{ type = "checkbox", key = "card", label = "Close-up card", shown = ns.NotForever,
+			onChange = ApplyLook, preview = CardPreview,
 			tooltip = "Near the target, show a card with its name, objectives and distance instead of the marker." },
-		{ type = "slider", key = "cardDistance", label = "Card within", min = 50, max = 500, step = 5,
+		{ type = "slider", key = "cardDistance", label = "Card within", shown = ns.NotForever,
+			min = 50, max = 500, step = 5,
 			format = DistanceFormat, parent = "card" },
 		{ type = "slider", key = "hideDistance", label = "Hide within", min = 5, max = 100, step = 5,
 			format = DistanceFormat, tooltip = "Hide the marker when you're this close. It also hides inside the "
 				.. "tracked quest's area." },
 
-		{ type = "header", label = "Edge arrow" },
-		{ type = "checkbox", key = "arrow", label = "Edge arrow", preview = ns.Preview_When("arrow", ArrowPreview),
+		{ type = "header", label = "Edge arrow", shown = ns.NotForever },
+		{ type = "checkbox", key = "arrow", label = "Edge arrow", shown = ns.NotForever,
+			preview = ns.Preview_When("arrow", ArrowPreview),
 			tooltip = "When the target is off-screen, an arrow near the screen edge points toward it." },
 		{ type = "slider", key = "arrowScale", label = "Arrow size", min = 0.6, max = 1.6, step = 0.05, format = Times,
 			onChange = ApplyLook, parent = "arrow", preview = ns.Preview_When("arrow", ArrowPreview) },

@@ -28,6 +28,10 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Leveling:** click a quest in the Quests list to make it your active quest, highlighted and marked on the map as with the quest log's map button; Shift-click tracks it or stops tracking it. A bar at the left edge marks the active quest and, fainter, the tracked ones. Each group has a Track all button.
 - **Loot:** the value after a looted item is what it really fetches where it sells best, the Auction House (after its cut and how often it sells) or a vendor, and says which ("54c AH", "6c vendor").
 
+### Fixed
+
+- **Waypoints:** on Forever, which has no in-world markers, it now shows an arrow that points to the quest, map pin or corpse you track, with the distance and arrival time. Edit Mode moves it.
+
 ## v1.31.0 - 2026-11-08
 
 ### New

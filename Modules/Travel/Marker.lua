@@ -23,6 +23,13 @@ local ARROW_R = 34 -- chevron tip distance from the arrow's center
 local ARROW_ARM = 16
 local EDGE_RX, EDGE_RY = 0.4, 0.36 -- edge ellipse radii as a share of the screen size
 local COMPASS_Y = 0.22 -- compass height above the screen center, as a share of the screen height (over your head)
+-- Forever's arrow (no navigation frame there, so it's the only view): tools/waypoint_art.py draws it lying flat, in a
+-- sheet of POINTER_GRID x POINTER_GRID directions, white with a black outline; tinted with the theme's accent.
+local POINTER_TEXTURE = "Interface\\AddOns\\Tomte\\Media\\Travel\\Arrow"
+local POINTER_GRID = 8
+local POINTER_FRAMES = POINTER_GRID * POINTER_GRID
+local POINTER_SIZE = 48 -- at Arrow size 100%
+local POINTER_TEXT = 12
 
 -- The settings preview's made-up target (WayMarker_DrawSample).
 local SAMPLE_NAME = "Mira's Rest"
@@ -41,6 +48,8 @@ local SAMPLE_TARGET = {
 }
 
 local holder, far, card, arrow
+local pointer -- Forever's arrow, made on first use
+local PointerLook -- its look from the settings (with Forever's arrow below)
 local db
 local view -- "far" | "card" | "offscreen" | nil
 local arrowAngle
@@ -275,6 +284,7 @@ function ns.WayMarker_Apply(saved)
 	-- On WorldFrame, match UIParent's scale so sizes don't jump when the option changes.
 	holder:SetScale(parent == WorldFrame and UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale() or 1)
 	ApplyLook(db, far, card, arrow)
+	PointerLook()
 end
 
 -- target: { name, icon, lines = { "text", ... }, endsAt } from Target.lua.
@@ -289,6 +299,9 @@ end
 
 function ns.WayMarker_SetAlpha(alpha)
 	holder:SetAlpha(alpha)
+	if pointer then
+		pointer:SetAlpha(alpha)
+	end
 end
 
 local anchoredTo -- the navigation frame the far and card views are anchored to (AnchorTo below)
@@ -299,6 +312,9 @@ function ns.WayMarker_Hide()
 		far:Hide()
 		card:Hide()
 		arrow:Hide()
+	end
+	if pointer and not ns.EditMode_Active() then
+		pointer:Hide()
 	end
 	view = nil
 end
@@ -379,9 +395,132 @@ function ns.WayMarker_Show(state, navFrame, sx, sy, footer, distanceText, scale,
 	end
 end
 
+-- Forever's arrow ---------------------------------------------------------------------------------------------------
+
+local function PointerPlace()
+	local p = db and db.pointerFrame and db.pointerFrame.point
+	pointer:ClearAllPoints()
+	if p then
+		pointer:SetPoint(p[1], UIParent, p[2], p[3], p[4])
+	else
+		pointer:SetPoint("CENTER", UIParent, "CENTER", 0, UIParent:GetHeight() * COMPASS_Y) -- over your head
+	end
+end
+
+local function CreatePointer()
+	pointer = CreateFrame("Frame", nil, UIParent)
+	pointer:SetSize(POINTER_SIZE, POINTER_SIZE)
+	pointer:SetMovable(true)
+	pointer:SetClampedToScreen(true)
+	pointer:SetFrameStrata("BACKGROUND")
+	-- The arrow's size changes the texture, never the frame's scale: a scaled frame moves its saved offset with it.
+	pointer.tex = pointer:CreateTexture(nil, "ARTWORK")
+	pointer.tex:SetTexture(POINTER_TEXTURE)
+	pointer.tex:SetPoint("CENTER")
+	pointer.label = Shadowed(UI.Text(pointer, POINTER_TEXT, "heading"))
+	pointer.label:SetJustifyH("CENTER")
+	pointer.label:SetPoint("TOP", pointer, "BOTTOM", 0, -2)
+	pointer.label:SetWidth(260)
+	pointer.label:SetSpacing(2)
+	pointer:Hide()
+	PointerPlace()
+end
+
+-- The arrow turned to angle (radians, 0 = right, up = ahead): the sheet's cell for that direction. Cell 0 points
+-- ahead and each next one a step further left (tools/waypoint_art.py).
+local function TurnPointer(angle)
+	local step = 2 * math.pi / POINTER_FRAMES
+	local frame = math.floor((angle - math.pi / 2) / step + 0.5) % POINTER_FRAMES
+	if frame ~= pointer.frame then
+		pointer.frame = frame
+		local col, row = frame % POINTER_GRID, math.floor(frame / POINTER_GRID)
+		pointer.tex:SetTexCoord(col / POINTER_GRID, (col + 1) / POINTER_GRID, row / POINTER_GRID, (row + 1) / POINTER_GRID)
+	end
+end
+
+-- Follows the Waypoints settings: shown over the UI or the world (Alt+Z), its size, and the theme's colors.
+function PointerLook()
+	if not pointer then
+		return
+	end
+	local parent = holder:GetParent() or UIParent
+	pointer:SetParent(parent)
+	pointer:SetFrameStrata("BACKGROUND")
+	pointer:SetScale(holder:GetScale())
+	local size = POINTER_SIZE * (db.arrowScale or 1)
+	pointer:SetSize(size, size)
+	pointer.tex:SetSize(size, size)
+	pointer.tex:SetVertexColor(UI.Color("accent"))
+	UI.SetTextRole(pointer.label, "heading")
+	PointerPlace()
+end
+
+local function ShowPointer(angle, footer)
+	if not pointer then
+		CreatePointer()
+		PointerLook()
+	end
+	if view ~= "compass" then
+		far:Hide()
+		card:Hide()
+		arrow:Hide()
+		pointer:Show()
+		arrowAngle = nil
+		view = "compass"
+	end
+	if pointer.lastFooter ~= footer then
+		pointer.lastFooter = footer
+		pointer.label:SetText(footer or "")
+	end
+	arrowAngle = arrowAngle and ns.Way_TurnToward(arrowAngle, angle, 0.3) or angle
+	TurnPointer(arrowAngle)
+end
+
+ns.EditMode_Register({
+	name = "Waypoint arrow",
+	frame = function()
+		if ns.FOREVER and db and not pointer then
+			CreatePointer()
+			PointerLook()
+		end
+		return ns.FOREVER and pointer or nil
+	end,
+	-- In Edit Mode it shows pointing ahead, to drag; afterwards Waypoint.lua's update brings it back when tracking.
+	refresh = function()
+		if not pointer then
+			return
+		end
+		if ns.EditMode_Active() then
+			ShowPointer(math.pi / 2, "Waypoint arrow")
+			pointer:SetAlpha(1)
+		else
+			pointer:Hide()
+			view = nil
+		end
+	end,
+	-- Saved by its center, so a size change grows it in place.
+	saved = function()
+		local x, y = pointer:GetCenter()
+		local scale = pointer:GetEffectiveScale() / UIParent:GetEffectiveScale()
+		db.pointerFrame.point = { "CENTER", "BOTTOMLEFT", x * scale, y * scale }
+		PointerPlace()
+	end,
+	module = "way",
+	reset = function()
+		db.pointerFrame.point = nil
+		if pointer then
+			PointerPlace()
+		end
+	end,
+})
+
 -- Compass view: the edge arrow over your head, pointing at angle (radians, 0 = right, up = ahead; Way_Compass),
--- with the footer under it. Needs no navigation frame.
+-- with the footer under it. Needs no navigation frame. On Forever, its own arrow (above), which Edit Mode moves.
 function ns.WayMarker_ShowCompass(angle, footer)
+	if ns.FOREVER then
+		ShowPointer(angle, footer)
+		return
+	end
 	if view ~= "compass" then
 		far:Hide()
 		card:Hide()
