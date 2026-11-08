@@ -13,9 +13,9 @@ local SWATCH = 9 -- the legend's color squares, in pixels
 local CHART_H = 130
 local CHART_BARS = 30
 local ROW_H = 24
-local NIGHT_H = 26
-local NIGHT_GAP = 3600
-local NIGHT_SPACE = 6 -- pixels between two play nights in the list
+local DAY_H = 26
+local DAY_SPACE = 6 -- pixels between two days in the list
+local DAY_START = 5 * 3600 -- a day runs from 05:00: a session after midnight still counts toward its evening
 local LIVE_EVERY = 30 -- seconds between redraws while the page is open, so the session going on now keeps counting
 local COLUMNS = { -- x and width as fractions of the list width; cells are filled by index, so new ones go last
 	{ key = "when", x = 0, w = 0.18 },
@@ -67,6 +67,11 @@ local function List()
 	return list
 end
 
+-- The day of a server time (DAY_START): its date, as the list and the day chart group and name days.
+local function DayOf(t)
+	return date("%Y-%m-%d", t - DAY_START)
+end
+
 -- What a session's bars show: gold, loot worth and levels, per session or per hour by the "Chart shows" setting.
 local function Main(n)
 	if db.mainNumber == "net" then
@@ -113,6 +118,29 @@ local function SessionTooltip(owner, h)
 	end
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine("Click for the recap card", UI.RGB("heading"))
+	GameTooltip:Show()
+end
+
+-- A day's bar: the date, how long and how many sessions, then its numbers in their bars' colors.
+local function DayTooltip(owner, day)
+	local n = ns.Recap_DayNumbers(day)
+	GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+	GameTooltip:SetText(date("%A %d %B", day.first - DAY_START), UI.RGB("heading"))
+	GameTooltip:AddLine(("%s, %d %s, %s-%s"):format(ns.Recap_Duration(n.duration), n.count,
+		n.count == 1 and "session" or "sessions", date("%H:%M", day.first), date("%H:%M", day.last)), 1, 1, 1)
+	local mr, mg, mb = UI.Color("textMuted")
+	local function Line(label, text, role)
+		local r, g, b = UI.Color(role)
+		GameTooltip:AddDoubleLine(label, text, mr, mg, mb, r, g, b)
+	end
+	Line("Net gold", Signed(n.net), n.net < 0 and LOSS or MONEY_BAR)
+	Line("Gold per hour", Signed(n.perHour), n.perHour < 0 and LOSS or MONEY_BAR)
+	if n.value then
+		Line("Loot worth", ns.Gold(n.value), VALUE)
+	end
+	if n.levels then
+		Line("Levels", LevelsText(n.levels), LEVELS)
+	end
 	GameTooltip:Show()
 end
 
@@ -191,14 +219,20 @@ local function Slot(chart, i)
 		slot.levels = slot:CreateTexture(nil, "ARTWORK")
 		slot:SetScript("OnEnter", function(self)
 			self.hl:Show()
-			SessionTooltip(self, self.h)
+			if self.day then
+				DayTooltip(self, self.day)
+			else
+				SessionTooltip(self, self.h)
+			end
 		end)
 		slot:SetScript("OnLeave", function(self)
 			self.hl:Hide()
 			GameTooltip:Hide()
 		end)
 		slot:SetScript("OnClick", function(self)
-			Open(self.h)
+			if self.h then -- a day's bar has no card of its own
+				Open(self.h)
+			end
 		end)
 		chart.slots[i] = slot
 	end
@@ -206,16 +240,19 @@ local function Slot(chart, i)
 end
 
 -- Oldest on the left. Gold and loot worth share a scale, from a zero line that sits higher when there are losses;
--- levels have their own scale (the tallest levels bar reaches the top), so the chart is an overview of both.
+-- levels have their own scale (the tallest levels bar reaches the top), so the chart is an overview of both. A bar is
+-- a session, or a day's sessions added up (the Sessions / Days switch above the chart).
 local function DrawChart(chart, list)
-	local n = math.min(#list, CHART_BARS)
+	local byDay = db.chartBy == "day"
+	local entries = byDay and ns.Recap_HistoryDays(list, DayOf) or list
+	local n = math.min(#entries, CHART_BARS)
 	local width, height = chart:GetWidth(), CHART_H - 26
 	local high, low, highLevels = 0, 0, 0
 	local numbers = {}
 	for i = 1, n do
-		local h = list[n - i + 1]
-		local main, value, levels = Main(ns.Recap_HistoryNumbers(h))
-		numbers[i] = { h = h, main = main, value = value, levels = levels }
+		local e = entries[n - i + 1]
+		local main, value, levels = Main(byDay and ns.Recap_DayNumbers(e) or ns.Recap_HistoryNumbers(e))
+		numbers[i] = { h = not byDay and e or nil, day = byDay and e or nil, main = main, value = value, levels = levels }
 		high = math.max(high, main, value or 0)
 		low = math.min(low, main)
 		highLevels = math.max(highLevels, levels or 0)
@@ -235,7 +272,7 @@ local function DrawChart(chart, list)
 		anyLoss and "Loss" or nil })
 	chart.legend:SetShown(n > 0)
 	local net = db.mainNumber == "net"
-	chart.label:SetText(net and "Per session" or "Per hour")
+	chart.label:SetText(net and (byDay and "Per day" or "Per session") or "Per hour")
 	local top = n > 0 and ns.Gold(high) or ""
 	if highLevels > 0 then
 		top = ("%s · %.2f levels"):format(top, highLevels)
@@ -244,7 +281,7 @@ local function DrawChart(chart, list)
 	local slotW = n > 0 and math.min(width / n, 48) or 0
 	for i, num in ipairs(numbers) do
 		local slot = Slot(chart, i)
-		slot.h = num.h
+		slot.h, slot.day = num.h, num.day
 		slot:ClearAllPoints()
 		slot:SetPoint("BOTTOMLEFT", (i - 1) * slotW, 0)
 		slot:SetSize(slotW, CHART_H - 20)
@@ -300,7 +337,7 @@ local function CreateRow(parent)
 	row.bg:SetAllPoints()
 	row.bg:SetColorTexture(UI.Color("hover"))
 	row.bg:Hide()
-	-- A play night's first row: a faint band and a rule above it, so each night reads as one block.
+	-- A day's first row: a faint band and a rule above it, so each day reads as one block.
 	row.band = row:CreateTexture(nil, "BACKGROUND", nil, -1)
 	row.band:SetAllPoints()
 	row.rule = row:CreateTexture(nil, "ARTWORK")
@@ -349,7 +386,7 @@ local function PlaceCells(row, width, indent)
 	end
 end
 
--- banded: the row starts a play night (its band and rule show).
+-- banded: the row starts a day (its band and rule show).
 local function Band(row, banded)
 	row.band:SetShown(banded)
 	row.rule:SetShown(banded)
@@ -359,11 +396,11 @@ local function Band(row, banded)
 	end
 end
 
--- A session's row. Plain text colors: the color is kept for the night totals, losses and loot worth. banded: it's a
--- night of its own (no header above it), so it carries the band and its full date.
+-- A session's row. Plain text colors: the color is kept for the day totals, losses and loot worth. banded: it's a
+-- day of its own (no header above it), so it carries the band and its full date.
 local function FillSession(row, h, width, indent, banded)
 	row.h = h
-	row:SetHeight(banded and NIGHT_H or ROW_H)
+	row:SetHeight(banded and DAY_H or ROW_H)
 	Band(row, banded)
 	PlaceCells(row, width, indent)
 	local n = ns.Recap_HistoryNumbers(h)
@@ -391,21 +428,21 @@ local function FillSession(row, h, width, indent, banded)
 	SetColor(c[8], "text")
 end
 
--- A night of several sessions: its date, when it ran and how many sessions, then its totals.
-local function FillNight(row, night, width)
+-- A day of several sessions: its date, when you played and how many sessions, then its totals.
+local function FillDay(row, day, width)
 	row.h = nil
-	row:SetHeight(NIGHT_H)
+	row:SetHeight(DAY_H)
 	Band(row, true)
 	PlaceCells(row, width, 0)
-	local t = ns.Recap_HistoryTotals(night.sessions)
+	local t = ns.Recap_HistoryTotals(day.sessions)
 	local c = row.cells
-	c[1]:SetText(date("%a %d %b", night.first))
+	c[1]:SetText(date("%a %d %b", day.first - DAY_START))
 	SetColor(c[1], "heading")
-	c[2]:SetText(("%s-%s"):format(date("%H:%M", night.first), date("%H:%M", night.last)))
+	c[2]:SetText(("%s-%s"):format(date("%H:%M", day.first), date("%H:%M", day.last)))
 	SetColor(c[2], "textMuted")
 	c[3]:SetText(ns.Recap_Duration(t.duration))
 	SetColor(c[3], "heading")
-	c[4]:SetText(("%d sessions"):format(#night.sessions))
+	c[4]:SetText(("%d sessions"):format(#day.sessions))
 	SetColor(c[4], "textMuted")
 	c[5]:SetText(Signed(t.net))
 	SetColor(c[5], t.net < 0 and LOSS or MONEY)
@@ -435,6 +472,7 @@ local function Refresh()
 	local list = List()
 	page.scope:Update()
 	page.range:Update()
+	page.chartBy:Update()
 	local t = ns.Recap_HistoryTotals(list)
 	page.totals:SetText(("%d session%s · %s · net %s · %s/h%s%s"):format(t.count, t.count == 1 and "" or "s",
 		ns.Recap_Duration(t.duration), Signed(t.net), Signed(t.perHour),
@@ -464,18 +502,18 @@ local function Refresh()
 		row:Show()
 		return row
 	end
-	if db.nights then
-		for i, night in ipairs(ns.Recap_HistoryNights(list, NIGHT_GAP)) do
+	if db.days then
+		for i, day in ipairs(ns.Recap_HistoryDays(list, DayOf)) do
 			if i > 1 then
-				y = y + NIGHT_SPACE
+				y = y + DAY_SPACE
 			end
-			if #night.sessions == 1 then
-				FillSession(Next(), night.sessions[1], width, 0, true) -- a header would only repeat it
-				y = y + NIGHT_H
+			if #day.sessions == 1 then
+				FillSession(Next(), day.sessions[1], width, 0, true) -- a header would only repeat it
+				y = y + DAY_H
 			else
-				FillNight(Next(), night, width)
-				y = y + NIGHT_H
-				for _, h in ipairs(night.sessions) do
+				FillDay(Next(), day, width)
+				y = y + DAY_H
+				for _, h in ipairs(day.sessions) do
 					FillSession(Next(), h, width, 16, false)
 					y = y + ROW_H
 				end
@@ -511,8 +549,14 @@ ns.RecapSessionsPage = {
 			db.pageRange = db.pageRange == "week" and "all" or "week"
 		end)
 		frame.range:SetPoint("LEFT", frame.scope, "RIGHT", 8, 0)
+		frame.chartBy = Toggle(frame, 80, function()
+			return db.chartBy
+		end, { session = "Sessions", day = "Days" }, function()
+			db.chartBy = db.chartBy == "day" and "session" or "day"
+		end)
+		frame.chartBy:SetPoint("LEFT", frame.range, "RIGHT", 8, 0)
 		frame.totals = UI.Text(frame, 12, "textMuted")
-		frame.totals:SetPoint("LEFT", frame.range, "RIGHT", 14, 0)
+		frame.totals:SetPoint("LEFT", frame.chartBy, "RIGHT", 14, 0)
 		frame.totals:SetPoint("RIGHT", -8, 0)
 		frame.totals:SetJustifyH("RIGHT")
 		frame.totals:SetWordWrap(false)

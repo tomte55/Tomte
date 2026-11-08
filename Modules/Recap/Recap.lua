@@ -480,13 +480,14 @@ module = ns.RegisterModule({
 		keepCount = 30, -- per character
 		keepDays = 28,
 		mainNumber = "perHour", -- perHour | net: the Sessions chart's gold, loot worth and levels bars
-		nights = false,
+		days = true, -- the Sessions list grouped by day, with each day's totals
 		pageScope = "all", -- char | all
 		pageRange = "all", -- week | all
+		chartBy = "session", -- session | day: what a bar of the Sessions chart is
 		breakReminder = false,
 		breakMinutes = 60, -- a reminder every this many minutes played in one sitting
 	},
-	noShare = { "pageScope", "pageRange" }, -- page filters: not in settings strings (Core/Profile.lua)
+	noShare = { "pageScope", "pageRange", "chartBy" }, -- page filters: not in settings strings (Core/Profile.lua)
 	init = function(moduleDB)
 		db = moduleDB
 		ns.recapDB = moduleDB
@@ -546,8 +547,8 @@ module = ns.RegisterModule({
 		{ type = "dropdown", key = "mainNumber", label = "Chart shows", parent = "keepHistory", choices = function()
 			return { { value = "perHour", text = "Per hour" }, { value = "net", text = "Per session" } }
 		end },
-		{ type = "checkbox", key = "nights", label = "Group into play nights", parent = "keepHistory",
-			tooltip = "Sessions less than an hour apart (any character) are grouped under one line with their totals." },
+		{ type = "checkbox", key = "days", label = "Group by day", parent = "keepHistory",
+			tooltip = "The Sessions list groups each day's sessions (any character) under one line with the day's totals. A day starts at 5:00, so a late session counts toward its evening." },
 		{ type = "button", label = "History", text = "Clear", confirm = "Clear the session history on every character?",
 			onClick = function()
 				wipe(db.history)

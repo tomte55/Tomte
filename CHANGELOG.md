@@ -32,6 +32,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Groups in chat:** no toast when the person asking is already in your party or raid.
 - **Cursor highlight:** takes much less of the frame, most of all while the trail shows, and makes almost no garbage.
 - **Waypoints:** the marker (on Forever, the arrow) hides while you're in combat and fades back in after. A setting, on by default.
+- **Session recap:** the Sessions list groups sessions by day, with each day's totals, on by default. A day starts at 5:00, so a late session counts toward its evening. This replaces the play nights grouping. A Sessions / Days switch above the chart shows a bar per day.
 
 ### Fixed
 

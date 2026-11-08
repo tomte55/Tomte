@@ -140,17 +140,27 @@ test("filter, numbers and totals", function()
 	eq(t.duration, 5400)
 end)
 
-test("nights group sessions less than the gap apart", function()
+test("days group sessions by the day they started", function()
 	local list = {
 		ns.Recap_Compact(Session("A", NOW + 7200, 30)), -- 2:00-2:30
 		ns.Recap_Compact(Session("B", NOW + 3000, 60)), -- 0:50-1:50
 		ns.Recap_Compact(Session("A", NOW - DAY, 30)),
 	}
-	local nights = ns.Recap_HistoryNights(list, 3600)
-	eq(#nights, 2)
-	eq(#nights[1].sessions, 2)
-	eq(nights[1].first, NOW + 3000)
-	eq(nights[1].last, NOW + 7200 + 1800)
+	local function DayOf(t)
+		return math.floor(t / DAY)
+	end
+	local days = ns.Recap_HistoryDays(list, DayOf)
+	eq(#days, 2)
+	eq(#days[1].sessions, 2)
+	eq(days[1].first, NOW + 3000)
+	eq(days[1].last, NOW + 7200 + 1800)
+	eq(#days[2].sessions, 1)
+	local n = ns.Recap_DayNumbers(days[1])
+	eq(n.count, 2)
+	eq(n.duration, 5400, "30 and 60 minutes")
+	local t = ns.Recap_HistoryTotals(days[1].sessions)
+	eq(n.net, t.net)
+	eq(n.perHour, t.perHour)
 end)
 
 test("zone time", function()

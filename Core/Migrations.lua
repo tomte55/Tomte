@@ -187,4 +187,10 @@ ns.MIGRATIONS = {
 			tracker.locked = true
 		end
 	end,
+	-- 19: the Sessions list groups by day (on by default) instead of play nights (off by default): the old switch goes.
+	function(db)
+		if type(db.recap) == "table" then
+			db.recap.nights = nil
+		end
+	end,
 }

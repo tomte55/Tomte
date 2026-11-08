@@ -145,20 +145,41 @@ function ns.Recap_HistoryTotals(list)
 	return t
 end
 
--- Play nights: sessions (newest first) less than `gap` seconds apart, any character, grouped.
--- Returns { { first = start of the oldest, last = end of the newest, sessions = { ... } } }, newest first.
-function ns.Recap_HistoryNights(list, gap)
-	local nights = {}
+-- A day's numbers for the chart, as Recap_HistoryNumbers gives a session's: its sessions added up, per hour over the
+-- time played. day: a Recap_HistoryDays entry. Loot worth and levels are nil when the day had none.
+function ns.Recap_DayNumbers(day)
+	local t = ns.Recap_HistoryTotals(day.sessions)
+	local hours = math.max(t.duration, 1) / 3600
+	local value = t.value > 0 and t.value or nil
+	local levels = t.levels > 0.001 and t.levels or nil
+	return {
+		duration = t.duration,
+		net = t.net,
+		perHour = t.perHour,
+		value = value,
+		valuePerHour = value and math.floor(value / hours) or nil,
+		xp = t.xp > 0 and t.xp or nil,
+		levels = levels,
+		levelsPerHour = levels and levels / hours or nil,
+		count = t.count,
+	}
+end
+
+-- Days: sessions (newest first, any character) grouped by the day they started. dayOf(server time) gives a session's
+-- day (SessionsPage.lua starts a day at 05:00, so a late session stays with its evening). Returns { { day, first = start
+-- of the oldest, last = end of the newest, sessions = { ... } } }, newest first.
+function ns.Recap_HistoryDays(list, dayOf)
+	local days = {}
 	local current
 	for _, h in ipairs(list) do
-		local endAt = h.seen or h.start
-		if current and current.first - endAt < gap then
+		local day = dayOf(h.start)
+		if current and current.day == day then
 			current.sessions[#current.sessions + 1] = h
 			current.first = math.min(current.first, h.start)
 		else
-			current = { first = h.start, last = endAt, sessions = { h } }
-			nights[#nights + 1] = current
+			current = { day = day, first = h.start, last = h.seen or h.start, sessions = { h } }
+			days[#days + 1] = current
 		end
 	end
-	return nights
+	return days
 end

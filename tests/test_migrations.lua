@@ -226,4 +226,14 @@ test("Achievements: the Top 5 tracker is locked, shown or not as it was", functi
 	eq(none.ach, nil, "no Achievements settings: nothing made")
 end)
 
+test("Sessions: the play nights switch goes (grouped by day now)", function()
+	local db = { schema = 18, recap = { nights = true, keepCount = 30 } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.recap.nights, nil)
+	eq(db.recap.keepCount, 30)
+	local none = { schema = 18 }
+	ns.RunMigrations(none, ns.MIGRATIONS)
+	eq(none.recap, nil)
+end)
+
 H.done()
