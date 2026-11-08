@@ -26,7 +26,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Loot:** the Make room button's tooltip no longer opens the Equipped comparison beside the item it would destroy (hold Shift to compare).
 - **Leveling:** quests in the Quests list show the dungeon they're done in after the title, and in their tooltip.
 - **Leveling:** click a quest in the Quests list to make it your active quest, highlighted and marked on the map as with the quest log's map button; Shift-click tracks it or stops tracking it. A bar at the left edge marks the active quest and, fainter, the tracked ones. Each group has a Track all button.
-- **Loot:** the value after a looted item is what it really fetches where it sells best, the Auction House (after its cut and how often it sells) or a vendor, and says which ("54c AH", "6c vendor").
+- **Loot:** the value after a looted item is what it really fetches where it sells best, the Auction House (after its cut and how often it sells) or a vendor, and says which ("54c AH", "6c vendor"). Make room compares items by that value too.
+- **Loot:** on Forever, with several items that don't fit, Make room picks an appearance you haven't collected again, even over loot worth more.
 
 ### Fixed
 

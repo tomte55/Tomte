@@ -51,26 +51,15 @@ local function AlwaysWanted(loot)
 		or (loot.quality ~= QUALITY_POOR and ns.LootRoom_Worth(loot) == 0)
 end
 
--- How strongly loot is wanted when choosing among several: for a quest or an upgrade first, then the most valuable, then a
--- new appearance at the same worth. A new look or a missing price still gets room once chosen (AlwaysWanted), but doesn't
--- push aside loot worth more.
-local function Rank(loot)
-	if loot.quest ~= nil or (loot.verdict and (loot.verdict.upgrade or loot.verdict.maybe)) then
-		return 2
-	end
-	return 0
-end
-
--- The loot to make room for (see Rank), then the first slot.
+-- The loot to make room for: what's always wanted first, then the most valuable, then the first slot.
 function ns.LootRoom_PickLoot(blocked)
 	local best
 	for _, loot in ipairs(blocked) do
 		if not best then
 			best = loot
 		else
-			local a, b = Rank(loot), Rank(best)
-			local worth, bestWorth = ns.LootRoom_Worth(loot), ns.LootRoom_Worth(best)
-			if a > b or (a == b and (worth > bestWorth or (worth == bestWorth and loot.newLook and not best.newLook))) then
+			local a, b = AlwaysWanted(loot) and 1 or 0, AlwaysWanted(best) and 1 or 0
+			if a > b or (a == b and ns.LootRoom_Worth(loot) > ns.LootRoom_Worth(best)) then
 				best = loot
 			end
 		end

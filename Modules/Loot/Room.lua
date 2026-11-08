@@ -26,7 +26,9 @@ local watcher = CreateFrame("Frame")
 local function ReadCandidate(bag, slot, info)
 	local _, _, _, _, _, classID, subclassID = C_Item.GetItemInfoInstant(info.itemID)
 	local name, _, _, _, _, _, _, _, _, _, sell = C_Item.GetItemInfo(info.hyperlink)
-	local price = ns.Value_ItemPrice and ns.Value_ItemPrice(info.hyperlink) or nil
+	-- What it would really fetch, where it sells best (Gold & value), else its auction or vendor price.
+	local price = ns.Value_SellPrice and ns.Value_SellPrice(info.hyperlink, info.isBound)
+		or ns.Value_ItemPrice and ns.Value_ItemPrice(info.hyperlink, info.isBound) or nil
 	return {
 		bag = bag, slot = slot, itemID = info.itemID, link = info.hyperlink, name = name or info.itemName,
 		count = info.stackCount or 1, quality = info.quality, classID = ns.BagsRead_ItemClass(info.itemID, classID, subclassID),

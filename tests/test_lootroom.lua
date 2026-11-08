@@ -102,14 +102,10 @@ test("PickLoot: what's always wanted, then the most valuable", function()
 	eq(ns.LootRoom_PickLoot({}), nil)
 end)
 
-test("PickLoot: a new appearance doesn't beat more valuable loot", function()
-	local look = { slot = 1, quality = 2, sell = 5, quantity = 1, newLook = true }
-	local dear = { slot = 2, quality = 2, sell = 300, quantity = 1 }
-	eq(ns.LootRoom_PickLoot({ look, dear }).slot, 2)
-	local same = { slot = 3, quality = 2, sell = 5, quantity = 1 }
-	eq(ns.LootRoom_PickLoot({ same, look }).slot, 1, "at the same worth, the new look wins")
-	local free = { slot = 4, quality = 1, quantity = 1 }
-	eq(ns.LootRoom_PickLoot({ free, dear }).slot, 2, "no price isn't worth more than a price")
+test("PickLoot: a new appearance beats more valuable loot", function()
+	local look = { slot = 1, quality = 2, sell = 139, quantity = 1, newLook = true }
+	local dear = { slot = 2, quality = 2, sell = 194, quantity = 1 }
+	eq(ns.LootRoom_PickLoot({ dear, look }).slot, 1)
 end)
 
 test("Text says what will happen", function()
