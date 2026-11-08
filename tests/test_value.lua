@@ -141,4 +141,31 @@ test("BackpackEntries skips Blizzard's tracked currencies, repeats and holidays 
 	eq(#ns.Value_BackpackEntries({ items = {}, count = count }), 0)
 end)
 
+test("SellVerdict: list it, too little, slow or vendor", function()
+	local V = ns.Value_SellVerdict
+	eq(V({ vendor = 13 }), nil, "no auction price")
+	-- Linen Cloth on Forever: 24c at auction, 13c at a vendor, 87% sell.
+	local linen = V({ market = 24, vendor = 13, saleRate = 0.865, count = 20, minGain = 100 })
+	eq(linen.kind, "ah", "a stack gains about 1s 60c")
+	eq(V({ market = 24, vendor = 13, saleRate = 0.865, count = 1, minGain = 100 }).kind, "small", "one cloth")
+	eq(V({ market = 5000, vendor = 100, saleRate = 0.03, count = 1 }).kind, "slow", "worth more, rarely sells")
+	eq(V({ market = 110, vendor = 100, saleRate = 0.9, count = 50 }).kind, "vendor", "after the cut it's even")
+	eq(V({ market = 300, vendor = 100, count = 1 }).kind, "ah", "no sale data: 3x beats the vendor")
+	eq(V({ market = 150, vendor = 100, count = 10 }).kind, "vendor", "no sale data: 1.5x isn't enough")
+	eq(V({ market = 50, vendor = 0, saleRate = 0.5, count = 1, minGain = 10 }).kind, "ah", "no vendor price")
+	H.near(linen.net, 22.8)
+end)
+
+test("SellPick: the auction house when its expected price beats the vendor", function()
+	local P = ns.Value_SellPick
+	local linen = ns.Value_SellVerdict({ market = 24, vendor = 13, saleRate = 0.865 })
+	local copper, where = P(linen, 13)
+	eq(where, "auction")
+	eq(copper, 21, "after the cut and the chance it doesn't sell")
+	local slow = ns.Value_SellVerdict({ market = 30, vendor = 25, saleRate = 0.05 })
+	eq(select(2, P(slow, 25)), "vendor", "rarely sells: the vendor")
+	eq(select(2, P(nil, 13)), "vendor", "no auction price")
+	eq(P(nil, 0), nil, "worth nothing")
+end)
+
 H.done()

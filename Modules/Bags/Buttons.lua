@@ -72,7 +72,7 @@ end
 local function SetNumberFont(button, e, size)
 	if e.fontSize ~= size then
 		e.fontSize = size
-		local sizes = { [e.ilvl] = size, [e.pet] = size, [e.free] = size + 1 }
+		local sizes = { [e.ilvl] = size, [e.pet] = size, [e.ah] = size, [e.free] = size + 1 }
 		if button.Count then
 			sizes[button.Count] = size
 		end
@@ -226,6 +226,7 @@ local function Extras(button)
 	end)
 	e.ilvl = button:CreateFontString(nil, "OVERLAY")
 	e.pet = button:CreateFontString(nil, "OVERLAY")
+	e.ah = button:CreateFontString(nil, "OVERLAY") -- worth listing at the auction house (Value's verdict)
 	e.mark = Mark(button, BADGE, BADGE, Badge)
 	e.set = Mark(button, SET_MARK, SET_MARK, Square)
 	e.craft = Mark(button, CRAFT_DOT, CRAFT_DOT, Dot)
@@ -308,6 +309,7 @@ local function HideMarks(button, e)
 	e.pet:Hide()
 	e.mark:Hide()
 	e.set:Hide()
+	e.ah:Hide()
 	e.craft:Hide()
 	for _, widget in pairs(e.arrows) do
 		widget:Hide()
@@ -325,7 +327,7 @@ local function PlaceMarks(button, e, item, opts)
 	HideMarks(button, e)
 	local crafting = ns.AltsList_Marked and ns.AltsList_Marked(item.itemID)
 	local has = {
-		junk = item.junk, upgrade = item.upgrade, crafting = crafting, transmog = item.look, set = item.set ~= nil,
+		junk = item.junk, upgrade = item.upgrade, ah = item.ah, crafting = crafting, transmog = item.look, set = item.set ~= nil,
 		petlevel = item.petLevel, ilvl = item.ilvl and item.ilvl > 1,
 	}
 	for corner, mark in pairs(ns.Bags_CornerMarks(has, opts.corners)) do
@@ -339,6 +341,11 @@ local function PlaceMarks(button, e, item, opts)
 			local widget = Arrow(button, e, item.upgrade)
 			Corner(widget, corner, -INSET)
 			widget:Show()
+		elseif mark == "ah" then
+			e.ah:SetText("AH")
+			UI.SetTextRole(e.ah, "success")
+			Corner(e.ah, corner)
+			e.ah:Show()
 		elseif mark == "crafting" then
 			e.craft:SetColor("accent")
 			Corner(e.craft, corner, 1)

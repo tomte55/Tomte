@@ -19,6 +19,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Leveling:** a Next quests window on screen: your quests grouped by where they are into stops, the nearest stop first with its turn-ins and then the lowest level, and the stop after it. Click a quest to make it active. Edit Mode moves it; it can be turned off under Leveling.
 - **Hunter Pets:** on Forever, a button when no aspect is on (out of combat, away from inns and cities): one click or a key puts on Aspect of the Hawk, or the Monkey before you have the Hawk.
 - **Hunter Pets:** a toast when Growl is left off with your pet out and you're alone in the open world, as after a dungeon.
+- **Gold & value:** whether an item is worth listing at the Auction House or selling to a vendor: a line on its tooltip (the price after the 5% cut, how often it sells and how many sell a day, from TSM), and an AH mark on bag items worth listing, so they don't get vendored by mistake. Vendor Helper's grey selling skips them too.
 
 ### Improved
 

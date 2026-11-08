@@ -324,7 +324,7 @@ module = ns.RegisterModule({
 		-- Where each mark sits on an item: TOPLEFT | TOPRIGHT | BOTTOMLEFT | BOTTOMRIGHT | off. Marks sharing a corner:
 		-- the first that applies shows (Data.lua's BAGS_MARKS order). The stack count is the game's, bottom right.
 		corners = {
-			junk = "TOPLEFT", upgrade = "TOPLEFT", crafting = "TOPRIGHT", transmog = "TOPRIGHT", set = "TOPRIGHT",
+			junk = "TOPLEFT", upgrade = "TOPLEFT", ah = "TOPLEFT", crafting = "TOPRIGHT", transmog = "TOPRIGHT", set = "TOPRIGHT",
 			petlevel = "BOTTOMLEFT", ilvl = "BOTTOMLEFT",
 		},
 		ilvlColor = "quality", -- quality | plain
@@ -435,6 +435,11 @@ module = ns.RegisterModule({
 		CornerRow("transmog", "Transmog mark",
 			"A round badge with an X on items whose appearance you haven't collected: in the accent color when this character can learn it, grey when only another class can."),
 		CornerRow("junk", "Junk coin", "The coin on grey items, not only at a merchant."),
+		CornerRow("ah", "Worth listing (AH)",
+			"AH on items that sell at the auction house and make clearly more there than at a vendor. Gold & value decides (its settings say how much more); grey items marked AH lose their junk coin.",
+			function()
+				return ns.Value_SellMark ~= nil
+			end),
 		CornerRow("crafting", "Crafting list",
 			"A dot on items your crafting list (Alts) wants moved; the item's tooltip says how many.",
 			function()

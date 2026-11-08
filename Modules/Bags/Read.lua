@@ -191,6 +191,11 @@ local function Record(bag, slot, info)
 			item.junk = ns.Bags_IsJunk(item.quality, item.noValue, item.bind, item.upgrade)
 		end
 	end
+	-- Value's verdict, looked up at call time (Gold & value may be off): worth listing beats the junk coin.
+	item.ah = ns.Value_SellMark and item.bind ~= "soulbound" and ns.Value_SellMark(link, item.count) or nil
+	if item.ah then
+		item.junk = false
+	end
 	return item
 end
 

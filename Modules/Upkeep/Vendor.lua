@@ -88,8 +88,9 @@ local function BagItems()
 					bag = bag, slot = slot, quality = info.quality, count = info.stackCount, price = price,
 					noValue = info.hasNoValue, excluded = excluded, locked = info.isLocked,
 					-- Looked up at call time: Gear Check may be off or not loaded.
-					keep = info.quality == 0 and info.hyperlink and ns.Gear_BagArrow
-						and ns.Gear_BagArrow(info.hyperlink) ~= nil or nil,
+					keep = info.quality == 0 and info.hyperlink and ((ns.Gear_BagArrow
+						and ns.Gear_BagArrow(info.hyperlink) ~= nil) or (ns.Value_SellMark and not info.isBound
+						and ns.Value_SellMark(info.hyperlink, info.stackCount))) or nil,
 				}
 			end
 		end

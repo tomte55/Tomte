@@ -200,3 +200,58 @@ function ns.Value_BackpackEntries(opts)
 	end
 	return entries
 end
+
+-- Sell on the auction house or at a vendor -----------------------------------------------------------------------------
+
+local AH_CUT = 0.05 -- the auction house keeps 5% of a sale
+-- The deposit, as a share of the vendor price, lost when an auction doesn't sell: Classic's 12-hour rate
+-- (warcraft.wiki.gg Auction House), not confirmed on Forever; retail's is close for most goods.
+local DEPOSIT_SHARE = 0.15
+local SELLS = 0.2 -- region sale rate from which an item counts as selling (TSM: share of auctions that sell)
+local BEATS_VENDOR = 1.3 -- the expected auction price has to beat the vendor by this much
+local NO_RATE_BEATS = 2 -- without sale data the auction price has to beat the vendor by more
+
+-- Whether this item is worth listing. d = { market (copper, one item's auction price), vendor (copper), saleRate (0..1,
+-- nil without sale data), soldPerDay, count (the stack), minGain (copper the stack must gain over vendoring it) }.
+-- Returns nil without an auction price, else { kind, net (after the cut), expected (per item, counting the chance it
+-- doesn't sell: the deposit lost, then vendored), gain (the stack's over vendoring), market, vendor, saleRate,
+-- soldPerDay }. kind: "ah" (list it), "small" (the auction house wins, by less than minGain for this stack), "slow"
+-- (worth more there but rarely sells), "vendor" (the vendor is as good).
+function ns.Value_SellVerdict(d)
+	if not d.market or d.market <= 0 then
+		return nil
+	end
+	local vendor, count, rate = d.vendor or 0, d.count or 1, d.saleRate
+	local net = d.market * (1 - AH_CUT)
+	local expected = net
+	if rate then
+		expected = rate * net + (1 - rate) * vendor * (1 - DEPOSIT_SHARE)
+	end
+	local v = { net = net, expected = expected, gain = (expected - vendor) * count, market = d.market, vendor = vendor,
+		saleRate = rate, soldPerDay = d.soldPerDay }
+	local beats = expected >= vendor * (rate and BEATS_VENDOR or NO_RATE_BEATS) and expected > vendor
+	if rate and rate < SELLS and net > vendor * BEATS_VENDOR then
+		v.kind = "slow"
+	elseif not beats then
+		v.kind = "vendor"
+	elseif v.gain < (d.minGain or 0) then
+		v.kind = "small"
+	else
+		v.kind = "ah"
+	end
+	return v
+end
+
+-- What one item really fetches and where: the auction house's expected price (Value_SellVerdict's, after the cut and the
+-- chance it doesn't sell) when that beats the vendor, else the vendor's. v: a verdict or nil. Returns copper (rounded),
+-- "auction" | "vendor"; nil when neither pays.
+function ns.Value_SellPick(v, vendor)
+	vendor = vendor or 0
+	if v and v.expected > vendor then
+		return math.floor(v.expected + 0.5), "auction"
+	end
+	if vendor > 0 then
+		return vendor, "vendor"
+	end
+	return nil
+end

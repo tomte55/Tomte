@@ -275,9 +275,10 @@ function ns.Bags_SortItems(list, method, reverse)
 	return list
 end
 
--- The marks an item can carry, in the order they win a shared corner: junk coin, Gear Check's arrow, the crafting
--- list's count, the transmog badge, the equipment set mark, a battle pet's level, the item level.
-ns.BAGS_MARKS = { "junk", "upgrade", "crafting", "transmog", "set", "petlevel", "ilvl" }
+-- The marks an item can carry, in the order they win a shared corner: junk coin, Gear Check's arrow, the AH mark
+-- (worth listing), the crafting list's count, the transmog badge, the equipment set mark, a battle pet's level, the
+-- item level.
+ns.BAGS_MARKS = { "junk", "upgrade", "ah", "crafting", "transmog", "set", "petlevel", "ilvl" }
 
 -- Which mark each corner shows: has[mark] is true (or a value) when the item carries it, corners[mark] is the corner
 -- picked for it ("TOPLEFT", ... or "off"). Returns [corner] = mark: the first carried mark of that corner in

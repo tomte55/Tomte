@@ -7,6 +7,7 @@ local addonName, ns = ...
 --                  the roster and "worth" next to the total gold.
 --   Crafting tab   what the materials cost, what the result sells for and the difference.
 --   Bags           tracked items, holiday tokens and upgrade crests on the bag's currency bar (Backpack.lua).
+--   Selling        auction house or vendor: a tooltip line, the bags' AH mark, Vendor Helper's grey selling (Sell.lua).
 -- Choices are in Data.lua (unit-tested).
 
 local DEBOUNCE = 2 -- seconds of quiet bags before they're priced
@@ -14,6 +15,11 @@ local CALLER = "Tomte" -- Auctionator wants the calling addon's name
 local BAGS = { 0, 1, 2, 3, 4, 5 } -- Backpack .. ReagentBag (Enum.BagIndex)
 local BANK = { 6, 7, 8, 9, 10, 11 } -- CharacterBankTab_1..6
 local WARBAND = { 12, 13, 14, 15, 16 } -- AccountBankTab_1..5
+-- What a stack must gain at the auction house over a vendor to be marked, and the slider's step and top, in copper:
+-- Forever's prices are in copper and silver, retail's in gold.
+local MIN_GAIN = ns.FOREVER and 100 or 10000
+local MIN_GAIN_STEP = ns.FOREVER and 10 or 10000
+local MIN_GAIN_MAX = ns.FOREVER and 10000 or 1000000
 
 -- Forever numbers its bank tabs differently (its AccountBankTab_1 is 15): ask the game which containers there are.
 local function BankBags(bankType, retail)
@@ -98,6 +104,8 @@ local function AuctionPrice(itemID, link)
 	end
 	return nil, false
 end
+
+ns.Value_AuctionPrice = AuctionPrice -- Sell.lua
 
 -- What one of this item is worth: copper (or nil: left out or unknown), "auction" | "vendor", stale.
 -- item: link or itemID. bound: the item is soulbound (only its vendor price counts).
@@ -349,6 +357,13 @@ local function Track(text, rawText)
 	ns.ValueBackpack_Track(itemID)
 end
 
+-- The bags read again, so their AH marks follow the setting.
+local function BagsChanged()
+	if ns.Bags_Reread then
+		ns.Bags_Reread()
+	end
+end
+
 local function BackpackChanged()
 	ns.ValueBackpack_Toggle(module.active and db.backpack.shown, db.backpack)
 end
@@ -361,12 +376,14 @@ module = ns.RegisterModule({
 	summary = "What your loot, bags and crafts are worth at the auction house.",
 	description = "What things are worth, from Auctionator or TSM: the value of a session's loot on the recap card and "
 		.. "the Sessions page, each character's bags and bank in Alts, and what a craft costs and sells for in the "
-		.. "Crafting tab. Also items you track, holiday tokens and upgrade crests on the bag's currency bar.",
+		.. "Crafting tab. Also items you track, holiday tokens and upgrade crests on the bag's currency bar, and whether "
+		.. "an item is worth listing at the auction house or selling to a vendor (on its tooltip, and an AH mark in the bags).",
 	enabledByDefault = true,
 	replaces = { { addon = "Plumber", why = "the backpack item tracker on the bag's currency bar" } },
 	uses = {
 		{ addon = "Auctionator", why = "auction prices", without = "uses TSM or vendor prices" },
-		{ addon = "TradeSkillMaster", why = "auction prices (if you pick TSM)", without = "uses Auctionator or vendor prices" },
+		{ addon = "TradeSkillMaster", why = "auction prices (if you pick TSM), and how often things sell",
+			without = "uses Auctionator or vendor prices, with no sale rates" },
 	},
 	defaults = {
 		source = "auto", -- auto | auctionator | tsm | vendor
@@ -377,6 +394,12 @@ module = ns.RegisterModule({
 		alts = true,
 		owned = "market", -- market | free
 		stale = 7,
+		sell = {
+			tooltip = true, -- a line on item tooltips: sell on the auction house or at a vendor
+			mark = true, -- the AH mark on bag items worth listing
+			markConsumables = true, -- potions, food and scrolls get it too
+			minGain = MIN_GAIN, -- copper a stack must gain over vendoring it to be marked
+		},
 		backpack = {
 			shown = true,
 			holidays = true,
@@ -386,6 +409,7 @@ module = ns.RegisterModule({
 	},
 	init = function(saved)
 		db = saved
+		ns.ValueSell_Init(module, saved)
 	end,
 	toggle = function(active)
 		for _, event in ipairs(EVENTS) do
@@ -396,6 +420,7 @@ module = ns.RegisterModule({
 			end
 		end
 		ns.ValueBackpack_Toggle(active and db.backpack.shown, db.backpack)
+		ns.ValueSell_Update()
 		if active then
 			ReadWorthSoon()
 		else
@@ -435,6 +460,18 @@ module = ns.RegisterModule({
 				{ value = "none", text = "Leave out" },
 			}
 		end, tooltip = "Auction prices for gear are often misleading (few sales, item level variants)." },
+		{ type = "header", label = "Auction House or vendor" },
+		{ type = "checkbox", key = "sell.tooltip", label = "On item tooltips", onChange = ns.ValueSell_Update,
+			tooltip = "Whether an item is worth listing: its auction price after the 5% cut, how often it sells and how many sell a day (from TSM), against its vendor price. Slow sellers and items the vendor pays as well for say so." },
+		{ type = "checkbox", key = "sell.mark", label = "Mark bag items worth listing", onChange = BagsChanged,
+			tooltip = "An AH mark on items that sell and beat the vendor, so they don't get vendored by mistake. Vendor Helper's grey selling skips them too. Needs Tomte's bags; the corner is set under Bags." },
+		{ type = "checkbox", key = "sell.markConsumables", label = "Mark consumables too", parent = "sell.mark",
+			onChange = BagsChanged,
+			tooltip = "Potions, food, scrolls and the like. Off: they keep their tooltip line, without the mark, as you'd usually use them yourself." },
+		{ type = "slider", key = "sell.minGain", label = "Worth listing from", min = MIN_GAIN_STEP, max = MIN_GAIN_MAX,
+			step = MIN_GAIN_STEP, parent = "sell.mark", onChange = BagsChanged, format = function(v)
+				return ns.Price(v)
+			end, tooltip = "How much more a stack has to make at the auction house than at a vendor before it's marked." },
 		{ type = "header", label = "Sessions" },
 		{ type = "checkbox", key = "sessions", label = "Count loot value in sessions",
 			tooltip = "Every looted item is priced for the recap card and the Sessions page. Needs Session recap on." },
