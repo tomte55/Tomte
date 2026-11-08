@@ -293,6 +293,8 @@ test("worth text", function()
 	eq(ns.Loot_WorthText(item(1, 1, { sell = 0 })), nil, "no worth")
 	eq(ns.Loot_WorthText(item(1, 1, { sell = 5, quantity = 2 })), ns.Price(10), "vendor price for the stack")
 	eq(ns.Loot_WorthText(item(1, 1, { value = 7, stale = true })), ns.Price(7) .. "?", "stale price")
+	eq(ns.Loot_WorthText(item(1, 1, { value = 27, quantity = 2, sellAt = "auction" })), ns.Price(54) .. " AH", "where")
+	eq(ns.Loot_WorthText(item(1, 1, { value = 6, sellAt = "vendor" })), ns.Price(6) .. " vendor")
 end)
 
 test("a grey Gear Check calls an upgrade isn't junk", function()

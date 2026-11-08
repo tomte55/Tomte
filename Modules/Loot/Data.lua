@@ -233,10 +233,13 @@ local function PriceText(copper, stale)
 	return ns.Price(copper) .. (stale and "?" or "")
 end
 
--- The stack's price as text (a "?" after a stale auction price); nil when it has no worth.
+-- Where the value says to sell (e.sellAt, from Gold & value), after the price.
+local SELL_AT = { auction = " AH", vendor = " vendor" }
+
+-- The stack's price as text (a "?" after a stale auction price, then where it sells); nil when it has no worth.
 function ns.Loot_WorthText(e)
 	local worth = ns.Loot_Worth(e)
-	return worth and PriceText(worth, HasValue(e) and e.stale) or nil
+	return worth and (PriceText(worth, HasValue(e) and e.stale) .. (HasValue(e) and SELL_AT[e.sellAt] or "")) or nil
 end
 
 -- The small parts after an entry's name as { text, role } (theme color roles), each only when its extra is on.

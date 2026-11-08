@@ -40,8 +40,15 @@ local function Verdict(link, ctx)
 	}
 end
 
--- Gold & value's price for one: copper and whether it's stale; nil while that module is off.
+-- Gold & value's price for one: copper, whether it's stale, and where it sells ("auction" | "vendor": the place that
+-- pays more, counting the auction house's cut and how often it sells); nil while that module is off.
 local function Price(link)
+	if ns.Value_SellPrice then
+		local copper, where = ns.Value_SellPrice(link)
+		if copper then
+			return copper, false, where
+		end
+	end
 	local priceOf = ns.Value_ItemPrice
 	if not priceOf then
 		return nil
@@ -79,7 +86,7 @@ local function ItemExtras(e, opts)
 		e.verdict = Verdict(e.link, opts.ctx)
 	end
 	if opts.value then
-		e.value, e.stale = Price(e.link)
+		e.value, e.stale, e.sellAt = Price(e.link)
 	end
 end
 
