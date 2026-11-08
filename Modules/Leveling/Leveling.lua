@@ -378,6 +378,8 @@ module = ns.RegisterModule({
 		nextQuests = true,
 		nextCount = 5, -- quests the next quests widget lists from its stop
 		nextCollapsed = false,
+		nextFollow = true, -- the widget's top quest becomes the active one
+		nextMetric = false, -- its distances in meters instead of yards
 		nextFrame = {}, -- point: the widget's spot (UI.TopLeftPoint), nil for the default
 		ammo = true,
 		ammoLow = 100,
@@ -458,6 +460,14 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "nextQuests", label = "Next quests on screen", onChange = function()
 			ns.LevelingNext_Update()
 		end, tooltip = "A small window with the quests to do next. Quests close to each other are one stop, the nearest stop first: turn-ins, then the lowest level. Hard and dungeon quests only while you're in a group. Click a quest to make it your active quest, Shift-click to track it. Blizzard's Edit Mode moves it." },
+		{ type = "checkbox", key = "nextFollow", label = "Make the top quest active", parent = "nextQuests",
+			onChange = function()
+				ns.LevelingNext_Update()
+			end, tooltip = "The quest at the top becomes your active quest, marked on the map (and Waypoints' arrow points to it), each time a new one comes to the top. A quest you pick yourself stays active until then." },
+		{ type = "checkbox", key = "nextMetric", label = "Distances in meters", parent = "nextQuests",
+			onChange = function()
+				ns.LevelingNext_Update()
+			end, tooltip = "Meters and kilometers instead of the game's yards." },
 		{ type = "slider", key = "nextCount", label = "Quests to show", min = 3, max = 8, step = 1, parent = "nextQuests",
 			onChange = function()
 				ns.LevelingNext_Update()

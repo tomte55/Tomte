@@ -23,6 +23,7 @@ local UI = ns.UI
 local db, frame, ticker
 local active = false
 local updatePending = false
+local followed -- the quest the widget last made active: a quest you pick yourself stays until the top one changes
 local points = {} -- quest spots ([questID] = Read.lua's point), kept until the next full update reads them again
 local pointsMap -- the map they were read from
 local pointsStale = true -- the quest log changed since: read them again at the next update
@@ -41,8 +42,16 @@ local function GroupRole(key)
 	return "text"
 end
 
+-- A stop's distance in yards or meters (the setting), rounded to tens; Waypoints' formatting ("975 m", "1.2 km").
 local function YardsText(distance)
-	return distance and ("%s yd"):format(ns.Thousands(ns.Leveling_StopYards(distance))) or ""
+	if not distance then
+		return ""
+	end
+	local yards = ns.Leveling_StopYards(distance)
+	if ns.Way_FormatDistance then
+		return ns.Way_FormatDistance(yards, db.nextMetric)
+	end
+	return ("%s yd"):format(ns.Thousands(yards))
 end
 
 local function Moved(from, to)
@@ -118,6 +127,73 @@ local function Row(i)
 	return row
 end
 
+-- Next to the minimize button and shown with it (on mouseover): a small box, filled while the top quest is followed
+-- (Follow, below), drawn from color bars like the minimize button; its outline lights up on hover. The distance moves
+-- aside while they show.
+local FOLLOW_BOX, FOLLOW_FILL, FOLLOW_EDGE = 10, 4, 1 -- pixels: the outline's size, the filling's, the outline's width
+
+local function FollowButton(f)
+	local b = CreateFrame("Button", nil, f)
+	b:SetSize(16, 16)
+	b:SetPoint("RIGHT", f.collapse, "LEFT", -2, 0)
+	b:SetFrameLevel(f.collapse:GetFrameLevel())
+	b:SetHitRectInsets(-3, -3, -3, -3)
+	b.edges = {}
+	local half = (FOLLOW_BOX - FOLLOW_EDGE) / 2
+	for i, side in ipairs({ { 0, half, FOLLOW_BOX, FOLLOW_EDGE }, { 0, -half, FOLLOW_BOX, FOLLOW_EDGE },
+		{ -half, 0, FOLLOW_EDGE, FOLLOW_BOX }, { half, 0, FOLLOW_EDGE, FOLLOW_BOX } }) do
+		local t = b:CreateTexture(nil, "ARTWORK")
+		t:SetSize(side[3], side[4])
+		t:SetPoint("CENTER", side[1], side[2])
+		b.edges[i] = t
+	end
+	b.fill = b:CreateTexture(nil, "ARTWORK")
+	b.fill:SetSize(FOLLOW_BOX - FOLLOW_FILL, FOLLOW_BOX - FOLLOW_FILL)
+	b.fill:SetPoint("CENTER")
+	function b:Update()
+		local edge = self:IsMouseOver() and "accent" or "textMuted"
+		for _, t in ipairs(self.edges) do
+			t:SetColorTexture(UI.Color(edge))
+		end
+		self.fill:SetColorTexture(UI.Color("accent"))
+		self.fill:SetShown(db.nextFollow)
+	end
+	local function Tip(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		GameTooltip:SetText(db.nextFollow and "Following the top quest" or "Not following the top quest", 1, 1, 1)
+		UI.TipLine(db.nextFollow and "The top quest becomes your active quest. Click to stop."
+			or "Click to make the top quest your active quest each time a new one comes up.", "textMuted", true)
+		GameTooltip:Show()
+	end
+	b:SetScript("OnEnter", function(self)
+		self:Update()
+		Tip(self)
+	end)
+	b:SetScript("OnLeave", function(self)
+		self:Update()
+		GameTooltip:Hide()
+	end)
+	b:SetScript("OnClick", function(self)
+		db.nextFollow = not db.nextFollow
+		followed = nil -- turned on: the top quest is made active right away
+		UI.Sound("pick")
+		self:Update()
+		Tip(self)
+		ns.LevelingNext_Update()
+	end)
+	b:Hide()
+	f.collapse:HookScript("OnShow", function()
+		b:Update()
+		b:Show()
+		f.distance:SetPoint("TOPRIGHT", -44, -8)
+	end)
+	f.collapse:HookScript("OnHide", function()
+		b:Hide()
+		f.distance:SetPoint("TOPRIGHT", -26, -8)
+	end)
+	return b
+end
+
 local function Build()
 	frame = CreateFrame("Frame", nil, UIParent)
 	frame:SetSize(WIDTH, 60)
@@ -143,6 +219,7 @@ local function Build()
 		db.nextCollapsed = not db.nextCollapsed
 		ns.LevelingNext_Update()
 	end)
+	frame.follow = FollowButton(frame)
 	Place()
 end
 
@@ -248,6 +325,20 @@ end
 
 -- Updates --------------------------------------------------------------------------------------------------------------
 
+-- The top quest becomes the active one (marked on the map; Waypoints' arrow follows it) when it changes. Through
+-- ns.SafeTrack: the map and tracker redraw inside the call, which in combat hits protected frames.
+local function Follow(q)
+	if not (q and C_SuperTrack) or q.questID == followed then
+		return
+	end
+	followed = q.questID
+	if C_SuperTrack.GetSuperTrackedQuestID() ~= q.questID then
+		ns.SafeTrack(function()
+			C_SuperTrack.SetSuperTrackedQuestID(q.questID)
+		end)
+	end
+end
+
 local function Hide()
 	if frame then
 		frame:Hide()
@@ -294,6 +385,9 @@ function ns.LevelingNext_Update()
 		Build()
 	end
 	drawnAt, distanceAt = you, you
+	if db.nextFollow and not stops.sample then
+		Follow(stops[1].quests[1])
+	end
 	Draw(stops, you)
 	frame:Show()
 	if not ticker then
