@@ -10,6 +10,19 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.32.1", date = "2026-11-08",
+		improved = {
+			{ module = "addons", text = "A Runs alongside Tomte card for addons Tomte makes room for, and a line on "
+				.. "the settings of each module they touch." },
+		},
+		fixed = {
+			{ label = "EllesmereUI", text = "Tomte works alongside it: Bags and Channel Tags stay off with its bags "
+				.. "and chat, and vendor repairs, the flight bar and nameplate quest icons are left to it." },
+			{ module = "minimap", text = "Minimap buttons, gathering spots and the difficulty badge follow a square "
+				.. "minimap from EllesmereUI." },
+		},
+	},
+	{
 		version = "1.32.0", date = "2026-11-08",
 		new = {
 			{ module = "leveling", text = "On Forever: a Next quests window that groups your quests by where they are, "
