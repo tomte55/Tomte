@@ -139,7 +139,7 @@ local function OnUpdate(_, dt)
 		elapsed = 0
 		UpdateInfo()
 	end
-	if state == "none" or state == "hidden" then
+	if state == "none" or state == "hidden" or (db.hideInCombat and InCombatLockdown()) then
 		ns.WayMarker_Hide()
 		alpha = 0 -- fade in again when it comes back
 		if ns.FOREVER and not target then
@@ -495,6 +495,7 @@ module = ns.RegisterModule({
 		portals = true,
 		routes = {}, -- per character GUID: the real map pin while a portal route has the pin on a step
 		showWhenHidden = false,
+		hideInCombat = true, -- the marker or arrow hides while you're in combat
 		countdown = true,
 		mapPing = true,
 	},
@@ -612,6 +613,8 @@ module = ns.RegisterModule({
 				end
 				return list
 			end },
+		{ type = "checkbox", key = "hideInCombat", label = "Hide in combat",
+			tooltip = "The marker (on Forever, the arrow) hides while you're in combat and fades back in after." },
 		{ type = "checkbox", key = "showWhenHidden", label = "Show when the UI is hidden", onChange = ApplyLook,
 			tooltip = "Keep the marker visible after Alt+Z." },
 		{ type = "checkbox", key = "countdown", label = "Countdown on timed waypoints", onChange = ApplyLook,

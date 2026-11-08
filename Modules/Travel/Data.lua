@@ -197,6 +197,18 @@ function ns.Way_Compass(px, py, facing, tx, ty)
 	return math.sqrt(north * north + west * west), math.pi / 2 + atan2(west, north) - facing
 end
 
+-- The flat arrow (Media/Travel/Arrow.tga, tools/waypoint_art.py): a sheet of WAY_ARROW_GRID x WAY_ARROW_GRID cells, the
+-- first pointing ahead, each next one a step further left. Its cell for a direction (radians, 0 = right, up = ahead):
+-- the cell's number and its texture coordinates left, right, top, bottom.
+ns.WAY_ARROW_GRID = 8
+function ns.Way_ArrowCell(angle)
+	local grid = ns.WAY_ARROW_GRID
+	local cells = grid * grid
+	local cell = math.floor((angle - math.pi / 2) / (2 * math.pi / cells) + 0.5) % cells
+	local col, row = cell % grid, math.floor(cell / grid)
+	return cell, col / grid, (col + 1) / grid, row / grid, (row + 1) / grid
+end
+
 -- Shortest-way step from one angle toward another, by `rate` (0-1) of the difference.
 function ns.Way_TurnToward(current, target, rate)
 	local diff = (target - current + math.pi) % (2 * math.pi) - math.pi

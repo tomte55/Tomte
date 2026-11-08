@@ -31,6 +31,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Loot:** on Forever, with several items that don't fit, Make room picks an appearance you haven't collected again, even over loot worth more.
 - **Groups in chat:** no toast when the person asking is already in your party or raid.
 - **Cursor highlight:** takes much less of the frame, most of all while the trail shows, and makes almost no garbage.
+- **Waypoints:** the marker (on Forever, the arrow) hides while you're in combat and fades back in after. A setting, on by default.
 
 ### Fixed
 

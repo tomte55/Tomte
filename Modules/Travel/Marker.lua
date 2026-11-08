@@ -24,10 +24,8 @@ local ARROW_ARM = 16
 local EDGE_RX, EDGE_RY = 0.4, 0.36 -- edge ellipse radii as a share of the screen size
 local COMPASS_Y = 0.22 -- compass height above the screen center, as a share of the screen height (over your head)
 -- Forever's arrow (no navigation frame there, so it's the only view): tools/waypoint_art.py draws it lying flat, in a
--- sheet of POINTER_GRID x POINTER_GRID directions, white with a black outline; tinted with the theme's accent.
+-- sheet of directions (Data.lua's Way_ArrowCell), white with a black outline; tinted with the theme's accent.
 local POINTER_TEXTURE = "Interface\\AddOns\\Tomte\\Media\\Travel\\Arrow"
-local POINTER_GRID = 8
-local POINTER_FRAMES = POINTER_GRID * POINTER_GRID
 local POINTER_SIZE = 48 -- at Arrow size 100%
 local POINTER_TEXT = 12
 
@@ -429,12 +427,10 @@ end
 -- The arrow turned to angle (radians, 0 = right, up = ahead): the sheet's cell for that direction. Cell 0 points
 -- ahead and each next one a step further left (tools/waypoint_art.py).
 local function TurnPointer(angle)
-	local step = 2 * math.pi / POINTER_FRAMES
-	local frame = math.floor((angle - math.pi / 2) / step + 0.5) % POINTER_FRAMES
-	if frame ~= pointer.frame then
-		pointer.frame = frame
-		local col, row = frame % POINTER_GRID, math.floor(frame / POINTER_GRID)
-		pointer.tex:SetTexCoord(col / POINTER_GRID, (col + 1) / POINTER_GRID, row / POINTER_GRID, (row + 1) / POINTER_GRID)
+	local cell, l, r, t, b = ns.Way_ArrowCell(angle)
+	if cell ~= pointer.frame then
+		pointer.frame = cell
+		pointer.tex:SetTexCoord(l, r, t, b)
 	end
 end
 
