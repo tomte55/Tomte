@@ -16,10 +16,13 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
+- **Leveling:** a Next quests window on screen: your quests grouped by where they are into stops, the nearest stop first with its turn-ins and then the lowest level, and the stop after it. Click a quest to make it active. Edit Mode moves it; it can be turned off under Leveling.
 
 ### Improved
 
 - **Loot:** the Make room button's tooltip no longer opens the Equipped comparison beside the item it would destroy (hold Shift to compare).
+- **Leveling:** quests in the Quests list show the dungeon they're done in after the title, and in their tooltip.
+- **Leveling:** click a quest in the Quests list to make it your active quest, highlighted and marked on the map as with the quest log's map button; Shift-click tracks it or stops tracking it. A bar at the left edge marks the active quest and, fainter, the tracked ones. Each group has a Track all button.
 
 ## v1.31.0 - 2026-11-08
 

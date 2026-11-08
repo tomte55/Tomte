@@ -481,6 +481,7 @@ ns.BUG_FILES = {
 	"Modules/Leveling/HomeSection.lua",
 	"Modules/Leveling/AmmoCounter.lua",
 	"Modules/Leveling/ArmorKit.lua",
+	"Modules/Leveling/NextQuests.lua",
 	"Modules/Leveling/Leveling.lua",
 	"Modules/PetCare/Data.lua",
 	"Modules/PetCare/PetCare.lua",

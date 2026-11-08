@@ -11,6 +11,7 @@ local AMMO_FOR = { [WEAPON_BOWS] = AMMO_ARROW, [WEAPON_CROSSBOW] = AMMO_ARROW, [
 local AUTO_BUDGET_SHARE = 0.25 -- of your money, at most, on one automatic ammo purchase
 -- Enum.RelativeContentDifficulty.
 local TRIVIAL, EASY, FAIR = 0, 1, 2
+local TAG_RAID, TAG_DUNGEON = 62, 81 -- Enum.QuestTag
 -- role: the group's heading and quest levels. textRole: its quest titles, fading as a quest is worth less.
 ns.LEVELING_QUEST_GROUPS = {
 	{ key = "done", name = "Ready to turn in", role = "success", textRole = "text" },
@@ -454,6 +455,22 @@ local function QuestGroup(q)
 end
 ns.Leveling_QuestGroup = QuestGroup
 
+-- Where a quest is done when that's a dungeon or raid: the dungeon's name when the log files it under one (q.zone), else
+-- "Dungeon" or "Raid" from its quest tag (q.tagID). nil for everything else.
+function ns.Leveling_QuestDungeon(q, dungeons)
+	for _, d in ipairs(dungeons or {}) do
+		if q.zone == d.name then
+			return d.name
+		end
+	end
+	if q.tagID == TAG_DUNGEON then
+		return "Dungeon"
+	elseif q.tagID == TAG_RAID then
+		return "Raid"
+	end
+	return nil
+end
+
 -- quests: { { questID, title, level, difficulty, elite, complete, timeLeft } }. Returns { [group key] = rows }, each sorted by
 -- level, shortest timer first in "timed".
 function ns.Leveling_SortQuests(quests)
@@ -477,6 +494,113 @@ function ns.Leveling_SortQuests(quests)
 		end)
 	end
 	return groups
+end
+
+-- Next quests: stops ------------------------------------------------------------------------------------------------
+
+-- A quest goes on a stop: done, timed, worth doing and easy ones; while you're grouped also hard ones and dungeon quests.
+local STOP_GROUPS = { done = true, timed = true, now = true, easy = true }
+local STOP_ORDER = { done = 1, timed = 2 } -- inside a stop: turn-ins, then timers, then the rest by level
+
+local function OnStop(q, group, grouped)
+	if q.dungeon then
+		return grouped
+	end
+	return STOP_GROUPS[group] or (grouped and group == "hard")
+end
+
+local function Yards(a, b)
+	local dx, dy = a.x - b.x, a.y - b.y
+	return math.sqrt(dx * dx + dy * dy)
+end
+
+local function ByStopOrder(a, b)
+	local oa, ob = STOP_ORDER[a.group] or 3, STOP_ORDER[b.group] or 3
+	if oa ~= ob then
+		return oa < ob
+	end
+	if (a.q.level or 0) ~= (b.q.level or 0) then
+		return (a.q.level or 0) < (b.q.level or 0)
+	end
+	if (a.q.xp or 0) ~= (b.q.xp or 0) then
+		return (a.q.xp or 0) > (b.q.xp or 0)
+	end
+	return (a.q.title or "") < (b.q.title or "")
+end
+
+-- The zone most of a stop's quests are in.
+local function StopZone(members)
+	local counts, best = {}, nil
+	for _, m in ipairs(members) do
+		local zone = m.point.zone
+		if zone then
+			counts[zone] = (counts[zone] or 0) + 1
+			if not best or counts[zone] > counts[best] then
+				best = zone
+			end
+		end
+	end
+	return best
+end
+
+-- quests: quest log rows (LevelingRead_Quests, with dungeon). points: [questID] = { x, y (world yards), continent, zone }:
+-- where its objective or turn-in is. you: { x, y, continent } or nil (no position, as in an instance). grouped: in a party
+-- or raid. Quests within `yards` of another on the same stop join it (single linkage); quests on another continent, or
+-- without a point, are left out. Returns stops, nearest first: { { quests = { rows }, groups = { [questID] = group key },
+-- zone, distance (yards to its nearest quest, nil without you) } }; without you they're in order of their first quest.
+function ns.Leveling_NextStops(quests, points, you, grouped, yards)
+	local members = {}
+	for _, q in ipairs(quests) do
+		local p = points[q.questID]
+		local group = QuestGroup(q)
+		if p and OnStop(q, group, grouped) and (not you or p.continent == you.continent) then
+			members[#members + 1] = { q = q, point = p, group = group }
+		end
+	end
+	local stopOf, stops = {}, {}
+	for i = 1, #members do
+		if not stopOf[i] then
+			local list = { members[i] }
+			stopOf[i] = true
+			local k = 1
+			while k <= #list do
+				for j = 1, #members do
+					if not stopOf[j] and Yards(list[k].point, members[j].point) <= yards then
+						stopOf[j] = true
+						list[#list + 1] = members[j]
+					end
+				end
+				k = k + 1
+			end
+			table.sort(list, ByStopOrder)
+			local stop = { quests = {}, groups = {}, zone = StopZone(list) }
+			for n, m in ipairs(list) do
+				stop.quests[n] = m.q
+				stop.groups[m.q.questID] = m.group
+				if you then
+					local d = Yards(you, m.point)
+					stop.distance = stop.distance and math.min(stop.distance, d) or d
+				end
+			end
+			stop.first = list[1]
+			stops[#stops + 1] = stop
+		end
+	end
+	table.sort(stops, function(a, b)
+		if a.distance and b.distance and a.distance ~= b.distance then
+			return a.distance < b.distance
+		end
+		return ByStopOrder(a.first, b.first)
+	end)
+	for _, stop in ipairs(stops) do
+		stop.first = nil
+	end
+	return stops
+end
+
+-- A stop's distance as shown: yards rounded to the nearest ten.
+function ns.Leveling_StopYards(distance)
+	return math.floor((distance + 5) / 10) * 10
 end
 
 -- "12s", "4m", "1h 5m".

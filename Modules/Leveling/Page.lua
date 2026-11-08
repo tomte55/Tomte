@@ -18,6 +18,8 @@ local GROUP_H = 26
 local GROUP_GAP = 10
 local QUEST_H = 22
 local LEVEL_W = 28 -- a quest's level, right-aligned, wide enough for "60+"
+local MARK_W = 3 -- the active or tracked quest's bar, left of its level
+local TRACK_W, TRACK_H = 78, 18 -- a group's Track all button, wide enough for "Untrack all"
 local REFRESH_DELAY = 0.5 -- seconds: quest and bag events come in bursts
 
 local UI = ns.UI
@@ -157,19 +159,76 @@ end
 
 -- Quests --------------------------------------------------------------------------------------------------------------
 
-local function QuestTooltip(row)
-	local q = row.quest
-	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+-- A quest's tooltip on owner: objectives, and what a click does. The next quests widget (NextQuests.lua) shows it too.
+function ns.LevelingPage_QuestTooltip(owner, q, anchor)
+	GameTooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
 	GameTooltip:SetText(q.title or "?", 1, 1, 1, 1, true)
 	if q.complete then
 		GameTooltip:AddLine("Ready to turn in", UI.RGB("success"))
+	end
+	if q.dungeon then
+		local generic = q.dungeon == "Dungeon" or q.dungeon == "Raid"
+		GameTooltip:AddLine(generic and (q.dungeon .. " quest") or ("Dungeon: " .. q.dungeon), UI.RGB("info"))
 	end
 	for _, o in ipairs(C_QuestLog.GetQuestObjectives(q.questID) or {}) do
 		if o.text and o.text ~= "" then
 			GameTooltip:AddLine(o.text, UI.RGB(o.finished and "success" or "text"))
 		end
 	end
+	GameTooltip:AddLine(" ")
+	if C_SuperTrack and not q.active then
+		GameTooltip:AddLine("Click to make it your active quest", UI.RGB("textMuted"))
+	end
+	GameTooltip:AddLine(q.watched and "Shift-click to stop tracking" or "Shift-click to track", UI.RGB("textMuted"))
 	GameTooltip:Show()
+end
+
+-- The bar at a quest row's left edge: accent for the active quest, faint for one that's only tracked.
+function ns.LevelingPage_ShowMark(mark, q)
+	mark:SetColorTexture(UI.Color(q.active and "accent" or "textFaint"))
+	mark:SetShown(q.watched or q.active)
+end
+
+-- Click: the active quest, as the quest log's map button makes it (tracked too, so the tracker shows it). Shift-click:
+-- tracked or not. Through ns.SafeTrack: the objective tracker and map redraw inside the call, which in combat hits
+-- protected frames. Then q's watched and active are read again and done() runs.
+function ns.LevelingPage_QuestClick(q, done)
+	local id = q.questID
+	local toggle = IsShiftKeyDown() or not C_SuperTrack
+	ns.SafeTrack(function()
+		if toggle then
+			if C_QuestLog.GetQuestWatchType(id) then
+				C_QuestLog.RemoveQuestWatch(id)
+			else
+				C_QuestLog.AddQuestWatch(id)
+			end
+		else
+			if not C_QuestLog.GetQuestWatchType(id) then
+				C_QuestLog.AddQuestWatch(id)
+			end
+			C_SuperTrack.SetSuperTrackedQuestID(id)
+		end
+		q.watched = C_QuestLog.GetQuestWatchType(id) ~= nil
+		q.active = C_SuperTrack ~= nil and C_SuperTrack.GetSuperTrackedQuestID() == id
+		done()
+	end)
+end
+
+local function QuestTooltip(row)
+	ns.LevelingPage_QuestTooltip(row, row.quest)
+end
+
+local function ShowWatched(row)
+	ns.LevelingPage_ShowMark(row.mark, row.quest)
+end
+
+local function OnQuestClick(row)
+	ns.LevelingPage_QuestClick(row.quest, function()
+		ShowWatched(row)
+		if GameTooltip:IsOwned(row) then
+			QuestTooltip(row)
+		end
+	end)
 end
 
 local function QuestRow(i)
@@ -182,6 +241,10 @@ local function QuestRow(i)
 		row.bg:SetAllPoints()
 		row.bg:SetColorTexture(UI.Color("hover"))
 		row.bg:Hide()
+		row.mark = row:CreateTexture(nil, "ARTWORK") -- tracked: a bar on the row's left edge
+		row.mark:SetPoint("TOPLEFT", 0, -3)
+		row.mark:SetPoint("BOTTOMLEFT", 0, 3)
+		row.mark:SetWidth(MARK_W)
 		row.level = UI.Text(row, 13, "textMuted", "number")
 		row.level:SetPoint("LEFT")
 		row.level:SetWidth(LEVEL_W)
@@ -201,10 +264,41 @@ local function QuestRow(i)
 			self.bg:Hide()
 			GameTooltip:Hide()
 		end)
+		row:SetScript("OnMouseUp", function(self, button)
+			if button == "LeftButton" and self:IsMouseOver() then
+				OnQuestClick(self)
+			end
+		end)
 		questRows[i] = row
 	end
 	row:Show()
 	return row
+end
+
+local function AllWatched(list)
+	for _, q in ipairs(list) do
+		if not q.watched then
+			return false
+		end
+	end
+	return true
+end
+
+-- Tracks every quest in a group, or stops tracking them all when they all are. Through ns.SafeTrack, as OnQuestClick.
+-- The game's watch limit may leave some untracked; the page redraws from what it says.
+local function ToggleGroupWatch(row)
+	local list = row.list
+	local untrack = AllWatched(list)
+	ns.SafeTrack(function()
+		for _, q in ipairs(list) do
+			if untrack then
+				C_QuestLog.RemoveQuestWatch(q.questID)
+			elseif not C_QuestLog.GetQuestWatchType(q.questID) then
+				C_QuestLog.AddQuestWatch(q.questID)
+			end
+		end
+		ns.LevelingPage_Refresh()
+	end)
 end
 
 local function GroupRow(i)
@@ -214,9 +308,15 @@ local function GroupRow(i)
 		row:SetHeight(GROUP_H)
 		row.count = UI.Text(row, 12, "textMuted", "number")
 		row.count:SetPoint("BOTTOMRIGHT", -4, 6)
+		row.track = UI.Button(row, TRACK_W, "Track all")
+		row.track:SetHeight(TRACK_H)
+		row.track:SetPoint("BOTTOMRIGHT", row.count, "BOTTOMLEFT", -10, -3)
+		row.track:SetScript("OnClick", function()
+			ToggleGroupWatch(row)
+		end)
 		row.name = UI.Text(row, 14, "text", "title")
 		row.name:SetPoint("BOTTOMLEFT", 0, 5)
-		row.name:SetPoint("RIGHT", row.count, "LEFT", -10, 0)
+		row.name:SetPoint("RIGHT", row.track, "LEFT", -10, 0)
 		row.name:SetJustifyH("LEFT")
 		row.name:SetWordWrap(false)
 		row.line = Kit.HLine(row)
@@ -242,6 +342,8 @@ local function DrawQuests(state, x, y, width)
 			g.name:SetText(group.name)
 			UI.SetTextRole(g.name, group.role)
 			g.count:SetText(#list)
+			g.list = list
+			g.track.label:SetText(AllWatched(list) and "Untrack all" or "Track all")
 			y = y + (usedGroups > 1 and GROUP_GAP or 0)
 			Place(g, x, y, width)
 			y = y + GROUP_H + 3
@@ -249,9 +351,10 @@ local function DrawQuests(state, x, y, width)
 				usedQuests = usedQuests + 1
 				local row = QuestRow(usedQuests)
 				row.quest = q
+				ShowWatched(row)
 				row.level:SetText(("%s%s"):format(tostring(q.level or "?"), q.elite and "+" or ""))
 				UI.SetTextRole(row.level, group.role)
-				row.title:SetText(q.title or "?")
+				row.title:SetText(q.dungeon and ("%s  %s"):format(q.title or "?", UI.Wrap(q.dungeon, "info")) or q.title or "?")
 				UI.SetTextRole(row.title, group.textRole)
 				if q.timeLeft then
 					row.right:SetText(ns.Leveling_TimeLeft(q.timeLeft))

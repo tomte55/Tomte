@@ -351,6 +351,61 @@ test("quest groups, in order of what decides", function()
 	eq(G({}), "now", "unknown difficulty")
 end)
 
+test("QuestDungeon: the dungeon's log heading, else its quest tag", function()
+	local dungeons = { { name = "Wailing Caverns" }, { name = "Ragefire Chasm" } }
+	eq(ns.Leveling_QuestDungeon({ zone = "Wailing Caverns" }, dungeons), "Wailing Caverns")
+	eq(ns.Leveling_QuestDungeon({ zone = "Orgrimmar", tagID = 81 }, dungeons), "Dungeon")
+	eq(ns.Leveling_QuestDungeon({ zone = "Orgrimmar", tagID = 62 }, dungeons), "Raid")
+	eq(ns.Leveling_QuestDungeon({ zone = "The Barrens", tagID = 1 }, dungeons), nil, "a group quest isn't a dungeon")
+	eq(ns.Leveling_QuestDungeon({ zone = "The Barrens" }, dungeons), nil)
+end)
+
+test("NextStops: close quests share a stop, the nearest stop first", function()
+	local quests = {
+		{ questID = 1, title = "Far A", level = 15, difficulty = 2 },
+		{ questID = 2, title = "Near B", level = 18, difficulty = 2, xp = 100 },
+		{ questID = 3, title = "Near A", level = 18, difficulty = 2, xp = 900 },
+		{ questID = 4, title = "Hand in", level = 20, complete = true },
+		{ questID = 5, title = "No point", level = 10, difficulty = 2 },
+	}
+	local points = {
+		[1] = { x = 2000, y = 0, continent = 1, zone = "Stonetalon Mountains" },
+		[2] = { x = 100, y = 0, continent = 1, zone = "The Barrens" },
+		[3] = { x = 350, y = 0, continent = 1, zone = "The Barrens" }, -- 250 from 2: same stop
+		[4] = { x = 600, y = 0, continent = 1, zone = "The Barrens" }, -- 250 from 3: chained in
+	}
+	local stops = ns.Leveling_NextStops(quests, points, { x = 0, y = 0, continent = 1 }, false, 300)
+	eq(#stops, 2, "the quest without a point is left out")
+	eq(stops[1].zone, "The Barrens")
+	eq(stops[1].distance, 100)
+	eq(stops[1].quests[1].title, "Hand in", "turn-ins first")
+	eq(stops[1].quests[2].title, "Near A", "then by level, the most XP first")
+	eq(stops[1].quests[3].title, "Near B")
+	eq(stops[1].groups[4], "done")
+	eq(stops[2].quests[1].title, "Far A")
+	eq(stops[2].distance, 2000)
+end)
+
+test("NextStops: hard and dungeon quests only while grouped, other continents left out", function()
+	local quests = {
+		{ questID = 1, title = "Elite", level = 18, elite = true },
+		{ questID = 2, title = "Dungeon", level = 18, difficulty = 2, dungeon = "Wailing Caverns" },
+		{ questID = 3, title = "Grey", level = 5, difficulty = 0 },
+		{ questID = 4, title = "Abroad", level = 18, difficulty = 2 },
+	}
+	local points = {
+		[1] = { x = 0, y = 0, continent = 1 }, [2] = { x = 0, y = 0, continent = 1 },
+		[3] = { x = 0, y = 0, continent = 1 }, [4] = { x = 0, y = 0, continent = 0 },
+	}
+	local you = { x = 0, y = 0, continent = 1 }
+	eq(#ns.Leveling_NextStops(quests, points, you, false, 300), 0, "solo: none of them")
+	local stops = ns.Leveling_NextStops(quests, points, you, true, 300)
+	eq(#stops[1].quests, 2, "grouped: the elite and the dungeon quest")
+	eq(#ns.Leveling_NextStops(quests, points, nil, false, 300), 1, "no position: every continent counts")
+	eq(ns.Leveling_StopYards(234), 230)
+	eq(ns.Leveling_StopYards(236), 240)
+end)
+
 test("SortQuests sorts by level, and the shortest timer first", function()
 	local groups = ns.Leveling_SortQuests({
 		{ title = "B", level = 5, difficulty = 2 }, { title = "A", level = 5, difficulty = 2 },

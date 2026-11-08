@@ -55,7 +55,7 @@ return {
 		{ after = "Modules/Upkeep/Durability.lua", files = {
 			"Modules/Leveling/Data.lua", "Modules/Leveling/Read.lua", "Modules/Leveling/XPBar.lua",
 			"Modules/Leveling/Page.lua", "Modules/Leveling/HomeSection.lua", "Modules/Leveling/AmmoCounter.lua",
-			"Modules/Leveling/ArmorKit.lua",
+			"Modules/Leveling/ArmorKit.lua", "Modules/Leveling/NextQuests.lua",
 			"Modules/Leveling/Leveling.lua",
 			"Modules/PetCare/Data.lua", "Modules/PetCare/PetCare.lua",
 			-- docs/superpowers/specs/2026-11-06-tomte-forever-rest-and-chat-groups.md

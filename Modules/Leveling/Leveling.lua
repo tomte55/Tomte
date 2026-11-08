@@ -298,6 +298,15 @@ function events:QUEST_LOG_UPDATE()
 	ns.LevelingPage_Refresh()
 end
 
+-- The active (map-marked) and tracked quests, changed here or in the quest log.
+function events:SUPER_TRACKING_CHANGED()
+	ns.LevelingPage_Refresh()
+end
+
+function events:QUEST_WATCH_LIST_CHANGED()
+	ns.LevelingPage_Refresh()
+end
+
 function events:PLAYER_XP_UPDATE()
 	ns.LevelingPage_Refresh()
 end
@@ -311,6 +320,7 @@ local EVENTS = {
 	"PLAYER_ENTERING_WORLD", "PLAYER_LEVEL_UP", "TRAINER_SHOW", "TRAINER_UPDATE", "TRAINER_SERVICE_INFO_NAME_UPDATE",
 	"SPELLS_CHANGED", "ACTIONBAR_SLOT_CHANGED", "BAG_UPDATE_DELAYED", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_REGEN_ENABLED",
 	"MERCHANT_SHOW", "MERCHANT_UPDATE", "MERCHANT_CLOSED", "SKILL_LINES_CHANGED", "QUEST_LOG_UPDATE",
+	"SUPER_TRACKING_CHANGED", "QUEST_WATCH_LIST_CHANGED",
 }
 
 events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
@@ -365,6 +375,10 @@ module = ns.RegisterModule({
 		armorKitFrame = { point = "CENTER", relPoint = "CENTER", x = 120, y = -180 }, -- the button's spot (/tomte unlock)
 		ammoCounter = true,
 		ammoFrame = { point = "CENTER", relPoint = "CENTER", x = -120, y = -180 }, -- the counter's spot (/tomte unlock)
+		nextQuests = true,
+		nextCount = 5, -- quests the next quests widget lists from its stop
+		nextCollapsed = false,
+		nextFrame = {}, -- point: the widget's spot (UI.TopLeftPoint), nil for the default
 		ammo = true,
 		ammoLow = 100,
 		ammoTarget = 400,
@@ -401,10 +415,12 @@ module = ns.RegisterModule({
 			check()
 			ns.LevelingAmmo_Start(db)
 			ns.LevelingKit_Start(db)
+			ns.LevelingNext_Start(db)
 		else
 			events:UnregisterAllEvents()
 			ns.LevelingAmmo_Stop()
 			ns.LevelingKit_Stop()
+			ns.LevelingNext_Stop()
 			merchantOpen = false
 			oldRanksKnown = nil
 			wipe(lowSupplies)
@@ -419,6 +435,11 @@ module = ns.RegisterModule({
 			ns.Panel_OpenPage(PAGE_KEY)
 		end },
 		{ "why", "what Leveling reads right now: trainer list, bars, ammo, talents", Why },
+		{ "next", "where your quests are and how the next quests widget groups them", function()
+			if ns.Module_RequireOn(module) then
+				ns.LevelingNext_Why()
+			end
+		end },
 	},
 	options = {
 		{ type = "header", label = "Home" },
@@ -433,6 +454,14 @@ module = ns.RegisterModule({
 			tooltip = "A toast when a spell on your bars has a higher rank you know. Tomte names it; you drag the new one on." },
 		{ type = "checkbox", key = "professions", label = "Profession ranks to learn",
 			tooltip = "A toast when a profession reaches its cap (75, 150 or 225) and you're high enough for the next rank. Also a row under To do." },
+		{ type = "header", label = "Next quests" },
+		{ type = "checkbox", key = "nextQuests", label = "Next quests on screen", onChange = function()
+			ns.LevelingNext_Update()
+		end, tooltip = "A small window with the quests to do next. Quests close to each other are one stop, the nearest stop first: turn-ins, then the lowest level. Hard and dungeon quests only while you're in a group. Click a quest to make it your active quest, Shift-click to track it. Blizzard's Edit Mode moves it." },
+		{ type = "slider", key = "nextCount", label = "Quests to show", min = 3, max = 8, step = 1, parent = "nextQuests",
+			onChange = function()
+				ns.LevelingNext_Update()
+			end },
 		{ type = "header", label = "Mount fund" },
 		{ type = "slider", key = "mountGoal", label = "Save for riding", min = 0, max = 300, step = 10,
 			format = function(v)

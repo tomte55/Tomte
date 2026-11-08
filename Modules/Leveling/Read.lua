@@ -7,8 +7,10 @@ local BAR_SLOTS = 120 -- the action bars' slots; Blizzard's stance and possess b
 local WEAPON_SLOTS = { 16, 17, 18 } -- main hand, off hand, ranged
 local SKILL_GAP = 5 -- weapon skills this far under their cap are listed; Gear Check warns from further behind
 local LAST_CARRIED_BAG = 4 -- bag IDs: 0 is the backpack, 1 to 4 the bags you wear
+local MAP_CONTINENT = 2 -- Enum.UIMapType.Continent: quest spots are read up to here (cosmic and world maps above it)
 
 local IsSecret = ns.IsSecret
+local Readable = ns.Readable
 
 -- The class trainer's rows, or nil at another kind of trainer (trade, pet) or when it's listing nothing. Second return:
 -- whether its "not available yet" rows are showing (its own filter), so later levels are in the list.
@@ -200,10 +202,13 @@ function ns.LevelingRead_AmmoBags(item)
 	return bags
 end
 
--- The quest log: { { questID, title, level, difficulty, elite, complete, timeLeft, xp, zone } }. xp is 0 until the game
--- has the quest's rewards; zone is the heading it's under (a zone, or a dungeon's name for its quests).
+-- The quest log: { { questID, title, level, difficulty, elite, complete, timeLeft, xp, zone, tagID, watched, active } }.
+-- xp is 0 until the game has the quest's rewards; zone is the heading it's under (a zone, or a dungeon's name for its
+-- quests); tagID is its Enum.QuestTag (dungeon, raid, group) or nil; watched: it's on the objective tracker; active: it's
+-- the super-tracked quest, highlighted and marked on the map.
 function ns.LevelingRead_Quests()
 	local list = {}
+	local active = C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID()
 	local heading
 	for i = 1, C_QuestLog.GetNumQuestLogEntries() do
 		local info = C_QuestLog.GetInfo(i)
@@ -213,7 +218,9 @@ function ns.LevelingRead_Quests()
 			local id = info.questID
 			local total, elapsed = C_QuestLog.GetTimeAllowed(id)
 			local xp = GetQuestLogRewardXP(id)
+			local tag = C_QuestLog.GetQuestTagInfo and C_QuestLog.GetQuestTagInfo(id)
 			list[#list + 1] = {
+				tagID = tag and tag.tagID,
 				xp = xp and not IsSecret(xp) and xp or 0,
 				questID = id,
 				title = info.title,
@@ -223,10 +230,88 @@ function ns.LevelingRead_Quests()
 				complete = C_QuestLog.ReadyForTurnIn(id) or C_QuestLog.IsComplete(id),
 				timeLeft = total and elapsed and total > elapsed and total - elapsed or nil,
 				zone = heading,
+				watched = C_QuestLog.GetQuestWatchType(id) ~= nil,
+				active = id == active,
 			}
 		end
 	end
 	return list
+end
+
+-- The quest log with each quest's dungeon (Leveling_QuestDungeon). Second return: Forever's dungeon list.
+function ns.LevelingRead_QuestsTagged()
+	local quests = ns.LevelingRead_Quests()
+	local dungeons = ns.Content_Get(ns.CONTENT_FOREVER, "dungeons") or {}
+	for _, q in ipairs(quests) do
+		q.dungeon = ns.Leveling_QuestDungeon(q, dungeons)
+	end
+	return quests, dungeons
+end
+
+-- Quest places -----------------------------------------------------------------------------------------------------
+
+local zoneNames = {} -- [uiMapID] = name
+
+local function ZoneName(mapID)
+	if zoneNames[mapID] == nil then
+		local info = C_Map.GetMapInfo(mapID)
+		zoneNames[mapID] = info and info.name or false
+	end
+	return zoneNames[mapID] or nil
+end
+
+-- A spot on a map as world yards: { x, y, continent }, or nil where the map has no world position.
+local function WorldPoint(mapID, x, y)
+	local continent, pos = C_Map.GetWorldPosFromMapPos(mapID, CreateVector2D(x, y))
+	if not (continent and pos) then
+		return nil
+	end
+	local wx, wy = pos:GetXY()
+	return { x = wx, y = wy, continent = continent }
+end
+
+-- Where you stand, as world yards ({ x, y, continent }), and your map. Nil in instances, where the game gives no
+-- position (warcraft.wiki.gg API_C_Map.GetPlayerMapPosition).
+function ns.LevelingRead_You()
+	local mapID = C_Map.GetBestMapForUnit("player")
+	if not mapID or not Readable(mapID) then
+		return nil
+	end
+	local pos = C_Map.GetPlayerMapPosition(mapID, "player")
+	if not pos then
+		return nil, mapID
+	end
+	local x, y = pos:GetXY()
+	if not (Readable(x) and Readable(y)) or (x == 0 and y == 0) then
+		return nil, mapID
+	end
+	return WorldPoint(mapID, x, y), mapID
+end
+
+-- Each quest's spot, as the map shows it (its objective, or where it's turned in): [questID] = { x, y (world yards),
+-- continent, zone }. Read from your map and the maps above it up to the continent; your zone's map also lists the
+-- quests of the zones around it, each with its own map (measured on Forever, 2026-11-08). A quest's x, y are on the map
+-- that was asked, as Blizzard's quest pins place them.
+function ns.LevelingRead_QuestPoints(mapID)
+	local points, seen = {}, {}
+	while mapID and not seen[mapID] do
+		seen[mapID] = true
+		for _, info in ipairs(C_QuestLog.GetQuestsOnMap(mapID) or {}) do
+			if info.questID and not points[info.questID] and info.x and info.y then
+				local p = WorldPoint(mapID, info.x, info.y)
+				if p then
+					p.zone = ZoneName(info.mapID or mapID)
+					points[info.questID] = p
+				end
+			end
+		end
+		local map = C_Map.GetMapInfo(mapID)
+		if not map or map.mapType <= MAP_CONTINENT then
+			break
+		end
+		mapID = map.parentMapID
+	end
+	return points
 end
 
 -- Your professions: { { name, skill, max } }.
@@ -308,13 +393,13 @@ function ns.LevelingRead_State()
 	local services = char and char.services
 	local ready, nextLevel, upcoming = ns.Leveling_TrainerSplit(services, level)
 	local bars = ns.LevelingRead_Bars()
-	local quests = ns.LevelingRead_Quests()
+	local quests, dungeons = ns.LevelingRead_QuestsTagged()
 	local groups = ns.Leveling_SortQuests(quests)
 	local needs, count = ns.LevelingRead_Ammo()
 	local mount, mountText, mountHours = MountFund(db, level)
 	local todo, fine = ns.Leveling_Checklist({
 		professions = ns.Leveling_ProfessionRanks(ns.LevelingRead_Professions(), level),
-		dungeons = ns.Leveling_DungeonsNear(ns.Content_Get(ns.CONTENT_FOREVER, "dungeons") or {}, level, quests),
+		dungeons = ns.Leveling_DungeonsNear(dungeons, level, quests),
 		mount = mount, mountText = mountText, mountHours = mountHours,
 		visited = services ~= nil,
 		ready = ready,
