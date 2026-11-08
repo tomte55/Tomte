@@ -288,7 +288,9 @@ function ns.Whispers_Send(key, text)
 			ok, err = false, "Battle.net refused the whisper"
 		end
 	else
-		ok, err = pcall(ns.Chat_Send, text, "WHISPER", nil, target)
+		-- Without your own realm, as the game's reply sends it: Forever won't deliver to "Name With Space-YourRealm"
+		-- ("No player named ..."), and on retail the short name reaches the same player.
+		ok, err = pcall(ns.Chat_Send, text, "WHISPER", nil, Ambiguate(target, "none"))
 	end
 	if not ok then
 		ns.Print("couldn't send: " .. tostring(err))
