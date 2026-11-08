@@ -63,6 +63,18 @@ test("VendorMarks: nothing set, a hidden category, and Empty", function()
 	eq(hidden, 0)
 end)
 
+test("KeepPlaces: a slot that now holds another item doesn't keep its place", function()
+	local recipe = { bag = 6, slot = 1, itemID = 100, name = "Recipe" }
+	local snapshot, was = ns.Bags_Snapshot({ recipe = { recipe } })
+	local linen = { bag = 6, slot = 1, itemID = 2589, name = "Linen" }
+	local out = ns.Bags_KeepPlaces(snapshot, { reagent = { linen } }, { [6001] = linen }, was)
+	eq(#out.recipe, 0, "the cloth isn't drawn with the recipes")
+	eq(out.reagent[1], linen, "it's with the reagents")
+	local same = { bag = 6, slot = 1, itemID = 100, name = "Recipe" }
+	out = ns.Bags_KeepPlaces(snapshot, { other = { same } }, { [6001] = same }, was)
+	eq(out.recipe[1], same, "the same item keeps its place")
+end)
+
 test("DropHidden: removes hidden records, keeps order and the rest", function()
 	local a, b, c = { name = "a" }, { name = "b" }, { name = "c" }
 	local out = ns.Bags_DropHidden({ one = { a, b, c }, two = { b } }, { [b] = "hide", [c] = "fade" })

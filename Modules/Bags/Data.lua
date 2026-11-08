@@ -493,16 +493,20 @@ local function Hole(list, record, was)
 	return first
 end
 
--- contents laid out by snapshot: each category keeps its slots in order, showing whatever is in each slot now (an
--- item, or the empty slot), then the items that weren't on screen yet in the category they belong to now (in a hole
--- when there is one, see Hole). bySlot: [slot key] = the record in that slot now (items and empty slots); was: the
--- snapshot's item IDs (Bags_Snapshot's second return; nil fills no holes).
+-- contents laid out by snapshot: each category keeps its slots in order, showing what's in each slot now (the same item,
+-- or the empty slot), then the items that weren't on screen yet in the category they belong to now (in a hole when
+-- there is one, see Hole). A slot that now holds another item (a deposit, a merged stack, a cleanup) doesn't keep its
+-- place: that item goes to its own category. bySlot: [slot key] = the record in that slot now (items and empty slots);
+-- was: the snapshot's item IDs (Bags_Snapshot's second return; nil fills no holes and keeps every slot).
 function ns.Bags_KeepPlaces(snapshot, contents, bySlot, was)
 	local out, kept = {}, {}
 	for key, slots in pairs(snapshot) do
 		local list = {}
 		for _, slotKey in ipairs(slots) do
 			local record = bySlot[slotKey]
+			if record and not record.empty and was and was[slotKey] and record.itemID ~= was[slotKey] then
+				record = nil -- another item now: placed with its own category below
+			end
 			if record then
 				list[#list + 1] = record
 				kept[slotKey] = true

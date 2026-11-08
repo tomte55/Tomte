@@ -38,6 +38,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Waypoints:** on Forever, which has no in-world markers, it now shows an arrow that points to the quest, map pin or corpse you track, with the distance and arrival time. Edit Mode moves it.
 - **Gear Check:** on Forever, the stats, armor and enchants on gear always decide over its item level, so higher-level gear with less on it than yours is no longer an upgrade, and lower-level gear with clearly more on it is no longer a downgrade. The item level only judges gear with no stats at all.
 - **Leveling:** after switching between a bow and a gun, ammo that fits in your bags no longer counts as out of ammo: the toast and To do say to equip it, and the ammo counter does that in one click.
+- **Bags:** while the bank (or a vendor) is open, an item that lands in a slot another item had, as with Deposit all or stacks merging, now shows in its own category instead of the old item's.
 
 ## v1.31.0 - 2026-11-08
 
