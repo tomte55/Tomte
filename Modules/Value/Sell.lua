@@ -99,12 +99,13 @@ local function IsBound(data)
 	if not (data.guid and C_Item.GetItemLocation) then
 		return false
 	end
-	local ok, location = pcall(C_Item.GetItemLocation, data.guid)
-	if not (ok and location and location:IsValid()) then
-		return false
-	end
-	local okBound, bound = pcall(C_Item.IsBound, location)
-	return okBound and bound == true
+	-- Each step can fail for an item that isn't in your bags (a quest reward, a link): the game may give an empty
+	-- location, and checking that one errors inside Blizzard's IsValid. Such an item counts as not bound.
+	local ok, bound = pcall(function()
+		local location = C_Item.GetItemLocation(data.guid)
+		return location ~= nil and location:IsValid() and C_Item.IsBound(location)
+	end)
+	return ok and bound == true
 end
 
 local function OnItem(tooltip, data)
