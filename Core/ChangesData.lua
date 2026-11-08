@@ -10,6 +10,26 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.32.0", date = "2026-11-08",
+		new = {
+			{ module = "leveling", text = "On Forever: a Next quests window that groups your quests by where they are, "
+				.. "nearest first, and can make the top one your active quest." },
+			{ module = "value", text = "Item tooltips say whether to sell at the Auction House or a vendor (with TSM's "
+				.. "sale rates), and bag items worth listing get an AH mark." },
+			{ module = "hunter", text = "On Forever: a button that puts on your aspect when none is on, and a toast when "
+				.. "Growl is left off." },
+		},
+		improved = {
+			{ module = "recap", text = "The Sessions page groups your sessions by day, with a chart by day." },
+			{ module = "leveling", text = "On Forever: click a quest on the Leveling page to make it active, and dungeon "
+				.. "quests say which dungeon." },
+		},
+		fixed = {
+			{ module = "way", text = "On Forever: Waypoints shows an arrow that points to the quest, map pin or corpse "
+				.. "you track." },
+		},
+	},
+	{
 		version = "1.31.0", date = "2026-11-08",
 		new = {
 			{ module = "alts", text = "With Friend sharing, your friends' crafters show on the Crafting tab: ask them "

@@ -16,6 +16,11 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
+
+## v1.32.0 - 2026-11-08
+
+### New
+
 - **Leveling:** a Next quests window on screen: your quests grouped by where they are into stops, the nearest stop first with its turn-ins and then the lowest level, and the stop after it. The top quest becomes your active quest (a box next to the minimize button switches it, or a setting), or click one to make it active. Edit Mode moves it; it can be turned off under Leveling.
 - **Hunter Pets:** on Forever, a button when no aspect is on (out of combat, away from inns and cities): one click or a key puts on Aspect of the Hawk, or the Monkey before you have the Hawk.
 - **Hunter Pets:** a toast when Growl is left off with your pet out and you're alone in the open world, as after a dungeon.
