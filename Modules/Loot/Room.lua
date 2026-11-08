@@ -186,6 +186,17 @@ local function ShowTooltip(self)
 	UI.TipLine("Never touches quest items, soulbound items, upgrades, food, ammo, bags, profession tools, your hearthstone or anything rare.",
 		"textMuted", true)
 	GameTooltip:Show()
+	-- SetBagItem opens the shared "Equipped" comparison when alwaysCompareItems is on; it says nothing about
+	-- destroying junk. Hidden after the fact rather than by setting GameTooltip.supportsItemComparison, which would
+	-- taint a key Blizzard's tooltip code reads. Holding Shift still compares.
+	if plan and plan.kind == "destroy" and not IsModifiedClick("COMPAREITEMS") then
+		if ShoppingTooltip1 then
+			ShoppingTooltip1:Hide()
+		end
+		if ShoppingTooltip2 then
+			ShoppingTooltip2:Hide()
+		end
+	end
 end
 
 local function Build(parent)
