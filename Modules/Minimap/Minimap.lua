@@ -21,8 +21,8 @@ local function Saved(key)
 end
 
 local function Place(button)
-	-- GetMinimapShape isn't Blizzard's: minimap skin addons define it (the LibDBIcon convention). Without one it's round.
-	local shape = GetMinimapShape and GetMinimapShape() or "ROUND"
+	-- Round, square or one round quadrant (the LibDBIcon convention; ns.MinimapShape asks the minimap addons).
+	local shape = ns.MinimapShape()
 	local x, y = ns.Minimap_Offset(Saved(button.key).angle, Minimap:GetWidth() / 2 + RADIUS,
 		Minimap:GetHeight() / 2 + RADIUS, shape)
 	button:ClearAllPoints()
@@ -211,6 +211,7 @@ module = ns.RegisterModule({
 	description = "Buttons on the minimap's edge: Tomte's opens this window, and some modules offer their own. "
 		.. "Tick the ones you want below. Drag a button to move it around the minimap.",
 	enabledByDefault = true,
+	alongside = { { addon = "EllesmereUIMinimap", why = "the buttons follow its square or round map" } },
 	minimapButton = {
 		name = "Tomte",
 		icon = ns.ICON,

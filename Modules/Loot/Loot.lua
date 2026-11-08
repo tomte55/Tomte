@@ -516,6 +516,10 @@ module = ns.RegisterModule({
 		{ addon = "ElvUI", why = "with ElvUI's loot window on, Tomte shows no window of its own (fast loot still works)." },
 		{ addon = "XLoot", why = "XLoot's window shows the loot, so Tomte shows none (fast loot still works)." },
 	},
+	alongside = {
+		{ addon = "EllesmereUIQoL", why = "if you turn on its Quick Loot, it loots every slot as well: keep only one fast loot on" },
+		{ addon = "EllesmereUIForeverEssentials", why = "if you turn on its Loot Feed, you get two feeds: keep only one on" },
+	},
 	defaults = {
 		look = "strips", -- the loot window when looting by hand: "strips" | "panel" | "tiles" (Look*.lua)
 		feedManual = true, -- what you take by hand from the window also goes to the feed

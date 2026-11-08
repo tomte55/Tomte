@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Other addons: a settings page listing every addon a module names in its uses / conflicts / replaces, with whether
+-- Other addons: a settings page listing every addon a module names in its uses / conflicts / alongside / replaces, with whether
 -- it's loaded here. Rows and their text in AddonsData.lua; drawn as status rows by Options.lua. Nothing to set.
 
 local UI = ns.UI
@@ -27,7 +27,7 @@ local function Row(kind, row)
 		status = function()
 			return ns.Addons_Status(kind, row, Active)
 		end,
-		shown = kind == "replaces" and function()
+		shown = (kind == "replaces" or kind == "alongside") and function()
 			return row.state == "loaded" -- only worth a word while both run
 		end or nil,
 		tooltip = ns.Addons_Tooltip(kind, row),

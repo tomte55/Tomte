@@ -5,8 +5,9 @@ assert(loadfile("Tomte/Panel/AddonsData.lua"))("Tomte", ns)
 local H = dofile("Tomte/tests/harness.lua")
 local test, eq = H.test, H.eq
 
-local LOADED = { Auctionator = true, Pawn = true, WaypointUI = true }
-local INSTALLED = { Auctionator = true, Pawn = true, WaypointUI = true, Syndicator = true, Angleur = true }
+local LOADED = { Auctionator = true, Pawn = true, WaypointUI = true, EllesmereUIChat = true }
+local INSTALLED = { Auctionator = true, Pawn = true, WaypointUI = true, Syndicator = true, Angleur = true,
+	EllesmereUIChat = true }
 local function loaded(name)
 	return LOADED[name] == true
 end
@@ -23,7 +24,9 @@ local gear = { name = "Gear Check", uses = { { addon = "Simulationcraft", why = 
 	replaces = { { addon = "Pawn", why = "upgrades on tooltips" } } }
 local way = { name = "Waypoints", conflicts = { { addon = "WaypointUI", why = "stays off" } } }
 local fish = { name = "Fishing", conflicts = { { addon = "Angleur", why = "both bind a key" } } }
-local MODULES = { alts, value, gear, way, fish }
+local copy = { name = "Chat Copy", alongside = { { addon = "EllesmereUIChat", why = "the icon stays off" } } }
+local tags = { name = "Channel Tags", alongside = { { addon = "EllesmereUIMinimap", why = "not loaded" } } }
+local MODULES = { alts, value, gear, way, fish, copy, tags }
 
 test("state: loaded, installed but off, missing", function()
 	eq(ns.Addons_State("Auctionator", loaded, exists), "loaded")
@@ -42,11 +45,13 @@ test("one row per addon, shared by every module naming it", function()
 	eq(#rows.conflicts, 2)
 	eq(rows.conflicts[1].addon, "WaypointUI")
 	eq(#rows.replaces, 1)
+	eq(#rows.alongside, 2)
+	eq(rows.alongside[1].addon, "EllesmereUIChat", "loaded first")
 end)
 
 test("no declarations: empty cards", function()
 	local rows = ns.Addons_Rows({ { name = "X" } }, loaded, exists)
-	eq(#rows.uses + #rows.conflicts + #rows.replaces, 0)
+	eq(#rows.uses + #rows.conflicts + #rows.replaces + #rows.alongside, 0)
 end)
 
 test("status per kind", function()
@@ -66,6 +71,8 @@ test("status per kind", function()
 	eq(Status("uses", rows.uses[3], on), "Not installed|textFaint")
 	eq(Status("replaces", rows.replaces[1], on), "You can turn it off|warning")
 	eq(Status("replaces", rows.replaces[1], off), "Tomte's version is off|textMuted")
+	eq(Status("alongside", rows.alongside[1], on), "Loaded|info")
+	eq(Status("alongside", rows.alongside[2], on), "Not installed|textFaint")
 end)
 
 test("tooltip: a line per module, what's lost without a used addon", function()

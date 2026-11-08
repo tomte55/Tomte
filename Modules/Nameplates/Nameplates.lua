@@ -61,6 +61,9 @@ module = ns.RegisterModule({
 	replaces = {
 		{ addon = "Plumber", why = "quest icons on nameplates, the soft target name and the Keyflame count" },
 	},
+	alongside = {
+		{ addon = "EllesmereUINameplates", why = "its nameplates show quest icons of their own, so Tomte's quest icon stays off; the Interact target's name still shows" },
+	},
 	defaults = {
 		quests = true,
 		questProgress = true,

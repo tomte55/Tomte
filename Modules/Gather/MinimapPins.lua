@@ -66,8 +66,7 @@ end
 
 local function Pick(px, py, radius)
 	pickAt = GetTime() + PICK
-	local shape = GetMinimapShape and GetMinimapShape() or "ROUND" -- the LibDBIcon convention; Blizzard's is round
-	round = shape == "ROUND"
+	round = ns.MinimapShape() == "ROUND"
 	rotate = C_CVar.GetCVarBool("rotateMinimap")
 	local range = radius * PICK_RANGE
 	wipe(near)

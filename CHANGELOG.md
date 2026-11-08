@@ -17,6 +17,20 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
 
+### Improved
+
+- **Other addons:** a new Runs alongside Tomte card, and a line on a module's settings page, for an addon Tomte makes room for or that does part of a module's job, saying what to mind. Shown only while that addon is loaded.
+
+### Fixed
+
+- **Bags:** stays off while EllesmereUI Bags is enabled, instead of a second bag window opening with it.
+- **Channel Tags:** stays off while EllesmereUI Chat is enabled. That addon shortens channel names itself, and with both on, links in chat could click a few letters off.
+- **Chat Copy:** no copy icon on chat windows under EllesmereUI Chat, which has a copy button of its own and covered Tomte's. The Copy chat key and `/tomte chatcopy` still work.
+- **Vendor Helper:** leaves repairing and grey selling to EllesmereUI when its own options for them are on, so the same greys aren't sold twice and the toast only counts what Tomte did.
+- **Flight Timer:** on Forever, the timer bar stays hidden while EllesmereUI's Flight Timer shows its own, so there's one bar on screen. The arrival alert and cinematic mode still work.
+- **Nameplates:** the quest icon stays off under EllesmereUI Nameplates, which shows quest icons of its own; Tomte's sat beside the hidden Blizzard bar instead of the visible one.
+- **Minimap Buttons:** the buttons, gathering spots on the minimap and the instance difficulty badge follow EllesmereUI's square (or round) minimap instead of assuming a round one.
+
 ## v1.32.0 - 2026-11-08
 
 ### New

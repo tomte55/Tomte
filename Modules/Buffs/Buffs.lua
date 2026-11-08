@@ -425,6 +425,9 @@ module = ns.RegisterModule({
 		or "In dungeons, raids and delves and during ready checks, out of combat: an icon for each buff you're missing (food, flask, augment rune, weapon oil or stone, and the group buff your class brings when someone in the group lacks it). A buff check in chat when you enter and on ready checks.",
 	enabledByDefault = true,
 	toasts = "Buff check (banners)",
+	alongside = {
+		{ addon = "EllesmereUIAuraBuffReminders", why = "it shows missing buff icons too: with both on you see two rows of icons, so turn off the one you like less" },
+	},
 	defaults = {
 		strip = true,
 		scale = 1,

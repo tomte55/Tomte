@@ -359,6 +359,17 @@ test("ModuleDependencies leaves out a missing used addon whose job Tomte does no
 	eq(ns.ModuleDependencies(m, function() return false end)[1].ok, false, "needed again: the warning is back")
 end)
 
+test("ModuleDependencies names an addon the module runs alongside only while it's loaded", function()
+	reset()
+	local m = newModule("a", { alongside = { { addon = "EllesmereUIChat", why = "the icon stays off" } } })
+	eq(#ns.ModuleDependencies(m, function() return false end), 0, "not loaded: no line")
+	local lines = ns.ModuleDependencies(m, function(name) return name == "EllesmereUIChat" end)
+	eq(#lines, 1, "loaded: one line")
+	eq(lines[1].alongside, true, "alongside line")
+	eq(lines[1].ok, true, "nothing to fix")
+	eq(lines[1].text, "With EllesmereUIChat: the icon stays off", "text")
+end)
+
 test("ModuleDependencies flags a loaded addon the module does the job of", function()
 	reset()
 	local m = newModule("a", { replaces = { { addon = "Pawn", why = "upgrade verdicts" } } })

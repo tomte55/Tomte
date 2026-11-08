@@ -232,10 +232,12 @@ function ns.ModulePages(module)
 	return list
 end
 
--- Lines for the settings header from module.uses / module.conflicts / module.replaces ({ addon, why }).
--- isLoaded(addon) -> bool. ok: a used addon is loaded, or a conflicting or replaced one isn't. addon: its name;
--- conflict: from module.conflicts; overlap: from module.replaces (an addon doing the module's job). A used addon's
--- optional `unneeded()` returning true leaves its line out (something in Tomte does its job now).
+-- Lines for the settings header from module.uses / module.conflicts / module.replaces / module.alongside
+-- ({ addon, why }). isLoaded(addon) -> bool. ok: a used addon is loaded, or a conflicting or replaced one isn't.
+-- addon: its name; conflict: from module.conflicts; overlap: from module.replaces (an addon doing the module's job);
+-- alongside: from module.alongside (an addon running next to the module: the module adjusts to it, or the why says
+-- what to mind), only while it's loaded. A used addon's optional `unneeded()` returning true leaves its line out
+-- (something in Tomte does its job now).
 function ns.ModuleDependencies(module, isLoaded)
 	local lines = {}
 	for _, dep in ipairs(module.uses or {}) do
@@ -265,6 +267,16 @@ function ns.ModuleDependencies(module, isLoaded)
 			overlap = true,
 			text = ("Does what %s does: %s. You can turn %s off."):format(dep.addon, dep.why, dep.addon),
 		}
+	end
+	for _, dep in ipairs(module.alongside or {}) do
+		if isLoaded(dep.addon) then
+			lines[#lines + 1] = {
+				ok = true,
+				addon = dep.addon,
+				alongside = true,
+				text = ("With %s: %s"):format(dep.addon, dep.why),
+			}
+		end
 	end
 	return lines
 end

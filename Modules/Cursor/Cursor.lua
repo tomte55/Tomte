@@ -359,6 +359,9 @@ module = ns.RegisterModule({
 	summary = "A crisp ring around the mouse cursor when you shake the mouse, and a trail behind it if you like.",
 	description = "Shake the mouse and a sharp ring pops up around the cursor, then fades once the mouse is still. It can also stay on in combat or all the time, gently pulse, and come as a thick ring, a soft glow or a crosshair. The trail behind the cursor can be glow dots, rings, stars, sparkles, a ribbon or a spell effect, in the theme's color, your class color, a color you pick or a rainbow.",
 	enabledByDefault = false,
+	alongside = {
+		{ addon = "EllesmereUIQoL", why = "it has a cursor ring of its own, on unless you turn it off there: with both on you get two rings" },
+	},
 	defaults = {
 		shake = true,
 		combat = false,

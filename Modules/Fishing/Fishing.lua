@@ -139,6 +139,9 @@ module = ns.RegisterModule({
 	replaces = {
 		{ addon = "Plumber", why = "the fix for the Underlight Angler's missing traits" },
 	},
+	alongside = {
+		{ addon = "EllesmereUIForeverEssentials", why = "if you turn on its Fishing Key, give it a different key than Tomte's (its key wins on a shared one), and keep only one of the two louder-splash sound options on" },
+	},
 	init = function(moduleDB)
 		db = moduleDB
 		ns.FishingHelpers_Init(db)

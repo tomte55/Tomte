@@ -178,6 +178,13 @@ module = ns.RegisterModule({
 	description = "Shorter tags in front of chat lines: [2. Trade - City] becomes [2. Trade], [T] or what you pick; [Guild] becomes [G].",
 	enabledByDefault = false,
 	keep = { "labels" },
+	-- It draws chat lines itself from what was sent, so rewriting the stored line would only shift its link clicks.
+	conflicts = { { addon = "EllesmereUIChat", why = "it shortens channel names itself; Channel Tags stays off while it's enabled" } },
+	blocked = function()
+		if ns.Ellesmere_Loaded("Chat") then
+			return "EllesmereUI Chat shortens channel names itself (its Abbreviate Channels setting), so Channel Tags stays off."
+		end
+	end,
 	defaults = {
 		style = "name",
 		labels = "",

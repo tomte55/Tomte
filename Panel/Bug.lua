@@ -165,6 +165,9 @@ local function Info(full)
 			for _, dep in ipairs(module.replaces or {}) do
 				add(dep.addon)
 			end
+			for _, dep in ipairs(module.alongside or {}) do
+				add(dep.addon)
+			end
 		end
 		for _, name in ipairs(WATCHED) do
 			add(name)

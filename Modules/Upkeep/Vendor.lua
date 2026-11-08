@@ -118,8 +118,10 @@ local function AnyDamaged()
 	return false
 end
 
+-- EllesmereUI Quality of Life does the repair itself when its own setting is on: one bill, never two (it may pay with
+-- guild money, its choice there).
 local function Repair(visit)
-	if not db.repair or not CanMerchantRepair() then
+	if not db.repair or not CanMerchantRepair() or ns.Ellesmere_VendorRepairs() then
 		return
 	end
 	local cost, canRepair = GetRepairAllCost()
@@ -174,8 +176,10 @@ local function SellJunkOneByOne(visit, items)
 	end
 end
 
+-- Left to EllesmereUI Quality of Life when it sells junk too: both selling the same slots would make the toast count
+-- items EllesmereUI sold.
 local function SellJunk(visit)
-	if not db.junk then
+	if not db.junk or ns.Ellesmere_VendorSellsJunk() then
 		return
 	end
 	local items = BagItems()
@@ -244,6 +248,9 @@ module = ns.RegisterModule({
 	noShare = { "guild" }, -- spending your guild's money is your choice, never a friend's string's (Core/Profile.lua)
 	replaces = {
 		{ addon = "Plumber", why = "merchant prices that show which currency you're missing, and the short lock on non-refundable purchases" },
+	},
+	alongside = {
+		{ addon = "EllesmereUIQoL", why = "it repairs and sells grey items too, so Tomte leaves each of those to it while it's on there (its repair uses guild money unless you turn that off)" },
 	},
 	init = function(moduleDB)
 		db = moduleDB

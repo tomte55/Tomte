@@ -7,7 +7,7 @@ local addonName, ns = ...
 -- Bank.lua, the categories page in EditPage.lua, the takeover in Takeover.lua.
 
 -- Full bag replacements: Tomte's bags stay off while one is loaded.
-local OTHER_BAGS = { "Baganator", "Bagnon", "ArkInventory", "AdiBags", "BetterBags", "EnhanceQoLBags" }
+local OTHER_BAGS = { "Baganator", "Bagnon", "ArkInventory", "AdiBags", "BetterBags", "EnhanceQoLBags", "EllesmereUIBags" }
 local ITEM_DATA_DELAY = 0.3 -- seconds to gather a burst of GET_ITEM_INFO_RECEIVED into one redraw
 local USABLE_DELAY = 0.5 -- seconds to gather a burst of spec, skill or recipe events into one red-tint check
 

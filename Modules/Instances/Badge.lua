@@ -11,7 +11,7 @@ local UPDATE_DELAY = 0.25 -- seconds; Blizzard's own flag waits as long for the 
 -- Where the badge sits on a round minimap: on the rim, this many degrees counterclockwise from the right (45 = the
 -- top-right, between the rim's top and right markers, clear of the addon buttons that gather on the left).
 local RIM_ANGLE = 45
-local SQUARE_INSET = 4 -- from the top-right corner of a square minimap (addons set GetMinimapShape)
+local SQUARE_INSET = 4 -- from the top-right corner of a square minimap (ns.MinimapShape)
 
 local UI = ns.UI
 local events = ns.Instances_Events
@@ -152,7 +152,7 @@ end
 -- minimap's size changes with Edit Mode.
 local function Place()
 	badge:ClearAllPoints()
-	if GetMinimapShape and GetMinimapShape() == "SQUARE" then
+	if ns.MinimapShape() == "SQUARE" then
 		badge:SetPoint("TOPRIGHT", Minimap, "TOPRIGHT", -SQUARE_INSET, -SQUARE_INSET)
 		return
 	end

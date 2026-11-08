@@ -95,6 +95,10 @@ module = ns.RegisterModule({
 	description = "Talk to an NPC and Tomte accepts its quests, hands in the finished ones and picks the gossip option that moves a quest on. Hold Shift (or your skip key) to do it yourself. Also skips cinematics you've already seen, can quiet the Talking Head, shows your race medals at skyriding timekeepers and tells you which quest an item starts.",
 	enabledByDefault = false,
 	conflicts = { { addon = "EnhanceQoL", why = "both accept and hand in quests: turn off one of them" } },
+	alongside = {
+		{ addon = "EllesmereUIQuestTracker", why = "its Auto Accept and Auto Turn In do the same: keep those off there, or turn this module off" },
+		{ addon = "EllesmereUIQoL", why = "its gossip and cinematic skip options do the same: keep those off there, or the ones here" },
+	},
 	replaces = {
 		{ addon = "EnhanceQoL", why = "quest and gossip automation, and skipping cinematics" },
 		{ addon = "Plumber", why = "the Talking Head, quest item alerts and tooltips, event sign-ups and race medals" },

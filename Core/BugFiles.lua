@@ -13,6 +13,7 @@ ns.BUG_FILES = {
 	"Themes/Void.lua",
 	"Core/Format.lua",
 	"Core/Compat.lua",
+	"Core/OtherAddons.lua",
 	"Core/Migrations.lua",
 	"Core/PerfData.lua",
 	"Core/Perf.lua",

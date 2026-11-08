@@ -528,6 +528,7 @@ module = ns.RegisterModule({
 	replaces = not ns.FOREVER and {
 		{ addon = "Plumber", why = "the Resilient Seeds button at Rich Soil" },
 	} or nil,
+	alongside = { { addon = "EllesmereUIMinimap", why = "the minimap spots follow its square or round map" } },
 	-- Page filters and the route being followed: not in settings strings (Core/Profile.lua). Collections (runs, nodes) never are.
 	noShare = { "pageScope", "pageRange", "pageKind", "pageView", "follow" },
 	init = function(saved)

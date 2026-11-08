@@ -182,7 +182,10 @@ local function StartFlight(route, startTime)
 	-- Only hop-based estimates feed calibration; pace-based ones already include takeoff/landing.
 	flight.rawEstimate = isEstimate and not rough and raw or nil
 	flight.stops = expected and ns.StopFractions(db, flight) or nil
-	ns.Bar_Start(flight.destName, expected, isEstimate, flight.start, flight.stops)
+	-- EllesmereUI's Flight Timer shows its own bar: one bar on screen, timing and alerts stay Tomte's.
+	if not ns.Ellesmere_FlightTimer() then
+		ns.Bar_Start(flight.destName, expected, isEstimate, flight.start, flight.stops)
+	end
 	ticker:Show()
 end
 
@@ -517,6 +520,9 @@ module = ns.RegisterModule({
 	defaults = ns.Flight_Defaults,
 	keep = { "calibration", "stats" }, -- collected data: a settings reset keeps it
 	replaces = { { addon = "InFlight", why = "a countdown while you fly a flight path" } },
+	alongside = {
+		{ addon = "EllesmereUIForeverEssentials", why = "while its Flight Timer is on, Tomte's timer bar stays hidden; the arrival alert and cinematic mode still work" },
+	},
 	init = function(db)
 		ns.flightDB = db
 		-- Friend sharing (Modules/Share) loads after this file, so it's looked up here, at init.

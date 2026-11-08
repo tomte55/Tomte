@@ -1,13 +1,14 @@
 local addonName, ns = ...
 
 -- Other addons page: pure logic (no WoW API calls; unit-tested in tests/test_addons.lua). Gathers every module's
--- uses / conflicts / replaces ({ addon, why, without }) into one row per addon, and the status text each row shows.
--- The page is Panel/Addons.lua.
+-- uses / conflicts / alongside / replaces ({ addon, why, without }) into one row per addon, and the status text each
+-- row shows. The page is Panel/Addons.lua.
 
 -- The cards, in page order. key: the module field read; title: the card's header.
 ns.ADDONS_KINDS = {
 	{ key = "conflicts", title = "Clashes with Tomte" },
 	{ key = "uses", title = "Works with Tomte" },
+	{ key = "alongside", title = "Runs alongside Tomte" },
 	{ key = "replaces", title = "Tomte can replace" },
 }
 
@@ -70,6 +71,11 @@ function ns.Addons_Status(kind, row, active)
 	elseif kind == "uses" then
 		if state == "loaded" then
 			return "Loaded", "success"
+		end
+		return state == "off" and "Installed, off" or "Not installed", "textFaint"
+	elseif kind == "alongside" then
+		if state == "loaded" then
+			return "Loaded", "info"
 		end
 		return state == "off" and "Installed, off" or "Not installed", "textFaint"
 	end
