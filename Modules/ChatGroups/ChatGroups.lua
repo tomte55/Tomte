@@ -58,6 +58,20 @@ local function MyQuests()
 	return mine
 end
 
+-- Whether the sender is already in your party or raid: you don't need a toast to find them.
+local function InMyGroup(guid)
+	if not guid or guid == "" or not IsInGroup() then
+		return false
+	end
+	local prefix = IsInRaid() and "raid" or "party"
+	for i = 1, GetNumGroupMembers() do
+		if UnitGUID(prefix .. i) == guid then
+			return true
+		end
+	end
+	return false
+end
+
 -- Someone in chat is grouping for a quest you still have to do: click to whisper them.
 local function QuestToast(entry)
 	local key = entry.sender .. ":quest:" .. (entry.questID or entry.quest)
@@ -91,6 +105,9 @@ function events:CHAT_MSG_CHANNEL(text, sender, _, _, _, _, _, _, _, _, _, guid)
 	end
 	ns.ChatGroups_Add(list, entry)
 	ns.ChatGroupsPage_Refresh()
+	if InMyGroup(guid) then
+		return
+	end
 	if db.questToast and entry.quest and not entry.dungeon and ns.ChatGroups_YourQuest(entry, MyQuests()) then
 		QuestToast(entry)
 	elseif db.toast and entry.kind == "group" and ns.ChatGroups_Near(byKey[entry.dungeon], UnitLevel("player")) then
