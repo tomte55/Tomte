@@ -173,15 +173,25 @@ function ns.Leveling_CaresAboutAmmo(classFile, loaded)
 	return classFile == "HUNTER" or loaded == true
 end
 
--- "none" | "low" | "ok", nil when this character doesn't use ammo.
-function ns.Leveling_AmmoState(needs, count, low)
+-- "none" | "low" | "ok" | "switch", nil when this character doesn't use ammo. count: of what's in the slot. equippedFits:
+-- false when that ammo doesn't go with your weapon (arrows with a gun), which leaves none to shoot. spare: ammo in your
+-- bags that fits and isn't in the slot ({ name, count }): with nothing to shoot it's "switch" (equip it), not "none".
+function ns.Leveling_AmmoState(needs, count, low, equippedFits, spare)
 	if not needs then
 		return nil
 	end
-	if (count or 0) <= 0 then
-		return "none"
+	local usable = equippedFits ~= false and (count or 0) or 0
+	if usable <= 0 then
+		return (spare and (spare.count or 0) > 0) and "switch" or "none"
 	end
-	return count <= low and "low" or "ok"
+	return usable <= low and "low" or "ok"
+end
+
+-- The line about ammo to equip: "Heavy Shot: 1,200 in your bags. Click the ammo counter to put it on." spare.countText:
+-- its count as shown.
+function ns.Leveling_SwitchText(spare)
+	return ("%s: %s in your bags. Click the ammo counter to put it on."):format(spare.name or "Ammo that fits",
+		spare.countText or tostring(spare.count or 0))
 end
 
 -- The merchant's best ammo for this weapon: the highest level you can use and, when money is given, afford a stack of.
@@ -397,13 +407,16 @@ function ns.Leveling_BuyBatches(amount, maxBuy)
 end
 
 -- What a toast says about supplies that just ran low: title, text, icon. entries: { kind = "ammo", out (none left), name
--- (the item's, nil until it has loaded), countText, icon } and { kind = "reagent", name (the spell's), count }.
+-- (the item's, nil until it has loaded), countText, icon, switch (Leveling_AmmoState's spare: ammo that fits is in the
+-- bags, not in the slot) } and { kind = "reagent", name (the spell's), count }.
 function ns.Leveling_SupplyToast(entries)
 	local ammo, hasReagents, lines = nil, false, {}
 	for _, e in ipairs(entries) do
 		if e.kind == "ammo" then
 			ammo = e
-			if not e.out then
+			if e.switch then
+				lines[#lines + 1] = ns.Leveling_SwitchText(e.switch)
+			elseif not e.out then
 				lines[#lines + 1] = ("%s: %s left."):format(e.name or "Ammo", e.countText)
 			end
 		else
@@ -411,11 +424,13 @@ function ns.Leveling_SupplyToast(entries)
 			lines[#lines + 1] = ("%s: %d %s left."):format(e.name, e.count, e.count == 1 and "cast" or "casts")
 		end
 	end
-	if ammo then
+	if ammo and not ammo.switch then
 		lines[#lines + 1] = "Buy more at a vendor."
 	end
 	local title
-	if ammo and ammo.out then
+	if ammo and ammo.switch then
+		title = hasReagents and "Equip your ammo, low on reagents" or "Equip your ammo"
+	elseif ammo and ammo.out then
 		title = hasReagents and "Out of ammo, low on reagents" or "Out of ammo"
 	elseif ammo then
 		title = hasReagents and "Low on ammo and reagents" or "Low on ammo"
@@ -724,7 +739,7 @@ end
 -- To do --------------------------------------------------------------------------------------------------------------
 
 -- What's waiting, most useful first, and the checks that came up clean. s: { visited (the trainer list is saved), ready
--- (trainer rows), talents, oldRanks (names), reagents ({ name, count }), ammoState, ammoText, turnIns (quest rows), kit (the
+-- (trainer rows), talents, oldRanks (names), reagents ({ name, count }), ammoState, ammoText, ammoSpare, turnIns (quest rows), kit (the
 -- armor kit plan, or nil) }.
 -- Returns todo: { { key, icon, text, sub, role, cost (copper), xp } } and fine: "All fine: ..." or nil.
 function ns.Leveling_Checklist(s)
@@ -777,7 +792,9 @@ function ns.Leveling_Checklist(s)
 		Add("reagents", "Low on reagents", ns.Leveling_JoinNames(parts, 2), "warning")
 	end
 
-	if s.ammoState == "none" then
+	if s.ammoState == "switch" then
+		Add("ammo", "Equip your ammo", ns.Leveling_SwitchText(s.ammoSpare), "warning")
+	elseif s.ammoState == "none" then
 		Add("ammo", "Out of ammo", "Buy more at a vendor.", "danger")
 	elseif s.ammoState == "low" then
 		Add("ammo", ("Low on ammo: %s left"):format(s.ammoText), "Buy more at a vendor.", "warning")

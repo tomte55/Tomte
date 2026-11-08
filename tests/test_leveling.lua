@@ -205,6 +205,11 @@ test("ammo state", function()
 	eq(ns.Leveling_AmmoState(true, nil, 100), "none")
 	eq(ns.Leveling_AmmoState(true, 100, 100), "low")
 	eq(ns.Leveling_AmmoState(true, 101, 100), "ok")
+	local shot = { name = "Heavy Shot", count = 1200 }
+	eq(ns.Leveling_AmmoState(true, 0, 100, nil, shot), "switch", "empty slot, bullets in the bags")
+	eq(ns.Leveling_AmmoState(true, 400, 100, false, shot), "switch", "arrows with a gun")
+	eq(ns.Leveling_AmmoState(true, 400, 100, false, nil), "none", "arrows with a gun, no bullets")
+	eq(ns.Leveling_AmmoState(true, 50, 100, true, shot), "low", "low on what fits: still low")
 end)
 
 test("CaresAboutAmmo: hunters always, other classes only with ammo loaded", function()
@@ -322,6 +327,10 @@ test("SupplyToast says what ran low", function()
 	eq(title, "Out of ammo")
 	eq(text, "Buy more at a vendor.")
 	eq(icon, ARROW_ICON)
+
+	title, text = ns.Leveling_SupplyToast({ { kind = "ammo", switch = { name = "Heavy Shot", count = 1200, countText = "1,200" } } })
+	eq(title, "Equip your ammo")
+	eq(text, "Heavy Shot: 1,200 in your bags. Click the ammo counter to put it on.")
 
 	title, text, icon = ns.Leveling_SupplyToast({ rebirth, portal })
 	eq(title, "Low on reagents")

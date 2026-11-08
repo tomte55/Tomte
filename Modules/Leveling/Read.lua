@@ -76,6 +76,19 @@ function ns.LevelingRead_Ammo()
 	return true, count, subclass
 end
 
+-- For Leveling_AmmoState: whether the slot's ammo goes with this weapon (nil for an empty slot), and the best ammo in
+-- your bags that does and isn't in the slot ({ name, count, countText }, or nil).
+function ns.LevelingRead_AmmoFit(weapon)
+	local equipped = ns.LevelingRead_AmmoSlot()
+	local fits = equipped and ns.LevelingRead_ItemFits(equipped, weapon) or nil
+	for _, t in ipairs(ns.Leveling_AmmoTypes(ns.LevelingRead_AmmoCarried(), weapon, UnitLevel("player"))) do
+		if t.fits and t.itemID ~= equipped and t.count > 0 then
+			return fits, { name = t.name, count = t.count, countText = ns.Thousands(t.count) }
+		end
+	end
+	return fits, nil
+end
+
 -- The ammo in its slot: name (nil until the item has loaded) and icon, or nothing when the slot is empty.
 function ns.LevelingRead_AmmoItem()
 	local ok, slot = pcall(GetInventorySlotInfo, "AmmoSlot")
@@ -395,7 +408,11 @@ function ns.LevelingRead_State()
 	local bars = ns.LevelingRead_Bars()
 	local quests, dungeons = ns.LevelingRead_QuestsTagged()
 	local groups = ns.Leveling_SortQuests(quests)
-	local needs, count = ns.LevelingRead_Ammo()
+	local needs, count, weapon = ns.LevelingRead_Ammo()
+	local ammoFits, ammoSpare
+	if needs then
+		ammoFits, ammoSpare = ns.LevelingRead_AmmoFit(weapon)
+	end
 	local mount, mountText, mountHours = MountFund(db, level)
 	local todo, fine = ns.Leveling_Checklist({
 		professions = ns.Leveling_ProfessionRanks(ns.LevelingRead_Professions(), level),
@@ -406,8 +423,9 @@ function ns.LevelingRead_State()
 		talents = ns.LevelingRead_UnspentTalents(),
 		oldRanks = ns.Leveling_OldRanks(bars),
 		reagents = ns.Leveling_LowReagents(bars, db.reagentLow),
-		ammoState = ns.Leveling_AmmoState(needs, count, db.ammoLow),
+		ammoState = ns.Leveling_AmmoState(needs, count, db.ammoLow, ammoFits, ammoSpare),
 		ammoText = ns.Thousands(count),
+		ammoSpare = ammoSpare,
 		turnIns = groups.done,
 		kit = db.armorKit and ns.LevelingRead_KitPlan() or nil,
 	})

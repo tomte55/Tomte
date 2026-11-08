@@ -123,13 +123,17 @@ end
 
 local function CheckSupplies(bars)
 	local keys, entries = {}, {}
-	local needs, count = ns.LevelingRead_Ammo()
-	local state = db.ammo and ns.Leveling_AmmoState(needs, count, db.ammoLow)
-	if state == "none" or state == "low" then
+	local needs, count, weapon = ns.LevelingRead_Ammo()
+	local fits, spare
+	if needs then
+		fits, spare = ns.LevelingRead_AmmoFit(weapon)
+	end
+	local state = db.ammo and ns.Leveling_AmmoState(needs, count, db.ammoLow, fits, spare)
+	if state == "none" or state == "low" or state == "switch" then
 		local name, icon = ns.LevelingRead_AmmoItem()
 		keys[1] = "ammo:" .. state
 		entries[keys[1]] = { kind = "ammo", out = state == "none", name = name, icon = icon,
-			countText = ns.Thousands(count) }
+			countText = ns.Thousands(count), switch = state == "switch" and spare or nil }
 	end
 	if db.reagents then
 		for _, r in ipairs(ns.Leveling_LowReagents(bars, db.reagentLow)) do

@@ -1,16 +1,19 @@
 local addonName, ns = ...
 
 -- Leveling (World of Warcraft: Forever only): the next quests widget. Your quests grouped by where they are into stops,
--- the nearest stop first: its quests (turn-ins first, then by level) and a line for the stop after it. A click makes a
--- quest active, Shift-click tracks it (as on the page). Moved in Edit Mode. Rules in Data.lua (Leveling_NextStops), reads
+-- the nearest stop first. The heading says where: the stop's distance and zone.
+-- Under it the stop's quests (turn-ins first, then by level), each with what it gives and how far, and a line for the
+-- stop after it. A click makes a quest active, Shift-click tracks it (as on the page). Moved in Edit Mode. Rules in Data.lua (Leveling_NextStops), reads
 -- in Read.lua; started from Leveling.lua. See docs/superpowers/specs/2026-11-08-tomte-forever-next-quests.md.
 
 local WIDTH = 270
 local PAD = 10
-local TITLE_H = 26
-local ROW_H = 18
-local LEVEL_W = 24
+local HEAD_H = 32 -- the heading: distance and zone; a hairline under it
+local ROW_H = 34 -- a quest: its title, and under it what it gives and how far
+local ROW_TOP = 4
+local LEVEL_W = 26 -- wide enough for an elite quest's "60+"
 local MARK_W = 3
+local AFTER_DIST_W = 56 -- the next stop's distance, right of its line
 local CLUSTER_YARDS = 300 -- quests this close to another on the stop join it: about a camp or a stretch of road
 local MOVE_REDRAW = 100 -- yards walked before the stops are sorted again
 local MOVE_DISTANCE = 20 -- yards walked before only the distances are written again
@@ -24,6 +27,7 @@ local db, frame, ticker
 local active = false
 local updatePending = false
 local followed -- the quest the widget last made active: a quest you pick yourself stays until the top one changes
+local addedWatch -- the quest the widget put on the objective tracker (not one you tracked): untracked when it moves on
 local points = {} -- quest spots ([questID] = Read.lua's point), kept until the next full update reads them again
 local pointsMap -- the map they were read from
 local pointsStale = true -- the quest log changed since: read them again at the next update
@@ -82,18 +86,25 @@ local function RowLeave(self)
 	GameTooltip:Hide()
 end
 
+-- The active quest's title in the heading color, the others plain; the bar as on the page.
+local function ShowActive(row)
+	ns.LevelingPage_ShowMark(row.mark, row.quest)
+	UI.SetTextRole(row.title, row.quest.active and "heading" or "text")
+end
+
 local function RowClick(self)
 	if not self.quest or self.sample then
 		return
 	end
 	ns.LevelingPage_QuestClick(self.quest, function()
-		ns.LevelingPage_ShowMark(self.mark, self.quest)
+		ShowActive(self)
 		if GameTooltip:IsOwned(self) then
 			RowEnter(self)
 		end
 	end)
 end
 
+-- A quest: its level and title, and under the title what it gives (or "Turn in") and how far it is.
 local function Row(i)
 	local row = frame.rows[i]
 	if not row then
@@ -105,20 +116,24 @@ local function Row(i)
 		row.bg:SetColorTexture(UI.Color("hover"))
 		row.bg:Hide()
 		row.mark = row:CreateTexture(nil, "ARTWORK") -- active or tracked, as on the page
-		row.mark:SetPoint("TOPLEFT", 0, -2)
-		row.mark:SetPoint("BOTTOMLEFT", 0, 2)
+		row.mark:SetPoint("TOPLEFT", 0, -3)
+		row.mark:SetPoint("BOTTOMLEFT", 0, 3)
 		row.mark:SetWidth(MARK_W)
 		row.level = UI.Text(row, 12, "textMuted", "number")
-		row.level:SetPoint("LEFT", MARK_W, 0)
+		row.level:SetPoint("TOPLEFT", MARK_W, -ROW_TOP)
 		row.level:SetWidth(LEVEL_W)
 		row.level:SetJustifyH("RIGHT")
-		row.right = UI.Text(row, 11, "textMuted", "number")
-		row.right:SetPoint("RIGHT", -2, 0)
 		row.title = UI.Text(row, 12, "text")
-		row.title:SetPoint("LEFT", row.level, "RIGHT", 8, 0)
-		row.title:SetPoint("RIGHT", row.right, "LEFT", -8, 0)
+		row.title:SetPoint("TOPLEFT", row.level, "TOPRIGHT", 7, 0)
+		row.title:SetPoint("RIGHT", -4, 0)
 		row.title:SetJustifyH("LEFT")
 		row.title:SetWordWrap(false)
+		row.gives = UI.Text(row, 11, "textMuted", "number")
+		row.gives:SetPoint("TOPLEFT", row.title, "BOTTOMLEFT", 0, -2)
+		row.dist = UI.Text(row, 11, "textFaint", "number")
+		row.dist:SetPoint("RIGHT", -4, 0)
+		row.dist:SetPoint("TOP", row.gives, "TOP")
+		row.dist:SetJustifyH("RIGHT")
 		row:SetScript("OnEnter", RowEnter)
 		row:SetScript("OnLeave", RowLeave)
 		row:SetScript("OnClick", RowClick)
@@ -128,8 +143,7 @@ local function Row(i)
 end
 
 -- Next to the minimize button and shown with it (on mouseover): a small box, filled while the top quest is followed
--- (Follow, below), drawn from color bars like the minimize button; its outline lights up on hover. The distance moves
--- aside while they show.
+-- (Follow, below), drawn from color bars like the minimize button; its outline lights up on hover.
 local FOLLOW_BOX, FOLLOW_FILL, FOLLOW_EDGE = 10, 4, 1 -- pixels: the outline's size, the filling's, the outline's width
 
 local function FollowButton(f)
@@ -185,11 +199,9 @@ local function FollowButton(f)
 	f.collapse:HookScript("OnShow", function()
 		b:Update()
 		b:Show()
-		f.distance:SetPoint("TOPRIGHT", -44, -8)
 	end)
 	f.collapse:HookScript("OnHide", function()
 		b:Hide()
-		f.distance:SetPoint("TOPRIGHT", -26, -8)
 	end)
 	return b
 end
@@ -202,16 +214,22 @@ local function Build()
 	frame:SetMovable(true)
 	frame:Hide()
 	UI.Panel(frame, { alpha = 0.55, subtle = true })
-	frame.distance = UI.Text(frame, 12, "textMuted", "number")
-	frame.distance:SetPoint("TOPRIGHT", -26, -8)
-	frame.title = UI.Text(frame, 13, "heading", "title")
-	frame.title:SetPoint("TOPLEFT", PAD, -7)
-	frame.title:SetPoint("RIGHT", frame.distance, "LEFT", -8, 0)
-	frame.title:SetJustifyH("LEFT")
-	frame.title:SetWordWrap(false)
+	-- Where: the distance (the biggest thing here), and the zone, quiet after it.
+	frame.distance = UI.Text(frame, 17, "heading", "number")
+	frame.distance:SetPoint("LEFT", frame, "TOPLEFT", PAD, -HEAD_H / 2)
+	frame.zone = UI.Text(frame, 12, "textMuted", "title")
+	frame.zone:SetPoint("BOTTOMLEFT", frame.distance, "BOTTOMRIGHT", 7, 1)
+	frame.zone:SetPoint("RIGHT", -46, 0) -- clear of the buttons that show on mouseover
+	frame.zone:SetJustifyH("LEFT")
+	frame.zone:SetWordWrap(false)
+	frame.rule = UI.Hairline(frame, WIDTH - 2 * PAD, 0.6)
+	frame.rule:SetPoint("TOPLEFT", PAD, -HEAD_H)
+	-- After the stop: how many more are here, then the stop after it and how far.
 	frame.after = UI.Text(frame, 11, "textMuted")
 	frame.after:SetJustifyH("LEFT")
-	frame.after:SetWordWrap(false)
+	frame.after:SetWordWrap(true) -- a long zone name takes a second line
+	frame.afterDist = UI.Text(frame, 11, "textFaint", "number")
+	frame.afterDist:SetJustifyH("RIGHT")
 	frame.rows = {}
 	frame.collapse = UI.CollapseButton(frame, function()
 		return db.nextCollapsed
@@ -238,6 +256,13 @@ local function SampleStops()
 	}
 end
 
+-- A quest's distance from you, or nil without both spots.
+local function QuestYards(you, q)
+	local d = you and points[q.questID] and Moved(you, points[q.questID])
+	return d ~= math.huge and d or nil
+end
+
+-- The distances (the heading's, each quest's, the next stop's) and the frame's height, which follows the last line. Again every MOVE_DISTANCE yards walked.
 local function DrawDistances(you)
 	local first, second = shownStops[1], shownStops[2]
 	if not first then
@@ -247,33 +272,48 @@ local function DrawDistances(you)
 		for _, stop in ipairs({ first, second }) do
 			local nearest
 			for _, q in ipairs(stop.quests) do
-				local d = points[q.questID] and Moved(you, points[q.questID])
-				if d and d ~= math.huge then
-					nearest = nearest and math.min(nearest, d) or d
+				local d = QuestYards(you, q)
+				if d and (not nearest or d < nearest) then
+					nearest = d
 				end
 			end
 			stop.distance = nearest
 		end
 	end
-	frame.distance:SetText(YardsText(first.distance))
-	local parts = {}
+	frame.distance:SetText(first.distance and YardsText(first.distance) or "")
+	for _, row in ipairs(frame.rows) do
+		if row:IsShown() and row.quest then
+			row.dist:SetText(YardsText(row.sample and nil or QuestYards(you, row.quest)))
+		end
+	end
+	if not frame.after:IsShown() then
+		return
+	end
+	local lines = {}
 	if (shownStops.more or 0) > 0 then
-		parts[#parts + 1] = ("%d more here."):format(shownStops.more)
+		lines[#lines + 1] = shownStops.more == 1 and "1 more quest here" or ("%d more quests here"):format(shownStops.more)
 	end
 	if second then
 		local n = #second.quests
-		parts[#parts + 1] = ("Then: %s, %d %s%s"):format(second.zone or "elsewhere", n, n == 1 and "quest" or "quests",
-			second.distance and ("  ·  " .. YardsText(second.distance)) or "")
+		-- "Then 2 quests further on" in the same zone, "Then 1 quest in Stonetalon Mountains" in another.
+		local quests = n == 1 and "1 quest" or ("%d quests"):format(n)
+		local where = (second.zone and second.zone ~= first.zone) and (" in " .. second.zone) or " further on"
+		lines[#lines + 1] = ("Then %s"):format(UI.Wrap(quests .. where, "text"))
+		frame.afterDist:SetText(YardsText(second.distance))
+	else
+		frame.afterDist:SetText("")
 	end
-	frame.after:SetText(table.concat(parts, " "))
+	frame.after:SetText(table.concat(lines, "\n"))
+	frame:SetHeight(frame.afterY + frame.after:GetStringHeight() + PAD)
 end
 
 local function Draw(stops, you)
 	shownStops = stops
 	local first = stops[1]
-	frame.title:SetText(("Next: %s"):format(first.zone or "nearby"))
+	frame.zone:SetText(first.zone or "Nearby")
 	local collapsed = db.nextCollapsed
-	local y = TITLE_H
+	frame.rule:SetShown(not collapsed)
+	local y = HEAD_H + 4
 	local used = 0
 	if not collapsed then
 		for _, q in ipairs(first.quests) do
@@ -288,16 +328,16 @@ local function Draw(stops, you)
 			UI.SetTextRole(row.level, GroupRole(group))
 			row.title:SetText(q.dungeon and ("%s  %s"):format(q.title or "?", UI.Wrap(q.dungeon, "info")) or q.title or "?")
 			if group == "done" then
-				row.right:SetText("turn in")
-				UI.SetTextRole(row.right, "success")
+				row.gives:SetText("Turn in")
+				UI.SetTextRole(row.gives, "success")
 			elseif q.timeLeft then
-				row.right:SetText(ns.Leveling_TimeLeft(q.timeLeft))
-				UI.SetTextRole(row.right, "warning")
+				row.gives:SetText(ns.Leveling_TimeLeft(q.timeLeft))
+				UI.SetTextRole(row.gives, "warning")
 			else
-				row.right:SetText((q.xp or 0) > 0 and ("%s XP"):format(ns.Thousands(q.xp)) or "")
-				UI.SetTextRole(row.right, "textMuted")
+				row.gives:SetText((q.xp or 0) > 0 and ("%s XP"):format(ns.Thousands(q.xp)) or "")
+				UI.SetTextRole(row.gives, "textMuted")
 			end
-			ns.LevelingPage_ShowMark(row.mark, q)
+			ShowActive(row)
 			row:ClearAllPoints()
 			row:SetPoint("TOPLEFT", PAD - 4, -y)
 			row:SetPoint("RIGHT", -PAD + 4, 0)
@@ -312,14 +352,18 @@ local function Draw(stops, you)
 	stops.more = not collapsed and more or 0
 	if not collapsed and (stops[2] or more > 0) then
 		frame.after:ClearAllPoints()
-		frame.after:SetPoint("TOPLEFT", PAD, -(y + 3))
-		frame.after:SetPoint("RIGHT", -PAD, 0)
+		frame.after:SetPoint("TOPLEFT", PAD, -(y + 4))
+		frame.after:SetPoint("RIGHT", -(PAD + AFTER_DIST_W), 0)
 		frame.after:Show()
-		y = y + ROW_H + 2
+		frame.afterDist:ClearAllPoints()
+		frame.afterDist:SetPoint("TOPRIGHT", -PAD, -(y + 4))
+		frame.afterDist:Show()
+		frame.afterY = y + 4
 	else
 		frame.after:Hide()
+		frame.afterDist:Hide()
 	end
-	frame:SetHeight(collapsed and TITLE_H + 4 or y + 6)
+	frame:SetHeight(collapsed and HEAD_H + 2 or y + 6)
 	DrawDistances(you)
 end
 
@@ -332,11 +376,21 @@ local function Follow(q)
 		return
 	end
 	followed = q.questID
-	if C_SuperTrack.GetSuperTrackedQuestID() ~= q.questID then
-		ns.SafeTrack(function()
-			C_SuperTrack.SetSuperTrackedQuestID(q.questID)
-		end)
-	end
+	local id = q.questID
+	ns.SafeTrack(function()
+		-- On the tracker too, as a click does. The quest this put there before goes, so the tracker doesn't fill up.
+		if addedWatch and addedWatch ~= id and C_QuestLog.GetQuestWatchType(addedWatch) then
+			C_QuestLog.RemoveQuestWatch(addedWatch)
+		end
+		addedWatch = nil
+		if not C_QuestLog.GetQuestWatchType(id) then
+			C_QuestLog.AddQuestWatch(id)
+			addedWatch = id
+		end
+		if C_SuperTrack.GetSuperTrackedQuestID() ~= id then
+			ns.LevelingPage_MakeActive(id)
+		end
+	end)
 end
 
 local function Hide()

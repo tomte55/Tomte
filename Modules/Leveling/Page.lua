@@ -189,6 +189,15 @@ function ns.LevelingPage_ShowMark(mark, q)
 	mark:SetShown(q.watched or q.active)
 end
 
+-- Makes a quest the active one. A map pin you placed is let go too: while it's tracked the game (and Waypoints) keep
+-- leading to the pin, whichever quest is active. Call through ns.SafeTrack.
+function ns.LevelingPage_MakeActive(id)
+	if C_SuperTrack.IsSuperTrackingUserWaypoint and C_SuperTrack.IsSuperTrackingUserWaypoint() then
+		C_SuperTrack.SetSuperTrackedUserWaypoint(false)
+	end
+	C_SuperTrack.SetSuperTrackedQuestID(id)
+end
+
 -- Click: the active quest, as the quest log's map button makes it (tracked too, so the tracker shows it). Shift-click:
 -- tracked or not. Through ns.SafeTrack: the objective tracker and map redraw inside the call, which in combat hits
 -- protected frames. Then q's watched and active are read again and done() runs.
@@ -206,7 +215,7 @@ function ns.LevelingPage_QuestClick(q, done)
 			if not C_QuestLog.GetQuestWatchType(id) then
 				C_QuestLog.AddQuestWatch(id)
 			end
-			C_SuperTrack.SetSuperTrackedQuestID(id)
+			ns.LevelingPage_MakeActive(id)
 		end
 		q.watched = C_QuestLog.GetQuestWatchType(id) ~= nil
 		q.active = C_SuperTrack ~= nil and C_SuperTrack.GetSuperTrackedQuestID() == id
