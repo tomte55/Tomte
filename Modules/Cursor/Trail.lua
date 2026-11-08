@@ -22,9 +22,9 @@ local SAMPLE_RATE = 120
 
 local holder, model
 -- The flat trail's drawing target: frame (what points are placed on: the screen holder, made on first need, or a
--- preview's frame), sprites and lines (pooled textures and ribbon lines; shown: see HideFrom), art (the art the
--- pooled textures show now).
-local live = { sprites = { shown = 0 }, lines = { shown = 0 } }
+-- preview's frame), sprites and lines (pooled textures and ribbon lines by slot; see Slot), art (the art the pooled
+-- textures show now).
+local live = { sprites = {}, lines = {} }
 local points, fade = {}, {}
 local lastX, lastY, lastMove
 local modelFile -- the model file shown, nil while the model is hidden and cleared
@@ -66,73 +66,98 @@ local function Line(target, i)
 	return l
 end
 
--- Hides pool entries from `first` on. pool.shown is how many may be shown, so a trail that has faded out costs no
--- calls on later looks.
-local function HideFrom(pool, first)
-	for i = first, pool.shown do
-		pool[i]:Hide()
-	end
-	if pool.shown >= first then
-		pool.shown = first - 1
+-- Each point keeps one pool entry for its whole life: the slot from its serial number. Points alive at once have
+-- consecutive serials and are never more than MAX_POINTS, so they never share a slot. An entry is placed and colored
+-- once (entry.n: the point it shows, nil while hidden); after that only its size and opacity change per frame.
+local function Slot(p)
+	return p.n % MAX_POINTS + 1
+end
+
+-- Hides the entries not showing a point from serial `first` to `last` (1, 0 hides all).
+local function HideStale(pool, first, last)
+	for k = 1, MAX_POINTS do
+		local e = pool[k]
+		if e and e.n and (e.n < first or e.n > last) then
+			e:Hide()
+			e.n, e.endN, e.size = nil, nil, nil
+		end
 	end
 end
 
 -- The flat trail of points (with their strengths in fade) on target; the shape pieces, or the ribbon.
 local function DrawSprites(target, points, fade, db, palette, shape, now, gate)
-	local sprites, lines = target.sprites, target.lines
+	local sprites = target.sprites
 	if target.art ~= shape.art then
 		target.art = shape.art
-		for _, s in ipairs(sprites) do
+		HideStale(sprites, 1, 0) -- placed again with the new shape's turn
+		for _, s in pairs(sprites) do
 			s:SetTexture(ART .. target.art)
 		end
 	end
 	local anchor = target.frame
 	for i, p in ipairs(points) do
+		local s = Sprite(target, Slot(p))
+		if s.n ~= p.n then
+			s.n, s.size = p.n, nil
+			s:SetPoint("CENTER", anchor, "BOTTOMLEFT", p.x, p.y)
+			s:SetVertexColor(ns.Cursor_Color(db.color, palette, p.t)) -- the rainbow takes the time it was placed
+			s:SetRotation(0)
+			s:Show()
+		end
 		local age = now - p.t
 		local size, alpha = ns.Cursor_TrailLook(fade[i], db.trailSize, db.trailTaper, db.trailOpacity)
 		if shape.twinkle then
 			local k = ns.Cursor_Twinkle(p.n, age)
 			size, alpha = size * k, alpha * k
 		end
-		local s = Sprite(target, i)
-		s:SetRotation(shape.spin and ns.Cursor_Spin(p.n, age) or 0)
-		s:SetVertexColor(ns.Cursor_Color(db.color, palette, p.t))
-		s:SetSize(size, size)
-		s:SetPoint("CENTER", anchor, "BOTTOMLEFT", p.x, p.y)
+		if shape.spin then
+			s:SetRotation(ns.Cursor_Spin(p.n, age))
+		end
+		if s.size ~= size then
+			s.size = size
+			s:SetSize(size, size)
+		end
 		s:SetAlpha(alpha * gate)
-		s:Show()
 	end
-	HideFrom(sprites, #points + 1)
-	sprites.shown = #points
-	HideFrom(lines, 1)
+	HideStale(sprites, points[1].n, points[#points].n)
+	HideStale(target.lines, 1, 0)
 end
 
 -- A line from each point to the next and from the newest point to the cursor, as thick as the newer end's size.
 local function DrawRibbon(target, points, fade, db, palette, now, x, y, gate)
-	local sprites, lines = target.sprites, target.lines
 	local anchor = target.frame
-	local n = #points
-	for i = 1, n do
+	for i = 1, #points do
 		local p, q = points[i], points[i + 1]
+		local l = Line(target, Slot(p))
+		if l.n ~= p.n then
+			l.n, l.endN = p.n, nil
+			l:SetStartPoint("BOTTOMLEFT", anchor, p.x, p.y)
+			l:Show()
+		end
+		if q then
+			if l.endN ~= q.n then
+				l.endN = q.n
+				l:SetEndPoint("BOTTOMLEFT", anchor, q.x, q.y)
+				l:SetVertexColor(ns.Cursor_Color(db.color, palette, q.t))
+			end
+		else
+			-- The head segment follows the cursor.
+			l.endN = nil
+			l:SetEndPoint("BOTTOMLEFT", anchor, x, y)
+			l:SetVertexColor(ns.Cursor_Color(db.color, palette, now))
+		end
 		local f = q and fade[i + 1] or fade[i] -- the head segment fades with the newest point once the mouse rests
-		local qx, qy = q and q.x or x, q and q.y or y
 		local size, alpha = ns.Cursor_TrailLook(f, db.trailSize, db.trailTaper, db.trailOpacity)
-		local l = Line(target, i)
-		l:SetStartPoint("BOTTOMLEFT", anchor, p.x, p.y)
-		l:SetEndPoint("BOTTOMLEFT", anchor, qx, qy)
 		l:SetThickness(math.max(1, size * RIBBON_WIDTH))
-		l:SetVertexColor(ns.Cursor_Color(db.color, palette, q and q.t or now))
 		l:SetAlpha(alpha * gate)
-		l:Show()
 	end
-	HideFrom(lines, n + 1)
-	lines.shown = n
-	HideFrom(sprites, 1)
+	HideStale(target.lines, points[1].n, points[#points].n)
+	HideStale(target.sprites, 1, 0)
 end
 
 local function Hide2D()
-	HideFrom(live.sprites, 1)
-	HideFrom(live.lines, 1)
+	HideStale(live.sprites, 1, 0)
+	HideStale(live.lines, 1, 0)
 end
 
 -- Draws the flat trail; returns whether anything is left to draw (false: the trail has faded out).
@@ -162,10 +187,13 @@ end
 function ns.Cursor_TrailSample(host, s, palette)
 	local target = host.trailSample
 	if not target then
-		target = { frame = CreateFrame("Frame", nil, host), sprites = { shown = 0 }, lines = { shown = 0 } }
+		target = { frame = CreateFrame("Frame", nil, host), sprites = {}, lines = {} }
 		target.frame:SetSize(1, 1)
 		host.trailSample = target
 	end
+	-- A new set of points numbered from 1 again, maybe in other settings: everything is placed anew.
+	HideStale(target.sprites, 1, 0)
+	HideStale(target.lines, 1, 0)
 	local pts, strengths = {}, {}
 	local now, x, y = 0, 0, 0
 	for step = 0, SAMPLE_SECONDS * SAMPLE_RATE do

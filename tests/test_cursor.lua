@@ -46,6 +46,27 @@ test("AddSample keeps only samples inside the window", function()
 	eq(s[2], nil, "no leftovers past the end")
 end)
 
+test("Samples and trail points reuse dropped tables", function()
+	local s = {}
+	ns.Cursor_AddSample(s, 0, 1, 1)
+	local first = s[1]
+	ns.Cursor_DropSamples(s, 1)
+	eq(#s, 0, "dropped")
+	ns.Cursor_AddSample(s, 1, 5, 6)
+	eq(s[1], first, "same table again")
+	eq(s[1].x, 5)
+	eq(s[1].t, 1)
+	local p = {}
+	ns.Cursor_TrailAdd(p, 0, 0, 0, 10, 1)
+	local old = p[1]
+	ns.Cursor_TrailAdd(p, 1, 20, 0, 10, 1)
+	eq(#p, 1)
+	ns.Cursor_TrailAdd(p, 2, 40, 0, 10, 1)
+	eq(p[1], old, "the dropped point comes back")
+	eq(p[1].x, 40)
+	eq(p[1].n, 3)
+end)
+
 test("a fast zigzag is a shake", function()
 	local s = feed(zigzag(5, 120, 3), 1 / 30)
 	eq(ns.Cursor_IsShake(s), true)

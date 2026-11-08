@@ -28,6 +28,7 @@ local shake -- { began, last } while a shake look is playing
 local shown, inCombat, testUntil = false, false, nil
 local trailBusy = false -- the trail drew something on the last look: keep looking every frame
 local sinceSample = 0
+local sampleX, sampleY -- where the last shake sample was taken
 local lookState, gateState = {}, {} -- reused every frame
 -- Colors for ns.Cursor_Color: the theme accent (read on each sample so a theme switch reaches it), the class color
 -- and the custom color (the saved table itself).
@@ -71,15 +72,33 @@ local function ShapeRing(r, h, key)
 end
 
 -- Size (UI units across), opacity and color of a ring centered at x, y from anchor's bottom-left.
+-- Drawn every frame while shown, so each property is only set when it changed (painted: what r and h show now).
 local function PaintRing(r, h, anchor, x, y, size, alpha, cr, cg, cb)
-	r:SetVertexColor(cr, cg, cb)
-	h:SetVertexColor(cr, cg, cb)
-	r:SetSize(size, size)
-	r:SetPoint("CENTER", anchor, "BOTTOMLEFT", x, y)
-	r:SetAlpha(alpha)
-	h:SetSize(size * HALO_SCALE, size * HALO_SCALE)
-	h:SetPoint("CENTER", anchor, "BOTTOMLEFT", x, y)
-	h:SetAlpha(alpha * HALO_ALPHA)
+	local p = r.painted
+	if not p then
+		p = {}
+		r.painted = p
+	end
+	if p.r ~= cr or p.g ~= cg or p.b ~= cb then
+		p.r, p.g, p.b = cr, cg, cb
+		r:SetVertexColor(cr, cg, cb)
+		h:SetVertexColor(cr, cg, cb)
+	end
+	if p.size ~= size then
+		p.size = size
+		r:SetSize(size, size)
+		h:SetSize(size * HALO_SCALE, size * HALO_SCALE)
+	end
+	if p.x ~= x or p.y ~= y or p.anchor ~= anchor then
+		p.x, p.y, p.anchor = x, y, anchor
+		r:SetPoint("CENTER", anchor, "BOTTOMLEFT", x, y)
+		h:SetPoint("CENTER", anchor, "BOTTOMLEFT", x, y)
+	end
+	if p.alpha ~= alpha then
+		p.alpha = alpha
+		r:SetAlpha(alpha)
+		h:SetAlpha(alpha * HALO_ALPHA)
+	end
 end
 
 local function CreateHolder()
@@ -132,19 +151,23 @@ local function Steady(now)
 	return db.always or (db.combat and inCombat) or (testUntil ~= nil and now < testUntil)
 end
 
-local function OnUpdate(_, elapsed)
-	sinceSample = sinceSample + elapsed
-	local sample = sinceSample >= SAMPLE_INTERVAL
-	if not (sample or shown or trailBusy) then
-		return
-	end
+-- One look: a shake sample when one is due, then the ring and the trail.
+local function Look(sample)
 	local now = GetTime()
 	local x, y = CursorXY()
 	if sample then
 		sinceSample = 0
 		ReadPalette() -- a ring or trail that stays up still follows a theme switch
-		ns.Cursor_AddSample(samples, now, x, y, ns.CURSOR_SHAKE_WINDOW)
-		if db.shake and ns.Cursor_IsShake(samples) then
+		-- A still mouse adds nothing to a shake (no distance, no turn), so it's only sampled when it moved. While a
+		-- shake look plays, the window is still checked, so it lasts as long as before.
+		local moved = x ~= sampleX or y ~= sampleY
+		if moved then
+			sampleX, sampleY = x, y
+			ns.Cursor_AddSample(samples, now, x, y, ns.CURSOR_SHAKE_WINDOW)
+		else
+			ns.Cursor_DropSamples(samples, now - ns.CURSOR_SHAKE_WINDOW)
+		end
+		if db.shake and (moved or shake) and ns.Cursor_IsShake(samples) then
 			if shake then
 				shake.last = now
 			else
@@ -166,7 +189,17 @@ local function OnUpdate(_, elapsed)
 	trailBusy = ns.Cursor_TrailUpdate(db, palette, now, x, y,
 		ns.Cursor_TrailGate(db.trail, db.trailWhen, gateState))
 end
-local OnUpdateTimed = ns.Perf_Wrap(OnUpdate, "OnUpdate")
+local LookTimed = ns.Perf_Wrap(Look, "OnUpdate")
+
+-- Every frame (see Polling at the top); frames with nothing to do return before the timing wrapper, so the
+-- Performance module's own bookkeeping isn't paid on them.
+local function OnUpdate(_, elapsed)
+	sinceSample = sinceSample + elapsed
+	local sample = sinceSample >= SAMPLE_INTERVAL
+	if sample or shown or trailBusy then
+		LookTimed(sample)
+	end
+end
 
 -- Settings changed: the next frame or sample picks up modes, sizes and colors; the shape and the trail start over.
 local function Refresh()
@@ -249,7 +282,7 @@ local function Start()
 		driver = CreateFrame("Frame", nil, UIParent)
 	end
 	sinceSample = 0
-	driver:SetScript("OnUpdate", OnUpdateTimed)
+	driver:SetScript("OnUpdate", OnUpdate)
 	driver:Show()
 end
 
@@ -264,7 +297,7 @@ local function Stop()
 	end
 	ns.Cursor_TrailClear()
 	wipe(samples)
-	shake, testUntil, inCombat, trailBusy = nil, nil, false, false
+	shake, testUntil, inCombat, trailBusy, sampleX, sampleY = nil, nil, false, false, nil, nil
 end
 
 -- Options ------------------------------------------------------------------------------------------------------

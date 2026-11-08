@@ -61,13 +61,30 @@ end
 
 -- Samples ------------------------------------------------------------------------------------------------------
 
--- Appends { t, x, y } to samples (oldest first) and drops samples older than the window. Returns samples.
-function ns.Cursor_AddSample(samples, t, x, y, window)
-	samples[#samples + 1] = { t = t, x = x, y = y }
-	local cutoff = t - (window or WINDOW)
+-- A table from list.spare (dropped entries kept for reuse) or a new one. The driver samples and draws many times a
+-- second; reusing the entries keeps it from making garbage.
+local function Reuse(list)
+	local spare = list.spare
+	local n = spare and #spare or 0
+	if n > 0 then
+		local e = spare[n]
+		spare[n] = nil
+		return e
+	end
+	return {}
+end
+
+local function Recycle(list, e)
+	list.spare = list.spare or {}
+	list.spare[#list.spare + 1] = e
+end
+
+-- Drops samples older than `cutoff` (oldest first). Returns samples.
+function ns.Cursor_DropSamples(samples, cutoff)
 	local drop = 0
 	while samples[drop + 1] and samples[drop + 1].t < cutoff do
 		drop = drop + 1
+		Recycle(samples, samples[drop])
 	end
 	if drop > 0 then
 		local n = #samples
@@ -76,6 +93,14 @@ function ns.Cursor_AddSample(samples, t, x, y, window)
 		end
 	end
 	return samples
+end
+
+-- Appends { t, x, y } to samples (oldest first) and drops samples older than the window. Returns samples.
+function ns.Cursor_AddSample(samples, t, x, y, window)
+	local s = Reuse(samples)
+	s.t, s.x, s.y = t, x, y
+	samples[#samples + 1] = s
+	return ns.Cursor_DropSamples(samples, t - (window or WINDOW))
 end
 
 -- Turns around along one axis ("x" or "y"): how many times the movement changed direction after a leg of at
@@ -171,9 +196,11 @@ function ns.Cursor_TrailAdd(points, t, x, y, gap, max)
 		end
 	end
 	points.serial = (points.serial or 0) + 1
-	points[#points + 1] = { t = t, x = x, y = y, n = points.serial }
+	local p = Reuse(points)
+	p.t, p.x, p.y, p.n = t, x, y, points.serial
+	points[#points + 1] = p
 	while #points > max do
-		table.remove(points, 1)
+		Recycle(points, table.remove(points, 1))
 	end
 	return points
 end
@@ -183,7 +210,7 @@ end
 -- garbage.
 function ns.Cursor_TrailFade(points, now, life, out)
 	while points[1] and now - points[1].t >= life do
-		table.remove(points, 1)
+		Recycle(points, table.remove(points, 1))
 	end
 	local fade = out or {}
 	for i, p in ipairs(points) do
