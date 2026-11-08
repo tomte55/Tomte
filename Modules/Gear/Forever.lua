@@ -284,19 +284,21 @@ local function Toast(item)
 	local color = ITEM_QUALITY_COLORS[quality or 1]
 	ns.Session_Note("upgrade", { title = name or item.link, icon = icon, quality = quality,
 		itemID = C_Item.GetItemInfoInstant(item.link), detail = ns.Gear_RevealLabel(v) })
+	local replaces = oldName and ("Replaces " .. oldName .. ". ") or ""
 	ns.Toast_Show({
 		owner = "gear",
 		label = ns.Gear_RevealLabel(v),
 		accent = { color.r, color.g, color.b },
 		title = name or item.link,
-		text = (oldName and ("Replaces " .. oldName .. ". ") or "") .. "Click to equip, right-click to dismiss.",
+		-- A bank item can't be equipped from here: the toast only says where it is.
+		text = item.bank and ("In your bank. " .. replaces) or (replaces .. "Click to equip, right-click to dismiss."),
 		icon = icon,
 		hold = TOAST_HOLD,
 		holdInCombat = true,
 		upgradeItemID = C_Item.GetItemInfoInstant(item.link),
-		onClick = function()
+		onClick = not item.bank and function()
 			Equip(item.link, name, icon, oldName)
-		end,
+		end or nil,
 	})
 end
 
@@ -385,6 +387,45 @@ function Scan()
 	end
 end
 
+-- After a level-up: gear in the bags and in the bank (as Item counts last saw it) that this level lets you wear, toasted
+-- when it's an upgrade. What you could already wear isn't toasted again. tries: items still loading are waited for.
+local function LevelUpScan(level, tries)
+	if not (module.active and db.revealToast) then
+		return
+	end
+	local ctx = NewContext(level)
+	local judged, loading = {}, false
+	local function Add(link, bank)
+		local verdict, cand = Evaluate(link, ctx)
+		if not cand then
+			loading = true
+		elseif verdict and ns.GearForever_NewlyWearable(cand, level - 1, level) then
+			judged[#judged + 1] = { link = link, verdict = verdict, bank = bank }
+		end
+	end
+	for _, link in ipairs(BagLinks()) do
+		Add(link, false)
+	end
+	if ns.Counts_Bank then
+		for _, item in ipairs((ns.Counts_Bank(UnitGUID("player")))) do
+			local _, _, _, equipLoc = C_Item.GetItemInfoInstant(item.link or item.id)
+			if item.link and equipLoc and equipLoc ~= "" then
+				Add(item.link, true)
+			end
+		end
+	end
+	if loading and tries < MAX_TRIES then
+		C_Timer.After(RETRY, function()
+			LevelUpScan(level, tries + 1)
+		end)
+		return
+	end
+	local picks = ns.Gear_PickReveals(judged, 0)
+	for i = 1, math.min(#picks, MAX_TOASTS) do
+		Toast(picks[i])
+	end
+end
+
 -- Events -------------------------------------------------------------------------------------------------------------
 
 events:On("gear", "PLAYER_ENTERING_WORLD", function()
@@ -414,13 +455,16 @@ events:On("gear", "SKILL_LINES_CHANGED", function()
 	Invalidate()
 end)
 
-events:On("gear", "PLAYER_LEVEL_UP", function()
+events:On("gear", "PLAYER_LEVEL_UP", function(_, level)
 	ns.GearForever_ForgetAll()
 	Invalidate()
 	C_Timer.After(LEVEL_LAG, function()
 		if module.active then
 			ns.GearForever_ForgetAll()
 			Invalidate()
+			if type(level) == "number" then
+				LevelUpScan(level, 0)
+			end
 		end
 	end)
 end)
@@ -551,10 +595,10 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "showReasons", label = "Show reasons",
 			tooltip = "Short lines under the verdict, e.g. the damage of both weapons." },
 		{ type = "checkbox", key = "showDowngrades", label = "Show downgrades" },
-		{ type = "checkbox", key = "levelingIlvl", label = "While leveling, higher item level wins", onChange = Invalidate,
-			tooltip = "Below level 60, gear 5 or more item levels higher is an upgrade and 5 or more lower a downgrade. Closer than that, or lighter armor, goes by the stats and armor on it, enchants included. "
-				.. "Weapons still go by damage for the classes that swing them, and by their stats for the rest (a "
-				.. "hunter's melee weapon). Off, rough stat values for your class decide." },
+		{ type = "checkbox", key = "levelingIlvl", label = "While leveling, item level judges gear without stats",
+			onChange = Invalidate,
+			tooltip = "Stats, armor and enchants always decide first, and weapons go by damage for the classes that swing them. "
+				.. "Below level 60, between two items with nothing on them (a plain ring), the higher item level is the upgrade." },
 		{ type = "checkbox", key = "compareTooltips", label = "Also on comparison tooltips",
 			tooltip = "The tooltips of your equipped items that appear next to the hovered one." },
 		{ type = "header", label = "New gear" },
@@ -566,7 +610,8 @@ module = ns.RegisterModule({
 			.. "for the most. Move it with /tomte unlock." },
 		{ type = "checkbox", key = "revealToast", label = "Equip toast",
 			tooltip = "A toast when gear new to your bags is a clean upgrade: click it to equip the item, right-click to "
-				.. "dismiss. Not in combat." },
+				.. "dismiss. Not in combat. When you level up, gear in your bags or bank that the new level lets you wear "
+				.. "gets one too (the bank as Item counts last saw it)." },
 		{ type = "checkbox", key = "equipSound", label = "Sound when equipped", parent = "revealToast",
 			tooltip = "Play the item upgrade sound with the \"Equipped\" toast once the upgrade from the toast is worn." },
 		{ type = "checkbox", key = "rollAdvice", label = "Roll advice", onChange = function()

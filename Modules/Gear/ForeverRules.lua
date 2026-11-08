@@ -1,9 +1,9 @@
 local addonName, ns = ...
 
 -- Gear Check on World of Warcraft: Forever: pure logic (no WoW API calls; unit-tested in tests/test_gear_forever.lua).
--- A leveling helper: while leveling a clearly higher item level wins, weapons go by damage for the classes that swing them, and
--- rough per-class stat values decide the rest, counting what's enchanted on the item. Forever has no specs (one per class in the
--- API) and a ranged slot.
+-- A leveling helper: weapons go by damage for the classes that swing them, and rough per-class stat values (armor and what's
+-- enchanted on the item included) decide the rest; only between items with nothing on them does the item level, while leveling.
+-- Forever has no specs (one per class in the API) and a ranged slot.
 -- Verdicts use retail's kinds, so Gear_Headline, Gear_IsCleanUpgrade, Gear_PickReveals and the reward card (Rules.lua,
 -- Rewards.lua) work on them. Items are the descriptors from ForeverItems.lua: { link, itemID, equipLoc, classID,
 -- subclassID, subclassName, ilvl, minLevel, stats, dps, unique, redText, redSkill and redSkillText (the type line is red),
@@ -22,7 +22,7 @@ local ARMOR_LOCS = {
 }
 local RANGED_LOCS = { INVTYPE_RANGED = true, INVTYPE_RANGEDRIGHT = true, INVTYPE_THROWN = true, INVTYPE_RELIC = true }
 
--- Rough values for telling apart gear of the same item level; item level and damage decide everything else. A primary
+-- Rough values for telling gear apart; damage decides weapons for the classes that swing them. A primary
 -- stat missing here makes an item "wrong main stat". Hybrids keep what any of their ways to level can use. AP (attack power)
 -- is half a point of the stat that gives it: a point of Strength or Agility is worth about two. RAP is ranged attack power.
 -- From Equip lines (GearForever_ParseEquip): SP spell damage and healing, SPSCHOOL one school's damage, HEAL healing,
@@ -58,9 +58,6 @@ local EQUIP_STATS = {
 	{ "Restores (%d+) mana per 5 sec", "MP5" },
 }
 local ARMOR_WEIGHT = 0.02 -- per point of armor: enough to split two items that are otherwise the same
--- Item levels apart before the item level alone decides while leveling. Closer than this says little: Patchwork Armor is 2 levels
--- above a leather vest with almost three times its armor.
-local CLEAR_ILVL_GAP = 5
 
 -- Who judges melee weapons and ranged weapons by their damage; for the others item level and stats decide.
 local MELEE_DPS = { WARRIOR = true, PALADIN = true, ROGUE = true, SHAMAN = true }
@@ -479,17 +476,13 @@ function ns.GearForever_Evaluate(cand, equipped, ctx)
 		return ByPercent(verdict, (Dps(cand) - oldDps) / oldDps * 100, verdict.warnings > 0)
 	end
 
-	-- The item level decides while leveling, unless the stats can say better: it's only a little apart, or lighter armor, where a
-	-- higher item level still means less armor. With no stats on either there's only the item level to go by.
+	-- The stats, armor and enchants on the items decide. Only with nothing on either (a plain ring, a caster's sword) does the
+	-- item level, while leveling: a higher one is then the better item for your level.
 	local newScore = Score(cand, weights)
 	local hasStats = oldScore > 0 or newScore > 0
 	local higher = cand.ilvl and topIlvl and cand.ilvl > topIlvl
 	local lower = cand.ilvl and lowIlvl and cand.ilvl < lowIlvl
-	local clear = (higher and cand.ilvl - topIlvl >= CLEAR_ILVL_GAP) or (lower and lowIlvl - cand.ilvl >= CLEAR_ILVL_GAP)
-	-- A weapon this class doesn't fight with (a hunter's melee weapon, a caster's staff) is a stat stick: what it adds
-	-- decides, and its item level mostly says how hard it hits, which doesn't count.
-	local statStick = cand.classID == WEAPON_CLASS_ID and not byDamage and hasStats
-	if ctx.leveling and not statStick and not (hasStats and (lighter or not clear)) then
+	if ctx.leveling and not hasStats then
 		if higher then
 			verdict.kind = "levelUp"
 			verdict.ilvlDiff = cand.ilvl - topIlvl
@@ -515,6 +508,13 @@ function ns.GearForever_Evaluate(cand, equipped, ctx)
 		verdict.reasons, verdict.warnings = {}, 0 -- it stays where it is, so nothing to warn about
 	end
 	return verdict
+end
+
+-- Whether reaching newLevel from oldLevel is what lets you wear the item (its level requirement is in between), so a
+-- level-up toasts it once and not what you could already wear and chose not to.
+function ns.GearForever_NewlyWearable(cand, oldLevel, newLevel)
+	local need = cand and cand.minLevel
+	return need ~= nil and need > oldLevel and need <= newLevel
 end
 
 -- Bags: which links are new since the last look. before: [link] = count (replaced by the counts of links). A second

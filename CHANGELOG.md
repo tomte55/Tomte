@@ -20,6 +20,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Hunter Pets:** on Forever, a button when no aspect is on (out of combat, away from inns and cities): one click or a key puts on Aspect of the Hawk, or the Monkey before you have the Hawk.
 - **Hunter Pets:** a toast when Growl is left off with your pet out and you're alone in the open world, as after a dungeon.
 - **Gold & value:** whether an item is worth listing at the Auction House or selling to a vendor: a line on its tooltip (the price after the 5% cut, how often it sells and how many sell a day, from TSM), and an AH mark on bag items worth listing, so they don't get vendored by mistake. Vendor Helper's grey selling skips them too.
+- **Gear Check:** on Forever, when you level up, gear in your bags or bank that the new level lets you wear gets an upgrade toast (click to equip from the bags; for the bank it says it's there).
 
 ### Improved
 
@@ -33,6 +34,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 ### Fixed
 
 - **Waypoints:** on Forever, which has no in-world markers, it now shows an arrow that points to the quest, map pin or corpse you track, with the distance and arrival time. Edit Mode moves it.
+- **Gear Check:** on Forever, the stats, armor and enchants on gear always decide over its item level, so higher-level gear with less on it than yours is no longer an upgrade, and lower-level gear with clearly more on it is no longer a downgrade. The item level only judges gear with no stats at all.
 
 ## v1.31.0 - 2026-11-08
 

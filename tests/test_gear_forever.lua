@@ -283,14 +283,23 @@ test("a small item level gap goes by what's on the item", function()
 	eq(ns.GearForever_Evaluate(Chest(14, MAIL, { ARMOR = 100 }), worn, Ctx("WARRIOR", 12)).kind, "downgrade", "4 apart")
 end)
 
-test("a clear item level gap still wins while leveling", function()
+test("stats decide over a big item level gap too", function()
 	local worn = { [5] = Chest(10, MAIL, { ARMOR = 100, STR = 10 }) }
-	local v = ns.GearForever_Evaluate(Chest(15, MAIL, { ARMOR = 100 }), worn, Ctx("WARRIOR", 15))
-	eq(v.kind, "levelUp")
-	eq(v.ilvlDiff, 5)
-	v = ns.GearForever_Evaluate(Chest(5, MAIL, { ARMOR = 100, STR = 90 }), worn, Ctx("WARRIOR", 15))
+	eq(ns.GearForever_Evaluate(Chest(15, MAIL, { ARMOR = 120, STR = 12 }), worn, Ctx("WARRIOR", 15)).kind, "upgrade")
+	eq(ns.GearForever_Evaluate(Chest(5, MAIL, { ARMOR = 100, STR = 90 }), worn, Ctx("WARRIOR", 15)).kind, "upgrade",
+		"lower, but far better")
+end)
+
+test("a higher item level with less on it isn't an upgrade", function()
+	-- Plain boots 7 levels up against the same armor with Agility, Stamina and an armor kit.
+	local worn = Chest(10, LEATHER, { ARMOR = 53, AGI = 4, STA = 4 })
+	worn.enchant, worn.enchantText = { STA = 1, ARMOR = 8 }, "Stamina +1 and Armor +8"
+	local v = ns.GearForever_Evaluate(Chest(17, LEATHER, { ARMOR = 53 }), { [5] = worn }, Ctx("HUNTER", 17))
 	eq(v.kind, "downgrade")
-	eq(v.levelDown, true)
+	eq(#v.reasons, 0)
+	v = ns.GearForever_Evaluate(Chest(15, MAIL, { ARMOR = 100, STR = 4 }), { [5] = Chest(10, MAIL, { ARMOR = 100, STR = 10 }) },
+		Ctx("WARRIOR", 15))
+	eq(v.kind, "downgrade", "fewer of the same stats")
 end)
 
 test("with no stats on either, the item level still decides", function()
@@ -306,7 +315,7 @@ test("what's enchanted counts, and losing it says so", function()
 	eq(ns.GearForever_Evaluate(plain, { [5] = kitted }, Ctx("WARRIOR", 12)).kind, "downgrade", "a little more armor doesn't pay for the kit")
 	local better = Chest(16, MAIL, { ARMOR = 80 })
 	local v = ns.GearForever_Evaluate(better, { [5] = kitted }, Ctx("WARRIOR", 16))
-	eq(v.kind, "levelUp")
+	eq(v.kind, "upgradeBut")
 	eq(v.warnings, 1)
 	eq(v.reasons[1], "You'd lose the enchant on yours (Stamina +1 and Armor +8)")
 	better.enchantText = "Agility +1"
@@ -530,6 +539,14 @@ test("NewItems finds what's new and second copies", function()
 	eq(new[2], "c")
 	new = ns.GearForever_NewItems(now, { "a" })
 	eq(#new, 0)
+end)
+
+test("NewlyWearable: only what this level-up unlocked", function()
+	eq(ns.GearForever_NewlyWearable({ minLevel = 18 }, 17, 18), true)
+	eq(ns.GearForever_NewlyWearable({ minLevel = 17 }, 17, 18), false, "could wear it already")
+	eq(ns.GearForever_NewlyWearable({ minLevel = 19 }, 17, 18), false, "not yet")
+	eq(ns.GearForever_NewlyWearable({ minLevel = 19 }, 17, 19), true, "two levels at once")
+	eq(ns.GearForever_NewlyWearable({}, 17, 18), false, "no requirement")
 end)
 
 H.done()
