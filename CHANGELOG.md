@@ -17,10 +17,13 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
 - **Hidden settings (new module):** the game's settings that its own Settings panel leaves out, such as camera zoom distance, class-colored names in chat, casting on key press and the spell queue window, with a few more on World of Warcraft: Forever. Each row says when it isn't at the game's default, and "Show" lists every game setting that isn't, for example after another addon changed them. Turning it off puts back what you changed.
+- **DPS meter (new module):** a small meter with the damage per second of the top three in your fight, and your own place under them when you're further down. Shows in a group during a fight and a few seconds after. Off by default; works on retail and World of Warcraft: Forever.
 - **Quest list (new module):** World of Warcraft: Forever only, off by default. Replaces the game's quest tracker with a list grouped by where your quests are: the nearest stops first, named by their direction from you, the rest in one folded Other quests group, and a dungeon's quests on top while you're in it. Objectives as bars or text, XP and distance per quest, the active quest on top of its group, Shift-click to hide a quest, a box to follow the nearest quest, Spoken's Play button on each quest, and plenty of settings for its look and when it shows. Next quests steps aside while it's on.
 
 ### Improved
 
+- **Gear Check:** the quest reward card picks a recipe for one of your professions when no gear is an upgrade, and says when you can learn it.
+- **Quest list:** following the nearest quest leaves your own map pin alone, and picks up again once you remove it. Next quests does the same.
 - **Gear Check:** on World of Warcraft: Forever, a one-hander that fills an empty off-hand counts for warriors, rogues and hunters who dual wield, and says "Upgrade once you learn Dual Wield" before you've learned it (so the roll advice says Need).
 
 ### Fixed

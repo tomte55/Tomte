@@ -324,7 +324,15 @@ end
 -- The top quest becomes the active one (marked on the map; Waypoints' arrow follows it) when it changes. Through
 -- ns.SafeTrack: the map and tracker redraw inside the call, which in combat hits protected frames.
 local function Follow(q)
-	if not (q and C_SuperTrack) or q.questID == followed then
+	if not (q and C_SuperTrack) then
+		return
+	end
+	-- Your own map pin (or corpse) is what you're heading for: hands off until it goes (ns.OwnTargetTracked).
+	if ns.OwnTargetTracked() then
+		followed = nil
+		return
+	end
+	if q.questID == followed then
 		return
 	end
 	followed = q.questID
@@ -430,6 +438,7 @@ local WATCHED = {
 	GROUP_ROSTER_UPDATE = UpdateSoon,
 	QUEST_WATCH_LIST_CHANGED = UpdateSoon,
 	SUPER_TRACKING_CHANGED = UpdateSoon,
+	USER_WAYPOINT_UPDATED = UpdateSoon,
 }
 for event, fn in pairs(WATCHED) do
 	events:On(OWNER, event, fn)

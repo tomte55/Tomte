@@ -189,6 +189,23 @@ function ns.TrackPin(mapID, x, y)
 	end)
 end
 
+-- Something of the player's own is tracked: a map pin they placed (tracked or not), their corpse, or any other target
+-- that isn't a quest. Widgets that pick the active quest by themselves (Quest list's and Next quests' follow) leave it
+-- alone then: making a quest active drops the pin's tracking (LevelingPage_MakeActive).
+function ns.OwnTargetTracked()
+	if C_Map.HasUserWaypoint and C_Map.HasUserWaypoint() then
+		return true
+	end
+	if not C_SuperTrack then
+		return false
+	end
+	if C_SuperTrack.IsSuperTrackingUserWaypoint and C_SuperTrack.IsSuperTrackingUserWaypoint() then
+		return true
+	end
+	local kind = C_SuperTrack.GetHighestPrioritySuperTrackingType and C_SuperTrack.GetHighestPrioritySuperTrackingType()
+	return kind ~= nil and kind ~= Enum.SuperTrackingType.Quest
+end
+
 events:On("safetrack", "PLAYER_REGEN_ENABLED", function(self)
 	self:Unwatch("safetrack", "PLAYER_REGEN_ENABLED")
 	local fn = afterCombat
