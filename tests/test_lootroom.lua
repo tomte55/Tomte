@@ -121,4 +121,13 @@ test("Text says what will happen", function()
 	eq(ns.LootRoom_Text({ kind = "leave", loot = loot }):find("Leave Linen", 1, true) ~= nil, true)
 end)
 
+test("Nothing is offered for destroying while a group roll for the loot is open", function()
+	local loot = { name = "Linen", quality = 1, sell = 500, quantity = 1 }
+	local plan = ns.LootRoom_Plan(loot, { grey(0, 1, 3) }, true)
+	eq(plan.kind, "rolling")
+	eq(plan.target, nil, "no target: nothing to destroy")
+	eq(ns.LootRoom_Text(plan):find("Waiting for the roll on Linen", 1, true) ~= nil, true)
+	eq(ns.LootRoom_Plan(loot, { grey(0, 1, 3) }, false).kind, "destroy", "once it's yours")
+end)
+
 H.done()

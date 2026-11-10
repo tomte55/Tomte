@@ -68,10 +68,14 @@ function ns.LootRoom_PickLoot(blocked)
 end
 
 -- What to do for loot, given the items in bags that could take it. Each candidate: { bag, slot, name, count, quality, ... }.
--- Returns { kind = "destroy", target, loot, confirm } | { kind = "leave", loot, target } | { kind = "stuck", loot }. Greys go first,
+-- Returns { kind = "destroy", target, loot, confirm } | { kind = "leave", loot, target } | { kind = "stuck", loot }
+-- | { kind = "rolling", loot } (a group roll for it is still open: nothing goes before it's yours). Greys go first,
 -- cheapest first, as they're what nobody is saving. Not worth it: everything you could destroy is worth at least what's on the corpse.
 -- That isn't offered even with a second click: players click the red button without reading it (seen on Forever, 1.31).
-function ns.LootRoom_Plan(loot, candidates)
+function ns.LootRoom_Plan(loot, candidates, rolling)
+	if rolling then
+		return { kind = "rolling", loot = loot }
+	end
 	local best, bestTier
 	for _, item in ipairs(candidates) do
 		local tier = ns.LootRoom_MayDestroy(item)
@@ -104,7 +108,9 @@ end
 -- The button's text: two lines. armed: the first click of a confirmation has been made.
 function ns.LootRoom_Text(plan, armed)
 	local lootName = plan.loot.name or "this"
-	if plan.kind == "stuck" then
+	if plan.kind == "rolling" then
+		return ("Bags full. Waiting for the roll on %s:\nmake room once you've won it."):format(lootName)
+	elseif plan.kind == "stuck" then
 		return ("Bags full, and nothing safe to destroy.\nMake room by hand for %s."):format(lootName)
 	elseif plan.kind == "leave" then
 		return ("Bags full. Leave %s:\nit's worth less than anything you'd destroy."):format(lootName)

@@ -384,6 +384,22 @@ events:On(OWNER, "GET_ITEM_INFO_RECEIVED", rereadSoon)
 
 -- Take all ----------------------------------------------------------------------------------------------------------
 
+-- A group roll started or was decided (Room.lua, Forever): the open loot is read again, so a rolled item shows locked
+-- until it's yours, and fast loot tries a slot again once its roll is over.
+function ns.Loot_RollsChanged()
+	if not (session and session.open) then
+		return
+	end
+	for slot, e in pairs(session.entries) do
+		if e.rolling then
+			session.tried[slot] = nil
+		end
+	end
+	Reread()
+	Redraw()
+	FastPass()
+end
+
 function ns.Loot_TakeAll()
 	if not (module.active and session and session.open) then
 		return

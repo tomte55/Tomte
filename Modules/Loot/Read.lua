@@ -143,6 +143,11 @@ function ns.Loot_ReadSlot(slot, opts)
 			ItemExtras(e, opts)
 		end
 	end
+	-- Forever's loot doesn't lock an item while the group rolls for it, and taking it then only gets the game's "still
+	-- being rolled for" error: it counts as locked until the roll is decided (Make room tracks the rolls, Room.lua).
+	if e.kind == "item" and not e.locked and ns.LootRoom_Rolling and ns.LootRoom_Rolling(e.name) then
+		e.locked, e.rolling = true, true
+	end
 	return e
 end
 

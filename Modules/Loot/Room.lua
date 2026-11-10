@@ -12,6 +12,7 @@ local MIN_WIDTH = 260 -- two lines of item names fit
 local ARM_SECONDS = 5 -- how long the first click of a confirmation counts
 local LOOT_WAIT = 3 -- seconds: the deleted item has to leave the bags before the loot fits; after this it's left to the player
 local HEARTHSTONE = 6948
+local ROLL_GRACE = 5 -- seconds past a roll's time limit before it's taken as over (the server's answer can lag)
 
 local UI = ns.UI
 
@@ -20,8 +21,74 @@ local window -- the loot window, while it can loot
 local entries
 local plan
 local armedFor -- the bag and slot of the item the first click named
-local pending -- { slot = the loot slot to take once the bags have changed, at = GetTime() }
+local pending -- { slot, at = GetTime(), name, gone = the destroyed item's link }: loot to take once the bags have changed
+-- [rollID] = { name, handle (the corpse's lootHandle), ends (GetTime) }: group rolls not decided yet. A roll is open
+-- from START_LOOT_ROLL until you win it (LOOT_ITEM_ROLL_WON), every roll on the corpse is done (LOOT_ROLLS_COMPLETE)
+-- or its time limit has passed. Not until CANCEL_LOOT_ROLL: that comes as soon as you pick Need or Greed (it hides
+-- your roll frame), while the others are still rolling (Living Root was offered for destroying mid-roll that way).
+local rolls = {}
 local watcher = CreateFrame("Frame")
+
+local function ItemName(link)
+	return link and link:match("%[(.-)%]")
+end
+
+local function Rolling(name)
+	local now = GetTime()
+	for rollID, roll in pairs(rolls) do
+		if now > roll.ends then
+			rolls[rollID] = nil
+		elseif roll.name == name or roll.name == nil then
+			return true -- an unnamed roll (its item not loaded yet) holds every loot back, to be safe
+		end
+	end
+	return false
+end
+
+-- For the loot reader (Read.lua): an item counts as locked while it's rolled for.
+ns.LootRoom_Rolling = Rolling
+
+local Refresh
+
+local function OnRoll(event, ...)
+	if event == "START_LOOT_ROLL" then
+		local rollID, rollTime, handle = ...
+		-- The link can lag an uncached item; the roll's own info names it too.
+		local _, name = GetLootRollItemInfo(rollID)
+		local seconds = (tonumber(rollTime) or 60000) / 1000 + ROLL_GRACE
+		rolls[rollID] = { name = ItemName(GetLootRollItemLink(rollID)) or name, handle = handle, ends = GetTime() + seconds }
+		C_Timer.After(seconds + 0.1, function()
+			ns.Loot_RollsChanged()
+			Refresh()
+		end)
+	elseif event == "LOOT_ITEM_ROLL_WON" then
+		local name = ItemName(...)
+		for rollID, roll in pairs(rolls) do
+			if roll.name == name then
+				rolls[rollID] = nil
+			end
+		end
+	elseif event == "LOOT_ROLLS_COMPLETE" then
+		local handle = ...
+		for rollID, roll in pairs(rolls) do
+			if roll.handle == nil or roll.handle == handle then
+				rolls[rollID] = nil
+			end
+		end
+	elseif event == "CANCEL_ALL_LOOT_ROLLS" then
+		wipe(rolls)
+	end
+end
+
+-- The loot slot as the game has it right now (the window's entries can lag a roll or another player's looting): the item
+-- is still there, still the same one, and not locked to you.
+local function SlotStillYours(loot)
+	if not (LootSlotHasItem(loot.slot)) then
+		return false
+	end
+	local _, name, _, _, _, locked = GetLootSlotInfo(loot.slot)
+	return name == loot.name and not locked and not Rolling(loot.name)
+end
 
 local function ReadCandidate(bag, slot, info)
 	local _, _, _, _, _, classID, subclassID = C_Item.GetItemInfoInstant(info.itemID)
@@ -75,7 +142,7 @@ local function ReadPlan()
 		end
 	end
 	local loot = ns.LootRoom_PickLoot(blocked)
-	return loot and ns.LootRoom_Plan(loot, read[loot]) or nil
+	return loot and ns.LootRoom_Plan(loot, read[loot], Rolling(loot.name)) or nil
 end
 
 -- The item the button would destroy, lit in the bags so it can be looked at first.
@@ -101,7 +168,7 @@ local function HideButton()
 	ns.Bags_Spotlight(nil)
 end
 
-local function Refresh()
+Refresh = function()
 	if not (button and window and db.makeRoom) then
 		HideButton()
 		return
@@ -145,6 +212,11 @@ local function OnClick()
 		return
 	end
 	local target = plan.target
+	-- Nothing is destroyed for loot that has been rolled on, taken or locked since the window last drew.
+	if not SlotStillYours(plan.loot) then
+		Refresh()
+		return
+	end
 	if plan.confirm and not (armedFor and armedFor.bag == target.bag and armedFor.slot == target.slot) then
 		armedFor = { bag = target.bag, slot = target.slot }
 		local armed = armedFor
@@ -159,7 +231,8 @@ local function OnClick()
 	end
 	armedFor = nil
 	if Destroy(target) then
-		local waiting = { slot = plan.loot.slot, at = GetTime() }
+		local waiting = { slot = plan.loot.slot, at = GetTime(), name = plan.loot.name,
+			gone = target.link or target.name }
 		pending = waiting
 		button:SetEnabled(false) -- until the bags have changed: one item per click, and this one has gone
 		C_Timer.After(LOOT_WAIT, function() -- the bags never answered: don't leave the button dead
@@ -168,6 +241,25 @@ local function OnClick()
 				Refresh()
 			end
 		end)
+	end
+end
+
+-- The destroyed item can't come back; if the loot went elsewhere meanwhile, say so plainly.
+local function LostLoot(waiting)
+	ns.Print(("%s was taken before Tomte could loot it. %s was destroyed for it."):format(waiting.name or "The loot",
+		waiting.gone or "An item"))
+end
+
+local function TakePending()
+	local waiting = pending
+	pending = nil
+	if not (window and GetTime() - waiting.at <= LOOT_WAIT) then
+		return
+	end
+	if LootSlotHasItem(waiting.slot) and select(2, GetLootSlotInfo(waiting.slot)) == waiting.name then
+		LootSlot(waiting.slot)
+	else
+		LostLoot(waiting)
 	end
 end
 
@@ -212,6 +304,9 @@ local function Build(parent)
 	button:HookScript("OnLeave", GameTooltip_Hide)
 	button:Hide()
 	parent:HookScript("OnHide", function()
+		if pending then
+			LostLoot(pending)
+		end
 		watcher:UnregisterAllEvents()
 		window, entries, plan, armedFor, pending = nil, nil, nil, nil, nil
 		ns.Bags_Spotlight(nil)
@@ -220,14 +315,25 @@ end
 
 watcher:SetScript("OnEvent", ns.Perf_WrapEvents(function()
 	if pending then
-		local slot, at = pending.slot, pending.at
-		pending = nil
-		if window and GetTime() - at <= LOOT_WAIT then
-			LootSlot(slot)
-		end
+		TakePending()
 	end
 	Refresh()
 end))
+
+-- Rolls are watched from login: a roll starts as soon as anyone opens the corpse, often before your own loot window
+-- (Tail Spike was offered for destroying mid-roll when this only started with the window), and it can outlast it.
+-- The game's loot window doesn't mark a rolled item as locked on Forever, so these events are the only sign.
+local rollWatcher = CreateFrame("Frame")
+rollWatcher:SetScript("OnEvent", ns.Perf_WrapEvents(function(_, event, ...)
+	OnRoll(event, ...)
+	ns.Loot_RollsChanged()
+	Refresh()
+end))
+for _, event in ipairs({ "START_LOOT_ROLL", "LOOT_ITEM_ROLL_WON", "LOOT_ROLLS_COMPLETE", "CANCEL_ALL_LOOT_ROLLS" }) do
+	if ns.EventValid(event) then
+		rollWatcher:RegisterEvent(event)
+	end
+end
 
 -- From the loot window, each time it draws. live: it's showing real loot that can be taken.
 function ns.LootRoom_Update(parent, live, lootEntries)
