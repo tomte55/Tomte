@@ -17,6 +17,10 @@ local INFO_BURST = 0.3 -- seconds: item data arrives in bursts
 -- Verdict color keys (Rules.lua) to theme roles, as retail's tooltip does.
 local COLOR_ROLES = { green = "success", yellow = "warning", grey = "textMuted", red = "danger", orange = "warning" }
 local MAX_REASONS = 3
+-- Dual Wield, the spell a warrior's, rogue's or hunter's trainer teaches; learning it changes skill lines, which
+-- rebuilds the context (SKILL_LINES_CHANGED below).
+local DUAL_WIELD_SPELL = 674
+local DUAL_WIELD_NAME = "Dual Wield" -- as ForeverRules.lua names it in "Upgrade once you learn Dual Wield"
 
 local UI = ns.UI
 local events = ns.Gear_Events
@@ -35,7 +39,8 @@ local equipping -- { itemID, name, icon, oldName, untilTime }: clicked on the to
 local function NewContext(level, assumeTrained)
 	local _, class = UnitClass("player")
 	return ns.GearForever_Context({ class = class, level = level, rangedSlot = ns.GearForever_RangedSlot(),
-		levelingIlvl = db.levelingIlvl, weaponSkills = ns.GearForever_WeaponSkills(), assumeTrained = assumeTrained })
+		levelingIlvl = db.levelingIlvl, weaponSkills = ns.GearForever_WeaponSkills(), assumeTrained = assumeTrained,
+		dualWield = ns.SpellKnown(DUAL_WIELD_SPELL) })
 end
 
 local function Context()
@@ -96,6 +101,9 @@ end
 -- Gear you can't use yet that will be an upgrade: a few levels ahead, or once a trainer teaches you its weapon type.
 -- Returns what it waits for ("Upgrade at level 17"), or nil. verdict: the item's verdict now.
 local function Later(link, verdict)
+	if verdict and verdict.offHandLater then
+		return ns.GearRoll_LaterText({ kind = "empty", untrained = DUAL_WIELD_NAME })
+	end
 	if not (verdict and verdict.kind == "notForYou") then
 		return nil
 	end
@@ -161,7 +169,7 @@ local function OnItem(tooltip)
 		return
 	end
 	local verdict = Evaluate(link)
-	if not verdict or (verdict.kind == "downgrade" and not db.showDowngrades) then
+	if not verdict or (verdict.kind == "downgrade" and not db.showDowngrades and not verdict.offHandLater) then
 		return
 	end
 	local headline, color = ns.Gear_Headline(verdict)
@@ -171,7 +179,9 @@ local function OnItem(tooltip)
 		tooltip:AddLine(UI.Wrap("   " .. later .. ": keep it", ns.GEAR_ARROW_ROLES.later), nil, nil, nil, true)
 	end
 	-- A weapon skill to learn: who teaches it.
-	if (verdict.why and verdict.why:find("weapon trainer", 1, true)) or (later and later:find("learn", 1, true)) then
+	-- (Dual Wield comes from the class trainer, not a weapon master.)
+	if not verdict.offHandLater
+		and ((verdict.why and verdict.why:find("weapon trainer", 1, true)) or (later and later:find("learn", 1, true))) then
 		local cand = ns.GearForever_Describe(link)
 		local teacher = cand and ns.GearForever_TeacherText(ns.Content_Get(ns.CONTENT_FOREVER, "weaponMasters"),
 			cand.subclassID, (UnitFactionGroup("player")))

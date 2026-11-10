@@ -68,6 +68,10 @@ local STAT_STICK = { HUNTER = { AGI = 1, STA = 0.5, AP = 0.5, RAP = 0.5, MCRIT =
 local RANGED_DPS = { HUNTER = true }
 local WAND_DPS = { MAGE = true, PRIEST = true, WARLOCK = true } -- a caster's wand is its autoattack
 local SKILL_BEHIND = 10 -- a weapon skill this far under its cap is worth a warning: you'd miss more with it
+-- The level each class's trainer teaches Dual Wield, as in the original game (shamans and the rest never had it there).
+local DUAL_WIELD_FROM = { ROGUE = 10, WARRIOR = 20, HUNTER = 20 }
+local DUAL_WIELD = "Dual Wield"
+local ONE_HAND_WEAPON = { INVTYPE_WEAPON = true, INVTYPE_WEAPONOFFHAND = true }
 
 -- Enum.ItemWeaponSubclass -> weapon skill line, the IDs in Blizzard's Camelot/SkillsFrame.lua. Also read by Modules/Leveling.
 ns.GEARFOREVER_WEAPON_SKILLS = {
@@ -76,7 +80,7 @@ ns.GEARFOREVER_WEAPON_SKILLS = {
 }
 
 -- The context to judge with. opts: { level, class, rangedSlot (nil when the client has none), levelingIlvl (setting),
--- weaponSkills ([weapon subclass] = { name, rank, max }), assumeTrained }.
+-- weaponSkills ([weapon subclass] = { name, rank, max }), assumeTrained, dualWield (Dual Wield is known) }.
 function ns.GearForever_Context(opts)
 	local weights = WEIGHTS[opts.class] or ANY_CLASS
 	return {
@@ -87,6 +91,7 @@ function ns.GearForever_Context(opts)
 		weights = weights,
 		leveling = opts.levelingIlvl ~= false and (opts.level or 0) < MAX_LEVEL,
 		assumeTrained = opts.assumeTrained, -- judge weapon types a trainer can teach you as if learned (roll advice)
+		dualWield = opts.dualWield,
 	}
 end
 
@@ -324,6 +329,16 @@ function ns.GearForever_Unusable(cand, ctx)
 	return nil, untrained
 end
 
+-- Whether this character can hold a weapon in each hand: "known", "learnable" (its trainer teaches Dual Wield at its
+-- level) or nil.
+local function DualWield(ctx)
+	if ctx.dualWield then
+		return "known"
+	end
+	local from = DUAL_WIELD_FROM[ctx.class]
+	return from and ctx.level and ctx.level >= from and "learnable" or nil
+end
+
 -- What the candidate replaces: { mode = "single" | "weaker" | "sum" | "pair" | "empty", slots }.
 local function Target(cand, equipped, ctx)
 	if RANGED_LOCS[cand.equipLoc] and ctx.rangedSlot then
@@ -331,6 +346,19 @@ local function Target(cand, equipped, ctx)
 	end
 	return ns.Gear_Target(cand, equipped)
 end
+
+-- Whether a one-hander could go in an empty off-hand next to the one-hander in the main hand: "known" or "learnable"
+-- (Dual Wield from the trainer), nil when not. The shared rules only ever weigh it against the main hand.
+local function OffHandFree(cand, equipped, ctx)
+	local mh = equipped[16]
+	if cand.classID ~= WEAPON_CLASS_ID or not ONE_HAND_WEAPON[cand.equipLoc] or equipped[17] or not mh
+		or not ONE_HAND_WEAPON[mh.equipLoc] then
+		return nil
+	end
+	return DualWield(ctx)
+end
+
+local UPGRADES = { upgrade = true, upgradeBut = true, levelUp = true, empty = true, noStats = true }
 
 -- Which of two slots a candidate replaces: the weaker one by what decides for this item.
 local function WeakerSlot(a, b, equipped, ctx, byDamage, weights)
@@ -387,7 +415,35 @@ local function ByPercent(verdict, pct, warned)
 end
 
 -- A verdict for this character, or nil when the item doesn't go on a slot or is worn.
+local Judge
+
+-- The verdict for cand against what's worn. A one-hander that doesn't beat the main hand still fills an empty off-hand
+-- for a class that dual wields, as Tail Spike next to a Harpy Skinner showed (called a sidegrade, so it was greeded).
+-- Not learned yet: it can't go there now, so the main hand's verdict stands, marked offHandLater (an upgrade once you
+-- learn Dual Wield: the tooltip's line and the bags' "later" arrow); the look-ahead (ctx.assumeTrained: the roll advice)
+-- calls it filling the empty off-hand, so it's worth a Need.
 function ns.GearForever_Evaluate(cand, equipped, ctx)
+	local verdict = Judge(cand, equipped, ctx)
+	if not verdict or verdict.kind == "notForYou" or UPGRADES[verdict.kind] then
+		return verdict
+	end
+	local dual = OffHandFree(cand, equipped, ctx)
+	if not dual then
+		return verdict
+	end
+	if dual == "learnable" and not ctx.assumeTrained then
+		verdict.offHandLater = true
+		return verdict
+	end
+	local off = { kind = "empty", slot = 17, reasons = {}, warnings = 0, untrained = verdict.untrained }
+	if dual == "learnable" then
+		off.untrained = off.untrained or DUAL_WIELD
+		off.reasons[1] = "For your off-hand: learn Dual Wield from your class trainer"
+	end
+	return off
+end
+
+Judge = function(cand, equipped, ctx)
 	for _, desc in pairs(equipped) do
 		if desc.link == cand.link then
 			return nil

@@ -100,7 +100,7 @@ test("assuming training, a weapon type you can learn is judged, and says what to
 end)
 
 test("a melee weapon a class doesn't swing for damage is a stat stick: its stats decide, not its item level", function()
-	local ctx = Ctx("HUNTER", 20)
+	local ctx = Ctx("HUNTER", 19) -- before Dual Wield, so only the main hand is weighed
 	local dagger = Item({ equipLoc = "INVTYPE_WEAPON", classID = WEAPON, subclassID = 15, ilvl = 20, dps = 6,
 		stats = { PRIMARY = { AGI = 3 } } })
 	local lower = Item({ equipLoc = "INVTYPE_WEAPON", classID = WEAPON, subclassID = 0, ilvl = 15, dps = 5,
@@ -112,7 +112,7 @@ test("a melee weapon a class doesn't swing for damage is a stat stick: its stats
 	local bow = Item({ equipLoc = "INVTYPE_RANGED", classID = WEAPON, subclassID = BOW, ilvl = 20, dps = 8 })
 	local better = Item({ equipLoc = "INVTYPE_RANGED", classID = WEAPON, subclassID = BOW, ilvl = 20, dps = 10 })
 	eq(ns.GearForever_Evaluate(better, { [RANGED_SLOT] = bow }, ctx).kind, "upgrade", "the bow still goes by damage")
-	local warrior = ns.GearForever_Evaluate(Sword(30, 10), { [16] = Sword(20, 12) }, Ctx("WARRIOR", 20))
+	local warrior = ns.GearForever_Evaluate(Sword(30, 10), { [16] = Sword(20, 12) }, Ctx("WARRIOR", 19))
 	eq(warrior.kind, "downgrade", "a warrior's sword still goes by damage")
 end)
 
@@ -344,7 +344,7 @@ test("a downgrade in lighter armor just says downgrade", function()
 end)
 
 test("melee classes judge weapons by damage, whatever the item level", function()
-	local ctx = Ctx("ROGUE")
+	local ctx = Ctx("ROGUE", 9) -- before Dual Wield, so only the main hand is weighed
 	local worn = { [16] = Sword(10, 8) }
 	local v = ns.GearForever_Evaluate(Sword(5, 10), worn, ctx)
 	eq(v.kind, "upgrade")
@@ -547,6 +547,45 @@ test("NewlyWearable: only what this level-up unlocked", function()
 	eq(ns.GearForever_NewlyWearable({ minLevel = 19 }, 17, 18), false, "not yet")
 	eq(ns.GearForever_NewlyWearable({ minLevel = 19 }, 17, 19), true, "two levels at once")
 	eq(ns.GearForever_NewlyWearable({}, 17, 18), false, "no requirement")
+end)
+
+test("a one-hander fills an empty off-hand for a class that dual wields, or can learn it now", function()
+	local DAGGER = 15
+	local function Dagger(dps, agi)
+		return Item({ equipLoc = "INVTYPE_WEAPON", classID = WEAPON, subclassID = DAGGER, ilvl = 20, dps = dps,
+			stats = { AGI = agi } })
+	end
+	local worn = { [16] = Dagger(9.6, 3) }
+	-- A level-20 hunter who hasn't been to the trainer yet (Tail Spike against Harpy Skinner: the same Agility, so no
+	-- better for the main hand, where a hunter's melee weapon is judged by its stats). Now: the main hand's verdict,
+	-- marked as filling the off-hand once Dual Wield is learned; looking ahead (the roll advice): fills an empty slot.
+	local now = ns.GearForever_Evaluate(Dagger(13.9, 3), worn, Ctx("HUNTER", 20))
+	eq(now.kind, "sidegrade")
+	eq(now.offHandLater, true)
+	local v = ns.GearForever_Evaluate(Dagger(13.9, 3), worn,
+		ns.GearForever_Context({ class = "HUNTER", level = 20, rangedSlot = RANGED_SLOT, assumeTrained = true }))
+	eq(v.kind, "empty")
+	eq(v.slot, 17)
+	eq(v.untrained, "Dual Wield", "says what to learn")
+	-- Learned already: just an empty slot.
+	local known = ns.GearForever_Evaluate(Dagger(13.9, 3), worn,
+		ns.GearForever_Context({ class = "HUNTER", level = 20, rangedSlot = RANGED_SLOT, dualWield = true }))
+	eq(known.kind, "empty")
+	eq(known.untrained, nil)
+	-- Too low to learn it: the main hand decides, as before (a hunter's melee weapon by its stats).
+	eq(ns.GearForever_Evaluate(Dagger(13.9, 3), worn, Ctx("HUNTER", 18)).slot, 16)
+	-- Better than the main hand: that's the verdict, not the off-hand.
+	local better = ns.GearForever_Evaluate(Dagger(13.9, 6), worn, Ctx("HUNTER", 20))
+	eq(better.kind, "upgrade")
+	eq(better.slot, 16)
+	-- A class without Dual Wield in the original game, and a full off-hand, leave it to the main hand.
+	eq(ns.GearForever_Evaluate(Sword(20, 13.9), { [16] = Sword(20, 9.6) }, Ctx("PALADIN", 30)).slot, 16)
+	local both = { [16] = Dagger(9.6, 3), [17] = Dagger(8, 2) }
+	eq(ns.GearForever_Evaluate(Dagger(13.9, 3), both, Ctx("ROGUE", 20)).kind ~= "empty", true)
+	-- A two-hander in the main hand: nothing to pair with.
+	eq(ns.GearForever_Evaluate(Dagger(13.9, 3),
+		{ [16] = Item({ equipLoc = "INVTYPE_2HWEAPON", classID = WEAPON, subclassID = 1, ilvl = 20, dps = 20 }) },
+		Ctx("WARRIOR", 25)).kind, "pair")
 end)
 
 H.done()
