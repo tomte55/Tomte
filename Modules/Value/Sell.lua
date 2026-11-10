@@ -108,6 +108,13 @@ local function IsBound(data)
 	return ok and bound == true
 end
 
+-- A line on the tooltip being built: the post-call runs for every item tooltip (the comparison ones too), so never
+-- GameTooltip by name, or a comparison tooltip's lines land on the main one after it has sized itself.
+local function Line(tooltip, text, role)
+	local r, g, b = UI.Color(role)
+	tooltip:AddLine(text, r, g, b)
+end
+
 local function OnItem(tooltip, data)
 	if not (module and module.active and db.sell.tooltip and tooltip.AddLine and data) then
 		return
@@ -128,15 +135,15 @@ local function OnItem(tooltip, data)
 	local each = ns.Price(math.floor(v.market + 0.5))
 	local rate = v.saleRate and (" (%s sell)"):format(Percent(v.saleRate)) or ""
 	if v.kind == "ah" then
-		UI.TipLine(("Auction House: sells%s, about %s each"):format(rate, each), "success")
-		UI.TipLine(VendorText(v) .. SoldText(v), "textMuted")
+		Line(tooltip, ("Auction House: sells%s, about %s each"):format(rate, each), "success")
+		Line(tooltip, VendorText(v) .. SoldText(v), "textMuted")
 	elseif v.kind == "small" then
-		UI.TipLine(("Auction House: about %s each%s, a small gain for %d"):format(each, rate, count), "textMuted")
+		Line(tooltip, ("Auction House: about %s each%s, a small gain for %d"):format(each, rate, count), "textMuted")
 	elseif v.kind == "slow" then
-		UI.TipLine(("Auction House: about %s, but slow%s"):format(each, rate), "warning")
-		UI.TipLine("Most don't sell. " .. VendorText(v) .. SoldText(v), "textMuted")
+		Line(tooltip, ("Auction House: about %s, but slow%s"):format(each, rate), "warning")
+		Line(tooltip, "Most don't sell. " .. VendorText(v) .. SoldText(v), "textMuted")
 	else
-		UI.TipLine(("Vendor it: %s, the Auction House about %s after its cut"):format(ns.Price(v.vendor),
+		Line(tooltip, ("Vendor it: %s, the Auction House about %s after its cut"):format(ns.Price(v.vendor),
 			ns.Price(math.floor(v.net + 0.5))), "textMuted")
 	end
 end
