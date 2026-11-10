@@ -26,6 +26,29 @@ test("the biggest clean upgrade wins", function()
 	eq(sure, true, "sure")
 end)
 
+test("a recipe of one of your professions, unless you know it", function()
+	local profs = { { name = "Leatherworking", skill = 75 }, { name = "Skinning", skill = 90 } }
+	local r = ns.GearRewards_RecipeFor({ name = "Leatherworking", level = 90 }, false, profs)
+	eq(r.profession, "Leatherworking")
+	eq(r.now, false, "75 of 90: later")
+	eq(ns.GearRewards_RecipeText(r), "For your Leatherworking: learn it at 90")
+	eq(ns.GearRewards_RecipeFor({ name = "Leatherworking", level = 60 }, false, profs).now, true)
+	eq(ns.GearRewards_RecipeText({ profession = "Leatherworking", level = 60, now = true }),
+		"For your Leatherworking: learn it now")
+	eq(ns.GearRewards_RecipeFor({ name = "Leatherworking", level = 60 }, true, profs), nil, "known")
+	eq(ns.GearRewards_RecipeFor({ name = "Tailoring", level = 60 }, false, profs), nil, "not yours")
+	eq(ns.GearRewards_RecipeFor(nil, false, profs), nil, "no requirement line")
+	eq(ns.GearRewards_RecipeFor({ name = "Khaz Algar Leatherworking", level = 25 }, false,
+		{ { name = "Leatherworking", skill = 30 } }).now, true, "retail's expansion names")
+end)
+
+test("the recipe pick prefers one you can learn now", function()
+	local later, now = { profession = "X", level = 90, now = false }, { profession = "X", level = 50, now = true }
+	eq(ns.GearRewards_PickRecipe({ { recipe = later }, { verdict = SIDE }, { recipe = now } }), 3)
+	eq(ns.GearRewards_PickRecipe({ { verdict = SIDE }, { recipe = later } }), 2)
+	eq(ns.GearRewards_PickRecipe({ { verdict = SIDE } }), nil)
+end)
+
 test("no upgrade among the choices: no best", function()
 	local best, sure = Pick({ { verdict = SIDE }, { verdict = DOWN }, { verdict = NOPE } })
 	eq(best, nil, "best")

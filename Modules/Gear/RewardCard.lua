@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
 -- Gear Check's quest reward pick: when a quest lets you choose a reward, a card names the best choice for you (by
--- Gear Check's verdict) and the one that sells for the most. Display only: it never clicks a reward. It sits above
+-- Gear Check's verdict, or a recipe for one of your professions when no gear is an upgrade) and the one that sells
+-- for the most. Display only: it never clicks a reward. It sits above
 -- DialogueUI's window when that's open, else where Edit Mode put it. The pick is in Rewards.lua; started and
 -- stopped by Gear.lua.
 
@@ -13,6 +14,8 @@ local REFRESH_DELAY = 0.2 -- seconds: item data arrives in bursts
 local DIALOGUE_GAP = 6 -- between the card and DialogueUI's window under it
 -- Quest reward headline colors (Rules.lua's color keys) to theme roles, as on the tooltips.
 local COLOR_ROLES = { green = "success", yellow = "warning", grey = "textMuted", red = "danger", orange = "warning" }
+
+local CLASS_RECIPE = 9 -- Enum.ItemClass.Recipe
 
 local UI = ns.UI
 local Pick = ns.GearRewards_Pick
@@ -135,7 +138,41 @@ local function Price(c)
 	return UI.Wrap(ns.Price(c.sell), "text")
 end
 
--- The quest's reward choices: { name, quality, sell, verdict }. judged: whether Gear Check could judge them (on, with
+-- A recipe's "Requires Leatherworking (90)" ({ name, level }) and whether you know it already, from its tooltip. Both
+-- lines are the client's own strings (ITEM_MIN_SKILL, ITEM_SPELL_KNOWN), so any language reads.
+local skillPattern
+local function RecipeLines(link)
+	local data = C_TooltipInfo and C_TooltipInfo.GetHyperlink(link)
+	skillPattern = skillPattern or (ITEM_MIN_SKILL and ns.Gear_FormatPattern(ITEM_MIN_SKILL))
+	local required, known
+	for _, line in ipairs(data and data.lines or {}) do
+		local text = line.leftText
+		if text and not ns.IsSecret(text) then
+			if text == ITEM_SPELL_KNOWN then
+				known = true
+			elseif skillPattern and not required then
+				local name, level = text:match(skillPattern)
+				if name then
+					required = { name = name, level = tonumber(level) }
+				end
+			end
+		end
+	end
+	return required, known
+end
+
+local function Professions()
+	local list = {}
+	for _, index in pairs({ GetProfessions() }) do
+		local name, _, skill = GetProfessionInfo(index)
+		if name then
+			list[#list + 1] = { name = name, skill = skill }
+		end
+	end
+	return list
+end
+
+-- The quest's reward choices: { name, quality, sell, verdict, recipe }. judged: whether Gear Check could judge them (on, with
 -- a spec). Nil while there's no choice to make.
 local function Choices()
 	local n = GetNumQuestChoices()
@@ -143,7 +180,7 @@ local function Choices()
 		return nil
 	end
 	local ctx = ns.Gear_Context()
-	local choices = {}
+	local choices, professions = {}, nil
 	for i = 1, n do
 		local c = {}
 		local link = GetQuestItemLink("choice", i)
@@ -151,8 +188,13 @@ local function Choices()
 			local name, _, quality, _, _, _, _, _, _, _, sell = C_Item.GetItemInfo(link)
 			c.name, c.quality, c.sell = name, quality, sell
 			c.verdict = ctx and ns.Gear_Verdict(link, ctx)
-			local equipLoc = select(4, C_Item.GetItemInfoInstant(link))
+			local _, _, _, equipLoc, _, classID = C_Item.GetItemInfoInstant(link)
 			c.gear = equipLoc ~= nil and equipLoc ~= "" and equipLoc ~= "INVTYPE_NON_EQUIP_IGNORE"
+			if classID == CLASS_RECIPE then
+				professions = professions or Professions()
+				local required, known = RecipeLines(link)
+				c.recipe = ns.GearRewards_RecipeFor(required, known, professions)
+			end
 		end
 		choices[i] = c
 	end
@@ -161,8 +203,17 @@ end
 
 local function Rows(choices, judged)
 	local best, _, gold = Pick(choices)
+	local recipe = ns.GearRewards_PickRecipe(choices)
 	local rows = {}
-	if judged then
+	local function RecipeRow(label)
+		local c = choices[recipe]
+		rows[#rows + 1] = { label = label, name = ItemName(c),
+			sub = UI.Wrap(ns.GearRewards_RecipeText(c.recipe), c.recipe.now and "success" or "info") }
+	end
+	if judged and not best and recipe then
+		-- No gear upgrade: a recipe for your profession is the pick.
+		RecipeRow(gold == recipe and "Best, most gold" or "Best for you")
+	elseif judged then
 		if best then
 			local c = choices[best]
 			local headline, color = ns.Gear_Headline(c.verdict)
@@ -175,8 +226,11 @@ local function Rows(choices, judged)
 		else
 			rows[#rows + 1] = { label = "Best for you", name = UI.Wrap("No upgrade here", "textMuted") }
 		end
+		if recipe and recipe ~= best then
+			RecipeRow("Your craft")
+		end
 	end
-	if gold and gold ~= best then
+	if gold and gold ~= best and not (gold == recipe and judged) then
 		local c = choices[gold]
 		rows[#rows + 1] = { label = "Most gold", name = ItemName(c), sub = UI.Wrap("Sells for ", "textMuted") .. Price(c) }
 	end
