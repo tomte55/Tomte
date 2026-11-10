@@ -17,7 +17,7 @@ return {
 		"Modules/Bags/", "Modules/Counts/", "Modules/Mount/", "Modules/Teleports/", "Modules/Alts/",
 		"Modules/Achievements/", "Modules/Moments/", "Modules/Recap/", "Modules/DressUp/", "Modules/Showcase/",
 		"Modules/Talents/", "Modules/Hunter/", "Modules/Rogue/", "Modules/Combat/", "Modules/Buffs/", "Modules/Gather/",
-		"Modules/Graphics/", "Modules/Performance/",
+		"Modules/Graphics/", "Modules/Performance/", "Modules/Hidden/",
 		-- Waypoints without portal routes (Network*, Route, Router: retail's route tables).
 		"Modules/Travel/Data.lua", "Modules/Travel/Target.lua", "Modules/Travel/Marker.lua",
 		"Modules/Travel/MapPing.lua", "Modules/Travel/Guard.lua", "Modules/Travel/Waypoint.lua",

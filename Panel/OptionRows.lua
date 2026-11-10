@@ -5,7 +5,8 @@ local addonName, ns = ...
 -- settings dialog (EditModeDialog.lua). Schema extras read here: label (text or function), tooltip (a faint "?"
 -- after the label), preview (a card drawn while the mouse is on the row, Preview.lua; only where the drawer sets
 -- row.allowPreview). After a row changes a setting it tells the listeners (ns.OptionRows_OnChange), so whoever drew
--- it can rebuild rows that hang on it.
+-- it can rebuild rows that hang on it. A row with get() and set(value) reads and writes through them instead of the
+-- module's db (a value that lives in the game, such as a CVar); tooltip may be a function returning the text.
 
 local UI = ns.UI
 local OPT_H = 28
@@ -56,9 +57,21 @@ local function Changed(module, key)
 	ns.Preview_Refresh(module)
 end
 
+-- The value a row shows: its own get(), or its key in module's db.
+local function RowValue(module, spec)
+	if spec.get then
+		return spec.get()
+	end
+	return GetOption(module, spec.key)
+end
+
 local function SetOption(module, spec, value)
-	local tbl, field = Resolve(module.db, spec.key)
-	tbl[field] = value
+	if spec.set then
+		spec.set(value)
+	else
+		local tbl, field = Resolve(module.db, spec.key)
+		tbl[field] = value
+	end
 	if spec.onChange then
 		spec.onChange(value)
 	end
@@ -81,8 +94,9 @@ local function RowTooltip(row)
 	end
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
 	GameTooltip:SetText(LabelText(spec), 1, 1, 1, 1, true)
-	if spec.tooltip then
-		GameTooltip:AddLine(spec.tooltip, nil, nil, nil, true)
+	local tip = type(spec.tooltip) == "function" and spec.tooltip() or spec.tooltip
+	if tip then
+		GameTooltip:AddLine(tip, nil, nil, nil, true)
 	end
 	GameTooltip:Show()
 end
@@ -179,7 +193,7 @@ end
 
 function Setup.checkbox(row, module, spec)
 	SetLabel(row, spec)
-	row.switch:SetChecked(GetOption(module, spec.key))
+	row.switch:SetChecked(RowValue(module, spec))
 end
 
 function Factory.slider(parent)
@@ -214,7 +228,7 @@ function Setup.slider(row, module, spec)
 	s.format = spec.format or tostring
 	s:SetMinMaxValues(spec.min, spec.max)
 	s:SetValueStep(spec.step or 1)
-	s:SetValue(GetOption(module, spec.key))
+	s:SetValue(RowValue(module, spec))
 	row.value:SetText(s.format(s:GetValue()))
 end
 
@@ -225,7 +239,8 @@ function Factory.dropdown(parent)
 	-- depend on what's loaded right now (characters, addons), so the saved value isn't overwritten.
 	local function getValue()
 		local spec = row.spec
-		return ns.ChoiceOrDefault(GetOption(row.module, spec.key), spec.choices(), DefaultOption(row.module, spec.key))
+		return ns.ChoiceOrDefault(RowValue(row.module, spec), spec.choices(),
+			spec.key and DefaultOption(row.module, spec.key))
 	end
 	local function setValue(value)
 		SetOption(row.module, row.spec, value)

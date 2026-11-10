@@ -102,7 +102,7 @@ end
 
 -- text must already be lower case; "" matches everything. Looks at the name, summary, description and group name,
 -- and at the text labels, button texts and tooltips of the module's options (label functions aren't called: they
--- can read the game).
+-- can read the game; such a row gives its words in spec.search instead).
 function ns.PanelLayout_Matches(module, groupName, text)
 	if text == "" then
 		return true
@@ -114,7 +114,7 @@ function ns.PanelLayout_Matches(module, groupName, text)
 		return true
 	end
 	for _, spec in ipairs(type(module.options) == "table" and module.options or {}) do
-		if Has(spec.label) or Has(spec.text) or Has(spec.tooltip) then
+		if Has(spec.label) or Has(spec.text) or Has(spec.tooltip) or Has(spec.search) then
 			return true
 		end
 	end

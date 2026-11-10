@@ -16,6 +16,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
+- **Hidden settings (new module):** the game's settings that its own Settings panel leaves out, such as camera zoom distance, class-colored names in chat, casting on key press and the spell queue window, with a few more on World of Warcraft: Forever. Each row says when it isn't at the game's default, and "Show" lists every game setting that isn't, for example after another addon changed them. Turning it off puts back what you changed.
 
 ## v1.32.1 - 2026-11-08
 

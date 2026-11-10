@@ -149,6 +149,8 @@ ns.BUG_FILES = {
 	"Modules/Cursor/Cursor.lua",
 	"Modules/Graphics/Data.lua",
 	"Modules/Graphics/Graphics.lua",
+	"Modules/Hidden/Data.lua",
+	"Modules/Hidden/Hidden.lua",
 	"Modules/Hunter/Data.lua",
 	"Modules/Hunter/Stable.lua",
 	"Modules/Hunter/Tooltips.lua",
