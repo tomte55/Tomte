@@ -159,8 +159,9 @@ end
 
 -- Quests --------------------------------------------------------------------------------------------------------------
 
--- A quest's tooltip on owner: objectives, and what a click does. The next quests widget (NextQuests.lua) shows it too.
-function ns.LevelingPage_QuestTooltip(owner, q, anchor)
+-- A quest's tooltip on owner: objectives, and what a click does. The next quests widget (NextQuests.lua) and the
+-- Quest list show it too; shiftLine, optional, is what Shift-click does there (default: track or untrack).
+function ns.LevelingPage_QuestTooltip(owner, q, anchor, shiftLine)
 	GameTooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
 	GameTooltip:SetText(q.title or "?", 1, 1, 1, 1, true)
 	if q.complete then
@@ -179,7 +180,8 @@ function ns.LevelingPage_QuestTooltip(owner, q, anchor)
 	if C_SuperTrack and not q.active then
 		GameTooltip:AddLine("Click to make it your active quest", UI.RGB("textMuted"))
 	end
-	GameTooltip:AddLine(q.watched and "Shift-click to stop tracking" or "Shift-click to track", UI.RGB("textMuted"))
+	GameTooltip:AddLine(shiftLine or (q.watched and "Shift-click to stop tracking" or "Shift-click to track"),
+		UI.RGB("textMuted"))
 	GameTooltip:Show()
 end
 

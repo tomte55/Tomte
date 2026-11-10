@@ -58,6 +58,9 @@ return {
 			"Modules/Leveling/Page.lua", "Modules/Leveling/HomeSection.lua", "Modules/Leveling/AmmoCounter.lua",
 			"Modules/Leveling/ArmorKit.lua", "Modules/Leveling/NextQuests.lua",
 			"Modules/Leveling/Leveling.lua",
+			-- docs/superpowers/specs/2026-11-10-tomte-quest-list-design.md: uses Leveling's quest reads and stops.
+			"Modules/QuestList/Data.lua", "Modules/QuestList/Read.lua", "Modules/QuestList/Spoken.lua",
+			"Modules/QuestList/List.lua", "Modules/QuestList/Tracker.lua", "Modules/QuestList/QuestList.lua",
 			"Modules/PetCare/Data.lua", "Modules/PetCare/PetCare.lua",
 			-- docs/superpowers/specs/2026-11-06-tomte-forever-rest-and-chat-groups.md
 			"Modules/Rest/Data.lua", "Modules/Rest/Rest.lua",

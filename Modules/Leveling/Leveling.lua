@@ -463,7 +463,7 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Next quests" },
 		{ type = "checkbox", key = "nextQuests", label = "Next quests on screen", onChange = function()
 			ns.LevelingNext_Update()
-		end, tooltip = "A small window with the quests to do next. Quests close to each other are one stop, the nearest stop first: turn-ins, then the lowest level. Hard and dungeon quests only while you're in a group. Click a quest to make it your active quest, Shift-click to track it. Blizzard's Edit Mode moves it." },
+		end, tooltip = "A small window with the quests to do next. Quests close to each other are one stop, the nearest stop first: turn-ins, then the lowest level. Hard and dungeon quests only while you're in a group. Click a quest to make it your active quest, Shift-click to track it. Blizzard's Edit Mode moves it. While the Quest list is on, it shows these stops instead." },
 		{ type = "checkbox", key = "nextFollow", label = "Make the top quest active", parent = "nextQuests",
 			onChange = function()
 				ns.LevelingNext_Update()

@@ -142,68 +142,20 @@ local function Row(i)
 	return row
 end
 
--- Next to the minimize button and shown with it (on mouseover): a small box, filled while the top quest is followed
--- (Follow, below), drawn from color bars like the minimize button; its outline lights up on hover.
-local FOLLOW_BOX, FOLLOW_FILL, FOLLOW_EDGE = 10, 4, 1 -- pixels: the outline's size, the filling's, the outline's width
-
+-- Next to the minimize button and shown with it (on mouseover): a box, filled while the top quest is followed (Follow,
+-- below). UI.FollowBox in Panel/Widgets.lua.
 local function FollowButton(f)
-	local b = CreateFrame("Button", nil, f)
-	b:SetSize(16, 16)
-	b:SetPoint("RIGHT", f.collapse, "LEFT", -2, 0)
-	b:SetFrameLevel(f.collapse:GetFrameLevel())
-	b:SetHitRectInsets(-3, -3, -3, -3)
-	b.edges = {}
-	local half = (FOLLOW_BOX - FOLLOW_EDGE) / 2
-	for i, side in ipairs({ { 0, half, FOLLOW_BOX, FOLLOW_EDGE }, { 0, -half, FOLLOW_BOX, FOLLOW_EDGE },
-		{ -half, 0, FOLLOW_EDGE, FOLLOW_BOX }, { half, 0, FOLLOW_EDGE, FOLLOW_BOX } }) do
-		local t = b:CreateTexture(nil, "ARTWORK")
-		t:SetSize(side[3], side[4])
-		t:SetPoint("CENTER", side[1], side[2])
-		b.edges[i] = t
-	end
-	b.fill = b:CreateTexture(nil, "ARTWORK")
-	b.fill:SetSize(FOLLOW_BOX - FOLLOW_FILL, FOLLOW_BOX - FOLLOW_FILL)
-	b.fill:SetPoint("CENTER")
-	function b:Update()
-		local edge = self:IsMouseOver() and "accent" or "textMuted"
-		for _, t in ipairs(self.edges) do
-			t:SetColorTexture(UI.Color(edge))
-		end
-		self.fill:SetColorTexture(UI.Color("accent"))
-		self.fill:SetShown(db.nextFollow)
-	end
-	local function Tip(self)
-		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-		GameTooltip:SetText(db.nextFollow and "Following the top quest" or "Not following the top quest", 1, 1, 1)
-		UI.TipLine(db.nextFollow and "The top quest becomes your active quest. Click to stop."
-			or "Click to make the top quest your active quest each time a new one comes up.", "textMuted", true)
-		GameTooltip:Show()
-	end
-	b:SetScript("OnEnter", function(self)
-		self:Update()
-		Tip(self)
-	end)
-	b:SetScript("OnLeave", function(self)
-		self:Update()
-		GameTooltip:Hide()
-	end)
-	b:SetScript("OnClick", function(self)
+	return UI.FollowBox(f, function()
+		return db.nextFollow
+	end, function()
 		db.nextFollow = not db.nextFollow
 		followed = nil -- turned on: the top quest is made active right away
-		UI.Sound("pick")
-		self:Update()
-		Tip(self)
 		ns.LevelingNext_Update()
+	end, function(on)
+		return on and "Following the top quest" or "Not following the top quest",
+			on and "The top quest becomes your active quest. Click to stop."
+				or "Click to make the top quest your active quest each time a new one comes up."
 	end)
-	b:Hide()
-	f.collapse:HookScript("OnShow", function()
-		b:Update()
-		b:Show()
-	end)
-	f.collapse:HookScript("OnHide", function()
-		b:Hide()
-	end)
-	return b
 end
 
 local function Build()
@@ -418,7 +370,8 @@ local function Tick()
 end
 
 function ns.LevelingNext_Update()
-	if not (active and db.nextQuests) then
+	-- The Quest list shows these stops itself (Modules/QuestList): no second widget, and it follows the nearest quest.
+	if not (active and db.nextQuests) or (ns.QuestList_Active and ns.QuestList_Active()) then
 		Hide()
 		return
 	end

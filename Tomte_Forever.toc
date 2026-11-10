@@ -247,6 +247,12 @@ Modules/Leveling/AmmoCounter.lua
 Modules/Leveling/ArmorKit.lua
 Modules/Leveling/NextQuests.lua
 Modules/Leveling/Leveling.lua
+Modules/QuestList/Data.lua
+Modules/QuestList/Read.lua
+Modules/QuestList/Spoken.lua
+Modules/QuestList/List.lua
+Modules/QuestList/Tracker.lua
+Modules/QuestList/QuestList.lua
 Modules/PetCare/Data.lua
 Modules/PetCare/PetCare.lua
 Modules/Rest/Data.lua

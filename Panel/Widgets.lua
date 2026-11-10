@@ -739,6 +739,69 @@ function UI.CollapseButton(frame, isCollapsed, onToggle)
 	return b
 end
 
+-- On-screen widgets with a follow mode (Next quests, Quest list): a small box left of the widget's UI.CollapseButton,
+-- shown with it on mouseover, filled while isOn() (drawn from color bars like the minimize button); its outline lights
+-- up on hover. onToggle() flips the state and redraws; tip(on) returns the tooltip's title and line.
+local FOLLOW_BOX, FOLLOW_FILL, FOLLOW_EDGE = 10, 4, 1 -- pixels: the outline's size, the filling's, the outline's width
+
+function UI.FollowBox(frame, isOn, onToggle, tip)
+	local b = CreateFrame("Button", nil, frame)
+	b:SetSize(16, 16)
+	b:SetPoint("RIGHT", frame.collapse, "LEFT", -2, 0)
+	b:SetFrameLevel(frame.collapse:GetFrameLevel())
+	b:SetHitRectInsets(-3, -3, -3, -3)
+	b.edges = {}
+	local half = (FOLLOW_BOX - FOLLOW_EDGE) / 2
+	for i, side in ipairs({ { 0, half, FOLLOW_BOX, FOLLOW_EDGE }, { 0, -half, FOLLOW_BOX, FOLLOW_EDGE },
+		{ -half, 0, FOLLOW_EDGE, FOLLOW_BOX }, { half, 0, FOLLOW_EDGE, FOLLOW_BOX } }) do
+		local t = b:CreateTexture(nil, "ARTWORK")
+		t:SetSize(side[3], side[4])
+		t:SetPoint("CENTER", side[1], side[2])
+		b.edges[i] = t
+	end
+	b.fill = b:CreateTexture(nil, "ARTWORK")
+	b.fill:SetSize(FOLLOW_BOX - FOLLOW_FILL, FOLLOW_BOX - FOLLOW_FILL)
+	b.fill:SetPoint("CENTER")
+	function b:Update()
+		local edge = self:IsMouseOver() and "accent" or "textMuted"
+		for _, t in ipairs(self.edges) do
+			t:SetColorTexture(Theme.Color(edge))
+		end
+		self.fill:SetColorTexture(Theme.Color("accent"))
+		self.fill:SetShown(isOn())
+	end
+	local function Tip(self)
+		local title, line = tip(isOn())
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		GameTooltip:SetText(title, 1, 1, 1)
+		UI.TipLine(line, "textMuted", true)
+		GameTooltip:Show()
+	end
+	b:SetScript("OnEnter", function(self)
+		self:Update()
+		Tip(self)
+	end)
+	b:SetScript("OnLeave", function(self)
+		self:Update()
+		GameTooltip:Hide()
+	end)
+	b:SetScript("OnClick", function(self)
+		onToggle()
+		UI.Sound("pick")
+		self:Update()
+		Tip(self)
+	end)
+	b:Hide()
+	frame.collapse:HookScript("OnShow", function()
+		b:Update()
+		b:Show()
+	end)
+	frame.collapse:HookScript("OnHide", function()
+		b:Hide()
+	end)
+	return b
+end
+
 -- Saves a moved widget by its top-left corner, so growing, shrinking or folding it keeps the title where it was
 -- (StopMovingOrSizing can leave it anchored by its center or bottom). Returns { point, relPoint, x, y }.
 function UI.TopLeftPoint(frame)
