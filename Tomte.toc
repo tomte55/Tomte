@@ -176,6 +176,10 @@ Modules/Talents/Talents.lua
 Modules/Combat/Data.lua
 Modules/Combat/UnitBar.lua
 Modules/Combat/PetHealth.lua
+Modules/Meter/Data.lua
+Modules/Meter/Read.lua
+Modules/Meter/Window.lua
+Modules/Meter/Meter.lua
 Modules/Social/Data.lua
 Modules/Social/Toast.lua
 Modules/Social/InboxWho.lua
