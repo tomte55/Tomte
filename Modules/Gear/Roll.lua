@@ -1,7 +1,8 @@
 local addonName, ns = ...
 
 -- Gear Check, roll advice (World of Warcraft: Forever only; tools/forever_list.lua): a card beside each group loot roll
--- saying need, greed or pass and why, with that button lit. It only suggests. Rules in RollData.lua, verdicts from
+-- saying need, greed or pass and why, with that button lit. A small upgrade gives way to a party member the item is
+-- built for (their class and group role, read here; never inspected). It only suggests. Rules in RollData.lua, verdicts from
 -- Forever.lua (ns.GearForever_RollVerdict), the setting is "Roll advice" there. Blizzard's GroupLootFrame1-4
 -- (Blizzard_UIPanels_Game, GroupLootFrame.lua) call GroupLootFrame_SetupItemDisplay for each roll they show; that's hooked
 -- once, so with the setting off the hook only hides the cards.
@@ -103,6 +104,46 @@ local function BagInfo(link)
 	return { slots = slots, smallest = smallest or 0 }
 end
 
+local function Role(unit)
+	local role = UnitGroupRolesAssigned and UnitGroupRolesAssigned(unit)
+	return role ~= "NONE" and role or nil
+end
+
+-- Everyone else in the group, as GearRoll_BuiltFor takes them; nil when you're alone.
+local function Members()
+	if not IsInGroup() then
+		return nil
+	end
+	local prefix, count = "party", GetNumGroupMembers() - 1
+	if IsInRaid() then
+		prefix, count = "raid", GetNumGroupMembers()
+	end
+	local members = {}
+	for i = 1, count do
+		local unit = prefix .. i
+		if UnitExists(unit) and not UnitIsUnit(unit, "player") and UnitIsConnected(unit) then
+			local name = UnitName(unit)
+			local className, class = UnitClass(unit)
+			local level = UnitLevel(unit)
+			if name and class and not ns.IsSecret(name) and not ns.IsSecret(level) then
+				members[#members + 1] = { name = name, class = class, className = className, level = level,
+					role = Role(unit) }
+			end
+		end
+	end
+	return members
+end
+
+-- The party member a small upgrade should go to instead (RollData.lua), judged at the level you're judged at.
+local function BuiltFor(cand, judgeAt)
+	local members = cand and Members()
+	if not (members and members[1]) then
+		return nil
+	end
+	local _, class = UnitClass("player")
+	return ns.GearRoll_BuiltFor(cand, { class = class, level = judgeAt, role = Role("player") }, members)
+end
+
 -- What the advice needs about this roll, or nil while the item's data loads. last: the final try, so gear that still
 -- has no verdict (one you wear already) is advised on without it.
 local function Read(link, count, canNeed, canGreed, last)
@@ -122,11 +163,13 @@ local function Read(link, count, canNeed, canGreed, last)
 		if not judgeAt then
 			info.needsLevel = minLevel
 		else
-			info.verdict = ns.GearForever_RollVerdict(link, judgeAt)
+			local cand
+			info.verdict, cand = ns.GearForever_RollVerdict(link, judgeAt)
 			if not info.verdict and not last then
 				return nil -- loading, or worn already: a retry settles it
 			end
 			info.ahead = judgeAt > level and judgeAt or nil
+			info.builtFor = info.verdict and BuiltFor(cand, judgeAt)
 		end
 	elseif classID == ns.GEARROLL_CLASS_RECIPE then
 		info.recipe = RecipeState(link)

@@ -27,6 +27,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Toasts:** a line along the bottom of each toast shows how long it stays; it stops while you hover the toast.
 - **Other addons:** Tomte works alongside MelloUI on World of Warcraft: Forever. Bags, Channel Tags, Waypoints and the Quest list stay off while MelloUI's own version is on; Vendor Helper's repair and grey selling, the Chat Copy icon, the nameplate quest icon and quest accepting and handing in give way to MelloUI's when those are on there. Switching one in /mello takes effect at once, no /reload.
+- **Gear Check:** on World of Warcraft: Forever, roll advice says Greed on an upgrade of under 2% when a party member gets much more out of the item (their class and group role), and names them: "Built for Kesha (healer), only +0.8% for you".
 - **Gear Check:** the quest reward card picks a recipe for one of your professions when no gear is an upgrade, and says when you can learn it.
 - **Quest list:** following the nearest quest leaves your own map pin alone, and picks up again once you remove it. Next quests does the same.
 - **Gear Check:** on World of Warcraft: Forever, a one-hander that fills an empty off-hand counts for warriors, rogues and hunters who dual wield, and says "Upgrade once you learn Dual Wield" before you've learned it (so the roll advice says Need).

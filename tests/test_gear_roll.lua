@@ -4,6 +4,7 @@ local test, eq = H.test, H.eq
 
 local ns = {}
 loadfile("Tomte/Modules/Gear/Rules.lua")("Tomte", ns)
+loadfile("Tomte/Modules/Gear/ForeverRules.lua")("Tomte", ns)
 loadfile("Tomte/Modules/Gear/RollData.lua")("Tomte", ns)
 
 local function Info(fields)
@@ -102,6 +103,54 @@ test("the rest: greed for what sells, never pass on it", function()
 	eq(a.sell, 120)
 	eq(ns.GearRoll_Advice(Info({ sell = 0 })).roll, "greed")
 	eq(ns.GearRoll_Advice(Info({ sell = 0, canGreed = false, canNeed = false })).roll, "pass")
+end)
+
+local ARMOR, CLOTH, PLATE = 4, 1, 4
+local function HealingPlate()
+	return { classID = ARMOR, subclassID = PLATE, equipLoc = "INVTYPE_CHEST", minLevel = 40,
+		stats = { STA = 8, HEAL = 22, PRIMARY = { STR = 4, INT = 10 } } }
+end
+local WARRIOR = { class = "WARRIOR", level = 42 }
+
+test("BuiltFor: a healing plate chest is built for the paladin healer, not the warrior", function()
+	local mira = { name = "Mira", class = "PALADIN", className = "Paladin", level = 41, role = "HEALER" }
+	eq(ns.GearRoll_BuiltFor(HealingPlate(), WARRIOR, { mira }), mira)
+	local healerAt39 = { name = "Mira", class = "PALADIN", level = 39, role = "HEALER" }
+	eq(ns.GearRoll_BuiltFor(HealingPlate(), WARRIOR, { healerAt39 }), healerAt39, "a level short is fine")
+	eq(ns.GearRoll_BuiltFor(HealingPlate(), WARRIOR, { { name = "Kesha", class = "PRIEST", level = 42 } }), nil,
+		"a priest can't wear plate")
+	eq(ns.GearRoll_BuiltFor(HealingPlate(), WARRIOR, { { name = "Aldric", class = "WARRIOR", level = 42 } }), nil,
+		"another warrior gets the same out of it")
+	eq(ns.GearRoll_BuiltFor(HealingPlate(), WARRIOR, nil), nil)
+end)
+
+test("BuiltFor: the one who gets the most, and nothing for weapons or what you can't use", function()
+	local robe = { classID = ARMOR, subclassID = CLOTH, equipLoc = "INVTYPE_ROBE",
+		stats = { HEAL = 20, PRIMARY = { INT = 6, SPI = 6 } } }
+	local mage = { class = "MAGE", level = 30 }
+	local kesha = { name = "Kesha", class = "PRIEST", level = 30 }
+	local druid = { name = "Aldric", class = "DRUID", level = 30, role = "HEALER" }
+	eq(ns.GearRoll_BuiltFor(robe, mage, { druid, kesha }), druid, "the healer role weighs healing highest")
+	eq(ns.GearRoll_BuiltFor(robe, mage, { kesha }), kesha)
+	local sword = { classID = 2, subclassID = 7, equipLoc = "INVTYPE_WEAPON", stats = { PRIMARY = { STR = 5 } } }
+	eq(ns.GearRoll_BuiltFor(sword, WARRIOR, { kesha }), nil)
+	eq(ns.GearRoll_BuiltFor(robe, { class = "WARRIOR", level = 30 }, { kesha }), nil, "wrong main stat for you")
+end)
+
+test("a small upgrade gives way to the party member it's built for", function()
+	local mira = { name = "Mira", class = "PALADIN", className = "Paladin", role = "HEALER" }
+	local small = { kind = "upgrade", pct = 0.8, reasons = {}, warnings = 0 }
+	local a = ns.GearRoll_Advice(Info({ gear = true, verdict = small, builtFor = mira }))
+	eq(a.roll, "greed")
+	eq(a.text, "Built for Mira (healer), only +0.8% for you")
+	mira.role = nil
+	eq(ns.GearRoll_Advice(Info({ gear = true, verdict = small, builtFor = mira })).text,
+		"Built for Mira (Paladin), only +0.8% for you")
+	local big = { kind = "upgrade", pct = 6, reasons = {}, warnings = 0 }
+	eq(ns.GearRoll_Advice(Info({ gear = true, verdict = big, builtFor = mira })).roll, "need", "a real upgrade is yours")
+	eq(ns.GearRoll_Advice(Info({ gear = true, verdict = small })).roll, "need", "nobody it's built for")
+	local empty = { kind = "empty", reasons = {}, warnings = 0 }
+	eq(ns.GearRoll_Advice(Info({ gear = true, verdict = empty, builtFor = mira })).roll, "need", "an empty slot")
 end)
 
 H.done()

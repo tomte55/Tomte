@@ -44,6 +44,8 @@ local WEIGHTS = {
 }
 local ANY_CLASS = { STR = 1, AGI = 1, INT = 1, STA = 0.5, SPI = 0.2, AP = 0.5, RAP = 0.3, SP = 0.5, HEAL = 0.3, SCRIT = 5,
 	SHIT = 5, MCRIT = 5, MHIT = 5, MP5 = 1, DEF = 0.2 }
+-- What the group's healer values (GearForever_Fit): a hybrid's WEIGHTS mix healing with how it levels alone.
+local HEALER_WEIGHTS = { INT = 1, SPI = 0.5, STA = 0.3, SP = 0.6, HEAL = 1, SCRIT = 6, MP5 = 2 }
 -- Equip lines that are stats, as English clients write them (the game has no stat for them, and no localized string
 -- either: they're each item's spell text). Each: a pattern with the amount captured, and its stat key.
 local EQUIP_STATS = {
@@ -564,6 +566,31 @@ Judge = function(cand, equipped, ctx)
 		verdict.reasons, verdict.warnings = {}, 0 -- it stays where it is, so nothing to warn about
 	end
 	return verdict
+end
+
+-- How much someone gets out of a piece of armor, on the WEIGHTS scale, or nil when they can't wear it or none of its main
+-- stats is theirs: the roll advice weighs a party member against you with it (RollData.lua). who: { class, level (the
+-- level to judge at), role (the group's "HEALER", "TANK", ...) }. Weapons give nil: they go by damage, not stats.
+function ns.GearForever_Fit(cand, who)
+	if cand.classID ~= ARMOR_CLASS_ID or not WEIGHTS[who.class] then
+		return nil
+	end
+	local wear = ARMOR_FROM[cand.subclassID]
+	if wear and not (wear[who.class] and who.level and wear[who.class] <= who.level) then
+		return nil
+	end
+	local weights = who.role == "HEALER" and HEALER_WEIGHTS or WEIGHTS[who.class]
+	local primaries = cand.stats and cand.stats.PRIMARY
+	if primaries and next(primaries) then
+		local any = false
+		for stat in pairs(primaries) do
+			any = any or weights[stat] ~= nil
+		end
+		if not any then
+			return nil
+		end
+	end
+	return Score(cand, weights)
 end
 
 -- Whether reaching newLevel from oldLevel is what lets you wear the item (its level requirement is in between), so a
