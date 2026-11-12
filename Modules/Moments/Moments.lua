@@ -787,6 +787,7 @@ module = ns.RegisterModule({
 	description = "Short title cards for moments worth a pause: level ups, achievements, new mounts, pets and toys, new zones, renown, campaign chapters, house levels, tamed pets and gear upgrades. A banner or a small cinematic.",
 	enabledByDefault = true,
 	toasts = "Moments (banners)",
+	alongside = { { addon = "MelloUI", why = "its level-up effect and stats card show too: turn Level Up off there, or the level-up moment here" } },
 	defaults = {
 		styles = ns.Moments_DefaultStyles(),
 		duration = 7,

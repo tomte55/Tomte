@@ -629,9 +629,13 @@ module = ns.RegisterModule({
 	noShare = { "chars" },
 	uses = { { addon = "Spoken", why = "a Play button on each quest", without = "no Play buttons" } },
 	conflicts = { { addon = "EllesmereUIQuestTracker", why = "it has its own quest tracker; the Quest list stays off while it's enabled" } },
+	alongside = { { addon = "MelloUI", why = "the Quest list stays off while MelloUI's own Quest Tracker is on" } },
 	blocked = function()
 		if ns.Ellesmere_Loaded("QuestTracker") then
 			return "Off while EllesmereUI's quest tracker is enabled."
+		end
+		if ns.Mello_On("QuestTracker") then
+			return "Off while MelloUI's Quest Tracker is on (/mello)."
 		end
 	end,
 	defaults = {

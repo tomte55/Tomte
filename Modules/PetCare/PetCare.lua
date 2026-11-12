@@ -429,6 +429,7 @@ module = ns.RegisterModule({
 		.. "pet's mood, its damage and its training points. A second button opens Beast Training when your pet can learn "
 		.. "something new. Out of combat only.",
 	enabledByDefault = true,
+	alongside = { { addon = "MelloUI", why = "its widget column has a Feed Pet button too: keep the one you like" } },
 	blocked = function()
 		if not IsHunter() then
 			return "Only for hunters."

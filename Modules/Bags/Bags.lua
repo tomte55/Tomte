@@ -312,6 +312,7 @@ module = ns.RegisterModule({
 		end
 		return list
 	end)(),
+	alongside = { { addon = "MelloUI", why = "Tomte's bags stay off while its Bags by Kind is on" } },
 	replaces = { { addon = "CanIMogIt", why = "a mark on bag items whose appearance you haven't collected" } },
 	defaults = {
 		view = "categories", -- categories | single
@@ -362,6 +363,9 @@ module = ns.RegisterModule({
 			if C_AddOns.IsAddOnLoaded(addon) then
 				return ("The %s addon is still enabled. Disable it and /reload to use Tomte's bags."):format(addon)
 			end
+		end
+		if ns.Mello_On("BagWindow") then
+			return "MelloUI's Bags by Kind is on. Turn it off in /mello to use Tomte's bags."
 		end
 	end,
 	toggle = function(active)

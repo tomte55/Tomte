@@ -144,6 +144,7 @@ module = ns.RegisterModule({
 	description = ns.FOREVER and "A Teleports tab in the world map's side panel: your hearthstone, class teleports and teleport items, with cooldowns. Teleports that go to the map you're looking at float to the top. Click to use, right-click to favorite."
 		or "A Teleports tab in the world map's side panel: your hearthstone (and a random hearthstone toy), house, dungeon teleports (this season first), class teleports and teleport items, with cooldowns. Teleports that go to the map you're looking at float to the top. Click to use, right-click to favorite.",
 	enabledByDefault = true,
+	alongside = { { addon = "MelloUI_Map", why = "the map key opens MelloUI's own map, which has no Teleports tab; Tomte's own map buttons still open the game's map with the tab" } },
 	home = {
 		{ kind = "map", key = "teleports", order = 2, name = "Teleports", icon = PORTAL_ICON,
 			open = function()

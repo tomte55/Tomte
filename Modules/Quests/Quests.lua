@@ -98,6 +98,7 @@ module = ns.RegisterModule({
 	alongside = {
 		{ addon = "EllesmereUIQuestTracker", why = "its Auto Accept and Auto Turn In do the same: keep those off there, or turn this module off" },
 		{ addon = "EllesmereUIQoL", why = "its gossip and cinematic skip options do the same: keep those off there, or the ones here" },
+		{ addon = "MelloUI", why = "while its Quest Automation accepts or hands in quests, Tomte leaves the quest steps to it; gossip and cinematics stay Tomte's" },
 	},
 	replaces = {
 		{ addon = "EnhanceQoL", why = "quest and gossip automation, and skipping cinematics" },

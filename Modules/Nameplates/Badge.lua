@@ -214,8 +214,8 @@ local function UpdateUnit(unit)
 	end
 	local state = false
 	-- EllesmereUI Nameplates hides Blizzard's plate, so an icon placed on it would miss the visible bar, and draws
-	-- quest icons (with the progress on Forever) of its own.
-	if db.quests and not ns.Ellesmere_Loaded("Nameplates") then
+	-- quest icons (with the progress on Forever) of its own. MelloUI's nameplates put their quest icon left of the bar.
+	if db.quests and not ns.Ellesmere_Loaded("Nameplates") and not ns.Mello_Does("Nameplates", "questIcon") then
 		state = QuestState(unit)
 		if state == nil then
 			-- Unreadable now (combat): keep what the plate showed and read it again after combat.
@@ -452,6 +452,9 @@ function ns.Plates_BadgesWhy(unit)
 	out[#out + 1] = ok and "nameplates may be decorated here" or ("not here: " .. why)
 	if ns.Ellesmere_Loaded("Nameplates") then
 		out[#out + 1] = "quest icons: left to EllesmereUI Nameplates"
+	end
+	if ns.Mello_Does("Nameplates", "questIcon") then
+		out[#out + 1] = "quest icons: left to MelloUI's nameplates"
 	end
 	if not UnitExists(unit) then
 		out[#out + 1] = "no target"

@@ -157,9 +157,11 @@ end
 
 -- Hooks (they can't be undone, so they do nothing while the module is off).
 
--- No icon under EllesmereUI Chat: it has a copy button of its own, and its chat panel would cover ours.
+-- No icon under EllesmereUI Chat: it has a copy button of its own, and its chat panel would cover ours. MelloUI's chat
+-- puts its copy button in the same top-right corner.
 local function OnFadeIn(frame)
-	if not module.active or not frame or not frame.GetNumMessages or ns.Ellesmere_Loaded("Chat") then
+	if not module.active or not frame or not frame.GetNumMessages or ns.Ellesmere_Loaded("Chat")
+		or ns.Mello_Does("Chat", "copyButton") then
 		return
 	end
 	local icon = icons[frame] or CreateIcon(frame)
@@ -211,6 +213,7 @@ module = ns.RegisterModule({
 	},
 	alongside = {
 		{ addon = "EllesmereUIChat", why = "it has its own copy button, so Tomte's icon stays off; the Copy chat key and /tomte chatcopy still work" },
+		{ addon = "MelloUI_Chat", why = "while its own copy button is on, Tomte's icon stays off; the Copy chat key and /tomte chatcopy still work" },
 	},
 	toggle = function(active)
 		if active then

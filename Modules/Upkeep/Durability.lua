@@ -188,6 +188,7 @@ module = ns.RegisterModule({
 	summary = "A heads-up when your gear needs repairs, before it breaks.",
 	description = "A toast when your gear drops below a durability threshold or an item breaks, and a warning when you enter a dungeon, raid or delve with low gear.",
 	enabledByDefault = true,
+	alongside = { { addon = "MelloUI", why = "its Reminders button by your portrait warns about repairs too: keep one of the two" } },
 	toasts = true,
 	defaults = {
 		threshold = 30, -- percent

@@ -460,7 +460,10 @@ end
 
 module = ns.RegisterModule({
 	key = "way",
-	conflicts = { { addon = "WaypointUI", why = "Waypoints stays off while it's enabled" } },
+	conflicts = {
+		{ addon = "WaypointUI", why = "Waypoints stays off while it's enabled" },
+		{ addon = "MelloUI_Route", why = "its World Marker shows the way too; Waypoints stays off while that's on" },
+	},
 	replaces = { { addon = "Plumber", why = "the map ping on your arrow and the keys that cycle quest focus" } },
 	name = "Waypoints",
 	category = "travel",
@@ -505,6 +508,10 @@ module = ns.RegisterModule({
 	blocked = function()
 		if C_AddOns.IsAddOnLoaded("WaypointUI") then
 			return "The WaypointUI addon is still enabled. Disable it and /reload to switch over."
+		end
+		-- Both would hang a marker on the game's navigation frame and hide Blizzard's.
+		if ns.Mello_Does("Route", "worldMarker") then
+			return "MelloUI's Route shows the way with its World Marker. Turn that off in /mello to use Tomte's."
 		end
 	end,
 	toggle = function(active)

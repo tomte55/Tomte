@@ -23,6 +23,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### Improved
 
+- **Other addons:** Tomte works alongside MelloUI on World of Warcraft: Forever. Bags, Channel Tags, Waypoints and the Quest list stay off while MelloUI's own version is on; Vendor Helper's repair and grey selling, the Chat Copy icon, the nameplate quest icon and quest accepting and handing in give way to MelloUI's when those are on there. Switching one in /mello takes effect at once, no /reload.
 - **Gear Check:** the quest reward card picks a recipe for one of your professions when no gear is an upgrade, and says when you can learn it.
 - **Quest list:** following the nearest quest leaves your own map pin alone, and picks up again once you remove it. Next quests does the same.
 - **Gear Check:** on World of Warcraft: Forever, a one-hander that fills an empty off-hand counts for warriors, rogues and hunters who dual wield, and says "Upgrade once you learn Dual Wield" before you've learned it (so the roll advice says Need).

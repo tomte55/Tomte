@@ -104,14 +104,24 @@ local function DialogueUISetting(key)
 	return C_AddOns.IsAddOnLoaded("DialogueUI") and type(saved) == "table" and saved[key] == true
 end
 
+-- MelloUI's Quest Automation (both off by default) accepts and hands in quests at the same events.
+local function MelloQuestSteps()
+	return ns.Mello_Does("QuestAuto", "accept") or ns.Mello_Does("QuestAuto", "handIn")
+end
+
 -- Whether this conversation's quest steps (opening, accepting, handing in) are ours to take.
 local function QuestSteps(c)
-	if not DialogueUISetting("AutoCompleteQuest") then
+	local other
+	if DialogueUISetting("AutoCompleteQuest") then
+		other = "DialogueUI's Auto Complete Quest is on"
+	elseif MelloQuestSteps() then
+		other = "MelloUI's Quest Automation is on"
+	else
 		return true
 	end
 	if not c.dialogueNoted then
 		c.dialogueNoted = true
-		Note("DialogueUI's Auto Complete Quest is on: it takes the quest steps instead.")
+		Note(other .. ": it takes the quest steps instead.")
 	end
 	return false
 end

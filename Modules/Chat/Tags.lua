@@ -179,10 +179,17 @@ module = ns.RegisterModule({
 	enabledByDefault = false,
 	keep = { "labels" },
 	-- It draws chat lines itself from what was sent, so rewriting the stored line would only shift its link clicks.
-	conflicts = { { addon = "EllesmereUIChat", why = "it shortens channel names itself; Channel Tags stays off while it's enabled" } },
+	-- MelloUI Chat rewrites each line after it's added (its Short Channel Names), so two rewrites would fight.
+	conflicts = {
+		{ addon = "EllesmereUIChat", why = "it shortens channel names itself; Channel Tags stays off while it's enabled" },
+		{ addon = "MelloUI_Chat", why = "its Short Channel Names do the same; Channel Tags stays off while those are on" },
+	},
 	blocked = function()
 		if ns.Ellesmere_Loaded("Chat") then
 			return "EllesmereUI Chat shortens channel names itself (its Abbreviate Channels setting), so Channel Tags stays off."
+		end
+		if ns.Mello_Does("Chat", "shortChannels") then
+			return "MelloUI's chat shortens channel names itself (its Short Channel Names in /mello), so Channel Tags stays off."
 		end
 	end,
 	defaults = {

@@ -63,6 +63,7 @@ module = ns.RegisterModule({
 	},
 	alongside = {
 		{ addon = "EllesmereUINameplates", why = "its nameplates show quest icons of their own, so Tomte's quest icon stays off; the Interact target's name still shows" },
+		{ addon = "MelloUI", why = "while its nameplates' Quest Icon is on, Tomte's quest icon stays off; the Interact target's name still shows" },
 	},
 	defaults = {
 		quests = true,

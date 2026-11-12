@@ -118,10 +118,10 @@ local function AnyDamaged()
 	return false
 end
 
--- EllesmereUI Quality of Life does the repair itself when its own setting is on: one bill, never two (it may pay with
--- guild money, its choice there).
+-- EllesmereUI Quality of Life and MelloUI's Vendor Automation do the repair themselves when their own setting is on:
+-- one bill, never two (they may pay with guild money, their choice there).
 local function Repair(visit)
-	if not db.repair or not CanMerchantRepair() or ns.Ellesmere_VendorRepairs() then
+	if not db.repair or not CanMerchantRepair() or ns.Ellesmere_VendorRepairs() or ns.Mello_Does("Vendor", "autoRepair") then
 		return
 	end
 	local cost, canRepair = GetRepairAllCost()
@@ -176,10 +176,10 @@ local function SellJunkOneByOne(visit, items)
 	end
 end
 
--- Left to EllesmereUI Quality of Life when it sells junk too: both selling the same slots would make the toast count
--- items EllesmereUI sold.
+-- Left to EllesmereUI Quality of Life or MelloUI's Vendor Automation when it sells junk too: both selling the same
+-- slots would make the toast count items the other addon sold.
 local function SellJunk(visit)
-	if not db.junk or ns.Ellesmere_VendorSellsJunk() then
+	if not db.junk or ns.Ellesmere_VendorSellsJunk() or ns.Mello_Does("Vendor", "autoSell") then
 		return
 	end
 	local items = BagItems()
@@ -251,6 +251,7 @@ module = ns.RegisterModule({
 	},
 	alongside = {
 		{ addon = "EllesmereUIQoL", why = "it repairs and sells grey items too, so Tomte leaves each of those to it while it's on there (its repair uses guild money unless you turn that off)" },
+		{ addon = "MelloUI", why = "its Vendor Automation repairs and sells grey items too, so Tomte leaves each of those to it while it's on there" },
 	},
 	init = function(moduleDB)
 		db = moduleDB

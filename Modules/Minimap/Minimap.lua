@@ -211,7 +211,10 @@ module = ns.RegisterModule({
 	description = "Buttons on the minimap's edge: Tomte's opens this window, and some modules offer their own. "
 		.. "Tick the ones you want below. Drag a button to move it around the minimap.",
 	enabledByDefault = true,
-	alongside = { { addon = "EllesmereUIMinimap", why = "the buttons follow its square or round map" } },
+	alongside = {
+		{ addon = "EllesmereUIMinimap", why = "the buttons follow its square or round map" },
+		{ addon = "MelloUI", why = "the buttons follow its square map; its Services bar may gather them into its AddOns tray (turn Addon Buttons off there to keep them on the edge)" },
+	},
 	minimapButton = {
 		name = "Tomte",
 		icon = ns.ICON,

@@ -427,6 +427,7 @@ module = ns.RegisterModule({
 	toasts = "Buff check (banners)",
 	alongside = {
 		{ addon = "EllesmereUIAuraBuffReminders", why = "it shows missing buff icons too: with both on you see two rows of icons, so turn off the one you like less" },
+		{ addon = "MelloUI", why = "its widget column reminds you of missing buffs, Well Fed and weapon oils too: turn those off there or this module here" },
 	},
 	defaults = {
 		strip = true,

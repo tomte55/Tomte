@@ -180,6 +180,7 @@ module = ns.RegisterModule({
 		.. "them when you're further down. Shows in a group from the start of a fight until a few seconds after it, "
 		.. "then fades. The game counts the damage itself; Blizzard's own meter window can stay off.",
 	enabledByDefault = false,
+	alongside = { { addon = "MelloUI", why = "its own damage meter shows the same numbers beside your frames: keep the one you like" } },
 	defaults = {
 		lines = 3, -- top places shown; your own line comes on top of these when you're further down
 		solo = false,
