@@ -20,6 +20,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **DPS meter (new module):** a small meter with the damage per second of the top three in your fight, and your own place under them when you're further down. Shows in a group during a fight and a few seconds after. Off by default; works on retail and World of Warcraft: Forever.
 - **Autocorrect (new module):** fixes your chat as you type: typos and misspelled words, missing apostrophes, capitals at the start of a sentence, place names, word pairs (could of) and doubled words. A note above the chat box shows each fix; Backspace right after puts your word back and that fix is never made again. Leaves commands, links, names, game words and chat shorthand alone, and pauses in boss fights, Mythic+ and PvP matches. `/tomte autocorrect keep`, `add` and `why` for your own words. Off by default; works on retail and World of Warcraft: Forever.
 - **Quest list (new module):** World of Warcraft: Forever only, off by default. Replaces the game's quest tracker with a list grouped by where your quests are: the nearest stops first, named by their direction from you, the rest in one folded Other quests group, and a dungeon's quests on top while you're in it. Objectives as bars or text, XP and distance per quest, the active quest on top of its group, Shift-click to hide a quest, a box to follow the nearest quest, Spoken's Play button on each quest, and plenty of settings for its look and when it shows. Next quests steps aside while it's on.
+- **Gold & value:** every bag item gets a marker saying what to do with it: a coin to vendor it, a gavel to auction it, a purple gem to disenchant it (with TSM), a green tick to keep it (upgrades, equipment sets, new looks, recipes you or an alt can still learn, things to open, things you use up), a yellow ! when a quest in your log needs it, a red X when it's safe to delete. In Tomte's bags, the game's bags and Baganator's, with the reason on the item's tooltip, a window listing every rule, `/tomte value why` and `ignore`, and `is:vendor`, `is:keep` and the like in Tomte's bag search. Replaces the AH mark; the tooltip's auction line now names its price source.
 
 ### Improved
 
@@ -27,11 +28,13 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Gear Check:** the quest reward card picks a recipe for one of your professions when no gear is an upgrade, and says when you can learn it.
 - **Quest list:** following the nearest quest leaves your own map pin alone, and picks up again once you remove it. Next quests does the same.
 - **Gear Check:** on World of Warcraft: Forever, a one-hander that fills an empty off-hand counts for warriors, rogues and hunters who dual wield, and says "Upgrade once you learn Dual Wield" before you've learned it (so the roll advice says Need).
+- **Bags:** a marks editor (Bags settings, Marks on items) with a live preview: pick each mark's corner and which one wins a shared corner. The transmog mark is a coat hanger and the crafting list mark a small list, so no two marks look alike.
 
 ### Fixed
 
 - **Gold & value:** the Auction House and vendor lines no longer show up several times on an item tooltip, or below it, when the Equipped comparison is open.
 - **Loot:** on World of Warcraft: Forever, Make room no longer destroys anything for loot that's still being rolled for or was taken meanwhile, and fast loot no longer tries rolled items ("That item is still being rolled for").
+- **Gold & value:** hovering a quest reward, a chat link or a merchant's item no longer causes a Lua error (DoesItemExist) from the auction line.
 
 ## v1.32.1 - 2026-11-08
 

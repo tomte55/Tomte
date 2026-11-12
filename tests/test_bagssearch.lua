@@ -74,6 +74,13 @@ test("is:upgrade, is:maybe and is:altupgrade read Gear Check's verdict", functio
 	eq(matches("is:upgrade", { upgrade = "later" }), false, "not an upgrade yet")
 end)
 
+test("is:vendor, is:forquest and friends read the item marker", function()
+	eq(matches("is:vendor", { marker = { kind = "vendor" } }), true)
+	eq(matches("is:vendor", { marker = { kind = "auction" } }), false)
+	eq(matches("is:forquest", { marker = { kind = "quest" } }), true)
+	eq(matches("is:delete", {}), false, "no marker")
+end)
+
 test("gear with an item level comparison", function()
 	eq(matches("is:gear ilvl>=600", { classID = 4, ilvl = 610 }), true)
 	eq(matches("is:gear ilvl>=600", { classID = 4, ilvl = 590 }), false)

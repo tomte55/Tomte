@@ -236,4 +236,26 @@ test("Sessions: the play nights switch goes (grouped by day now)", function()
 	eq(none.recap, nil)
 end)
 
+test("Item markers: the junk coin's corner goes to the marker, the AH mark switches go", function()
+	local db = { schema = 19, bags = { corners = { junk = "BOTTOMRIGHT", ah = "TOPLEFT", ilvl = "BOTTOMLEFT" } },
+		value = { sell = { mark = false, markConsumables = true, minGain = 500, tooltip = true } } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.bags.corners.marker, "BOTTOMRIGHT")
+	eq(db.bags.corners.junk, nil)
+	eq(db.bags.corners.ah, nil)
+	eq(db.bags.corners.ilvl, "BOTTOMLEFT")
+	eq(db.value.sell.mark, nil)
+	eq(db.value.sell.markConsumables, nil)
+	eq(db.value.sell.minGain, 500, "the limit stays")
+	db = { schema = 19, bags = { corners = { junk = "off", ah = "TOPRIGHT" } } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.bags.corners.marker, "TOPRIGHT", "the AH mark's corner when the coin was off")
+	db = { schema = 19, bags = { corners = { junk = "off", ah = "off" } } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.bags.corners.marker, "off")
+	local none = { schema = 19 }
+	ns.RunMigrations(none, ns.MIGRATIONS)
+	eq(none.bags, nil, "no settings: nothing made")
+end)
+
 H.done()

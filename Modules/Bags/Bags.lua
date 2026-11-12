@@ -263,15 +263,13 @@ local function Pixels(v)
 	return ("%d px"):format(v)
 end
 
-local function Corners()
-	return { { value = "TOPLEFT", text = "Top left" }, { value = "TOPRIGHT", text = "Top right" },
-		{ value = "BOTTOMLEFT", text = "Bottom left" }, { value = "BOTTOMRIGHT", text = "Bottom right" },
-		{ value = "off", text = "Off" } }
-end
-
-local function CornerRow(key, label, tooltip, shown)
-	return { type = "dropdown", key = "corners." .. key, label = label, choices = Corners,
-		onChange = ns.BagsWindow_Relayout, tooltip = tooltip, shown = shown }
+-- The marks editor's "Back to defaults": every mark in its default corner and order.
+function ns.Bags_ResetMarks()
+	wipe(db.corners)
+	for mark, corner in pairs(ns.BAGS_DEFAULT_CORNERS) do
+		db.corners[mark] = corner
+	end
+	db.markOrder = {}
 end
 
 local function Check(key, label, tooltip)
@@ -302,8 +300,8 @@ module = ns.RegisterModule({
 	icon = 133633, -- inv_misc_bag_08
 	summary = "Your bags sorted into categories, with upgrade and transmog marks.",
 	description = ns.FOREVER
-		and "Replaces the game's bags with one window: items sorted into categories (or one big bag), a mark on appearances you haven't collected, item levels, your keys, and a search that understands things like is:rare or ilvl>50."
-		or "Replaces the game's bags with one window: items sorted into categories (or one big bag), Gear Check's upgrade arrows, a mark on appearances you haven't collected, item levels, and a search that understands things like is:upgrade or ilvl>600.",
+		and "Replaces the game's bags with one window: items sorted into categories (or one big bag), a marker saying whether to vendor, auction or keep each item, a mark on appearances you haven't collected, item levels, your keys, and a search that understands things like is:rare or ilvl>50."
+		or "Replaces the game's bags with one window: items sorted into categories (or one big bag), Gear Check's upgrade arrows, a marker saying whether to vendor, auction or keep each item, a mark on appearances you haven't collected, item levels, and a search that understands things like is:upgrade or ilvl>600.",
 	enabledByDefault = false,
 	conflicts = (function()
 		local list = {}
@@ -322,12 +320,11 @@ module = ns.RegisterModule({
 		group = false, -- stacks of the same item shown as one icon with the total
 		buttonsOnHover = false, -- the top bar's buttons only while the mouse is over the window
 		locked = false, -- the window can't be dragged
-		-- Where each mark sits on an item: TOPLEFT | TOPRIGHT | BOTTOMLEFT | BOTTOMRIGHT | off. Marks sharing a corner:
-		-- the first that applies shows (Data.lua's BAGS_MARKS order). The stack count is the game's, bottom right.
-		corners = {
-			junk = "TOPLEFT", upgrade = "TOPLEFT", ah = "TOPLEFT", crafting = "TOPRIGHT", transmog = "TOPRIGHT", set = "TOPRIGHT",
-			petlevel = "BOTTOMLEFT", ilvl = "BOTTOMLEFT",
-		},
+		-- Where each mark sits on an item: TOPLEFT | TOPRIGHT | BOTTOMLEFT | BOTTOMRIGHT | off (the marks editor,
+		-- MarksEditor.lua). Marks sharing a corner: the first that applies in markOrder shows. The stack count is the
+		-- game's, bottom right.
+		corners = ns.BAGS_DEFAULT_CORNERS,
+		markOrder = {}, -- mark keys in the order they win a shared corner; empty: Data.lua's BAGS_MARKS order
 		ilvlColor = "quality", -- quality | plain
 		looks = { fontSize = 12, newGlow = true, greyJunk = true, redUnusable = true, context = true },
 		sortMethod = "quality", -- quality | type | name | ilvl (Data.lua's BAGS_SORTS), inside each category
@@ -357,6 +354,7 @@ module = ns.RegisterModule({
 		ns.BagsTakeover_Init(saved)
 		ns.BagsBank_Init(saved)
 		ns.BagsEditPage_Init(saved)
+		ns.BagsMarks_Init(saved)
 	end,
 	blocked = function()
 		for _, addon in ipairs(OTHER_BAGS) do
@@ -426,31 +424,13 @@ module = ns.RegisterModule({
 		end, tooltip = "Add your own categories, change their rules and order, and share them." },
 
 		{ type = "header", label = "On items" },
-		CornerRow("ilvl", "Item level", "The item level on weapons and armor."),
+		{ type = "button", label = "Marks on items", text = "Edit", onClick = function()
+			ns.BagsMarks_Show()
+		end, tooltip = "Where each mark sits on an item (upgrade arrow, item marker, transmog, item level ...) and which one shows when two share a corner, with a live preview." },
 		{ type = "dropdown", key = "ilvlColor", label = "Item level color", onChange = ns.BagsWindow_Relayout,
 			choices = function()
 				return { { value = "quality", text = "Quality" }, { value = "plain", text = "Plain" } }
 			end, tooltip = "Quality: the item level in the item's quality color (blue for rare, purple for epic)." },
-		CornerRow("upgrade", "Upgrade arrow",
-			"Gear Check's arrows: green for an upgrade, yellow for maybe, in Tomte's color for another character. Needs Gear Check on.",
-			function()
-				return ns.Gear_BagArrow ~= nil -- Gear Check's retail files; Forever's has to offer it
-			end),
-		CornerRow("transmog", "Transmog mark",
-			"A round badge with an X on items whose appearance you haven't collected: in the accent color when this character can learn it, grey when only another class can."),
-		CornerRow("junk", "Junk coin", "The coin on grey items, not only at a merchant."),
-		CornerRow("ah", "Worth listing (AH)",
-			"AH on items that sell at the auction house and make clearly more there than at a vendor. Gold & value decides (its settings say how much more); grey items marked AH lose their junk coin.",
-			function()
-				return ns.Value_SellMark ~= nil
-			end),
-		CornerRow("crafting", "Crafting list",
-			"A dot on items your crafting list (Alts) wants moved; the item's tooltip says how many.",
-			function()
-				return ns.AltsList_Marked ~= nil
-			end),
-		CornerRow("set", "Equipment set", "A small blue square on items in one of your equipment sets."),
-		CornerRow("petlevel", "Battle pet level", "The level of a caged battle pet.", ns.NotForever),
 		{ type = "slider", key = "looks.fontSize", label = "Number size", min = 9, max = 16, step = 1, format = Pixels,
 			onChange = ns.BagsWindow_Relayout, tooltip = "Stack counts, item levels, pet levels and free slots." },
 		Check("looks.newGlow", "New item glow", "The glow on items you just got."),

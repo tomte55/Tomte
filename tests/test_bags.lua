@@ -225,19 +225,41 @@ test("sort methods: type, name, item level, and reversed", function()
 end)
 
 test("a shared corner shows the first mark that applies", function()
-	local corners = { junk = "TOPLEFT", upgrade = "TOPLEFT", transmog = "TOPRIGHT", crafting = "TOPRIGHT",
+	local corners = { marker = "TOPLEFT", upgrade = "TOPLEFT", transmog = "TOPRIGHT", crafting = "TOPRIGHT",
 		set = "BOTTOMLEFT", ilvl = "BOTTOMLEFT", petlevel = "off" }
-	local shown = ns.Bags_CornerMarks({ upgrade = "upgrade", transmog = "you", ilvl = 610 }, corners)
-	eq(shown.TOPLEFT, "upgrade")
+	local shown = ns.Bags_CornerMarks({ marker = "keep", transmog = "you", ilvl = 610 }, corners)
+	eq(shown.TOPLEFT, "marker")
 	eq(shown.TOPRIGHT, "transmog")
 	eq(shown.BOTTOMLEFT, "ilvl")
-	shown = ns.Bags_CornerMarks({ junk = true, upgrade = "upgrade", crafting = 3, transmog = "you", set = true,
+	shown = ns.Bags_CornerMarks({ marker = "keep", upgrade = "upgrade", crafting = 3, transmog = "you", set = true,
 		ilvl = 610 }, corners)
-	eq(shown.TOPLEFT, "junk")
+	eq(shown.TOPLEFT, "upgrade")
 	eq(shown.TOPRIGHT, "crafting")
 	eq(shown.BOTTOMLEFT, "set")
 	shown = ns.Bags_CornerMarks({ petlevel = 25 }, corners)
 	eq(next(shown), nil, "an Off mark never shows")
+	local order = ns.Bags_MoveMark(ns.Bags_MarkOrder(nil), "marker", -1)
+	shown = ns.Bags_CornerMarks({ marker = "keep", upgrade = "upgrade" }, corners, order)
+	eq(shown.TOPLEFT, "marker", "the player's order wins")
+end)
+
+test("mark order: the player's, made whole", function()
+	local order = ns.Bags_MarkOrder(nil)
+	eq(table.concat(order, ","), table.concat(ns.BAGS_MARKS, ","))
+	order = ns.Bags_MarkOrder({ "ilvl", "junk", "ilvl", "set", "upgrade" })
+	eq(#order, #ns.BAGS_MARKS, "unknown and repeated keys dropped, missing ones back")
+	eq(table.concat(order, ","), "ilvl,set,petlevel,upgrade,marker,crafting,transmog",
+		"the saved order kept, each missing mark after the one before it by default")
+	eq(table.concat(ns.Bags_MoveMark({ "a", "b", "c" }, "c", -1), ","), "a,c,b")
+	eq(table.concat(ns.Bags_MoveMark({ "a", "b", "c" }, "a", -1), ","), "a,b,c", "stays inside the list")
+	eq(table.concat(ns.Bags_MoveMark({ "a", "b", "c" }, "a", 1), ","), "b,a,c")
+end)
+
+test("corner stacks list each corner's marks in order", function()
+	local stacks = ns.Bags_CornerStacks({ upgrade = "TOPLEFT", marker = "TOPLEFT", ilvl = "BOTTOMLEFT", set = "off" })
+	eq(table.concat(stacks.TOPLEFT, ","), "upgrade,marker")
+	eq(table.concat(stacks.BOTTOMLEFT, ","), "ilvl")
+	eq(#stacks.TOPRIGHT, 0)
 end)
 
 test("what fits at a merchant, the mailbox, a trade or the Auction House", function()

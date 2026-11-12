@@ -564,11 +564,12 @@ local function Name(entry)
 	return entry.c.name or "?"
 end
 
--- The tooltip lines for a recipe item: ids are the stored recipes of its name (maybe several, maybe none: nobody's
--- profession window showed it yet), req = { base, line, level } its "Requires" line (or nil). Who knows it; else who
--- could learn it, split by the skill they have in that expansion's line (prof.tiers) against the level it needs
--- (a character whose skill wasn't read counts as able). { { text, role } }, empty when nobody has the profession.
-function ns.Alts_RecipeItemLines(chars, recipes, ids, req)
+-- Who knows a recipe item's recipe, or who could learn it: ids are the stored recipes of its name (maybe several,
+-- maybe none: nobody's profession window showed it yet), req = { base, line, level } its "Requires" line (or nil).
+-- Returns { known = { { c } } } when someone knows it; else { known = {}, ready = { { c, skill } } (skill high
+-- enough, or not read), low = { { c, skill } } (not yet), need (the level it needs), profName }. ready and low are
+-- empty when nobody has the profession. c: a character record (c.name).
+function ns.Alts_RecipeLearners(chars, recipes, ids, req)
 	local known, learnable, seen = {}, {}, {}
 	local base, line = req and req.base, req and req.line
 	for _, id in ipairs(ids or {}) do
@@ -581,7 +582,7 @@ function ns.Alts_RecipeItemLines(chars, recipes, ids, req)
 		end
 	end
 	if #known > 0 then
-		return { { text = "Known by " .. NameList(known, Name), role = "textMuted" } }
+		return { known = known, ready = {}, low = {} }
 	end
 	for _, id in ipairs(ids or {}) do
 		local _, l = ns.Alts_Crafters(chars, recipes[id], id)
@@ -615,7 +616,18 @@ function ns.Alts_RecipeItemLines(chars, recipes, ids, req)
 		local list = (need and skill and skill < need) and low or ready
 		list[#list + 1] = { c = c, skill = skill }
 	end
-	profName = profName or "?"
+	return { known = known, ready = ready, low = low, need = need, profName = profName or "?" }
+end
+
+-- The tooltip lines for a recipe item (arguments as Alts_RecipeLearners): who knows it; else who could learn it,
+-- split by the skill they have in that expansion's line (prof.tiers) against the level it needs (a character whose
+-- skill wasn't read counts as able). { { text, role } }, empty when nobody has the profession.
+function ns.Alts_RecipeItemLines(chars, recipes, ids, req)
+	local who = ns.Alts_RecipeLearners(chars, recipes, ids, req)
+	if #who.known > 0 then
+		return { { text = "Known by " .. NameList(who.known, Name), role = "textMuted" } }
+	end
+	local ready, low, profName, need = who.ready, who.low, who.profName, who.need
 	local lines = {}
 	if #ready == 1 and ready[1].skill then
 		lines[1] = { text = ("Learnable by %s (%s %d)"):format(Name(ready[1]), profName, ready[1].skill), role = "success" }

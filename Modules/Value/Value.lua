@@ -7,7 +7,10 @@ local addonName, ns = ...
 --                  the roster and "worth" next to the total gold.
 --   Crafting tab   what the materials cost, what the result sells for and the difference.
 --   Bags           tracked items, holiday tokens and upgrade crests on the bag's currency bar (Backpack.lua).
---   Selling        auction house or vendor: a tooltip line, the bags' AH mark, Vendor Helper's grey selling (Sell.lua).
+--   Selling        auction house or vendor: a tooltip line, Vendor Helper's grey selling (Sell.lua).
+--   Markers        one marker per bag item: vendor, auction, disenchant, keep, quest, delete (MarkerData.lua rules,
+--                  Markers.lua reads, MarkerArt.lua draws, MarkerBags.lua the game's and Baganator's bags,
+--                  MarkerRules.lua the rules window).
 -- Choices are in Data.lua (unit-tested).
 
 local DEBOUNCE = 2 -- seconds of quiet bags before they're priced
@@ -59,6 +62,19 @@ end
 function ns.Value_SourceName()
 	local source = ns.Value_Source(db.source, Has())
 	return source == "tsm" and "TSM" or (source == "auctionator" and "Auctionator" or "vendor prices")
+end
+
+local TSM_LABELS = { DBMarket = "market value", DBMinBuyout = "min buyout", DBRecent = "recent value",
+	DBRegionMarketAvg = "region market value", DBRegionSaleAvg = "region sale average" }
+
+-- Where an auction price comes from, for the tooltip: "TSM market value", "Auctionator". A price that doesn't match
+-- another addon's tooltip is then easy to place (TSM's own tooltip shows several of its prices).
+function ns.Value_PriceLabel()
+	local source = ns.Value_Source(db.source, Has())
+	if source == "tsm" then
+		return "TSM " .. (TSM_LABELS[db.tsmSource] or db.tsmSource)
+	end
+	return ns.Value_SourceName()
 end
 
 -- Auction price in copper and age in days (nil when unknown).
@@ -357,11 +373,23 @@ local function Track(text, rawText)
 	ns.ValueBackpack_Track(itemID)
 end
 
--- The bags read again, so their AH marks follow the setting.
-local function BagsChanged()
-	if ns.Bags_Reread then
-		ns.Bags_Reread()
+-- Every bag item's marker judged again and redrawn: a setting they follow changed.
+local function MarkersChanged()
+	if module.active then
+		ns.Value_MarkersChanged()
 	end
+end
+
+local function Corners()
+	return { { value = "TOPLEFT", text = "Top left" }, { value = "TOPRIGHT", text = "Top right" },
+		{ value = "BOTTOMLEFT", text = "Bottom left" }, { value = "BOTTOMRIGHT", text = "Bottom right" } }
+end
+
+local function MarkerCounts()
+	if not module.active then
+		return "Gold & value is off", "textFaint"
+	end
+	return ns.Value_MarkerSummary(ns.Value_MarkerCounts()) or "nothing marked", "textMuted"
 end
 
 local function BackpackChanged()
@@ -376,8 +404,9 @@ module = ns.RegisterModule({
 	summary = "What your loot, bags and crafts are worth at the auction house.",
 	description = "What things are worth, from Auctionator or TSM: the value of a session's loot on the recap card and "
 		.. "the Sessions page, each character's bags and bank in Alts, and what a craft costs and sells for in the "
-		.. "Crafting tab. Also items you track, holiday tokens and upgrade crests on the bag's currency bar, and whether "
-		.. "an item is worth listing at the auction house or selling to a vendor (on its tooltip, and an AH mark in the bags).",
+		.. "Crafting tab. Also items you track, holiday tokens and upgrade crests on the bag's currency bar, and a "
+		.. "marker on every bag item saying what to do with it: vendor it, auction it, disenchant it, keep it, keep it "
+		.. "for a quest, or delete it (in Tomte's bags, the game's and Baganator's, with the reason on its tooltip).",
 	enabledByDefault = true,
 	replaces = { { addon = "Plumber", why = "the backpack item tracker on the bag's currency bar" } },
 	uses = {
@@ -396,9 +425,17 @@ module = ns.RegisterModule({
 		stale = 7,
 		sell = {
 			tooltip = true, -- a line on item tooltips: sell on the auction house or at a vendor
-			mark = true, -- the AH mark on bag items worth listing
-			markConsumables = true, -- potions, food and scrolls get it too
-			minGain = MIN_GAIN, -- copper a stack must gain over vendoring it to be marked
+			-- The player's limit: copper a stack must gain at the auction house (or as disenchanting materials) over
+			-- vendoring it to be marked for that.
+			minGain = MIN_GAIN,
+		},
+		-- Item markers (Markers.lua): one per bag item. Tomte's own bags pick their corner in the Bags settings.
+		markers = {
+			tooltip = true, -- the marker and its reason on bag items' tooltips
+			blizzard = true, -- in the game's bags
+			corner = "BOTTOMLEFT", -- where in the game's bags: TOPLEFT | TOPRIGHT | BOTTOMLEFT | BOTTOMRIGHT
+			baganator = true, -- a corner widget in Baganator's bags
+			ignore = {}, -- [itemID] = true: never marked (/tomte value ignore)
 		},
 		backpack = {
 			shown = true,
@@ -410,6 +447,8 @@ module = ns.RegisterModule({
 	init = function(saved)
 		db = saved
 		ns.ValueSell_Init(module, saved)
+		ns.ValueMarkers_Init(module, saved)
+		ns.ValueMarkerBags_Init(saved)
 	end,
 	toggle = function(active)
 		for _, event in ipairs(EVENTS) do
@@ -421,6 +460,7 @@ module = ns.RegisterModule({
 		end
 		ns.ValueBackpack_Toggle(active and db.backpack.shown, db.backpack)
 		ns.ValueSell_Update()
+		ns.ValueMarkers_Toggle(active)
 		if active then
 			ReadWorthSoon()
 		else
@@ -434,7 +474,7 @@ module = ns.RegisterModule({
 	end,
 	options = {
 		{ type = "header", label = "Prices" },
-		{ type = "dropdown", key = "source", label = "Prices from", choices = function()
+		{ type = "dropdown", key = "source", label = "Prices from", onChange = MarkersChanged, choices = function()
 			return {
 				{ value = "auto", text = "Auto (TSM, else Auctionator)" },
 				{ value = "auctionator", text = "Auctionator" },
@@ -442,7 +482,7 @@ module = ns.RegisterModule({
 				{ value = "vendor", text = "Vendor prices only" },
 			}
 		end, tooltip = "Where auction prices come from. A missing addon falls back to the other, then to vendor prices." },
-		{ type = "dropdown", key = "tsmSource", label = "TSM price", choices = function()
+		{ type = "dropdown", key = "tsmSource", label = "TSM price", onChange = MarkersChanged, choices = function()
 			return {
 				{ value = "DBMarket", text = "Market value (realm)" },
 				{ value = "DBMinBuyout", text = "Min buyout (realm)" },
@@ -460,18 +500,34 @@ module = ns.RegisterModule({
 				{ value = "none", text = "Leave out" },
 			}
 		end, tooltip = "Auction prices for gear are often misleading (few sales, item level variants)." },
-		{ type = "header", label = "Auction House or vendor" },
-		{ type = "checkbox", key = "sell.tooltip", label = "On item tooltips", onChange = ns.ValueSell_Update,
-			tooltip = "Whether an item is worth listing: its auction price after the 5% cut, how often it sells and how many sell a day (from TSM), against its vendor price. Slow sellers and items the vendor pays as well for say so." },
-		{ type = "checkbox", key = "sell.mark", label = "Mark bag items worth listing", onChange = BagsChanged,
-			tooltip = "An AH mark on items that sell and beat the vendor, so they don't get vendored by mistake. Vendor Helper's grey selling skips them too. Needs Tomte's bags; the corner is set under Bags." },
-		{ type = "checkbox", key = "sell.markConsumables", label = "Mark consumables too", parent = "sell.mark",
-			onChange = BagsChanged,
-			tooltip = "Potions, food, scrolls and the like. Off: they keep their tooltip line, without the mark, as you'd usually use them yourself." },
-		{ type = "slider", key = "sell.minGain", label = "Worth listing from", min = MIN_GAIN_STEP, max = MIN_GAIN_MAX,
-			step = MIN_GAIN_STEP, parent = "sell.mark", onChange = BagsChanged, format = function(v)
+		{ type = "header", label = "Vendor, auction or keep" },
+		{ type = "status", label = "In your bags now", status = MarkerCounts },
+		{ type = "slider", key = "sell.minGain", label = "Your limit", min = MIN_GAIN_STEP, max = MIN_GAIN_MAX,
+			step = MIN_GAIN_STEP, onChange = MarkersChanged, format = function(v)
 				return ns.Price(v)
-			end, tooltip = "How much more a stack has to make at the auction house than at a vendor before it's marked." },
+			end, tooltip = "How much more a whole stack has to make at the auction house, or as disenchanting materials, than a vendor pays before it's marked for that. Less than this: vendor it. Things you use up, like potions and food, are kept when they'd cost more than this to buy back." },
+		{ type = "button", label = "Markers", text = "How each is decided", onClick = function()
+			ns.ValueMarkerRules_Show(db.sell.minGain)
+		end, tooltip = "Every rule, in the order they're tried. /tomte value why <item> says which one decided an item." },
+		{ type = "checkbox", key = "markers.tooltip", label = "Marker on item tooltips",
+			tooltip = "The marker of an item in your bags and why it got it, on its tooltip." },
+		{ type = "checkbox", key = "sell.tooltip", label = "Auction price on item tooltips", onChange = ns.ValueSell_Update,
+			tooltip = "Whether an item is worth listing: its auction price after the 5% cut, how often it sells and how many sell a day (from TSM), against its vendor price. Slow sellers and items the vendor pays as well for say so." },
+		{ type = "checkbox", key = "markers.blizzard", label = "Markers in the game's bags",
+			onChange = ns.ValueMarkerBags_Repaint,
+			tooltip = "A marker on every item in the game's own bags: a coin to vendor it, a gavel to auction it, a purple gem to disenchant it, a green tick to keep it, a yellow ! to keep it for a quest, a red X when it's safe to delete. Tomte's own bags place theirs in the Bags settings (Marks on items)." },
+		{ type = "dropdown", key = "markers.corner", label = "Corner", parent = "markers.blizzard", choices = Corners,
+			onChange = ns.ValueMarkerBags_Repaint },
+		{ type = "checkbox", key = "markers.baganator", label = "Markers in Baganator's bags",
+			onChange = ns.ValueMarkerBags_Repaint, shown = function()
+				return C_AddOns.IsAddOnLoaded("Baganator")
+			end, tooltip = "The same marker as a corner widget in Baganator. Its corner is set in Baganator's own settings (Icon corners)." },
+		{ type = "button", label = "Ignored items", text = "Mark them again", shown = function()
+			return next(db.markers.ignore) ~= nil
+		end, confirm = "Give every item you told Tomte to ignore a marker again?", onClick = function()
+			wipe(db.markers.ignore)
+			MarkersChanged()
+		end, tooltip = "Items you left out with /tomte value ignore <item> get markers again." },
 		{ type = "header", label = "Sessions" },
 		{ type = "checkbox", key = "sessions", label = "Count loot value in sessions",
 			tooltip = "Every looted item is priced for the recap card and the Sessions page. Needs Session recap on." },
@@ -504,5 +560,10 @@ module = ns.RegisterModule({
 	commands = {
 		{ "price", "what an item is worth: /tomte value price <item link or ID>", PrintPrice },
 		{ "track", "show an item on the bag's currency bar, or stop: /tomte value track <item link or ID>", Track },
+		{ "why", "which marker a bag item gets and why: /tomte value why <item>", ns.ValueMarkers_Why },
+		{ "ignore", "no marker on an item, or a marker again: /tomte value ignore <item>", ns.ValueMarkers_Ignore },
+		{ "markers", "how each item marker is decided", function()
+			ns.ValueMarkerRules_Show(db.sell.minGain)
+		end },
 	},
 })

@@ -240,6 +240,7 @@ Modules/Bags/Window.lua
 Modules/Bags/Bank.lua
 Modules/Bags/EditList.lua
 Modules/Bags/EditPage.lua
+Modules/Bags/MarksEditor.lua
 Modules/Bags/Takeover.lua
 Modules/Bags/Bags.lua
 Modules/Showcase/Data.lua
@@ -383,8 +384,13 @@ Modules/Performance/Page.lua
 Modules/Performance/Overlay.lua
 Modules/Performance/Performance.lua
 Modules/Value/Data.lua
+Modules/Value/MarkerData.lua
 Modules/Value/Backpack.lua
 Modules/Value/Sell.lua
+Modules/Value/MarkerArt.lua
+Modules/Value/Markers.lua
+Modules/Value/MarkerBags.lua
+Modules/Value/MarkerRules.lua
 Modules/Value/Value.lua
 Modules/Mail/Data.lua
 Modules/Mail/Mail.lua

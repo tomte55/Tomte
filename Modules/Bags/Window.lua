@@ -114,7 +114,8 @@ end
 local function PaintOptions()
 	local looks = db.looks
 	return {
-		corners = db.corners, ilvlColor = db.ilvlColor, fontSize = looks.fontSize, newGlow = looks.newGlow,
+		corners = db.corners, markOrder = ns.Bags_MarkOrder(db.markOrder), ilvlColor = db.ilvlColor,
+		fontSize = looks.fontSize, newGlow = looks.newGlow,
 		greyJunk = looks.greyJunk, redUnusable = looks.redUnusable, context = looks.context,
 	}
 end

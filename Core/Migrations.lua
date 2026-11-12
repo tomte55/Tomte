@@ -193,4 +193,27 @@ ns.MIGRATIONS = {
 			db.recap.nights = nil
 		end
 	end,
+	-- 20: item markers. Tomte's bags show Gold & value's item marker (vendor coin, auction gavel, keep ...) in place of
+	-- the junk coin and the AH mark: it takes the junk coin's corner (else the AH mark's; "off" carries over when both
+	-- were off). Gold & value's AH mark switches go: the markers replace them.
+	function(db)
+		local corners = type(db.bags) == "table" and type(db.bags.corners) == "table" and db.bags.corners
+		if corners then
+			if corners.marker == nil then
+				local junk, ah = corners.junk, corners.ah
+				if junk and junk ~= "off" then
+					corners.marker = junk
+				elseif ah and ah ~= "off" then
+					corners.marker = ah
+				else
+					corners.marker = junk or ah
+				end
+			end
+			corners.junk, corners.ah = nil, nil
+		end
+		local sell = type(db.value) == "table" and type(db.value.sell) == "table" and db.value.sell
+		if sell then
+			sell.mark, sell.markConsumables = nil, nil
+		end
+	end,
 }

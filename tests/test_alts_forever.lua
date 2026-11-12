@@ -58,6 +58,21 @@ test("recipe items on Forever weigh the profession's own skill", function()
 	eq(high[1].text, "Learnable by Aldric (Blacksmithing 150)", "high enough")
 end)
 
+test("recipe learners: who can learn it now or later, for Gold & value's markers", function()
+	local ns = Load(true)
+	local chars = { a = { guid = "a", name = "Aldric",
+		profs = { [BS] = { name = "Blacksmithing", base = BS, skill = 100, known = {} } } } }
+	local who = ns.Alts_RecipeLearners(chars, {}, nil, { base = BS, level = 125 })
+	eq(#who.known, 0)
+	eq(#who.ready, 0)
+	eq(who.low[1].c.name, "Aldric")
+	eq(who.low[1].skill, 100)
+	eq(who.need, 125)
+	eq(who.profName, "Blacksmithing")
+	who = ns.Alts_RecipeLearners({}, {}, nil, { base = BS, level = 125 })
+	eq(#who.ready + #who.low, 0, "nobody has the profession")
+end)
+
 test("recipe items on retail still go by the expansion line only", function()
 	local lines = RecipeLines(Load(false), 100)
 	eq(lines[1].text, "Learnable by Aldric (Blacksmithing)", "no line, no reading: counts as able")

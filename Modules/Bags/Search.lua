@@ -11,7 +11,7 @@ local addonName, ns = ...
 -- lower case, read only when a search has words: Compile says so), count, quality, ilvl,
 -- classID, subclassID, bind ("soulbound" | "warbound" | "boe" | nil), expansion, price (copper), upgrade
 -- ("upgrade" | "maybe" | "alt" | "later" | nil), look ("you" | "other" | nil), junk, new, set, quest, toy, mount, pet, decor,
--- hearth, keystone.
+-- hearth, keystone, marker ({ kind = "vendor" | "auction" | "disenchant" | "keep" | "quest" | "delete" } or nil).
 
 -- Item classes and subclasses (Enum.ItemClass and its subclass enums, warcraft.wiki.gg/wiki/ItemType).
 local CONSUMABLE, CONTAINER, WEAPON, GEM, ARMOR, REAGENT = 0, 1, 2, 3, 4, 5
@@ -31,6 +31,13 @@ end
 local function Field(key, value)
 	return function(item)
 		return item[key] == value
+	end
+end
+
+-- Gold & value's item marker of this kind (item.marker = { kind, ... }, Read.lua).
+local function Marker(kind)
+	return function(item)
+		return item.marker ~= nil and item.marker.kind == kind
 	end
 end
 
@@ -89,6 +96,12 @@ local KEYWORDS = {
 	{ "decor", "housing decor", Field("decor", true), retail = true },
 	{ "misc", "miscellaneous", Class(MISC) },
 	{ "junk", "junk (grey items)", Field("junk", true) },
+	{ "vendor", "marked to vendor (Gold & value's item markers)", Marker("vendor") },
+	{ "auction", "marked to auction", Marker("auction") },
+	{ "disenchant", "marked to disenchant", Marker("disenchant") },
+	{ "keep", "marked to keep", Marker("keep") },
+	{ "forquest", "marked to keep for a quest", Marker("quest") },
+	{ "delete", "marked safe to delete", Marker("delete") },
 	{ "new", "new since you last looked", Field("new", true) },
 	{ "soulbound", "soulbound", Field("bind", "soulbound") },
 	{ "warbound", "warbound", Field("bind", "warbound") },

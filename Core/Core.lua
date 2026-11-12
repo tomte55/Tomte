@@ -148,6 +148,27 @@ function ns.NewAppearance(link)
 	return canCollect == true and "you" or "other"
 end
 
+-- The equipment sets each bag slot's item is in: [bag * 1000 + slot] = { set names }. Bank slots are left out.
+-- C_Container.GetContainerItemEquipmentSetInfo would say it per slot, but warcraft.wiki.gg says it doesn't work.
+function ns.EquipmentSetSlots()
+	local slots = {}
+	if not (C_EquipmentSet and EquipmentManager_GetLocationData) then
+		return slots
+	end
+	for _, setID in ipairs(C_EquipmentSet.GetEquipmentSetIDs() or {}) do
+		local name = C_EquipmentSet.GetEquipmentSetInfo(setID)
+		for _, location in pairs(C_EquipmentSet.GetItemLocations(setID) or {}) do
+			local data = EquipmentManager_GetLocationData(location)
+			if name and data.isBags and not data.isBank and data.bag and data.slot then
+				local key = data.bag * 1000 + data.slot
+				slots[key] = slots[key] or {}
+				table.insert(slots[key], name)
+			end
+		end
+	end
+	return slots
+end
+
 local events = ns.NewEvents()
 ns.Core_Events = events
 events:Watch("core", "ADDON_LOADED")

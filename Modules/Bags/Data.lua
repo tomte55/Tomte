@@ -9,6 +9,10 @@ local CLASS_WEAPON, CLASS_PROFESSION = 2, 19 -- Enum.ItemClass
 local BUYBACK_SLOTS = 12 -- the merchant's buyback page
 local SUBCLASS_FISHING_POLE = 20 -- Enum.ItemWeaponSubclass.Fishingpole
 
+-- Hearthstones that are bag items, not toys: Hearthstone, Garrison Hearthstone, Dalaran Hearthstone. Also read by
+-- Gold & value's item markers (they're never marked).
+ns.BAGS_HEARTHS = { [6948] = true, [110560] = true, [140192] = true }
+
 -- The kinds of free slot, in the order they show. A bag's family is the bit C_Container.GetContainerNumFreeSlots returns
 -- for what it can hold (warcraft.wiki.gg ItemFamily); 0 holds anything. The reagent bag goes by its place, not its family.
 ns.BAGS_SLOT_KINDS = {
@@ -275,23 +279,94 @@ function ns.Bags_SortItems(list, method, reverse)
 	return list
 end
 
--- The marks an item can carry, in the order they win a shared corner: junk coin, Gear Check's arrow, the AH mark
--- (worth listing), the crafting list's count, the transmog badge, the equipment set mark, a battle pet's level, the
+-- The marks an item can carry, in their default order (the first that applies wins a shared corner; the player can
+-- reorder them): Gear Check's arrow, Gold & value's item marker (vendor, auction, keep ...; the junk coin for grey
+-- items without it), the crafting list's dot, the transmog badge, the equipment set mark, a battle pet's level, the
 -- item level.
-ns.BAGS_MARKS = { "junk", "upgrade", "ah", "crafting", "transmog", "set", "petlevel", "ilvl" }
+ns.BAGS_MARKS = { "upgrade", "marker", "crafting", "transmog", "set", "petlevel", "ilvl" }
+ns.BAGS_CORNERS = { "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }
+-- Where each mark starts (Bags.lua's defaults; the marks editor's "Back to defaults").
+ns.BAGS_DEFAULT_CORNERS = {
+	upgrade = "TOPLEFT", marker = "TOPLEFT", crafting = "TOPRIGHT", transmog = "TOPRIGHT", set = "TOPRIGHT",
+	petlevel = "BOTTOMLEFT", ilvl = "BOTTOMLEFT",
+}
+
+local KNOWN_MARKS = {}
+for _, mark in ipairs(ns.BAGS_MARKS) do
+	KNOWN_MARKS[mark] = true
+end
+
+-- The player's order (saved: a list of mark keys, possibly from an older version) made whole: unknown and repeated keys
+-- dropped, a missing mark (one a later version added) put right after the mark before it in BAGS_MARKS, or first.
+function ns.Bags_MarkOrder(saved)
+	local out, seen = {}, {}
+	for _, mark in ipairs(saved or {}) do
+		if KNOWN_MARKS[mark] and not seen[mark] then
+			out[#out + 1] = mark
+			seen[mark] = true
+		end
+	end
+	for i, mark in ipairs(ns.BAGS_MARKS) do
+		if not seen[mark] then
+			local at = 1
+			for j, m in ipairs(out) do
+				if m == ns.BAGS_MARKS[i - 1] then
+					at = j + 1
+				end
+			end
+			table.insert(out, at, mark)
+			seen[mark] = true
+		end
+	end
+	return out
+end
+
+-- order with mark moved by delta places (-1: up, earlier, wins more), kept inside the list. A new list.
+function ns.Bags_MoveMark(order, mark, delta)
+	local out, from = {}, nil
+	for i, m in ipairs(order) do
+		out[i] = m
+		if m == mark then
+			from = i
+		end
+	end
+	if not from then
+		return out
+	end
+	local to = math.max(1, math.min(#out, from + delta))
+	table.remove(out, from)
+	table.insert(out, to, mark)
+	return out
+end
 
 -- Which mark each corner shows: has[mark] is true (or a value) when the item carries it, corners[mark] is the corner
--- picked for it ("TOPLEFT", ... or "off"). Returns [corner] = mark: the first carried mark of that corner in
--- BAGS_MARKS order, so marks sharing a corner never overlap.
-function ns.Bags_CornerMarks(has, corners)
+-- picked for it ("TOPLEFT", ... or "off"), order the marks' order (Bags_MarkOrder; default BAGS_MARKS). Returns
+-- [corner] = mark: the first carried mark of that corner in order, so marks sharing a corner never overlap.
+function ns.Bags_CornerMarks(has, corners, order)
 	local shown = {}
-	for _, mark in ipairs(ns.BAGS_MARKS) do
+	for _, mark in ipairs(order or ns.BAGS_MARKS) do
 		local corner = corners[mark]
 		if has[mark] and corner and corner ~= "off" and not shown[corner] then
 			shown[corner] = mark
 		end
 	end
 	return shown
+end
+
+-- What the marks editor's sample shows in each corner, and what's hidden behind it: [corner] = { marks in order }
+-- (those placed there). The first is the one an item carrying all of them shows.
+function ns.Bags_CornerStacks(corners, order)
+	local stacks = {}
+	for _, corner in ipairs(ns.BAGS_CORNERS) do
+		stacks[corner] = {}
+	end
+	for _, mark in ipairs(order or ns.BAGS_MARKS) do
+		local list = stacks[corners[mark]]
+		if list then
+			list[#list + 1] = mark
+		end
+	end
+	return stacks
 end
 
 -- The item class Tomte files an item under. tools ([itemID] = true) is given only where the game has no profession

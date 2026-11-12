@@ -245,6 +245,19 @@ local function OnRecipeItem(tooltip, data, itemID)
 	end
 end
 
+-- Who of your characters knows or could learn the recipe a recipe item teaches (PlanData.lua's Alts_RecipeLearners),
+-- matched as the tooltip does; data is the item's tooltip data (its "Requires" line). Nil while Alts is off. Gold &
+-- value's item markers keep a recipe someone can still learn.
+function ns.Alts_RecipeLearnersFor(itemID, data)
+	if not (module.active and itemID and data) then
+		return nil
+	end
+	local name = C_Item.GetItemNameByID(itemID) or (data.lines and data.lines[1] and data.lines[1].leftText)
+	local key = ns.Alts_RecipeItemName(name)
+	recipesByName = recipesByName or ns.Alts_RecipesByName(db.recipes)
+	return ns.Alts_RecipeLearners(db.chars, db.recipes, key and recipesByName[key], Requirement(data))
+end
+
 local function OnItem(tooltip, data)
 	if not (module.active and db.tooltip and tooltip.AddLine and data) then
 		return
@@ -258,7 +271,7 @@ local function OnItem(tooltip, data)
 		OnRecipeItem(tooltip, data, itemID)
 		return
 	end
-	-- The bags mark these with a dot (Modules/Bags/Buttons.lua); the amount is here.
+	-- The bags mark these with a list icon (Modules/Bags/Buttons.lua); the amount is here.
 	local wanted = ns.AltsList_Marked and ns.AltsList_Marked(itemID)
 	if wanted then
 		tooltip:AddLine(Label() .. ("Crafting list: %d to move"):format(wanted), 1, 1, 1)

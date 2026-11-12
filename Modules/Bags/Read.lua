@@ -20,8 +20,7 @@ local WEAPON, ARMOR, RECIPE, BATTLEPET, PROFESSION = 2, 4, 9, 17, 19 -- Enum.Ite
 local CAN_BE_UNUSABLE = { [WEAPON] = true, [ARMOR] = true, [RECIPE] = true, [PROFESSION] = true }
 -- A tooltip line in the game's red (RED_FONT_COLOR, 1 / 0.125 / 0.125) says the item can't be used.
 local RED_MIN, OTHER_MAX = 0.99, 0.2
--- Hearthstones that are bag items, not toys: Hearthstone, Garrison Hearthstone, Dalaran Hearthstone.
-local HEARTHS = { [6948] = true, [110560] = true, [140192] = true }
+local HEARTHS = ns.BAGS_HEARTHS
 -- Forever has no profession equipment class: Bags_ItemClass files its tools under it. Nil on retail.
 local TOOLS = ns.FOREVER and ns.Content_Get(ns.CONTENT_FOREVER, "professionTools") or nil
 
@@ -46,26 +45,6 @@ local heldAtClose -- Bags_Held of the bags when they last closed, or at the sess
 
 local function Key(bag, slot)
 	return bag * 1000 + slot
-end
-
--- The equipment sets each bag slot's item is in: [bag * 1000 + slot] = { set names }.
-local function SetSlots()
-	local slots = {}
-	if not (C_EquipmentSet and EquipmentManager_GetLocationData) then
-		return slots
-	end
-	for _, setID in ipairs(C_EquipmentSet.GetEquipmentSetIDs() or {}) do
-		local name = C_EquipmentSet.GetEquipmentSetInfo(setID)
-		for _, location in pairs(C_EquipmentSet.GetItemLocations(setID) or {}) do
-			local data = EquipmentManager_GetLocationData(location)
-			if name and data.isBags and not data.isBank and data.bag and data.slot then
-				local key = Key(data.bag, data.slot)
-				slots[key] = slots[key] or {}
-				table.insert(slots[key], name)
-			end
-		end
-	end
-	return slots
 end
 
 -- Housing decor (C_Item.IsDecorItem, as Blizzard's item buttons ask; missing on clients without housing).
@@ -115,6 +94,10 @@ end
 local function Unusable(bag, slot)
 	return #RedLines(bag, slot) > 0
 end
+
+-- Whether the bag item's tooltip says in red you can't use it. Also Gold & value's item markers' (works with the
+-- Bags module off: it reads nothing of the module's).
+ns.BagsRead_Unusable = Unusable
 
 -- /tomte bags red: each bag item tinted red and the tooltip lines that did it (type and text).
 function ns.BagsRead_PrintRed()
@@ -191,12 +174,24 @@ local function Record(bag, slot, info)
 			item.junk = ns.Bags_IsJunk(item.quality, item.noValue, item.bind, item.upgrade)
 		end
 	end
-	-- Value's verdict, looked up at call time (Gold & value may be off): worth listing beats the junk coin.
-	item.ah = ns.Value_SellMark and item.bind ~= "soulbound" and ns.Value_SellMark(link, item.count) or nil
-	if item.ah then
-		item.junk = false
-	end
+	item.greyJunk = item.junk -- before the item marker has its say (BagsRead_Bags)
 	return item
+end
+
+-- Gold & value's item marker (looked up at call time: it may be off; it keeps its own cache, as quests and prices
+-- change without the slot changing). Without it a grey item still gets the vendor coin. An item marked anything but
+-- vendor isn't junk (a grey worth listing, a grey upgrade), so it isn't greyed or put under Junk.
+local function Marker(item, bag, slot)
+	if not item.readable or item.classID == BATTLEPET then
+		item.marker = nil
+		return
+	end
+	local marker = ns.Value_BagMarker and ns.Value_BagMarker(bag, slot, item.set ~= nil)
+	if marker == nil then -- Gold & value is off
+		marker = item.greyJunk and { kind = "vendor" } or nil
+	end
+	item.marker = marker and marker.kind and marker or nil
+	item.junk = item.greyJunk and not (item.marker and item.marker.kind ~= "vendor") or false
 end
 
 -- Every slot of the bags (or of containers: a list of bag IDs, such as the bank's tabs): item records and one empty
@@ -204,7 +199,7 @@ end
 -- GET_ITEM_INFO_RECEIVED reads again).
 function ns.BagsRead_Bags(containers)
 	local items, pending = {}, false
-	local sets = SetSlots()
+	local sets = ns.EquipmentSetSlots()
 	for _, bag in ipairs(containers or BAGS) do
 		local _, family = C_Container.GetContainerNumFreeSlots(bag)
 		local slotKind = ns.Bags_SlotKind(family, bag == REAGENT_BAG)
@@ -235,6 +230,7 @@ function ns.BagsRead_Bags(containers)
 				end
 				item.new = info.hyperlink ~= nil and seenNew[key] == info.hyperlink
 				item.set = sets[key]
+				Marker(item, bag, slot)
 				items[#items + 1] = item
 			end
 		end

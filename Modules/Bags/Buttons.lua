@@ -12,13 +12,20 @@ local BUTTON = 37 -- the template's own size; ours are scaled from it (its art d
 -- Every mark has Gear Check's arrow look (ns.Gear_Arrow): the plain glyph in its color, no plate or outline, over a
 -- black copy of itself SHADOW_X, SHADOW_Y away.
 local SHADOW_X, SHADOW_Y, SHADOW_ALPHA = 1.5, -1.5, 0.9
--- The transmog mark (on a 37 px button; the button's scale shrinks it with the icon): a BADGE circle in the mark's
--- color with a dark X of two CROSS_LEN by CROSS_W bars on it. A bare X in the accent color got lost on busy icons
--- (seen in game with Cartographer's lavender).
-local BADGE, CROSS_LEN, CROSS_W = 15, 9, 2.5
-local CROSS_ALPHA = 0.85
+-- The transmog mark (on a 37 px button; the button's scale shrinks it with the icon): a coat hanger in a BADGE square,
+-- drawn from HANGER_W wide strokes: a hook, two arms down from it and a bar across the bottom. Seen in game: a badge
+-- with a dark X read as "delete" beside the item marker's red X, a gold ring (Forever's accent) as the vendor coin, a
+-- drawn shirt as the letter T, and a bare X in the accent color got lost on busy icons. The game's only transmog atlas
+-- on both clients (transmog-icon-ui, the Transmogrify window's round portrait) would read as the coin too.
+local BADGE = 15
+local HANGER_W = 2
+local HANGER_ARM = 10.3 -- from the hook's foot (0, 3) to a bottom corner (+-7, -4.5)
+local HANGER_ANGLE = 0.75 -- radians the arms lean from upright: atan(7 / 7.5)
 local SET_MARK = 7 -- the equipment set square's side
-local CRAFT_DOT = 9 -- the crafting list's dot (how many is on the item's tooltip: Alts/List.lua)
+-- The crafting list's mark: a little list, three LIST_W by LIST_H lines LIST_GAP apart (how many is on the item's
+-- tooltip: Alts/List.lua). It was a dot, which looked like the item marker's vendor coin (seen in game).
+local CRAFT_MARK = 9
+local LIST_W, LIST_H, LIST_GAP = 9, 2, 1.5
 -- Hairline slots (docs/superpowers/specs/2026-10-27-tomte-bags-ui-design.md): Blizzard's slot art and thick quality
 -- border hidden; a dark fill, the icon inset, a 1-pixel frame in the theme's rule color or the item's quality color
 -- (uncommon and better), the accent under the mouse.
@@ -72,7 +79,7 @@ end
 local function SetNumberFont(button, e, size)
 	if e.fontSize ~= size then
 		e.fontSize = size
-		local sizes = { [e.ilvl] = size, [e.pet] = size, [e.ah] = size, [e.free] = size + 1 }
+		local sizes = { [e.ilvl] = size, [e.pet] = size, [e.free] = size + 1 }
 		if button.Count then
 			sizes[button.Count] = size
 		end
@@ -109,29 +116,39 @@ local function Mark(button, w, h, draw)
 	return mark
 end
 
--- The transmog mark: a filled circle (with Mark's shadow under it) and a dark X on top, not recolored by SetColor.
-local function Badge(holder, sub)
-	local t = holder:CreateTexture(nil, "ARTWORK", nil, sub)
-	t:SetAllPoints()
-	UI.CircleMask(t, holder)
-	if sub == 2 then
-		for _, angle in ipairs({ math.pi / 4, -math.pi / 4 }) do
-			local bar = holder:CreateTexture(nil, "ARTWORK", nil, 3)
-			bar:SetSize(CROSS_LEN, CROSS_W)
-			bar:SetPoint("CENTER")
-			bar:SetRotation(angle)
-			bar:SetColorTexture(0, 0, 0, CROSS_ALPHA)
+-- The transmog mark: a coat hanger. Strokes are w x h at x, y from the center, turned by angle.
+local function Hanger(holder, sub)
+	local strokes = {
+		{ HANGER_W, 3, 0, 4.5 }, -- the hook's stem
+		{ 3, HANGER_W, 1, 6.5 }, -- over the top of the hook
+		{ HANGER_W, 2, 2.5, 5.5 }, -- and down its far side
+		{ HANGER_W, HANGER_ARM, -3.5, -0.75, -HANGER_ANGLE }, -- left arm
+		{ HANGER_W, HANGER_ARM, 3.5, -0.75, HANGER_ANGLE }, -- right arm
+		{ 14, HANGER_W, 0, -4.5 }, -- the bar across the bottom
+	}
+	local out = {}
+	for i, s in ipairs(strokes) do
+		local t = holder:CreateTexture(nil, "ARTWORK", nil, sub)
+		t:SetSize(s[1], s[2])
+		t:SetPoint("CENTER", s[3], s[4])
+		if s[5] then
+			t:SetRotation(s[5])
 		end
+		out[i] = t
 	end
-	return { t }
+	return out
 end
 
--- The crafting list's mark: a dot (a number there read as a stack count, measured in game).
-local function Dot(holder, sub)
-	local t = holder:CreateTexture(nil, "ARTWORK", nil, sub)
-	t:SetAllPoints()
-	UI.CircleMask(t, holder)
-	return { t }
+-- The crafting list's mark: three short lines, a list (a number there read as a stack count, measured in game).
+local function List(holder, sub)
+	local lines = {}
+	for i = -1, 1 do
+		local t = holder:CreateTexture(nil, "ARTWORK", nil, sub)
+		t:SetSize(LIST_W, LIST_H)
+		t:SetPoint("CENTER", 0, i * (LIST_H + LIST_GAP))
+		lines[#lines + 1] = t
+	end
+	return lines
 end
 
 -- The equipment set mark: a square.
@@ -226,19 +243,10 @@ local function Extras(button)
 	end)
 	e.ilvl = button:CreateFontString(nil, "OVERLAY")
 	e.pet = button:CreateFontString(nil, "OVERLAY")
-	e.ah = button:CreateFontString(nil, "OVERLAY") -- worth listing at the auction house (Value's verdict)
-	e.mark = Mark(button, BADGE, BADGE, Badge)
+	e.mark = Mark(button, BADGE, BADGE, Hanger)
 	e.set = Mark(button, SET_MARK, SET_MARK, Square)
-	e.craft = Mark(button, CRAFT_DOT, CRAFT_DOT, Dot)
-	if button.JunkIcon then
-		-- Blizzard's junk coin gets the marks' shadow: a black copy of its atlas under it.
-		e.junkShadow = button:CreateTexture(nil, "ARTWORK", nil, 7)
-		e.junkShadow:SetAtlas(button.JunkIcon:GetAtlas())
-		e.junkShadow:SetVertexColor(0, 0, 0, SHADOW_ALPHA)
-		e.junkShadow:SetPoint("TOPLEFT", button.JunkIcon, "TOPLEFT", SHADOW_X, SHADOW_Y)
-		e.junkShadow:SetPoint("BOTTOMRIGHT", button.JunkIcon, "BOTTOMRIGHT", SHADOW_X, SHADOW_Y)
-		e.junkShadow:Hide()
-	end
+	e.craft = Mark(button, CRAFT_MARK, CRAFT_MARK, List)
+	e.marker = ns.Value_MarkerWidget(button) -- Gold & value's item marker (its vendor coin stands in for Blizzard's)
 	if button.Count then
 		-- The template's stack count sat nearer the middle than the item level does on the other side: it hugs the
 		-- corner instead, growing leftward. The number font's digits carry empty space on their right (a "2" measured
@@ -309,43 +317,36 @@ local function HideMarks(button, e)
 	e.pet:Hide()
 	e.mark:Hide()
 	e.set:Hide()
-	e.ah:Hide()
 	e.craft:Hide()
+	e.marker:SetKind(nil)
 	for _, widget in pairs(e.arrows) do
 		widget:Hide()
 	end
 	if button.JunkIcon then
-		button.JunkIcon:Hide()
-	end
-	if e.junkShadow then
-		e.junkShadow:Hide()
+		button.JunkIcon:Hide() -- the item marker's coin is the one that shows, in the corner the player picked
 	end
 end
 
--- The marks an item carries (Data.lua's BAGS_MARKS keys), placed in their corners: the first of each corner wins.
+-- The marks an item carries (Data.lua's BAGS_MARKS keys), placed in their corners: the first of each corner in the
+-- player's order wins. item.crafting stands in for the crafting list on the marks editor's samples.
 local function PlaceMarks(button, e, item, opts)
 	HideMarks(button, e)
-	local crafting = ns.AltsList_Marked and ns.AltsList_Marked(item.itemID)
+	local crafting = item.crafting
+	if crafting == nil then
+		crafting = ns.AltsList_Marked and ns.AltsList_Marked(item.itemID)
+	end
 	local has = {
-		junk = item.junk, upgrade = item.upgrade, ah = item.ah, crafting = crafting, transmog = item.look, set = item.set ~= nil,
-		petlevel = item.petLevel, ilvl = item.ilvl and item.ilvl > 1,
+		upgrade = item.upgrade, marker = item.marker and item.marker.kind, crafting = crafting, transmog = item.look,
+		set = item.set ~= nil, petlevel = item.petLevel, ilvl = item.ilvl and item.ilvl > 1,
 	}
-	for corner, mark in pairs(ns.Bags_CornerMarks(has, opts.corners)) do
-		if mark == "junk" and button.JunkIcon then
-			Corner(button.JunkIcon, corner, -1)
-			button.JunkIcon:Show()
-			if e.junkShadow then
-				e.junkShadow:Show()
-			end
-		elseif mark == "upgrade" then
+	for corner, mark in pairs(ns.Bags_CornerMarks(has, opts.corners, opts.markOrder)) do
+		if mark == "upgrade" then
 			local widget = Arrow(button, e, item.upgrade)
 			Corner(widget, corner, -INSET)
 			widget:Show()
-		elseif mark == "ah" then
-			e.ah:SetText("AH")
-			UI.SetTextRole(e.ah, "success")
-			Corner(e.ah, corner)
-			e.ah:Show()
+		elseif mark == "marker" then
+			e.marker:SetKind(item.marker.kind)
+			Corner(e.marker, corner, -1)
 		elseif mark == "crafting" then
 			e.craft:SetColor("accent")
 			Corner(e.craft, corner, 1)
@@ -562,7 +563,8 @@ function ns.Bags_Spotlight(bag, slot)
 end
 
 -- Paints a button for its record. opts: matches (false: faded by the search), free (the free-slot count an Empty
--- slot shows, or nil), corners ([mark] = "TOPLEFT" | "TOPRIGHT" | "BOTTOMLEFT" | "BOTTOMRIGHT" | "off"), ilvlColor
+-- slot shows, or nil), corners ([mark] = "TOPLEFT" | "TOPRIGHT" | "BOTTOMLEFT" | "BOTTOMRIGHT" | "off"), markOrder
+-- (Data.lua's Bags_MarkOrder: which mark wins a shared corner), ilvlColor
 -- ("quality" | "plain"), fontSize, newGlow, greyJunk, redUnusable, context (fade items that don't fit the open
 -- window: Blizzard's item context matching), pays (the open vendor takes the item as payment), tint (its category's
 -- color role, for the frame).
