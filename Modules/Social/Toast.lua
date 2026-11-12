@@ -9,7 +9,8 @@ local addonName, ns = ...
 -- window's Motion setting tones this down: "subtle" slides and fades without overshoot, pops, shine or bounce, "off"
 -- puts cards in place and takes them away at once. Left-click runs the card's onClick, right-click dismisses it;
 -- hovering pauses its timer. A card with a mergeKey that is still up takes the next one with the same key (text
--- replaced, count shown). Pinned cards (the unread whisper recap) sit nearest the spot and never time out.
+-- replaced, count shown). Pinned cards (the unread whisper recap) sit nearest the spot and never time out; the others
+-- have a countdown line along the bottom that shrinks as their time runs out.
 -- While a cinematic hides the UI (and in combat, for cards with holdInCombat) cards are held back; when
 -- they're let go, cards whose stale() says they're no longer news (a whisper you answered meanwhile) are dropped,
 -- an owner with a digest builder gets one card for all of its held cards, and a card that waited long enough says
@@ -33,6 +34,8 @@ local PAD = 10
 local GAP = 6
 local ICON = 28
 local MAX_SHOWN = 4
+local TIMER_H = 2 -- the countdown line along the bottom
+local SAMPLE_TIME_LEFT = 0.65 -- a settings preview's card shows this much of its time left
 local SLIDE_IN = 0.6 -- seconds to slide in from the nearest screen edge, overshoot and settle included
 local LAND = SLIDE_IN * 0.37 -- when UI.EaseOutBack first reaches its place: the icon pops then
 local BACK_SWING = 0.1 -- how far past 1 UI.EaseOutBack swings at most
@@ -216,6 +219,11 @@ local function Dress(card)
 	card.line:SetPoint("BOTTOMRIGHT", -inset, inset)
 	card.line:SetHeight(1)
 	card.line:SetColorTexture(1, 1, 1, 1)
+	-- How long the card stays: shrinks from full width to nothing over its life, stands still while hovered.
+	card.timer = card:CreateTexture(nil, "ARTWORK", nil, 1)
+	card.timer:SetPoint("BOTTOMLEFT", 2 + inset, inset)
+	card.timer:SetHeight(TIMER_H)
+	card.timerFull = WIDTH - 2 - 2 * inset
 
 	card.icon = card:CreateTexture(nil, "ARTWORK")
 	card.icon:SetSize(ICON, ICON)
@@ -272,6 +280,8 @@ local function Fill(card, spec)
 	card.bar:SetColorTexture(r, g, b, 1)
 	card.flash:SetColorTexture(r, g, b, 1)
 	card.line:SetGradient("HORIZONTAL", CreateColor(r, g, b, 0.5), CreateColor(r, g, b, 0))
+	card.timer:SetColorTexture(r, g, b, 0.85)
+	card.timer:SetWidth(card.timerFull)
 	card.label:SetTextColor(r, g, b)
 	card.label:SetText(ns.Spaced(spec.label or ""))
 	local corner = (spec.count or 1) > 1 and ("x" .. spec.count) or nil
@@ -352,6 +362,7 @@ function ns.Toast_DrawSample(host, spec, i)
 	end
 	local card = cards[i]
 	Fill(card, spec)
+	card.timer:SetWidth(card.timerFull * SAMPLE_TIME_LEFT)
 	card:ClearAllPoints()
 	if i == 1 then
 		card:SetPoint("TOPLEFT", host, "TOPLEFT")
@@ -678,6 +689,13 @@ function OnUpdate(dt)
 			if card.age >= card.life then
 				Dismiss(card)
 			end
+		end
+		local left = card.pinKey and 0 or card.timerFull * (1 - math.min(card.age / card.life, 1))
+		if left >= 0.5 then
+			card.timer:SetWidth(left)
+			card.timer:Show()
+		else
+			card.timer:Hide() -- pinned cards never time out; a 0 width would be no width at all
 		end
 	end
 	while #queue > 0 and Unpinned() < MAX_SHOWN do

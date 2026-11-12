@@ -367,6 +367,8 @@ end
 -- A key: click, then press a key combination to set it (saved as a binding string like "CTRL-C"); Esc cancels and a
 -- right-click clears it (saved as ""). The row only listens while it waits for the key, and never in combat (keyboard
 -- propagation can't be changed then).
+local MOUSE_KEYS = { MiddleButton = "BUTTON3", Button4 = "BUTTON4", Button5 = "BUTTON5" } -- click -> binding key
+
 local function KeyText(value)
 	if type(value) ~= "string" or value == "" then
 		return UI.Wrap("Not set", "textFaint")
@@ -389,11 +391,21 @@ function Factory.key(parent)
 	local row = NewRow("key", parent)
 	local button = UI.Button(row, 110, "")
 	button:SetPoint("RIGHT", -8, 0)
-	button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	button:RegisterForClicks("LeftButtonUp", "RightButtonUp", "MiddleButtonUp", "Button4Up", "Button5Up")
 	button:EnableKeyboard(false)
 	row.keyButton = button
 	LabelUpTo(row, button)
 	button:SetScript("OnClick", function(self, mouse)
+		local extra = MOUSE_KEYS[mouse]
+		if extra then
+			-- The middle and side mouse buttons are keys too, while it listens.
+			if self.listening and not InCombatLockdown() then
+				SetOption(row.module, row.spec,
+					ns.KeyChord(extra, IsAltKeyDown(), IsControlKeyDown(), IsShiftKeyDown()))
+				StopListening(row)
+			end
+			return
+		end
 		if mouse == "RightButton" then
 			StopListening(row)
 			SetOption(row.module, row.spec, "")

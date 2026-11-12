@@ -84,6 +84,12 @@ function ns.Chat_Send(text, chatType, language, target)
 	return send(text, chatType, language, target)
 end
 
+-- An emote by token ("BOW"), at target (a name) or, without one, at your current target. 12.0 moved DoEmote.
+function ns.Chat_Emote(token, target)
+	local perform = (C_ChatInfo and C_ChatInfo.PerformEmote) or DoEmote
+	return perform(token, target)
+end
+
 -- fn(text, chatType, language, target) after every chat message the player sends.
 function ns.Chat_HookSend(fn)
 	if C_ChatInfo and C_ChatInfo.SendChatMessage then

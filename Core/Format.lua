@@ -218,6 +218,7 @@ function ns.KeyText(chord)
 			rest = rest:sub(#mod + 2)
 		end
 	end
-	parts[#parts + 1] = rest
+	local mouse = rest:match("^BUTTON(%d+)$")
+	parts[#parts + 1] = mouse and ("Mouse " .. mouse) or rest
 	return table.concat(parts, "+")
 end

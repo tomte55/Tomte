@@ -345,6 +345,7 @@ are Tomte window settings.
 | Pet Health | Class & combat | Pet health bar under your character for Hunters, Warlocks and Unholy Death Knights that glows when your pet needs healing, with your pet cooldowns (Mend Pet and Exhilaration, Fel Domination, Dark Transformation) and reminders for a dead or missing pet. |
 | Whispers | Groups & friends | A toast per whisper (click to reply), an unread recap when you're back from AFK, and a summary card for whispers received in combat or during a cinematic. The inbox is a resizable window with your conversations as chat bubbles: class avatars with online dots, unread counts, pinned conversations, a NEW line where unread messages start, who they are (level, class, zone) with an Invite button, and a right-click menu to pin, invite, add as a friend, copy or delete. One inbox for all your characters: each conversation says which character it's with, unread counts and the recap follow the character you're on, and another character's conversations are read-only ("on Aldric"). Battle.net whispers show on every character. |
 | Mentions | Chat | A toast when someone says your name or a keyword in guild, group, say or channel chat (accents and capitals don't matter). Click it to answer in that channel. Taskbar flash and sound are optional (off for new installs). |
+| Emote Wheel | Groups & friends | Off by default. Hold a key or mouse button you pick and a wheel of emotes opens at your cursor; point at a slice and let go, and its emote goes to your target. 4 to 12 slices, each any emote, chat command or line of text (`%t` becomes your target's name), with a live preview in settings. Buff thanks: when another player gives you a lasting buff out of combat, a toast says who, and one click thanks them (said, whispered or /thank). |
 | Friends Online | Groups & friends | Who's online at login, and toasts when friends (or watched people and guildmates) come online. |
 | Friend sharing | Groups & friends | Pools flight times and gathering node spots with your Battle.net friends who run Tomte, in the background: their times fill in your flight timer and coverage map, their node spots your world map, and what you know (yours and what friends sent) goes on to your other friends. Also shares your characters' professions and recipes (only with your own friends, never passed on), for Alts' friends' crafting and craft requests. Your own data always wins. Tells you once when a friend runs a newer Tomte, with the download link. A Friend sharing page lists who shares with you, with a Block switch. On by default on World of Warcraft: Forever; off by default for new installs on retail. |
 | Group Alerts | Groups & friends | Invites, queue pops, ready checks and summons: a sound (once by default, on the Effects or Master channel, optionally repeated until answered), plus a taskbar flash for summons. Shows the inviter's level, class and guild under group and guild invites. |
@@ -375,7 +376,7 @@ Each module's commands are `/tomte <module> <command>`, for example:
 - `/tomte flight stats`, `/tomte flight lock` / `unlock`, `/tomte flight testalert`
 - `/tomte moments preview mount` (or `levelup`, `zone`, `tame`, `upgrade`, ...); add a tier for creatures and upgrades: `/tomte moments preview mount legendary`
 - `/tomte recap` (this session), `/tomte recap last`, `/tomte recap preview`
-- `/tomte afk preview`, `/tomte whispers inbox`, `/tomte hunter check`, `/tomte hunter aspect` (Forever: what the aspect button sees), `/tomte rogue check` (your poisons and what's missing), `/tomte pet unlock`
+- `/tomte afk preview`, `/tomte whispers inbox`, `/tomte hunter check`, `/tomte hunter aspect` (Forever: what the aspect button sees), `/tomte rogue check` (your poisons and what's missing), `/tomte emotewheel slices` (what each slice does), `/tomte emotewheel thanks` (a sample buff thank-you), `/tomte pet unlock`
 - `/tomte alerts test`
 - `/tomte gear sim` (how to check an item on Raidbots), `/tomte gear import` / `weights` (source, best gem, season) / `clear`, `/tomte gear upgrades` (reveal the upgrades already in your bags), `/tomte gear roll` (Forever: what the roll advice says for the next item you shift-click)
 - `/tomte bags why <item>` (which category an item is in and why)
@@ -455,7 +456,8 @@ Modules/     one folder per module group (Flight, Travel, AFK, Moments, Hunter, 
              Achievements, Upkeep, Mount, Teleports, Weekly, Alts, Recap, Collect, WorldQuests, NextUp, Recent, Value,
              Minimap, Pets, Fishing, Gather, Delves, TradingPost, Holidays, Share, Materials, Mail, Talents, Graphics,
              Cursor, Buffs, Decor, Games, Quests, Loot, Instances, Tips, Nameplates, Drawers, Summary, Prey, Bags,
-             Counts, Performance, Leveling, QuestList, PetCare, Rest, ChatGroups, Sources, Hidden, Meter, Autocorrect)
+             Counts, Performance, Leveling, QuestList, PetCare, Rest, ChatGroups, Sources, Hidden, Meter, Autocorrect,
+             EmoteWheel)
 tests/       plain-Lua unit tests for the parts that don't touch the WoW API
 tools/       dev scripts (waynet.py builds Modules/Travel/Network*.lua from Blizzard's waypoint tables, events.py
              builds Modules/Holidays/Generated.lua from the client's toy and holiday tables, materials.py builds
