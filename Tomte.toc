@@ -194,6 +194,12 @@ Modules/Chat/Tabs.lua
 Modules/Chat/Filter.lua
 Modules/Chat/Tags.lua
 Modules/Chat/Copy.lua
+Modules/Autocorrect/Words.lua
+Modules/Autocorrect/Data.lua
+Modules/Autocorrect/Rules.lua
+Modules/Autocorrect/Line.lua
+Modules/Autocorrect/Note.lua
+Modules/Autocorrect/Autocorrect.lua
 Modules/Gear/Rules.lua
 Modules/Gear/Advice.lua
 Modules/Gear/Rewards.lua

@@ -10,7 +10,7 @@ return {
 		"Core/", "Themes/", "Cinematic/", "Panel/",
 		-- The launch set (spec: "Launch set").
 		"Modules/Cursor/", "Modules/Mail/", "Modules/Upkeep/", "Modules/Loot/", "Modules/Value/", "Modules/Flight/",
-		"Modules/Fishing/", "Modules/Drawers/", "Modules/Nameplates/", "Modules/Chat/", "Modules/Social/",
+		"Modules/Fishing/", "Modules/Drawers/", "Modules/Nameplates/", "Modules/Chat/", "Modules/Autocorrect/", "Modules/Social/",
 		"Modules/Share/", "Modules/AFK/", "Modules/Games/", "Modules/Quests/", "Modules/Recent/", "Modules/Minimap/",
 		"Modules/NextUp/",
 		-- docs/superpowers/specs/2026-11-05-tomte-forever-all-modules.md: everything else that can work there.

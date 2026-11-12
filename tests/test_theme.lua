@@ -370,7 +370,7 @@ end)
 
 -- Nothing may color or set a font while the files load: the theme is only chosen on ADDON_LOADED (Core.lua), so a
 -- color read earlier would keep the default theme's. Tracks block depth by keywords (crude, but the code base is
--- plain: no keywords inside long strings).
+-- plain), skipping long strings ([[ ]] and [==[ ]==]: word lists).
 local THEME_CALLS = { Color = true, RGB = true, RGBA = true, Hex = true, Wrap = true, Font = true, SetFont = true,
 	FontSize = true, ColorObject = true }
 
@@ -379,8 +379,21 @@ test("no theme colors or fonts read at file load", function()
 	for _, file in ipairs(TocFiles()) do
 		if file ~= "Core/Theme.lua" and not file:find("^Themes/") then
 			local depth, n = 0, 0
+			local closing -- the long string's closing bracket while inside one
 			for line in io.lines("Tomte/" .. file) do
 				n = n + 1
+				if closing then
+					local stop = line:find(closing, 1, true)
+					line = stop and line:sub(stop + #closing) or ""
+					closing = not stop and closing or nil
+				end
+				local open, level = line:match("()%[(=*)%[")
+				if open and not line:sub(1, open):find("%-%-") then
+					local close = "]" .. level .. "]"
+					local stop = line:find(close, open + 2, true)
+					closing = not stop and close or nil
+					line = line:sub(1, open - 1) .. '""' .. (stop and line:sub(stop + #close) or "")
+				end
 				local code = line:gsub("%-%-.*$", ""):gsub('"[^"]*"', '""'):gsub("'[^']*'", "''")
 				if depth == 0 then
 					for path in code:gmatch("([%w_%.]+)%(") do
