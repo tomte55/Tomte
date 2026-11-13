@@ -19,6 +19,10 @@ local FOREVER_BAR_LEVEL = 14 -- the title bar's frame level above the window: ov
 local panel
 local view, openEntry = "home", nil -- this session; openEntry is the page shown in the page view
 local Refresh -- forward declaration
+-- Timed("what", fn, ...): building the window and its pages, named per page in the Performance report.
+local Timed = ns.Perf_WrapNamed(function(fn, ...)
+	return fn(...)
+end)
 
 -- The saved selection, or the first module when there is none (or it no longer exists).
 local function Selected()
@@ -107,7 +111,7 @@ end
 local function RefreshPageView()
 	local pv = panel.pageView
 	local entry = view == "page" and openEntry or nil
-	pv.rail:Refresh(entry)
+	Timed("tabs", pv.rail.Refresh, pv.rail, entry)
 	local host = pv.host
 	for owner, frame in pairs(host.frames) do
 		if owner ~= entry then
@@ -124,7 +128,7 @@ local function RefreshPageView()
 		if not homeWasShown then
 			UI.EnterUp(panel.home)
 		end
-		panel.home:Refresh()
+		Timed("home", panel.home.Refresh, panel.home)
 		return
 	end
 	host.title:SetText(entry.name)
@@ -138,7 +142,7 @@ local function RefreshPageView()
 	if not frame then
 		frame = CreateFrame("Frame", nil, host)
 		frame:Hide()
-		entry.page.Create(frame)
+		Timed("build " .. entry.key, entry.page.Create, frame)
 		host.frames[entry] = frame
 	end
 	frame:ClearAllPoints()
@@ -147,7 +151,7 @@ local function RefreshPageView()
 	if not frame:IsShown() then
 		frame:Show()
 		if entry.page.Refresh then
-			entry.page.Refresh(frame) -- only when it becomes visible
+			Timed("show " .. entry.key, entry.page.Refresh, frame) -- only when it becomes visible
 		end
 		-- Opened (not redrawn): the page and its title rise in.
 		UI.EnterUp(frame)
@@ -191,8 +195,8 @@ function Refresh()
 	if view ~= "settings" then
 		RefreshPageView() -- Home is the page view without a page
 	else
-		ns.PanelSidebar_Refresh()
-		ns.PanelModulePage_Refresh()
+		Timed("settings list", ns.PanelSidebar_Refresh)
+		Timed("settings page", ns.PanelModulePage_Refresh)
 	end
 end
 
@@ -365,7 +369,7 @@ end
 
 local function Show()
 	if not panel then
-		Build()
+		Timed("build window", Build)
 	end
 	if panel:IsShown() then
 		if Leaving() then

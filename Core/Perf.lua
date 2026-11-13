@@ -58,6 +58,18 @@ function ns.Perf_Wrap(fn, what)
 	end
 end
 
+-- Like ns.Perf_Wrap, but each call names itself: timed(what, ...) runs fn(...) under that name (a page's key).
+function ns.Perf_WrapNamed(fn)
+	local group, file = ns.Perf_Caller(2)
+	return function(what, ...)
+		if not ns.perfOn then
+			return fn(...)
+		end
+		local t0, m0 = clock(), gcount("count")
+		return Finish(group, file, what, t0, m0, fn(...))
+	end
+end
+
 -- An OnEvent script, timed per event.
 function ns.Perf_WrapEvents(fn)
 	local group, file = ns.Perf_Caller(2)
