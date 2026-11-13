@@ -7,14 +7,15 @@ Dev-only (docs/ is left out of the release zip).
 
 - **Name:** Tomte
 - **Game / class:** World of Warcraft, Addons
-- **Main category:** Miscellaneous. Extra categories: Map & Minimap, Professions, Achievements, Bags & Inventory, Pets.
+- **Main category:** Miscellaneous. Extra categories: Map & Minimap, Professions, Achievements, Bags & Inventory, Pets,
+  Chat & Communication, Quests & Leveling.
 - **License:** GNU General Public License version 3 (GPLv3)
 - **Source:** https://github.com/tomte55/Tomte (Project > Source settings, so the page shows a "Source" link)
 - **Issues:** https://github.com/tomte55/Tomte/issues
 - **Avatar:** `docs/curseforge/logo-400.png` (400x400, rendered from `Media/Logo.svg`)
 - **Summary** (one sentence, max 120 characters):
 
-  > Your gear, your week, your alts, gold, travel and collecting in one window, with a cinematic touch.
+  > Your gear, week, alts, gold, travel and collecting in one window, with a cinematic touch. Retail and Forever.
 
 ## Images tab
 
@@ -115,8 +116,13 @@ you don't want, you turn off, and it's fully gone.
   achievements still missing on that map) and Teleports.
 - **Smart Mount** (one key, the right mount for where you are) and the **Flight Timer**.
 
-### Gold and gathering
+### Bags, gold and gathering
 
+- **Bags:** one bag window in Tomte's look, with categories, upgrade arrows, a search that understands `is:upgrade`
+  or `ilvl>=600`, and a bank window for the character and Warband bank. Off by default.
+- **Gold & value:** every bag item gets one marker saying what to do with it: vendor it, auction it, disenchant it,
+  keep it, it's for a quest, or it's safe to delete. The reason is on its tooltip, with what it fetches at the Auction
+  House or a vendor.
 - **Gold world quests** with a route through them, **Gathering** runs with node spots and routes on the map,
   **Fishing** on one key, and **Sessions**: gold per hour and a recap card for every play session.
 
@@ -136,6 +142,11 @@ gives it a moment. Cinematics never lock your controls: any key or click ends th
   conversations as chat bubbles, for all your characters.
 - **Mentions** (your name or keywords in chat), **Friends Online**, and **Group Alerts** so you never miss an invite,
   queue pop, ready check or summon.
+- **Quiet Chat:** the chat window fades away when nothing is happening, leaving only new lines over the world, and
+  comes back when you point at it or type.
+- **Emote Wheel:** hold a key and a wheel of emotes opens at your cursor; let go on a slice and it goes to your
+  target. A slice can be any emote, chat line or command, and a toast offers to thank someone who buffs you.
+- **Autocorrect:** fixes typos, missing apostrophes and capitals as you type in chat; Backspace puts your word back.
 - **Trade Filter** (only the trade messages about your professions and keywords), **Chat Tabs**, **Channel Tags**
   and **Chat Copy**.
 - **Friend sharing** (optional): swap flight times and gathering spots with friends who run Tomte.
@@ -149,15 +160,37 @@ gives it a moment. Cinematics never lock your controls: any key or click ends th
 
 ### And more
 
-Pet battle help (the right pet to swap to, tamer teams, paste Xu-Fu strategies and play them one key press at a time),
-seven themes so the whole thing looks the way you like, and settings sharing between players.
+- **DPS meter:** a small meter with the top three in your fight and your own place, shown in a group during a fight.
+- **Hidden settings:** game settings the game's own Settings panel leaves out, such as camera zoom distance, casting on
+  key press and the spell queue window.
+- Pet battle help (the right pet to swap to, tamer teams, paste Xu-Fu strategies and play them one key press at a
+  time), eight themes so the whole thing looks the way you like, and settings sharing between players.
+
+### On World of Warcraft: Forever
+
+The same download works on Forever: unzip it into `_forever_\Interface\AddOns`. Most of the modules above run there
+too (some with fewer features where that game has less to work with), and Forever has a theme drawn from its own art.
+On top of that, it gets helpers made for leveling:
+
+- **Leveling:** your XP with what finished quests and rested XP add, what's new at your class trainer, old spell ranks
+  on your bars, an ammo counter and a button that buys the right ammo, and a Next quests window with your quests
+  grouped by where they are.
+- **Quest list:** the game's quest tracker replaced by a list grouped by where your quests are, nearest first. Off by
+  default.
+- **Gear Check roll advice:** a card beside each group loot roll says need, greed or pass and why, and gear you'll be
+  able to wear a few levels on gets an arrow so it isn't sold by mistake.
+- **Where to get it:** type an item's name to see who sells it, what it's gathered from and which mobs drop it, the
+  best places for your level first.
+- **Loot:** with full bags, one click destroys your cheapest grey and loots what didn't fit.
+- **Eat and drink** on one key, **Pet care** for hunters, and **Groups in chat**: everyone looking for a group in your
+  chat channels on one page.
 
 ### Good to know
 
-- Made for retail, with the modules that work there also running on World of Warcraft: Forever. The text is English
-  only.
-- It plays nicely with (all optional): Baganator + Syndicator, Auctionator or TradeSkillMaster, Mount Journal
-  Enhanced. Tomte's settings have an "Other addons" page that lists what it clashes with, works with or replaces.
+- Made for retail and World of Warcraft: Forever. The text is English only.
+- Tomte's own Bags and Item counts do what Baganator and Syndicator do, and it works with those too if you keep them.
+  Also works with (all optional): Auctionator or TradeSkillMaster, Mount Journal Enhanced. Tomte's settings have an
+  "Other addons" page that lists what it clashes with, works with or replaces.
 - Content follows your character's expansion (The War Within or Midnight). The Midnight data is newer and I'm still
   checking it in game, so if something looks wrong there, a comment helps.
 - **Found a bug?** Type `/tomte bug`, copy the report and paste it in a comment or a GitHub issue. Nothing is sent
