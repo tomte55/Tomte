@@ -3,6 +3,7 @@ local addonName, ns = ...
 -- Chat Copy module: a copy icon on each chat window (shown while the window is faded in, like Blizzard's chat
 -- buttons) that opens that window's lines as plain text in Tomte's copy dialog (Panel/Dialog.lua), ready for Ctrl+C.
 -- The text rules (links, colors, "Clean lines") are pure, in Chat/Data.lua. The game keeps 128 lines per window.
+-- While Quiet Chat is on there's no icon; its tab menu has "Copy chat" instead (ns.ChatCopy_Open).
 -- The icon follows Blizzard's FCF_FadeInChatFrame / FCF_FadeOutChatFrame (hooksecurefunc, so Blizzard's chat code
 -- stays untainted), with an animation of its own: UIFrameFadeIn would put our frame in Blizzard's shared fade list.
 -- Each window gets its icon on its first fade-in, which also covers whisper windows opened later.
@@ -161,7 +162,7 @@ end
 -- puts its copy button in the same top-right corner.
 local function OnFadeIn(frame)
 	if not module.active or not frame or not frame.GetNumMessages or ns.Ellesmere_Loaded("Chat")
-		or ns.Mello_Does("Chat", "copyButton") then
+		or ns.Mello_Does("Chat", "copyButton") or (ns.QuietChat_Active and ns.QuietChat_Active()) then
 		return
 	end
 	local icon = icons[frame] or CreateIcon(frame)
@@ -191,6 +192,17 @@ local function HideIcons()
 		icon:SetAlpha(0)
 		icon:EnableMouse(false)
 		icon:Hide()
+	end
+end
+
+-- For Quiet Chat (Chat/Quiet.lua), which has no icons on the chat: "Copy chat" in the chat tab's right-click menu.
+function ns.ChatCopy_Active()
+	return module.active
+end
+
+function ns.ChatCopy_Open(frame)
+	if module.active and frame and frame.GetNumMessages then
+		OpenCopy(frame)
 	end
 end
 

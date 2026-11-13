@@ -348,6 +348,18 @@ test("ShadowSpan: a gap of faded lines between shown ones is covered", function(
 	eq(span.last, 3, "last")
 end)
 
+test("Approach: eases toward the target, the same whatever the frame rate", function()
+	local oneStep = ns.Chat_Approach(0, 100, 0.1, 12, 0.5)
+	local value = 0
+	for _ = 1, 10 do
+		value = ns.Chat_Approach(value, 100, 0.01, 12, 0.5)
+	end
+	H.near(value, oneStep, "ten small steps = one big one")
+	eq(oneStep > 50 and oneStep < 100, true, "most of the way, not there")
+	eq(ns.Chat_Approach(99.8, 100, 0.01, 12, 0.5), 100, "snaps when close")
+	eq(ns.Chat_Approach(50, 20, 1, 12, 0.5) < 50, true, "goes down too")
+end)
+
 test("FadeStep: moves toward the target and stops there", function()
 	local alpha, done = ns.Chat_FadeStep(0, 1, 0.05, 0.15)
 	H.near(alpha, 1 / 3, "a third of the way in")

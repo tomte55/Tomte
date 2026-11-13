@@ -5,7 +5,9 @@ local addonName, ns = ...
 -- edit box frame, only fresh lines over the world (a faint soft shadow behind just those lines), plus a chip naming
 -- tabs with unread whispers. Awake (Blizzard's own
 -- hover fade-in, or typing): a soft shadow from the left, tabs as text in the theme's font and a line to type on. The
--- side buttons stay hidden; Friends, Chat channels and Emotes are in the chat tab's right-click menu instead.
+-- side buttons stay hidden; Friends, Chat channels and Emotes are in the chat tab's right-click menu instead (and
+-- Copy chat, with Chat Copy on, whose icon stays off). The scroll bar stays hidden; the jump-to-bottom arrow shows
+-- only while scrolled up.
 -- Pure parts (chip entries, fade step) in Chat/Data.lua.
 -- Blizzard's chat frames are restyled, never replaced. Its fades only touch the textures that are shown, so the
 -- background and border are hidden; the docked tabs fade with GeneralDockManager's alpha, which Blizzard never sets.
@@ -41,6 +43,9 @@ local TRACK_STEP = 0.05 -- seconds between reads of the line slots while lines s
 -- Seconds to keep reading after a start even while no line shows: a new line is only drawn on the window's next
 -- update, so the first read can come too early (a lone line got no shadow when that read stopped the tracker).
 local TRACK_GRACE = 0.5
+local BACKING_SIZE_SPEED = 14 -- easing per second for the backing's size (most of the way in about 0.2 s)
+local BACKING_FADE_SPEED = 10 -- and for its alpha
+local SNAP_PX, SNAP_ALPHA = 0.5, 0.01 -- close enough to land on the target
 local DEACTIVATED_EDIT_ALPHA = 0.35 -- Blizzard's alpha for an idle chat edit box (Deactivate in ChatFrameEditBox.lua)
 local LINE_INSET = 8 -- the type line's inset from the edit box's ends
 local LINE_RAISE = 6 -- and from its bottom edge
@@ -82,7 +87,10 @@ local holder, line, chip, driver
 local asleepLayer, backing, tracker -- the backing lives on a layer faded opposite to the wake
 local lineInfo = {} -- the shown window's line slots, as ns.Chat_ShadowSpan reads them (reused)
 local lineHooked = {} -- [chat frame] = true once its AddMessage is hooked
-local backingTop, backingBottom, backingWidth -- what the backing is anchored to now
+-- The backing's place as px from the shown window's bottom edge: where the lines are (target) and where it is now,
+-- easing toward that (nil while hidden).
+local backingTarget = { top = 0, bottom = 0, width = 0, alpha = 0 }
+local backingNow
 
 local function PrimaryFrame()
 	return GENERAL_CHAT_DOCK and GENERAL_CHAT_DOCK.primary or DEFAULT_CHAT_FRAME
@@ -253,51 +261,106 @@ end
 
 local function HideBacking()
 	backing:Hide()
-	backingTop, backingBottom, backingWidth = nil, nil, nil
+	backingNow = nil
+	backingTarget.alpha = 0
+	tracker.frame = nil
 	tracker:SetScript("OnUpdate", nil)
 end
 
--- Fits the backing to the lines showing now; stops reading once none do.
-local function UpdateBacking()
+-- The shown lines' top and bottom in px above the chat frame's bottom edge (the backing's anchor). Long wrapped
+-- lines push the oldest slots above the window, where they're clipped and can't be seen: only what's inside counts
+-- (counting them made the shadow reach far above the text). A secret position falls back to the frame's edge.
+local function LineEdges(frame, topLine, bottomLine)
+	local frameTop, frameBottom = frame:GetTop(), frame:GetBottom()
+	if not (frameTop and frameBottom) or IsSecret(frameTop, frameBottom) then
+		return nil
+	end
+	local top, bottom = topLine:GetTop(), bottomLine:GetBottom()
+	if not top or IsSecret(top) then
+		top = frameTop
+	end
+	if not bottom or IsSecret(bottom) then
+		bottom = frameBottom
+	end
+	return math.min(top, frameTop) - frameBottom, math.max(bottom, frameBottom) - frameBottom
+end
+
+-- Reads where the backing should be into backingTarget (alpha 0 when no line shows). Returns the shown window.
+local function ReadTarget()
 	local frame = SelectedFrame()
-	if not (module.active and module.db.lineBacking and frame) then
-		HideBacking()
-		return
+	if not frame then
+		return nil
 	end
 	local span = ns.Chat_ShadowSpan(ReadLines(frame), frame:GetWidth())
 	if not span then
-		if GetTime() < (tracker.keepUntil or 0) then
-			backing:Hide()
-		else
-			HideBacking()
-		end
-		return
+		backingTarget.alpha = 0
+		return frame
 	end
 	-- Slot 1 is the newest line: at the bottom, unless the window adds lines at the top.
 	local fromTop = frame.GetInsertMode and frame:GetInsertMode() == SCROLLING_MESSAGE_FRAME_INSERT_MODE_TOP
 	local topLine = frame.visibleLines[fromTop and span.first or span.last]
 	local bottomLine = frame.visibleLines[fromTop and span.last or span.first]
-	local f, pad = SHADOW_FEATHER, SHADOW_PAD
-	if topLine ~= backingTop or bottomLine ~= backingBottom then
-		backingTop, backingBottom = topLine, bottomLine
-		backing:ClearAllPoints()
-		backing:SetPoint("TOPLEFT", topLine, "TOPLEFT", -(pad.x + f.left), pad.y + f.top)
-		backing:SetPoint("BOTTOMLEFT", bottomLine, "BOTTOMLEFT", -(pad.x + f.left), -(pad.y + f.bottom))
+	local top, bottom = LineEdges(frame, topLine, bottomLine)
+	if not top then
+		backingTarget.alpha = 0
+		return frame
 	end
-	local width = span.width + pad.x * 2 + f.left + f.right
-	if width ~= backingWidth then
-		backingWidth = width
-		backing:SetWidth(width)
-	end
-	backing:SetAlpha(span.alpha * BACKING_ALPHA)
+	backingTarget.top, backingTarget.bottom, backingTarget.width = top, bottom, span.width
+	backingTarget.alpha = span.alpha * BACKING_ALPHA
+	return frame
+end
+
+local function PlaceBacking(frame)
+	local now, f, pad = backingNow, SHADOW_FEATHER, SHADOW_PAD
+	backing:ClearAllPoints()
+	backing:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", -(pad.x + f.left), now.bottom - pad.y - f.bottom)
+	backing:SetSize(now.width + pad.x * 2 + f.left + f.right, now.top - now.bottom + pad.y * 2 + f.top + f.bottom)
+	backing:SetAlpha(now.alpha)
 	backing:Show()
 end
 
+-- Reads the lines every TRACK_STEP and eases the backing toward them every frame: it glides to a new size and fades
+-- in and out rather than jumping. Stops once no line shows and the backing has faded.
 local function OnTrackerUpdate(self, elapsed)
+	if not (module.active and module.db.lineBacking) then
+		HideBacking()
+		return
+	end
 	self.wait = (self.wait or 0) - elapsed
 	if self.wait <= 0 then
 		self.wait = TRACK_STEP
-		UpdateBacking()
+		self.frame = ReadTarget()
+	end
+	local frame, target = self.frame, backingTarget
+	if not frame then
+		HideBacking()
+		return
+	end
+	local now = backingNow
+	if not now then
+		if target.alpha <= 0 then
+			if GetTime() >= (self.keepUntil or 0) then
+				HideBacking()
+			end
+			return
+		end
+		-- The first lines: start at their size, fading in.
+		now = { top = target.top, bottom = target.bottom, width = target.width, alpha = 0 }
+		backingNow = now
+	end
+	local before = now.top + now.bottom + now.width + now.alpha
+	if target.alpha > 0 then
+		now.top = ns.Chat_Approach(now.top, target.top, elapsed, BACKING_SIZE_SPEED, SNAP_PX)
+		now.bottom = ns.Chat_Approach(now.bottom, target.bottom, elapsed, BACKING_SIZE_SPEED, SNAP_PX)
+		now.width = ns.Chat_Approach(now.width, target.width, elapsed, BACKING_SIZE_SPEED, SNAP_PX)
+	end
+	now.alpha = ns.Chat_Approach(now.alpha, target.alpha, elapsed, BACKING_FADE_SPEED, SNAP_ALPHA)
+	if now.top + now.bottom + now.width + now.alpha ~= before or self.frame ~= self.placedOn then
+		self.placedOn = self.frame
+		PlaceBacking(frame)
+	end
+	if now.alpha <= 0 and target.alpha <= 0 and GetTime() >= (self.keepUntil or 0) then
+		HideBacking()
 	end
 end
 
@@ -440,11 +503,18 @@ local function OpenChatMenu()
 	end
 end
 
-local function AddMenuEntries(_, root)
+local function AddMenuEntries(owner, root)
 	if not module.active then
 		return
 	end
 	root:CreateDivider()
+	-- Chat Copy's icon stays off while Quiet Chat is on (Chat/Copy.lua); its job is here instead.
+	local frame = owner and owner.GetID and FCF_GetChatFrameByID(owner:GetID())
+	if frame and ns.ChatCopy_Active and ns.ChatCopy_Active() then
+		root:CreateButton("Copy chat", function()
+			ns.ChatCopy_Open(frame)
+		end)
+	end
 	root:CreateButton("Friends", function()
 		ToggleFriendsFrame()
 	end)
@@ -597,6 +667,26 @@ local function SetEditArt(frame, alpha)
 	end
 end
 
+-- Scrolling: Blizzard's scroll bar stays hidden (the mouse wheel scrolls), and its jump-to-bottom arrow shows only
+-- while you're scrolled up (it flashes then, Blizzard's own animation). With the bar hidden, Blizzard's fades skip
+-- the arrow too (FCF_FadeInScrollbar / FCF_FadeOutScrollbar only run while the bar is shown), so its alpha is ours.
+local function UpdateArrow(frame)
+	local arrow = module.active and frame.ScrollToBottomButton
+	if not arrow or not frame.AtBottom then
+		return
+	end
+	local scrolledUp = not frame:AtBottom()
+	arrow:SetAlpha(scrolledUp and 1 or 0)
+	arrow:EnableMouse(scrolledUp)
+end
+
+-- Blizzard shows the bar again on each redraw (FloatingChatFrame_UpdateScroll).
+local function OnScrollBarShown(bar, shown)
+	if module.active and shown then
+		bar:Hide()
+	end
+end
+
 local function Restyle(frame, name)
 	if styled[frame] then
 		return
@@ -617,8 +707,19 @@ local function Restyle(frame, name)
 	SetEditArt(frame, 0)
 	if not lineHooked[frame] and frame.AddMessage then
 		lineHooked[frame] = true
-		hooksecurefunc(frame, "AddMessage", OnLineAdded) -- does nothing while the module is off
+		-- These do nothing while the module is off.
+		hooksecurefunc(frame, "AddMessage", OnLineAdded)
+		if frame.SetScrollOffset then
+			hooksecurefunc(frame, "SetScrollOffset", UpdateArrow)
+		end
+		if frame.ScrollBar then
+			hooksecurefunc(frame.ScrollBar, "SetShown", OnScrollBarShown)
+		end
 	end
+	if frame.ScrollBar then
+		frame.ScrollBar:Hide()
+	end
+	UpdateArrow(frame)
 	local tab = _G[name .. "Tab"]
 	if tab then
 		StyleTab(frame, tab, saved)
@@ -643,6 +744,14 @@ local function Unstyle(frame, saved)
 		frame:SetFont(path, size, saved.fontFlags)
 	end
 	SetEditArt(frame, 1)
+	if frame.ScrollBar and frame.GetNumMessages then
+		frame.ScrollBar:SetShown(frame:GetNumMessages() > 1) -- what FloatingChatFrame_UpdateScroll would show
+	end
+	local arrow = frame.ScrollToBottomButton
+	if arrow then
+		arrow:SetAlpha(0) -- Blizzard's idle alpha; its own fades take over from here
+		arrow:EnableMouse(true)
+	end
 	local box = frame.editBox
 	if box then
 		local inUse = box:HasFocus() or box:GetText() ~= ""
@@ -860,6 +969,11 @@ local function PrintState()
 			ns.Print(("  %s: %d unread"):format(TabName(frame) or ns.CHAT_UNREAD_FALLBACK, unread[frame]))
 		end
 	end)
+end
+
+-- For Chat Copy (Chat/Copy.lua): no copy icon on the chat while Quiet Chat is on.
+function ns.QuietChat_Active()
+	return module.active
 end
 
 module = ns.RegisterModule({

@@ -19,6 +19,10 @@ behavior with a light awake look (row 2 of the combined mockup: a soft shadow, T
 - **Side buttons** (friends, channels, chat menu, voice) stay hidden even when awake (the user's first test: they
   read as Blizzard clutter). Friends, Chat channels and Emotes and languages are added to the chat tab's right-click
   menu (Menu.ModifyMenu); without that API they fade with the chat instead.
+- **Scrolling**: the scroll bar stays hidden (the mouse wheel scrolls; a post-hook on its SetShown hides it again,
+  and Blizzard's scroll fades skip a hidden bar). The jump-to-bottom arrow shows, flashing, only while scrolled up
+  (a post-hook on the frame's SetScrollOffset, which every scroll goes through).
+- **Chat Copy**: no icon while Quiet Chat is on; "Copy chat" in the tab menu instead (ns.ChatCopy_Open).
 - The shadow is a soft-edged rectangle cut from Media/Showcase/Glow.tga in nine slices (a gradient texture showed as
   a hard box in game), with a long feather on the right.
 - Fade in 0.15 s, out 2 s (Blizzard's CHAT_FRAME_FADE_TIME / CHAT_FRAME_FADE_OUT_TIME).
@@ -28,7 +32,9 @@ behavior with a light awake look (row 2 of the combined mockup: a soft shadow, T
   is a font string in `frame.visibleLines` whose alpha is its fade, so the backing is anchored to the top and bottom
   shown lines, as wide as the widest (the frame's width for wrapped lines or a secret width) and as strong as the
   strongest; it's read every 0.05 s only while lines show (pure rule: ns.Chat_ShadowSpan). An earlier version
-  guessed from line times and drew the wrong size after a hover.
+  guessed from line times and drew the wrong size after a hover. Long wrapped lines push the oldest slots above the
+  window (clipped, still "shown"), so the top is capped at the window's top. The backing eases to its new size and
+  alpha (ns.Chat_Approach, about 0.2 s) instead of jumping.
 - Both shadows keep their feathers outside what they cover (text, tabs, type line, scroll bar), so nothing sits on a
   fading edge; asleep and awake shadows crossfade with the wake, never stacking.
 

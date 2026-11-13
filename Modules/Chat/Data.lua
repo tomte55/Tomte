@@ -388,6 +388,16 @@ function ns.Chat_ShadowSpan(lines, frameWidth)
 	return span
 end
 
+-- One frame of easing toward a target: covers the same share of the way each second whatever the frame rate
+-- (speed per second; 12 is most of the way in a quarter second), and lands on it once within `snap`.
+function ns.Chat_Approach(current, target, elapsed, speed, snap)
+	local value = current + (target - current) * (1 - math.exp(-speed * elapsed))
+	if math.abs(target - value) <= snap then
+		return target
+	end
+	return value
+end
+
 -- One step of a linear fade over the whole 0..1 range: `duration` seconds from 0 to 1 (a shorter way takes less).
 -- Returns the new alpha and whether it reached `to`.
 function ns.Chat_FadeStep(from, to, elapsed, duration)
