@@ -14,9 +14,14 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### New
 
-- **Emote Wheel (new module):** hold a key or mouse button and a wheel of emotes opens at your cursor; point at a slice and let go, and the emote goes to your target. Each slice can be any emote, chat command or line of text, and %t becomes your target's name. When another player buffs you, a toast offers to thank them with one click. Off by default.
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
+
+## v1.33.0 - 2026-11-13
+
+### New
+
+- **Emote Wheel (new module):** hold a key or mouse button and a wheel of emotes opens at your cursor; point at a slice and let go, and the emote goes to your target. Each slice can be any emote, chat command or line of text, and %t becomes your target's name. When another player buffs you, a toast offers to thank them with one click. Off by default.
 - **Hidden settings (new module):** the game's settings that its own Settings panel leaves out, such as camera zoom distance and speed, class-colored names in chat, casting on key press, the spell queue window, a threat percent on the target frame, numbers on the experience bar, guild names and titles over players, who cast a buff in its tooltip and stopping new spells from landing on your bars, with a few more on World of Warcraft: Forever. Each row says when it isn't at the game's default, and "Show" lists every game setting that isn't, for example after another addon changed them. Turning it off puts back what you changed.
 - **DPS meter (new module):** a small meter with the damage per second of the top three in your fight, and your own place under them when you're further down. Shows in a group during a fight and a few seconds after. Settings for healing instead of damage, per second, total or both, up to ten places, colors, a background, width, line and text size, growing up or down, and only in dungeons and raids. Off by default; works on retail and World of Warcraft: Forever.
 - **Autocorrect (new module):** fixes your chat as you type: typos and misspelled words, missing apostrophes, capitals at the start of a sentence, place names, word pairs (could of) and doubled words. A note above the chat box shows each fix; Backspace right after puts your word back and that fix is never made again. Leaves commands, links, names, game words and chat shorthand alone, and pauses in boss fights, Mythic+ and PvP matches. `/tomte autocorrect keep`, `add` and `why` for your own words. Off by default; works on retail and World of Warcraft: Forever.

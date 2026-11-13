@@ -10,6 +10,27 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.33.0", date = "2026-11-13",
+		new = {
+			{ module = "value", text = "Every bag item gets a marker saying what to do with it: vendor, auction, "
+				.. "disenchant, keep, needed for a quest or safe to delete." },
+			{ module = "meter", text = "A small DPS meter with the top three in your fight and your own place." },
+			{ module = "emotewheel", text = "Hold a key for a wheel of emotes at your cursor, and thank players who "
+				.. "buff you with one click." },
+			{ module = "autocorrect", text = "Fixes typos, apostrophes and capitals in your chat as you type." },
+			{ module = "hidden", text = "The game settings its own Settings panel leaves out, such as camera zoom "
+				.. "distance and the spell queue window." },
+			{ module = "questlist", text = "On Forever: a quest list grouped by where your quests are, in place of "
+				.. "the game's tracker." },
+		},
+		improved = {
+			{ module = "alts", text = "A toast when a recipe in your bags becomes one you can learn, and an Add to "
+				.. "list button in the profession window." },
+			{ label = "MelloUI", text = "Tomte works alongside it on Forever and steps aside where both do the "
+				.. "same job." },
+		},
+	},
+	{
 		version = "1.32.1", date = "2026-11-08",
 		improved = {
 			{ module = "addons", text = "A Runs alongside Tomte card for addons Tomte makes room for, and a line on "
