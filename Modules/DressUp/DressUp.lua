@@ -238,6 +238,9 @@ module = ns.RegisterModule({
 			function(_, rawArg)
 				ns.DressUp_OutfitCommand(rawArg)
 			end },
+		{ "looks", "bag items whose look you haven't collected, and what the game says about them", function()
+			ns.DressUp_LooksReport()
+		end },
 		{ "debug", "chat lines when the dressing room's size is set", function()
 			db.debug = not db.debug
 			ns.Print("Dressing room debug " .. (db.debug and "on" or "off") .. ".")
@@ -265,7 +268,7 @@ module = ns.RegisterModule({
 			shown = ns.NotForever,
 			tooltip = "Ensemble tooltips say how many of their appearances you have." },
 		{ type = "checkbox", key = "appearance", label = "Appearance on gear tooltips", onChange = UpdateOthers,
-			tooltip = "Gear tooltips say whether you have the item's look: not collected (or only for another class), collected from another item, or collected." },
+			tooltip = "Gear tooltips say whether you have the item's look: not collected (or not for this character), collected from another item, or collected." },
 		{ type = "header", label = "Titles" },
 		{ type = "checkbox", key = "titles", label = "Title search", onChange = UpdateOthers,
 			shown = ns.NotForever,

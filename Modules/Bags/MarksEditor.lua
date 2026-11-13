@@ -35,7 +35,7 @@ local INFO = {
 		available = function()
 			return ns.AltsList_Marked ~= nil
 		end, missing = "Needs Alts" },
-	transmog = { name = "Transmog mark", tip = "A coat hanger on items whose appearance you haven't collected: in the accent color when this character can learn it, grey when only another class can." },
+	transmog = { name = "Transmog mark", tip = "A coat hanger on items whose appearance you haven't collected: in the accent color when this character can learn it, grey when this character can't use it." },
 	set = { name = "Equipment set", tip = "A small blue square on items in one of your equipment sets." },
 	petlevel = { name = "Battle pet level", tip = "The level of a caged battle pet.", available = ns.NotForever,
 		missing = "Not on this client" },

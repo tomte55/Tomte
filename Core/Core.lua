@@ -131,7 +131,8 @@ function ns.AppearanceCollected(sourceID, info)
 end
 
 -- An item's appearance the account hasn't collected from any source: "you" when this character can collect it,
--- "other" when only another class or armor type can; nil when it's collected or the item has no appearance.
+-- "other" when this character can't (another class or armor type, or a weapon skill not trained yet); nil when it's
+-- collected or the item has no appearance.
 function ns.NewAppearance(link)
 	if not C_TransmogCollection then -- a client without the wardrobe API
 		return nil

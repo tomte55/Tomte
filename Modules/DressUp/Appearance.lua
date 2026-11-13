@@ -1,8 +1,8 @@
 local addonName, ns = ...
 
 -- Dressing room, appearance lines: item tooltips for gear say whether you have its look ("Appearance not collected",
--- "... (another class)", "Appearance collected from another item", "Appearance collected"). Where the game already
--- says it ("You haven't collected this appearance" and its "not from this item" twin, matched through their
+-- "... (not for this character)", "Appearance collected from another item", "Appearance collected"). Where the game
+-- already says it ("You haven't collected this appearance" and its "not from this item" twin, matched through their
 -- localized globals), no second line. One item tooltip post-call, added once; it does nothing while the module or
 -- its setting is off. States and wording in Data.lua; registered in DressUp.lua. Tomte's bags mark the same looks.
 
@@ -55,6 +55,31 @@ local function OnItem(tooltip, data)
 	local text, role = Line(state)
 	if text then
 		tooltip:AddLine(UI.Wrap(text, role))
+	end
+end
+
+-- /tomte dressup looks: every item in your bags whose look isn't collected, with what the game answers about it
+-- (PlayerCanCollectSource: has data, can collect), to see why one shows as "not for this character".
+function ns.DressUp_LooksReport()
+	local n = 0
+	for bag = 0, NUM_BAG_SLOTS do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) do
+			local link = C_Container.GetContainerItemLink(bag, slot)
+			local sourceID
+			if link then
+				sourceID = select(2, C_TransmogCollection.GetItemInfo(link))
+			end
+			local info = sourceID and C_TransmogCollection.GetAppearanceInfoBySource(sourceID)
+			if info and not ns.AppearanceCollected(sourceID, info) then
+				local hasData, canCollect = C_TransmogCollection.PlayerCanCollectSource(sourceID)
+				ns.Print(("%s source %d, has data %s, can collect %s"):format(link, sourceID,
+					tostring(hasData), tostring(canCollect)))
+				n = n + 1
+			end
+		end
+	end
+	if n == 0 then
+		ns.Print("no item in your bags has a look you haven't collected.")
 	end
 end
 

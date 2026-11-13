@@ -134,8 +134,8 @@ end
 
 -- An item's appearance for the tooltip line, from C_TransmogCollection.GetAppearanceInfoBySource (info) and
 -- PlayerCanCollectSource (canCollect): "new" (not collected, this character can learn it), "other" (not collected,
--- only another class or armor type can), "source" (the look is collected, from another item) or "known" (collected
--- from this one). nil without info.
+-- this character can't use it: another class or armor type, or on Forever a weapon skill not trained yet), "source"
+-- (the look is collected, from another item) or "known" (collected from this one). nil without info.
 function ns.DressUp_AppearanceState(info, canCollect)
 	if not info then
 		return nil
@@ -148,7 +148,7 @@ end
 
 local APPEARANCE_LINES = {
 	new = { "Appearance not collected", "accent" },
-	other = { "Appearance not collected (another class)", "textMuted" },
+	other = { "Appearance not collected (not for this character)", "textMuted" },
 	source = { "Appearance collected from another item", "textMuted" },
 	known = { "Appearance collected", "success" },
 }
