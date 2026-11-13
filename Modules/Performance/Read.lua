@@ -3,12 +3,16 @@ local addonName, ns = ...
 -- Performance: the game's own numbers in plain tables. Frame rate, latency, Blizzard's addon profiler
 -- (C_AddOnProfiler: always on, per-frame averages in ms) and addon memory. Rules in Data.lua.
 
-local MEMORY_SECONDS = 5 -- UpdateAddOnMemoryUsage walks every addon's memory: not on every refresh
+-- UpdateAddOnMemoryUsage walks every addon's memory: measured 45 ms with about 150 MB of addons loaded, a hitch of
+-- its own. So at most once a minute, unless a report asks for it now.
+local MEMORY_SECONDS = 60
 
 local M = Enum.AddOnProfilerMetric or {} -- only read when C_AddOnProfiler exists
 local IsSecret = ns.IsSecret
 
 local memory, memoryAt = {}, nil -- [addon name] = KB, at the last UpdateAddOnMemoryUsage
+-- Timed as "memory read", so the report shows what its own measuring costs.
+local UpdateMemory = ns.Perf_Wrap(UpdateAddOnMemoryUsage, "memory read")
 
 local function Number(v)
 	if v == nil or IsSecret(v) then
@@ -49,7 +53,7 @@ local function ReadMemory(names, force)
 		return
 	end
 	memoryAt = now
-	UpdateAddOnMemoryUsage()
+	UpdateMemory()
 	wipe(memory)
 	for _, name in ipairs(names) do
 		memory[name] = Number(GetAddOnMemoryUsage(name))
