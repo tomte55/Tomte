@@ -5,7 +5,8 @@ local addonName, ns = ...
 -- in Window.lua. DeleteCursorItem needs a real click and destroys one item per click (warcraft.wiki.gg/wiki/API_DeleteCursorItem).
 
 local LAST_BAG = 4 -- bag IDs: 0 is the backpack, 1 to 4 the bags you wear
-local HEIGHT = 40
+local HEIGHT = 40 -- at least: grows when a long item name wraps the text to a third line
+local LABEL_PAD_Y = 7 -- above and below the text
 local GAP = 4 -- under the window
 local LABEL_PAD = 8
 local MIN_WIDTH = 260 -- two lines of item names fit
@@ -157,6 +158,7 @@ local function Draw()
 	button:SetEnabled(plan.kind == "destroy")
 	button:SetWidth(math.max(window:GetWidth(), MIN_WIDTH))
 	button.label:SetWidth(button:GetWidth() - 2 * LABEL_PAD)
+	button:SetHeight(math.max(HEIGHT, math.ceil(button.label:GetStringHeight()) + 2 * LABEL_PAD_Y))
 	button:Show()
 	Spotlight()
 end
