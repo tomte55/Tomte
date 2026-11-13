@@ -195,28 +195,27 @@ local function Prune(quests)
 	end
 end
 
--- Follow-the-nearest: the nearest stop's top quest becomes the active one when it changes (a quest you pick yourself
--- stays until then). Through ns.SafeTrack: the map redraws inside the call, which in combat hits protected frames.
+-- Follow-the-nearest: the nearest stop's top quest becomes Tomte's active quest when it changes (a quest you pick
+-- yourself stays until then: picking one lets go of the follow, ns.ActiveQuest_Follow). Never the game's active quest:
+-- setting that from here tainted the objective tracker and the map's quest log (see ns.ActiveQuest_Follow).
 local function Follow(q)
-	if not (q and C_SuperTrack) then
+	if not q then
 		return
 	end
-	-- Your own map pin (or corpse) is what you're heading for: hands off. Forgotten, so the nearest quest is made active
+	-- Your own map pin (or corpse) is what you're heading for: hands off. Forgotten, so the nearest quest is followed
 	-- again as soon as the pin goes.
 	if ns.OwnTargetTracked() then
-		followed = nil
+		if followed then
+			followed = nil
+			ns.ActiveQuest_Follow(nil)
+		end
 		return
 	end
 	if q.questID == followed then
 		return
 	end
 	followed = q.questID
-	local id = q.questID
-	ns.SafeTrack(function()
-		if C_SuperTrack.GetSuperTrackedQuestID() ~= id then
-			ns.LevelingPage_MakeActive(id)
-		end
-	end)
+	ns.ActiveQuest_Follow(q.questID)
 end
 
 -- Hidden in combat counts once the fade out has hidden it (ApplyAlpha); until then the list keeps drawing.
@@ -301,7 +300,7 @@ local function Update()
 	local sections = Sections(quests, stops)
 	-- A new active quest (picked on the map, in the quest log or here): a fold you clicked on its group goes, so it
 	-- shows (Data.lua opens the group holding the active quest and puts the quest first).
-	local activeID = C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID() or nil
+	local activeID = ns.ActiveQuest_ID()
 	if activeID ~= lastActive then
 		lastActive = activeID
 		for _, s in ipairs(sections) do
@@ -334,6 +333,9 @@ local function Update()
 	end
 	if db.follow then
 		Follow(ns.QuestList_FollowQuest(sections))
+	elseif followed then -- turned off in the settings
+		followed = nil
+		ns.ActiveQuest_Follow(nil)
 	end
 	if not frame then
 		Build()
@@ -358,6 +360,13 @@ local function UpdateSoon()
 		Update()
 	end)
 end
+
+-- The followed quest or the game's active quest changed: the active quest's mark moves.
+ns.ActiveQuest_OnChange(function()
+	if active then
+		UpdateSoon()
+	end
+end)
 
 -- Distances only: each shown quest's yards and each stop's (its nearest quest).
 Tick = function()
@@ -422,13 +431,28 @@ end
 
 function ns.QuestList_ToggleFollow()
 	db.follow = not db.follow
-	followed = nil -- turned on: the nearest quest is made active right away
+	followed = nil -- turned on: the nearest quest is followed right away
+	if not db.follow then
+		ns.ActiveQuest_Follow(nil)
+	end
 	Update()
 end
 
 function ns.QuestList_ToggleCollapsed()
 	db.collapsed = not db.collapsed
 	Update()
+end
+
+-- The quest's text, objectives and rewards in Blizzard's own quest details window (the one its quest log opens), not
+-- the world map: opening the map from code taints it (see ns.MapTabs_Opener). The window keeps the quest in its own
+-- field, which Blizzard clears when it closes. Out of combat only: it's a UI panel, and in combat the map reads that
+-- field while doing protected things.
+local function ShowDetails(q)
+	if InCombatLockdown() then
+		ns.Print("The quest's details open after combat: try again then.")
+		return
+	end
+	QuestLogPopupDetailFrame:ShowQuest(q.questID)
 end
 
 local function Abandon(q)
@@ -442,6 +466,11 @@ end
 function ns.QuestList_Menu(owner, q)
 	UI.ContextMenu(owner, function(_, root)
 		root:CreateTitle(q.title or "?")
+		if QuestLogPopupDetailFrame and QuestLogPopupDetailFrame.ShowQuest then
+			root:CreateButton("Show details", function()
+				ShowDetails(q)
+			end)
+		end
 		if C_SuperTrack and not q.active then
 			root:CreateButton("Make active", function()
 				ns.SafeTrack(function()
@@ -541,6 +570,9 @@ local function Stop()
 	ns.QuestListSpoken_Stop()
 	ApplyTracker()
 	Hide()
+	if followed then
+		ns.ActiveQuest_Follow(nil)
+	end
 	followed = nil
 	wipe(seen)
 	if ns.LevelingNext_Update then
@@ -703,7 +735,7 @@ module = ns.RegisterModule({
 				{ value = "list", text = "Nothing" } }),
 			tooltip = "Nearby stop: quests close to each other are one stop, the nearest first, as in Leveling's Next quests. The nearest few get a group each; the rest wait in Other quests." },
 		{ type = "checkbox", key = "follow", label = "Follow the nearest quest", onChange = Redraw,
-			tooltip = "The top quest of the nearest stop becomes your active quest (marked on the map) each time a new one comes to the top. A quest you pick yourself stays active until then." },
+			tooltip = "The top quest of the nearest stop becomes your active quest in Tomte (marked in the list, and Waypoints' arrow points to it) each time a new one comes to the top. A quest you pick yourself, here or on the map, stays active until then. The game's own map and tracker keep the quest you picked there." },
 		{ type = "slider", key = "open", label = "Groups shown open", min = 1, max = 5, step = 1, onChange = Redraw,
 			preview = Preview, tooltip = "The rest show as one line each. Click a group's name to open or fold it." },
 		{ type = "slider", key = "stops", label = "Stops listed", min = 1, max = 8, step = 1, onChange = Redraw,

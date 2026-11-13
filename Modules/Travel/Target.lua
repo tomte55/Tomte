@@ -244,15 +244,20 @@ local function Spot(trackType, target)
 	return nil
 end
 
--- The tracked target, or nil when nothing is tracked.
+-- The tracked target, or nil when nothing is tracked. A quest Tomte follows (ns.ActiveQuest_Follow: Quest list's and
+-- Next quests' follow-the-nearest) stands in for the game's tracked quest, but never for your own map pin, corpse or
+-- other target.
 function ns.WayTarget_Get()
 	local trackType = C_SuperTrack.GetHighestPrioritySuperTrackingType()
+	if ns.ActiveQuest_IsFollowed() and (trackType == nil or trackType == ST.Quest) then
+		trackType = ST.Quest
+	end
 	if trackType == nil then
 		return nil
 	end
 	local target
 	if trackType == ST.Quest then
-		local questID = C_SuperTrack.GetSuperTrackedQuestID()
+		local questID = ns.ActiveQuest_ID()
 		target = questID and Quest(questID)
 	elseif trackType == ST.UserWaypoint then
 		target = UserWaypoint()

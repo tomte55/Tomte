@@ -76,9 +76,9 @@ local function Hostile()
 end
 
 -- The quest you're heading for: { yards, fight } (fight: it isn't finished, so it's something to do there, not a
--- hand-in), or nil without a super-tracked quest on this continent.
+-- hand-in), or nil without an active quest (ns.ActiveQuest_ID) on this continent.
 local function Destination()
-	local questID = C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID and C_SuperTrack.GetSuperTrackedQuestID()
+	local questID = ns.ActiveQuest_ID() -- the quest Tomte follows, else the game's
 	if not questID or questID == 0 or IsSecret(questID) then
 		return nil
 	end

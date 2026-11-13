@@ -276,6 +276,54 @@ function ns.OwnTargetTracked()
 	return kind ~= nil and kind ~= Enum.SuperTrackingType.Quest
 end
 
+-- The quest Tomte follows (Quest list's and Next quests' follow-the-nearest), kept apart from the game's active quest.
+-- Making a quest the game's active one from addon code redraws the objective tracker and the map's quest log inside
+-- the call, which leaves them tainted: measured on Forever 1.60.1 (2026-11-13), a later level-up then errored in the
+-- tracker (secret auras) and quest clicks on the map were blocked in combat. With follow off, no error. So a widget
+-- that picks a quest by itself only sets this; Waypoints' arrow and the lists read ns.ActiveQuest_ID. Your own pick in
+-- the game (map, quest log, a click in Tomte's lists) wins: any change of the game's active quest lets go of it.
+local followedQuest
+local activeListeners = {}
+
+local function ActiveChanged()
+	for _, fn in ipairs(activeListeners) do
+		fn()
+	end
+end
+
+-- questID, or nil to stop following.
+function ns.ActiveQuest_Follow(questID)
+	if followedQuest ~= questID then
+		followedQuest = questID
+		ActiveChanged()
+	end
+end
+
+-- The quest Tomte treats as active: the followed one, else the game's. nil when neither.
+function ns.ActiveQuest_ID()
+	if followedQuest then
+		return followedQuest
+	end
+	local id = C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID and C_SuperTrack.GetSuperTrackedQuestID()
+	return id ~= 0 and id or nil
+end
+
+-- Whether the active quest is one Tomte follows (not the game's own pick).
+function ns.ActiveQuest_IsFollowed()
+	return followedQuest ~= nil
+end
+
+-- fn() runs when the active quest (followed or the game's) changes.
+function ns.ActiveQuest_OnChange(fn)
+	activeListeners[#activeListeners + 1] = fn
+end
+
+events:On("activequest", "SUPER_TRACKING_CHANGED", function()
+	followedQuest = nil
+	ActiveChanged()
+end)
+events:TryWatch("activequest", "SUPER_TRACKING_CHANGED") -- a client without super-tracking has no such event
+
 events:On("safetrack", "PLAYER_REGEN_ENABLED", function(self)
 	self:Unwatch("safetrack", "PLAYER_REGEN_ENABLED")
 	local fn = afterCombat

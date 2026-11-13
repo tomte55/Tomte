@@ -467,7 +467,7 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "nextFollow", label = "Make the top quest active", parent = "nextQuests",
 			onChange = function()
 				ns.LevelingNext_Update()
-			end, tooltip = "The quest at the top becomes your active quest, marked on the map (and Waypoints' arrow points to it), each time a new one comes to the top. A quest you pick yourself stays active until then." },
+			end, tooltip = "The quest at the top becomes your active quest in Tomte (marked in the window, and Waypoints' arrow points to it) each time a new one comes to the top. A quest you pick yourself, here or on the map, stays active until then. The game's own map and tracker keep the quest you picked there." },
 		{ type = "checkbox", key = "nextMetric", label = "Distances in meters", parent = "nextQuests",
 			onChange = function()
 				ns.LevelingNext_Update()

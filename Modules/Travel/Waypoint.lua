@@ -198,6 +198,7 @@ end
 
 ns.Way_TargetChanged = MarkDirty
 events:On(OWNER, "SUPER_TRACKING_CHANGED", MarkDirty)
+ns.ActiveQuest_OnChange(MarkDirty) -- a quest Tomte follows (Target.lua): marking dirty is all it does while off
 events:On(OWNER, "SUPER_TRACKING_PATH_UPDATED", MarkDirty)
 events:On(OWNER, "QUEST_LOG_UPDATE", MarkDirty)
 events:On(OWNER, "ZONE_CHANGED", MarkDirty)

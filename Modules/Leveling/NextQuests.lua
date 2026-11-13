@@ -26,8 +26,7 @@ local UI = ns.UI
 local db, frame, ticker
 local active = false
 local updatePending = false
-local followed -- the quest the widget last made active: a quest you pick yourself stays until the top one changes
-local addedWatch -- the quest the widget put on the objective tracker (not one you tracked): untracked when it moves on
+local followed -- the quest the widget last followed: a quest you pick yourself stays until the top one changes
 local points = {} -- quest spots ([questID] = Read.lua's point), kept until the next full update reads them again
 local pointsMap -- the map they were read from
 local pointsStale = true -- the quest log changed since: read them again at the next update
@@ -149,7 +148,10 @@ local function FollowButton(f)
 		return db.nextFollow
 	end, function()
 		db.nextFollow = not db.nextFollow
-		followed = nil -- turned on: the top quest is made active right away
+		followed = nil -- turned on: the top quest is followed right away
+		if not db.nextFollow then
+			ns.ActiveQuest_Follow(nil)
+		end
 		ns.LevelingNext_Update()
 	end, function(on)
 		return on and "Following the top quest" or "Not following the top quest",
@@ -321,36 +323,30 @@ end
 
 -- Updates --------------------------------------------------------------------------------------------------------------
 
--- The top quest becomes the active one (marked on the map; Waypoints' arrow follows it) when it changes. Through
--- ns.SafeTrack: the map and tracker redraw inside the call, which in combat hits protected frames.
+-- The top quest becomes Tomte's active quest (Waypoints' arrow follows it) when it changes. Never the game's active
+-- quest or its tracker: setting those from here tainted the objective tracker and the map's quest log (see
+-- ns.ActiveQuest_Follow). A quest you pick yourself lets go of the follow until the top quest changes.
+local function Unfollow()
+	if followed then
+		followed = nil
+		ns.ActiveQuest_Follow(nil)
+	end
+end
+
 local function Follow(q)
-	if not (q and C_SuperTrack) then
+	if not q then
 		return
 	end
 	-- Your own map pin (or corpse) is what you're heading for: hands off until it goes (ns.OwnTargetTracked).
 	if ns.OwnTargetTracked() then
-		followed = nil
+		Unfollow()
 		return
 	end
 	if q.questID == followed then
 		return
 	end
 	followed = q.questID
-	local id = q.questID
-	ns.SafeTrack(function()
-		-- On the tracker too, as a click does. The quest this put there before goes, so the tracker doesn't fill up.
-		if addedWatch and addedWatch ~= id and C_QuestLog.GetQuestWatchType(addedWatch) then
-			C_QuestLog.RemoveQuestWatch(addedWatch)
-		end
-		addedWatch = nil
-		if not C_QuestLog.GetQuestWatchType(id) then
-			C_QuestLog.AddQuestWatch(id)
-			addedWatch = id
-		end
-		if C_SuperTrack.GetSuperTrackedQuestID() ~= id then
-			ns.LevelingPage_MakeActive(id)
-		end
-	end)
+	ns.ActiveQuest_Follow(q.questID)
 end
 
 local function Hide()
@@ -402,6 +398,8 @@ function ns.LevelingNext_Update()
 	drawnAt, distanceAt = you, you
 	if db.nextFollow and not stops.sample then
 		Follow(stops[1].quests[1])
+	elseif not db.nextFollow then
+		Unfollow()
 	end
 	Draw(stops, you)
 	frame:Show()
@@ -420,6 +418,13 @@ local function UpdateSoon()
 		ns.LevelingNext_Update()
 	end)
 end
+
+-- The followed quest or the game's active quest changed: the active quest's mark moves.
+ns.ActiveQuest_OnChange(function()
+	if active then
+		UpdateSoon()
+	end
+end)
 
 -- The quest log changed: its spots are read again.
 local function QuestsChanged()
@@ -499,4 +504,5 @@ function ns.LevelingNext_Stop()
 	events:UnwatchAll(OWNER)
 	pointsStale = true
 	Hide()
+	Unfollow()
 end

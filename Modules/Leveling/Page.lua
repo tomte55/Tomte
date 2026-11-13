@@ -220,7 +220,7 @@ function ns.LevelingPage_QuestClick(q, done)
 			ns.LevelingPage_MakeActive(id)
 		end
 		q.watched = C_QuestLog.GetQuestWatchType(id) ~= nil
-		q.active = C_SuperTrack ~= nil and C_SuperTrack.GetSuperTrackedQuestID() == id
+		q.active = ns.ActiveQuest_ID() == id
 		done()
 	end)
 end

@@ -218,10 +218,10 @@ end
 -- The quest log: { { questID, title, level, difficulty, elite, complete, timeLeft, xp, zone, tagID, watched, active } }.
 -- xp is 0 until the game has the quest's rewards; zone is the heading it's under (a zone, or a dungeon's name for its
 -- quests); tagID is its Enum.QuestTag (dungeon, raid, group) or nil; watched: it's on the objective tracker; active: it's
--- the super-tracked quest, highlighted and marked on the map.
+-- Tomte's active quest (ns.ActiveQuest_ID: the one follow-the-nearest follows, else the game's super-tracked quest).
 function ns.LevelingRead_Quests()
 	local list = {}
-	local active = C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID()
+	local active = ns.ActiveQuest_ID()
 	local heading
 	for i = 1, C_QuestLog.GetNumQuestLogEntries() do
 		local info = C_QuestLog.GetInfo(i)

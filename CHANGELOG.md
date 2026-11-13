@@ -19,11 +19,16 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Nameplates:** your threat as a number under every enemy's health bar, solo too and in dungeons: your share of the tank's (or pet's) threat, or your lead while you hold aggro, in red when you've pulled it off your tank and green when holding it is your job.
 - **Drawers:** a drawer can hold a bag search: type `is:eat`, `is:drink`, `is:potion` (or anything the bag search box takes) and it fills in with what you carry, the best first, and keeps up as your bags change.
 - **Bags:** new searches `is:eat` (food that heals), `is:drink` (drink for mana) and `is:bandage`.
+- **Quest list:** right-click a quest and pick Show details for its text, objectives and rewards in the game's quest details window.
 
 ### Improved
 
 - **Drawers:** the editor sets the drawer's name, which way it opens and how many buttons per line. An open drawer has no border and closes when you click somewhere else (out of combat), and a drawer whose search finds nothing right now shows a faded icon.
 - **Eat and drink (Forever):** removed. The game hides your health and mana, so its button ate even at full health; a drawer with `is:eat` and one with `is:drink` does the job better.
+
+### Fixed
+
+- **Quest list:** following the nearest quest no longer leads to a Lua error from the objective tracker after a level-up, or to blocked quest clicks on the map in combat. The followed quest now guides Tomte's arrow and lists, and the game's map and tracker keep the quest you pick there. The same for Next quests.
 
 ## v1.34.0 - 2026-11-13
 
