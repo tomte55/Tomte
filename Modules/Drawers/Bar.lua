@@ -8,6 +8,8 @@ local addonName, ns = ...
 
 local SIZE = 36 -- toggle and entry buttons, in pixels
 local GAP = 4 -- between buttons
+local EMPTY_ALPHA = 0.45 -- a drawer whose searches find nothing right now
+local FLYOUT_ALPHA = 0.55 -- the open drawer's backdrop
 local PAD = 4 -- flyout background around its buttons
 local BUTTON_PREFIX = "TomteDrawer" -- TomteDrawer1..N: the CLICK bindings in Bindings.xml need these names
 -- In a pet battle or a vehicle the action bars go away; the drawers too (a state driver, so it works in combat).
@@ -63,6 +65,30 @@ local function DrawerDB(i)
 	return ns.Drawers_Saved(db, i)
 end
 
+-- Seconds before reading again when a searched item's data was still loading.
+local LOAD_RETRY = 1
+local retrying = false
+local Refresh
+
+-- What drawer i's buttons show: its entries with each search filled in from the bags (Data.lua's Drawers_Expand).
+local function Shown(i)
+	local _, entries = DrawerDB(i)
+	if not ns.Drawers_HasSearch(entries) then
+		return entries
+	end
+	local found, loading = ns.Drawers_Found(entries)
+	if loading and not retrying then
+		retrying = true
+		C_Timer.After(LOAD_RETRY, function()
+			retrying = false
+			if module.active then
+				Refresh()
+			end
+		end)
+	end
+	return ns.Drawers_Expand(entries, found)
+end
+
 -- Looks (not protected: these run in combat too) -------------------------------------------------------------
 
 local function SetCooldown(cd, start, duration)
@@ -99,21 +125,27 @@ local function UpdateButton(b)
 	end
 end
 
--- Drawer i's button t: its first entry's icon, its name when names show, its key. Real or preview button.
-local function FillToggle(t, i, name, showNames, entries)
-	local icon = ns.DRAWERS_EMPTY_ICON
-	if entries[1] then
-		icon = select(2, ns.Drawers_Info(entries[1]))
-	end
-	t.icon:SetTexture(icon)
+-- Drawer i's button t: its first button's icon, its name when names show, its key. Real or preview button. shown:
+-- what the drawer shows now. Empty (a search that finds nothing in the bags): emptyIcon (what it last showed, else the
+-- drawer bag), grey and faded, so it reads as "nothing in here right now".
+local function FillToggle(t, i, name, showNames, shown, emptyIcon)
+	local empty = shown[1] == nil
+	t.icon:SetTexture(empty and (emptyIcon or ns.DRAWERS_EMPTY_ICON) or select(2, ns.Drawers_Info(shown[1])))
+	t.icon:SetDesaturated(empty)
+	t.icon:SetAlpha(empty and EMPTY_ALPHA or 1)
 	t.label:SetText(showNames and ns.Drawers_Name(name, i) or "")
 	local key = GetBindingKey(Binding(i))
 	t.hotkey:SetText(key and GetBindingText(key, 1) or "") -- 1: abbreviated, as on Blizzard's action buttons
 end
 
 local function UpdateToggle(i)
-	local saved, entries = DrawerDB(i)
-	FillToggle(drawers[i].toggle, i, saved.name, db.showNames, entries)
+	local d = drawers[i]
+	local saved = DrawerDB(i)
+	local shown = d.shown or {}
+	if shown[1] then
+		d.lastIcon = select(2, ns.Drawers_Info(shown[1]))
+	end
+	FillToggle(d.toggle, i, saved.name, db.showNames, shown, d.lastIcon)
 end
 
 local function UpdateLooks()
@@ -141,10 +173,11 @@ end
 
 local function ToggleOnEnter(self)
 	local i = self:GetID()
-	local saved, entries = DrawerDB(i)
+	local saved = DrawerDB(i)
+	local n = #(drawers[i].shown or {})
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	GameTooltip:SetText(ns.Drawers_Name(saved.name, i), UI.RGB("heading"))
-	UI.TipLine(#entries == 1 and "1 entry" or (#entries .. " entries"), "textMuted")
+	UI.TipLine(n == 1 and "1 entry" or (n .. " entries"), "textMuted")
 	UI.TipLine("Click: open or close", "text")
 	UI.TipLine("Right-click: edit (out of combat)", "text")
 	local key = GetBindingKey(Binding(i))
@@ -188,8 +221,17 @@ local function ToggleLooks(t)
 	t.hotkey:SetPoint("TOPRIGHT", -2, -2)
 end
 
+-- A soft dark backdrop behind the open drawer's buttons, no outline. Its color is set again on each refresh
+-- (FlyoutColor), so a theme switch reaches it.
+local function FlyoutColor(f)
+	local r, g, b = UI.Color("bg")
+	f.bg:SetColorTexture(r, g, b, FLYOUT_ALPHA)
+end
+
 local function FlyoutLooks(f)
-	UI.Surface(f, 0.8)
+	f.bg = f:CreateTexture(nil, "BACKGROUND")
+	f.bg:SetAllPoints()
+	FlyoutColor(f)
 end
 
 -- Places the first n of buttons around anchor's center as the drawer opens (direction, perLine) and the flyout
@@ -299,11 +341,14 @@ local function ApplyLayout(i)
 	t:SetPoint(d.frame.point, UIParent, d.frame.relPoint, d.frame.x, d.frame.y)
 	t:SetScale(db.scale)
 	f:SetAttribute("closeonuse", db.closeOnUse and true or nil)
+	FlyoutColor(f)
 end
 
 local function Build(i)
 	local d = drawers[i]
-	local saved, entries = DrawerDB(i)
+	local saved = DrawerDB(i)
+	local entries = Shown(i)
+	d.shown = entries
 	for j, entry in ipairs(entries) do
 		local b = d.buttons[j] or CreateEntryButton(d)
 		SetEntry(b, entry)
@@ -334,7 +379,7 @@ local function SetShown(d, show)
 	end
 end
 
-local function Refresh()
+function Refresh()
 	if InCombatLockdown() then
 		pending = true
 		return
@@ -396,7 +441,8 @@ function ns.Drawers_DrawSample(host, get, i)
 		host.drawer = v
 	end
 	local key = "d" .. i
-	local _, entries = DrawerDB(i)
+	local _, saved = DrawerDB(i)
+	local entries = Shown(i)
 	local n = #entries > 0 and #entries or #SAMPLE_ICONS
 	for j = 1, n do
 		local b = v.buttons[j]
@@ -420,9 +466,11 @@ function ns.Drawers_DrawSample(host, get, i)
 		v.buttons[j]:Hide()
 	end
 	local showNames = get("showNames")
-	FillToggle(v.toggle, i, get(key .. ".name"), showNames, entries)
-	if #entries == 0 then
+	FillToggle(v.toggle, i, get(key .. ".name"), showNames, entries, drawers[i] and drawers[i].lastIcon)
+	if #saved == 0 then -- nothing added yet: the sample, in full color
 		v.toggle.icon:SetTexture(SAMPLE_ICONS[1])
+		v.toggle.icon:SetDesaturated(false)
+		v.toggle.icon:SetAlpha(1)
 	end
 	local box = Arrange(v.toggle, v.flyout, v.buttons, n, get(key .. ".direction"), get(key .. ".perLine"))
 
@@ -455,15 +503,39 @@ events:On(owner, "PLAYER_REGEN_ENABLED", function()
 end)
 events:On(owner, "PLAYER_ENTERING_WORLD", Refresh)
 events:On(owner, "UPDATE_BINDINGS", UpdateLooks)
-for _, event in ipairs({
-	"BAG_UPDATE_DELAYED", "BAG_UPDATE_COOLDOWN", "SPELL_UPDATE_COOLDOWN", "SPELLS_CHANGED", "TOYS_UPDATED",
-}) do
+for _, event in ipairs({ "BAG_UPDATE_COOLDOWN", "SPELL_UPDATE_COOLDOWN", "SPELLS_CHANGED", "TOYS_UPDATED" }) do
 	events:On(owner, event, UpdateLooks)
 end
 
+-- A click anywhere else closes an open drawer. Out of combat only: the flyout is protected, so in combat only its own
+-- secure code (its button, close after use) can hide it.
+events:On(owner, "GLOBAL_MOUSE_DOWN", function()
+	if InCombatLockdown() then
+		return
+	end
+	for _, d in ipairs(drawers) do
+		if d.flyout:IsShown() and not (d.flyout:IsMouseOver() or d.toggle:IsMouseOver()) then
+			d.flyout:Hide()
+		end
+	end
+end)
+
+-- The bags changed: a drawer with a search fills in again (after combat, when you're fighting: its buttons are
+-- protected), the others only update their counts.
+events:On(owner, "BAG_UPDATE_DELAYED", function()
+	for i = 1, #drawers do
+		local _, entries = DrawerDB(i)
+		if ns.Drawers_HasSearch(entries) then
+			Refresh()
+			return
+		end
+	end
+	UpdateLooks()
+end)
+
 local WATCH = {
 	"PLAYER_REGEN_ENABLED", "PLAYER_ENTERING_WORLD", "UPDATE_BINDINGS", "BAG_UPDATE_DELAYED", "BAG_UPDATE_COOLDOWN",
-	"SPELL_UPDATE_COOLDOWN", "SPELLS_CHANGED", "TOYS_UPDATED",
+	"SPELL_UPDATE_COOLDOWN", "SPELLS_CHANGED", "TOYS_UPDATED", "GLOBAL_MOUSE_DOWN",
 }
 
 function ns.Drawers_BarStart()

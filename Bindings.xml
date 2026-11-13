@@ -33,7 +33,6 @@
 	<Binding name="CLICK TomtePetNext:LeftButton" category="Tomte"/>
 	<Binding name="CLICK TomtePetHeal:LeftButton" category="Tomte"/>
 	<Binding name="CLICK TomteFishing:LeftButton" category="Tomte"/>
-	<Binding name="CLICK TomteRest:LeftButton" category="Tomte"/>
 	<Binding name="CLICK TomteHunterAspect:LeftButton" category="Tomte"/>
 	<Binding name="CLICK TomteDrawer1:LeftButton" category="Tomte"/>
 	<Binding name="CLICK TomteDrawer2:LeftButton" category="Tomte"/>

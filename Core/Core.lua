@@ -169,6 +169,55 @@ function ns.EquipmentSetSlots()
 	return slots
 end
 
+-- Food, drink and bandages, told apart by the name of the spell the item casts (one ID names every rank), compared in
+-- the client's language. Used by the bag search's is:eat, is:drink and is:bandage (Bags, Drawers).
+-- Food: 433 "Food"; 1248378 "Nutritious Food", which Forever's buff foods cast (measured on 1.60.1: Spiced Wolf Meat;
+-- Roasted Boar Meat casts 1248380 of the same name). An ID the client doesn't have names nothing and is skipped.
+local CONSUMABLE_SPELLS = { food = { 433, 1248378 }, drink = { 430 }, bandage = { 746 } }
+ns.CONSUMABLE_SPELLS = CONSUMABLE_SPELLS
+local WELL_FED = 19705 -- the buff a buff food gives, named in its tooltip
+local consumableKinds = {} -- [itemID] = "food" | "drink" | "bandage" | false: what an item is never changes
+local buffFoods = {} -- [itemID] = its tooltip names Well Fed
+
+-- "food" (heals), "drink" (mana), "bandage" or nil. nil too while the item's spell isn't loaded (asked again later).
+function ns.ConsumableKind(itemID)
+	local known = consumableKinds[itemID]
+	if known == nil then
+		local spellName = C_Item.GetItemSpell(itemID)
+		if not spellName then
+			return nil
+		end
+		known = false
+		for kind, spellIDs in pairs(CONSUMABLE_SPELLS) do
+			for _, spellID in ipairs(spellIDs) do
+				if spellName == C_Spell.GetSpellName(spellID) then
+					known = kind
+				end
+			end
+		end
+		consumableKinds[itemID] = known
+	end
+	return known or nil
+end
+
+-- Whether a food gives Well Fed (one a player may be saving for its buff).
+function ns.IsBuffFood(itemID)
+	if buffFoods[itemID] == nil then
+		local wellFed = (C_Spell.GetSpellName(WELL_FED) or ""):lower()
+		local data = C_TooltipInfo.GetItemByID(itemID)
+		if not (data and data.lines and wellFed ~= "") then
+			return false
+		end
+		buffFoods[itemID] = false
+		for _, line in ipairs(data.lines) do
+			if type(line.leftText) == "string" and line.leftText:lower():find(wellFed, 1, true) then
+				buffFoods[itemID] = true
+			end
+		end
+	end
+	return buffFoods[itemID]
+end
+
 local events = ns.NewEvents()
 ns.Core_Events = events
 events:Watch("core", "ADDON_LOADED")
@@ -345,7 +394,6 @@ function Tomte_Binding(name)
 end
 BINDING_NAME_TOMTE_TOGGLE = "Toggle Tomte"
 -- Here, not in their modules: Bindings.xml is the same on both clients, and these files only load on Forever.
-_G["BINDING_NAME_CLICK TomteRest:LeftButton"] = "Eat and drink (World of Warcraft: Forever)"
 _G["BINDING_NAME_CLICK TomteHunterAspect:LeftButton"] = "Put on your aspect (World of Warcraft: Forever)"
 
 -- A key binding of moduleKey's: fn runs while that module is on; while it's off the key says so.

@@ -216,4 +216,12 @@ ns.MIGRATIONS = {
 			sell.mark, sell.markConsumables = nil, nil
 		end
 	end,
+	-- 21: Eat and drink (Forever) is gone (1.35): a drawer with a bag search (is:eat, is:drink) does its job. Its
+	-- settings and on/off switch go.
+	function(db)
+		db.rest = nil
+		if type(db.enabled) == "table" then
+			db.enabled.rest = nil
+		end
+	end,
 }

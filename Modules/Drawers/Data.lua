@@ -5,21 +5,93 @@ local addonName, ns = ...
 -- button of an open drawer sits.
 --
 -- An entry is { kind = "item" | "toy" | "spell" | "mount", id = number }: an item ID, a toy's item ID, a spell ID
--- or a mount journal ID (MountID).
+-- or a mount journal ID (MountID). Or { kind = "search", text = "is:drink" }: a bag search (Bags/Search.lua's
+-- language) that fills its place with every matching item in your bags, the best first.
 
 ns.DRAWERS_COUNT = 4 -- drawers, each with its own button and key binding (TomteDrawer1..4)
-ns.DRAWERS_MAX = 24 -- entries per drawer
+ns.DRAWERS_MAX = 24 -- entries per drawer, and buttons per open drawer
 ns.DRAWERS_DIRECTIONS = { "UP", "DOWN", "LEFT", "RIGHT" }
+local DIRECTION_TEXT = { UP = "Up", DOWN = "Down", LEFT = "Left", RIGHT = "Right" }
+local SEARCH_MAX = 100 -- characters in a saved search
 
 local KINDS = { item = true, toy = true, spell = true, mount = true }
 
+local function Trim(text)
+	return (text:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
 function ns.Drawers_IsEntry(entry)
-	return type(entry) == "table" and KINDS[entry.kind] == true and type(entry.id) == "number" and entry.id > 0
+	if type(entry) ~= "table" then
+		return false
+	end
+	if entry.kind == "search" then
+		return type(entry.text) == "string" and entry.text:find("%S") ~= nil and #entry.text <= SEARCH_MAX
+	end
+	return KINDS[entry.kind] == true and type(entry.id) == "number" and entry.id > 0
 		and entry.id == math.floor(entry.id)
 end
 
 function ns.Drawers_Same(a, b)
+	if a.kind == "search" or b.kind == "search" then
+		return a.kind == b.kind and Trim(a.text):lower() == Trim(b.text):lower()
+	end
 	return a.kind == b.kind and a.id == b.id
+end
+
+-- Whether typed text reads as a search rather than a name: it uses the search language's marks (is:, comparisons,
+-- or, not, parentheses, quotes). A plain word is looked up as a name first (Editor.lua).
+function ns.Drawers_LooksLikeSearch(text)
+	if type(text) ~= "string" then
+		return false
+	end
+	text = Trim(text)
+	return text:find(":") ~= nil or text:find("[<>=|()\"]") ~= nil or text:sub(1, 1) == "-"
+end
+
+-- Search results in the order a drawer shows them: plain food before buff food you may be saving, then what needs
+-- the highest level (better food and drink do), then the highest item level, then by name, so the order holds still.
+-- items = { { itemID, name, minLevel, ilvl, buff } }; sorted in place and returned.
+function ns.Drawers_SortFound(items)
+	table.sort(items, function(a, b)
+		if (a.buff and true or false) ~= (b.buff and true or false) then
+			return not a.buff
+		end
+		if (a.minLevel or 0) ~= (b.minLevel or 0) then
+			return (a.minLevel or 0) > (b.minLevel or 0)
+		end
+		if (a.ilvl or 0) ~= (b.ilvl or 0) then
+			return (a.ilvl or 0) > (b.ilvl or 0)
+		end
+		if (a.name or "") ~= (b.name or "") then
+			return (a.name or "") < (b.name or "")
+		end
+		return a.itemID < b.itemID
+	end)
+	return items
+end
+
+-- The buttons a drawer shows: its entries in order, each search replaced by the items it found (found[entry] =
+-- { itemIDs }, best first). An item shows once, where it first comes; at most max buttons.
+function ns.Drawers_Expand(entries, found, max)
+	max = max or ns.DRAWERS_MAX
+	local out, seen = {}, {}
+	local function Put(entry)
+		local key = entry.kind .. ":" .. entry.id
+		if #out < max and not seen[key] then
+			seen[key] = true
+			out[#out + 1] = entry
+		end
+	end
+	for _, entry in ipairs(entries) do
+		if entry.kind == "search" then
+			for _, itemID in ipairs(found and found[entry] or {}) do
+				Put({ kind = "item", id = itemID, search = entry.text })
+			end
+		else
+			Put(entry)
+		end
+	end
+	return out
 end
 
 -- The first link in text: "item", itemID; "spell", spellID; "mountSpell", spellID (the mount journal links a
@@ -78,7 +150,11 @@ function ns.Drawers_Add(entries, entry, max)
 	if #entries >= (max or ns.DRAWERS_MAX) then
 		return nil, "full"
 	end
-	entries[#entries + 1] = { kind = entry.kind, id = entry.id }
+	if entry.kind == "search" then
+		entries[#entries + 1] = { kind = "search", text = Trim(entry.text) }
+	else
+		entries[#entries + 1] = { kind = entry.kind, id = entry.id }
+	end
 	return #entries
 end
 
@@ -153,6 +229,15 @@ function ns.Drawers_Layout(n, direction, perLine, size, gap)
 		end
 	end
 	return points, box
+end
+
+-- The ways a drawer can open, as choices for the settings page and the editor: { { value, text } }.
+function ns.Drawers_DirectionChoices()
+	local choices = {}
+	for i, dir in ipairs(ns.DRAWERS_DIRECTIONS) do
+		choices[i] = { value = dir, text = DIRECTION_TEXT[dir] }
+	end
+	return choices
 end
 
 -- Drawer i's saved settings and its entry list. Entries live apart from the settings (db.entries.d<i>, a collection)

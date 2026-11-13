@@ -15,7 +15,7 @@ local KEYRING = -1 -- Enum.BagIndex.Keyring
 if ns.FOREVER and C_ActionBar.ShouldShowKeyring() then
 	BAGS[#BAGS + 1] = KEYRING
 end
-local WEAPON, ARMOR, RECIPE, BATTLEPET, PROFESSION = 2, 4, 9, 17, 19 -- Enum.ItemClass
+local CONSUMABLE, WEAPON, ARMOR, RECIPE, BATTLEPET, PROFESSION = 0, 2, 4, 9, 17, 19 -- Enum.ItemClass
 -- Classes whose tooltip can say in red that you can't use the item (armor type, class, skill, level).
 local CAN_BE_UNUSABLE = { [WEAPON] = true, [ARMOR] = true, [RECIPE] = true, [PROFESSION] = true }
 -- A tooltip line in the game's red (RED_FONT_COLOR, 1 / 0.125 / 0.125) says the item can't be used.
@@ -167,6 +167,7 @@ local function Record(bag, slot, info)
 		bind = BindState(bindType, info.isBound),
 		junk = ns.Bags_IsJunk(info.quality or quality, info.hasNoValue, BindState(bindType, info.isBound)),
 		hearth = HEARTHS[itemID] == true,
+		consumable = classID == CONSUMABLE and ns.ConsumableKind(itemID) or nil,
 		toy = IsToy(itemID),
 		mount = C_MountJournal.GetMountFromItem(itemID) ~= nil,
 		pet = IsPet(itemID),

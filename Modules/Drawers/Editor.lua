@@ -1,18 +1,25 @@
 local addonName, ns = ...
 
 -- Drawers: the editor window. Lists one drawer's entries (move up or down, remove) and adds new ones: shift-click a
--- link while its text box has focus, type a name or item ID, or drag something from the bags, spellbook, mount
--- journal or toy box onto the window. Opened from the settings page or by right-clicking a drawer. Saved straight
--- into the module's db; the drawer itself is rebuilt by Bar.lua (after combat when it's in combat).
+-- link while its text box has focus, type a name, item ID or bag search, or drag something from the bags, spellbook, mount
+-- journal or toy box onto the window. Above them the drawer's name, which way it opens and buttons per line (the
+-- same settings as its card on the settings page). Opened from the settings page or by right-clicking a drawer. Saved
+-- straight into the module's db; the drawer itself is rebuilt by Bar.lua (after combat when it's in combat).
 
-local WIDTH, HEIGHT = 380, 470
+local WIDTH, HEIGHT = 380, 590
 local ROW_H = 30
 local ICON = 24
-local LIST_TOP = -128 -- the list starts below the title, hint, text box and status line
+local LABEL_W = 74 -- the settings rows' labels, left of their controls
+local SETTINGS_TOP = -46 -- the name, direction and per-line rows start below the title
+local SETTING_H = 30 -- one settings row
+local HINT_TOP = -146 -- the hint, below the settings and their rule
+local LIST_TOP = -250 -- the list starts below the hint (up to three lines), text box and status line
+local NAME_DELAY = 0.3 -- seconds of quiet typing before a new name reaches the drawer on screen
 local UI = ns.UI
 
 local db, module
 local dialog, input, status, scroll, title, emptyText
+local nameBox, opens, perLine
 local rows = {}
 local current = 1 -- the drawer being edited
 local hooked = false
@@ -53,18 +60,45 @@ local function Add(entry, notFound)
 		SetStatus(WHY[why], "warning")
 		return false
 	end
-	local name = ns.Drawers_Info(entry)
-	SetStatus("Added " .. (name or ns.DRAWERS_KIND_TEXT[entry.kind]) .. ".", "success")
+	if entry.kind == "search" then
+		local n = #(ns.Drawers_Found({ entry })[entry] or {})
+		SetStatus(("Added the search %s: %s in your bags now."):format(entry.text,
+			n == 1 and "1 item" or (n .. " items")), "success")
+	else
+		local name = ns.Drawers_Info(entry)
+		SetStatus("Added " .. (name or ns.DRAWERS_KIND_TEXT[entry.kind]) .. ".", "success")
+	end
 	Changed()
 	return true
 end
 
+-- A search entry for text, or nil and why the search language can't read it.
+local function SearchEntry(text)
+	local match, why = ns.BagsSearch_Compile(text)
+	if not match then
+		return nil, why
+	end
+	return { kind = "search", text = text }
+end
+
+-- Typed text: a search when it reads like one (is:drink, ilvl>50), else a name; a name nothing is called becomes a
+-- search of item names ("water").
 local function AddTyped()
 	local text = strtrim(input:GetText())
 	if text == "" then
 		return
 	end
-	if Add(ns.Drawers_FromName(text),
+	local entry, why
+	if ns.Drawers_LooksLikeSearch(text) then
+		entry, why = SearchEntry(text)
+		if not entry then
+			SetStatus("Search: " .. tostring(why), "danger")
+			return
+		end
+	else
+		entry = ns.Drawers_FromName(text) or SearchEntry(text)
+	end
+	if Add(entry,
 		"Not found. Shift-click it or drag it here instead (items by name only once they've been in your bags).") then
 		input:SetText("")
 	end
@@ -161,6 +195,12 @@ function Rebuild()
 	local saved, entries = ns.Drawers_Saved(db, current)
 	title:SetText(ns.Drawers_Name(saved.name, current)
 		.. UI.Wrap("  " .. current .. " / " .. ns.DRAWERS_COUNT, "textFaint"))
+	if not nameBox:HasFocus() then
+		nameBox:SetText(saved.name or "")
+	end
+	nameBox.placeholder:SetText("Drawer " .. current)
+	opens:Refresh()
+	perLine:SetValue(saved.perLine)
 	for i, entry in ipairs(entries) do
 		local row = rows[i] or CreateRow(i)
 		row.index, row.entry = i, entry
@@ -172,7 +212,11 @@ function Rebuild()
 		row.icon:SetDesaturated(not have)
 		row.name:SetText(name or (ns.DRAWERS_KIND_TEXT[entry.kind] .. " " .. entry.id))
 		UI.SetTextRole(row.name, have and "text" or "textMuted")
-		row.kind:SetText(ns.DRAWERS_KIND_TEXT[entry.kind] .. (have and "" or ", not yours"))
+		if entry.kind == "search" then
+			row.kind:SetText("Search, " .. #(ns.Drawers_Found({ entry })[entry] or {}) .. " found")
+		else
+			row.kind:SetText(ns.DRAWERS_KIND_TEXT[entry.kind] .. (have and "" or ", not yours"))
+		end
 		row.up:SetEnabled(i > 1)
 		row.up:SetAlpha(i > 1 and 1 or 0.3)
 		row.down:SetEnabled(i < #entries)
@@ -190,32 +234,109 @@ RebuildSoon = UI.Debounce(0.1, Rebuild)
 
 -- Window ------------------------------------------------------------------------------------------------------
 
-local function CreateInput()
-	input = CreateFrame("EditBox", nil, dialog)
-	input:SetHeight(22)
-	input:SetPoint("TOPLEFT", 16, -72)
-	input:SetPoint("RIGHT", -84, 0)
-	input:SetAutoFocus(false)
-	UI.SetFont(input, "body", 12)
-	UI.SetTextRole(input, "text")
-	input:SetTextInsets(6, 6, 0, 0)
-	UI.Surface(input, 0.35)
-	input.placeholder = UI.Text(input, 12, "textFaint")
-	input.placeholder:SetPoint("LEFT", 6, 0)
-	input.placeholder:SetPoint("RIGHT", -6, 0)
-	input.placeholder:SetWordWrap(false)
-	input.placeholder:SetText("Shift-click a link, or type a name")
-	input:SetScript("OnTextChanged", function(self)
+-- A text box in the editor's look, with a placeholder while it's empty. onChange(self, userInput) follows typing.
+local function TextBox(placeholder, onChange)
+	local box = CreateFrame("EditBox", nil, dialog)
+	box:SetHeight(22)
+	box:SetAutoFocus(false)
+	UI.SetFont(box, "body", 12)
+	UI.SetTextRole(box, "text")
+	box:SetTextInsets(6, 6, 0, 0)
+	UI.Surface(box, 0.35)
+	box.placeholder = UI.Text(box, 12, "textFaint")
+	box.placeholder:SetPoint("LEFT", 6, 0)
+	box.placeholder:SetPoint("RIGHT", -6, 0)
+	box.placeholder:SetWordWrap(false)
+	box.placeholder:SetText(placeholder)
+	box:SetScript("OnTextChanged", function(self, userInput)
 		self.placeholder:SetShown(self:GetText() == "")
+		if onChange then
+			onChange(self, userInput)
+		end
 	end)
-	input:SetScript("OnEnterPressed", AddTyped)
-	input:SetScript("OnEscapePressed", input.ClearFocus)
-	input:SetScript("OnEditFocusGained", function(self)
+	box:SetScript("OnEscapePressed", box.ClearFocus)
+	box:SetScript("OnEditFocusGained", function(self)
 		UI.SetBorderColor(self, "accent", 0.8)
 	end)
-	input:SetScript("OnEditFocusLost", function(self)
+	box:SetScript("OnEditFocusLost", function(self)
 		UI.SetBorderColor(self, "frame", 0.35)
 	end)
+	return box
+end
+
+-- Settings ----------------------------------------------------------------------------------------------------
+
+local function Saved()
+	return (ns.Drawers_Saved(db, current))
+end
+
+local function SettingLabel(text, row)
+	local label = UI.Text(dialog, 12, "textMuted", "label")
+	label:SetPoint("TOPLEFT", 16, SETTINGS_TOP - (row - 1) * SETTING_H - 4)
+	label:SetWidth(LABEL_W)
+	label:SetJustifyH("LEFT")
+	label:SetText(text)
+	return label
+end
+
+-- The drawer on screen follows the name once typing pauses: each refresh reads the bags for its searches.
+local nameSoon = UI.Debounce(NAME_DELAY, function()
+	ns.Drawers_Refresh()
+end)
+
+local function CreateSettings()
+	SettingLabel("Name", 1)
+	nameBox = TextBox("Drawer 1", function(self, userInput)
+		if userInput then
+			Saved().name = self:GetText()
+			title:SetText(ns.Drawers_Name(Saved().name, current)
+				.. UI.Wrap("  " .. current .. " / " .. ns.DRAWERS_COUNT, "textFaint"))
+			nameSoon()
+		end
+	end)
+	nameBox:SetPoint("TOPLEFT", 16 + LABEL_W, SETTINGS_TOP)
+	nameBox:SetPoint("RIGHT", -16, 0)
+	nameBox:SetScript("OnEnterPressed", nameBox.ClearFocus)
+
+	SettingLabel("Opens", 2)
+	opens = UI.Segmented(dialog)
+	opens:SetPoint("TOPLEFT", 16 + LABEL_W, SETTINGS_TOP - SETTING_H + 1)
+	opens.choices = ns.Drawers_DirectionChoices
+	opens.getValue = function()
+		return Saved().direction
+	end
+	opens.setValue = function(value)
+		Saved().direction = value
+		ns.Drawers_Refresh()
+	end
+
+	SettingLabel("Per line", 3)
+	local value = UI.Text(dialog, 12, "text", "number")
+	value:SetPoint("TOPRIGHT", -16, SETTINGS_TOP - 2 * SETTING_H - 4)
+	value:SetWidth(24)
+	value:SetJustifyH("RIGHT")
+	perLine = UI.Slider(dialog, 100)
+	perLine:SetPoint("TOPLEFT", 16 + LABEL_W + 4, SETTINGS_TOP - 2 * SETTING_H - 6)
+	perLine:SetPoint("RIGHT", value, "LEFT", -12, 0)
+	perLine:SetMinMaxValues(1, 12)
+	perLine:SetValueStep(1)
+	perLine.valueText = value
+	perLine.format = function(v)
+		return tostring(math.floor(v + 0.5))
+	end
+	perLine.onChange = function(v)
+		Saved().perLine = math.floor(v + 0.5)
+		ns.Drawers_Refresh()
+	end
+
+	UI.Hairline(dialog, WIDTH - 32, 0.5):SetPoint("TOP", 0, HINT_TOP + 8)
+end
+
+local function CreateInput()
+	input = TextBox("Shift-click a link, or type a name or a search")
+	input:SetPoint("TOPLEFT", 16, HINT_TOP - 50)
+	input:SetPoint("RIGHT", -84, 0)
+	input:SetScript("OnEnterPressed", AddTyped)
 	local add = UI.Button(dialog, 60, "Add")
 	add:SetHeight(22)
 	add:SetPoint("LEFT", input, "RIGHT", 8, 0)
@@ -234,6 +355,7 @@ local function Create()
 	dialog:SetScript("OnMouseUp", AddFromCursor)
 	dialog:HookScript("OnHide", function()
 		input:ClearFocus()
+		nameBox:ClearFocus()
 	end)
 
 	title = UI.Text(dialog, 15, "heading", "title")
@@ -261,16 +383,19 @@ local function Create()
 		Switch(-1)
 	end)
 
+	CreateSettings()
+
 	local hint = UI.Text(dialog, 11, "textMuted")
-	hint:SetPoint("TOPLEFT", 16, -42)
+	hint:SetPoint("TOPLEFT", 16, HINT_TOP)
 	hint:SetPoint("RIGHT", -16, 0)
 	hint:SetJustifyH("LEFT")
-	hint:SetText("Add items, spells, mounts and toys: shift-click one, type its name, or drag it onto this window.")
+	hint:SetText("Add items, spells, mounts and toys: shift-click one, type its name, or drag it onto this window. "
+		.. "Or type a bag search, like is:eat, is:drink or is:potion: it fills in from your bags.")
 
 	CreateInput()
 
 	status = UI.Text(dialog, 11, "textMuted")
-	status:SetPoint("TOPLEFT", 16, -102)
+	status:SetPoint("TOPLEFT", 16, HINT_TOP - 80)
 	status:SetPoint("RIGHT", -16, 0)
 	status:SetJustifyH("LEFT")
 	status:SetWordWrap(false)

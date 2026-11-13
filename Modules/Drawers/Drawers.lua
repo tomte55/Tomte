@@ -1,16 +1,14 @@
 local addonName, ns = ...
 
 -- Drawers: your own flyouts. Up to four drawers, each a button on screen (placed with Blizzard's Edit Mode, with a
--- key binding) that opens a row of items, spells, mounts and toys to use with a click, in combat too. Registered
--- here; the on-screen drawers in Bar.lua, the editor in Editor.lua, entry reading in Read.lua, pure rules in
--- Data.lua.
+-- key binding) that opens a row of items, spells, mounts, toys and bag search results to use with a click, in
+-- combat too. Registered here; the on-screen drawers in Bar.lua, the editor in Editor.lua, entry reading and bag
+-- searches in Read.lua, pure rules in Data.lua.
 
 local COUNT = ns.DRAWERS_COUNT
 local SPREAD = 60 -- pixels between the drawers' default places, side by side below the middle of the screen
 
 local module, db
-
-local DIRECTION_TEXT = { UP = "Up", DOWN = "Down", LEFT = "Left", RIGHT = "Right" }
 
 local function Refresh()
 	ns.Drawers_Refresh()
@@ -29,14 +27,6 @@ end
 
 local function Scale(v)
 	return ("%.1f"):format(v)
-end
-
-local function Directions()
-	local choices = {}
-	for i, dir in ipairs(ns.DRAWERS_DIRECTIONS) do
-		choices[i] = { value = dir, text = DIRECTION_TEXT[dir] }
-	end
-	return choices
 end
 
 -- Settings previews (Panel/Preview.lua): drawer i opened. One function per drawer, so each keeps its own picture.
@@ -101,7 +91,7 @@ for i = 1, COUNT do
 		end, tooltip = "Add items, spells, mounts and toys, put them in order or take them out. Right-clicking the drawer's button does the same." },
 		{ type = "input", key = key .. ".name", label = "Name", placeholder = "Drawer " .. i, onChange = Refresh,
 			parent = key .. ".enabled" },
-		{ type = "dropdown", key = key .. ".direction", label = "Opens", choices = Directions, onChange = Refresh,
+		{ type = "dropdown", key = key .. ".direction", label = "Opens", choices = ns.Drawers_DirectionChoices, onChange = Refresh,
 			parent = key .. ".enabled", preview = preview },
 		{ type = "slider", key = key .. ".perLine", label = "Buttons per line", min = 1, max = 12, step = 1,
 			onChange = Refresh, parent = key .. ".enabled", preview = preview,
@@ -137,8 +127,8 @@ module = ns.RegisterModule({
 	name = "Drawers",
 	category = "interface",
 	icon = 133633, -- inv_misc_bag_08
-	summary = "Your own flyouts of items, spells, mounts and toys, one click away.",
-	description = "Up to four drawers: a button on screen that opens a row of the items, spells, mounts and toys you put in it. Click one to use it, in combat too. Each drawer has a key binding, and Blizzard's Edit Mode moves the buttons.",
+	summary = "Your own flyouts of items, spells, mounts, toys and bag searches, one click away.",
+	description = "Up to four drawers: a button on screen that opens a row of the items, spells, mounts and toys you put in it, or of everything a bag search finds (is:eat, is:drink, is:potion), the best first. Click one to use it, in combat too. Each drawer has a key binding, and Blizzard's Edit Mode moves the buttons.",
 	enabledByDefault = false,
 	replaces = { { addon = "Plumber", why = "drawer macros (custom flyouts)" } },
 	defaults = defaults,
@@ -158,6 +148,12 @@ module = ns.RegisterModule({
 		{ "edit", "open the drawer editor (/tomte drawers edit 2 for drawer 2)", function(arg)
 			local i = tonumber(arg)
 			ns.Drawers_OpenEditor(i and i >= 1 and i <= COUNT and i or nil)
+		end },
+		{ "search", "explain a bag search: what each consumable in your bags reads as and whether it matches"
+			.. " (/tomte drawers search is:eat)", function(arg, rawArg)
+			for _, line in ipairs(ns.Drawers_SearchWhy(rawArg or arg)) do
+				ns.Print(line)
+			end
 		end },
 	},
 	options = options,

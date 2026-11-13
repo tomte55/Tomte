@@ -258,4 +258,15 @@ test("Item markers: the junk coin's corner goes to the marker, the AH mark switc
 	eq(none.bags, nil, "no settings: nothing made")
 end)
 
+test("Eat and drink is gone: its settings and switch go", function()
+	local db = { schema = 20, rest = { healthAt = 70 }, enabled = { rest = true, plates = true } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.rest, nil)
+	eq(db.enabled.rest, nil)
+	eq(db.enabled.plates, true, "other switches stay")
+	local none = { schema = 20 }
+	ns.RunMigrations(none, ns.MIGRATIONS)
+	eq(none.enabled, nil, "nothing made")
+end)
+
 H.done()

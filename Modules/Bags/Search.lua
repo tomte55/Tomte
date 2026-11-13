@@ -11,7 +11,8 @@ local addonName, ns = ...
 -- lower case, read only when a search has words: Compile says so), count, quality, ilvl,
 -- classID, subclassID, bind ("soulbound" | "warbound" | "boe" | nil), expansion, price (copper), upgrade
 -- ("upgrade" | "maybe" | "alt" | "later" | nil), look ("you" | "other" | nil), junk, new, set, quest, toy, mount, pet, decor,
--- hearth, keystone, marker ({ kind = "vendor" | "auction" | "disenchant" | "keep" | "quest" | "delete" } or nil).
+-- hearth, keystone, marker ({ kind = "vendor" | "auction" | "disenchant" | "keep" | "quest" | "delete" } or nil),
+-- consumable ("food" | "drink" | "bandage" | nil, ns.ConsumableKind). Drawers' searches fill the same fields.
 
 -- Item classes and subclasses (Enum.ItemClass and its subclass enums, warcraft.wiki.gg/wiki/ItemType).
 local CONSUMABLE, CONTAINER, WEAPON, GEM, ARMOR, REAGENT = 0, 1, 2, 3, 4, 5
@@ -68,6 +69,9 @@ local KEYWORDS = {
 	{ "consumable", "consumables", Class(CONSUMABLE) },
 	{ "potion", "potions", Class(CONSUMABLE, POTION) },
 	{ "food", "food and drink", Class(CONSUMABLE, FOOD) },
+	{ "eat", "food that heals", Field("consumable", "food") },
+	{ "drink", "drink that restores mana", Field("consumable", "drink") },
+	{ "bandage", "bandages", Field("consumable", "bandage") },
 	{ "hearth", "hearthstones", Field("hearth", true) },
 	{ "keystone", "Mythic+ keystones", function(item)
 		return item.keystone == true or (item.classID == REAGENT and item.subclassID == KEYSTONE)

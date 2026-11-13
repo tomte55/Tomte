@@ -63,7 +63,6 @@ return {
 			"Modules/QuestList/List.lua", "Modules/QuestList/Tracker.lua", "Modules/QuestList/QuestList.lua",
 			"Modules/PetCare/Data.lua", "Modules/PetCare/PetCare.lua",
 			-- docs/superpowers/specs/2026-11-06-tomte-forever-rest-and-chat-groups.md
-			"Modules/Rest/Data.lua", "Modules/Rest/Rest.lua",
 			"Modules/ChatGroups/Data.lua", "Modules/ChatGroups/Page.lua", "Modules/ChatGroups/ChatGroups.lua",
 			"Modules/Sources/Data.lua", "Modules/Sources/Page.lua", "Modules/Sources/Sources.lua",
 		} },

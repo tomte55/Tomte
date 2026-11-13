@@ -524,8 +524,6 @@ ns.BUG_FILES = {
 	"Modules/QuestList/QuestList.lua",
 	"Modules/PetCare/Data.lua",
 	"Modules/PetCare/PetCare.lua",
-	"Modules/Rest/Data.lua",
-	"Modules/Rest/Rest.lua",
 	"Modules/ChatGroups/Data.lua",
 	"Modules/ChatGroups/Page.lua",
 	"Modules/ChatGroups/ChatGroups.lua",

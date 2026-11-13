@@ -163,4 +163,66 @@ test("Name falls back to Drawer <n> and trims", function()
 	eq(ns.Drawers_Name(nil, 4), "Drawer 4")
 end)
 
+test("Search entries: valid text, the same search ignoring case and spaces", function()
+	eq(ns.Drawers_IsEntry({ kind = "search", text = "is:drink" }), true)
+	eq(ns.Drawers_IsEntry({ kind = "search", text = "   " }), false)
+	eq(ns.Drawers_IsEntry({ kind = "search" }), false)
+	eq(ns.Drawers_IsEntry({ kind = "search", text = string.rep("a", 101) }), false)
+	eq(ns.Drawers_Same({ kind = "search", text = "is:Drink " }, { kind = "search", text = "is:drink" }), true)
+	eq(ns.Drawers_Same({ kind = "search", text = "is:drink" }, { kind = "item", id = 1 }), false)
+	local entries = {}
+	eq(ns.Drawers_Add(entries, { kind = "search", text = "  is:eat  ", extra = 1 }), 1)
+	eq(entries[1].text, "is:eat", "trimmed copy")
+	eq(entries[1].extra, nil)
+	eq(select(2, ns.Drawers_Add(entries, { kind = "search", text = "IS:EAT" })), "duplicate")
+	eq(ns.Drawers_Clean(entries), 0, "Clean keeps searches")
+end)
+
+test("LooksLikeSearch: search marks, not plain names", function()
+	eq(ns.Drawers_LooksLikeSearch("is:drink"), true)
+	eq(ns.Drawers_LooksLikeSearch("ilvl>=50"), true)
+	eq(ns.Drawers_LooksLikeSearch("-is:buff"), true)
+	eq(ns.Drawers_LooksLikeSearch("\"fresh bread\""), true)
+	eq(ns.Drawers_LooksLikeSearch("Ice Cold Milk"), false)
+	eq(ns.Drawers_LooksLikeSearch("water"), false)
+	eq(ns.Drawers_LooksLikeSearch(nil), false)
+end)
+
+test("SortFound: plain before buff food, then level, item level, name", function()
+	local items = ns.Drawers_SortFound({
+		{ itemID = 1, name = "B", minLevel = 5 },
+		{ itemID = 2, name = "Buff", minLevel = 45, buff = true },
+		{ itemID = 3, name = "A", minLevel = 25 },
+		{ itemID = 4, name = "A", minLevel = 25, ilvl = 30 },
+		{ itemID = 5, name = "C", minLevel = 5 },
+	})
+	eq(items[1].itemID, 4)
+	eq(items[2].itemID, 3)
+	eq(items[3].itemID, 1)
+	eq(items[4].itemID, 5)
+	eq(items[5].itemID, 2, "buff food last")
+end)
+
+test("Expand puts found items in the search's place, once each, up to max", function()
+	local search = { kind = "search", text = "is:drink" }
+	local entries = { { kind = "item", id = 10 }, search, { kind = "spell", id = 7 }, { kind = "item", id = 11 } }
+	local out = ns.Drawers_Expand(entries, { [search] = { 11, 12, 10 } })
+	eq(#out, 4)
+	eq(out[1].id, 10)
+	eq(out[2].id, 11)
+	eq(out[2].search, "is:drink")
+	eq(out[3].id, 12)
+	eq(out[4].kind, "spell")
+	eq(#ns.Drawers_Expand(entries, { [search] = { 11, 12 } }, 2), 2)
+	eq(#ns.Drawers_Expand({ search }, {}), 0, "nothing found")
+end)
+
+test("DirectionChoices lists the four ways in order", function()
+	local c = ns.Drawers_DirectionChoices()
+	eq(#c, 4)
+	eq(c[1].value, "UP")
+	eq(c[1].text, "Up")
+	eq(c[4].text, "Right")
+end)
+
 H.done()
