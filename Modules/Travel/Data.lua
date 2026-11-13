@@ -11,6 +11,7 @@ local YARD_TO_METER = 0.9144
 ns.WAY_TIME_WARNING = 15 * 60 -- seconds left when a countdown turns to the warning color
 ns.WAY_TIME_DANGER = 3 * 60 -- ... and to the danger color
 local PIN_MATCH = 0.0005 -- map coordinates (0..1) within which two pins count as the same spot
+local FOOTER_SEP = "  ·  " -- between distance, arrival time and countdown on the footer line
 -- Distance scaling (Way_DistanceScale); exported for the tests.
 ns.WAY_SCALE_DISTANCE = 600 -- yards where the marker is drawn at its set size
 ns.WAY_SCALE_MIN = 0.7
@@ -128,17 +129,14 @@ function ns.Way_FooterText(mode, distanceText, arrivalText, name, timeText)
 	elseif mode == "name" then
 		return name
 	end
-	local parts = {}
-	if distanceText then
-		parts[#parts + 1] = distanceText
-	end
+	-- Joined by hand, not through a table: this runs ten times a second.
+	local line = distanceText
 	if arrivalText then
-		parts[#parts + 1] = arrivalText
+		line = line and (line .. FOOTER_SEP .. arrivalText) or arrivalText
 	end
 	if timeText then
-		parts[#parts + 1] = timeText
+		line = line and (line .. FOOTER_SEP .. timeText) or timeText
 	end
-	local line = #parts > 0 and table.concat(parts, "  ·  ") or nil
 	if name and name ~= "" then
 		return line and (name .. "\n" .. line) or name
 	end

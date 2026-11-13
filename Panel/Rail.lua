@@ -200,18 +200,22 @@ function ns.PanelRail_Create(parent, onSelect)
 	-- pills alone are re-read once a second while the rail shows.
 	local PILL_EVERY = 1
 	local since = 0
-	rail:SetScript("OnUpdate", ns.Perf_Wrap(function(_, elapsed)
-		since = since + elapsed
-		if since < PILL_EVERY then
-			return
-		end
-		since = 0
+	local UpdatePills = ns.Perf_Wrap(function()
 		for _, row in ipairs(rail.rows) do
 			if row:IsShown() and row.entry then
 				row:SetPill(Pill(row.entry))
 			end
 		end
-	end, "OnUpdate"))
+	end, "OnUpdate")
+	-- The frames in between return before the timing wrapper: no Performance bookkeeping on them.
+	rail:SetScript("OnUpdate", function(_, elapsed)
+		since = since + elapsed
+		if since < PILL_EVERY then
+			return
+		end
+		since = 0
+		UpdatePills()
+	end)
 
 	-- Pages that came or went since the rail last showed (a module turned on or off in Settings): a new row fades in
 	-- and the rows that moved glide from where they were, so the rail opens or closes instead of jumping. lastY is

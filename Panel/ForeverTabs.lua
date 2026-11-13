@@ -122,18 +122,22 @@ function ns.PanelRail_CreateTabs(parent, window, onSelect)
 	-- Counts change without the rail redrawing, so they alone are re-read once a second while it shows (as Rail.lua).
 	local PILL_EVERY = 1
 	local since = 0
-	rail:SetScript("OnUpdate", ns.Perf_Wrap(function(_, elapsed)
-		since = since + elapsed
-		if since < PILL_EVERY then
-			return
-		end
-		since = 0
+	local UpdatePills = ns.Perf_Wrap(function()
 		for _, tab in ipairs(tabs) do
 			if tab:IsShown() and tab.entry then
 				UpdatePill(tab)
 			end
 		end
-	end, "OnUpdate"))
+	end, "OnUpdate")
+	-- The frames in between return before the timing wrapper: no Performance bookkeeping on them.
+	rail:SetScript("OnUpdate", function(_, elapsed)
+		since = since + elapsed
+		if since < PILL_EVERY then
+			return
+		end
+		since = 0
+		UpdatePills()
+	end)
 
 	-- selected: the open page's entry, or nil on Home.
 	function rail:Refresh(selected)

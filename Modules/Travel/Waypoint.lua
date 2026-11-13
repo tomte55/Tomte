@@ -28,6 +28,9 @@ local state, footer, distanceText, scale = "none", nil, nil, 1
 local timeText, timeRole -- the countdown of a timed target
 local alpha, alphaGoal = 0, 1
 local loadedAt = 0
+-- Reused by every update (ten a second) instead of a new table each time: less garbage for the collector.
+local stateInfo = {}
+local footerFrom = {} -- what the footer was built from, so it's rebuilt only when one of them changes
 local hooked
 
 local events = ns.Way_Events
@@ -107,15 +110,15 @@ local function UpdateInfo()
 	if compassDistance then
 		valid, distance = true, compassDistance
 	end
-	state = ns.Way_State({
-		valid = valid,
-		distance = distance,
-		inQuestArea = ns.WayTarget_InQuestArea(target),
-		offscreen = offscreen,
-		-- A countdown is a detail too: a timed target gets its card up close.
-		hasDetails = #target.lines > 0 or (target.endsAt ~= nil and db.countdown),
-		compass = compassDistance ~= nil,
-	}, db)
+	local info = stateInfo
+	info.valid = valid
+	info.distance = distance
+	info.inQuestArea = ns.WayTarget_InQuestArea(target)
+	info.offscreen = offscreen
+	-- A countdown is a detail too: a timed target gets its card up close.
+	info.hasDetails = #target.lines > 0 or (target.endsAt ~= nil and db.countdown)
+	info.compass = compassDistance ~= nil
+	state = ns.Way_State(info, db)
 	if state == "offscreen" and not db.arrow then
 		state = "hidden"
 	end
@@ -128,8 +131,14 @@ local function UpdateInfo()
 	if db.countdown and target.endsAt then
 		timeText, timeRole = ns.Way_TimeLeftText(ns.Way_TimeLeft(target.endsAt, GetServerTime()))
 	end
-	footer = ns.Way_FooterText(db.footer, distanceText, ns.Way_FormatArrival(seconds), target.redirect or target.name,
-		timeText and ns.UI.Wrap(timeText, timeRole))
+	local arrivalText, name = ns.Way_FormatArrival(seconds), target.redirect or target.name
+	local f = footerFrom
+	if f.mode ~= db.footer or f.distance ~= distanceText or f.arrival ~= arrivalText or f.name ~= name
+		or f.time ~= timeText or f.role ~= timeRole then
+		f.mode, f.distance, f.arrival, f.name, f.time, f.role = db.footer, distanceText, arrivalText, name, timeText,
+			timeRole
+		footer = ns.Way_FooterText(db.footer, distanceText, arrivalText, name, timeText and ns.UI.Wrap(timeText, timeRole))
+	end
 	scale = ns.Way_DistanceScale(distance)
 end
 
