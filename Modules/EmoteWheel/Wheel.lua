@@ -1,23 +1,25 @@
 local addonName, ns = ...
 
--- Emote wheel: the wheel itself. A ring of slices around a middle that shows the slice under the cursor; it opens
--- at the cursor while the key is held and says which slice was picked when it closes. Drawn from discs (the portrait
--- mask), the Showcase art and Line objects: the spokes, and the picked slice's wedge as a fan of thick lines (a
--- texture can't be cut into a wedge). The same drawing makes the settings preview. Rules in Data.lua, registered in
--- EmoteWheel.lua.
+-- Emote wheel: the wheel itself. A ring of separate slices around a middle that shows the slice under the cursor; it
+-- opens at the cursor while the key is held and says which slice was picked when it closes. Drawn from grey art
+-- tinted by theme role (tools/emotewheel_art.py): one slice texture per slice count, turned into place, a lit arc on
+-- the picked slice, the middle disc and a soft shadow under it all. The same drawing makes the settings preview. Rules
+-- in Data.lua, registered in EmoteWheel.lua.
 
-local ART = ns.Theme.MEDIA .. "Showcase\\"
-local DISC = "Interface\\CharacterFrame\\TempPortraitAlphaMask" -- a white disc
-local RADIUS = 150 -- slice ring, at scale 1
+local ART = ns.Theme.MEDIA .. "EmoteWheel\\"
+local RADIUS = 150 -- slice ring, at scale 1; RADIUS, INNER and GAP match tools/emotewheel_art.py
 local INNER = 54 -- the middle's radius
-local GAP = 6 -- the dark ring between the middle and the slices
+local GAP = 6 -- the open ring between the middle and the slices
+local SHADOW_R = RADIUS + 40 -- the shadow texture's reach
 local LABEL_R = 106 -- slice names sit this far out
-local MARK_R = RADIUS - 12 -- the small diamond on each slice
-local FAN_STEP = math.rad(2) -- one line of the picked wedge per this many radians: small enough to look round
-local FAN_MAX = 46 -- lines in the fan: a 90 degree slice (4 slices) at FAN_STEP
-local HIGHLIGHT_MIX = 0.38 -- share of the accent color in the picked wedge, mixed into the background
+local SLICE_ALPHA = 0.92 -- the slices let a little of the world through
+local EMPTY_ALPHA = 0.45 -- a slot of a wheel with fewer than the minimum slices
+local SHADOW_ALPHA = 0.55
+local HUB_RING_ALPHA = 0.55
+local HIGHLIGHT_MIX = 0.16 -- share of the accent color in the picked slice, mixed into the background
+local HOVER_MIX = 0.07 -- the editor: a slice under the mouse, a step short of picked
 local FADE_IN = 0.08 -- seconds
-local OUTER = RADIUS + 10 -- the wheel's own frame reaches this far: the rims sit outside the slices
+local OUTER = RADIUS + 10 -- the wheel's own frame reaches this far
 local UI = ns.UI
 
 local Angle, Point = ns.EmoteWheel_Angle, ns.EmoteWheel_Point
@@ -25,10 +27,12 @@ local Angle, Point = ns.EmoteWheel_Angle, ns.EmoteWheel_Point
 local live -- the wheel that opens at the cursor
 local state -- while live is open: { slices, opts, picked, onPick }
 
-local function Disc(w, sublevel, size)
-	local t = w:CreateTexture(nil, "BACKGROUND", nil, sublevel)
-	t:SetTexture(DISC)
-	t:SetSize(size, size)
+local function Art(w, layer, sublevel, file, radius)
+	local t = w:CreateTexture(nil, layer, nil, sublevel)
+	if file then
+		t:SetTexture(ART .. file)
+	end
+	t:SetSize(radius * 2, radius * 2)
 	t:SetPoint("CENTER")
 	return t
 end
@@ -47,30 +51,11 @@ end
 local function Build(parent)
 	local w = CreateFrame("Frame", nil, parent)
 	w:SetSize(OUTER * 2, OUTER * 2)
-	w.glow = w:CreateTexture(nil, "BACKGROUND", nil, -8)
-	w.glow:SetTexture(ART .. "Glow")
-	w.glow:SetSize(OUTER * 2 + 70, OUTER * 2 + 70)
-	w.glow:SetPoint("CENTER")
-	w.outerLine = Disc(w, -7, (RADIUS + 9) * 2)
-	w.outerGap = Disc(w, -6, (RADIUS + 7) * 2)
-	w.rim = Disc(w, -5, (RADIUS + 3) * 2)
-	w.base = Disc(w, -4, RADIUS * 2)
-
-	w.fan = {}
-	for i = 1, FAN_MAX do
-		local line = w:CreateLine(nil, "ARTWORK", nil, 0)
-		line:Hide()
-		w.fan[i] = line
-	end
-	w.spokes, w.marks, w.names, w.cmds = {}, {}, {}, {}
+	w.shadow = Art(w, "BACKGROUND", -8, "Shadow", SHADOW_R)
+	w.arc = Art(w, "ARTWORK", 0, nil, RADIUS)
+	w.slices, w.names, w.cmds = {}, {}, {}
 	for i = 1, ns.EMOTEWHEEL_MAX do
-		local spoke = w:CreateLine(nil, "ARTWORK", nil, 2)
-		spoke:SetThickness(2)
-		w.spokes[i] = spoke
-		local mark = w:CreateTexture(nil, "OVERLAY")
-		mark:SetTexture(ART .. "Diamond")
-		mark:SetSize(8, 8)
-		w.marks[i] = mark
+		w.slices[i] = Art(w, "BACKGROUND", -4, nil, RADIUS)
 		w.names[i] = UI.Text(w, 15, "text", "title")
 		w.names[i]:SetJustifyH("CENTER")
 		w.names[i]:SetWordWrap(false)
@@ -79,18 +64,8 @@ local function Build(parent)
 		w.cmds[i]:SetWordWrap(false)
 	end
 
-	w.ring = w:CreateTexture(nil, "ARTWORK", nil, 3)
-	w.ring:SetTexture(DISC)
-	w.ring:SetSize((INNER + GAP) * 2, (INNER + GAP) * 2)
-	w.ring:SetPoint("CENTER")
-	w.middleRim = w:CreateTexture(nil, "ARTWORK", nil, 4)
-	w.middleRim:SetTexture(DISC)
-	w.middleRim:SetSize(INNER * 2, INNER * 2)
-	w.middleRim:SetPoint("CENTER")
-	w.middle = w:CreateTexture(nil, "ARTWORK", nil, 5)
-	w.middle:SetTexture(DISC)
-	w.middle:SetSize(INNER * 2 - 4, INNER * 2 - 4)
-	w.middle:SetPoint("CENTER")
+	w.hub = Art(w, "ARTWORK", 4, "Hub", INNER)
+	w.hubRing = Art(w, "ARTWORK", 5, "HubRing", INNER)
 
 	w.title = UI.Text(w, 17, "accent", "title")
 	w.title:SetJustifyH("CENTER")
@@ -107,46 +82,17 @@ end
 
 -- Colors from the theme on every layout: a theme switch reaches an open or reopened wheel.
 local function Colorize(w)
-	Paint(w.glow, "accent", 0.22)
-	Paint(w.outerLine, "accent", 0.55)
-	Paint(w.outerGap, "bg")
-	Paint(w.rim, "accent")
-	Paint(w.base, "bg")
-	Paint(w.ring, "frameDark")
-	Paint(w.middleRim, "accent")
-	Paint(w.middle, "bg")
-	local r, g, b = Mixed("accent", "bg", HIGHLIGHT_MIX)
-	for _, line in ipairs(w.fan) do
-		line:SetColorTexture(r, g, b, 1)
-	end
-	for _, spoke in ipairs(w.spokes) do
-		spoke:SetColorTexture(UI.RGBA("frameDark"))
-	end
+	Paint(w.shadow, "bg", SHADOW_ALPHA) -- the art is black, so any tint stays a shadow
+	Paint(w.arc, "accent")
+	Paint(w.hub, "bg")
+	Paint(w.hubRing, "accent", HUB_RING_ALPHA)
 end
 
-local function Fan(w, index, count)
-	local used = 0
-	if index then
-		local step = 2 * math.pi / count
-		local n = math.min(math.ceil(step / FAN_STEP), FAN_MAX)
-		local each = step / n
-		local thick = 2 * RADIUS * math.sin(each / 2) + 1.5 -- wide enough at the rim that neighbours overlap
-		local from = Angle(index, count) - step / 2
-		for k = 1, n do
-			local a = from + (k - 0.5) * each
-			local line = w.fan[k]
-			local x1, y1 = Point(a, INNER + GAP - 2)
-			local x2, y2 = Point(a, RADIUS - 1)
-			line:SetStartPoint("CENTER", w, x1, y1)
-			line:SetEndPoint("CENTER", w, x2, y2)
-			line:SetThickness(thick)
-			line:Show()
-		end
-		used = n
-	end
-	for k = used + 1, FAN_MAX do
-		w.fan[k]:Hide()
-	end
+-- One slice texture per slice count, drawn pointing up; turned to its place (SetRotation turns counter-clockwise,
+-- Angle counts clockwise).
+local function Turn(t, count, i)
+	t:SetTexture(ART .. "Slice" .. count)
+	t:SetRotation(-Angle(i, count))
 end
 
 -- The slice text with %t filled in, for showing (the target's name, or "%t" left as it is without one).
@@ -154,46 +100,53 @@ local function Shown(text, target)
 	return ns.EmoteWheel_Fill(text, target) or text
 end
 
--- slices: from ns.EmoteWheel_Slices; opts: { showCommand, showTarget, target (name or nil) }; picked: slice index
--- or nil.
+-- What a slice is called on the wheel; a slice the editor hasn't filled yet (no text) shows opts.emptyLabel.
+local function Name(slice, opts)
+	if slice.text == "" then
+		return opts.emptyLabel or ""
+	end
+	return ns.EmoteWheel_Label(slice)
+end
+
+-- slices: from ns.EmoteWheel_Slices; opts: { showCommand, showTarget, target (name or nil), hover (the editor: a slice
+-- under the mouse), emptyLabel }; picked: slice index or nil.
 local function Layout(w, slices, opts, picked)
 	Colorize(w)
 	local count = math.max(#slices, ns.EMOTEWHEEL_MIN)
 	local step = 2 * math.pi / count
 	local small = count > 8
 	local nameWidth = math.min(118, 2 * LABEL_R * math.sin(step / 2) + 10)
+	local hr, hg, hb = Mixed("accent", "bg", HIGHLIGHT_MIX)
+	local vr, vg, vb = Mixed("accent", "bg", HOVER_MIX)
 	for i = 1, ns.EMOTEWHEEL_MAX do
-		local spoke, mark, name, cmd = w.spokes[i], w.marks[i], w.names[i], w.cmds[i]
+		local tex, name, cmd = w.slices[i], w.names[i], w.cmds[i]
 		if i > count then
-			spoke:Hide()
-			mark:Hide()
+			tex:Hide()
 			name:Hide()
 			cmd:Hide()
 		else
-			local edge = Angle(i, count) - step / 2
-			local x1, y1 = Point(edge, INNER + GAP)
-			local x2, y2 = Point(edge, RADIUS)
-			spoke:SetStartPoint("CENTER", w, x1, y1)
-			spoke:SetEndPoint("CENTER", w, x2, y2)
-			spoke:Show()
-
 			local slice = slices[i]
 			local on = picked == i
-			local a = Angle(i, count)
-			local mx, my = Point(a, MARK_R)
-			mark:ClearAllPoints()
-			mark:SetPoint("CENTER", w, "CENTER", mx, my)
-			Paint(mark, "accent", on and 1 or 0.45)
-			mark:SetShown(slice ~= nil)
+			local blank = slice ~= nil and slice.text == ""
+			Turn(tex, count, i)
+			if on then
+				tex:SetVertexColor(hr, hg, hb, SLICE_ALPHA)
+			elseif opts.hover == i then
+				tex:SetVertexColor(vr, vg, vb, slice and SLICE_ALPHA or EMPTY_ALPHA)
+			else
+				Paint(tex, "bg", slice and SLICE_ALPHA or EMPTY_ALPHA)
+			end
+			tex:Show()
 
+			local a = Angle(i, count)
 			local lx, ly = Point(a, LABEL_R)
-			local withCmd = opts.showCommand and slice ~= nil
+			local withCmd = opts.showCommand and slice ~= nil and not blank
 			UI.SetFont(name, "title", small and 13 or 15)
 			name:SetWidth(nameWidth)
 			name:ClearAllPoints()
 			name:SetPoint(withCmd and "BOTTOM" or "CENTER", w, "CENTER", lx, ly)
-			name:SetText(slice and ns.EmoteWheel_Label(slice) or "")
-			UI.SetTextRole(name, on and "accent" or "text")
+			name:SetText(slice and Name(slice, opts) or "")
+			UI.SetTextRole(name, on and "accent" or blank and "textFaint" or "text")
 			name:Show()
 			cmd:SetWidth(nameWidth)
 			cmd:ClearAllPoints()
@@ -204,12 +157,16 @@ local function Layout(w, slices, opts, picked)
 		end
 	end
 	local slice = picked and slices[picked]
-	Fan(w, slice and picked, count)
+	if slice then
+		w.arc:SetTexture(ART .. "Arc" .. count)
+		w.arc:SetRotation(-Angle(picked, count))
+	end
+	w.arc:SetShown(slice ~= nil)
 	local lines = {}
 	if slice then
-		w.title:SetText(ns.EmoteWheel_Label(slice))
-		UI.SetTextRole(w.title, "accent")
-		if opts.showCommand then
+		w.title:SetText(Name(slice, opts))
+		UI.SetTextRole(w.title, slice.text == "" and "textFaint" or "accent")
+		if opts.showCommand and slice.text ~= "" then
 			lines[#lines + 1] = ns.EmoteWheel_Short(Shown(slice.text, opts.target), 16)
 		end
 	else
@@ -310,4 +267,21 @@ function ns.EmoteWheel_Draw(host, slices, opts, picked)
 	Layout(w, slices, opts, picked)
 	local size = OUTER * 2 * (opts.scale or 1)
 	return size, size
+end
+
+-- The slice of a wheel drawn into host (EmoteWheel_Draw) under the cursor, empty slots of a short wheel too: 1 to
+-- max(count, minimum), or nil over the middle or off the ring.
+function ns.EmoteWheel_SliceUnder(host, count)
+	local w = host.wheel
+	if not w then
+		return nil
+	end
+	local x, y = GetCursorPosition()
+	local scale = w:GetEffectiveScale()
+	local cx, cy = w:GetCenter()
+	local dx, dy = x / scale - cx, y / scale - cy
+	if dx * dx + dy * dy > RADIUS * RADIUS then
+		return nil
+	end
+	return ns.EmoteWheel_SliceAt(dx, dy, math.max(count, ns.EMOTEWHEEL_MIN), INNER)
 end

@@ -110,4 +110,115 @@ test("buff thanks: long buffs from other players, out of combat, once a while", 
 	eq(ns.EmoteWheel_ShouldThank(buff, rules, nil, 100), false, "own buff")
 end)
 
+test("store fills every slot, empty ones after the list", function()
+	local slots = ns.EmoteWheel_Store({ { name = "Bow", text = "/bow" }, { name = "", text = "" } })
+	eq(slots.s1.text, "/bow")
+	eq(slots.s2.text, "", "a slice still being made")
+	eq(slots["s" .. ns.EMOTEWHEEL_MAX].name, "", "last slot")
+	eq(#ns.EmoteWheel_Slices(slots), 1, "the wheel skips the empty one")
+end)
+
+test("move shifts the slices between", function()
+	local function names(list)
+		local out = {}
+		for i, s in ipairs(list) do
+			out[i] = s.name
+		end
+		return table.concat(out, " ")
+	end
+	local list = { { name = "a" }, { name = "b" }, { name = "c" }, { name = "d" } }
+	eq(names(ns.EmoteWheel_Move(list, 1, 3)), "b c a d", "forward")
+	eq(names(ns.EmoteWheel_Move(list, 4, 1)), "d b c a", "back")
+	eq(names(ns.EmoteWheel_Move(list, 2, 9)), "d b c a", "out of range")
+end)
+
+local MORE = {
+	chat = { ["/S"] = "SAY", ["/W"] = "WHISPER", ["/P"] = "PARTY", ["/G"] = "GUILD", ["/Y"] = "YELL",
+		["/O"] = "OFFICER" },
+	emotes = LOOKUPS.emotes, secure = LOOKUPS.secure, slash = LOOKUPS.slash,
+}
+
+local function Kind(text)
+	return table.concat({ ns.EmoteWheel_Kind(text, MORE) }, "|")
+end
+
+test("kind tells emotes, chat lines and commands apart", function()
+	eq(select("#", ns.EmoteWheel_Kind("", MORE)), 2)
+	eq(ns.EmoteWheel_Kind("", MORE), "emote", "empty: no emote picked yet")
+	eq(Kind("/ty"), "emote|THANK")
+	eq(Kind("/bow Kesha"), "command", "emote at someone by name")
+	eq(Kind("Good luck"), "line|SAY|Good luck")
+	eq(Kind("/p Ready"), "line|PARTY|Ready")
+	eq(Kind("/g"), "line|GUILD|", "no message yet")
+	eq(Kind("/w %t Thanks!"), "line|WHISPER|Thanks!")
+	eq(Kind("/w %t"), "line|WHISPER|")
+	eq(Kind("/w Kesha hi"), "command", "whisper by name")
+	eq(Kind("/o hi"), "command", "a channel the editor doesn't build")
+	eq(Kind("/dance"), "command")
+end)
+
+test("line builds the text back", function()
+	local commands = { SAY = "/s", PARTY = "/p", WHISPER = "/w" }
+	eq(ns.EmoteWheel_Line("SAY", " Hello ", commands), "Hello", "plain text is said")
+	eq(ns.EmoteWheel_Line("SAY", "", commands), "/s", "nothing yet")
+	eq(ns.EmoteWheel_Line("SAY", "/odd", commands), "/s /odd")
+	eq(ns.EmoteWheel_Line("PARTY", "Ready", commands), "/p Ready")
+	eq(ns.EmoteWheel_Line("WHISPER", "Thanks!", commands), "/w %t Thanks!")
+	eq(ns.EmoteWheel_Line("WHISPER", "", commands), "/w %t")
+	for _, chatType in ipairs({ "SAY", "PARTY", "WHISPER" }) do
+		local text = ns.EmoteWheel_Line(chatType, "Hi %t", commands)
+		eq(Kind(text), "line|" .. chatType .. "|Hi %t", "round trip " .. chatType)
+	end
+end)
+
+test("describe says what a slice does", function()
+	eq(ns.EmoteWheel_Describe("/ty", MORE), "Does /ty, at your target if you have one.")
+	eq(ns.EmoteWheel_Describe("/bow %t", MORE), "Does /bow at [target].")
+	eq(ns.EmoteWheel_Describe("Hello %t", MORE), "Says \"Hello [target]\".")
+	eq(ns.EmoteWheel_Describe("/w %t Thanks!", MORE), "Whispers \"Thanks!\" to your target.")
+	eq(ns.EmoteWheel_Describe("/g", MORE), "Sends nothing yet: add a message.")
+	eq(ns.EmoteWheel_Describe("/cast Heal", MORE), "The wheel can't run /cast: only the game's own buttons and macros can.")
+	eq(ns.EmoteWheel_Describe("/nope", MORE), "/nope isn't a command the game knows.")
+	eq(ns.EmoteWheel_Describe("", MORE), "Pick an emote, or write a line to say.")
+end)
+
+test("extras: acts out, voice line for this race and sex", function()
+	local saved = { ns.EMOTEWHEEL_ACTS, ns.EMOTEWHEEL_VOICE }
+	ns.EMOTEWHEEL_ACTS = { WAVE = true, CHEER = true }
+	ns.EMOTEWHEEL_VOICE = { CHEER = true, BEG = { ["2-0"] = true, ["10-1-12"] = true } }
+	local function extras(...)
+		local acts, voice = ns.EmoteWheel_Extras(...)
+		return tostring(acts) .. " " .. tostring(voice)
+	end
+	eq(extras("WAVE", 2, 2, 1), "true false", "acts, no voice")
+	eq(extras("CHEER", 2, 3, 1), "true true", "every race")
+	eq(extras("BEG", 2, 2, 1), "false true", "this race, male")
+	eq(extras("BEG", 2, 3, 1), "false false", "this race, female")
+	eq(extras("BEG", 10, 3, 12), "false true", "a class's own line")
+	eq(extras("BEG", 10, 3, 2), "false false", "not that class")
+	eq(extras("NOPE", 2, 2, 1), "false false", "unknown emote")
+	eq(extras(nil, 2, 2, 1), "false false", "no emote")
+	ns.EMOTEWHEEL_ACTS, ns.EMOTEWHEEL_VOICE = saved[1], saved[2]
+	eq(ns.EmoteWheel_ExtrasText(true, true), "Your character acts it out and says it out loud.")
+	eq(ns.EmoteWheel_ExtrasText(false, true), "Your character says it out loud.")
+	eq(ns.EmoteWheel_ExtrasText(false, false), nil)
+end)
+
+test("generated emote data", function()
+	assert(loadfile("Tomte/Modules/EmoteWheel/Generated.lua"))("Tomte", ns)
+	local acts, voice = ns.EmoteWheel_Extras("CHEER", 1, 2, 1)
+	eq(acts and voice, true, "cheer acts out and has a voice line")
+	acts, voice = ns.EmoteWheel_Extras("BOW", 1, 2, 1)
+	eq(tostring(acts) .. " " .. tostring(voice), "true false", "bow is silent")
+	eq(ns.EmoteWheel_Extras("AGREE", 1, 2, 1), false, "agree is text only")
+end)
+
+test("filter emotes by name or command", function()
+	local emotes = { { name = "Wave", commands = { "/wave" } }, { name = "Thank", commands = { "/thank", "/ty" } } }
+	eq(#ns.EmoteWheel_FilterEmotes(emotes, ""), 2)
+	eq(ns.EmoteWheel_FilterEmotes(emotes, "/TY")[1].name, "Thank", "by an alias")
+	eq(ns.EmoteWheel_FilterEmotes(emotes, "av")[1].name, "Wave")
+	eq(#ns.EmoteWheel_FilterEmotes(emotes, "zzz"), 0)
+end)
+
 H.done()

@@ -179,8 +179,10 @@ Modules/Social/Mentions.lua
 Modules/Social/Friends.lua
 Modules/Social/Alerts.lua
 Modules/EmoteWheel/Data.lua
+Modules/EmoteWheel/Generated.lua
 Modules/EmoteWheel/Wheel.lua
 Modules/EmoteWheel/Thanks.lua
+Modules/EmoteWheel/Page.lua
 Modules/EmoteWheel/EmoteWheel.lua
 Modules/Chat/Data.lua
 Modules/Chat/Tabs.lua

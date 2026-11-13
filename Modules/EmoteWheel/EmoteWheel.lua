@@ -8,7 +8,8 @@ local addonName, ns = ...
 local BUTTON_NAME = "TomteEmoteWheelKey" -- SetOverrideBindingClick needs a named button
 local OWNER = "wheel"
 local STUCK = 30 -- seconds: a wheel still open this long lost its key release (alt-tab) and closes on its own
-local PREVIEW_PICK = 2 -- the slice a preview highlights when the row isn't one slice's
+local PREVIEW_PICK = 2 -- the slice a preview highlights
+local PAGE_KEY = "emotewheel" -- the editor page (Page.lua)
 -- Secure slash commands (Blizzard's SecureCmdList is private): the wheel can't run these.
 local SECURE = { "CAST", "USE", "CASTSEQUENCE", "CASTRANDOM", "USERANDOM", "TARGET", "TARGET_EXACT", "TARGET_NEAREST_ENEMY",
 	"ASSIST", "FOCUS", "CLEARTARGET", "CLEARFOCUS", "STOPCASTING", "STOPATTACK", "STARTATTACK", "PETATTACK", "CLICK",
@@ -84,6 +85,65 @@ local function Lookups()
 	end
 	fixedLookups.slash = slash
 	return fixedLookups
+end
+
+ns.EmoteWheel_Lookups = Lookups
+
+-- The game's own command for each chat line the editor builds ("/s", "/p", ... localized).
+function ns.EmoteWheel_LineCommands()
+	local commands = {}
+	for _, chatType in ipairs(ns.EMOTEWHEEL_LINE_TYPES) do
+		commands[chatType] = _G["SLASH_" .. chatType .. "1"]
+	end
+	return commands
+end
+
+local emoteList -- every emote the chat box knows: the same all session
+
+-- Every emote, by name: { { name = "Wave", token = "WAVE", commands = { "/wave", ... } }, ... }.
+function ns.EmoteWheel_Emotes()
+	if not emoteList then
+		emoteList = {}
+		for i = 1, MAXEMOTEINDEX or 0 do
+			local token = _G["EMOTE" .. i .. "_TOKEN"]
+			local first = _G["EMOTE" .. i .. "_CMD1"]
+			if token and first then
+				local commands, j = {}, 1
+				while _G["EMOTE" .. i .. "_CMD" .. j] do
+					commands[j] = _G["EMOTE" .. i .. "_CMD" .. j]
+					j = j + 1
+				end
+				emoteList[#emoteList + 1] = { name = ns.EmoteWheel_Label({ text = first }), token = token,
+					commands = commands }
+			end
+		end
+		table.sort(emoteList, function(a, b)
+			return a.name:lower() < b.name:lower()
+		end)
+	end
+	return emoteList
+end
+
+-- The slices as the editor page edits them (copies: { name, text }, in order) and back.
+function ns.EmoteWheel_EditList()
+	local list = {}
+	for i, slice in ipairs(ns.EmoteWheel_Slices(db.slots)) do
+		list[i] = { name = slice.name, text = slice.text }
+	end
+	return list
+end
+
+function ns.EmoteWheel_SaveList(list)
+	db.slots = ns.EmoteWheel_Store(list)
+end
+
+function ns.EmoteWheel_ResetSlices()
+	db.slots = DefaultSlots()
+end
+
+-- How the editor page draws the wheel: as set, but %t left as it is.
+function ns.EmoteWheel_Look()
+	return { showCommand = db.showCommand, alpha = 1 }
 end
 
 -- Your target's name for %t (with the realm when it isn't yours), or nil.
@@ -233,22 +293,12 @@ local function Percent(v)
 	return ("%d%%"):format(math.floor(v * 100 + 0.5))
 end
 
--- The wheel as the settings stand (get reads them, the row's own value under the mouse), with slice `pick` lit.
-local function WheelPreview(pick)
+-- The wheel as the settings stand (get reads them, the row's own value under the mouse), one slice lit.
+local function WheelPreview()
 	return function(host, get)
-		local slots = {}
-		for i = 1, ns.EMOTEWHEEL_MAX do
-			slots["s" .. i] = { name = get("slots.s" .. i .. ".name") or "", text = get("slots.s" .. i .. ".text") or "" }
-		end
-		local slices = ns.EmoteWheel_Slices(slots)
+		local slices = ns.EmoteWheel_Slices(get("slots"))
 		if #slices == 0 then
 			return nil
-		end
-		local lit
-		for n, slice in ipairs(slices) do
-			if slice.slot == pick then
-				lit = n
-			end
 		end
 		return ns.EmoteWheel_Draw(host, slices, {
 			scale = 0.85, -- the preview card's own limit would shrink a full-size wheel anyway
@@ -256,34 +306,8 @@ local function WheelPreview(pick)
 			showCommand = get("showCommand"),
 			showTarget = get("showTarget"),
 			target = "Aldric",
-		}, lit or math.min(PREVIEW_PICK, #slices))
+		}, math.min(PREVIEW_PICK, #slices))
 	end
-end
-
-local function SliceRows(options)
-	for i = 1, ns.EMOTEWHEEL_MAX do
-		-- Slots past the starting eight show once the one before is filled (or this one is).
-		local function Shown()
-			if i <= #SLICES + 1 then
-				return true
-			end
-			local this, before = db.slots["s" .. i], db.slots["s" .. (i - 1)]
-			return (this and this.text ~= "") or (before and before.text ~= "")
-		end
-		options[#options + 1] = { type = "input", key = "slots.s" .. i .. ".text", label = "Slice " .. i,
-			placeholder = "/bow, /w %t Thanks!, or text to say", shown = Shown, preview = WheelPreview(i),
-			tooltip = "An emote like /bow or /ty goes to your target. %t becomes your target's name (/w %t Thanks!). "
-				.. "Any chat command works (/p, /g, /e ...), and text without a / at the start is said out loud. "
-				.. "Empty: the slice is left out." }
-		options[#options + 1] = { type = "input", key = "slots.s" .. i .. ".name", label = "Name on the wheel",
-			placeholder = "From the command", shown = Shown, preview = WheelPreview(i),
-			tooltip = "What the slice says. Empty: made from the command (/cheer shows Cheer)." }
-	end
-	return options
-end
-
-local function ResetSlices()
-	db.slots = DefaultSlots()
 end
 
 local function Opts()
@@ -300,12 +324,10 @@ local function Opts()
 		{ type = "checkbox", key = "centerCancels", label = "Letting go in the middle cancels",
 			tooltip = "Off: letting go in the middle sends the last slice you pointed at." },
 		{ type = "checkbox", key = "showTarget", label = "Show your target in the middle", preview = WheelPreview() },
-
-		{ type = "header", label = "Slices, clockwise from the top" },
+		{ type = "button", label = "Slices", text = "Edit the wheel", preview = WheelPreview(), onClick = function()
+			ns.Panel_OpenPage(PAGE_KEY)
+		end, tooltip = "Pick emotes from a list, write chat lines, and drag slices around the wheel." },
 	}
-	SliceRows(options)
-	options[#options + 1] = { type = "button", label = "Starting slices", text = "Reset", onClick = ResetSlices,
-		confirm = "Put the eight starting emotes back on the wheel? Your own slices are cleared." }
 
 	local thanks = {
 		{ type = "header", label = "Buff thanks" },
@@ -368,7 +390,17 @@ ns.RegisterModule({
 			Stop()
 		end
 	end,
+	home = {
+		{ kind = "page", key = PAGE_KEY, order = 90, name = "Emote wheel", icon = 236550, noRail = true,
+			page = ns.EmoteWheelPage,
+			summary = function()
+				return "The slices on your emote wheel: emotes, chat lines and their order."
+			end },
+	},
 	commands = {
+		{ "edit", "open the wheel editor", function()
+			ns.Panel_OpenPage(PAGE_KEY)
+		end },
 		{ "thanks", "show a sample buff thank-you toast", function()
 			ns.EmoteWheelThanks_Sample()
 		end },
