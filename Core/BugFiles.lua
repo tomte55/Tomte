@@ -315,6 +315,7 @@ ns.BUG_FILES = {
 	"Modules/Alts/Deposit.lua",
 	"Modules/Alts/FriendMail.lua",
 	"Modules/Alts/List.lua",
+	"Modules/Alts/ProfButton.lua",
 	"Modules/Alts/RequestsSection.lua",
 	"Modules/Alts/ListTab.lua",
 	"Modules/Alts/Friends.lua",

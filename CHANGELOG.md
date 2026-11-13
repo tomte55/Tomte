@@ -31,6 +31,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Gear Check:** the quest reward card picks a recipe for one of your professions when no gear is an upgrade, and says when you can learn it.
 - **Quest list:** following the nearest quest leaves your own map pin alone, and picks up again once you remove it. Next quests does the same.
 - **Gear Check:** on World of Warcraft: Forever, a one-hander that fills an empty off-hand counts for warriors, rogues and hunters who dual wield, and says "Upgrade once you learn Dual Wield" before you've learned it (so the roll advice says Need).
+- **Alts:** an Add to list button in the game's profession window puts the selected recipe on the crafting list, as many times as the number beside Create.
 - **Bags:** a marks editor (Bags settings, Marks on items) with a live preview: pick each mark's corner and which one wins a shared corner. The transmog mark is a coat hanger and the crafting list mark a small list, so no two marks look alike.
 
 ### Fixed
@@ -38,6 +39,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Gold & value:** the Auction House and vendor lines no longer show up several times on an item tooltip, or below it, when the Equipped comparison is open.
 - **Loot:** on World of Warcraft: Forever, Make room no longer destroys anything for loot that's still being rolled for or was taken meanwhile, and fast loot no longer tries rolled items ("That item is still being rolled for").
 - **Gold & value:** hovering a quest reward, a chat link or a merchant's item no longer causes a Lua error (DoesItemExist) from the auction line.
+- **Bags:** the bank opened from your bags away from a banker shows red on what you can't use, upgrade arrows and item markers, as the bank does at a banker. Another character's bank stays plain.
 
 ## v1.32.1 - 2026-11-08
 

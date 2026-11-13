@@ -519,12 +519,14 @@ module = ns.RegisterModule({
 			ns.AltsCollect_Start(db)
 			ns.AltsSend_Start(db)
 			ns.AltsList_Start(db)
+			ns.AltsProfButton_Start()
 			ns.AltsFriends_Start()
 			ns.AltsFriendMail_Start(db)
 		else
 			ns.AltsCollect_Stop()
 			ns.AltsSend_Stop()
 			ns.AltsList_Stop()
+			ns.AltsProfButton_Stop()
 			ns.AltsFriends_Stop()
 			ns.AltsFriendMail_Stop()
 		end
