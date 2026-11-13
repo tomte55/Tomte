@@ -31,4 +31,32 @@ test("shows in a group in combat and for a while after; solo only when asked", f
 	eq(ns.Meter_Shows({ grouped = false, solo = true, inCombat = true, linger = 10 }), true, "solo when asked")
 end)
 
+test("only in dungeons and raids when asked", function()
+	local s = { grouped = true, inCombat = true, linger = 10, instancesOnly = true, inInstance = false }
+	eq(ns.Meter_Shows(s), false, "out in the world")
+	s.inInstance = true
+	eq(ns.Meter_Shows(s), true, "in a dungeon")
+	s.instancesOnly, s.inInstance = false, false
+	eq(ns.Meter_Shows(s), true, "anywhere by default")
+end)
+
+test("which numbers a line shows", function()
+	local function numbers(setting)
+		local main, extra = ns.Meter_Numbers(setting)
+		return main .. " " .. tostring(extra)
+	end
+	eq(numbers("rate"), "perSecond nil")
+	eq(numbers("total"), "total nil")
+	eq(numbers("both"), "perSecond total")
+	eq(numbers(nil), "perSecond nil", "an unknown value falls back to per second")
+end)
+
+test("a saved spot fits the direction the meter grows", function()
+	eq(ns.Meter_PointFits(nil, "up"), true, "the default spot")
+	eq(ns.Meter_PointFits({ "TOPLEFT", "BOTTOMLEFT", 10, 500 }, "down"), true)
+	eq(ns.Meter_PointFits({ "TOPLEFT", "BOTTOMLEFT", 10, 500 }, "up"), false)
+	eq(ns.Meter_PointFits({ "BOTTOMLEFT", "BOTTOMLEFT", 10, 300 }, "up"), true)
+	eq(ns.Meter_PointFits({ "BOTTOMRIGHT", "BOTTOMRIGHT", -330, 220 }, "down"), false)
+end)
+
 H.done()

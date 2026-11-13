@@ -19,11 +19,13 @@ function ns.MeterRead_Available()
 end
 
 -- The ranking: { sources = { { name, classFilename, total, perSecond, isLocalPlayer } } best first, max (the top total),
--- mine (your place, or nil) }. overall: the whole session instead of the current fight. Damage done gives the bars
--- (every source over the same fight, so its share is its share of the damage per second); amountPerSecond the number.
-function ns.MeterRead_Ranking(overall)
+-- mine (your place, or nil) }. overall: the whole session instead of the current fight; healing: healing done instead
+-- of damage done. The total gives the bars (every source over the same fight, so its share is its share of the
+-- amount per second); amountPerSecond the number.
+function ns.MeterRead_Ranking(overall, healing)
 	local sessionType = overall and Enum.DamageMeterSessionType.Overall or Enum.DamageMeterSessionType.Current
-	local session = C_DamageMeter.GetCombatSessionFromType(sessionType, Enum.DamageMeterType.DamageDone)
+	local meterType = healing and Enum.DamageMeterType.HealingDone or Enum.DamageMeterType.DamageDone
+	local session = C_DamageMeter.GetCombatSessionFromType(sessionType, meterType)
 	local ranking = { sources = {}, max = session and session.maxAmount or 0 }
 	for i, source in ipairs(session and session.combatSources or {}) do
 		ranking.sources[i] = {
