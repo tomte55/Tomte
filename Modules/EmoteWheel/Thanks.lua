@@ -94,7 +94,11 @@ local function OnAura(aura)
 end
 
 events:On(OWNER, "UNIT_AURA", function(_, unit, info)
-	if unit ~= "player" or not info or info.isFullUpdate or not info.addedAuras then
+	-- The update info itself can be secret (isFullUpdate was, seen in BugSack): no buff thanks from such an update.
+	if unit ~= "player" or not info or ns.IsSecret(info.isFullUpdate, info.addedAuras) then
+		return
+	end
+	if info.isFullUpdate or not info.addedAuras then
 		return
 	end
 	for _, aura in ipairs(info.addedAuras) do
