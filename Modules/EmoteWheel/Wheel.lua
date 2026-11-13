@@ -12,6 +12,9 @@ local INNER = 54 -- the middle's radius
 local GAP = 6 -- the open ring between the middle and the slices
 local SHADOW_R = RADIUS + 40 -- the shadow texture's reach
 local LABEL_R = 106 -- slice names sit this far out
+local LABEL_ROOM = 8 -- a label this close to its slice's sides or rims moves to where it has more room
+local LABEL_SHIFT = 30 -- how far sideways it may move
+local LINE_GAP = 1 -- between a slice's name and its command
 local SLICE_ALPHA = 0.92 -- the slices let a little of the world through
 local EMPTY_ALPHA = 0.45 -- a slot of a wheel with fewer than the minimum slices
 local SHADOW_ALPHA = 0.55
@@ -22,8 +25,9 @@ local FADE_IN = 0.08 -- seconds
 local OUTER = RADIUS + 10 -- the wheel's own frame reaches this far
 local UI = ns.UI
 
-local Angle, Point = ns.EmoteWheel_Angle, ns.EmoteWheel_Point
+local Angle = ns.EmoteWheel_Angle
 
+local places = {} -- [slice, count, text sizes] = where its label goes: { x, y, name dy, command dy }
 local live -- the wheel that opens at the cursor
 local state -- while live is open: { slices, opts, picked, onPick }
 
@@ -108,6 +112,37 @@ local function Name(slice, opts)
 	return ns.EmoteWheel_Label(slice)
 end
 
+-- Places slice i's name (and command line under it) where the label fits its slice (Data.lua's EmoteWheel_LabelPlace),
+-- measured from the text as set. Remembered per text and size: the wheel lays out again on every slice the cursor
+-- crosses.
+local function PlaceLabel(w, name, cmd, i, count)
+	local nameW, nameH = name:GetStringWidth(), name:GetStringHeight()
+	local cmdW, cmdH = 0, 0
+	if cmd then
+		cmdW, cmdH = cmd:GetStringWidth(), cmd:GetStringHeight()
+	end
+	local key = ("%d:%d:%.1f:%.1f:%.1f:%.1f"):format(i, count, nameW, nameH, cmdW, cmdH)
+	local spot = places[key]
+	if not spot then
+		local height = cmd and (nameH + LINE_GAP + cmdH) or nameH
+		local nameDy = (height - nameH) / 2 -- the lines' middles, from the label's middle
+		local boxes = { { nameW, nameH, nameDy } }
+		if cmd then
+			boxes[2] = { cmdW, cmdH, nameDy - (nameH + cmdH) / 2 - LINE_GAP }
+		end
+		local x, y = ns.EmoteWheel_LabelPlace(Angle(i, count), 2 * math.pi / count, boxes, LABEL_R, INNER + GAP,
+			RADIUS, LABEL_ROOM, LABEL_SHIFT)
+		spot = { x, y, nameDy, boxes[2] and boxes[2][3] }
+		places[key] = spot
+	end
+	name:ClearAllPoints()
+	name:SetPoint("CENTER", w, "CENTER", spot[1], spot[2] + spot[3])
+	if cmd then
+		cmd:ClearAllPoints()
+		cmd:SetPoint("CENTER", w, "CENTER", spot[1], spot[2] + spot[4])
+	end
+end
+
 -- slices: from ns.EmoteWheel_Slices; opts: { showCommand, showTarget, target (name or nil), hover (the editor: a slice
 -- under the mouse), emptyLabel }; picked: slice index or nil.
 local function Layout(w, slices, opts, picked)
@@ -138,22 +173,17 @@ local function Layout(w, slices, opts, picked)
 			end
 			tex:Show()
 
-			local a = Angle(i, count)
-			local lx, ly = Point(a, LABEL_R)
 			local withCmd = opts.showCommand and slice ~= nil and not blank
 			UI.SetFont(name, "title", small and 13 or 15)
 			name:SetWidth(nameWidth)
-			name:ClearAllPoints()
-			name:SetPoint(withCmd and "BOTTOM" or "CENTER", w, "CENTER", lx, ly)
 			name:SetText(slice and Name(slice, opts) or "")
 			UI.SetTextRole(name, on and "accent" or blank and "textFaint" or "text")
 			name:Show()
 			cmd:SetWidth(nameWidth)
-			cmd:ClearAllPoints()
-			cmd:SetPoint("TOP", name, "BOTTOM", 0, -1)
 			cmd:SetText(withCmd and ns.EmoteWheel_Short(Shown(slice.text, opts.target), small and 12 or 15) or "")
 			UI.SetTextRole(cmd, on and "accent" or "textMuted", on and 0.85 or nil)
 			cmd:SetShown(withCmd)
+			PlaceLabel(w, name, withCmd and cmd or nil, i, count)
 		end
 	end
 	local slice = picked and slices[picked]

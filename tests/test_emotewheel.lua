@@ -213,6 +213,26 @@ test("generated emote data", function()
 	eq(ns.EmoteWheel_Extras("AGREE", 1, 2, 1), false, "agree is text only")
 end)
 
+test("label place: short labels stay put, a wide one on a slanted slice finds room", function()
+	local step = 2 * math.pi / 8
+	local function place(i, nameW, cmdW)
+		local boxes = { { nameW, 15, 6.5 }, { cmdW, 11, -8.5 } }
+		return ns.EmoteWheel_LabelPlace(ns.EmoteWheel_Angle(i, 8), step, boxes, 106, 60, 150, 8, 30)
+	end
+	local x, y = place(1, 40, 20)
+	H.near(x, 0, "Thank: on the middle")
+	H.near(y, 106, "Thank: the usual radius")
+	x, y = place(3, 40, 30)
+	H.near(x, 106, "Wave: the usual radius")
+	local wx, wy = place(2, 70, 55)
+	local mx, my = place(8, 70, 55)
+	H.near(mx, -wx, "No Mana mirrors Welcome")
+	H.near(my, wy, "No Mana mirrors Welcome")
+	local r = math.sqrt(wx * wx + wy * wy)
+	assert(r > 60 and r < 150, "Welcome stays on the ring: " .. r)
+	assert(math.atan(wx / wy) > math.pi / 4, "and away from Thank, its wide line's near side")
+end)
+
 test("filter emotes by name or command", function()
 	local emotes = { { name = "Wave", commands = { "/wave" } }, { name = "Thank", commands = { "/thank", "/ty" } } }
 	eq(#ns.EmoteWheel_FilterEmotes(emotes, ""), 2)

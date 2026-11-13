@@ -289,6 +289,56 @@ function ns.EmoteWheel_Angle(i, count)
 	return (i - 1) * TWO_PI / count
 end
 
+-- How far a label whose middle is at x, y stays from slice angle's sides (step wide) and rims (inner, outer): the
+-- smallest gap, negative when it pokes out. boxes = { { w, h, dy }, ... }: its lines, each centered dy above the
+-- label's middle. Wheel units, y up.
+local function Clearance(angle, step, x, y, boxes, inner, outer)
+	local left, right = angle - step / 2, angle + step / 2
+	local cl, sl, cr, sr = math.cos(left), math.sin(left), math.cos(right), math.sin(right)
+	local worst = math.huge
+	for _, box in ipairs(boxes) do
+		local bx, by, w2, h2 = x, y + box[3], box[1] / 2, box[2] / 2
+		for _, dx in ipairs({ -w2, w2 }) do
+			for _, dy in ipairs({ -h2, h2 }) do
+				local px, py = bx + dx, by + dy
+				-- The sides: distance into the slice (towards its middle) from each side's line.
+				worst = math.min(worst, px * cl - py * sl, py * sr - px * cr, outer - math.sqrt(px * px + py * py))
+			end
+		end
+		-- The inner rim: the box's nearest point to the middle can be on an edge, not a corner.
+		local nx = math.max(bx - w2, math.min(0, bx + w2))
+		local ny = math.max(by - h2, math.min(0, by + h2))
+		worst = math.min(worst, math.sqrt(nx * nx + ny * ny) - inner)
+	end
+	return worst
+end
+
+-- Where a slice's label goes: its middle radius out on the slice's middle (the same for every slice) while it keeps
+-- room units from the slice's sides and rims there; else wherever within shift units sideways it has the most room
+-- (a wide name on a slanted slice moves out and away from the side its wide line is near). angle and step as for
+-- Clearance, boxes too. Returns x, y.
+function ns.EmoteWheel_LabelPlace(angle, step, boxes, radius, inner, outer, room, shift)
+	local sa, ca = math.sin(angle), math.cos(angle)
+	local function At(r, t) -- r out along the middle, t sideways (clockwise)
+		return sa * r + ca * t, ca * r - sa * t
+	end
+	local x, y = At(radius, 0)
+	if Clearance(angle, step, x, y, boxes, inner, outer) >= room then
+		return x, y
+	end
+	local best = -math.huge
+	for r = inner, outer do
+		for t = -shift, shift do
+			local px, py = At(r, t)
+			local gap = Clearance(angle, step, px, py, boxes, inner, outer)
+			if gap > best + 0.01 then
+				best, x, y = gap, px, py
+			end
+		end
+	end
+	return x, y
+end
+
 -- x, y (y up) of a point radius out at angle (clockwise from up).
 function ns.EmoteWheel_Point(angle, radius)
 	return math.sin(angle) * radius, math.cos(angle) * radius
