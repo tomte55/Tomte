@@ -342,3 +342,63 @@ function ns.Chat_LeaveEntries(names, joined)
 	end)
 	return list
 end
+
+-- Quiet Chat --------------------------------------------------------------------------------------------------------
+
+ns.CHAT_UNREAD_FALLBACK = "Whisper" -- a tab whose name the game keeps from addons (a secret whisper target)
+
+-- The unread chip's entries. tabs: { { name = tab text or nil, count = unread whispers } } in tab order. Returns the
+-- first `max` tabs with unread lines as { { name, count } } and how many more there are.
+function ns.Chat_UnreadChip(tabs, max)
+	local shown, more = {}, 0
+	for _, tab in ipairs(tabs or {}) do
+		if type(tab.count) == "number" and tab.count > 0 then
+			if #shown < max then
+				local name = tab.name
+				if type(name) ~= "string" or name == "" then
+					name = ns.CHAT_UNREAD_FALLBACK
+				end
+				shown[#shown + 1] = { name = name, count = tab.count }
+			else
+				more = more + 1
+			end
+		end
+	end
+	return shown, more
+end
+
+-- What the shadow behind a faded chat window has to cover. lines: the window's line slots in order (its visibleLines),
+-- each { shown = drawn now, alpha = 0..1, width = text width in px or nil when unknown, wraps = takes more than one
+-- row }. Returns nil when no line shows, else { first, last = the lowest and highest shown slot, alpha = the
+-- strongest line's, width = the widest line's, capped at frameWidth (frameWidth for a wrapped or unknown one) }.
+function ns.Chat_ShadowSpan(lines, frameWidth)
+	local span
+	for index, line in ipairs(lines or {}) do
+		if line.shown and (line.alpha or 0) > 0 then
+			local width = (line.wraps or not line.width) and frameWidth or math.min(line.width, frameWidth)
+			if not span then
+				span = { first = index, last = index, alpha = line.alpha, width = width }
+			else
+				span.last = index
+				span.alpha = math.max(span.alpha, line.alpha)
+				span.width = math.max(span.width, width)
+			end
+		end
+	end
+	return span
+end
+
+-- One step of a linear fade over the whole 0..1 range: `duration` seconds from 0 to 1 (a shorter way takes less).
+-- Returns the new alpha and whether it reached `to`.
+function ns.Chat_FadeStep(from, to, elapsed, duration)
+	if duration <= 0 then
+		return to, true
+	end
+	local step = elapsed / duration
+	if from < to then
+		from = math.min(to, from + step)
+	else
+		from = math.max(to, from - step)
+	end
+	return from, from == to
+end

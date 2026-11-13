@@ -192,6 +192,7 @@ ns.BUG_FILES = {
 	"Modules/Chat/Filter.lua",
 	"Modules/Chat/Tags.lua",
 	"Modules/Chat/Copy.lua",
+	"Modules/Chat/Quiet.lua",
 	"Modules/Autocorrect/Words.lua",
 	"Modules/Autocorrect/Data.lua",
 	"Modules/Autocorrect/Rules.lua",

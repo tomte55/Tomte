@@ -284,4 +284,86 @@ test("the Trade (Services) channel is marked retail-only", function()
 	eq(ns.CHAT_CHANNEL_BY_ID[2].retail, nil, "trade")
 end)
 
+test("UnreadChip: only tabs with unread lines, in tab order", function()
+	local shown, more = ns.Chat_UnreadChip({
+		{ name = "General", count = 0 },
+		{ name = "Whispers", count = 2 },
+		{ name = "Mira", count = 1 },
+	}, 3)
+	eq(#shown, 2, "two tabs")
+	eq(shown[1].name, "Whispers", "first")
+	eq(shown[1].count, 2, "count")
+	eq(shown[2].name, "Mira", "second")
+	eq(more, 0, "no more")
+end)
+
+test("UnreadChip: secret or empty names get the fallback", function()
+	local shown = ns.Chat_UnreadChip({ { name = nil, count = 1 }, { name = "", count = 3 } }, 3)
+	eq(shown[1].name, ns.CHAT_UNREAD_FALLBACK, "nil name")
+	eq(shown[2].name, ns.CHAT_UNREAD_FALLBACK, "empty name")
+end)
+
+test("UnreadChip: tabs past max are counted, not shown", function()
+	local shown, more = ns.Chat_UnreadChip({
+		{ name = "A", count = 1 }, { name = "B", count = 1 }, { name = "C", count = 1 }, { name = "D", count = 1 },
+	}, 2)
+	eq(#shown, 2, "shown")
+	eq(more, 2, "more")
+	local none, noMore = ns.Chat_UnreadChip(nil, 2)
+	eq(#none, 0, "nil list")
+	eq(noMore, 0, "nil list more")
+end)
+
+test("ShadowSpan: covers the shown lines, widest and strongest", function()
+	local span = ns.Chat_ShadowSpan({
+		{ shown = true, alpha = 1, width = 120 },
+		{ shown = true, alpha = 0.4, width = 300 },
+		{ shown = false, alpha = 0, width = 500 },
+	}, 400)
+	eq(span.first, 1, "first")
+	eq(span.last, 2, "last shown slot")
+	eq(span.alpha, 1, "strongest")
+	eq(span.width, 300, "widest shown")
+end)
+
+test("ShadowSpan: wrapped, unknown or too wide lines take the frame width", function()
+	eq(ns.Chat_ShadowSpan({ { shown = true, alpha = 1, width = 90, wraps = true } }, 400).width, 400, "wrapped")
+	eq(ns.Chat_ShadowSpan({ { shown = true, alpha = 1 } }, 400).width, 400, "unknown (secret)")
+	eq(ns.Chat_ShadowSpan({ { shown = true, alpha = 1, width = 900 } }, 400).width, 400, "capped")
+end)
+
+test("ShadowSpan: nothing shown, nothing to cover", function()
+	eq(ns.Chat_ShadowSpan({ { shown = false, alpha = 0 }, { shown = true, alpha = 0 } }, 400), nil, "faded")
+	eq(ns.Chat_ShadowSpan({}, 400), nil, "empty")
+	eq(ns.Chat_ShadowSpan(nil, 400), nil, "nil")
+end)
+
+test("ShadowSpan: a gap of faded lines between shown ones is covered", function()
+	local span = ns.Chat_ShadowSpan({
+		{ shown = true, alpha = 1, width = 50 },
+		{ shown = false, alpha = 0 },
+		{ shown = true, alpha = 0.2, width = 60 },
+	}, 400)
+	eq(span.first, 1, "first")
+	eq(span.last, 3, "last")
+end)
+
+test("FadeStep: moves toward the target and stops there", function()
+	local alpha, done = ns.Chat_FadeStep(0, 1, 0.05, 0.15)
+	H.near(alpha, 1 / 3, "a third of the way in")
+	eq(done, false, "not done")
+	alpha, done = ns.Chat_FadeStep(0.9, 1, 0.05, 0.15)
+	eq(alpha, 1, "clamped at 1")
+	eq(done, true, "done")
+	alpha, done = ns.Chat_FadeStep(1, 0, 0.5, 2)
+	H.near(alpha, 0.75, "a quarter of the way out")
+	eq(done, false, "fading out")
+	alpha, done = ns.Chat_FadeStep(0.1, 0, 0.5, 2)
+	eq(alpha, 0, "clamped at 0")
+	eq(done, true, "out")
+	alpha, done = ns.Chat_FadeStep(0.4, 1, 0.01, 0)
+	eq(alpha, 1, "no duration jumps")
+	eq(done, true, "no duration done")
+end)
+
 H.done()
