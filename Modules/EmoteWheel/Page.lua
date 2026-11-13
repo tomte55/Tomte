@@ -11,6 +11,7 @@ local BAND_H = 30
 local WHEEL_COL = 360 -- the wheel's column
 local WHEEL_SIZE = 320 -- the drawn wheel at scale 1 (Wheel.lua's OUTER * 2)
 local DRAG = 6 -- pixels the mouse moves with the button down before a press becomes a drag
+local GHOST_LEVEL = 20 -- frame levels the dragged name sits above the wheel's mouse catcher (and the wheel's art)
 local CHIP_MIN_W = 104 -- emote buttons are at least this wide; the columns share what's left
 local CHIP_H = 26
 local CHIP_GAP = 6
@@ -55,14 +56,23 @@ local function DrawWheel()
 	for i, slice in ipairs(list) do
 		slices[i] = slice
 	end
-	if preview and selected then
+	local picked = selected
+	if dragging and pressed then
+		-- The held slice drawn lit where it would land, the others making room, so the move shows before the drop.
+		-- Off the wheel it stays in its own place.
+		picked = pressed
+		if hover then
+			ns.EmoteWheel_Move(slices, pressed, hover)
+			picked = hover
+		end
+	elseif preview and selected then
 		slices[selected] = { name = "", text = preview.commands[1] }
 	end
 	local room = math.min(WHEEL_COL - PAD, page:GetHeight() - BAND_H - 2 * PAD)
 	local scale = math.max(0.5, math.min(1, room / WHEEL_SIZE))
 	local opts = ns.EmoteWheel_Look()
-	opts.scale, opts.hover, opts.emptyLabel = scale, hover, EMPTY_LABEL
-	local size = ns.EmoteWheel_Draw(page.wheel, slices, opts, selected)
+	opts.scale, opts.hover, opts.emptyLabel, opts.glide = scale, hover, EMPTY_LABEL, true
+	local size = ns.EmoteWheel_Draw(page.wheel, slices, opts, picked)
 	page.wheel:SetSize(size, size)
 end
 
@@ -131,6 +141,7 @@ end
 -- Runs only while the mouse is over the wheel or a slice is held.
 local function WheelUpdate()
 	local i = Under()
+	local started
 	if pressed and not dragging then
 		local x, y = GetCursorPosition()
 		local far = DRAG * page:GetEffectiveScale()
@@ -139,13 +150,14 @@ local function WheelUpdate()
 			page.ghost:SetText(ns.EmoteWheel_Label(list[pressed]) ~= "" and ns.EmoteWheel_Label(list[pressed])
 				or EMPTY_LABEL)
 			page.ghost:Show()
+			started = true -- redrawn below with the held slice lit
 		end
 	end
 	if dragging then
 		PlaceGhost()
 		i = i and math.min(i, #list) -- dropped on a grey slot: the end of the wheel
 	end
-	if i ~= hover then
+	if i ~= hover or started then
 		hover = i
 		DrawWheel()
 	end
@@ -662,8 +674,12 @@ local function Create(frame)
 	end)
 	page.hit:SetScript("OnMouseDown", WheelDown)
 	page.hit:SetScript("OnMouseUp", WheelUp)
-	page.ghost = UI.Text(page, 15, "accent", "title")
-	page.ghost:SetDrawLayer("OVERLAY", 7)
+	-- The held slice's name at the cursor, on a frame of its own above the wheel (a text on the page drew under it).
+	page.ghostHolder = CreateFrame("Frame", nil, page)
+	page.ghostHolder:SetAllPoints()
+	page.ghostHolder:SetFrameLevel(page.hit:GetFrameLevel() + GHOST_LEVEL)
+	page.ghost = UI.Text(page.ghostHolder, 15, "accent", "title")
+	page.ghost:SetShadowOffset(1, -1)
 	page.ghost:Hide()
 
 	BuildEditor()

@@ -3,8 +3,9 @@ local addonName, ns = ...
 -- Emote wheel: the wheel itself. A ring of separate slices around a middle that shows the slice under the cursor; it
 -- opens at the cursor while the key is held and says which slice was picked when it closes. Drawn from grey art
 -- tinted by theme role (tools/emotewheel_art.py): one slice texture per slice count, turned into place, a lit arc on
--- the picked slice, the middle disc and a soft shadow under it all. The same drawing makes the settings preview. Rules
--- in Data.lua, registered in EmoteWheel.lua.
+-- the picked slice, the middle disc and a soft shadow under it all. The same drawing makes the settings preview and
+-- the editor's wheel, where names and the lit slice glide to their new places. Rules in Data.lua, registered in
+-- EmoteWheel.lua.
 
 local ART = ns.Theme.MEDIA .. "EmoteWheel\\"
 local RADIUS = 150 -- slice ring, at scale 1; RADIUS, INNER and GAP match tools/emotewheel_art.py
@@ -22,6 +23,8 @@ local HUB_RING_ALPHA = 0.55
 local HIGHLIGHT_MIX = 0.16 -- share of the accent color in the picked slice, mixed into the background
 local HOVER_MIX = 0.07 -- the editor: a slice under the mouse, a step short of picked
 local FADE_IN = 0.08 -- seconds
+local GLIDE = 0.18 -- seconds: in the editor, names and the lit slice glide to a new place (a drag, a pick)
+local MOVED = 0.5 -- pixels: a label nearer than this to its new place just goes there
 local OUTER = RADIUS + 10 -- the wheel's own frame reaches this far
 local UI = ns.UI
 
@@ -57,6 +60,9 @@ local function Build(parent)
 	w:SetSize(OUTER * 2, OUTER * 2)
 	w.shadow = Art(w, "BACKGROUND", -8, "Shadow", SHADOW_R)
 	w.arc = Art(w, "ARTWORK", 0, nil, RADIUS)
+	w.lit = Art(w, "BACKGROUND", -3, nil, RADIUS) -- gliding: the picked slice's fill, turned with the arc
+	w.lit:Hide()
+	w.spots = {} -- [slot] = where its label went (PlaceLabel)
 	w.slices, w.names, w.cmds = {}, {}, {}
 	for i = 1, ns.EMOTEWHEEL_MAX do
 		w.slices[i] = Art(w, "BACKGROUND", -4, nil, RADIUS)
@@ -136,6 +142,7 @@ local function PlaceLabel(w, name, cmd, i, count)
 		spot = { x, y, nameDy, boxes[2] and boxes[2][3] }
 		places[key] = spot
 	end
+	w.spots[i] = spot
 	name:ClearAllPoints()
 	name:SetPoint("CENTER", w, "CENTER", spot[1], spot[2] + spot[3])
 	if cmd then
@@ -144,9 +151,91 @@ local function PlaceLabel(w, name, cmd, i, count)
 	end
 end
 
+-- Gliding (the editor) -------------------------------------------------------------------------------------------------
+-- Each slice's label remembers where it is drawn (w.cur, by slice table), so after a layout it glides from there to
+-- its new slot, around the middle rather than across it; the lit slice turns to the new pick. A new layout mid-glide
+-- starts from where things are drawn at that moment.
+
+local function SetLabelAt(w, i, x, y)
+	local spot = w.spots[i]
+	w.names[i]:SetPoint("CENTER", w, "CENTER", x, y + spot[3])
+	if spot[4] then
+		w.cmds[i]:SetPoint("CENTER", w, "CENTER", x, y + spot[4])
+	end
+end
+
+-- The shortest turn from angle a to angle b (radians, -pi..pi).
+local function Turned(a, b)
+	return (b - a + math.pi) % (2 * math.pi) - math.pi
+end
+
+local function GlideStep(self, elapsed)
+	local w = self:GetParent()
+	w.glideT = w.glideT + elapsed
+	local p = ns.Smoothstep(math.min(w.glideT / GLIDE, 1))
+	for i, m in pairs(w.moving) do
+		local r, a = m.r0 + (m.r1 - m.r0) * p, m.a0 + m.da * p
+		m.pos[1], m.pos[2] = r * math.cos(a), r * math.sin(a)
+		SetLabelAt(w, i, m.pos[1], m.pos[2])
+	end
+	local turn = w.turn
+	if turn then
+		w.litRot = turn.from + turn.by * p
+		w.arc:SetRotation(w.litRot)
+		w.lit:SetRotation(w.litRot)
+	end
+	if p >= 1 then
+		self:SetScript("OnUpdate", nil)
+	end
+end
+local GlideStepTimed = ns.Perf_Wrap(GlideStep, "OnUpdate")
+
+-- After a layout: labels that changed slots start where they were drawn, the lit slice where it was turned.
+local function StartGlide(w, slices, count, picked)
+	local cur = {}
+	w.moving = w.moving and wipe(w.moving) or {}
+	for i = 1, count do
+		local slice, spot = slices[i], w.spots[i]
+		if slice and spot then
+			local from = w.cur and w.cur[slice]
+			local pos = { spot[1], spot[2] }
+			cur[slice] = pos
+			if from and (math.abs(from[1] - spot[1]) > MOVED or math.abs(from[2] - spot[2]) > MOVED) then
+				local a0, a1 = math.atan2(from[2], from[1]), math.atan2(spot[2], spot[1])
+				w.moving[i] = { pos = pos, a0 = a0, da = Turned(a0, a1),
+					r0 = math.sqrt(from[1] ^ 2 + from[2] ^ 2), r1 = math.sqrt(spot[1] ^ 2 + spot[2] ^ 2) }
+				pos[1], pos[2] = from[1], from[2]
+				SetLabelAt(w, i, from[1], from[2])
+			end
+		end
+	end
+	w.cur = cur
+	w.turn = nil
+	if picked then
+		local rot = -Angle(picked, count)
+		if w.litRot and math.abs(Turned(w.litRot, rot)) > 0.001 then
+			w.turn = { from = w.litRot, by = Turned(w.litRot, rot) }
+			w.arc:SetRotation(w.litRot)
+			w.lit:SetRotation(w.litRot)
+		else
+			w.litRot = rot
+		end
+	else
+		w.litRot = nil
+	end
+	if next(w.moving) or w.turn then
+		w.glider = w.glider or CreateFrame("Frame", nil, w)
+		w.glideT = 0
+		w.glider:SetScript("OnUpdate", GlideStepTimed)
+	elseif w.glider then
+		w.glider:SetScript("OnUpdate", nil)
+	end
+end
+
 -- slices: from ns.EmoteWheel_Slices; opts: { showCommand, showTarget, target (name or nil), hover (the editor: a slice
--- under the mouse), emptyLabel }; picked: slice index or nil.
+-- under the mouse), emptyLabel, glide (the editor: changes glide, see above) }; picked: slice index or nil.
 local function Layout(w, slices, opts, picked)
+	local glide = opts.glide and UI.MotionFull()
 	Colorize(w)
 	local count = math.max(#slices, ns.EMOTEWHEEL_MIN)
 	local step = 2 * math.pi / count
@@ -165,7 +254,7 @@ local function Layout(w, slices, opts, picked)
 			local on = picked == i
 			local blank = slice ~= nil and slice.text == ""
 			Turn(tex, count, i)
-			if on then
+			if on and not glide then
 				tex:SetVertexColor(hr, hg, hb, SLICE_ALPHA)
 			elseif opts.hover == i then
 				tex:SetVertexColor(vr, vg, vb, slice and SLICE_ALPHA or EMPTY_ALPHA)
@@ -193,6 +282,21 @@ local function Layout(w, slices, opts, picked)
 		w.arc:SetRotation(-Angle(picked, count))
 	end
 	w.arc:SetShown(slice ~= nil)
+	-- Gliding, the picked fill is a texture of its own that turns with the arc (the slot under it stays plain).
+	w.lit:SetShown(glide and slice ~= nil)
+	if glide and slice then
+		w.lit:SetTexture(ART .. "Slice" .. count)
+		w.lit:SetRotation(-Angle(picked, count))
+		w.lit:SetVertexColor(hr, hg, hb, SLICE_ALPHA)
+	end
+	if glide then
+		StartGlide(w, slices, count, slice and picked or nil)
+	else
+		w.cur, w.litRot = nil, nil
+		if w.glider then
+			w.glider:SetScript("OnUpdate", nil)
+		end
+	end
 	local lines = {}
 	if slice then
 		w.title:SetText(Name(slice, opts))
