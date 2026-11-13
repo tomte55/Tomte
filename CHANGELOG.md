@@ -959,5 +959,6 @@ First release for friends.
 
 - **Alts:** pick who crafts each craft on the crafting list: right-click it in the tracker or on the List tab and choose a character who knows the recipe, or Pick for me.
 - **Drawers:** item counts have an outline and stay readable over the cooldown sweep.
+- **Emote Wheel:** buff thanks also thank a buff you already had when someone casts it on you again.
 - **Quest list:** clicking a quest (also in Next quests and on the Leveling page) makes it the one Tomte's arrow and lists lead to, without changing the game's active quest, so the tracker error after a level-up no longer comes back after a click.
 - **Loot:** the Make room button grows to fit when a long item name wraps its text to a third line.

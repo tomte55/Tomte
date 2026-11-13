@@ -110,6 +110,14 @@ test("buff thanks: long buffs from other players, out of combat, once a while", 
 	eq(ns.EmoteWheel_ShouldThank(buff, rules, nil, 100), false, "own buff")
 end)
 
+test("buff thanks: a refresh is an update with the full duration left", function()
+	eq(ns.EmoteWheel_JustRefreshed(3600, 3700, 100), true, "recast just now")
+	eq(ns.EmoteWheel_JustRefreshed(3600, 3699, 100), true, "event a second late")
+	eq(ns.EmoteWheel_JustRefreshed(3600, 3000, 100), false, "running down")
+	eq(ns.EmoteWheel_JustRefreshed(0, 0, 100), false, "no duration")
+	eq(ns.EmoteWheel_JustRefreshed(nil, nil, 100), false, "missing")
+end)
+
 test("store fills every slot, empty ones after the list", function()
 	local slots = ns.EmoteWheel_Store({ { name = "Bow", text = "/bow" }, { name = "", text = "" } })
 	eq(slots.s1.text, "/bow")

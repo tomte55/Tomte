@@ -9,6 +9,7 @@ ns.EMOTEWHEEL_MIN, ns.EMOTEWHEEL_MAX = 4, 12 -- slices on the wheel; fewer fille
 ns.EMOTEWHEEL_LONG_BUFF = 600 -- seconds: a buff shorter than this (a heal over time, a short shield) isn't thanked
 ns.EMOTEWHEEL_THANK_AGAIN = 1800 -- seconds before the same player's same buff is thanked again (rebuffs)
 ns.EMOTEWHEEL_THANK_LINE = "Thanks for the buff, %t!" -- the thank-you line when the setting is empty
+ns.EMOTEWHEEL_FRESH_SLACK = 3 -- seconds: an updated buff with this little gone from its full duration was just recast
 
 local TWO_PI = 2 * math.pi
 local atan2 = math.atan2 or function(y, x)
@@ -412,4 +413,13 @@ function ns.EmoteWheel_ShouldThank(buff, rules, lastAt, now)
 		return false
 	end
 	return not (lastAt and now - lastAt < ns.EMOTEWHEEL_THANK_AGAIN)
+end
+
+-- Whether a buff you already had was just recast (a refresh arrives as an update, not a new buff): its time left is
+-- back at its full duration. An update for any other reason (stacks, a tooltip value) leaves the time running down.
+function ns.EmoteWheel_JustRefreshed(duration, expirationTime, now)
+	if not duration or duration <= 0 or not expirationTime or expirationTime <= 0 then
+		return false
+	end
+	return expirationTime - now >= duration - ns.EMOTEWHEEL_FRESH_SLACK
 end

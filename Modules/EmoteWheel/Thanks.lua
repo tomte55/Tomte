@@ -98,11 +98,24 @@ events:On(OWNER, "UNIT_AURA", function(_, unit, info)
 	if unit ~= "player" or not info or ns.IsSecret(info.isFullUpdate, info.addedAuras) then
 		return
 	end
-	if info.isFullUpdate or not info.addedAuras then
+	if info.isFullUpdate then
 		return
 	end
-	for _, aura in ipairs(info.addedAuras) do
+	for _, aura in ipairs(info.addedAuras or {}) do
 		OnAura(aura)
+	end
+	-- Recasting a buff you already have updates it in place instead of adding it.
+	local updated = info.updatedAuraInstanceIDs
+	if not updated or ns.IsSecret(updated) then
+		return
+	end
+	local now = GetTime()
+	for _, id in ipairs(updated) do
+		local aura = C_UnitAuras.GetAuraDataByAuraInstanceID("player", id)
+		if aura and not ns.IsSecret(aura.duration, aura.expirationTime)
+			and ns.EmoteWheel_JustRefreshed(aura.duration, aura.expirationTime, now) then
+			OnAura(aura)
+		end
 	end
 end)
 
