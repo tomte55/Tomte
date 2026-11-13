@@ -280,8 +280,9 @@ end
 -- Making a quest the game's active one from addon code redraws the objective tracker and the map's quest log inside
 -- the call, which leaves them tainted: measured on Forever 1.60.1 (2026-11-13), a later level-up then errored in the
 -- tracker (secret auras) and quest clicks on the map were blocked in combat. With follow off, no error. So a widget
--- that picks a quest by itself only sets this; Waypoints' arrow and the lists read ns.ActiveQuest_ID. Your own pick in
--- the game (map, quest log, a click in Tomte's lists) wins: any change of the game's active quest lets go of it.
+-- that picks a quest by itself, and a click on a quest in Tomte's lists (ns.LevelingPage_MakeActive), only sets this;
+-- Waypoints' arrow and the lists read ns.ActiveQuest_ID. Your own pick in the game (map, quest log) wins: any change
+-- of the game's active quest lets go of it.
 local followedQuest
 local activeListeners = {}
 

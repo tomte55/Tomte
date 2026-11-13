@@ -473,10 +473,7 @@ function ns.QuestList_Menu(owner, q)
 		end
 		if C_SuperTrack and not q.active then
 			root:CreateButton("Make active", function()
-				ns.SafeTrack(function()
-					ns.LevelingPage_MakeActive(q.questID)
-				end)
-				UpdateSoon()
+				ns.LevelingPage_MakeActive(q.questID, UpdateSoon)
 			end)
 		end
 		root:CreateButton(q.watched and "Stop tracking" or "Track", function()
