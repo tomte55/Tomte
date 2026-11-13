@@ -98,7 +98,9 @@ local function Facts(src, inSet)
 		quality = src.quality or quality, classID = classID, vendor = price or 0, noValue = src.hasNoValue,
 		bound = bind == "soulbound" or bind == "warbound",
 		consumable = classID == CONSUMABLE,
-		count = math.max(C_Item.GetItemCount(itemID), src.stackCount or 1),
+		-- Bank copies count too, so a bag item and its twin in the bank are judged alike (bags only, a stack moved to
+		-- the bank fell under the minimum gain on its own: "vendor" there, "disenchant" in the bags, seen in game).
+		count = math.max(C_Item.GetItemCount(itemID, true), src.stackCount or 1),
 		minGain = db.sell.minGain,
 		inSet = inSet,
 	}
@@ -172,7 +174,7 @@ function ns.Value_BagMarker(bag, slot, inSet)
 		cache[key] = nil
 		return {}
 	end
-	local total = C_Item.GetItemCount(info.itemID)
+	local total = C_Item.GetItemCount(info.itemID, true) -- the count Facts judges by: a move to or from the bank
 	local c = cache[key]
 	local now = GetTime()
 	if c and c.link == info.hyperlink and c.total == total and c.gen == gen and now - c.at < PRICE_TTL then
