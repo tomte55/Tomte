@@ -237,4 +237,21 @@ test("bank wants: Warband bank takes and your own bank, not mail or other charac
 	eq(plan[1].split, 10, "splits so only what the crafts need comes out")
 end)
 
+test("a picked crafter crafts it; one who doesn't know it is ignored", function()
+	-- Both know Bar: by name Mira comes first, unless the craft picks Tomte.
+	chars.Main.profs = { [1] = { base = 1, known = { [3] = true } } }
+	local places = { [HERB] = { { guid = "Main", where = "bags", n = 10 } } }
+	local todo = ns.Alts_CraftTodo({ recipeID = 3, crafts = 1 }, Ctx("Main", places))
+	eq(todo.crafter, "Alch", "picked by name")
+	eq(Find(todo, "mail").text, "Mail 10 Herb to Mira")
+	todo = ns.Alts_CraftTodo({ recipeID = 3, crafts = 1, crafter = "Main" }, Ctx("Main", places))
+	eq(todo.crafter, "Main")
+	eq(Find(todo, "ready").text, "Ready: craft 1 Bar", "the herbs are already in the crafter's bags")
+	eq(Find(todo, "mail"), nil)
+	todo = ns.Alts_CraftTodo({ recipeID = 3, crafts = 1, crafter = "Smith" }, Ctx("Main", places))
+	eq(todo.crafter, "Alch", "Tolvan doesn't know it")
+	eq(ns.Alts_PinCrafter(nil, "Main"), false)
+	chars.Main.profs = {}
+end)
+
 H.done()

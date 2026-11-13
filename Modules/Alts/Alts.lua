@@ -442,7 +442,7 @@ module = ns.RegisterModule({
 		sendRules = "",
 		sendGold = 0, -- gold to keep on each alt (0 = off)
 		sendSubject = "Tomte",
-		list = {}, -- crafting list: { { recipeID, crafts, added } }
+		list = {}, -- crafting list: { { recipeID, crafts, added, crafter = GUID picked to craft it (optional) } }
 		tracker = { shown = true, mode = "any", hideInCombat = true, locked = true, scale = 1, collapsed = false },
 		listDone = "auto", -- auto | hand
 		listMail = "exact", -- exact | stacks

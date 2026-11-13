@@ -198,6 +198,25 @@ local function CrafterOf(step)
 	return c and c.guid or nil
 end
 
+-- A crafter picked for a craft (entry.crafter, a GUID) goes first among the step's crafters, so the plan and the
+-- to-do follow it. Ignored when that character doesn't know the recipe (any more): the plan picks as usual.
+-- Returns true when the pick took.
+function ns.Alts_PinCrafter(step, guid)
+	if not (step and guid and step.crafters) then
+		return false
+	end
+	for i, c in ipairs(step.crafters) do
+		if c.guid == guid then
+			if i > 1 then
+				table.remove(step.crafters, i)
+				table.insert(step.crafters, 1, c)
+			end
+			return true
+		end
+	end
+	return false
+end
+
 -- Getting something of yours out of your bank or mail into your bags.
 local function FetchText(t, name)
 	return (t.where == "mail" and "Collect %d %s from mail" or "Grab %d %s from bank"):format(t.n, name)
@@ -219,6 +238,7 @@ function ns.Alts_CraftTodo(entry, ctx)
 	end, entry)
 	local stepOf = ns.Alts_StepOf(plan, ctx.recipes)
 	local final = plan.steps[#plan.steps]
+	ns.Alts_PinCrafter(final, entry.crafter)
 	local finalCrafter = CrafterOf(final)
 	local me = ctx.me
 	-- Counted down to 0 ("By hand"): done, nothing to move. (The plan is for one craft, as Alts_Plan never plans 0.)

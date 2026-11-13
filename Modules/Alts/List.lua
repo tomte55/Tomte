@@ -465,10 +465,16 @@ local function Block(f, i)
 	b.lines = {}
 	b:SetScript("OnClick", function(self, button)
 		if button == "RightButton" then
-			local entry = self.todo and self.todo.entry
+			local todo = self.todo
+			local entry = todo and todo.entry
 			if entry then
-				ns.AltsList_Remove(entry.recipeID)
-				ns.Print(("removed %s from the crafting list."):format(RecipeName(entry.recipeID)))
+				UI.ContextMenu(self, function(_, root)
+					ns.AltsListTab_CrafterChoices(root, todo) -- ListTab.lua, loaded after this file
+					root:CreateButton("Remove from the list", function()
+						ns.AltsList_Remove(entry.recipeID)
+						ns.Print(("removed %s from the crafting list."):format(RecipeName(entry.recipeID)))
+					end)
+				end)
 			end
 		else
 			ns.Panel_OpenPage("alts")
@@ -479,7 +485,7 @@ local function Block(f, i)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		GameTooltip:SetText(self.todo and RecipeName(self.todo.entry.recipeID) or "?", 1, 1, 1)
 		local r, g, b = UI.Color("textMuted")
-		GameTooltip:AddLine("Click: the crafting list. Right-click: remove it.", r, g, b)
+		GameTooltip:AddLine("Click: the crafting list. Right-click: who crafts it, or remove it.", r, g, b)
 		GameTooltip:Show()
 	end)
 	b:SetScript("OnLeave", function()

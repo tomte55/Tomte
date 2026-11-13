@@ -110,6 +110,13 @@ local function StepButton(card, text, tip)
 	return b
 end
 
+-- More than one character knows the craft's recipe, so there's a crafter to pick (ns.AltsListTab_CrafterChoices).
+local function HasChoice(todo)
+	local steps = todo and not todo.friend and todo.plan and todo.plan.steps
+	local final = steps and steps[#steps]
+	return final ~= nil and #final.crafters > 1
+end
+
 local function CreateCard(parent)
 	local card = CreateFrame("Frame", nil, parent)
 	card:SetHeight(CARD_H)
@@ -208,12 +215,20 @@ local function CreateCard(parent)
 		GameTooltip:AddLine(" ")
 		local r, g, b = UI.Color("textMuted")
 		GameTooltip:AddLine("Click: open it in the Crafting tab", r, g, b)
+		if HasChoice(self.todo) then
+			GameTooltip:AddLine("Right-click: who crafts it", r, g, b)
+		end
 		GameTooltip:Show()
 	end)
 	card:SetScript("OnLeave", GameTooltip_Hide)
 	card:SetScript("OnMouseUp", function(self, button)
 		if button == "LeftButton" then
 			ns.AltsCraft_Open(self.entry.recipeID, nil, self.entry)
+		elseif button == "RightButton" and HasChoice(self.todo) then
+			local todo = self.todo
+			UI.ContextMenu(self, function(_, root)
+				ns.AltsListTab_CrafterChoices(root, todo)
+			end)
 		end
 	end)
 	return card
@@ -245,6 +260,7 @@ local function PlaceCard(i, t, x, y, w)
 	local entry = t.entry
 	local r = ns.altsDB.recipes[entry.recipeID]
 	card.entry = entry
+	card.todo = t
 	card.icon:SetTexture(r and r.icon or 134400) -- the question mark
 	card.name:SetText(ns.Alts_RecipeLabel(entry.recipeID, nil, entry.quality))
 	card.count:SetText(entry.crafts)
@@ -314,6 +330,36 @@ local function PlaceTotals(x, y, w, sum, n)
 	totals:SetWidth(w)
 	totals:Show()
 	return y + 48
+end
+
+-- "Who crafts it" in a craft's right-click menu (here and in the tracker, List.lua): the plan's own pick, or one of the
+-- characters who know the recipe, saved on the entry (ns.Alts_PinCrafter). Nothing when fewer than two know it.
+function ns.AltsListTab_CrafterChoices(root, todo)
+	local entry, plan = todo.entry, todo.plan
+	local final = plan and plan.steps[#plan.steps]
+	if todo.friend or not (entry and final) or #final.crafters < 2 then
+		return
+	end
+	local known = {}
+	for _, c in ipairs(final.crafters) do
+		known[#known + 1] = c
+	end
+	table.sort(known, function(a, b)
+		return (a.name or "") < (b.name or "")
+	end)
+	local pinned = entry.crafter and entry.crafter == todo.crafter and entry.crafter or ""
+	root:CreateTitle("Who crafts it")
+	local function IsSelected(guid)
+		return pinned == guid
+	end
+	local function Select(guid)
+		entry.crafter = guid ~= "" and guid or nil
+		ns.AltsList_Changed()
+	end
+	root:CreateRadio("Pick for me", IsSelected, Select, "")
+	for _, c in ipairs(known) do
+		root:CreateRadio(UI.ClassColored(c.name or "?", c.class), IsSelected, Select, c.guid)
+	end
 end
 
 -- Shopping (right) -----------------------------------------------------------------------------------------------
