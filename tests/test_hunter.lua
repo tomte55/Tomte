@@ -232,16 +232,81 @@ test("Forever: any spec wants a pet, and an unhappy pet is a problem", function(
 	eq(#ns.Hunter_Problems({ hasPet = true, happiness = 1 }, rules), 0, "setting off")
 end)
 
-test("AspectToCast: the best aspect you know, only when none is on and it makes sense", function()
-	local both = { [13165] = true, [13163] = true }
-	eq(ns.Hunter_AspectToCast({ known = both, anyOn = false }), 13165, "Hawk first")
-	eq(ns.Hunter_AspectToCast({ known = { [13163] = true }, anyOn = false }), 13163, "Monkey before Hawk is learned")
-	eq(ns.Hunter_AspectToCast({ known = {}, anyOn = false }), nil, "none learned")
-	eq(ns.Hunter_AspectToCast({ known = both, anyOn = true }), nil, "an aspect is on")
-	eq(ns.Hunter_AspectToCast({ known = both }), nil, "buffs unreadable")
-	for _, flag in ipairs({ "combat", "dead", "resting", "mounted", "taxi" }) do
-		eq(ns.Hunter_AspectToCast({ known = both, anyOn = false, [flag] = true }), nil, flag)
+local HAWK, MONKEY, CHEETAH, PACK = 13165, 13163, 5118, 13159
+
+local function cast(s)
+	local id, kind = ns.Hunter_AspectToCast(s)
+	return tostring(id) .. " " .. tostring(kind)
+end
+
+test("AspectToCast: the best aspect you know when none is on", function()
+	local both = { [HAWK] = true, [MONKEY] = true }
+	eq(cast({ known = both, on = false }), "13165 none", "Hawk first")
+	eq(cast({ known = { [MONKEY] = true }, on = false }), "13163 none", "Monkey before Hawk is learned")
+	eq(cast({ known = {}, on = false }), "nil nil", "none learned")
+	eq(cast({ known = both, on = HAWK }), "nil nil", "an aspect is on")
+	eq(cast({ known = both }), "nil nil", "buffs unreadable")
+	for _, flag in ipairs({ "dead", "resting", "mounted", "taxi" }) do
+		eq(cast({ known = both, on = false, [flag] = true }), "nil nil", flag)
 	end
+end)
+
+test("AspectToCast: Cheetah when travelling, with the setting on", function()
+	local known = { [HAWK] = true, [CHEETAH] = true }
+	local s = { known = known, on = HAWK, travelling = true, travel = true }
+	eq(cast(s), "5118 travel", "Hawk on, on the move")
+	s.travel = false
+	eq(cast(s), "nil nil", "setting off")
+	s.travel, s.inInstance = true, true
+	eq(cast(s), "nil nil", "not in a dungeon")
+	s.inInstance, s.hostile = false, true
+	eq(cast(s), "nil nil", "not with something to fight targeted")
+	s.hostile, s.travelling = false, false
+	eq(cast(s), "nil nil", "standing still")
+	eq(cast({ known = known, on = false, travelling = true, travel = true }), "5118 travel", "none on, on the move")
+	eq(cast({ known = { [HAWK] = true }, on = HAWK, travelling = true, travel = true }), "nil nil", "Cheetah unknown")
+	eq(cast({ known = known, on = CHEETAH, travelling = true, travel = true }), "nil nil", "already on")
+end)
+
+test("AspectToCast: off Cheetah or Pack before and as a fight starts", function()
+	local known = { [HAWK] = true, [CHEETAH] = true }
+	eq(cast({ known = known, on = CHEETAH, hostile = true }), "13165 fight", "a target to fight")
+	eq(cast({ known = known, on = PACK, hostile = true }), "13165 fight", "Pack too")
+	eq(cast({ known = known, on = false, hostile = true }), "13165 fight", "none on, a target to fight")
+	eq(cast({ known = known, on = CHEETAH }), "nil nil", "nothing targeted: keep travelling")
+	eq(cast({ known = known, on = CHEETAH, combat = true }), "13165 fight", "the fight starts")
+	eq(cast({ known = known, on = false, combat = true }), "13165 fight", "the fight starts with none on")
+	eq(cast({ known = known, on = HAWK, combat = true }), "nil nil", "Hawk already on")
+	eq(cast({ known = known, combat = true }), "nil nil", "buffs unreadable")
+end)
+
+test("AspectToCast: in a city or an inn, Cheetah for the road and never a fighting aspect", function()
+	local known = { [HAWK] = true, [CHEETAH] = true }
+	eq(cast({ known = known, on = HAWK, resting = true, travelling = true, travel = true }), "5118 travel", "travelling")
+	eq(cast({ known = known, on = false, resting = true, travelling = true, travel = true }), "5118 travel",
+		"none on, travelling")
+	eq(cast({ known = known, on = false, resting = true }), "nil nil", "no 'no aspect' nag")
+	eq(cast({ known = known, on = CHEETAH, resting = true, hostile = true }), "nil nil", "no swap for a target")
+	eq(cast({ known = known, on = CHEETAH, resting = true, combat = true }), "nil nil", "no swap as a fight starts")
+end)
+
+test("AspectToCast: heading for a quest", function()
+	local known = { [HAWK] = true, [CHEETAH] = true }
+	local near = { yards = 60, fight = true }
+	eq(cast({ known = known, on = CHEETAH, dest = near }), "13165 arrive", "close to a quest you fight at")
+	eq(cast({ known = known, on = CHEETAH, dest = { yards = 60, fight = false } }), "nil nil", "handing it in")
+	eq(cast({ known = known, on = CHEETAH, dest = { yards = 400, fight = true } }), "nil nil", "still far")
+	eq(cast({ known = known, on = CHEETAH, dest = near, inInstance = true }), "nil nil", "not in a dungeon")
+	eq(cast({ known = known, on = HAWK, dest = near, travelling = true, travel = true }), "nil nil",
+		"no Cheetah when you're arriving")
+end)
+
+test("Travelling: a while on the move, or soon when the quest is far", function()
+	eq(ns.Hunter_Travelling(nil, nil), false, "standing still")
+	eq(ns.Hunter_Travelling(5, nil), false, "a short run")
+	eq(ns.Hunter_Travelling(ns.HUNTER_TRAVEL_SECONDS, nil), true, "a long run")
+	eq(ns.Hunter_Travelling(4, { yards = 500, fight = true }), true, "a far quest")
+	eq(ns.Hunter_Travelling(4, { yards = 150, fight = true }), false, "a near quest")
 end)
 
 test("GrowlForgotten: off with the pet out, alone in the open world", function()

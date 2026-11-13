@@ -102,6 +102,7 @@ module = ns.RegisterModule({
 			specs = { dungeon = "Ferocity", raid = "any", delve = "any" },
 		},
 		aspect = true, -- Forever: the aspect button (Aspect.lua)
+		aspectTravel = true, -- the aspect button suggests Cheetah when you're travelling
 		aspectFrame = { point = "CENTER", relPoint = "CENTER", x = 0, y = -140 }, -- its spot (Edit Mode)
 		chars = {}, -- [player GUID] = stable snapshot (Stable.lua)
 		seen = {}, -- tame log, account-wide: [family] = { creatures = { [npcID] = { name, zone, at } } }
@@ -172,7 +173,18 @@ module = ns.RegisterModule({
 			ns.HunterAspect_Update()
 		end, shown = function()
 			return ns.FOREVER
-		end, tooltip = "A button when no aspect is on, out of combat and away from inns and cities. One click puts on Aspect of the Hawk, or the Monkey before you learn the Hawk. Also a key binding (Key Bindings > Tomte). Blizzard's Edit Mode moves it." },
+		end, tooltip = "A button when no aspect is on, out of combat and away from inns and cities. One click puts on "
+			.. "Aspect of the Hawk, or the Monkey before you learn the Hawk. With Cheetah or Pack on, it comes back as "
+			.. "you target something to fight, or as a fight starts, to swap to the Hawk: they daze you when you're "
+			.. "hit. Also a key binding (Key Bindings > Tomte). Blizzard's Edit Mode moves it." },
+		{ type = "checkbox", key = "aspectTravel", label = "Cheetah when travelling", parent = "aspect",
+			onChange = function()
+				ns.HunterAspect_Update()
+			end, shown = function()
+				return ns.FOREVER
+			end, tooltip = "Once you've been on the move for a while out of combat (sooner when the quest you follow is "
+				.. "far), the button offers Aspect of the Cheetah, in cities too. Close to a quest you'll fight at, it "
+				.. "offers the Hawk again. Not in dungeons, and not while you have something to fight targeted." },
 
 		{ type = "header", label = "Pet check" },
 		{ type = "checkbox", key = "check.onEnter", label = "When entering an instance",

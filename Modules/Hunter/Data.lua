@@ -281,18 +281,78 @@ ns.HUNTER_ASPECTS = {
 	13161, -- Beast
 	20043, -- Wild
 }
--- The aspect the button casts: the first of these you know (Hawk from level 10, Monkey before it).
+-- The aspect the button casts for a fight: the first of these you know (Hawk from level 10, Monkey before it).
 ns.HUNTER_ASPECT_BEST = { 13165, 13163 }
+-- For travelling. Cheetah and Pack daze you when you're hit, so they're the ones to swap away from before a fight.
+ns.HUNTER_ASPECT_CHEETAH = 5118
+ns.HUNTER_ASPECT_TRAVEL = { [5118] = true, [13159] = true } -- Cheetah, Pack
 
--- The aspect to put on, or nil. s = { known = { [spellID] = true }, anyOn (an aspect is on; nil when the buffs can't be
--- read), combat, dead, resting (an inn or a city), mounted, taxi }.
+-- When a run counts as travelling. Seconds on the move: TRAVEL_SECONDS anywhere (a short run to the next mob isn't),
+-- QUICK_SECONDS when the quest you're heading for is FAR_YARDS or more away (clearly a trip). Within NEAR_YARDS of a
+-- quest you fight at, you're arriving: about 10 seconds of Cheetah's speed, time to swap to the Hawk.
+local TRAVEL_SECONDS, QUICK_SECONDS = 10, 3
+local FAR_YARDS, NEAR_YARDS = 300, 100
+ns.HUNTER_TRAVEL_SECONDS = TRAVEL_SECONDS
+
+-- Whether you're travelling. moved: seconds on the move out of combat (nil standing still); dest: { yards, fight } (the
+-- quest you're heading for: how far, and whether you'll fight there rather than hand it in), or nil.
+function ns.Hunter_Travelling(moved, dest)
+	if not moved then
+		return false
+	end
+	return moved >= TRAVEL_SECONDS or (dest ~= nil and dest.yards >= FAR_YARDS and moved >= QUICK_SECONDS)
+end
+
+-- Within reach of the quest you're heading for to fight.
+local function Arriving(dest)
+	return dest ~= nil and dest.fight and dest.yards < NEAR_YARDS
+end
+
+local function BestFight(known)
+	for _, id in ipairs(ns.HUNTER_ASPECT_BEST) do
+		if known[id] then
+			return id
+		end
+	end
+	return nil
+end
+
+-- The aspect to put on and why, or nil. s = {
+--   known = { [spellID] = true }, on (rank 1 ID of the aspect on, false for none, nil when the buffs can't be read),
+--   combat (a fight is starting: only swapping off Cheetah or Pack, or putting one on, counts then), dead, resting (an
+--   inn or a city: never a fighting aspect there, Cheetah still), mounted, taxi, travelling (Hunter_Travelling),
+--   hostile (your target is something alive you can attack), inInstance, dest (as Hunter_Travelling), travel (the
+--   setting: suggest Cheetah when travelling) }.
+-- Returns spellID, kind: "none" (no aspect on), "travel" (Cheetah for the road), "arrive" (off Cheetah or Pack close
+-- to the quest you'll fight at), "fight" (off Cheetah or Pack with something to fight targeted, or as a fight starts).
 function ns.Hunter_AspectToCast(s)
-	if s.anyOn ~= false or s.combat or s.dead or s.resting or s.mounted or s.taxi then
+	local fight = BestFight(s.known)
+	if s.combat then
+		if fight and not s.resting and (s.on == false or ns.HUNTER_ASPECT_TRAVEL[s.on]) then
+			return fight, "fight"
+		end
 		return nil
 	end
-	for _, id in ipairs(ns.HUNTER_ASPECT_BEST) do
-		if s.known[id] then
-			return id
+	if s.on == nil or s.dead or s.mounted or s.taxi then
+		return nil
+	end
+	local arriving = Arriving(s.dest) and not s.inInstance and not s.resting
+	local cheetah = s.travel and s.known[ns.HUNTER_ASPECT_CHEETAH] and s.travelling and not s.inInstance
+		and not s.hostile and not arriving and ns.HUNTER_ASPECT_CHEETAH or nil
+	if cheetah and not ns.HUNTER_ASPECT_TRAVEL[s.on] then
+		return cheetah, "travel"
+	end
+	if s.resting or not fight then
+		return nil
+	end
+	if s.on == false then
+		return fight, s.hostile and "fight" or "none"
+	end
+	if ns.HUNTER_ASPECT_TRAVEL[s.on] then
+		if s.hostile then
+			return fight, "fight"
+		elseif arriving then
+			return fight, "arrive"
 		end
 	end
 	return nil
