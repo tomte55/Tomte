@@ -480,6 +480,7 @@ ns.BUG_FILES = {
 	"Modules/Nameplates/Read.lua",
 	"Modules/Nameplates/Badge.lua",
 	"Modules/Nameplates/SoftTarget.lua",
+	"Modules/Nameplates/Threat.lua",
 	"Modules/Nameplates/Nameplates.lua",
 	"Modules/Drawers/Data.lua",
 	"Modules/Drawers/Read.lua",

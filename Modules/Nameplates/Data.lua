@@ -1,8 +1,8 @@
 local addonName, ns = ...
 
 -- Nameplates: pure logic (no WoW API calls; unit-tested in tests/test_nameplates.lua). Which quest objective a
--- unit's nameplate shows, the short progress text for it, which widget sets get an item count, and how far a
--- cast is. Read.lua turns the game's tooltip data into the plain lines these functions take.
+-- unit's nameplate shows, the short progress text for it, which widget sets get an item count, the threat number
+-- and its color, and how far a cast is. Read.lua turns the game's tooltip data into the plain lines these functions take.
 
 -- The War Within, Hallowfall: the Keyflame spots' nameplate widget sets, each showing how many Radiant Remnants
 -- you carry (the item you feed the Keyflames). Game IDs; first gathered by Plumber (see README Credits).
@@ -83,6 +83,42 @@ function ns.Plates_QuestState(lines, showParty)
 		return { progress = ns.Plates_Progress(partyText), party = true }
 	end
 	return nil
+end
+
+-- What a threat number on an enemy's nameplate shows, from the game's threat reading of you against it:
+--   { tanking = bool, status = 0..3, raw = percent of the current tank's threat, lead = how far ahead of the next
+--     one you are while you hold aggro (percent, 0 when nobody is near), tank = you play a tank,
+--     helper = someone else is there to hold aggro (a group or a pet) }
+-- Returns { text = "87%", role = theme color role }, or nil when nothing should show (not on its threat list, or no
+-- threat yet). Mirrors the number Blizzard's target frame shows: your share of the tank's threat, or your lead while
+-- you tank. Colors read as good or bad for you: a tank wants aggro, everyone else wants to stay under the tank.
+function ns.Plates_Threat(info)
+	local status = info and info.status
+	if type(status) ~= "number" then
+		return nil
+	end
+	local value
+	if info.tanking then
+		value = (type(info.lead) == "number" and info.lead > 0) and info.lead or 100
+	else
+		value = type(info.raw) == "number" and info.raw or 0
+	end
+	value = math.floor(value + 0.5)
+	if value <= 0 then
+		return nil
+	end
+	local role = ns.Plates_ThreatRoles(info.tank, info.helper)[status] or "text"
+	return { text = value .. "%", role = role }
+end
+
+-- The theme color role for each threat status 0..3 (below the tank, over 100% but not holding aggro, holding it
+-- with someone close, holding it safely). A tank wants aggro; so does a player alone without a pet, who is the tank.
+-- Everyone else wants to stay under the tank.
+local TANK_ROLES = { [0] = "danger", [1] = "danger", [2] = "warning", [3] = "success" }
+local OTHER_ROLES = { [0] = "text", [1] = "warning", [2] = "danger", [3] = "danger" }
+
+function ns.Plates_ThreatRoles(tank, helper)
+	return (tank or not helper) and TANK_ROLES or OTHER_ROLES
 end
 
 -- How far a cast is, 0..1, from the start and end times in milliseconds and now (also in milliseconds).

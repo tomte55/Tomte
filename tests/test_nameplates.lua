@@ -93,6 +93,50 @@ test("CastFraction runs up, channels run down", function()
 	eq(ns.Plates_CastFraction(1000, 3000, 9000), 1)
 end)
 
+test("Threat shows nothing off the threat list or without threat", function()
+	eq(ns.Plates_Threat(nil), nil)
+	eq(ns.Plates_Threat({ status = nil, raw = 50 }), nil)
+	eq(ns.Plates_Threat({ status = 0, raw = 0, helper = true }), nil)
+	eq(ns.Plates_Threat({ status = 0, raw = 0.3, helper = true }), nil)
+end)
+
+test("Threat shows the share of the tank's threat when not tanking", function()
+	local t = ns.Plates_Threat({ status = 0, raw = 86.6, helper = true })
+	eq(t.text, "87%")
+	eq(t.role, "text")
+	eq(ns.Plates_Threat({ status = 1, raw = 112, helper = true }).role, "warning")
+	eq(ns.Plates_Threat({ status = 0, raw = nil, helper = true }), nil)
+end)
+
+test("Threat shows the lead while tanking, 100% when nobody is near", function()
+	eq(ns.Plates_Threat({ tanking = true, status = 3, lead = 245.4, tank = true }).text, "245%")
+	eq(ns.Plates_Threat({ tanking = true, status = 3, lead = 0, tank = true }).text, "100%")
+	eq(ns.Plates_Threat({ tanking = true, status = 3, tank = true }).text, "100%")
+end)
+
+test("Threat colors: a tank wants aggro, others don't", function()
+	eq(ns.Plates_Threat({ tanking = true, status = 3, tank = true }).role, "success")
+	eq(ns.Plates_Threat({ tanking = true, status = 2, tank = true }).role, "warning")
+	eq(ns.Plates_Threat({ status = 1, raw = 90, tank = true }).role, "danger")
+	eq(ns.Plates_Threat({ tanking = true, status = 3, helper = true }).role, "danger")
+	eq(ns.Plates_Threat({ tanking = true, status = 2, helper = true }).role, "danger")
+end)
+
+test("ThreatRoles covers every status", function()
+	for _, roles in ipairs({ ns.Plates_ThreatRoles(true, true), ns.Plates_ThreatRoles(false, true) }) do
+		for status = 0, 3 do
+			eq(type(roles[status]), "string")
+		end
+	end
+	eq(ns.Plates_ThreatRoles(false, false)[3], "success")
+	eq(ns.Plates_ThreatRoles(false, true)[3], "danger")
+end)
+
+test("Threat solo without a pet colors like a tank", function()
+	eq(ns.Plates_Threat({ tanking = true, status = 3 }).role, "success")
+	eq(ns.Plates_Threat({ status = 1, raw = 120 }).role, "danger")
+end)
+
 test("CastFraction is nil for odd times", function()
 	eq(ns.Plates_CastFraction(3000, 3000, 3000), nil)
 	eq(ns.Plates_CastFraction(nil, 3000, 3000), nil)

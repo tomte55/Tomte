@@ -1,8 +1,9 @@
 local addonName, ns = ...
 
--- Nameplates: small additions to Blizzard's nameplates in the open world. A quest icon and progress on units your
--- quests need, the soft (Interact key) target's name with a cast bar, and Radiant Remnant counts on Hallowfall's
--- Keyflames. Rules in Data.lua, reads in Read.lua, badges in Badge.lua, the soft target in SoftTarget.lua.
+-- Nameplates: small additions to Blizzard's nameplates. Your threat on enemies (everywhere), and in the open world a
+-- quest icon and progress on units your quests need, the soft (Interact key) target's name with a cast bar, and
+-- Radiant Remnant counts on Hallowfall's Keyflames. Rules in Data.lua, reads in Read.lua, badges in Badge.lua, the
+-- soft target in SoftTarget.lua, threat in Threat.lua.
 
 -- The War Within: Keyflame plates count Radiant Remnants. The IDs live in Data.lua (unit-tested there), so they're
 -- registered here rather than from Data/WarWithin/, which loads before the module's files. Merged over every
@@ -15,6 +16,7 @@ local function Refresh()
 	if module.active then
 		ns.Plates_BadgesRefresh()
 		ns.Plates_SoftRefresh()
+		ns.Plates_ThreatRefresh()
 	end
 end
 
@@ -55,8 +57,8 @@ module = ns.RegisterModule({
 	name = "Nameplates",
 	category = "interface",
 	icon = 236188, -- ability_hunter_markedfordeath
-	summary = "Quest progress, the Interact target's name and Keyflame counts on Blizzard's nameplates.",
-	description = "Adds to Blizzard's nameplates in the open world: a quest icon with your progress (3/8) on creatures your quests need, the name of what the Interact key would use under its icon with a cast bar while you gather or open it, and how many Radiant Remnants you carry on Hallowfall's Keyflames. Off in dungeons, raids and delves, where the game keeps addons away from nameplates.",
+	summary = "Your threat, quest progress, the Interact target's name and Keyflame counts on Blizzard's nameplates.",
+	description = "Adds to Blizzard's nameplates: your threat as a number beside every enemy you fight, solo or in a group, everywhere. In the open world also a quest icon with your progress (3/8) on creatures your quests need, the name of what the Interact key would use under its icon with a cast bar while you gather or open it, and how many Radiant Remnants you carry on Hallowfall's Keyflames; those stay off in dungeons, raids and delves, where the game keeps addons away from nameplates.",
 	enabledByDefault = false,
 	replaces = {
 		{ addon = "Plumber", why = "quest icons on nameplates, the soft target name and the Keyflame count" },
@@ -73,6 +75,7 @@ module = ns.RegisterModule({
 		softCast = true,
 		softNPC = false,
 		keyflame = true,
+		threat = true,
 		scale = 1,
 	},
 	init = function(moduleDB)
@@ -82,9 +85,11 @@ module = ns.RegisterModule({
 		if active then
 			ns.Plates_BadgesStart(db)
 			ns.Plates_SoftStart(db)
+			ns.Plates_ThreatStart(db)
 		else
 			ns.Plates_BadgesStop()
 			ns.Plates_SoftStop()
+			ns.Plates_ThreatStop()
 		end
 	end,
 	commands = {
@@ -92,8 +97,17 @@ module = ns.RegisterModule({
 		{ "soft", "explain the name under the Interact icon: what Tomte sees and why it shows or not", function()
 			ns.Plates_SoftWhy()
 		end },
+		{ "threat", "show what the game tells Tomte about your threat on your target", function()
+			for _, line in ipairs(ns.Plates_ThreatWhy("target")) do
+				ns.Print(line)
+			end
+		end },
 	},
 	options = {
+		{ type = "header", label = "Threat" },
+		{ type = "checkbox", key = "threat", label = "Threat on enemy nameplates", onChange = Refresh,
+			tooltip = "Your threat as a number under the right end of an enemy's health bar while you fight it, solo too, also in dungeons and raids. Not tanking: your share of the tank's threat (you pull it at 110% in melee range, 130% at range). Tanking: how far ahead of the next one you are. Green, yellow and red say whether that's good for you." },
+
 		{ type = "header", label = "Quests" },
 		{ type = "checkbox", key = "quests", label = "Quest icon on nameplates", onChange = Refresh,
 			preview = BadgePreview,
