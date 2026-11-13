@@ -285,6 +285,7 @@ Modules/Alts/Forget.lua
 Modules/Alts/SendData.lua
 Modules/Alts/ListData.lua
 Modules/Alts/FriendsData.lua
+Modules/Alts/LearnData.lua
 Modules/Alts/Collect.lua
 Modules/Alts/ProfGear.lua
 Modules/Alts/CraftTab.lua
@@ -298,10 +299,12 @@ Modules/Alts/RosterTab.lua
 Modules/Alts/ProfTab.lua
 Modules/Alts/HomeSection.lua
 Modules/Alts/Send.lua
+Modules/Alts/SendDisenchant.lua
 Modules/Alts/Deposit.lua
 Modules/Alts/FriendMail.lua
 Modules/Alts/List.lua
 Modules/Alts/ProfButton.lua
+Modules/Alts/Learnable.lua
 Modules/Alts/RequestsSection.lua
 Modules/Alts/ListTab.lua
 Modules/Alts/Friends.lua

@@ -73,6 +73,23 @@ function ns.Alts_Reachable(c, realms)
 	return realms[NormalRealm(c.realm)] == true
 end
 
+-- The character the mailbox's "To disenchant" group goes to: the one with the most Enchanting skill that mail reaches,
+-- not you (you'd disenchant it yourself). enchanting: Enchanting's skill line; chars as in PlanData.lua. Ties go to
+-- the name first in order, so the same one is picked each time. Returns a guid or nil.
+function ns.Alts_Enchanter(chars, me, realms, enchanting)
+	local best, bestSkill, bestName
+	for guid, c in pairs(chars) do
+		local prof = c.profs and c.profs[enchanting]
+		if guid ~= me and prof and ns.Alts_Reachable(c, realms) then
+			local skill, name = prof.skill or 0, c.name or ""
+			if not best or skill > bestSkill or (skill == bestSkill and name < bestName) then
+				best, bestSkill, bestName = guid, skill, name
+			end
+		end
+	end
+	return best
+end
+
 -- Who gets one item, or nil. ctx = { me, chars, users, plan = { [itemID] = guid }, rules, realms (optional, mail
 -- only: characters on realms mail can't reach are left out) }.
 -- name = the item's name (for name rules). Order: a manual rule, then the craft plan, then whoever knows the most

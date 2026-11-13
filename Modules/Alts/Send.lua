@@ -5,7 +5,8 @@ local addonName, ns = ...
 -- Per group: "Attach" fills the Send Mail tab (recipient, subject, up to MAX_ATTACH stacks), then "Send" sends it.
 -- At the bank, "Deposit for alts" (Deposit.lua) puts the suggested items that may go into the Warband bank there.
 -- With Gear Check's upgrades for alts, Bind on Equip gear that's a clean upgrade for another character gets a "Gear
--- for <name>" group at the mailbox, and warbound gear goes in the Warband bank with the rest. Every move is one click;
+-- for <name>" group at the mailbox, and warbound gear goes in the Warband bank with the rest. Gear worth more as
+-- enchanting materials gets a "To disenchant" group for your enchanter (SendDisenchant.lua). Every move is one click;
 -- nothing happens in combat. Rules in SendData.lua.
 
 local UI = ns.UI
@@ -20,7 +21,8 @@ local db
 local dock
 local groups = {}
 local gearGroups = {}
-local attached -- { guid, stacks } while a mail is filled in and not sent yet
+local deGroups = {} -- "To disenchant" (SendDisenchant.lua): none or one
+local attached -- { guid, stacks, gear, disenchant, craft } while a mail is filled in and not sent yet
 local toppingUp -- { c, amount, money, timer } while a gold top-up is on its way
 local TOPUP_WAIT = 30 -- seconds a gold top-up may wait for its confirmation before it's forgotten
 local REBUILD_EVERY = 1 -- seconds between rebuilds on bag changes at the mailbox or bank
@@ -187,6 +189,17 @@ local function GearMailGroups()
 	return ns.Alts_GearGroups(GearStacks(), "mail", ns.altsDB.chars, ns.Alts_MailRealms())
 end
 
+-- The gear groups and the "To disenchant" group (which leaves out what a gear group takes), and every slot they take.
+local function GearAndDisenchant()
+	local gear = GearMailGroups()
+	local taken = Slots(gear)
+	local de = ns.AltsSend_DisenchantGroups(taken)
+	for key in pairs(Slots(de)) do
+		taken[key] = true
+	end
+	return gear, de, taken
+end
+
 local function Busy()
 	if InCombatLockdown() then
 		ns.Print_Combat("move items for your alts")
@@ -274,8 +287,9 @@ local function Attach(g)
 	local c = ns.altsDB.chars[g.guid]
 	-- Read the bags again: the group's bag slots are from when the panel was drawn, and items may have moved since.
 	local fresh
-	local gear = GearMailGroups()
-	local list = g.gear and gear or ns.Alts_SendGroups(Without(FreeStacks(), Slots(gear)), Context(true), Mailable)
+	local gear, de, taken = GearAndDisenchant()
+	local list = g.gear and gear or g.disenchant and de
+		or ns.Alts_SendGroups(Without(FreeStacks(), taken), Context(true), Mailable)
 	for _, group in ipairs(list) do
 		if group.guid == g.guid then
 			fresh = group
@@ -297,7 +311,7 @@ local function Attach(g)
 	end
 	SendMailNameEditBox:SetText(ns.Alts_MailName(c, GetRealmName()))
 	SendMailSubjectEditBox:SetText(db.sendSubject ~= "" and db.sendSubject or "Tomte")
-	attached = { guid = g.guid, stacks = done, gear = g.gear }
+	attached = { guid = g.guid, stacks = done, gear = g.gear, disenchant = g.disenchant }
 	UI.Sound("confirm")
 	ns.AltsSend_Refresh()
 end
@@ -558,6 +572,43 @@ function ns.AltsSend_Refresh()
 		end
 		y = y + 8
 	end
+	-- To disenchant, for the enchanter: the gear worth more as materials, with what they're worth.
+	for _, g in ipairs(deGroups) do
+		local c = ns.altsDB.chars[g.guid]
+		blocks = blocks + 1
+		local b = Block(blocks)
+		b:ClearAllPoints()
+		b:SetPoint("TOPLEFT", 12, -y)
+		b:SetPoint("RIGHT", -12, 0)
+		b.name:SetText("To disenchant, for " .. UI.ClassColored(c.name or "?", c.class))
+		UI.SetTextRole(b.name, "text")
+		local isAttached = attached and attached.disenchant
+		b.button.label:SetText(isAttached and "Send" or "Attach")
+		b.button.onClick = function()
+			if isAttached then
+				Send()
+			else
+				Attach(g)
+			end
+		end
+		y = y + 24
+		for i, s in ipairs(g.stacks) do
+			lines = lines + 1
+			local fs = Line(lines)
+			fs:ClearAllPoints()
+			fs:SetPoint("TOPLEFT", 22, -y)
+			fs:SetPoint("RIGHT", -12, 0)
+			y = y + ROW_H
+			if i > MAX_ITEM_ROWS then
+				fs:SetText(UI.Wrap(("+ %d more"):format(#g.stacks - MAX_ITEM_ROWS), "textMuted"))
+				break
+			end
+			local icon = s.icon and ("|T%s:14:14:0:0:64:64:5:59:5:59|t "):format(s.icon) or ""
+			local worth = s.destroy and UI.Wrap(ns.Price(s.destroy * (s.count or 1)), "success") or ""
+			fs:SetText(("%s%s %s"):format(icon, s.link or s.name or "?", worth))
+		end
+		y = y + 8
+	end
 	if blocks > 0 and #groups > 0 then
 		lines = lines + 1
 		local fs = Line(lines)
@@ -578,6 +629,7 @@ function ns.AltsSend_Refresh()
 		b.name:SetText(("%s  %s"):format(c.name or "?", UI.Wrap(("%d stack%s"):format(#g.stacks, #g.stacks == 1 and "" or "s"), "textMuted")))
 		b.name:SetTextColor(color[1], color[2], color[3])
 		local isAttached = attached and attached.guid == g.guid and not attached.craft and not attached.gear
+			and not attached.disenchant
 		b.button.label:SetText(isAttached and "Send" or "Attach")
 		b.button.onClick = function()
 			if isAttached then
@@ -663,11 +715,12 @@ end
 
 local function Rebuild()
 	if not (db.sendMail and ns.altsDB) then
-		groups, gearGroups = {}, {}
+		groups, gearGroups, deGroups = {}, {}, {}
 		return
 	end
-	gearGroups = GearMailGroups()
-	groups = ns.Alts_SendGroups(Without(FreeStacks(), Slots(gearGroups)), Context(true), Mailable)
+	local taken
+	gearGroups, deGroups, taken = GearAndDisenchant()
+	groups = ns.Alts_SendGroups(Without(FreeStacks(), taken), Context(true), Mailable)
 end
 
 local function ShowDock()
@@ -679,7 +732,7 @@ local function ShowDock()
 	end
 	Rebuild()
 	local hasGold = db.sendGold and db.sendGold > 0
-	dock:SetShown(#groups > 0 or #gearGroups > 0 or hasGold or #CraftMails() > 0)
+	dock:SetShown(#groups > 0 or #gearGroups > 0 or #deGroups > 0 or hasGold or #CraftMails() > 0)
 	ns.AltsSend_Refresh()
 end
 

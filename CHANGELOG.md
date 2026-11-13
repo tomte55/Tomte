@@ -25,12 +25,15 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### Improved
 
+- **Hunter Pets:** on World of Warcraft: Forever, the aspect button offers Aspect of the Cheetah when you're travelling (sooner when the quest you follow is far away, in cities too) and the Hawk again when you're close to a quest you'll fight at, target something to fight, or start a fight with Cheetah or Pack on. Never a fighting aspect in cities and inns.
 - **Toasts:** a line along the bottom of each toast shows how long it stays; it stops while you hover the toast.
 - **Other addons:** Tomte works alongside MelloUI on World of Warcraft: Forever. Bags, Channel Tags, Waypoints and the Quest list stay off while MelloUI's own version is on; Vendor Helper's repair and grey selling, the Chat Copy icon, the nameplate quest icon and quest accepting and handing in give way to MelloUI's when those are on there. Switching one in /mello takes effect at once, no /reload.
 - **Gear Check:** on World of Warcraft: Forever, roll advice says Greed on an upgrade of under 2% when a party member gets much more out of the item (their class and group role), and names them: "Built for Kesha (healer), only +0.8% for you".
 - **Gear Check:** the quest reward card picks a recipe for one of your professions when no gear is an upgrade, and says when you can learn it.
 - **Quest list:** following the nearest quest leaves your own map pin alone, and picks up again once you remove it. Next quests does the same.
 - **Gear Check:** on World of Warcraft: Forever, a one-hander that fills an empty off-hand counts for warriors, rogues and hunters who dual wield, and says "Upgrade once you learn Dual Wield" before you've learned it (so the roll advice says Need).
+- **Alts:** a toast when a recipe item in your bags, your bank or the Warband bank becomes one you can learn, after a profession skill-up or a new level, and when you loot or buy one you can learn. `/tomte alts learnable` lists them.
+- **Alts:** at the mailbox, a "To disenchant" group sends the gear that's worth more as enchanting materials (Gold & value's disenchant marker) to your character with the most Enchanting skill.
 - **Alts:** an Add to list button in the game's profession window puts the selected recipe on the crafting list, as many times as the number beside Create.
 - **Bags:** a marks editor (Bags settings, Marks on items) with a live preview: pick each mark's corner and which one wins a shared corner. The transmog mark is a coat hanger and the crafting list mark a small list, so no two marks look alike.
 

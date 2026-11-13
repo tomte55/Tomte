@@ -185,6 +185,23 @@ test("DepositOutcome: emptied or changed slots moved, locked ones on their way, 
 	eq(moving, 1, "on its way")
 end)
 
+test("Enchanter: the most Enchanting skill that mail reaches, never you", function()
+	local ENCHANTING = 333
+	local chars = {
+		me = { name = "Aldric", realm = "Home", profs = { [ENCHANTING] = { skill = 300 } } },
+		mira = { name = "Mira", realm = "Home", profs = { [ENCHANTING] = { skill = 40 } } },
+		kesha = { name = "Kesha", realm = "Home", profs = { [ENCHANTING] = { skill = 90 } } },
+		far = { name = "Brann", realm = "Elsewhere", profs = { [ENCHANTING] = { skill = 200 } } },
+		none = { name = "Tova", realm = "Home", profs = { [171] = { skill = 300 } } },
+	}
+	local realms = ns.Alts_RealmSet({}, "Home")
+	eq(ns.Alts_Enchanter(chars, "me", realms, ENCHANTING), "kesha", "highest skill mail reaches")
+	chars.kesha.profs[ENCHANTING].skill = 40
+	eq(ns.Alts_Enchanter(chars, "me", realms, ENCHANTING), "kesha", "a tie goes to the first name")
+	eq(ns.Alts_Enchanter(chars, "me", nil, ENCHANTING), "far", "realms unknown: everyone is reachable")
+	eq(ns.Alts_Enchanter({ me = chars.me, none = chars.none }, "me", realms, ENCHANTING), nil, "no enchanter")
+end)
+
 test("DepositText: all, some, none and why", function()
 	eq(ns.Alts_DepositText(0, 0), "nothing to put in the Warband bank for your alts.")
 	eq(ns.Alts_DepositText(1, 1), "put 1 stack in the Warband bank for your alts.")

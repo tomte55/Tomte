@@ -428,6 +428,7 @@ module = ns.RegisterModule({
 		roster = "compact",
 		sort = "level",
 		tooltip = true,
+		learnToast = true, -- a toast for recipes you hold that a skill-up or level made learnable (Learnable.lua)
 		filterChar = "all",
 		filterProf = "all",
 		filterShow = "learnable",
@@ -435,6 +436,7 @@ module = ns.RegisterModule({
 		haveMats = false,
 		collapsed = {},
 		sendMail = true,
+		sendDisenchant = true, -- the mailbox's "To disenchant" group for your enchanter (SendDisenchant.lua)
 		sendWarband = true,
 		sendPlan = true,
 		sendRules = "",
@@ -520,6 +522,7 @@ module = ns.RegisterModule({
 			ns.AltsSend_Start(db)
 			ns.AltsList_Start(db)
 			ns.AltsProfButton_Start()
+			ns.AltsLearnable_Start(db)
 			ns.AltsFriends_Start()
 			ns.AltsFriendMail_Start(db)
 		else
@@ -527,6 +530,7 @@ module = ns.RegisterModule({
 			ns.AltsSend_Stop()
 			ns.AltsList_Stop()
 			ns.AltsProfButton_Stop()
+			ns.AltsLearnable_Stop()
 			ns.AltsFriends_Stop()
 			ns.AltsFriendMail_Stop()
 		end
@@ -538,6 +542,10 @@ module = ns.RegisterModule({
 			.. "Friend sharing; a friend's characters show when mail can reach them (your realm and faction)." },
 		{ type = "checkbox", key = "tooltip", label = "\"Crafted by\" on item tooltips",
 			tooltip = "Item tooltips say which of your characters crafts the item, or who could learn it." },
+		{ type = "checkbox", key = "learnToast", label = "Toast for recipes you can learn now",
+			tooltip = "After a profession skill-up or a new level, a toast names the patterns, plans and recipes in "
+				.. "your bags, your bank and the Warband bank that you can learn now, and one you loot or buy that "
+				.. "you can learn gets a toast too. Your bank as last seen needs Item counts." },
 		{ type = "dropdown", key = "chain", label = "Crafted materials", onChange = function()
 			ns.AltsCraft_Refresh()
 		end, choices = function()
@@ -555,6 +563,10 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Send to alt" },
 		{ type = "checkbox", key = "sendMail", label = "\"For your alts\" at the mailbox",
 			tooltip = "Beside the mail frame: what you carry that another character crafts with (and you don't), grouped by who gets it. Attach fills the Send Mail tab, Send sends it (12 stacks a mail)." },
+		{ type = "checkbox", key = "sendDisenchant", label = "\"To disenchant\" for your enchanter", parent = "sendMail",
+			tooltip = "At the mailbox, gear that isn't bound and whose materials are worth more than selling it goes "
+				.. "to your character with the most Enchanting skill. Needs Gold & value and TSM's prices; not shown "
+				.. "when you're an enchanter yourself." },
 		{ type = "checkbox", key = "sendWarband", label = "\"Deposit for alts\" at the bank",
 			shown = function()
 				return ns.Alts_WarbandLive()
@@ -616,6 +628,9 @@ module = ns.RegisterModule({
 	commands = {
 		{ "open", "open the Alts page", function()
 			ns.Panel_OpenPage("alts")
+		end },
+		{ "learnable", "list the recipe items you hold and whether you can learn them now", function()
+			ns.AltsLearnable_Print()
 		end },
 		{ "forget", "forget a character everywhere: /tomte alts forget <name>[-<realm>]", Forget, whileOff = true },
 		{ "why", "why Materials on hand keeps or drops a recipe: /tomte alts why <recipe>", function(text)

@@ -96,10 +96,11 @@ end
 
 -- The same for an item known by its link alone (your bank as last seen): its tooltip says it for the character
 -- you're on. Kept per link until usableGen moves, as a slot's record keeps it: list records are made on every draw.
+-- fresh: read it now (usableGen only moves while Bags is on; Alts' learnable recipes read with Bags off too).
 local linkRed = {} -- [link] = { at = usableGen, red }
-local function LinkUnusable(link)
+local function LinkUnusable(link, fresh)
 	local c = linkRed[link]
-	if not (c and c.at == usableGen) then
+	if fresh or not (c and c.at == usableGen) then
 		c = { at = usableGen, red = #RedLines(C_TooltipInfo.GetHyperlink(link)) > 0 }
 		linkRed[link] = c
 	end
