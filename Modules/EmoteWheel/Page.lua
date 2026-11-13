@@ -17,6 +17,7 @@ local CHIP_GAP = 6
 local CHIP_USED = 0.6 -- the dot on an emote another slice already has
 local CHIP_LIT = 0.22 -- the accent wash on the picked slice's emote
 local BOX_H = 26
+local CMD_INSET = 6 -- the Command box's space above and below its lines
 local GAP = 12 -- between the editor's groups
 local FOOT_H = 26 -- the move / remove row
 local MODES = {
@@ -533,6 +534,12 @@ local function BuildEditor()
 	ed.cmd = CreateFrame("Frame", nil, ed.body)
 	ed.cmd:SetAllPoints()
 	ed.command = Box(ed.cmd, "/bow, /w %t Thanks!, or text to say", SetText)
+	ed.command:SetMultiLine(true) -- grows with its lines
+	ed.command:SetTextInsets(8, 8, CMD_INSET, CMD_INSET)
+	ed.command:SetScript("OnEnterPressed", nil) -- Enter starts a new line
+	ed.command.placeholder:ClearAllPoints()
+	ed.command.placeholder:SetPoint("TOPLEFT", 8, -CMD_INSET)
+	ed.command.placeholder:SetPoint("RIGHT", -8, 0)
 	ed.command:SetPoint("TOPLEFT")
 	ed.command:SetPoint("RIGHT")
 	ed.cmdHelp = UI.Text(ed.cmd, 12, "textMuted")
@@ -540,7 +547,8 @@ local function BuildEditor()
 	ed.cmdHelp:SetPoint("RIGHT")
 	ed.cmdHelp:SetJustifyH("LEFT")
 	ed.cmdHelp:SetText("An emote like /bow goes to your target. %t becomes your target's name. Any chat command works "
-		.. "(/p, /g, /e ...), and other addons' commands too. Text without a / at the start is said out loud.")
+		.. "(/p, /g, /e ...), and other addons' commands too. Text without a / at the start is said out loud. Put "
+		.. "each thing on a line of its own (Enter) and one press runs them all, like a macro: Thanks! and then /ty.")
 
 	ed.none = UI.Text(ed, 13, "textMuted")
 	ed.none:SetPoint("TOPLEFT", ed.sub, "BOTTOMLEFT", 0, -GAP)

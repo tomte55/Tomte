@@ -22,6 +22,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Emote Wheel:** a new look: separate shaded slices with a gap between them, a lit edge on the slice you point at, a soft shadow so it reads on bright ground, and long names on slanted slices fitted between the dividers.
 - **Emote Wheel:** slices are set up on their own page (Edit the wheel in its settings, or `/tomte emotewheel edit`): click a slice on the wheel and pick an emote from a searchable list of every emote, write a chat line (say, yell, party, guild or a whisper to your target) or any command, and drag slices around the wheel to reorder them. Each emote shows whether your character acts it out and whether it has a voice line.
+- **Emote Wheel:** a slice can run several lines on one press, like a macro without making one: put "Thanks!" and `/ty` on lines of their own in the Command box.
 
 ### Fixed
 

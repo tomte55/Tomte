@@ -182,6 +182,28 @@ test("describe says what a slice does", function()
 	eq(ns.EmoteWheel_Describe("", MORE), "Pick an emote, or write a line to say.")
 end)
 
+test("several lines: run in turn, like a macro", function()
+	local lines = ns.EmoteWheel_Lines(" Thanks! \r\n\n  /ty  \n")
+	eq(#lines, 2, "empty lines left out")
+	eq(lines[1], "Thanks!", "trimmed")
+	eq(lines[2], "/ty")
+	eq(#ns.EmoteWheel_Lines(""), 0)
+	eq(ns.EmoteWheel_OneLine("Thanks!\n/ty"), "Thanks!; /ty")
+	eq(ns.EmoteWheel_OneLine("/bow"), "/bow")
+	eq(ns.EmoteWheel_Label({ name = "", text = "/ty\nThanks!" }), "Ty", "label from the first line")
+	eq(ns.EmoteWheel_Label({ name = "", text = "Thanks!\n/ty" }), "Thanks!")
+	eq(Kind("Thanks!\n/ty"), "command", "the editor shows several lines as a command")
+	eq(Kind("/ty\n"), "emote|THANK", "a trailing empty line is still one line")
+	eq(ns.EmoteWheel_Describe("Thanks!\n/ty", MORE),
+		"Says \"Thanks!\". Then does /ty, at your target if you have one.")
+	-- A lone / (typing the next line) used to error in Parse and Kind.
+	eq(ns.EmoteWheel_Parse("/", MORE), nil, "a / alone does nothing")
+	eq(Kind("/"), "command")
+	eq(ns.EmoteWheel_Describe("Thanks!\n/", MORE), "Says \"Thanks!\". Then sends nothing yet: add a message.")
+	local list = ns.EmoteWheel_Slices({ s1 = { name = "", text = "Thanks!\n/ty\n" } })
+	eq(list[1].text, "Thanks!\n/ty", "a slice keeps its lines")
+end)
+
 test("extras: acts out, voice line for this race and sex", function()
 	local saved = { ns.EMOTEWHEEL_ACTS, ns.EMOTEWHEEL_VOICE }
 	ns.EMOTEWHEEL_ACTS = { WAVE = true, CHEER = true }

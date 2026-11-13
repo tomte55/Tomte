@@ -162,12 +162,8 @@ local function ChatLocked()
 	return C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown()
 end
 
-local function Run(slice)
-	local text = ns.EmoteWheel_Fill(slice.text, TargetName())
-	if not text then
-		ns.Print(("%s needs a target."):format(UI.Wrap(ns.EmoteWheel_Label(slice), "accent")))
-		return
-	end
+-- One line of a slice, %t already filled in.
+local function RunLine(slice, text)
 	local action = ns.EmoteWheel_Parse(text, Lookups())
 	if not action then
 		ns.Print(("%s has nothing to send: %s"):format(UI.Wrap(ns.EmoteWheel_Label(slice), "accent"), text))
@@ -191,6 +187,18 @@ local function Run(slice)
 			action.command))
 	else
 		ns.Print(("Unknown command: %s"):format(action.command))
+	end
+end
+
+-- Every line in turn, all on the same key press. A slice with %t anywhere and no target runs none of them.
+local function Run(slice)
+	local text = ns.EmoteWheel_Fill(slice.text, TargetName())
+	if not text then
+		ns.Print(("%s needs a target."):format(UI.Wrap(ns.EmoteWheel_Label(slice), "accent")))
+		return
+	end
+	for _, line in ipairs(ns.EmoteWheel_Lines(text)) do
+		RunLine(slice, line)
 	end
 end
 
@@ -407,10 +415,12 @@ ns.RegisterModule({
 		{ "slices", "list the wheel's slices and what each one does", function()
 			local lookups = Lookups()
 			for _, slice in ipairs(ns.EmoteWheel_Slices(db.slots)) do
-				local action = ns.EmoteWheel_Parse(ns.EmoteWheel_Fill(slice.text, "Target") or slice.text, lookups)
-				ns.Print(("%d. %s: %s -> %s"):format(slice.slot, ns.EmoteWheel_Label(slice), slice.text,
-					action and action.kind .. (action.token and (" " .. action.token) or action.chatType
-						and (" " .. action.chatType) or "") or "nothing"))
+				for _, line in ipairs(ns.EmoteWheel_Lines(slice.text)) do
+					local action = ns.EmoteWheel_Parse(ns.EmoteWheel_Fill(line, "Target") or line, lookups)
+					ns.Print(("%d. %s: %s -> %s"):format(slice.slot, ns.EmoteWheel_Label(slice), line,
+						action and action.kind .. (action.token and (" " .. action.token) or action.chatType
+							and (" " .. action.chatType) or "") or "nothing"))
+				end
 			end
 		end },
 	},

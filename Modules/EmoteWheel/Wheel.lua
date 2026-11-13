@@ -99,9 +99,10 @@ local function Turn(t, count, i)
 	t:SetRotation(-Angle(i, count))
 end
 
--- The slice text with %t filled in, for showing (the target's name, or "%t" left as it is without one).
+-- The slice text with %t filled in, for showing (the target's name, or "%t" left as it is without one), its lines
+-- joined into one.
 local function Shown(text, target)
-	return ns.EmoteWheel_Fill(text, target) or text
+	return ns.EmoteWheel_OneLine(ns.EmoteWheel_Fill(text, target) or text)
 end
 
 -- What a slice is called on the wheel; a slice the editor hasn't filled yet (no text) shows opts.emptyLabel.

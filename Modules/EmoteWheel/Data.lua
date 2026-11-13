@@ -1,8 +1,9 @@
 local addonName, ns = ...
 
 -- Emote wheel: pure logic (no WoW API calls; unit-tested in tests/test_emotewheel.lua). What a slice's text means
--- (an emote, a chat line, another slash command), which slice the cursor points at, and when a buff is worth a thank
--- you. The wheel is drawn in Wheel.lua, buff thanks live in Thanks.lua, registered in EmoteWheel.lua.
+-- (an emote, a chat line, another slash command, or several lines run in turn), which slice the cursor points at,
+-- and when a buff is worth a thank you. The wheel is drawn in Wheel.lua, buff thanks live in Thanks.lua, registered
+-- in EmoteWheel.lua.
 
 ns.EMOTEWHEEL_MIN, ns.EMOTEWHEEL_MAX = 4, 12 -- slices on the wheel; fewer filled slots than the minimum still draw
 ns.EMOTEWHEEL_LONG_BUFF = 600 -- seconds: a buff shorter than this (a heal over time, a short shield) isn't thanked
@@ -27,17 +28,36 @@ function ns.EmoteWheel_Slices(slots)
 	return list
 end
 
--- The name shown on a slice: its own, else made from the command ("/bow" -> "Bow"), else the text's start.
+-- A slice's text as its lines, trimmed, empty ones left out. Several lines run one after another on one press, like
+-- a macro ("Thanks!" then "/ty").
+function ns.EmoteWheel_Lines(text)
+	local lines = {}
+	for line in (text or ""):gmatch("[^\r\n]+") do
+		line = line:match("^%s*(.-)%s*$")
+		if line ~= "" then
+			lines[#lines + 1] = line
+		end
+	end
+	return lines
+end
+
+-- The text on one line, for showing on the wheel: "Thanks!; /ty".
+function ns.EmoteWheel_OneLine(text)
+	return table.concat(ns.EmoteWheel_Lines(text), "; ")
+end
+
+-- The name shown on a slice: its own, else made from the (first line's) command ("/bow" -> "Bow"), else its start.
 function ns.EmoteWheel_Label(slice)
 	local name = slice.name and slice.name:match("^%s*(.-)%s*$") or ""
 	if name ~= "" then
 		return name
 	end
-	local cmd = slice.text:match("^/(%S+)$")
+	local first = ns.EmoteWheel_Lines(slice.text)[1] or ""
+	local cmd = first:match("^/(%S+)$")
 	if cmd then
 		return cmd:sub(1, 1):upper() .. cmd:sub(2):lower()
 	end
-	return ns.EmoteWheel_Short(slice.text, 12)
+	return ns.EmoteWheel_Short(first, 12)
 end
 
 -- text cut to max characters with "..." (counted in characters, not bytes, so accented letters aren't split).
@@ -88,6 +108,9 @@ function ns.EmoteWheel_Parse(text, lookups)
 		return { kind = "chat", chatType = "SAY", text = text }
 	end
 	local command, rest = text:match("^(/%S+)%s*(.-)$")
+	if not command then
+		return nil -- a / with nothing after it (yet): nothing to do
+	end
 	local upper = command:upper()
 	local chatType = lookups.chat and lookups.chat[upper]
 	if chatType then
@@ -158,16 +181,22 @@ end
 
 -- Which of the editor's three ways a slice's text is: "emote", token (nil while none is picked: empty text) |
 -- "line", chatType, message (one of EMOTEWHEEL_LINE_TYPES; text without a slash is said) | "command" (anything
--- else). lookups as for EmoteWheel_Parse.
+-- else, and any slice of several lines). lookups as for EmoteWheel_Parse.
 function ns.EmoteWheel_Kind(text, lookups)
 	text = Trim(text)
 	if text == "" then
 		return "emote", nil
 	end
+	if #ns.EmoteWheel_Lines(text) > 1 then
+		return "command"
+	end
 	if text:sub(1, 1) ~= "/" then
 		return "line", "SAY", text
 	end
 	local command, rest = text:match("^(/%S+)%s*(.-)$")
+	if not command then
+		return "command" -- a / with nothing after it yet
+	end
 	local upper = command:upper()
 	local chatType = lookups.chat and lookups.chat[upper]
 	if chatType then
@@ -204,11 +233,21 @@ function ns.EmoteWheel_Line(chatType, message, commands)
 	return message ~= "" and (command .. " " .. message) or command
 end
 
--- One sentence on what a slice's text does, for the editor. %t shows as [target].
+-- One sentence on what a slice's text does, for the editor (one per line, "Then ..." after the first). %t shows as
+-- [target].
 function ns.EmoteWheel_Describe(text, lookups)
 	text = Trim(text)
 	if text == "" then
 		return "Pick an emote, or write a line to say."
+	end
+	local lines = ns.EmoteWheel_Lines(text)
+	if #lines > 1 then
+		local parts = {}
+		for i, line in ipairs(lines) do
+			local said = ns.EmoteWheel_Describe(line, lookups)
+			parts[i] = i == 1 and said or ("Then " .. said:sub(1, 1):lower() .. said:sub(2))
+		end
+		return table.concat(parts, " ")
 	end
 	local action = ns.EmoteWheel_Parse(text, lookups)
 	local function Shown(s)
