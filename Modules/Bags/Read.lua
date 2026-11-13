@@ -76,10 +76,9 @@ local function SaysUnusable(text, color)
 end
 
 -- What the item's tooltip says in red: class, skill or level on the left of a line, armor or weapon type on the right
--- ("Legs    Mail"). { { type, text } } (empty when it's usable).
-local function RedLines(bag, slot)
+-- ("Legs    Mail"). data: its tooltip data. { { type, text } } (empty when it's usable).
+local function RedLines(data)
 	local red = {}
-	local data = C_TooltipInfo.GetBagItem(bag, slot)
 	for _, line in ipairs(data and data.lines or {}) do
 		if SaysUnusable(line.leftText, line.leftColor) then
 			red[#red + 1] = { type = line.type, text = line.leftText }
@@ -92,12 +91,25 @@ local function RedLines(bag, slot)
 end
 
 local function Unusable(bag, slot)
-	return #RedLines(bag, slot) > 0
+	return #RedLines(C_TooltipInfo.GetBagItem(bag, slot)) > 0
+end
+
+-- The same for an item known by its link alone (your bank as last seen): its tooltip says it for the character
+-- you're on. Kept per link until usableGen moves, as a slot's record keeps it: list records are made on every draw.
+local linkRed = {} -- [link] = { at = usableGen, red }
+local function LinkUnusable(link)
+	local c = linkRed[link]
+	if not (c and c.at == usableGen) then
+		c = { at = usableGen, red = #RedLines(C_TooltipInfo.GetHyperlink(link)) > 0 }
+		linkRed[link] = c
+	end
+	return c.red
 end
 
 -- Whether the bag item's tooltip says in red you can't use it. Also Gold & value's item markers' (works with the
 -- Bags module off: it reads nothing of the module's).
 ns.BagsRead_Unusable = Unusable
+ns.BagsRead_LinkUnusable = LinkUnusable
 
 -- /tomte bags red: each bag item tinted red and the tooltip lines that did it (type and text).
 function ns.BagsRead_PrintRed()
@@ -107,7 +119,7 @@ function ns.BagsRead_PrintRed()
 			local info = C_Container.GetContainerItemInfo(bag, slot)
 			local _, _, _, _, _, _, _, _, _, _, _, classID = info and info.hyperlink and C_Item.GetItemInfo(info.hyperlink)
 			if classID and CAN_BE_UNUSABLE[classID] then
-				for _, line in ipairs(RedLines(bag, slot)) do
+				for _, line in ipairs(RedLines(C_TooltipInfo.GetBagItem(bag, slot))) do
 					found = true
 					print(("  %s: line type %s, \"%s\""):format(info.hyperlink, tostring(line.type),
 						tostring(line.text)))
@@ -244,11 +256,31 @@ function ns.BagsRead_Bags(containers)
 	return items, pending
 end
 
--- Item records for another character's items (Item counts' record: { { id, link, count } }), for looking only: no
--- bag or slot of yours (bag is LIST_BAG, slot the index), no upgrade arrows (they'd judge them for the character
--- you're on). Items whose data hasn't loaded show their icon and are read again on the next draw.
+-- What a slot's record has that a link can say too, for the character you're on: red when you can't use it, the
+-- upgrade arrow and Gold & value's item marker (as Marker does for a slot).
+local function JudgeOwn(item)
+	if CAN_BE_UNUSABLE[item.classID] then
+		item.unusable = LinkUnusable(item.link)
+	end
+	if (item.classID == WEAPON or item.classID == ARMOR) and ns.Gear_BagArrow then
+		item.upgrade = ns.Gear_BagArrow(item.link)
+		item.junk = ns.Bags_IsJunk(item.quality, item.price == 0, item.bind, item.upgrade)
+	end
+	item.greyJunk = item.junk
+	local marker = ns.Value_LinkMarker and ns.Value_LinkMarker(item.link, item.count)
+	if marker == nil then -- Gold & value is off
+		marker = item.greyJunk and { kind = "vendor" } or nil
+	end
+	item.marker = marker and marker.kind and marker or nil
+	item.junk = item.greyJunk and not (item.marker and item.marker.kind ~= "vendor") or false
+end
+
+-- Item records for items known by a list (Item counts' record: { { id, link, count } }), for looking only: no bag or
+-- slot of yours (bag is LIST_BAG, slot the index). own: they're yours to use (your bank or the Warband bank as last
+-- seen), so they're judged for the character you're on (red, upgrade arrows, item markers); another character's
+-- aren't. Items whose data hasn't loaded show their icon and are read again on the next draw.
 local LIST_BAG = -100
-function ns.BagsRead_FromList(list)
+function ns.BagsRead_FromList(list, own)
 	local items = {}
 	for i, entry in ipairs(list) do
 		local link = entry.link
@@ -273,6 +305,9 @@ function ns.BagsRead_FromList(list)
 			if classID == WEAPON or classID == ARMOR then
 				item.ilvl = C_Item.GetDetailedItemLevelInfo(link)
 				item.look = ns.NewAppearance(link)
+			end
+			if own then
+				JudgeOwn(item)
 			end
 		end
 		items[#items + 1] = item

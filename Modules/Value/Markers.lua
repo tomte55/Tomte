@@ -16,6 +16,7 @@ local CHANGE_DELAY = 0.5 -- seconds to gather a burst of quest log, gear or skil
 -- after login), so a marker is judged again on the first draw after this.
 local PRICE_TTL = 60
 local RECIPE = 9 -- Enum.ItemClass.Recipe
+local BIND_ON_PICKUP, BIND_QUEST = 1, 4 -- Enum.ItemBind
 local BAGS = { 0, 1, 2, 3, 4, 5 } -- Backpack .. ReagentBag (Enum.BagIndex): the summary's count
 -- Forever has no profession equipment class: Bags_ItemClass files its tools under it. Nil on retail.
 local TOOLS = ns.FOREVER and ns.Content_Get(ns.CONTENT_FOREVER, "professionTools") or nil
@@ -28,6 +29,7 @@ local events = ns.NewEvents()
 ns.Value_Events = events
 
 local cache = {} -- [bag * 1000 + slot] = { link, total, gen, at (GetTime), marker }
+local linkCache = {} -- [link] = { total, gen, at, marker }: items known by their link alone (Value_LinkMarker)
 local gen = 0 -- bumped when anything a marker depends on changed: every cached marker is judged again
 local quests -- { { title, objectives = { texts } } } from the quest log; nil until read again
 local sets -- ns.EquipmentSetSlots(), nil until read again
@@ -72,10 +74,13 @@ local function DestroyValue(itemID, classID, quality)
 	return ns.ValueSell_TSMNumber and ns.ValueSell_TSMNumber("Destroy", "i:" .. itemID)
 end
 
--- The facts MarkerData.lua's rules read, for the item in a bag slot; nil while its data is loading (or unreadable).
-local function Facts(bag, slot, info, inSet)
-	local link, itemID = info.hyperlink, info.itemID
-	if not link or IsSecret(link, itemID, info.stackCount) then
+-- The facts MarkerData.lua's rules read; nil while the item's data is loading (or unreadable). src: the item, from a
+-- bag slot (SlotSource) or from a link alone (Value_LinkMarker): { link, itemID, stackCount, quality, hasNoValue,
+-- isBound, hasLoot, quest (ItemQuestInfo or nil), location (an ItemLocation or nil), tooltip() (its tooltip data),
+-- unusable() (whether it says in red you can't use it) }.
+local function Facts(src, inSet)
+	local link, itemID = src.link, src.itemID
+	if not link or IsSecret(link, itemID, src.stackCount) then
 		return nil
 	end
 	if link:find("|Hbattlepet:") then
@@ -86,41 +91,41 @@ local function Facts(bag, slot, info, inSet)
 		return nil
 	end
 	classID = ns.Bags_ItemClass(itemID, classID, subclassID, TOOLS)
-	local bind = ns.Bags_BindState(bindType, info.isBound)
+	local bind = ns.Bags_BindState(bindType, src.isBound)
 	local f = {
 		ignored = db.markers.ignore[itemID] == true,
 		skip = SKIP[classID] or (ns.BAGS_HEARTHS[itemID] and "hearth") or nil,
-		quality = info.quality or quality, classID = classID, vendor = price or 0, noValue = info.hasNoValue,
+		quality = src.quality or quality, classID = classID, vendor = price or 0, noValue = src.hasNoValue,
 		bound = bind == "soulbound" or bind == "warbound",
 		consumable = classID == CONSUMABLE,
-		count = math.max(C_Item.GetItemCount(itemID), info.stackCount or 1),
+		count = math.max(C_Item.GetItemCount(itemID), src.stackCount or 1),
 		minGain = db.sell.minGain,
 		inSet = inSet,
 	}
 	if f.ignored or f.skip then
 		return f
 	end
-	local quest = C_Container.GetContainerItemQuestInfo(bag, slot)
+	local quest = src.quest
 	f.questItem = quest and quest.isQuestItem or false
 	f.startsQuest = quest and quest.questID ~= nil or false
 	f.questDone = f.startsQuest and C_QuestLog.IsQuestFlaggedCompleted(quest.questID) or false
 	f.questActive = f.startsQuest and quest.isActive == true or false
-	f.openable = info.hasLoot == true -- ContainerItemInfo: it opens with a right-click
+	f.openable = src.hasLoot == true -- ContainerItemInfo: it opens with a right-click
 	quests = quests or ReadQuests()
 	f.questFor = ns.Value_QuestFor(name, quests)
 	if classID == WEAPON or classID == ARMOR then
 		if ns.Gear_BagArrow then -- Gear Check's, retail or Forever; looked up at call time (it may be off)
-			f.upgrade = ns.Gear_BagArrow(link, ItemLocation:CreateFromBagAndSlot(bag, slot), info.isBound)
+			f.upgrade = ns.Gear_BagArrow(link, src.location, src.isBound)
 		end
 		local look = ns.NewAppearance(link)
 		-- Another class's look only counts while the item can still go to one of your characters.
 		f.newLook = look == "you" or (look == "other" and bind ~= "soulbound")
-		f.unusable = ns.BagsRead_Unusable(bag, slot)
+		f.unusable = src.unusable()
 		f.destroy = DestroyValue(itemID, classID, f.quality)
 		f.canDisenchant = f.destroy ~= nil and ns.SpellKnown(DISENCHANT)
 	end
 	if classID == RECIPE and ns.Alts_RecipeLearnersFor then -- Alts may be off: then nil, and the selling rules decide
-		f.recipe = ns.Value_RecipeFact(ns.Alts_RecipeLearnersFor(itemID, C_TooltipInfo.GetBagItem(bag, slot)))
+		f.recipe = ns.Value_RecipeFact(ns.Alts_RecipeLearnersFor(itemID, src.tooltip()))
 	end
 	f.collectible = IsCollectible(itemID)
 	f.crafting = ns.AltsList_Marked ~= nil and (ns.AltsList_Marked(itemID) or 0) ~= 0 and true or false
@@ -129,6 +134,22 @@ local function Facts(bag, slot, info, inSet)
 end
 
 -- Markers -------------------------------------------------------------------------------------------------------------
+
+-- Facts' source for the item in a bag slot.
+local function SlotSource(bag, slot, info)
+	return {
+		link = info.hyperlink, itemID = info.itemID, stackCount = info.stackCount, quality = info.quality,
+		hasNoValue = info.hasNoValue, isBound = info.isBound, hasLoot = info.hasLoot,
+		quest = C_Container.GetContainerItemQuestInfo(bag, slot),
+		location = ItemLocation:CreateFromBagAndSlot(bag, slot),
+		tooltip = function()
+			return C_TooltipInfo.GetBagItem(bag, slot)
+		end,
+		unusable = function()
+			return ns.BagsRead_Unusable(bag, slot)
+		end,
+	}
+end
 
 local function InSet(bag, slot)
 	sets = sets or ns.EquipmentSetSlots()
@@ -160,13 +181,53 @@ function ns.Value_BagMarker(bag, slot, inSet)
 	if inSet == nil then
 		inSet = InSet(bag, slot)
 	end
-	local f = Facts(bag, slot, info, inSet)
+	local f = Facts(SlotSource(bag, slot, info), inSet)
 	if not f then
 		return {} -- loading: not cached, asked again on the next draw
 	end
 	local marker = ns.Value_Marker(f)
 	marker.facts = f
 	cache[key] = { link = info.hyperlink, total = total, gen = gen, at = now, marker = marker }
+	return marker
+end
+
+-- The marker for an item known by its link alone: your bank as last seen, read away from the banker (Modules/Bags
+-- Bank.lua). Judged for the character you're on, so only for your own and the Warband bank. Nothing a slot would add:
+-- no quest-starter flag, no "opens", no equipment set. Kept per link as the bag slots' markers are.
+function ns.Value_LinkMarker(link, count)
+	if not Active() then
+		return nil
+	end
+	if not link or IsSecret(link) then
+		return {}
+	end
+	local itemID = C_Item.GetItemInfoInstant(link)
+	if not itemID then
+		return {}
+	end
+	local total = C_Item.GetItemCount(itemID, true)
+	local c = linkCache[link]
+	local now = GetTime()
+	if c and c.total == total and c.gen == gen and now - c.at < PRICE_TTL then
+		return c.marker
+	end
+	local bindType = select(14, C_Item.GetItemInfo(link))
+	local f = Facts({
+		link = link, itemID = itemID, stackCount = count,
+		isBound = bindType == BIND_ON_PICKUP or bindType == BIND_QUEST, -- these are bound once you have them
+		tooltip = function()
+			return C_TooltipInfo.GetHyperlink(link)
+		end,
+		unusable = function()
+			return ns.BagsRead_LinkUnusable(link)
+		end,
+	}, false)
+	if not f then
+		return {}
+	end
+	local marker = ns.Value_Marker(f)
+	marker.facts = f
+	linkCache[link] = { total = total, gen = gen, at = now, marker = marker }
 	return marker
 end
 
@@ -188,6 +249,7 @@ end
 function ns.Value_MarkersChanged()
 	gen = gen + 1
 	quests, sets = nil, nil
+	wipe(linkCache)
 	if ns.Bags_Reread then
 		ns.Bags_Reread()
 	end

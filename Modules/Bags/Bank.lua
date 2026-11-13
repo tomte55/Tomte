@@ -308,7 +308,8 @@ local function DrawRemembered()
 		owner = nil -- the Warband bank's record
 	end
 	local list, at = ns.Counts_Bank(owner)
-	local items = ns.BagsRead_FromList(list)
+	-- Your own bank and the Warband bank are judged for you (red, arrows, markers); another character's bank isn't.
+	local items = ns.BagsRead_FromList(list, bankType == ACCOUNT or remembered.guid == UnitGUID("player"))
 	if matcher and matcherText then
 		ns.BagsRead_LoadText(items)
 	end

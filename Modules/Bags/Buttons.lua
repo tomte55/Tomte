@@ -468,6 +468,12 @@ local function PaintView(button, e, item, opts)
 	Frame(button, e, item, nil, opts.tint)
 	SetItemButtonCount(button, item.count)
 	SetItemButtonDesaturated(button, opts.greyJunk and item.junk)
+	-- Only your own remembered items are judged (BagsRead_FromList's own); another character's stay white.
+	if opts.redUnusable and item.unusable then
+		SetItemButtonTextureVertexColor(button, RED_FONT_COLOR:GetRGB())
+	else
+		SetItemButtonTextureVertexColor(button, 1, 1, 1)
+	end
 	PlaceMarks(button, e, item, opts)
 	e.free:SetText("")
 	e.leaf:Hide()
