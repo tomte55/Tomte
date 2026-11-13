@@ -10,6 +10,23 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.34.0", date = "2026-11-13",
+		new = {
+			{ module = "quietchat", text = "The chat window fades away when nothing is happening and comes back when "
+				.. "you point at it or type; new lines still show over the world." },
+		},
+		improved = {
+			{ module = "emotewheel", text = "A new look, and its own page to set up slices: pick from every emote, "
+				.. "write a chat line, or drag slices around the wheel." },
+			{ module = "emotewheel", text = "A slice can run several lines on one press, like a macro: \"Thanks!\" "
+				.. "and then /ty." },
+		},
+		fixed = {
+			{ module = "perf", text = "The Performance page no longer makes the game stutter every few seconds while "
+				.. "it's open." },
+		},
+	},
+	{
 		version = "1.33.0", date = "2026-11-13",
 		new = {
 			{ module = "value", text = "Every bag item gets a marker saying what to do with it: vendor, auction, "

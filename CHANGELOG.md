@@ -16,6 +16,11 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
+
+## v1.34.0 - 2026-11-13
+
+### New
+
 - **Quiet Chat (new module):** the chat window fades away when nothing is happening, leaving only new lines over the world, and comes back with a soft shadow and Tomte's look when you point at it or type. A small note names tabs with unread whispers. Off by default.
 
 ### Improved
