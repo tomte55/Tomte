@@ -208,7 +208,12 @@ local function EntryLooks(b)
 	local inset = UI.ActionIconInset(SIZE)
 	b.cooldown:SetPoint("TOPLEFT", inset, -inset)
 	b.cooldown:SetPoint("BOTTOMRIGHT", -inset, inset)
-	b.count =UI.Text(b, 11, "text", "number")
+	-- The count sits above the cooldown sweep, outlined: the shadow alone didn't read on bright icons.
+	local over = CreateFrame("Frame", nil, b)
+	over:SetAllPoints()
+	over:SetFrameLevel(b.cooldown:GetFrameLevel() + 1)
+	b.count = UI.Text(over, 11, "text", "number")
+	UI.SetFont(b.count, "number", 11, "OUTLINE")
 	b.count:SetPoint("BOTTOMRIGHT", -2, 2)
 end
 
@@ -218,6 +223,7 @@ local function ToggleLooks(t)
 	t.label = UI.Text(t, 10, "textMuted", "label")
 	t.label:SetPoint("TOP", t, "BOTTOM", 0, -3)
 	t.hotkey = UI.Text(t, 10, "heading", "number")
+	UI.SetFont(t.hotkey, "number", 10, "OUTLINE")
 	t.hotkey:SetPoint("TOPRIGHT", -2, -2)
 end
 

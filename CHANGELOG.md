@@ -957,4 +957,5 @@ First release for friends.
 
 - **Hunter Pets:** the dungeon pet check works on non-English game clients.
 
+- **Drawers:** item counts have an outline and stay readable over the cooldown sweep.
 - **Quest list:** clicking a quest (also in Next quests and on the Leveling page) makes it the one Tomte's arrow and lists lead to, without changing the game's active quest, so the tracker error after a level-up no longer comes back after a click.
