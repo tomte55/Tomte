@@ -35,6 +35,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Quest list:** following the nearest quest no longer leads to a Lua error from the objective tracker after a level-up, or to blocked quest clicks on the map in combat. The followed quest now guides Tomte's arrow and lists, and the game's map and tracker keep the quest you pick there. The same for Next quests.
 - **Quest list:** clicking a quest (also in Next quests and on the Leveling page) makes it the one Tomte's arrow and lists lead to, without changing the game's active quest, so the tracker error after a level-up no longer comes back after a click.
 - **Loot:** the Make room button grows to fit when a long item name wraps its text to a third line.
+- **Fishing:** pulled right after your weapons went back on, the off hand no longer hits a blocked-action error: it goes back on once the fight is over.
 
 ## v1.34.0 - 2026-11-13
 

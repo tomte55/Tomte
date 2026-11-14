@@ -16,6 +16,8 @@ local events = ns.Fishing_Events
 local rods -- rods in the bags { { itemID, ilvl } }, nil until read again after a bag change
 local tries = 0
 local retrying = false
+-- Combat came between the main hand and the off hand: the rest goes back after combat, though no rod is in hand.
+local resume = false
 
 local IsSecret = ns.IsSecret
 
@@ -98,6 +100,12 @@ local function Try()
 	if not swap then
 		return
 	end
+	-- Equipping is protected in combat. Pulled right after the main hand went back (PLAYER_REGEN_DISABLED is the last
+	-- moment it may), the off hand's retry lands in the lockdown: it waits for PLAYER_REGEN_ENABLED instead.
+	if InCombatLockdown() then
+		resume = true
+		return
+	end
 	-- One weapon per try: the second has to wait for the first swap to finish.
 	if swap.main and GetInventoryItemLink("player", MAIN) ~= swap.main then
 		C_Item.EquipItemByName(swap.main, MAIN)
@@ -122,6 +130,12 @@ function ns.FishingRod_PutBack()
 		return false
 	end
 	if retrying then -- under way: with the main weapon back and the off hand to go, no rod in hand is expected
+		return true
+	end
+	if resume then -- stopped by combat partway: the same, carried on now
+		resume = false
+		tries = 0
+		Try()
 		return true
 	end
 	if not RodIn(MAIN) then
