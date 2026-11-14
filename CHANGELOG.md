@@ -22,6 +22,9 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Quest list:** right-click a quest and pick Show details for its text, objectives and rewards in the game's quest details window.
 - **Alts:** pick who crafts each craft on the crafting list: right-click it in the tracker or on the List tab and choose a character who knows the recipe, or Pick for me.
 - **Gold & value (Forever):** knows which quest each quest item belongs to, even when that quest isn't in your log: an item for a quest you can still take is kept for it, one whose quests are all done can be deleted, and the tooltip names the quest. Quests that only want an item handed in now count too.
+- **Quest list:** in a party, each member's progress shows under your objectives (read from the mobs around you, so anyone counts; party members who run Tomte send all of theirs), and a faint line says who doesn't have a quest.
+- **Quest list:** right-click a quest for Share (the quest with your party, your progress in party chat, or its link in the chat box) and Find group (LFG or LFM for it in General, with the quest link).
+- **Quest list:** the quest it follows shows on the world map the way the game's active quest does: its area, a ring around its pin and a bar on it in the map's quest log.
 
 ### Improved
 

@@ -59,7 +59,9 @@ return {
 			"Modules/Leveling/ArmorKit.lua", "Modules/Leveling/NextQuests.lua",
 			"Modules/Leveling/Leveling.lua",
 			-- docs/superpowers/specs/2026-11-10-tomte-quest-list-design.md: uses Leveling's quest reads and stops.
-			"Modules/QuestList/Data.lua", "Modules/QuestList/Read.lua", "Modules/QuestList/Spoken.lua",
+			-- Party.lua makes the event bus QuestList.lua takes at file load.
+			"Modules/QuestList/Data.lua", "Modules/QuestList/PartyData.lua", "Modules/QuestList/Read.lua",
+			"Modules/QuestList/Party.lua", "Modules/QuestList/Spoken.lua", "Modules/QuestList/Map.lua",
 			"Modules/QuestList/List.lua", "Modules/QuestList/Tracker.lua", "Modules/QuestList/QuestList.lua",
 			"Modules/PetCare/Data.lua", "Modules/PetCare/PetCare.lua",
 			-- docs/superpowers/specs/2026-11-06-tomte-forever-rest-and-chat-groups.md

@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Quest list: Tomte's own list in place of the game's objective tracker (World of Warcraft: Forever for now). Main
 -- file: db, events, hiding Blizzard's tracker and giving it back, follow-the-nearest, clicks and menus, options,
 -- commands, Edit Mode. Grouping rules in Data.lua, reads in Read.lua and Leveling's Read.lua, Spoken's Play buttons in
--- Spoken.lua, drawing in List.lua. Leveling's Next quests widget steps aside while this is on (QuestList_Active).
+-- Spoken.lua, drawing in List.lua, the party's progress and the party actions in Party.lua. Leveling's Next quests
+-- widget steps aside while this is on (QuestList_Active).
 -- See docs/superpowers/specs/2026-11-10-tomte-quest-list-design.md.
 
 local CLUSTER_YARDS = 300 -- as Next quests: quests this close to another share a stop
@@ -21,7 +22,7 @@ local UI = ns.UI
 local module, db, frame, ticker
 local active = false
 local updatePending = false
-local events = ns.NewEvents()
+local events = ns.QuestList_Events
 local OWNER = "questList"
 local TRACKER_OWNER = "questListTracker" -- waits for the game's tracker to load
 
@@ -172,6 +173,7 @@ local function Annotate(quests, you)
 		q.folded = ns.QuestList_QuestFolded(Char().folded[id], db.autoFold, after.changed, now)
 		q.yards = Yards(you, points[id])
 	end
+	ns.QuestListParty_Annotate(quests)
 end
 
 -- Choices saved for quests no longer in the log go.
@@ -476,6 +478,30 @@ function ns.QuestList_Menu(owner, q)
 				ns.LevelingPage_MakeActive(q.questID, UpdateSoon)
 			end)
 		end
+		-- Submenus (Panel/Menu.lua opens one beside the row on hover). Rows that can't do anything right now are left out.
+		local share = root:CreateButton("Share")
+		if ns.QuestListParty_CanShare(q) then
+			share:CreateButton("Quest with party", function()
+				ns.QuestListParty_Share(q)
+			end)
+		end
+		if ns.QuestListParty_CanTell() then
+			share:CreateButton("Progress in party chat", function()
+				ns.QuestListParty_Tell(q)
+			end)
+		end
+		share:CreateButton("Link in chat box", function()
+			ns.QuestListParty_LinkToChat(q)
+		end)
+		if ns.QuestListParty_CanPost() then
+			local find = root:CreateButton("Find group")
+			find:CreateButton("LFG in General", function()
+				ns.QuestListParty_Post(q, "LFG")
+			end)
+			find:CreateButton("LFM in General", function()
+				ns.QuestListParty_Post(q, "LFM")
+			end)
+		end
 		root:CreateButton(q.watched and "Stop tracking" or "Track", function()
 			ns.SafeTrack(function()
 				if C_QuestLog.GetQuestWatchType(q.questID) then
@@ -553,6 +579,8 @@ local function Start()
 		events:Watch(OWNER, event)
 	end
 	ns.QuestListSpoken_Start(SpokenChanged)
+	ns.QuestListParty_Start(db, UpdateSoon)
+	ns.QuestListMap_Start()
 	ApplyTracker()
 	if ns.LevelingNext_Update then
 		ns.LevelingNext_Update()
@@ -565,6 +593,8 @@ local function Stop()
 	active = false
 	events:UnwatchAll(OWNER)
 	ns.QuestListSpoken_Stop()
+	ns.QuestListParty_Stop()
+	ns.QuestListMap_Stop()
 	ApplyTracker()
 	Hide()
 	if followed then
@@ -629,6 +659,11 @@ local function Redraw()
 	Update()
 end
 
+local function PartyChanged()
+	ns.QuestListParty_Settings()
+	Update()
+end
+
 local function Preview(host)
 	return ns.QuestListUI_Preview(host)
 end
@@ -652,7 +687,8 @@ module = ns.RegisterModule({
 	description = "Replaces the game's quest tracker with a list grouped by where your quests are: the nearest stop "
 		.. "first, turn-ins on top, objectives as bars, and how far each quest is. Click a quest to make it your active "
 		.. "quest, Shift-click to hide it on a folded Hidden line, right-click for more. With Spoken installed, each "
-		.. "quest gets its Play button. Turn it off and the game's tracker comes back.",
+		.. "quest gets its Play button. In a party, each member's progress shows under your objectives, and the menu "
+		.. "shares a quest or tells the party your progress. Turn it off and the game's tracker comes back.",
 	enabledByDefault = false,
 	keep = { "chars" },
 	noShare = { "chars" },
@@ -671,6 +707,7 @@ module = ns.RegisterModule({
 		show = "all", -- "all" | "tracked"
 		groupBy = "stop", -- "stop" | "zone" | "list"
 		follow = true,
+		mapMark = true, -- the followed quest's area, pin ring and quest log bar on the world map
 		open = 1, -- sections shown open
 		stops = 3, -- nearest stops with a group of their own; the rest share Other quests
 		turnInsFirst = true,
@@ -695,6 +732,9 @@ module = ns.RegisterModule({
 		spoken = true,
 		speaking = true,
 		collapsed = false,
+		party = true, -- party members' counts under your objectives
+		partyMissing = true, -- who in the party doesn't have a quest
+		partySync = true, -- swap progress with party members who run Tomte (hidden addon messages, party only)
 		folded = {}, -- [section key] = true (folded) | false (opened), the player's own clicks
 		chars = {}, -- [player GUID] = { hidden = { [questID] = true }, folded = { [questID] = true | false } }
 		frame = {}, -- point: the list's spot (UI.TopLeftPoint), nil for the default
@@ -715,6 +755,9 @@ module = ns.RegisterModule({
 				Why()
 			end
 		end },
+		{ "party", "what the Quest list knows about each party member's quests", function()
+			ns.QuestListParty_Why()
+		end },
 		{ "reset", "put the Quest list back in its default spot", function()
 			db.frame.point = nil
 			if frame then
@@ -733,6 +776,11 @@ module = ns.RegisterModule({
 			tooltip = "Nearby stop: quests close to each other are one stop, the nearest first, as in Leveling's Next quests. The nearest few get a group each; the rest wait in Other quests." },
 		{ type = "checkbox", key = "follow", label = "Follow the nearest quest", onChange = Redraw,
 			tooltip = "The top quest of the nearest stop becomes your active quest in Tomte (marked in the list, and Waypoints' arrow points to it) each time a new one comes to the top. A quest you pick yourself, here or on the map, stays active until then. The game's own map and tracker keep the quest you picked there." },
+		{ type = "checkbox", key = "mapMark", label = "Show it on the world map", parent = "follow",
+			onChange = function()
+				ns.QuestListMap_Refresh()
+			end,
+			tooltip = "The quest Tomte follows gets the game's active-quest look on the world map: its area drawn, a ring around its pin and a bar on it in the map's quest log. Tomte can't make it the game's own active quest without breaking the map in combat, so the minimap doesn't show its area." },
 		{ type = "slider", key = "open", label = "Groups shown open", min = 1, max = 5, step = 1, onChange = Redraw,
 			preview = Preview, tooltip = "The rest show as one line each. Click a group's name to open or fold it." },
 		{ type = "slider", key = "stops", label = "Stops listed", min = 1, max = 8, step = 1, onChange = Redraw,
@@ -793,6 +841,17 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "distance", label = "Distance to each quest", onChange = Redraw, preview = Preview },
 		{ type = "checkbox", key = "metric", label = "Distances in meters", onChange = Redraw,
 			tooltip = "Meters and kilometers instead of the game's yards." },
+
+		{ type = "header", label = "Party" },
+		{ type = "checkbox", key = "party", label = "Party members' progress", onChange = PartyChanged,
+			preview = Preview,
+			tooltip = "Under each of your objectives, how far each party member is, such as Pala 9/15. Read from the mobs around you, so anyone works: counts for kills and drops come in as those mobs show up. Party members who run Tomte send all of theirs." },
+		{ type = "checkbox", key = "partyMissing", label = "Who doesn't have a quest", parent = "party",
+			onChange = PartyChanged, preview = Preview,
+			tooltip = "A faint line under a quest names party members who don't have it, so you know to share it (right-click it)." },
+		{ type = "checkbox", key = "partySync", label = "Share progress with party members who run Tomte",
+			onChange = PartyChanged,
+			tooltip = "Your quest progress goes to your party in hidden addon messages, and theirs comes back, so you see all of it, not only what the mobs show. Nothing goes to chat." },
 
 		{ type = "header", label = "Spoken", shown = function()
 			return ns.QuestListSpoken_Installed()

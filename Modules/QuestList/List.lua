@@ -2,8 +2,8 @@ local addonName, ns = ...
 
 -- Quest list: the on-screen list, and the same drawing for the settings preview. A title bar (Quests and how many),
 -- then each section from Data.lua (QuestList_Sections): a header (a stop's place and distance, a zone, Hidden) that
--- folds on click, its quests (level, title, Spoken's Play button) with their objectives as bars or text and a line for
--- XP and distance, and "+N more". Taller than its maximum height, it scrolls with the mouse wheel. QuestList.lua owns
+-- folds on click, its quests (level, title, Spoken's Play button) with their objectives as bars or text, party members'
+-- counts under them (q.party, Party.lua), a line for XP and distance, and "+N more". Taller than its maximum height, it scrolls with the mouse wheel. QuestList.lua owns
 -- the data: it fills each quest's objectives, yards, folded and flash fields before calling QuestListUI_Draw, and
 -- handles clicks through ns.QuestList_* functions.
 
@@ -16,6 +16,7 @@ local BAR_LINE_H = 18 -- an objective with its bar under the label
 local BAR_H = 2 -- thin, so the bar sits under its text instead of competing with it
 local BAR_FILL_ALPHA = 0.7
 local BAR_TRACK_ALPHA = 0.25
+local PARTY_INDENT = 10 -- a party member's count sits this far in under the objective it belongs to
 local MORE_H = 16
 local QUEST_GAP = 5
 local SECTION_GAP = 10 -- space, not a rule, sets one group off from the next
@@ -47,6 +48,12 @@ local function SampleSections()
 	local q3 = { questID = -3, title = "Chen's Empty Keg", level = 24, xp = 2100, watched = true, yards = 260,
 		objectives = { O("Lightning Gland", 5, 5, true), O("Thunderhawk Saliva Gland", 0, 1), O("Kodo Liver", 0, 1) } }
 	local q4 = { questID = -4, title = "...and that note you found", level = 22, watched = true, objectives = {} }
+	if ns.QuestList_DB().party then
+		q1.party = { objectives = { [2] = { { name = "Kesha", class = "MAGE", have = 2, need = 6, finished = false } } },
+			waiting = {}, missing = {}, turnedIn = {} }
+		q2.party = { objectives = {}, waiting = {}, turnedIn = {},
+			missing = ns.QuestList_DB().partyMissing and { { name = "Kesha", class = "MAGE" } } or {} }
+	end
 	return {
 		{ key = "s1", kind = "stop", title = "Camp Taurajo", distance = 140, quests = { q2, q1, q3 }, shown = 3, more = 0,
 			open = true },
@@ -401,6 +408,54 @@ local function DrawObjective(f, li, obj, x, y, width, bars, doneMode, flash)
 	return line:GetHeight()
 end
 
+-- One party member's count at your objective own (Party.lua, PartyData.lua's QuestListParty_At): name left, count
+-- right. ownDrawn false: your own line isn't shown, so the line names the objective too. Returns its height.
+local function DrawParty(f, li, entry, own, ownDrawn, x, y, width)
+	local line = Line(f, li)
+	line.quest = nil
+	line:ClearAllPoints()
+	line:SetPoint("TOPLEFT", x + PARTY_INDENT, -y)
+	line:SetWidth(width - PARTY_INDENT)
+	line.text:ClearAllPoints()
+	line.text:SetPoint("TOPLEFT", 0, -1)
+	line.text:SetPoint("RIGHT", line.count, "LEFT", -6, 0)
+	local name = UI.ClassColored(entry.name, entry.class)
+	line.text:SetText(ownDrawn and name or (name .. " " .. UI.Wrap(own.label, "textFaint")))
+	UI.SetTextRole(line.text, "textMuted")
+	line.count:SetText(ns.QuestListParty_CountText(entry, own))
+	UI.SetTextRole(line.count, entry.finished and "success" or "textMuted")
+	line.count:Show()
+	line.barBg:Hide()
+	line.barFill:Hide()
+	line:SetHeight(LINE_H)
+	line:Show()
+	return LINE_H
+end
+
+-- The faint line naming who has the quest without a count yet, who doesn't have it and who turned it in. 0 when empty.
+local function DrawPartySummary(f, li, party, x, y, width)
+	local text = ns.QuestListParty_Summary(party, UI.ClassColored)
+	if not text then
+		return 0
+	end
+	local line = Line(f, li)
+	line.quest = nil
+	line:ClearAllPoints()
+	line:SetPoint("TOPLEFT", x, -y)
+	line:SetWidth(width)
+	line.text:ClearAllPoints()
+	line.text:SetPoint("TOPLEFT", 0, -1)
+	line.text:SetPoint("RIGHT", 0, 0)
+	line.text:SetText(text)
+	UI.SetTextRole(line.text, "textFaint")
+	line.count:Hide()
+	line.barBg:Hide()
+	line.barFill:Hide()
+	line:SetHeight(LINE_H)
+	line:Show()
+	return LINE_H
+end
+
 -- The detail line under a quest: XP or time left on the left, its distance on the right when its stop's header
 -- doesn't already say it. nil when there's nothing.
 local function Details(q, db, s)
@@ -537,14 +592,27 @@ function ns.QuestListUI_Draw(f, sections, total, speaking)
 				y = y + QUEST_H
 				if not q.folded then
 					local objectives = q.objectives or {}
-					if not q.complete then
-						for k, obj in ipairs(objectives) do
-							if not (obj.finished and db.doneObjectives == "hide") then
+					for k, obj in ipairs(objectives) do
+						local ownDrawn = not q.complete and not (obj.finished and db.doneObjectives == "hide")
+						if ownDrawn then
+							nl = nl + 1
+							y = y + DrawObjective(f, nl, obj, objX, y, objW, bars, db.doneObjectives,
+								q.flash and q.flash[k])
+						end
+						if q.party then
+							for _, entry in ipairs(ns.QuestListParty_At(q.party.objectives[k], ownDrawn)) do
 								nl = nl + 1
-								y = y + DrawObjective(f, nl, obj, objX, y, objW, bars, db.doneObjectives,
-									q.flash and q.flash[k])
+								y = y + DrawParty(f, nl, entry, obj, ownDrawn, objX, y, objW)
 							end
 						end
+					end
+					if q.party then
+						nl = nl + 1
+						local used = DrawPartySummary(f, nl, q.party, objX, y, objW)
+						if used == 0 then
+							nl = nl - 1
+						end
+						y = y + used
 					end
 					nl = nl + 1
 					local used = DrawDetail(f, nl, q, s, objX, y, objW, db)
