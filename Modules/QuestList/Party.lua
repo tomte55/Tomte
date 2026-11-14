@@ -546,8 +546,9 @@ function ns.QuestListParty_CanPost()
 	return General() ~= nil
 end
 
--- "LFG [quest]" or "LFM [quest], 2/5" in General. Sending to a channel needs a real click: this runs straight from the
--- menu row's OnClick (Panel/Menu.lua calls it in the click, not later).
+-- "LFG [quest]" or "LFM [quest], 2/5" for General, put in the chat box ready to send ("/1 ..."): you press Enter.
+-- Sending to a channel from addon code was blocked even straight from the menu row's click (ADDON_ACTION_BLOCKED on
+-- Forever 1.60.1, 2026-11-14; warcraft.wiki.gg lists SendChatMessage as AllowedWhenUntainted).
 function ns.QuestListParty_Post(q, kind)
 	local id = General()
 	if not id then
@@ -555,7 +556,7 @@ function ns.QuestListParty_Post(q, kind)
 	end
 	local most = IsInGroup() and not IsInRaid() and (MEMBERS_PER_RAID_GROUP or 5) or nil
 	local text = ns.QuestListParty_GroupText(kind, QuestLink(q), q.elite, GetNumGroupMembers(), most)
-	ns.Chat_Send(text, "CHANNEL", nil, id)
+	ns.Chat_Open(("/%d %s"):format(id, text))
 end
 
 -- /tomte questlist party

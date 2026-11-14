@@ -51,6 +51,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Whispers:** copying a conversation with an item link in it no longer turns the rest of the text green.
 - **Alts:** sorting the Characters tab sorts every character, the one you're on too, instead of always keeping you on top.
 - **Quest list:** the reward tiles in the quest window show Gear Check's whole verdict instead of cutting it off.
+- **Quest list:** LFG and LFM in General put the message in your chat box to send with Enter: the game blocked Tomte from posting to General itself.
 
 ## v1.34.0 - 2026-11-13
 
