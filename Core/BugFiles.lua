@@ -525,6 +525,7 @@ ns.BUG_FILES = {
 	"Modules/QuestList/Party.lua",
 	"Modules/QuestList/Spoken.lua",
 	"Modules/QuestList/Map.lua",
+	"Modules/QuestList/ItemButton.lua",
 	"Modules/QuestList/Details.lua",
 	"Modules/QuestList/List.lua",
 	"Modules/QuestList/Tracker.lua",

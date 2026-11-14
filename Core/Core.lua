@@ -468,6 +468,8 @@ BINDING_NAME_TOMTE_TOGGLE = "Toggle Tomte"
 -- Here, not in their modules: Bindings.xml lists it on retail too, and these files only load on Forever.
 _G["BINDING_NAME_CLICK TomteHunterAspect:LeftButton"] = ns.FOREVER and "Put on your aspect"
 	or "Put on your aspect (World of Warcraft: Forever)"
+_G["BINDING_NAME_CLICK TomteQuestItem:LeftButton"] = ns.FOREVER and "Use quest item"
+	or "Use quest item (World of Warcraft: Forever)"
 
 -- A key binding of moduleKey's: fn runs while that module is on; while it's off the key says so.
 function ns.Binding_Add(name, moduleKey, fn)

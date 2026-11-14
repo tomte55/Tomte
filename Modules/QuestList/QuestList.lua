@@ -119,6 +119,7 @@ Hide = function()
 	if frame then
 		frame:Hide()
 	end
+	ns.QuestListItem_Set(nil)
 	if ticker then
 		ticker:Cancel()
 		ticker = nil
@@ -347,6 +348,8 @@ local function Update()
 	ns.QuestListUI_Draw(frame, sections, #quests, ns.QuestListSpoken_Speaking())
 	frame:Show()
 	ns.QuestList_ApplyAlpha()
+	-- After the draw: the button sits beside the list where it now is (ItemButton.lua).
+	ns.QuestListItem_Set(ns.QuestList_ItemQuest(sections, ns.ActiveQuest_ID()), frame)
 	if not ticker then
 		ticker = C_Timer.NewTicker(TICK, Tick)
 	end
@@ -570,6 +573,7 @@ local function Start()
 	ns.QuestListSpoken_Start(SpokenChanged)
 	ns.QuestListParty_Start(db, UpdateSoon)
 	ns.QuestListMap_Start()
+	ns.QuestListItem_Start()
 	ApplyTracker()
 	if ns.LevelingNext_Update then
 		ns.LevelingNext_Update()
@@ -584,6 +588,7 @@ local function Stop()
 	ns.QuestListSpoken_Stop()
 	ns.QuestListParty_Stop()
 	ns.QuestListMap_Stop()
+	ns.QuestListItem_Stop()
 	ns.QuestListDetails_Hide()
 	ApplyTracker()
 	Hide()
@@ -698,6 +703,7 @@ module = ns.RegisterModule({
 		groupBy = "stop", -- "stop" | "zone" | "list"
 		follow = true,
 		mapMark = true, -- the followed quest's area, pin ring and quest log bar on the world map
+		itemButton = true, -- a button beside the list with the quest item to use (ItemButton.lua)
 		open = 1, -- sections shown open
 		stops = 3, -- nearest stops with a group of their own; the rest share Other quests
 		turnInsFirst = true,
@@ -771,6 +777,8 @@ module = ns.RegisterModule({
 				ns.QuestListMap_Refresh()
 			end,
 			tooltip = "The quest Tomte follows gets the game's active-quest look on the world map: its area drawn, a ring around its pin and a bar on it in the map's quest log. Tomte can't make it the game's own active quest without breaking the map in combat, so the minimap doesn't show its area." },
+		{ type = "checkbox", key = "itemButton", label = "Quest item button", onChange = Redraw,
+			tooltip = "A button beside the list with the item a quest asks you to use: the followed quest's, else the first quest with one down the list. Bind a key to it in Key Bindings > Tomte (Use quest item). In a fight it keeps the item it had." },
 		{ type = "slider", key = "open", label = "Groups shown open", min = 1, max = 5, step = 1, onChange = Redraw,
 			preview = Preview, tooltip = "The rest show as one line each. Click a group's name to open or fold it." },
 		{ type = "slider", key = "stops", label = "Stops listed", min = 1, max = 8, step = 1, onChange = Redraw,

@@ -162,6 +162,27 @@ test("follow takes the nearest stop's top quest only", function()
 	eq(ns.QuestList_FollowQuest({}), nil)
 end)
 
+test("ItemQuest: the followed quest's item, else the first quest with one as the list shows them", function()
+	local sections = {
+		{ kind = "stop", quests = { Q(1), Q(2, { itemLink = "item:2" }) } },
+		{ kind = "other", quests = { Q(3, { itemLink = "item:3" }) } },
+		{ kind = "hidden", quests = { Q(4, { itemLink = "item:4" }) } },
+	}
+	eq(ns.QuestList_ItemQuest(sections, nil).questID, 2, "first one down the list")
+	eq(ns.QuestList_ItemQuest(sections, 3).questID, 3, "the followed quest's own item")
+	eq(ns.QuestList_ItemQuest(sections, 1).questID, 2, "followed quest without an item: the first one")
+	eq(ns.QuestList_ItemQuest({ sections[3] }, 4), nil, "hidden quests never")
+	eq(ns.QuestList_ItemQuest({}, nil), nil)
+end)
+
+test("ItemQuest: a done quest's item only when the game keeps showing it", function()
+	local sections = { { kind = "stop", quests = {
+		Q(1, { itemLink = "item:1", complete = true }),
+		Q(2, { itemLink = "item:2", complete = true, itemWhenDone = true }),
+	} } }
+	eq(ns.QuestList_ItemQuest(sections, 1).questID, 2)
+end)
+
 test("objectives read both ways the game writes them", function()
 	local o = ns.QuestList_Objective({ text = "0/6 Grimtotem Brute slain" })
 	eq(o.label, "Grimtotem Brute slain")

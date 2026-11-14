@@ -232,6 +232,26 @@ function ns.QuestList_FollowQuest(sections)
 	return nil
 end
 
+-- The quest whose item the quest item button holds: the followed quest (followedID) when it has a usable item, else
+-- the first quest with one in the order the list shows them (nearest stop first). Hidden quests never. A done quest's
+-- item counts only when the game keeps showing it (itemWhenDone), as the game's own tracker does.
+function ns.QuestList_ItemQuest(sections, followedID)
+	local first
+	for _, s in ipairs(sections) do
+		if s.kind ~= "hidden" then
+			for _, q in ipairs(s.quests) do
+				if q.itemLink and (not q.complete or q.itemWhenDone) then
+					if q.questID == followedID then
+						return q
+					end
+					first = first or q
+				end
+			end
+		end
+	end
+	return first
+end
+
 -- Whether a quest's own distance is worth a line: not when it's what its stop's header already says (the stop's only
 -- quest, or its nearest, at the same rounded distance). Quests in zone and list sections always show theirs.
 function ns.QuestList_ShowQuestDistance(section, q)

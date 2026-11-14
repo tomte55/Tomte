@@ -258,7 +258,17 @@ function ns.LevelingRead_Quests()
 			local total, elapsed = C_QuestLog.GetTimeAllowed(id)
 			local xp = GetQuestLogRewardXP(id)
 			local tag = C_QuestLog.GetQuestTagInfo and C_QuestLog.GetQuestTagInfo(id)
+			-- The quest's usable item, as the game's tracker shows it (Blizzard_ObjectiveTrackerShared.lua).
+			local itemLink, itemIcon, itemCharges, itemWhenDone
+			if GetQuestLogSpecialItemInfo then
+				itemLink, itemIcon, itemCharges, itemWhenDone = GetQuestLogSpecialItemInfo(i)
+			end
 			list[#list + 1] = {
+				logIndex = i,
+				itemLink = itemLink,
+				itemIcon = itemIcon,
+				itemCharges = itemCharges,
+				itemWhenDone = itemWhenDone and true or false, -- the item still shows once the quest is done
 				tagID = tag and tag.tagID,
 				xp = xp and not IsSecret(xp) and xp or 0,
 				questID = id,

@@ -26,6 +26,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Quest list:** the quest it follows shows on the world map the way the game's active quest does: its area, a ring around its pin and a bar on it in the map's quest log.
 - **Gear Check:** when no quest reward is an upgrade now, the quest reward card names one worth keeping for later: an upgrade at a higher level or once a trainer teaches its weapon type, or a shield or off-hand for when you use a one-handed weapon.
 - **Quest list:** right-click a quest and pick Show details for its text, objectives and rewards in a Tomte window, with Gear Check's pick among the reward choices (Best for you, or one to keep for later).
+- **Quest list:** a button beside the list holds the item a quest asks you to use (the followed quest's, else the first one down the list), with a key binding (Use quest item). In a fight it keeps the item it had.
 
 ### Improved
 
