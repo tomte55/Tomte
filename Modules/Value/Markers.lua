@@ -51,7 +51,38 @@ local function ReadQuests()
 					texts[#texts + 1] = o.text
 				end
 			end
+			-- The log's objective summary ("Bring 8 Sample Snapjaw Shells to Helbrim"): quests that only want an item
+			-- handed in name it here and have no counted objective for it. By log index, the way the map's quest log
+			-- reads it, so no quest gets selected.
+			local _, summary = GetQuestLogQuestText(i)
+			if summary and summary ~= "" and not IsSecret(summary) then
+				texts[#texts + 1] = summary
+			end
 			list[#list + 1] = { title = info.title, objectives = texts }
+		end
+	end
+	return list
+end
+
+-- The quests Forever's quest item data (Data/Forever/QuestItems.lua) ties an item to, for Value_ItemQuests: only those
+-- your race and class can take. nil outside Forever and for items it doesn't know.
+local function DataQuests(itemID)
+	local items = ns.Content_Get(ns.CONTENT_FOREVER, "questItems")
+	local entry = items and items[itemID]
+	if not entry then
+		return nil
+	end
+	local info = ns.Content_Get(ns.CONTENT_FOREVER, "questItemQuests") or {}
+	local _, _, race = UnitRace("player")
+	local _, _, class = UnitClass("player")
+	local list = {}
+	for id, kind in entry:gmatch("(%d+):(%a)") do
+		id = tonumber(id)
+		local q = info[id]
+		if q and ns.Value_ForYou(q[2], race) and ns.Value_ForYou(q[3], class) then
+			local title = C_QuestLog.GetTitleForQuestID(id)
+			list[#list + 1] = { title = (title and not IsSecret(title) and title ~= "") and title or q[1],
+				inLog = C_QuestLog.IsOnQuest(id), done = C_QuestLog.IsQuestFlaggedCompleted(id), gives = kind == "g" }
 		end
 	end
 	return list
@@ -111,10 +142,16 @@ local function Facts(src, inSet)
 	f.questItem = quest and quest.isQuestItem or false
 	f.startsQuest = quest and quest.questID ~= nil or false
 	f.questDone = f.startsQuest and C_QuestLog.IsQuestFlaggedCompleted(quest.questID) or false
-	f.questActive = f.startsQuest and quest.isActive == true or false
+	-- The slot's isActive can say no for a quest that's in your log (Forever's Glowing Shard), so the log is asked too.
+	f.questActive = f.startsQuest and (quest.isActive == true or C_QuestLog.IsOnQuest(quest.questID)) or false
 	f.openable = src.hasLoot == true -- ContainerItemInfo: it opens with a right-click
 	quests = quests or ReadQuests()
 	f.questFor = ns.Value_QuestFor(name, quests)
+	local tied = ns.Value_ItemQuests(DataQuests(itemID))
+	f.questFor = f.questFor or tied.questFor
+	if not f.questFor and not f.startsQuest then
+		f.questWaiting, f.questsDone, f.questGivenBy = tied.questWaiting, tied.questsDone, tied.questGivenBy
+	end
 	if classID == WEAPON or classID == ARMOR then
 		if ns.Gear_BagArrow then -- Gear Check's, retail or Forever; looked up at call time (it may be off)
 			f.upgrade = ns.Gear_BagArrow(link, src.location, src.isBound)

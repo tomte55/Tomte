@@ -175,7 +175,10 @@ local function Record(bag, slot, info)
 	}
 	local quest = C_Container.GetContainerItemQuestInfo(bag, slot)
 	item.quest = quest and (quest.isQuestItem or quest.questID ~= nil) or false
-	item.questID, item.questActive = quest and quest.questID, quest and quest.isActive
+	-- The "!" is for a quest you don't have yet. The slot's own isActive can say no for a quest in your log (Forever's
+	-- Glowing Shard), so the log is asked too.
+	item.questID = quest and quest.questID
+	item.questActive = quest and (quest.isActive or (quest.questID ~= nil and C_QuestLog.IsOnQuest(quest.questID)))
 	if CAN_BE_UNUSABLE[classID] then
 		item.unusable = Unusable(bag, slot)
 		item.usableAt = usableGen

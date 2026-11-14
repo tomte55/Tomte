@@ -15,8 +15,11 @@ local addonName, ns = ...
 --   consumable    something you use up (potions, food, scrolls)
 --   collectible   a toy, mount or pet to learn
 --   crafting      on the crafting list (Alts): it's wanted for a craft
---   questFor      the title of a quest in your log that names it
+--   questFor      the title of a quest in your log that names it (or that the quest item data ties it to)
 --   startsQuest   it starts a quest; questDone: that quest is done; questActive: that quest is in your log
+--   questWaiting  the title of a quest you can still take that asks for it, none being in your log (Forever's quest
+--                 item data, Value_ItemQuests); questsDone: every quest the data ties it to is done; questGivenBy:
+--                 the quest that handed it out, not in your log any more
 --   openable      it opens with a right-click (it holds loot)
 --   recipe        a recipe item: Value_RecipeFact of who can learn it ({ known } or { name, skill, need, profName,
 --                 now }), nil when nobody can
@@ -59,10 +62,10 @@ end
 ns.VALUE_MARKER_RULES = {
 	{ title = "No marker: left alone", text = "Items you told Tomte to ignore (/tomte value ignore), bags, keys, "
 		.. "hearthstones, profession tools, ammunition and caged battle pets." },
-	{ kind = "quest", title = "Keep for a quest", text = "A quest in your log names it in its objectives, or it starts "
-		.. "a quest you haven't taken or done yet." },
-	{ kind = "delete", title = "Delete", text = "It starts a quest you've already done, or it's soulbound gear you "
-		.. "can't use and whose look you have, and no vendor buys it." },
+	{ kind = "quest", title = "Keep for a quest", text = "A quest in your log names it in its objectives, it starts "
+		.. "a quest you haven't taken or done yet, or (World of Warcraft: Forever) a quest you can still take asks for it." },
+	{ kind = "delete", title = "Delete", text = "It starts a quest you've already done, every quest that uses it is done "
+		.. "(Forever), or it's soulbound gear you can't use and whose look you have, and no vendor buys it." },
 	{ kind = "keep", title = "Keep: gear", text = "Gear Check calls it an upgrade (for you or another character), "
 		.. "it's in an equipment set, or its appearance isn't in your collection yet." },
 	{ kind = "keep", title = "Keep: you or an alt can learn it", text = "A recipe that one of your characters with "
@@ -178,9 +181,11 @@ function ns.Value_Marker(f)
 		return Verdict(R.quest, f.startsQuest and "Its quest needs it handed in." or ("For %s."):format(f.questFor))
 	elseif f.startsQuest and not f.questDone and not f.questActive then
 		return Verdict(R.quest, "It starts a quest.")
+	elseif f.questWaiting then
+		return Verdict(R.quest, ("For %s, not in your log."):format(f.questWaiting))
 	end
 	if not Sellable(f) and not Listing(f) then
-		if f.startsQuest and f.questDone then
+		if (f.startsQuest and f.questDone) or f.questsDone then
 			return Verdict(R.delete, "Its quest is done and no vendor buys it.")
 		elseif f.bound and IsGear(f) and f.unusable and not f.newLook and not f.upgrade then
 			return Verdict(R.delete, "Soulbound, you can't use it and no vendor buys it.")
@@ -205,7 +210,9 @@ function ns.Value_Marker(f)
 	if f.openable then
 		return Verdict(R.open, "Right-click to open it.")
 	end
-	if f.startsQuest and f.questActive then
+	if f.questGivenBy then
+		return Verdict(R.leftover, ("From %s, which isn't in your log."):format(f.questGivenBy))
+	elseif f.startsQuest and f.questActive then
 		return Verdict(R.leftover, "Its quest is in your log, and no objective names it.")
 	elseif (f.questItem or f.classID == QUEST) and not f.startsQuest then
 		return Verdict(R.leftover, "A quest item no quest in your log names.")
@@ -253,6 +260,53 @@ function ns.Value_ObjectiveNames(objectiveText, itemName)
 		return false
 	end
 	return objectiveText:lower():find(itemName:lower(), 1, true) ~= nil
+end
+
+-- Whether a race or class bit mask (Forever's quest item data) lets ID id take a quest: bit id-1 set, or 0 for anyone.
+function ns.Value_ForYou(mask, id)
+	if not mask or mask == 0 or not id then
+		return true
+	end
+	return math.floor(mask / 2 ^ (id - 1)) % 2 == 1
+end
+
+-- The quests an item belongs to, from Forever's quest item data, read into marker facts. quests: those you could
+-- take, { { title, inLog, done, gives (the quest hands it to you, rather than asking for it) } }. Returns
+-- { questFor, questWaiting, questsDone, questGivenBy } (see the facts at the top); nil fields when they don't apply.
+function ns.Value_ItemQuests(quests)
+	local out = {}
+	if not quests or #quests == 0 then
+		return out
+	end
+	local allDone = true
+	for _, q in ipairs(quests) do
+		if q.inLog then
+			out.questFor = out.questFor or q.title
+		end
+		if not q.done then
+			allDone = false
+		end
+	end
+	if out.questFor then
+		return out
+	end
+	if allDone then
+		out.questsDone = true
+		return out
+	end
+	for _, q in ipairs(quests) do
+		if not q.done and not q.gives then
+			out.questWaiting = out.questWaiting or q.title
+		end
+	end
+	if not out.questWaiting then
+		for _, q in ipairs(quests) do
+			if q.gives and not q.done then
+				out.questGivenBy = out.questGivenBy or q.title
+			end
+		end
+	end
+	return out
 end
 
 -- The title of the first quest whose objectives name the item, or nil. quests: { { title, objectives = { texts } } }.

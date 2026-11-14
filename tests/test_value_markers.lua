@@ -66,6 +66,55 @@ test("a quest item no quest names gets no marker", function()
 	eq(Rule({ classID = 12, quality = 1, vendor = 0, noValue = true }), "No marker: an unknown quest item")
 end)
 
+test("race and class masks", function()
+	eq(ns.Value_ForYou(0, 2), true)
+	eq(ns.Value_ForYou(nil, 2), true)
+	eq(ns.Value_ForYou(8589934770, 2), true) -- Forever's Horde mask: orc (2)
+	eq(ns.Value_ForYou(8589934770, 1), false) -- not human (1)
+	eq(ns.Value_ForYou(8589934770, 34), true) -- bit 33
+	eq(ns.Value_ForYou(4, 3), true)
+	eq(ns.Value_ForYou(4, 2), false)
+end)
+
+test("quest item data: in your log, waiting, all done, handed out", function()
+	local function Q(title, inLog, done, gives)
+		return { title = title, inLog = inLog, done = done, gives = gives }
+	end
+	eq(ns.Value_ItemQuests(nil).questFor, nil)
+	eq(ns.Value_ItemQuests({ Q("Nugget Slugs", true, false) }).questFor, "Nugget Slugs")
+	eq(ns.Value_ItemQuests({ Q("Nugget Slugs", false, false) }).questWaiting, "Nugget Slugs")
+	eq(ns.Value_ItemQuests({ Q("A", false, true), Q("B", false, true) }).questsDone, true)
+	local given = ns.Value_ItemQuests({ Q("Mura Runetotem", false, false, true) })
+	eq(given.questGivenBy, "Mura Runetotem")
+	eq(given.questWaiting, nil)
+	-- One quest done, another still to do: waiting for that one.
+	eq(ns.Value_ItemQuests({ Q("A", false, true), Q("B", false, false) }).questWaiting, "B")
+	-- In the log wins over everything.
+	eq(ns.Value_ItemQuests({ Q("A", false, true), Q("B", true, false, true) }).questFor, "B")
+end)
+
+test("quest item data in the markers", function()
+	local item = { quality = 1, classID = 12, vendor = 0, questItem = true, count = 1 }
+	local function With(extra)
+		local f = {}
+		for k, v in pairs(item) do
+			f[k] = v
+		end
+		for k, v in pairs(extra) do
+			f[k] = v
+		end
+		return f
+	end
+	local waiting = ns.Value_Marker(With({ questWaiting = "Nugget Slugs" }))
+	eq(waiting.kind, "quest")
+	eq(waiting.why, "For Nugget Slugs, not in your log.")
+	eq(Kind(With({ questsDone = true })), "delete")
+	eq(Kind(With({ questsDone = true, vendor = 5 })) ~= "delete", true)
+	local given = ns.Value_Marker(With({ questGivenBy = "Mura Runetotem" }))
+	eq(given.kind, nil)
+	eq(given.why, "From Mura Runetotem, which isn't in your log.")
+end)
+
 test("soulbound gear you can't use and can't sell is deleted, unless its look is new", function()
 	local f = { classID = 4, quality = 2, bound = true, unusable = true, vendor = 0, noValue = true }
 	eq(Kind(f), "delete")

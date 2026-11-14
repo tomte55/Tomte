@@ -21,6 +21,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Bags:** new searches `is:eat` (food that heals), `is:drink` (drink for mana) and `is:bandage`.
 - **Quest list:** right-click a quest and pick Show details for its text, objectives and rewards in the game's quest details window.
 - **Alts:** pick who crafts each craft on the crafting list: right-click it in the tracker or on the List tab and choose a character who knows the recipe, or Pick for me.
+- **Gold & value (Forever):** knows which quest each quest item belongs to, even when that quest isn't in your log: an item for a quest you can still take is kept for it, one whose quests are all done can be deleted, and the tooltip names the quest. Quests that only want an item handed in now count too.
 
 ### Improved
 
@@ -37,6 +38,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Quest list:** clicking a quest (also in Next quests and on the Leveling page) makes it the one Tomte's arrow and lists lead to, without changing the game's active quest, so the tracker error after a level-up no longer comes back after a click.
 - **Loot:** the Make room button grows to fit when a long item name wraps its text to a third line.
 - **Fishing:** pulled right after your weapons went back on, the off hand no longer hits a blocked-action error: it goes back on once the fight is over.
+- **Bags:** quest marks on items change right away when you take or drop a quest.
 
 ## v1.34.0 - 2026-11-13
 
