@@ -269,6 +269,9 @@ off under the Tomte window's Setup and sharing). `/tomte bug clear` empties that
 which version you have.
 
 **Sharing settings:** Tomte window settings > Setup and sharing, or `/tomte profile export` / `import` / `undo`.
+To send them straight to a player, right-click them and pick **Send my Tomte settings**, use **Send** in Setup and
+sharing, or `/tomte profile send <name>`. Battle.net friends with Friend sharing on also get a **Send settings**
+button on the Friends page. They're asked first and see what changes before anything is imported.
 Export gives a string of your settings (not your data: no characters, history, flight times or lists). Import shows
 what would change, per module, before anything is written; it then reloads. Undo goes back to your settings from
 before the last import.
@@ -374,7 +377,7 @@ are Tomte window settings.
 Each module's commands are `/tomte <module> <command>`; `/tomte help` lists them all. The ones you're most likely to
 want:
 
-- `/tomte setup` (the module picker), `/tomte changes` (what's new in this version), `/tomte bug` (`full`, `clear`), `/tomte profile export` / `import` / `undo`, `/tomte unlock` / `lock` (move Tomte's on-screen widgets without Edit Mode)
+- `/tomte setup` (the module picker), `/tomte changes` (what's new in this version), `/tomte bug` (`full`, `clear`), `/tomte profile export` / `import` / `undo` / `send <name>`, `/tomte unlock` / `lock` (move Tomte's on-screen widgets without Edit Mode)
 - `/tomte recap` (this session), `/tomte recap last`
 - `/tomte whispers inbox`, `/tomte chatcopy` (copy the chat window you last used)
 - `/tomte way <x> <y> [name]` (also `/way <x> <y> [name]` when TomTom isn't loaded), `/tomte way clear`, `/tomte way route` (the portal route to a pin on another continent), `/tomte way next` / `prev` (focus the next or previous tracked quest), `/tomte way ping` (ping your arrow on the map)

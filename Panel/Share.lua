@@ -2,7 +2,8 @@ local addonName, ns = ...
 
 -- Settings profiles, game side: export to a string, import a friend's string with a preview of what changes, and
 -- undo the last import. What a setting is and every check on imported data live in Core/Profile.lua (pure).
--- Nothing is sent anywhere: the player copies and pastes the string.
+-- Nothing is sent from here: the player copies and pastes the string, or sends it to a player with
+-- Panel/ShareSend.lua, which opens the same preview on their side.
 
 local UI = ns.UI
 local ARROW = " -> "
@@ -96,6 +97,7 @@ local function Apply()
 		ns.db.profileBackup = { at = time(), text = text }
 	end
 	ns.Profile_Apply(ns.db, preview.result, preview.chosen)
+	preview.imported = true
 	C_UI.Reload() -- needs a hardware event: this click is one. Modules and the theme read settings on load.
 end
 
@@ -126,6 +128,13 @@ local function BuildPreview()
 	preview.import = UI.Button(preview, 130, "Import and reload")
 	preview.import:SetPoint("RIGHT", preview.cancel, "LEFT", -8, 0)
 	preview.import:SetScript("OnClick", Apply)
+	preview:HookScript("OnHide", function()
+		local onClose = preview.onClose
+		preview.onClose = nil
+		if onClose then
+			onClose(preview.imported == true)
+		end
+	end)
 end
 
 local function Header(i)
@@ -160,9 +169,15 @@ local function Line(i)
 	return fs
 end
 
-local function ShowPreview(result, title, undo)
+-- onClose(imported): runs once when this preview goes away (a settings send waits to tell the sender).
+local function ShowPreview(result, title, undo, onClose)
 	if not preview then
 		BuildPreview()
+	end
+	local previous = preview.onClose
+	preview.onClose, preview.imported = onClose, false
+	if previous then
+		previous(false)
 	end
 	preview.result, preview.undo = result, undo
 	preview.chosen = {}
@@ -214,7 +229,7 @@ end
 
 -- Import -------------------------------------------------------------------------------------------------------
 
--- Decode and check text; nil, error when it can't be imported or nothing would change.
+-- Decode and check text; nil, error when it can't be imported or nothing would change (then also true).
 local function Check(text)
 	local payload, err = ns.Profile_Decode(text, codec)
 	if not payload then
@@ -226,7 +241,7 @@ local function Check(text)
 		return nil, err
 	end
 	if result.changes == 0 then
-		return nil, "Your settings already match."
+		return nil, "Your settings already match.", true
 	end
 	return result
 end
@@ -254,6 +269,22 @@ function ns.ShareUI_Import()
 			return nil
 		end,
 	})
+end
+
+-- Settings a player sent (Panel/ShareSend.lua): the same preview, titled for them. True, or nil, why not (Check's
+-- text), and true when it's because your settings already match.
+function ns.ShareUI_PreviewText(text, title, onClose)
+	local result, err, same = Check(text)
+	if not result then
+		return nil, err, same
+	end
+	ShowPreview(result, title, false, onClose)
+	return true
+end
+
+-- Whether the preview is open right now (a settings send answers "busy" then).
+function ns.ShareUI_PreviewShown()
+	return preview ~= nil and preview:IsShown()
 end
 
 function ns.ShareUI_Undo()

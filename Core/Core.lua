@@ -518,6 +518,13 @@ SlashCmdList.TOMTE = function(msg)
 			ns.ShareUI_Import()
 		elseif rest == "undo" then
 			ns.ShareUI_Undo()
+		elseif rest:match("^send") then
+			local name = rawRest:match("^%S+%s+(%S+)")
+			if name then
+				ns.ShareSend_ToPlayer(name)
+			else
+				ns.ShareSend_Ask()
+			end
 		elseif rest == "selftest" then
 			ns.ShareUI_SelfTest()
 		else
@@ -525,6 +532,7 @@ SlashCmdList.TOMTE = function(msg)
 			PrintCommand("/tomte profile export", "your settings as a string to give a friend")
 			PrintCommand("/tomte profile import", "paste a friend's string, see what changes, then import")
 			PrintCommand("/tomte profile undo", "go back to your settings from before the last import")
+			PrintCommand("/tomte profile send <name>", "send your settings to a player: they see what changes first")
 		end
 	else
 		local module = ns.modulesByKey[word]

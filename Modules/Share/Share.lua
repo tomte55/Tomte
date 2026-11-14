@@ -28,6 +28,7 @@ local UI = ns.UI
 
 local module, db
 local sets, setOrder = {}, {} -- [key] = set, keys in registration order
+local messageSets = {} -- [key] = message-only set (see ns.Share_Register)
 local queue = {} -- { to = gameAccountID, text, done = sending key when it's a transfer's last message }
 local sending = {} -- [gameAccountID .. ":" .. set] = true while a transfer is queued
 local inbox = {} -- Protocol.lua's reassembly
@@ -141,6 +142,18 @@ local function Shared(key)
 	return set ~= nil and db.sets[key] == true and (not set.active or set.active() == true)
 end
 
+-- The set that takes direct messages for key: a data set that's shared, or a message-only set that's active.
+local function MessageSet(key)
+	if Shared(key) then
+		return sets[key]
+	end
+	local set = messageSets[key]
+	if set and (not set.active or set.active() == true) then
+		return set
+	end
+	return nil
+end
+
 local function SharedSets()
 	local list = {}
 	for _, key in ipairs(setOrder) do
@@ -234,8 +247,8 @@ end
 
 -- A message for one of our sets from this friend; a set we don't share answers with a refusal, so their side knows.
 local function OnMessage(id, friend, msg)
-	local set = sets[msg.set]
-	if set and Shared(msg.set) and set.message then
+	local set = MessageSet(msg.set)
+	if set and set.message then
 		Log(friend.tag, "message for " .. msg.set)
 		set.message(friend.tag, msg.text)
 		return
@@ -248,8 +261,8 @@ local function OnMessage(id, friend, msg)
 end
 
 local function OnRefusal(friend, msg)
-	local set = sets[msg.set]
-	if set and Shared(msg.set) and set.refused then
+	local set = MessageSet(msg.set)
+	if set and set.refused then
 		Log(friend.tag, msg.set .. ": they don't share it")
 		set.refused(friend.tag, msg.id)
 	end
@@ -418,8 +431,15 @@ end
 --   refused(tag, id): that friend doesn't share this set, so message id wasn't taken
 --   greeted(tag): that friend just said hello (reachable now: a good moment to resend what's waiting for them)
 --   withdrawn(tag): a per-friend set that friend no longer shares (their hello leaves it out, or they were forgotten)
--- Called from the owning module's init (all files are loaded by then).
+-- A set with messageOnly = true ({ key, messageOnly, message, refused, active? }: settings sent to one friend,
+-- Panel/ShareSend.lua) only carries direct messages: kept apart from the data sets, so it has no switch in the
+-- options, is never in a hello and is never asked for or sent as data.
+-- Called from the owning module's init, or at login (all files are loaded by then).
 function ns.Share_Register(set)
+	if set.messageOnly then
+		messageSets[set.key] = set
+		return
+	end
 	if not sets[set.key] then
 		setOrder[#setOrder + 1] = set.key
 	end
@@ -429,7 +449,7 @@ end
 -- Sends text (at most ns.SHARE_CHUNK bytes, starting "<id>;") to a friend's side of a set. False when Friend sharing
 -- is off, the set isn't shared, the friend is blocked or isn't reachable right now.
 function ns.Share_Send(tag, key, text)
-	if not (module and module.active and Shared(key)) or Blocked(tag) or #text > ns.SHARE_CHUNK then
+	if not (module and module.active and MessageSet(key)) or Blocked(tag) or #text > ns.SHARE_CHUNK then
 		return false
 	end
 	local id = ns.Share_RosterFind(tag)

@@ -29,6 +29,7 @@ Core/Modules.lua
 Core/Setup.lua
 Core/ChangesData.lua
 Core/Profile.lua
+Core/ProfileWire.lua
 Core/BugReport.lua
 Core/BugFiles.lua
 Core/EditModeData.lua
@@ -88,6 +89,7 @@ Panel/Window.lua
 Panel/AddonsData.lua
 Panel/Addons.lua
 Panel/Share.lua
+Panel/ShareSend.lua
 Panel/Bug.lua
 Panel/Setup.lua
 Panel/Changes.lua

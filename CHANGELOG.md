@@ -27,6 +27,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Gear Check:** when no quest reward is an upgrade now, the quest reward card names one worth keeping for later: an upgrade at a higher level or once a trainer teaches its weapon type, or a shield or off-hand for when you use a one-handed weapon.
 - **Quest list:** right-click a quest and pick Show details for its text, objectives and rewards in a Tomte window, with Gear Check's pick among the reward choices (Best for you, or one to keep for later).
 - **Quest list:** a button beside the list holds the item a quest asks you to use (the followed quest's, else the first one down the list), with a key binding (Use quest item). In a fight it keeps the item it had.
+- **Tomte:** send your settings straight to another player: right-click them and pick Send my Tomte settings (or Send in Setup and sharing, or `/tomte profile send <name>`). They're asked first and see what changes before anything is imported. Battle.net friends with Friend sharing on get a Send settings button on the Friends page.
 
 ### Improved
 

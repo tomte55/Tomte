@@ -79,6 +79,20 @@ local SHARE = {
 			ns.ShareUI_Import()
 		end,
 		tooltip = "Paste their string, see what changes, then confirm. Your UI reloads." },
+	{ type = "button", label = "Send your settings to a player", text = "Send",
+		shown = function()
+			return ns.ShareUI_Available()
+		end,
+		onClick = function()
+			ns.ShareSend_Ask()
+		end,
+		tooltip = "Type their character's name. You can also right-click a player and pick Send my Tomte settings." },
+	{ type = "checkbox", key = "receiveSettings", label = "Let players send me their settings",
+		shown = function()
+			return ns.ShareUI_Available()
+		end,
+		tooltip = "Someone can offer you their Tomte settings. You're asked first, and see what changes before "
+			.. "anything is imported." },
 	{ type = "button", label = "Back to your settings from before the last import", text = "Undo import",
 		shown = function()
 			return ns.ShareUI_HasBackup()
@@ -385,6 +399,7 @@ module = ns.RegisterModule({
 		whatsNew = true, -- after an update, the first login shows what's new (Panel/Changes.lua)
 		bugToast = true, -- a toast when one of Tomte's Lua errors happens (Panel/Bug.lua)
 		debugCommands = false, -- /tomte help lists the troubleshooting commands (debug = true; Core/Core.lua)
+		receiveSettings = true, -- players may offer you their settings (asked first; Panel/ShareSend.lua)
 		motion = "full", -- "full" | "subtle" | "off": how much Tomte animates (Panel/Motion.lua)
 		sounds = "all", -- "all" | "important" | "off": which interface sounds play (UI.Sound)
 		around = {}, -- [home entry key] = false hides that "Around you" block (one true per block, set in AddRows)

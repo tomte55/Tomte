@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 -- Friend sharing page in the Tomte window: every Battle.net friend seen running Tomte with Friend sharing on, what
--- they gave you, a Block switch and Forget, and a strip when one of them runs a newer Tomte. Rows come from
+-- they gave you, Send settings (Panel/ShareSend.lua), a Block switch and Forget, and a strip when one of them runs a newer Tomte. Rows come from
 -- ns.Share_Friends, the strip from ns.Share_NewestFriendVersion (Share.lua).
 
 local UI = ns.UI
@@ -28,13 +28,18 @@ local function NewRow()
 	row.blockLabel = UI.Text(row, 12, "textMuted")
 	row.blockLabel:SetPoint("LEFT", row.block, "RIGHT", 6, 0)
 	row.blockLabel:SetText("Block")
+	row.send = UI.Button(row, 100, "Send settings")
+	row.send:SetPoint("RIGHT", row.block, "LEFT", -12, 0)
+	row.send:SetScript("OnClick", function(self)
+		ns.ShareSend_ToFriend(self:GetParent().tag)
+	end)
 	row.name = UI.Text(row, 13, "heading")
 	row.name:SetPoint("TOPLEFT", PAD, -4)
-	row.name:SetPoint("RIGHT", row.block, "LEFT", -12, 0)
+	row.name:SetPoint("RIGHT", row.send, "LEFT", -12, 0)
 	row.name:SetWordWrap(false)
 	row.detail = UI.Text(row, 11, "textMuted")
 	row.detail:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -3)
-	row.detail:SetPoint("RIGHT", row.block, "LEFT", -12, 0)
+	row.detail:SetPoint("RIGHT", row.send, "LEFT", -12, 0)
 	row.detail:SetWordWrap(false)
 	return row
 end
@@ -86,6 +91,8 @@ local function Layout()
 		row.name:SetText(f.name)
 		row.detail:SetText(Detail(f))
 		row.block:SetChecked(f.blocked)
+		-- Only while they can be reached: Friend sharing sends nothing to a friend who's offline or blocked.
+		row.send:SetShown(ns.ShareUI_Available() and not f.blocked and ns.Share_Online(f.tag) ~= nil)
 		row:Show()
 		y = y + ROW_H
 	end
