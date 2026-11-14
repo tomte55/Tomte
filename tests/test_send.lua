@@ -43,6 +43,17 @@ test("recipient: most recipes, ties by last played, never what I use", function(
 	eq(ns.Alts_Recipient(CLOTH, "cloth", Ctx()), nil, "nobody uses it")
 end)
 
+test("recipient: food and drink stay, unless a rule names them", function()
+	eq(ns.Alts_Recipient(HERB, "Refreshing Spring Water", Ctx(), true), nil, "an alt cooks with it: still yours")
+	eq(ns.Alts_Recipient(HERB, "Refreshing Spring Water", Ctx({ plan = { [HERB] = "Alch" } }), true), nil,
+		"not even for a planned craft")
+	eq(ns.Alts_Recipient(HERB, "Refreshing Spring Water", Ctx({ rules = ns.Alts_ParseRules("100=Mira") }), true),
+		"Alch", "your own rule sends it")
+	local groups = ns.Alts_SendGroups({ { itemID = HERB, name = "water", count = 5, food = true },
+		{ itemID = HERB, name = "herb", count = 5 } }, Ctx())
+	eq(#groups[1].stacks, 1, "the food stack is left out of the group")
+end)
+
 test("plan and rules come first", function()
 	eq(ns.Alts_Recipient(ORE, "ore", Ctx({ plan = { [ORE] = "Smith" } })), "Smith")
 	local rules = ns.Alts_ParseRules("200 = Tolvan, Linen Cloth=mira")

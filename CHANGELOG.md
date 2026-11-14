@@ -42,6 +42,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Quest list:** following the nearest quest no longer leads to a Lua error from the objective tracker after a level-up, or to blocked quest clicks on the map in combat. The followed quest now guides Tomte's arrow and lists, and the game's map and tracker keep the quest you pick there. The same for Next quests.
 - **Quest list:** clicking a quest (also in Next quests and on the Leveling page) makes it the one Tomte's arrow and lists lead to, without changing the game's active quest, so the tracker error after a level-up no longer comes back after a click.
 - **Leveling:** talking to a riding trainer or a weapon master no longer replaces your class trainer's list under "Next at your trainer".
+- **Alts:** "For your alts" at the mailbox and "Deposit for alts" no longer take your food and drink (like water) because another character cooks with it. A manual rule still sends it.
 - **Loot:** the Make room button grows to fit when a long item name wraps its text to a third line.
 - **Fishing:** pulled right after your weapons went back on, the off hand no longer hits a blocked-action error: it goes back on once the fight is over.
 - **Bags:** quest marks on items change right away when you take or drop a quest.

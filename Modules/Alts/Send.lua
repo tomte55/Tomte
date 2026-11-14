@@ -16,6 +16,8 @@ local MAX_ATTACH = ATTACHMENTS_MAX_SEND or 12 -- stacks per mail
 local POSTAGE_SLACK = 10000 -- copper (1 gold) a top-up's spent gold may exceed its amount by: the postage
 local MAX_ITEM_ROWS = 4 -- per group; the rest is "+n more"
 local QUEST = 12 -- Enum.ItemClass.Questitem
+local CONSUMABLE = 0 -- Enum.ItemClass.Consumable
+local FOOD_DRINK = 5 -- Enum.ItemConsumableSubclass.Fooddrink: stays with you (Alts_Recipient)
 
 local db
 local dock
@@ -45,12 +47,12 @@ local function BagStacks()
 		for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
 			local info = C_Container.GetContainerItemInfo(bag, slot)
 			if info and info.itemID and not info.isLocked then
-				local _, _, _, _, _, classID = C_Item.GetItemInfoInstant(info.itemID)
+				local _, _, _, _, _, classID, subClassID = C_Item.GetItemInfoInstant(info.itemID)
 				if classID ~= QUEST then
 					stacks[#stacks + 1] = {
 						bag = bag, slot = slot, itemID = info.itemID, name = info.itemName, count = info.stackCount,
 						icon = info.iconFileID, link = info.hyperlink, bound = info.isBound, quality = info.quality,
-						classID = classID,
+						classID = classID, food = classID == CONSUMABLE and subClassID == FOOD_DRINK,
 					}
 				end
 			end

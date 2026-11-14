@@ -93,8 +93,9 @@ end
 -- Who gets one item, or nil. ctx = { me, chars, users, plan = { [itemID] = guid }, rules, realms (optional, mail
 -- only: characters on realms mail can't reach are left out) }.
 -- name = the item's name (for name rules). Order: a manual rule, then the craft plan, then whoever knows the most
--- recipes using it (ties: the most recently played). Nothing when this character uses it itself.
-function ns.Alts_Recipient(itemID, name, ctx)
+-- recipes using it (ties: the most recently played). Nothing when this character uses it itself. food: the item is
+-- food or drink, which this character lives on (water a cook also brews with): only a manual rule sends it.
+function ns.Alts_Recipient(itemID, name, ctx, food)
 	local function Ok(guid)
 		return guid ~= ctx.me and ctx.chars[guid] ~= nil and ns.Alts_Reachable(ctx.chars[guid], ctx.realms)
 	end
@@ -106,6 +107,9 @@ function ns.Alts_Recipient(itemID, name, ctx)
 			end
 			return nil
 		end
+	end
+	if food then
+		return nil
 	end
 	local users = ctx.users[itemID]
 	if users and users[ctx.me] then
@@ -125,13 +129,13 @@ function ns.Alts_Recipient(itemID, name, ctx)
 	return best, best and "recipes" or nil
 end
 
--- Groups stacks by recipient. stacks = { { bag, slot, itemID, name, count, ... } }; filter(stack) -> bool keeps a
+-- Groups stacks by recipient. stacks = { { bag, slot, itemID, name, count, food, ... } }; filter(stack) -> bool keeps a
 -- stack (mailable, warbound, ...). Returns { { guid, stacks = { ... }, count } } sorted by most stacks, then name.
 function ns.Alts_SendGroups(stacks, ctx, filter)
 	local byGuid, groups = {}, {}
 	for _, s in ipairs(stacks) do
 		if not filter or filter(s) then
-			local guid, why = ns.Alts_Recipient(s.itemID, s.name, ctx)
+			local guid, why = ns.Alts_Recipient(s.itemID, s.name, ctx, s.food)
 			if guid then
 				local g = byGuid[guid]
 				if not g then
