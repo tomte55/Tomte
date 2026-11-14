@@ -1,0 +1,47 @@
+<Bindings>
+	<!-- World of Warcraft: Forever's key bindings: Bindings.xml without the modules that don't load there (gold
+	     world quests, pet battles, housing). Keep the two files in step. -->
+	<Binding name="TOMTE_TOGGLE" category="Tomte">
+		Tomte_Binding("TOGGLE")
+	</Binding>
+	<Binding name="TOMTE_WHISPER_REPLY" category="Tomte">
+		Tomte_Binding("WHISPER_REPLY")
+	</Binding>
+	<Binding name="TOMTE_WHISPER_INBOX" category="Tomte">
+		Tomte_Binding("WHISPER_INBOX")
+	</Binding>
+	<Binding name="TOMTE_SHOWCASE" category="Tomte">
+		Tomte_Binding("SHOWCASE")
+	</Binding>
+	<Binding name="TOMTE_CHAT_COPY" category="Tomte">
+		Tomte_Binding("CHAT_COPY")
+	</Binding>
+	<Binding name="TOMTE_GATHER_FOLLOW" category="Tomte">
+		Tomte_Binding("GATHER_FOLLOW")
+	</Binding>
+	<Binding name="TOMTE_GATHER_SKIP" category="Tomte">
+		Tomte_Binding("GATHER_SKIP")
+	</Binding>
+	<Binding name="TOMTE_CASINO" category="Tomte">
+		Tomte_Binding("CASINO")
+	</Binding>
+	<Binding name="CLICK TomteSmartMount:LeftButton" category="Tomte"/>
+	<Binding name="CLICK TomteSmartMount:RightButton" category="Tomte"/>
+	<Binding name="CLICK TomteSmartMount:MiddleButton" category="Tomte"/>
+	<Binding name="CLICK TomtePoison1:LeftButton" category="Tomte"/>
+	<Binding name="CLICK TomteFishing:LeftButton" category="Tomte"/>
+	<Binding name="CLICK TomteHunterAspect:LeftButton" category="Tomte"/>
+	<Binding name="CLICK TomteDrawer1:LeftButton" category="Tomte"/>
+	<Binding name="CLICK TomteDrawer2:LeftButton" category="Tomte"/>
+	<Binding name="CLICK TomteDrawer3:LeftButton" category="Tomte"/>
+	<Binding name="CLICK TomteDrawer4:LeftButton" category="Tomte"/>
+	<Binding name="TOMTE_WAY_NEXT" category="Tomte">
+		Tomte_Binding("WAY_NEXT")
+	</Binding>
+	<Binding name="TOMTE_WAY_PREV" category="Tomte">
+		Tomte_Binding("WAY_PREV")
+	</Binding>
+	<Binding name="TOMTE_LOOT_TAKE_ALL" category="Tomte">
+		Tomte_Binding("LOOT_TAKE_ALL")
+	</Binding>
+</Bindings>
