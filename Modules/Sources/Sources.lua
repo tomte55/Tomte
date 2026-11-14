@@ -81,7 +81,8 @@ local function OnItemTooltip(tooltip, data)
 	if not (module.active and db.tooltip and tooltip == GameTooltip and type(itemID) == "number" and not ns.IsSecret(itemID)) then
 		return
 	end
-	local line = ns.SOURCES_ITEMS[itemID] and ns.Sources_TipLine(ns.Sources_ForMe(itemID), UnitLevel("player"))
+	local line = ns.SOURCES_ITEMS[itemID]
+		and ns.Sources_TipLine(ns.Sources_ForMe(itemID), UnitLevel("player"), HereZone())
 	if line then
 		ns.UI.TipLine(line, "textMuted")
 	end

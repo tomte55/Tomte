@@ -142,6 +142,31 @@ test("TipLine: buying first, then what's near you", function()
 	eq(ns.Sources_TipLine({ buy = {}, gather = {}, drops = {} }, 6), nil)
 end)
 
+local function Drop(id, name, zoneName, chance)
+	return { kind = "drop", id = id, name = name, zone = 900 + id, zoneName = zoneName, low = 6, high = 8,
+		chance = chance, spawns = 10 }
+end
+
+test("Sort: a drop in the zone you're in comes first", function()
+	local rows = { Drop(1, "Ravenclaw Slave", "Silverpine Forest", 39), Drop(2, "Scarlet Warrior", "Tirisfal Glades", 12) }
+	eq(ns.Sources_Sort(rows, 7, "Horde", "Tirisfal Glades").drops[1].name, "Scarlet Warrior")
+	eq(ns.Sources_Sort(rows, 7, "Horde", "Durotar").drops[1].name, "Ravenclaw Slave", "elsewhere: the best place")
+end)
+
+test("TipLine: a drop from many places says so, with the one where you are", function()
+	local rows = {}
+	for i = 1, 8 do
+		rows[i] = Drop(i, "Mob " .. i, "Zone " .. i, 20 + i)
+	end
+	local sorted = ns.Sources_Sort(rows, 7, "Horde", "Zone 2")
+	eq(ns.Sources_TipLine(sorted, 7, "Zone 2"), "Drops from many mobs (here: Mob 2, 22%)")
+	sorted = ns.Sources_Sort(rows, 7, "Horde", "Tirisfal Glades")
+	eq(ns.Sources_TipLine(sorted, 7, "Tirisfal Glades"), "Drops from many mobs")
+	rows[8] = nil -- seven zones: not many
+	sorted = ns.Sources_Sort(rows, 7, "Horde", "Tirisfal Glades")
+	eq(ns.Sources_TipLine(sorted, 7, "Tirisfal Glades"), "Drops from Mob 7, Zone 7 (27%)")
+end)
+
 local SKIN = {
 	items = { [783] = "Light Hide|", [2319] = "Medium Leather|v20" },
 	units = DATA.units,

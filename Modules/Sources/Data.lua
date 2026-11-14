@@ -154,7 +154,8 @@ end
 
 -- The sources sorted for this character: { buy, gather, drops, skin }. Only vendors who'd sell to you (your side's, or a neutral
 -- one, such as Booty Bay's), and no mobs on your side. Vendors: the zone you're in (here: its name) first, then your side's lands,
--- then the rest, by zone name. Drops and zones to skin in: near your level first, your side's lands before the other's, the best
+-- then the rest, by zone name. Drops and zones to skin in: near your level first (in the zone you're in, then your side's
+-- lands before the other's), the best
 -- place to farm first; then the ones above you by level and last the ones far below. A zone to skin in counts its creatures (its
 -- spawns), a drop its chance too.
 function ns.Sources_Sort(rows, level, faction, here)
@@ -176,6 +177,9 @@ function ns.Sources_Sort(rows, level, faction, here)
 	end
 	local function Band(row)
 		if ns.Sources_Near(row, level) then
+			if here and row.zoneName == here then
+				return 0 -- where you are: no trip at all
+			end
 			local side = SIDE_ZONES[row.zone]
 			return (side and letter and side ~= letter) and 2 or 1
 		end
@@ -250,8 +254,24 @@ function ns.Sources_SubText(row)
 	return table.concat(parts, ", ")
 end
 
--- One line for a tooltip: the best way to get it. nil with none.
-function ns.Sources_TipLine(sorted, level)
+-- Zones the drops are spread over: from this many on, an item drops from many mobs (Linen Cloth from humanoids all over
+-- the world) and no one of them is the place to go. The table keeps the best few per zone and level band, so it's the
+-- zones that show how common a drop is, not the mobs.
+local COMMON_ZONES = 8
+
+local function DropZones(drops)
+	local zones, n = {}, 0
+	for _, row in ipairs(drops) do
+		if row.zoneName and not zones[row.zoneName] then
+			zones[row.zoneName] = true
+			n = n + 1
+		end
+	end
+	return n
+end
+
+-- One line for a tooltip: the best way to get it. nil with none. here: the zone you're in, by name.
+function ns.Sources_TipLine(sorted, level, here)
 	local row = sorted.buy[1]
 	if row then
 		return ("Sold by %s, %s"):format(row.name, row.zoneName or "?")
@@ -270,6 +290,13 @@ function ns.Sources_TipLine(sorted, level)
 	end
 	if row then
 		local chance = ns.Sources_ChanceText(row.chance)
+		if DropZones(sorted.drops) >= COMMON_ZONES then
+			-- Sources_Sort put one near your level in this zone first, when there is one.
+			if here and row.zoneName == here and ns.Sources_Near(row, level) then
+				return ("Drops from many mobs (here: %s%s)"):format(row.name, chance and (", " .. chance) or "")
+			end
+			return "Drops from many mobs"
+		end
 		return ("Drops from %s, %s%s"):format(row.name, row.zoneName or "?", chance and (" (" .. chance .. ")") or "")
 	end
 	return skin and Skinned() or nil
