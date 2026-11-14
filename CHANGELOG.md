@@ -36,6 +36,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Dressing room:** a look you can't collect on this character says "not for this character" instead of "another class".
 - **Autocorrect:** informal words like yeah, nope and gonna get a capital at the start of a sentence; shorthand like lol, brb and gg stays as you typed it.
 - **Tomte:** `/tomte help` lists only the commands you'd use. The ones that explain a module's decision, scan something or show samples still work when typed, and are listed again with Show troubleshooting commands (Tomte window settings, Setup and sharing). A few one-off data checks are gone.
+- **Leveling:** the XP line says how far into the next level your finished quests take you ("Hand-ins: level 10 + 31%").
 
 ### Fixed
 

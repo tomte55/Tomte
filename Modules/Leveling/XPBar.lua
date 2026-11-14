@@ -41,7 +41,13 @@ local function Sentence(state)
 	local nextLevel = state.level + 1
 	local parts = { ("%s XP to level %d."):format(ns.Thousands(v.toGo), nextLevel) }
 	if v.reachesLevel then
-		parts[#parts + 1] = UI.Wrap(("Your finished quests reach level %d."):format(nextLevel), "success")
+		-- How far past it: the XP left once the next level is reached, into the levels after (XPData.lua).
+		local reached, percent = ns.Leveling_XPBeyond(state.level, v.turnIn - v.toGo)
+		local line = ("Hand-ins: level %d"):format(reached or nextLevel)
+		if percent and percent > 0 then
+			line = ("%s + %d%%"):format(line, percent)
+		end
+		parts[#parts + 1] = UI.Wrap(line .. ".", "success")
 	elseif v.turnIn > 0 then
 		parts[#parts + 1] = UI.Wrap(("%s XP in finished quests."):format(ns.Thousands(v.turnIn)), "success")
 	end
