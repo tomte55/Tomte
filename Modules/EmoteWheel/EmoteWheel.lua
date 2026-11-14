@@ -344,7 +344,9 @@ local function Opts()
 				ns.EmoteWheelThanks_Apply(active)
 			end,
 			tooltip = "When another player gives you a buff that lasts 10 minutes or more, out of combat, a toast says "
-				.. "who. Click it to thank them, right-click to dismiss it." },
+				.. "who. Click it to thank them, right-click to dismiss it. When the game doesn't say who (not your "
+				.. "target, party member or a nameplate), the toast says \"Someone nearby\" and its click thanks "
+				.. "everyone around you." },
 		{ type = "dropdown", key = "thanks.how", label = "Thank them by", parent = "thanks.on", choices = function()
 			return { { value = "say", text = "Saying it" }, { value = "whisper", text = "Whisper" },
 				{ value = "emote", text = "/thank" } }
@@ -411,6 +413,9 @@ ns.RegisterModule({
 		end },
 		{ debug = true, "thanks", "show a sample buff thank-you toast", function()
 			ns.EmoteWheelThanks_Sample()
+		end },
+		{ debug = true, "why", "the last buffs you got and why each did or didn't get a thank-you toast", function()
+			ns.EmoteWheelThanks_Why(active)
 		end },
 		{ "slices", "list the wheel's slices and what each one does", function()
 			local lookups = Lookups()

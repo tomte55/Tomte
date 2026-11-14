@@ -40,6 +40,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Tomte:** `/tomte help` lists only the commands you'd use. The ones that explain a module's decision, scan something or show samples still work when typed, and are listed again with Show troubleshooting commands (Tomte window settings, Setup and sharing). A few one-off data checks are gone.
 - **Leveling:** the XP line says how far into the next level your finished quests take you ("Hand-ins: level 10 + 31%").
 - **Where to get it:** drops in the zone you're in come first, and for items like cloth that drop all over, the tooltip says "Drops from many mobs" (with one in your zone when there is one) instead of naming one far away.
+- **Emote wheel:** when the game doesn't say who gave you a buff, the buff thanks toast says "Someone nearby" and its click thanks everyone around you. A buff from an NPC gets none.
 
 ### Fixed
 
