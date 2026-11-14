@@ -612,9 +612,9 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "list", "friends seen running Tomte and what they gave you", List },
-		{ "sync", "say hello to every friend now (they send what's new)", Sync },
-		{ "why", "<name>: what was exchanged with that friend this session", Why },
+		{ debug = true, "list", "friends seen running Tomte and what they gave you", List },
+		{ debug = true, "sync", "say hello to every friend now (they send what's new)", Sync },
+		{ debug = true, "why", "<name>: what was exchanged with that friend this session", Why },
 	},
 	home = {
 		{ kind = "page", key = "share", noRail = true, order = 90, name = "Friend sharing", icon = ICON, page = ns.SharePage,

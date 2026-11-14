@@ -513,51 +513,6 @@ local function List()
 	end
 end
 
-local function Stamp(t)
-	if not t then
-		return "-"
-	end
-	return ("%d-%02d-%02d %02d:%02d"):format(t.year or 0, t.month or 0, t.monthDay or 0, t.hour or 0, t.minute or 0)
-end
-
--- Raw calendar rows for today and the calendar filter CVars: shows whether a row's eventID is a holiday ID the
--- table knows and whether a filter hides rows.
-local function CalendarDump()
-	local rows = ns.Events_ReadRows(1)
-	if not rows then
-		ns.Print("chat lockdown: the calendar can't be read now.")
-		return
-	end
-	local selected = C_Calendar.GetMonthInfo(0)
-	ns.Print(("calendar month %d/%d, %d holiday rows today:"):format(selected.month or 0, selected.year or 0, #rows))
-	for _, r in ipairs(rows) do
-		local def = ns.Events_Lookup(ns.EVENTS_INDEX, r.eventID, r.texture)
-		print(("  eventID %s, texture %s, %s, %s to %s%s"):format(tostring(r.eventID), tostring(r.texture),
-			tostring(r.name), Stamp(r.startTime), Stamp(r.endTime), def and (" -> " .. def.key) or ""))
-	end
-	for _, cvar in ipairs({ "calendarShowHolidays", "calendarShowDarkmoon", "calendarShowWeeklyHolidays",
-		"calendarShowBattlegrounds" }) do
-		print(("  %s = %s"):format(cvar, tostring(C_CVar.GetCVar(cvar))))
-	end
-end
-
-local function Ids()
-	local _, names = ns.Events_SkillLines()
-	local lines = {}
-	for skillLine, questID in pairs(ns.EVENTS_DARKMOON_QUESTS) do
-		lines[#lines + 1] = { skillLine = skillLine, questID = questID }
-	end
-	table.sort(lines, function(a, b)
-		return a.questID < b.questID
-	end)
-	ns.Print("Darkmoon Faire profession quests:")
-	for _, l in ipairs(lines) do
-		print(("  %d  skill line %d%s: %s%s"):format(l.questID, l.skillLine, names[l.skillLine] and
-			(" (" .. names[l.skillLine] .. ")") or "", ns.Events_QuestTitle(l.questID) or "loading, run again",
-			C_QuestLog.IsQuestFlaggedCompleted(l.questID) and " - done" or ""))
-	end
-end
-
 local function Test()
 	if not ns.Module_RequireOn(module) then
 		return
@@ -666,9 +621,7 @@ module = ns.RegisterModule({
 			OpenPage()
 		end },
 		{ "list", "what's on, what's left and the daily boss, printed", List },
-		{ "calendar", "today's raw calendar rows and the calendar filters", CalendarDump },
-		{ "ids", "the Darkmoon Faire quest IDs with the names the game gives", Ids },
-		{ "test", "show a sample toast", Test },
+		{ debug = true, "test", "show a sample toast", Test },
 	},
 	options = {
 		{ type = "header", label = "Home" },

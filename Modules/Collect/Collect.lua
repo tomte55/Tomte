@@ -470,8 +470,8 @@ module = ns.RegisterModule({
 	end,
 	commands = {
 		{ "open", "show the Collect here tab on the open map", ns.CollectTab_Open },
-		{ "here", "what's left in your zone, and the names it matches", Here },
-		{ "test", "show sample toasts", Test },
+		{ debug = true, "here", "what's left in your zone, and the names it matches", Here },
+		{ debug = true, "test", "show sample toasts", Test },
 	},
 	options = {
 		{ type = "header", label = "List" },

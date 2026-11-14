@@ -217,7 +217,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "preview", "show a sample mention", Preview },
+		{ debug = true, "preview", "show a sample mention", Preview },
 	},
 	options = options,
 })

@@ -453,9 +453,9 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "why", "list each buff check and what it found", Why },
-		{ "test", "show the reminder strip with sample icons", Test },
-		{ "check", "run the buff check now (chat)", function()
+		{ debug = true, "why", "list each buff check and what it found", Why },
+		{ debug = true, "test", "show the reminder strip with sample icons", Test },
+		{ debug = true, "check", "run the buff check now (chat)", function()
 			Check(true)
 		end },
 	},

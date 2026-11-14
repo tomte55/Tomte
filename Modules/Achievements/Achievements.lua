@@ -531,8 +531,8 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "scan", Word("scan all achievements again"), Rescan },
-		{ "cache", "what's saved for this character and how this login's scan ran", function()
+		{ debug = true, "scan", Word("scan all achievements again"), Rescan },
+		{ debug = true, "cache", "what's saved for this character and how this login's scan ran", function()
 			if ns.Module_RequireOn(module) then
 				for _, line in ipairs(ns.Ach_CacheLines()) do
 					ns.Print(line)
@@ -559,7 +559,7 @@ module = ns.RegisterModule({
 				ns.Print("drag the tracker, then /tomte ach lock.")
 			end
 		end },
-		{ "test", "show sample toasts", Test },
+		{ debug = true, "test", "show sample toasts", Test },
 	},
 	options = {
 		{ type = "header", label = "List" },

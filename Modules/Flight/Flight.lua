@@ -582,7 +582,7 @@ module = ns.RegisterModule({
 				ns.Print("drag the bar, then /tomte flight lock.")
 			end
 		end },
-		{ "testalert", "play the arrival alert", PlayAlert },
+		{ debug = true, "testalert", "play the arrival alert", PlayAlert },
 	},
 	options = {
 		{ type = "header", label = "Timer" },

@@ -582,8 +582,8 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "test", "show a sample loot window and feed lines", Preview },
-		{ "why", "explain the last loot: auto loot, fast loot, feed or window", Why },
+		{ debug = true, "test", "show a sample loot window and feed lines", Preview },
+		{ debug = true, "why", "explain the last loot: auto loot, fast loot, feed or window", Why },
 	},
 	options = {
 		{ type = "header", label = "Loot window" },

@@ -515,7 +515,7 @@ module = ns.RegisterModule({
 		{ "forget", "<word>: drop what you told it about a word, and fixes you undid for it", Forget,
 			whileOff = true },
 		{ "list", "the words you keep, your corrections and the fixes you undid", List, whileOff = true },
-		{ "why", "<word>: what it would do with a word, and why", Why, whileOff = true },
+		{ debug = true, "why", "<word>: what it would do with a word, and why", Why, whileOff = true },
 	},
 	options = {
 		{ type = "header", label = "Fixes" },

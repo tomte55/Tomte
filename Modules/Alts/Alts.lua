@@ -629,14 +629,14 @@ module = ns.RegisterModule({
 		{ "open", "open the Alts page", function()
 			ns.Panel_OpenPage("alts")
 		end },
-		{ "learnable", "list the recipe items you hold and whether you can learn them now", function()
+		{ debug = true, "learnable", "list the recipe items you hold and whether you can learn them now", function()
 			ns.AltsLearnable_Print()
 		end },
 		{ "forget", "forget a character everywhere: /tomte alts forget <name>[-<realm>]", Forget, whileOff = true },
-		{ "why", "why Materials on hand keeps or drops a recipe: /tomte alts why <recipe>", function(text)
+		{ debug = true, "why", "why Materials on hand keeps or drops a recipe: /tomte alts why <recipe>", function(text)
 			ns.AltsCraft_Why(text)
 		end },
-		{ "friends", "what each friend shared and why their characters show or not", function()
+		{ debug = true, "friends", "what each friend shared and why their characters show or not", function()
 			ns.AltsFriends_Why()
 		end },
 		{ "list", "open the crafting list", function()
@@ -649,7 +649,7 @@ module = ns.RegisterModule({
 			ns.AltsList_Refresh()
 			ns.Print("craft tracker " .. (db.tracker.shown and "on." or "off."))
 		end },
-		{ "scan", "read the open profession window's recipes now (and say why not)", function()
+		{ debug = true, "scan", "read the open profession window's recipes now (and say why not)", function()
 			ns.AltsCollect_ScanNow()
 		end },
 	},

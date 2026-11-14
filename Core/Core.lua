@@ -369,15 +369,32 @@ local function PrintCommand(command, description)
 	print(("  %s %s"):format(ns.Theme.Wrap(command, "accent"), ns.Theme.Wrap("- " .. description, "textMuted")))
 end
 
+-- Troubleshooting commands (debug = true: why, scans, samples) always run when typed, so a bug report can ask for one;
+-- help lists them only with "Show troubleshooting commands" on (the Tomte window's settings).
+local function DebugShown()
+	return ns.db and type(ns.db.window) == "table" and ns.db.window.debugCommands == true
+end
+
 local function PrintModuleCommands(module)
+	local debugShown = DebugShown()
 	for _, cmd in ipairs(module.commands or {}) do
-		if not cmd.hidden then -- debug commands work but stay out of help
-			PrintCommand(("/tomte %s %s"):format(module.key, cmd[1]), cmd[2])
+		-- hidden: a module's own default ("/tomte casino"), never listed.
+		if not cmd.hidden and (not cmd.debug or debugShown) then
+			-- A command without a name ("/tomte recap") is the module's own action.
+			PrintCommand(cmd[1] == "" and ("/tomte " .. module.key) or ("/tomte %s %s"):format(module.key, cmd[1]),
+				cmd[2])
 		end
 	end
-	if module.fallbackCommand then
-		local cmd = module.fallbackCommand
-		PrintCommand(("/tomte %s %s"):format(module.key, cmd[1]), cmd[2])
+	local fallback = module.fallbackCommand
+	if fallback then
+		local repeated = false -- "/tomte alts" saying what "/tomte alts open" already says
+		for _, cmd in ipairs(module.commands or {}) do
+			repeated = repeated or cmd[2] == fallback[2]
+		end
+		if not repeated then
+			PrintCommand(fallback[1] == "" and ("/tomte " .. module.key)
+				or ("/tomte %s %s"):format(module.key, fallback[1]), fallback[2])
+		end
 	end
 end
 
@@ -386,7 +403,11 @@ local function PrintHelp()
 	PrintCommand("/tomte", "open Tomte (Home)")
 	PrintCommand("/tomte help", "this list")
 	PrintCommand("/tomte version", "which Tomte version you have (/tomte bug makes a whole bug report)")
-	PrintCommand("/tomte data", "which expansion's content Tomte follows for you, and what it knows about it")
+	if DebugShown() then
+		PrintCommand("/tomte data", "which expansion's content Tomte follows for you, and what it knows about it")
+		PrintCommand("/tomte bug taint", "watch the world map for Tomte's taint, and keep how it got there ('show' to "
+			.. "copy it, 'clear' to forget, 'scan' lists what's tainted now)")
+	end
 	PrintCommand("/tomte setup", "pick what Tomte turns on: Collector, Crafter, Minimal or Everything")
 	PrintCommand("/tomte changes", "what's new in this Tomte version")
 	PrintCommand("/tomte bug", "a bug report to copy: versions, modules and Tomte's last errors ('full' adds error "

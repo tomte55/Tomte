@@ -327,7 +327,7 @@ module = ns.RegisterModule({
 	commands = {
 		{ "open", "show the World quests tab on the open map", ns.WQTab_Open },
 		{ "here", "your zone's world quests by section, in chat", Here },
-		{ "test", "show a sample toast", Test },
+		{ debug = true, "test", "show a sample toast", Test },
 	},
 	options = {
 		{ type = "header", label = "List" },

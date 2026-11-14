@@ -280,16 +280,6 @@ local function Stats()
 		T(sl.biggestWin), T(sl.jackpots), ns.GamesWindow_Signed(sl.net)))
 end
 
-local function StackPair()
-	if ns.Blackjack_InPlay(db.game) then
-		ns.Print("finish this hand first.")
-	elseif ns.Blackjack_StackPair(db.game) then
-		ns.Print("your next hand is a pair.")
-	else
-		ns.Print("the shoe is about to be shuffled: deal once, then try again.")
-	end
-end
-
 -- Cashier purchases are kept: they were bought, they aren't stats.
 local function NewGame()
 	local game = ns.Blackjack_NewGame()
@@ -393,7 +383,6 @@ module = ns.RegisterModule({
 		end },
 		{ "stats", "your chips and stats for all three games, in chat", Stats },
 		{ "today", "chips earned today, in chat", Today },
-		{ "split", "make your next hand a pair (to try a split)", StackPair },
 		{ "reset", "put the window back in the middle of the screen", ns.GamesWindow_ResetPlace, whileOff = true },
 	},
 	options = {

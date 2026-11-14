@@ -161,7 +161,7 @@ module = ns.RegisterModule({
 	commands = {
 		{ "", "open the Fishing options", Open, hidden = true, whileOff = true },
 		{ "options", "open the Fishing options", Open, whileOff = true },
-		{ "status", "key, soft interact, helpers and pending restores", Status, whileOff = true },
+		{ debug = true, "status", "key, soft interact, helpers and pending restores", Status, whileOff = true },
 	},
 	options = {
 		{ type = "header", label = "Key" },

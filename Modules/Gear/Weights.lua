@@ -12,7 +12,6 @@ local function DB()
 	return ns.gearDB
 end
 
-local PRIMARY_KEYS = ns.GEAR_PRIMARY_KEYS
 local Context = ns.Gear_OwnContext
 local CurrentSeason = ns.Gear_CurrentSeason
 local InvalidateVerdicts = ns.Gear_InvalidateVerdicts
@@ -218,39 +217,6 @@ local function NextSim()
 	} }
 end
 
--- Hidden (/tomte gear specs): every class's specs as the game reports them, against the built-in set of this
--- character's content expansion. Lines marked "check" are a missing spec or a different main stat.
-local function PrintSpecs()
-	local seen, bad = {}, 0
-	local scales = ns.Gear_ScalesForLevel()
-	ns.Print(("Gear Check specs (ID, name, role, main stat) against the built-in set %s:"):format(
-		ns.Gear_ScalesName(scales, ns.ContentExpansion())))
-	for cid = 1, GetNumClasses() do
-		local info = C_CreatureInfo.GetClassInfo(cid)
-		for i = 1, C_SpecializationInfo.GetNumSpecializationsForClassID(cid) or 0 do
-			local specID, name, _, _, role, primaryStat = GetSpecializationInfo(i, false, false, nil, nil, nil, cid)
-			if specID and specID ~= 0 then
-				seen[specID] = true
-				local main = PRIMARY_KEYS[primaryStat]
-				local scale = scales.specs[specID]
-				local problem = not scale and "no built-in weights"
-					or (main and not scale.weights[main]) and "built-in has another main stat" or nil
-				bad = bad + (problem and 1 or 0)
-				print(("  |c%s%d %s %s, %s, %s%s|r"):format(UI.Hex(problem and "warning" or "textMuted"), specID,
-					name or "?", info and info.className or cid, tostring(role), tostring(main),
-					problem and (": check, " .. problem) or ""))
-			end
-		end
-	end
-	for specID in pairs(scales.specs) do
-		if not seen[specID] then
-			bad = bad + 1
-			print("  " .. UI.Wrap(("%d is in the built-in set but the game has no such spec: check"):format(specID), "warning"))
-		end
-	end
-	ns.Print(bad == 0 and "every spec matches the built-in set." or (bad .. " to check."))
-end
-
 -- Hides the import box when Gear Check is switched off.
 local function HideDialog()
 	if dialog then
@@ -264,5 +230,4 @@ ns.Gear_PrintSimSteps = PrintSimSteps
 ns.GearWeights_Print = PrintWeights
 ns.GearWeights_SourceLabel = SourceLabel
 ns.GearWeights_NextSim = NextSim
-ns.GearWeights_PrintSpecs = PrintSpecs
 ns.GearWeights_HideDialog = HideDialog

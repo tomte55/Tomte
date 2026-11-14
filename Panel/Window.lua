@@ -95,6 +95,9 @@ local SHARE = {
 	{ type = "checkbox", key = "bugToast", label = "Tell me when Tomte has an error",
 		tooltip = "A small toast when one of Tomte's Lua errors happens, at most one a minute, held back until combat ends. "
 			.. "Click it for the bug report to copy and send." },
+	{ type = "checkbox", key = "debugCommands", label = "Show troubleshooting commands",
+		tooltip = "Lists the commands that explain what a module decided, scan something or show samples in "
+			.. "/tomte help. They work when typed either way." },
 }
 
 -- Theme preview ---------------------------------------------------------------------------------------------------
@@ -381,6 +384,7 @@ module = ns.RegisterModule({
 		pills = true, -- counts on the rail
 		whatsNew = true, -- after an update, the first login shows what's new (Panel/Changes.lua)
 		bugToast = true, -- a toast when one of Tomte's Lua errors happens (Panel/Bug.lua)
+		debugCommands = false, -- /tomte help lists the troubleshooting commands (debug = true; Core/Core.lua)
 		motion = "full", -- "full" | "subtle" | "off": how much Tomte animates (Panel/Motion.lua)
 		sounds = "all", -- "all" | "important" | "off": which interface sounds play (UI.Sound)
 		around = {}, -- [home entry key] = false hides that "Around you" block (one true per block, set in AddRows)

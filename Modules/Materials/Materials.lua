@@ -128,7 +128,7 @@ module = ns.RegisterModule({
 			tooltip = "Trade goods and reagents that no recipe in Tomte's list uses get \"Not used in crafting\". Items newer than the list get no line." },
 	},
 	commands = {
-		{ "why", "what both sources know about an item: /tomte materials why <item link or ID>", function(arg)
+		{ debug = true, "why", "what both sources know about an item: /tomte materials why <item link or ID>", function(arg)
 			Why(arg)
 		end },
 	},

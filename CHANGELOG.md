@@ -19,13 +19,13 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Nameplates:** your threat as a number under every enemy's health bar, solo too and in dungeons: your share of the tank's (or pet's) threat, or your lead while you hold aggro, in red when you've pulled it off your tank and green when holding it is your job.
 - **Drawers:** a drawer can hold a bag search: type `is:eat`, `is:drink`, `is:potion` (or anything the bag search box takes) and it fills in with what you carry, the best first, and keeps up as your bags change.
 - **Bags:** new searches `is:eat` (food that heals), `is:drink` (drink for mana) and `is:bandage`.
-- **Quest list:** right-click a quest and pick Show details for its text, objectives and rewards in the game's quest details window.
 - **Alts:** pick who crafts each craft on the crafting list: right-click it in the tracker or on the List tab and choose a character who knows the recipe, or Pick for me.
 - **Gold & value (Forever):** knows which quest each quest item belongs to, even when that quest isn't in your log: an item for a quest you can still take is kept for it, one whose quests are all done can be deleted, and the tooltip names the quest. Quests that only want an item handed in now count too.
 - **Quest list:** in a party, each member's progress shows under your objectives (read from the mobs around you, so anyone counts; party members who run Tomte send all of theirs), and a faint line says who doesn't have a quest.
 - **Quest list:** right-click a quest for Share (the quest with your party, your progress in party chat, or its link in the chat box) and Find group (LFG or LFM for it in General, with the quest link).
 - **Quest list:** the quest it follows shows on the world map the way the game's active quest does: its area, a ring around its pin and a bar on it in the map's quest log.
 - **Gear Check:** when no quest reward is an upgrade now, the quest reward card names one worth keeping for later: an upgrade at a higher level or once a trainer teaches its weapon type, or a shield or off-hand for when you use a one-handed weapon.
+- **Quest list:** right-click a quest and pick Show details for its text, objectives and rewards in a Tomte window, with Gear Check's pick among the reward choices (Best for you, or one to keep for later).
 
 ### Improved
 
@@ -35,6 +35,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Emote Wheel:** buff thanks also thank a buff you already had when someone casts it on you again.
 - **Dressing room:** a look you can't collect on this character says "not for this character" instead of "another class".
 - **Autocorrect:** informal words like yeah, nope and gonna get a capital at the start of a sentence; shorthand like lol, brb and gg stays as you typed it.
+- **Tomte:** `/tomte help` lists only the commands you'd use. The ones that explain a module's decision, scan something or show samples still work when typed, and are listed again with Show troubleshooting commands (Tomte window settings, Setup and sharing). A few one-off data checks are gone.
 
 ### Fixed
 

@@ -409,7 +409,7 @@ ns.RegisterModule({
 		{ "edit", "open the wheel editor", function()
 			ns.Panel_OpenPage(PAGE_KEY)
 		end },
-		{ "thanks", "show a sample buff thank-you toast", function()
+		{ debug = true, "thanks", "show a sample buff thank-you toast", function()
 			ns.EmoteWheelThanks_Sample()
 		end },
 		{ "slices", "list the wheel's slices and what each one does", function()

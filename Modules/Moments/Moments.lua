@@ -815,7 +815,7 @@ module = ns.RegisterModule({
 		return playing
 	end,
 	commands = {
-		{ "preview", ns.FOREVER and "show a sample moment; add a type (levelup, mount, zone, tame, ...) and for mount, pet or tame a tier (common, rare, epic, legendary)"
+		{ debug = true, "preview", ns.FOREVER and "show a sample moment; add a type (levelup, mount, zone, tame, ...) and for mount, pet or tame a tier (common, rare, epic, legendary)"
 			or "show a sample moment; add a type (levelup, mount, zone, tame, upgrade, ...) and for mount, pet, tame or upgrade a tier (common, rare, epic, legendary)", Preview },
 	},
 	options = options,

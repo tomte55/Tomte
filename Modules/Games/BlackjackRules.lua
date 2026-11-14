@@ -384,23 +384,6 @@ function ns.Blackjack_Split(game, random)
 	return true
 end
 
--- For testing splits in game: swaps cards in the shoe so the next deal gives you a pair (your cards are the 1st and
--- 3rd dealt). Returns false when the shoe is too short.
-function ns.Blackjack_StackPair(game)
-	local shoe, first = game.shoe, game.next
-	if ns.Blackjack_Left(game) < DECKS * 52 * RESHUFFLE_AT + 3 then
-		return false
-	end
-	local want = CardValue(shoe[first])
-	for i = first + 3, #shoe do
-		if CardValue(shoe[i]) == want then
-			shoe[first + 2], shoe[i] = shoe[i], shoe[first + 2]
-			return true
-		end
-	end
-	return false
-end
-
 -- Text ----------------------------------------------------------------------------------------------------------
 
 local RESULT_TEXT = { blackjack = "Blackjack", win = "Win", push = "Push", lose = "Lose", bust = "Bust" }

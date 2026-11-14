@@ -406,7 +406,7 @@ module = ns.RegisterModule({
 		{ "way", "a waypoint to the nearest Collector's Cache", function()
 			ns.TradingPost_Waypoint()
 		end },
-		{ "test", "show a sample toast", Sample },
+		{ debug = true, "test", "show a sample toast", Sample },
 	},
 	options = {
 		{ type = "header", label = "Reminders" },

@@ -395,7 +395,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "test", "show the ring around the cursor for a few seconds", Test },
+		{ debug = true, "test", "show the ring around the cursor for a few seconds", Test },
 	},
 	options = {
 		{ type = "header", label = "When to show it" },

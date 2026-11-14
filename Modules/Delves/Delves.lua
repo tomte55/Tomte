@@ -381,7 +381,7 @@ module = ns.RegisterModule({
 		{ "open", "open the Delves page", Open },
 		{ "list", "today's delves (bountiful marked) and your keys, in chat", List },
 		{ "vault", "the Great Vault World plan and the tier ladder, in chat", Vault },
-		{ "powers", "the open power choice's options (names, spell IDs) and what auto-pick would do", function()
+		{ debug = true, "powers", "the open power choice's options (names, spell IDs) and what auto-pick would do", function()
 			ns.DelvesPowers_Why()
 		end },
 	},

@@ -440,8 +440,8 @@ module = ns.RegisterModule({
 		{ "open", "open the Leveling page", function()
 			ns.Panel_OpenPage(PAGE_KEY)
 		end },
-		{ "why", "what Leveling reads right now: trainer list, bars, ammo, talents", Why },
-		{ "next", "where your quests are and how the next quests widget groups them", function()
+		{ debug = true, "why", "what Leveling reads right now: trainer list, bars, ammo, talents", Why },
+		{ debug = true, "next", "where your quests are and how the next quests widget groups them", function()
 			if ns.Module_RequireOn(module) then
 				ns.LevelingNext_Why()
 			end

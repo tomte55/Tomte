@@ -21,7 +21,7 @@ ns.TP_HEARTH_ITEMS = {
 	140192, -- Dalaran Hearthstone
 }
 
--- Hearthstone toys: same destination as your Hearthstone. /tomte tp scan checks them against the toy box.
+-- Hearthstone toys: same destination as your Hearthstone.
 ns.TP_HEARTH_TOYS = {
 	54452, -- Ethereal Portal
 	64488, -- The Innkeeper's Daughter

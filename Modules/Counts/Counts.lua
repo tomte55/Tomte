@@ -173,7 +173,7 @@ module = ns.RegisterModule({
 		ns.Counts_Changed()
 	end,
 	commands = {
-		{ "list", "the characters Item counts knows, and when each was read", List },
+		{ debug = true, "list", "the characters Item counts knows, and when each was read", List },
 		{ "forget", "stop counting a character's items: /tomte counts forget <name>", Forget },
 	},
 	options = {

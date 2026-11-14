@@ -445,7 +445,7 @@ BINDING_NAME_TOMTE_WAY_NEXT = "Waypoints: focus the next tracked quest"
 BINDING_NAME_TOMTE_WAY_PREV = "Waypoints: focus the previous tracked quest"
 
 local COMMANDS = {
-	{ "test", "place a map pin ahead of you and track it", TestPin },
+	{ debug = true, "test", "place a map pin ahead of you and track it", TestPin },
 	{ "clear", "stop tracking (and remove the map pin)", Clear },
 	{ "next", "focus the next tracked quest (also a key binding)", function()
 		CycleFocus(1)

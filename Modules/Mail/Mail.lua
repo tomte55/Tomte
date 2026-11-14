@@ -566,7 +566,7 @@ module = ns.RegisterModule({
 		{ "gold", "at a mailbox: take only the gold from your mail", RequireMailbox(function()
 			OpenAll(true)
 		end) },
-		{ "why", "at a mailbox: list each letter and what Open all does with it", Why },
+		{ debug = true, "why", "at a mailbox: list each letter and what Open all does with it", Why },
 	},
 	options = {
 		{ type = "header", label = "Inbox" },

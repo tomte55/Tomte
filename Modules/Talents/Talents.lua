@@ -671,7 +671,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "why", "explain what Talent check decides here and why", Why },
+		{ debug = true, "why", "explain what Talent check decides here and why", Why },
 		{ "list", ("list the %ss saved for this character"):format(LOADOUT), List },
 		{ "check", "run the talent check now", function()
 			Check("command")

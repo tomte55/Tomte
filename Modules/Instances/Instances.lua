@@ -160,7 +160,7 @@ module = ns.RegisterModule({
 	end,
 	toggle = Apply,
 	commands = not ns.FOREVER and {
-		{ "why", "what the badge, the portal card, the queue plate and the holiday pick see right now", Why },
+		{ debug = true, "why", "what the badge, the portal card, the queue plate and the holiday pick see right now", Why },
 	} or nil,
 	options = {
 		{ type = "header", label = ns.FOREVER and "Entering" or "At the portal" },

@@ -452,7 +452,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "preview", "show who's online now and a sample toast", Preview },
+		{ debug = true, "preview", "show who's online now and a sample toast", Preview },
 	},
 	options = options,
 })

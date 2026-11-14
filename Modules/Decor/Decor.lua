@@ -539,9 +539,9 @@ module = ns.RegisterModule({
 	end,
 	commands = {
 		{ "open", "open the Decor page", Open },
-		{ "scan", "read the housing catalog again and count decor per source", Scan },
-		{ "why", "what the catalog says about a decor item: /tomte decor why <item link or ID>", Why },
-		{ "vendors", "the decor vendors Tomte has learned the spot of", function()
+		{ debug = true, "scan", "read the housing catalog again and count decor per source", Scan },
+		{ debug = true, "why", "what the catalog says about a decor item: /tomte decor why <item link or ID>", Why },
+		{ debug = true, "vendors", "the decor vendors Tomte has learned the spot of", function()
 			ns.DecorVendors_Print()
 		end },
 		{ "houses", "open the list of your houses, with a teleport to each", function()

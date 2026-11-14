@@ -603,8 +603,8 @@ module = ns.RegisterModule({
 	end,
 	commands = {
 		{ "upgrades", "toast the clean upgrades already in your bags", ShowUpgrades },
-		{ "why", "your class, level and worn gear as Gear Check reads them", Why },
-		{ "roll", "what Gear Check would roll on an item: run it, then shift-click the item", function(_, rawArg)
+		{ debug = true, "why", "your class, level and worn gear as Gear Check reads them", Why },
+		{ debug = true, "roll", "what Gear Check would roll on an item: run it, then shift-click the item", function(_, rawArg)
 			ns.GearRoll_Explain(rawArg)
 		end },
 	},

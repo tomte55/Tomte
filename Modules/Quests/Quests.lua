@@ -143,7 +143,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "why", "why the last NPC's quests and gossip were or weren't done for you", Command(function()
+		{ debug = true, "why", "why the last NPC's quests and gossip were or weren't done for you", Command(function()
 			ns.QuestsAuto_PrintWhy()
 		end) },
 		{ "ignore", "list the NPCs left to you; ignore <ID> takes one off, ignore clear empties the list",

@@ -560,9 +560,9 @@ module = ns.RegisterModule({
 	commands = {
 		{ "price", "what an item is worth: /tomte value price <item link or ID>", PrintPrice },
 		{ "track", "show an item on the bag's currency bar, or stop: /tomte value track <item link or ID>", Track },
-		{ "why", "which marker a bag item gets and why: /tomte value why <item>", ns.ValueMarkers_Why },
+		{ debug = true, "why", "which marker a bag item gets and why: /tomte value why <item>", ns.ValueMarkers_Why },
 		{ "ignore", "no marker on an item, or a marker again: /tomte value ignore <item>", ns.ValueMarkers_Ignore },
-		{ "markers", "how each item marker is decided", function()
+		{ debug = true, "markers", "how each item marker is decided", function()
 			ns.ValueMarkerRules_Show(db.sell.minGain)
 		end },
 	},

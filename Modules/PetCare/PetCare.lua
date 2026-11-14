@@ -466,7 +466,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "why", "your pet's mood, diet, food in your bags and training points", Why },
+		{ debug = true, "why", "your pet's mood, diet, food in your bags and training points", Why },
 	},
 	options = {
 		{ type = "header", label = "Feeding" },

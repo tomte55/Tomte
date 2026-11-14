@@ -350,7 +350,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "why", "which place this counts as and what's applied", Why },
+		{ debug = true, "why", "which place this counts as and what's applied", Why },
 		{ "restore", "put your own graphics settings back now", Restore },
 	},
 	options = options,

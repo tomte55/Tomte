@@ -149,7 +149,7 @@ module = ns.RegisterModule({
 			local i = tonumber(arg)
 			ns.Drawers_OpenEditor(i and i >= 1 and i <= COUNT and i or nil)
 		end },
-		{ "search", "explain a bag search: what each consumable in your bags reads as and whether it matches"
+		{ debug = true, "search", "explain a bag search: what each consumable in your bags reads as and whether it matches"
 			.. " (/tomte drawers search is:eat)", function(arg, rawArg)
 			for _, line in ipairs(ns.Drawers_SearchWhy(rawArg or arg)) do
 				ns.Print(line)

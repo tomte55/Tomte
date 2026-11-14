@@ -278,7 +278,7 @@ module = ns.RegisterModule({
 	end,
 	options = {},
 	commands = {
-		{ "list", "print what Next up suggests now", function()
+		{ debug = true, "list", "print what Next up suggests now", function()
 			local list = Current()
 			if #list == 0 then
 				ns.Print("nothing pressing.")

@@ -259,7 +259,7 @@ module = ns.RegisterModule({
 	end,
 	toggle = Toggle,
 	commands = {
-		{ "last", "what happened at the last vendor", function()
+		{ debug = true, "last", "what happened at the last vendor", function()
 			if not last then
 				ns.Print("no vendor visit yet this session.")
 				return

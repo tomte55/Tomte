@@ -293,13 +293,6 @@ test("reshuffles when a quarter of the shoe is left", function()
 	eq(g.next, 5)
 end)
 
-test("stack pair puts a pair in your next hand", function()
-	local g = game(100, 7, 9, 3, 4, 5, 6, 7)
-	eq(ns.Blackjack_StackPair(g), true)
-	ns.Blackjack_Deal(g, noRandom)
-	eq(ns.Blackjack_Actions(g).split, true)
-end)
-
 test("repair fills in a damaged save", function()
 	local g = ns.Blackjack_Repair({ chips = "x", round = 5, stats = { hands = 3 } })
 	eq(g.chips, 1000)

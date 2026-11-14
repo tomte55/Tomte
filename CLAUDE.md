@@ -188,7 +188,11 @@ just restates the code. Fix comments that point at moved or renamed code in the 
 - Labels and tooltips are player wording: short, sentence case, no internals.
 - Defaults are safe for a friend who didn't choose them; noisy or invasive modules are `enabledByDefault = false`.
 - Commands: `commands = { { "name", "help text", fn(arg, rawArg) } }`, reached as `/tomte <key> <name>` and listed by
-  `/tomte help` automatically. Debug commands that explain a decision (`why`, `scan`, `list`) are welcome.
+  `/tomte help` automatically. Debug commands that explain a decision (`why`, `scan`, `list`) and sample commands
+  (`test`, `preview`) are welcome, marked `debug = true` (`{ debug = true, "why", ... }`): they always run when typed,
+  so a bug report can ask for one, but `/tomte help` lists them only with "Show troubleshooting commands" on. One-off
+  checks made to verify data or measure something once are deleted once they've done their job. `hidden = true` is
+  only for a module's own default (`{ "", ... }`, `/tomte casino`).
 - Key bindings: a `<Binding>` in `Bindings.xml` (category `Tomte`) plus its `BINDING_NAME_*` string.
 
 ### UI and theme

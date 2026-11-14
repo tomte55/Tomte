@@ -473,8 +473,8 @@ local COMMANDS = {
 	{ "end", "end the gathering run", function()
 		ns.Gather_End("manual")
 	end },
-	{ "why", "what the last loot window counted as, and why", Why },
-	{ "nodes", "how many node spots are remembered here and everywhere", Nodes },
+	{ debug = true, "why", "what the last loot window counted as, and why", Why },
+	{ debug = true, "nodes", "how many node spots are remembered here and everywhere", Nodes },
 	{ "follow", "follow the gathering route in your zone, or stop", ns.GatherFollow_Toggle },
 	{ "skip", "skip the route's next spot (somebody got there first)", ns.GatherFollow_Skip },
 	{ "route", "the gathering route in your zone", ns.GatherFollow_Info },
@@ -483,7 +483,7 @@ local COMMANDS = {
 if not ns.FOREVER then
 	HOME[#HOME + 1] = { kind = "next", key = "nextgather", name = "Gathering knowledge drops", score = 35,
 		candidates = NextDrops, description = "Weekly knowledge drops your gathering professions can still find." }
-	COMMANDS[#COMMANDS + 1] = { "soil", "the object your mouse pointed at last and the Rich Soil spots Tomte knows", function()
+	COMMANDS[#COMMANDS + 1] = { debug = true, "soil","the object your mouse pointed at last and the Rich Soil spots Tomte knows", function()
 		ns.GatherSeeds_Info()
 	end }
 end

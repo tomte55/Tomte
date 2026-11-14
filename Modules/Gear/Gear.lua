@@ -24,7 +24,6 @@ local RegisterBaganator = ns.GearBaganator_Register
 local PrintWeights = ns.GearWeights_Print
 local SourceLabel = ns.GearWeights_SourceLabel
 local NextSim = ns.GearWeights_NextSim
-local PrintSpecs = ns.GearWeights_PrintSpecs
 local OpenImport = ns.Gear_OpenImport
 local ClearWeights = ns.Gear_ClearWeights
 local PrintSimSteps = ns.Gear_PrintSimSteps
@@ -295,7 +294,6 @@ module = ns.RegisterModule({
 		{ "upgrades", "reveal the clean upgrades already in your bags", function()
 			ns.GearReveal_ShowBags()
 		end },
-		{ "specs", "every spec's ID and main stat against the built-in weights", PrintSpecs, hidden = true },
 	},
 	options = {
 		{ type = "header", label = "Tooltip" },

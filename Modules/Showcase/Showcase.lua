@@ -302,15 +302,10 @@ module = ns.RegisterModule({
 	commands = {
 		{ "", "open or close the Showcase", ns.CharShow_Toggle, hidden = true },
 		{ "open", "show your character, gear and stats", ns.CharShow_Open },
-		{ "view", "which camera view the Showcase borrows", function()
-			local view = FreeView()
-			ns.Print(view and ("the Showcase keeps your camera in view %d (no key is bound to it)."):format(view)
-				or "views 2-5 all have keys: the Showcase zooms back on close without a saved view (facing may differ).")
-		end },
-		{ "debug", "chat lines for each camera step on close", function()
+		{ debug = true, "debug", "chat lines for each camera step on close", function()
 			db.debugCamera = not db.debugCamera
 			ns.Print("Showcase camera debug " .. (db.debugCamera and "on" or "off") .. ".")
-		end, hidden = true },
+		end },
 	},
 	options = {
 		{ type = "header", label = "Showcase" },

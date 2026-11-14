@@ -392,8 +392,8 @@ module = ns.RegisterModule({
 			end },
 	},
 	commands = {
-		{ "why", "which category an item is in and why: /tomte bags why <item>", Why },
-		{ "red", "the items tinted red and the tooltip line that made them red", function()
+		{ debug = true, "why", "which category an item is in and why: /tomte bags why <item>", Why },
+		{ debug = true, "red", "the items tinted red and the tooltip line that made them red", function()
 			ns.Print("red items in your bags:")
 			ns.BagsRead_PrintRed()
 		end },

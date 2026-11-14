@@ -504,7 +504,7 @@ module = ns.RegisterModule({
 	end,
 	commands = {
 		{ "last", "the recap of this character's last session", ShowLast },
-		{ "preview", "show the recap card with sample data", Preview },
+		{ debug = true, "preview", "show the recap card with sample data", Preview },
 	},
 	fallbackCommand = { "", "show this session's recap", ShowCurrent, pattern = "^$" },
 	options = {

@@ -294,7 +294,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "why", "say why the DPS meter shows or not", function()
+		{ debug = true, "why", "say why the DPS meter shows or not", function()
 			local ok, why = ns.MeterRead_Available()
 			ns.Print(("on: %s, damage meter: %s%s"):format(tostring(active), tostring(ok),
 				why and (" (" .. why .. ")") or ""))

@@ -1033,6 +1033,6 @@ module = ns.RegisterModule({
 			tooltip = "While chat is faded, a small note at the bottom names the tabs with whispers you haven't read and how many." },
 	},
 	commands = {
-		{ "state", "show whether chat is awake and which tabs have unread whispers", PrintState },
+		{ debug = true, "state", "show whether chat is awake and which tabs have unread whispers", PrintState },
 	},
 })

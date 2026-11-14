@@ -238,13 +238,13 @@ module = ns.RegisterModule({
 			function(_, rawArg)
 				ns.DressUp_OutfitCommand(rawArg)
 			end },
-		{ "looks", "bag items whose look you haven't collected, and what the game says about them", function()
+		{ debug = true, "looks", "bag items whose look you haven't collected, and what the game says about them", function()
 			ns.DressUp_LooksReport()
 		end },
-		{ "debug", "chat lines when the dressing room's size is set", function()
+		{ debug = true, "debug", "chat lines when the dressing room's size is set", function()
 			db.debug = not db.debug
 			ns.Print("Dressing room debug " .. (db.debug and "on" or "off") .. ".")
-		end, hidden = true },
+		end },
 	},
 	options = {
 		{ type = "header", label = "Dressing room" },

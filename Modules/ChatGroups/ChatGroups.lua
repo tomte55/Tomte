@@ -183,7 +183,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "why", "how many people are on the list", Why },
+		{ debug = true, "why", "how many people are on the list", Why },
 	},
 	options = {
 		{ type = "header", label = "Groups in chat" },

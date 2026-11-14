@@ -358,7 +358,7 @@ module = ns.RegisterModule({
 	commands = {
 		{ "stats", "messages hidden and shown this session", PrintStats },
 		{ "keywords", "list the keywords in use", PrintKeywords },
-		{ "preview", "show a sample toast", Preview },
+		{ debug = true, "preview", "show a sample toast", Preview },
 	},
 	options = options,
 })

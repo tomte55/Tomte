@@ -806,7 +806,7 @@ module = ns.RegisterModule({
 		ns.MountJournal_Refresh()
 	end,
 	commands = {
-		{ "why", "context, pool and pick of your last press", Why },
+		{ debug = true, "why", "context, pool and pick of your last press", Why },
 		{ "zone", "zone favorites where you stand", ZoneCommand },
 		{ "macro", "make the action bar macro (greyed out when you can't mount)", MacroCommand },
 	},

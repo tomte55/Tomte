@@ -371,70 +371,29 @@ are Tomte window settings.
 <details>
 <summary><b>Commands and key bindings</b></summary>
 
-Each module's commands are `/tomte <module> <command>`, for example:
+Each module's commands are `/tomte <module> <command>`; `/tomte help` lists them all. The ones you're most likely to
+want:
 
-- `/tomte flight stats`, `/tomte flight lock` / `unlock`, `/tomte flight testalert`
-- `/tomte moments preview mount` (or `levelup`, `zone`, `tame`, `upgrade`, ...); add a tier for creatures and upgrades: `/tomte moments preview mount legendary`
-- `/tomte recap` (this session), `/tomte recap last`, `/tomte recap preview`
-- `/tomte afk preview`, `/tomte whispers inbox`, `/tomte hunter check`, `/tomte hunter aspect` (Forever: what the aspect button sees), `/tomte rogue check` (your poisons and what's missing), `/tomte emotewheel edit` (the wheel editor), `/tomte emotewheel slices` (what each slice does), `/tomte emotewheel thanks` (a sample buff thank-you), `/tomte pet unlock`
-- `/tomte alerts test`
-- `/tomte gear sim` (how to check an item on Raidbots), `/tomte gear import` / `weights` (source, best gem, season) / `clear`, `/tomte gear upgrades` (reveal the upgrades already in your bags), `/tomte gear roll` (Forever: what the roll advice says for the next item you shift-click)
-- `/tomte bags why <item>` (which category an item is in and why)
-- `/tomte counts list` (the characters Item counts knows), `/tomte counts forget <name>`
-- `/tomte way test` (pin ahead of you), `/tomte way clear`, `/tomte way route` (the portal route to a pin on another continent), `/tomte way next` / `prev` (focus the next or previous tracked quest), `/tomte way ping` (ping your arrow on the map), `/tomte way <x> <y> [name]` (also `/way <x> <y> [name]` when TomTom isn't loaded)
-- `/tomte ach scan`, `/tomte ach cache` (what's saved and how this login's scan ran), `/tomte ach tracker`,
-  `/tomte ach lock` / `unlock`, `/tomte ach test`
-- `/tomte vendor last`, `/tomte dura list`
-- `/tomte mount why` (context, pool and pick of the last press), `/tomte mount zone`
-- `/tomte tp open`, `/tomte tp scan` (what the Teleports tab found)
-- `/tomte next list` (what Next up suggests and why), `/tomte next reset` (bring back everything you hid)
-- `/tomte alts list` (the crafting list), `/tomte alts learnable` (the recipe items you hold and whether you can learn them now), `/tomte alts tracker` (show/hide the craft tracker), `/tomte alts friends` (what each friend shared, and why their characters show or not)
-- `/tomte recent open` / `clear`, `/tomte value price <item link or ID>`, `/tomte value track <item link or ID>` (show an item on the bag's currency bar, or stop), `/tomte value why <item>` (which marker an item gets and the rule that decided it), `/tomte value ignore <item>` (no marker on it, or one again), `/tomte value markers` (how each marker is decided)
-- `/tomte materials why <item link or ID>` (which characters and professions use an item)
-- `/tomte perf show` (Tomte's busiest modules and last hitches), `/tomte perf report` (all of it as text to copy), `/tomte perf reset` (measure from now), `/tomte perf open`
-- `/tomte pets open`, `/tomte pets import` (paste Xu-Fu strategies), `/tomte pets types` (type chart), `/tomte pets load` (the team for the tamer you're talking to)
-- `/tomte weekly popup` / `board`, `/tomte weekly quests` (learned weekly quests), `/tomte weekly forget <name>`, `/tomte weekly ids` (check crest and knowledge quest IDs)
-- `/tomte chatcopy` (copy the chat window you last used)
-- `/tomte quietchat state` (whether chat is awake, and which tabs have unread whispers)
-- `/tomte autocorrect keep <word>` (never change it), `/tomte autocorrect add <typo> <fix>` (a correction of your own), `/tomte autocorrect forget <word>`, `/tomte autocorrect list`, `/tomte autocorrect why <word>` (what it would do with a word, and why)
-- `/tomte showcase` (open or close), `/tomte showcase view` (which camera view it borrows)
 - `/tomte setup` (the module picker), `/tomte changes` (what's new in this version), `/tomte bug` (`full`, `clear`), `/tomte profile export` / `import` / `undo`, `/tomte unlock` / `lock` (move Tomte's on-screen widgets without Edit Mode)
-- `/tomte gather` (the Gathering page), `/tomte gather start` / `end`, `/tomte gather why` (how the last loot window was counted), `/tomte gather nodes` (node spots remembered here and everywhere), `/tomte gather follow` (follow the zone's gathering route, or stop), `/tomte gather skip` (skip the route's next spot), `/tomte gather route` (the route in your zone), `/tomte gather soil` (the object you last pointed at and the Rich Soil spots Tomte knows)
-- `/tomte fishing` (options), `/tomte fishing status` (key, reel state and settings waiting to be put back)
-- `/tomte wgq` (the Gold world quests window), `/tomte wgq list` / `report` (in chat), `/tomte wgq route` / `stop`, `/tomte wgq reset` (window position)
-- `/tomte share list` (friends sharing with you), `/tomte share sync` (ask everyone for what's new now), `/tomte share why <name>` (what was exchanged with that friend)
-- `/tomte delves` (the Delves page), `/tomte delves list` (today's delves, bountiful marked, and your keys), `/tomte delves vault` (the Great Vault World plan and tier ladder), `/tomte delves powers` (the open power choice's options and what auto-pick would do)
-- `/tomte tradingpost` (the Trading Post page), `/tomte tradingpost status` (Tender, the cache, the Traveler's Log and the time left), `/tomte tradingpost shop` (the shop from your last visit), `/tomte tradingpost way` (waypoint to the nearest Collector's Cache), `/tomte tradingpost test` (sample toast)
-- `/tomte events` (the Events page), `/tomte events list`, `/tomte events calendar` (today's raw calendar rows), `/tomte events ids` (Darkmoon Faire quest IDs with the game's names), `/tomte events test` (sample toast)
-- `/tomte mail open` (at a mailbox: open all, again to stop), `/tomte mail gold` (take only the gold), `/tomte mail why` (each letter and what Open all does with it)
-- `/tomte talents why` (the place, your loadout and what's saved), `/tomte talents list`, `/tomte talents check`
-- `/tomte buffs why` (each check and what it found), `/tomte buffs test` (sample icons), `/tomte buffs check`
-- `/tomte graphics why` (which place this counts as and what's applied), `/tomte graphics restore` (your own graphics settings back now)
-- `/tomte hidden changed` (every game setting that isn't at its default), `/tomte hidden undo` (put back what you changed on the Hidden settings page)
-- `/tomte cursor test` (show the ring for a few seconds)
-- `/tomte casino` (open or close the casino), `/tomte casino blackjack`, `/tomte casino poker`, `/tomte casino slots` (open on that game), `/tomte casino stats` (all three games, in chat), `/tomte casino today` (chips earned today), `/tomte casino split` (your next blackjack hand is a pair), `/tomte casino reset` (window position)
-- `/tomte leveling open`, `/tomte leveling why` (what it reads right now: trainer list, bars, ammo, talents), `/tomte leveling next` (where your quests are and how Next quests groups them)
-- `/tomte questlist why` (how it groups your quests and whether Spoken's buttons work), `/tomte questlist reset` (position), `/tomte questlist party` (what it knows about each party member's quests)
-- `/tomte meter reset` (put the DPS meter back in its default spot)
-- `/tomte meter why` (say why the DPS meter shows or not)
-- `/tomte petcare why` (your pet's mood, diet, food in your bags and training points)
-- `/tomte rest why` (what the eat and drink button would use now, and why)
+- `/tomte recap` (this session), `/tomte recap last`
+- `/tomte whispers inbox`, `/tomte chatcopy` (copy the chat window you last used)
+- `/tomte way <x> <y> [name]` (also `/way <x> <y> [name]` when TomTom isn't loaded), `/tomte way clear`, `/tomte way route` (the portal route to a pin on another continent), `/tomte way next` / `prev` (focus the next or previous tracked quest), `/tomte way ping` (ping your arrow on the map)
+- `/tomte mail open` (at a mailbox: open all, again to stop), `/tomte mail gold` (take only the gold)
+- `/tomte gather` (the Gathering page), `/tomte gather start` / `end`, `/tomte gather follow` (follow the zone's gathering route, or stop), `/tomte gather skip` (skip the route's next spot), `/tomte gather route`
+- `/tomte gear sim` (how to check an item on Raidbots), `/tomte gear import` / `weights` / `clear`, `/tomte gear upgrades` (reveal the upgrades already in your bags)
+- `/tomte value price <item link or ID>`, `/tomte value track <item link or ID>` (show an item on the bag's currency bar, or stop), `/tomte value ignore <item>` (no marker on it, or one again)
 - `/tomte sources find <name>` (where to get an item)
-- `/tomte chatgroups why` (how many people are on the Groups in chat list)
-- `/tomte decorate panel` (the Decorating panel, in the house editor), `/tomte decorate keys` (list the decorating keys), `/tomte decorate unlock` (unlock every locked decor)
-- `/tomte decor open`, `/tomte decor scan` (read the housing catalog again and count decor per source), `/tomte decor why <item link or ID>` (what the catalog says about a decor item), `/tomte decor vendors` (the vendors Tomte has learned the spot of), `/tomte decor houses` (the Houses window), `/tomte decor home` (how to teleport home: commands can't, the key or a click can)
-- `/tomte quests why` (why the last NPC's quests and gossip were or weren't done for you), `/tomte quests ignore` (the NPCs you left to yourself; `ignore <ID>` takes one off, `ignore clear` empties the list)
-- `/tomte loot test` (a sample loot window and feed lines), `/tomte loot why` (how the last loot was handled: auto loot, key, fast loot, feed or window, what was left)
-- `/tomte instances why` (what the minimap badge, the portal card, the queue plate and the holiday pick see right now)
-- `/tomte dressup outfit <name>` (try on a saved outfit, or set it up at the transmogrifier)
-- `/tomte dressup looks` (bag items whose look you haven't collected, and what the game says about them)
-- `/tomte summary open` (the Expansion summary page)
-- `/tomte prey open` (the Prey page), `/tomte prey status` (your hunt, this week's hunts and targets defeated), `/tomte prey way` (waypoint to your prey)
-- `/tomte tips why <item link or ID>` (what Tooltip extras knows about an item; without an item: why the last bag item got its "use left" line, or none)
-- `/tomte plates why` (what your target's nameplate shows and why), `/tomte plates soft` (what the name under the
-  Interact icon sees and why it shows or not), `/tomte plates threat` (what the game tells Tomte about your threat
-  on your target)
-- `/tomte drawers edit [1-4]` (open the drawer editor)
+- `/tomte autocorrect keep <word>` (never change it), `/tomte autocorrect add <typo> <fix>` (a correction of your own), `/tomte autocorrect forget <word>`, `/tomte autocorrect list`
+- `/tomte alts list` (the crafting list), `/tomte alts tracker` (show/hide the craft tracker), `/tomte alts forget <name>`
+- `/tomte casino` (open or close), `/tomte casino blackjack` / `poker` / `slots`, `/tomte casino stats`, `/tomte casino today` (chips earned today)
+- `/tomte hunter check`, `/tomte rogue check` (your poisons and what's missing), `/tomte emotewheel edit` (the wheel editor), `/tomte drawers edit [1-4]`
+- `/tomte quests ignore` (the NPCs you left to yourself; `ignore <ID>` takes one off, `ignore clear` empties the list)
+- `/tomte hidden changed` (every game setting that isn't at its default), `/tomte hidden undo`, `/tomte graphics restore`
+- `/tomte perf show` / `report` / `reset` (Tomte's busiest modules and last hitches)
+
+Commands that explain what a module decided (`why`), scan something or show samples (`test`, `preview`) still work
+when typed; `/tomte help` lists them when **Show troubleshooting commands** is on (Tomte window settings, Setup and
+sharing). A bug report may ask you for one of them.
 
 Key bindings for toggling the Tomte window, Smart Mount, the Gold world quests window, whisper reply, the whisper inbox, Next pet battle move, Heal battle pets, Apply missing poison, Fishing, Copy chat, Take all loot, the Casino, Open drawer 1-4, Teleport home (or back from a visit) and Waypoints: focus the next/previous tracked quest are under **Tomte** in the game's Key Bindings menu.
 

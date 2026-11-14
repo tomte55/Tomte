@@ -332,7 +332,7 @@ module = ns.RegisterModule({
 		return away
 	end,
 	commands = {
-		{ "preview", "show the AFK screen with sample whispers", Preview },
+		{ debug = true, "preview", "show the AFK screen with sample whispers", Preview },
 	},
 	options = {
 		{ type = "header", label = "AFK screen" },

@@ -204,7 +204,6 @@ local function SkillLines()
 	end
 	return lines, names
 end
-ns.Events_SkillLines = SkillLines
 
 local function QuestTitle(questID)
 	local title = C_QuestLog.GetTitleForQuestID(questID)
@@ -214,7 +213,6 @@ local function QuestTitle(questID)
 	C_QuestLog.RequestLoadQuestByID(questID)
 	return nil
 end
-ns.Events_QuestTitle = QuestTitle
 
 function ns.Events_DarkmoonActive()
 	for _, ev in ipairs(ns.Events_Current().list) do

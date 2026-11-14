@@ -429,7 +429,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "test", "play the alert sound and flash the taskbar icon", Test },
+		{ debug = true, "test", "play the alert sound and flash the taskbar icon", Test },
 	},
 	options = options,
 })

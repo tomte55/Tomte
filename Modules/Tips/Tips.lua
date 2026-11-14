@@ -111,7 +111,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "why", "what Tooltip extras knows about an item (link or ID); alone: why the last bag item got its "
+		{ debug = true, "why", "what Tooltip extras knows about an item (link or ID); alone: why the last bag item got its "
 			.. "\"use left\" line", function(arg)
 			Why(arg)
 		end },

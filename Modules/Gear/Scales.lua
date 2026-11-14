@@ -14,7 +14,7 @@ local addonName, ns = ...
 --   diamonds = { itemID, ... }, diamondName = "...", -- the unique main-stat gem: only pointed out when none is worn
 -- }
 -- Label starting with "guide priority" (Gear_IsGuideLabel): guide ladder, not a sim. Spec IDs from
--- warcraft.wiki.gg SpecializationID; /tomte gear specs checks them against the game.
+-- warcraft.wiki.gg SpecializationID.
 
 -- No set for an expansion: no built-in weights (the neutral fallback and the import hint), no gem advice.
 ns.GEAR_NO_SCALES = { specs = {}, gems = {}, diamonds = {}, diamondIDs = {}, final = true, missing = true }

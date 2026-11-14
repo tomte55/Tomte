@@ -276,46 +276,6 @@ local function Forget(name)
 	ns.Alts_ForgetByName(name, "weekly")
 end
 
--- Prints every hard-coded ID with what the game says about it, to check the third-party data in game.
-local function PrintIDs()
-	local expansion = ns.ContentExpansion()
-	for _, set in ipairs(ns.Content_Get(expansion, "crests") or {}) do
-		ns.Print(set.label .. ":")
-		for _, id in ipairs(set.ids) do
-			local info = C_CurrencyInfo.GetCurrencyInfo(id)
-			if info and info.name and info.name ~= "" then
-				print(("  %d  %s  qty %s, max %s, weekly max %s, season total %s, useTotal %s"):format(id, info.name,
-					tostring(info.quantity), tostring(info.maxQuantity), tostring(info.maxWeeklyQuantity),
-					tostring(info.totalEarned), tostring(info.useTotalEarnedForMaxQty)))
-			else
-				print(("  %d  %s"):format(id, ns.UI.Wrap("unknown", "danger")))
-			end
-		end
-	end
-	ns.Print(("content expansion %s, profession data for %s"):format(ns.ExpansionName(expansion),
-		ns.Content_Get(expansion, "profs") and ns.ExpansionName(expansion) or "none"))
-	local first, second = GetProfessions()
-	for _, index in pairs({ first, second }) do
-		local name, _, _, _, _, _, base = GetProfessionInfo(index)
-		local def = ns.Weekly_ProfDef(expansion, base)
-		ns.Print(("%s (skill line %s):"):format(name or "?", tostring(base)))
-		if def then
-			local currency = C_TradeSkillUI.GetConcentrationCurrencyID(def.child)
-			local info = currency and currency > 0 and C_CurrencyInfo.GetCurrencyInfo(currency)
-			print(("  Concentration: currency %s %s"):format(tostring(currency), info and ("%s/%s, cycle %sms +%s"):format(
-				tostring(info.quantity), tostring(info.maxQuantity), tostring(info.rechargingCycleDurationMS),
-				tostring(info.rechargingAmountPerCycle)) or "none"))
-			for _, k in ipairs(ns.Weekly_ProfQuestIDs(def)) do
-				local title = C_QuestLog.GetTitleForQuestID(k)
-				print(("  %d  %s  %s"):format(k, title or ns.UI.Wrap("(no title)", "textMuted"),
-					C_QuestLog.IsQuestFlaggedCompleted(k) and ns.UI.Wrap("done", "success") or "open"))
-			end
-		else
-			print("  not in the table")
-		end
-	end
-end
-
 -- /tomte data checks (Core/Content.lua): does this expansion's Weekly data resolve in game?
 local function CurrencyName(id)
 	local info = C_CurrencyInfo.GetCurrencyInfo(id)
@@ -507,9 +467,8 @@ module = ns.RegisterModule({
 		{ "board", "open the weekly board", function()
 			ns.Panel_OpenPage("weekly")
 		end },
-		{ "quests", "list the learned weekly quests", ListQuests },
+		{ debug = true, "quests", "list the learned weekly quests", ListQuests },
 		{ "forget", "forget a character everywhere: /tomte weekly forget <name>[-<realm>]", Forget, whileOff = true },
-		{ "ids", "check the crest and knowledge quest IDs in game", PrintIDs },
 	},
 })
 

@@ -99,31 +99,6 @@ local function Stop()
 	ns.TpTab_SetEnabled(false)
 end
 
--- /tomte tp scan: what was found, to check the data.
-local function Scan()
-	ns.Tp_MarkDirty()
-	local entries = ns.Tp_Entries(db)
-	local counts, groups = {}, {}
-	for _, e in ipairs(entries) do
-		local key = e.section .. (e.known and "" or " (not earned)")
-		counts[key] = (counts[key] or 0) + 1
-		if e.group then
-			groups[e.group] = (groups[e.group] or 0) + 1
-		end
-		if e.known and not e.dest then
-			ns.Print(("no destination found for %s (%s)"):format(e.name, e.key))
-		end
-	end
-	ns.Print("teleports found:")
-	for key, n in pairs(counts) do
-		print(("  %s: %d"):format(key, n))
-	end
-	for name, n in pairs(groups) do
-		print(("  flyout %s: %d spells"):format(name, n))
-	end
-	print(("  hearthstone toys owned: %d"):format(#ns.Tp_OwnedHearthToys()))
-end
-
 -- Known teleports off cooldown, for Home.
 local function ReadyCount()
 	local ready = 0
@@ -203,7 +178,6 @@ module = ns.RegisterModule({
 	end,
 	commands = {
 		{ "open", "show the Teleports tab on the open map", ns.TpTab_Open },
-		{ "scan", "list what was found (to check the data)", Scan },
 	},
 	options = {
 		-- Forever has no dungeon teleports and no hearthstone toys we know of: this whole card and the Dungeons row go.

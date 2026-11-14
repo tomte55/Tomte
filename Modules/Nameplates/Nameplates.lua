@@ -93,11 +93,11 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "why", "explain what your target's nameplate shows and why", Why },
-		{ "soft", "explain the name under the Interact icon: what Tomte sees and why it shows or not", function()
+		{ debug = true, "why", "explain what your target's nameplate shows and why", Why },
+		{ debug = true, "soft", "explain the name under the Interact icon: what Tomte sees and why it shows or not", function()
 			ns.Plates_SoftWhy()
 		end },
-		{ "threat", "show what the game tells Tomte about your threat on your target", function()
+		{ debug = true, "threat", "show what the game tells Tomte about your threat on your target", function()
 			for _, line in ipairs(ns.Plates_ThreatWhy("target")) do
 				ns.Print(line)
 			end

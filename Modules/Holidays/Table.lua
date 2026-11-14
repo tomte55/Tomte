@@ -53,8 +53,7 @@ ns.EVENTS_WEEKLY_ICONS = {
 	{ icon = 133594, textures = { 1129666, 1129667, 1129668 } }, -- Apexis: inv_misc_apexis_crystal
 }
 
--- Darkmoon Faire profession quests, [TradeSkillLineID] = questID, all checked against warcraft.wiki.gg's quest pages
--- (/tomte events ids prints the names the game gives them).
+-- Darkmoon Faire profession quests, [TradeSkillLineID] = questID, all checked against warcraft.wiki.gg's quest pages.
 ns.EVENTS_DARKMOON_QUESTS = {
 	[171] = 29506, [794] = 29507, [164] = 29508, [185] = 29509, [333] = 29510, [202] = 29511, [356] = 29513,
 	[182] = 29514, [773] = 29515, [755] = 29516, [165] = 29517, [186] = 29518, [393] = 29519, [197] = 29520,

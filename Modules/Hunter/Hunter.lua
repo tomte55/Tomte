@@ -152,7 +152,7 @@ module = ns.RegisterModule({
 	},
 	commands = {
 		{ "check", "run the pet check now", Check },
-		{ "aspect", "what the aspect button sees (World of Warcraft: Forever)", function()
+		{ debug = true, "aspect", "what the aspect button sees (World of Warcraft: Forever)", function()
 			if ns.Module_RequireOn(module) and ns.HunterAspect_Why then
 				ns.HunterAspect_Why()
 			end
