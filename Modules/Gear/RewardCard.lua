@@ -16,6 +16,7 @@ local DIALOGUE_GAP = 6 -- between the card and DialogueUI's window under it
 local COLOR_ROLES = { green = "success", yellow = "warning", grey = "textMuted", red = "danger", orange = "warning" }
 
 local CLASS_RECIPE = 9 -- Enum.ItemClass.Recipe
+local OFF_HAND_ONLY = { INVTYPE_WEAPONOFFHAND = true, INVTYPE_SHIELD = true, INVTYPE_HOLDABLE = true }
 
 local UI = ns.UI
 local Pick = ns.GearRewards_Pick
@@ -190,6 +191,9 @@ local function Choices()
 			c.verdict = ctx and ns.Gear_Verdict(link, ctx)
 			local _, _, _, equipLoc, _, classID = C_Item.GetItemInfoInstant(link)
 			c.gear = equipLoc ~= nil and equipLoc ~= "" and equipLoc ~= "INVTYPE_NON_EQUIP_IGNORE"
+			c.offHandOnly = OFF_HAND_ONLY[equipLoc] or false
+			-- Forever only: an item that will be an upgrade at a later level or once a trainer teaches its type.
+			c.later = c.verdict and ns.GearForever_LaterText and ns.GearForever_LaterText(link, c.verdict)
 			if classID == CLASS_RECIPE then
 				professions = professions or Professions()
 				local required, known = RecipeLines(link)
@@ -224,7 +228,13 @@ local function Rows(choices, judged)
 			rows[#rows + 1] = { label = gold == best and "Best, most gold" or "Best for you", name = ItemName(c),
 				sub = sub }
 		else
-			rows[#rows + 1] = { label = "Best for you", name = UI.Wrap("No upgrade here", "textMuted") }
+			local later, laterText = ns.GearRewards_PickLater(choices, best)
+			rows[#rows + 1] = { label = "Best for you",
+				name = UI.Wrap(later and "No upgrade now" or "No upgrade here", "textMuted") }
+			if later then
+				rows[#rows + 1] = { label = "For later", name = ItemName(choices[later]),
+					sub = UI.Wrap(laterText, ns.GEAR_ARROW_ROLES.later) }
+			end
 		end
 		if recipe and recipe ~= best then
 			RecipeRow("Your craft")

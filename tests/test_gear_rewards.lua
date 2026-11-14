@@ -105,4 +105,21 @@ test("most gold ties go to the first choice", function()
 	eq(gold, 1)
 end)
 
+test("for later: a future upgrade first, else gear that needs a partner piece", function()
+	local PAIR = { kind = "pair", reasons = {} }
+	local PickLater = ns.GearRewards_PickLater
+	-- The quest from the bug report: a staff the class can't use and a shield next to a two-hander.
+	local i, text = PickLater({ { verdict = NOPE }, { verdict = PAIR, offHandOnly = true } }, nil)
+	eq(i, 2)
+	eq(text, "For when you use a one-handed weapon")
+	eq(select(2, PickLater({ { verdict = PAIR, offHandOnly = false } }, nil)), "For when you use a shield or off-hand")
+	-- An upgrade at a later level wins over a partner piece.
+	i, text = PickLater({ { verdict = PAIR, offHandOnly = true }, { verdict = NOPE, later = "Upgrade at level 12" } }, nil)
+	eq(i, 2)
+	eq(text, "Upgrade at level 12")
+	-- Something is an upgrade now: no later row.
+	eq(PickLater({ { verdict = upgrade(3) }, { verdict = PAIR } }, 1), nil)
+	eq(PickLater({ { verdict = NOPE }, { verdict = DOWN } }, nil), nil, "nothing to keep")
+end)
+
 H.done()

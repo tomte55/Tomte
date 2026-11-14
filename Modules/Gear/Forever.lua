@@ -117,6 +117,14 @@ local function Later(link, verdict)
 	return later and ns.GearRoll_LaterText(later, judgeAt > level and judgeAt or nil) or nil
 end
 
+-- The quest reward card (RewardCard.lua): what an item you can't use well yet waits for, as on its tooltip.
+function ns.GearForever_LaterText(link, verdict)
+	if not (module and module.active) then
+		return nil
+	end
+	return Later(link, verdict)
+end
+
 function ns.GearForever_RollAdviceOn()
 	return module ~= nil and module.active and db.rollAdvice == true
 end

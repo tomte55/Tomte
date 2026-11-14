@@ -588,4 +588,14 @@ test("a one-hander fills an empty off-hand for a class that dual wields, or can 
 		Ctx("WARRIOR", 25)).kind, "pair")
 end)
 
+test("a shield next to a two-hander needs a one-hander, not an off-hand", function()
+	local two = Item({ equipLoc = "INVTYPE_2HWEAPON", classID = WEAPON, subclassID = 5, ilvl = 5, dps = 1.4 })
+	local shield = Item({ equipLoc = "INVTYPE_SHIELD", classID = ARMOR, subclassID = 6, ilvl = 7, armor = 55 })
+	local v = ns.GearForever_Evaluate(shield, { [16] = two }, Ctx("PALADIN", 4))
+	eq(v.kind, "pair")
+	eq(v.reasons[1], "Needs a one-handed main hand to go with it")
+	eq(ns.GearForever_Evaluate(Sword(7, 3), { [16] = two }, Ctx("PALADIN", 4)).reasons[1],
+		"Needs an off-hand to go with it")
+end)
+
 H.done()

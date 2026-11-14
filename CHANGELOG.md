@@ -25,6 +25,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Quest list:** in a party, each member's progress shows under your objectives (read from the mobs around you, so anyone counts; party members who run Tomte send all of theirs), and a faint line says who doesn't have a quest.
 - **Quest list:** right-click a quest for Share (the quest with your party, your progress in party chat, or its link in the chat box) and Find group (LFG or LFM for it in General, with the quest link).
 - **Quest list:** the quest it follows shows on the world map the way the game's active quest does: its area, a ring around its pin and a bar on it in the map's quest log.
+- **Gear Check:** when no quest reward is an upgrade now, the quest reward card names one worth keeping for later: an upgrade at a higher level or once a trainer teaches its weapon type, or a shield or off-hand for when you use a one-handed weapon.
 
 ### Improved
 
@@ -42,6 +43,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Loot:** the Make room button grows to fit when a long item name wraps its text to a third line.
 - **Fishing:** pulled right after your weapons went back on, the off hand no longer hits a blocked-action error: it goes back on once the fight is over.
 - **Bags:** quest marks on items change right away when you take or drop a quest.
+- **Gear Check (Forever):** a shield next to your two-hander says it needs a one-handed weapon, not an off-hand.
 
 ## v1.34.0 - 2026-11-13
 

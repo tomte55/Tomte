@@ -74,6 +74,8 @@ local SKILL_BEHIND = 10 -- a weapon skill this far under its cap is worth a warn
 local DUAL_WIELD_FROM = { ROGUE = 10, WARRIOR = 20, HUNTER = 20 }
 local DUAL_WIELD = "Dual Wield"
 local ONE_HAND_WEAPON = { INVTYPE_WEAPON = true, INVTYPE_WEAPONOFFHAND = true }
+-- Off-hand only: next to a two-hander it needs a one-handed main hand, not another off-hand.
+local OFF_HAND_ONLY = { INVTYPE_WEAPONOFFHAND = true, INVTYPE_SHIELD = true, INVTYPE_HOLDABLE = true }
 
 -- Enum.ItemWeaponSubclass -> weapon skill line, the IDs in Blizzard's Camelot/SkillsFrame.lua. Also read by Modules/Leveling.
 ns.GEARFOREVER_WEAPON_SKILLS = {
@@ -490,7 +492,8 @@ Judge = function(cand, equipped, ctx)
 	local verdict = { reasons = {}, warnings = 0, slot = target.slots[1], untrained = untrained }
 	if target.mode == "pair" then
 		verdict.kind = "pair"
-		verdict.reasons = { "Needs an off-hand to go with it" }
+		verdict.reasons = { OFF_HAND_ONLY[cand.equipLoc] and "Needs a one-handed main hand to go with it"
+			or "Needs an off-hand to go with it" }
 		return verdict
 	end
 	if target.mode == "empty" then

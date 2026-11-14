@@ -67,6 +67,30 @@ function ns.GearRewards_RecipeText(recipe)
 	return ("For your %s: learn it at %d"):format(recipe.profession, recipe.level)
 end
 
+-- The choice worth keeping for later when none is an upgrade now (best: GearRewards_Pick's best). First one that will
+-- be an upgrade (choices[i].later: Gear Check's "Upgrade at level 12" or "Upgrade once you learn Swords"); else gear
+-- that only needs a partner piece: a shield or one-hander next to the two-hander you wear (verdict kind "pair").
+-- Returns index, text; nil when there's nothing to keep.
+function ns.GearRewards_PickLater(choices, best)
+	if best then
+		return nil
+	end
+	local pair
+	for i, c in ipairs(choices) do
+		if c.later then
+			return i, c.later
+		end
+		if not pair and c.verdict and c.verdict.kind == "pair" then
+			pair = i
+		end
+	end
+	if pair then
+		return pair, choices[pair].offHandOnly and "For when you use a one-handed weapon"
+			or "For when you use a shield or off-hand"
+	end
+	return nil
+end
+
 -- choices: list of { verdict = Gear Check verdict or nil, sell = sell price in copper or nil }.
 -- Returns best (index of the best choice for you, or nil when none is an upgrade), sure (true when best is a clean
 -- upgrade, false when it needs checking), gold (index of the highest sell price, or nil when none sells). Ties go to
