@@ -253,4 +253,25 @@ test("level and count text", function()
 	eq(ns.QuestList_CountText(3), "3 quests")
 end)
 
+test("details: a quest level's color against yours", function()
+	local Role = ns.QuestList_DifficultyRole
+	eq(Role(10, 5), "danger", "5 above")
+	eq(Role(8, 5), "warning", "3 above")
+	eq(Role(7, 5), "heading", "2 above")
+	eq(Role(3, 5), "heading", "2 below")
+	eq(Role(2, 5), "success", "3 below")
+	eq(Role(10, 20, 8), "textMuted", "10 below with a green range of 8")
+	eq(Role(12, 20, 8), "success", "8 below")
+	eq(Role(nil, 5), "textMuted", "no level")
+	eq(Role(0, 5), "textMuted", "level 0")
+end)
+
+test("details: progress in a few words", function()
+	local done, open = { finished = true }, { finished = false }
+	eq(ns.QuestList_ProgressText({ done }, true), "Ready to turn in")
+	eq(ns.QuestList_ProgressText({ done, open, open }, false), "1 of 3 done")
+	eq(ns.QuestList_ProgressText({ open }, false), nil, "one objective: its row says it")
+	eq(ns.QuestList_ProgressText({}, false), nil)
+end)
+
 H.done()

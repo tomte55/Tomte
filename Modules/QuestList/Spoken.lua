@@ -74,18 +74,20 @@ function ns.QuestListSpoken_Status()
 	return true
 end
 
--- A Play button on parent, dressed as Spoken's tracker button; nil when that can't be done.
-function ns.QuestListSpoken_Button(parent)
+-- A Play button on parent, dressed as Spoken's tracker button (size: pixels, default the tracker's); nil when that
+-- can't be done.
+function ns.QuestListSpoken_Button(parent, size)
 	if not ns.QuestListSpoken_Status() then
 		return nil
 	end
+	size = size or SIZE
 	local spoken, ui = Player(), Overlay()
 	local b = CreateFrame("Button", nil, parent)
-	b:SetSize(SIZE, SIZE)
+	b:SetSize(size, size)
 	b:SetHitRectInsets(1, 1, 1, 1)
 	local ok, err = pcall(spoken.DressBoxButton, spoken, b)
 	if ok then
-		ok, err = pcall(b.SetBox, b, BOX, SIZE, SIZE)
+		ok, err = pcall(b.SetBox, b, BOX, size, size)
 	end
 	if not ok then
 		broken = "Spoken's button didn't dress: " .. tostring(err)

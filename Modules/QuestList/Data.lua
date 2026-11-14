@@ -322,6 +322,44 @@ function ns.QuestList_LevelText(level, elite)
 	return ("%s%s"):format(level and tostring(level) or "?", elite and "+" or "")
 end
 
+-- A quest level's color role against yours, as the game colors quest levels: red 5+ above you, orange 3-4 above,
+-- yellow within 2, green below that, grey once it's more than greenRange below (the game's GetQuestGreenRange; 8 when
+-- not known). Theme roles: danger, warning, heading, success, textMuted.
+function ns.QuestList_DifficultyRole(questLevel, playerLevel, greenRange)
+	if not (questLevel and playerLevel) or questLevel <= 0 then
+		return "textMuted"
+	end
+	local diff = questLevel - playerLevel
+	if diff >= 5 then
+		return "danger"
+	elseif diff >= 3 then
+		return "warning"
+	elseif diff >= -2 then
+		return "heading"
+	elseif -diff <= (greenRange or 8) then
+		return "success"
+	end
+	return "textMuted"
+end
+
+-- A quest's state in a few words: "Ready to turn in", "2 of 3 done", or nil with nothing to count. objectives: as
+-- QuestList_Objective makes them. complete: the game says it can be handed in.
+function ns.QuestList_ProgressText(objectives, complete)
+	if complete then
+		return "Ready to turn in"
+	end
+	local done = 0
+	for _, obj in ipairs(objectives or {}) do
+		if obj.finished then
+			done = done + 1
+		end
+	end
+	if #(objectives or {}) < 2 then
+		return nil
+	end
+	return ("%d of %d done"):format(done, #objectives)
+end
+
 -- The section header's right side: "3 quests" (or "1 quest").
 function ns.QuestList_CountText(n)
 	return n == 1 and "1 quest" or ("%d quests"):format(n)

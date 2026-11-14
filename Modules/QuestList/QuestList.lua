@@ -445,18 +445,9 @@ function ns.QuestList_ToggleCollapsed()
 	Update()
 end
 
--- The quest's text, objectives and rewards in Blizzard's own quest details window (the one its quest log opens), not
--- the world map: opening the map from code taints it (see ns.MapTabs_Opener). The window keeps the quest in its own
--- field, which Blizzard clears when it closes. Out of combat only: it's a UI panel, and in combat the map reads that
--- field while doing protected things.
-local function ShowDetails(q)
-	if InCombatLockdown() then
-		ns.Print("The quest's details open after combat: try again then.")
-		return
-	end
-	QuestLogPopupDetailFrame:ShowQuest(q.questID)
-end
-
+-- "Show details" opens Tomte's own window (Details.lua), not Blizzard's quest details window: that one is a UI panel,
+-- and showing one from addon code leaves the panel manager's places tainted, so the next window there (the map on M)
+-- opens tainted and its quest pins get blocked in combat (caught by /tomte bug taint on Forever 1.60.1, 2026-11-14).
 local function Abandon(q)
 	ns.Confirm_Show(("Abandon %s?"):format(q.title or "this quest"), function()
 		C_QuestLog.SetSelectedQuest(q.questID)
@@ -468,11 +459,9 @@ end
 function ns.QuestList_Menu(owner, q)
 	UI.ContextMenu(owner, function(_, root)
 		root:CreateTitle(q.title or "?")
-		if QuestLogPopupDetailFrame and QuestLogPopupDetailFrame.ShowQuest then
-			root:CreateButton("Show details", function()
-				ShowDetails(q)
-			end)
-		end
+		root:CreateButton("Show details", function()
+			ns.QuestListDetails_Show(q.questID)
+		end)
 		if C_SuperTrack and not q.active then
 			root:CreateButton("Make active", function()
 				ns.LevelingPage_MakeActive(q.questID, UpdateSoon)
@@ -595,6 +584,7 @@ local function Stop()
 	ns.QuestListSpoken_Stop()
 	ns.QuestListParty_Stop()
 	ns.QuestListMap_Stop()
+	ns.QuestListDetails_Hide()
 	ApplyTracker()
 	Hide()
 	if followed then
@@ -750,12 +740,12 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = {
-		{ "why", "how the Quest list groups your quests right now, and whether Spoken's buttons work", function()
+		{ debug = true, "why", "how the Quest list groups your quests right now, and whether Spoken's buttons work", function()
 			if ns.Module_RequireOn(module) then
 				Why()
 			end
 		end },
-		{ "party", "what the Quest list knows about each party member's quests", function()
+		{ debug = true, "party", "what the Quest list knows about each party member's quests", function()
 			ns.QuestListParty_Why()
 		end },
 		{ "reset", "put the Quest list back in its default spot", function()
