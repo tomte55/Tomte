@@ -36,6 +36,27 @@ local ICONS = {
 
 -- Trainer --------------------------------------------------------------------------------------------------------------
 
+-- Whether an open trainer is your class trainer: one of its rows is on one of your spellbook's skill lines (a paladin
+-- trainer's rows are Holy, Protection and Retribution; a riding trainer's Riding, a weapon master's Swords or Axes,
+-- measured on Forever 2026-11-14). Both trainers report the same trainer type, so the type can't tell. lines: the
+-- rows' skill lines (GetTrainerServiceSkillLine); mine: your spellbook's skill line names. Without those (unreadable),
+-- every trainer counts, as before.
+function ns.Leveling_IsClassTrainer(lines, mine)
+	if #mine == 0 then
+		return true
+	end
+	local set = {}
+	for _, name in ipairs(mine) do
+		set[name] = true
+	end
+	for _, line in ipairs(lines) do
+		if set[line] then
+			return true
+		end
+	end
+	return false
+end
+
 -- A trainer's row as saved: rows you've learned and headers are nil. serviceType: "available" | "unavailable" | "used" |
 -- "header" (GetTrainerServiceInfo).
 function ns.Leveling_SlimService(name, serviceType, rank, level, cost)

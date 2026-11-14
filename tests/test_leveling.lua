@@ -415,6 +415,15 @@ test("NextStops: hard and dungeon quests only while grouped, other continents le
 	eq(ns.Leveling_StopYards(236), 240)
 end)
 
+test("IsClassTrainer: a row on one of your spellbook's lines", function()
+	local mine = { "General", "Holy", "Protection", "Retribution" }
+	eq(ns.Leveling_IsClassTrainer({ "Holy", "Plate Mail", "Retribution" }, mine), true, "the class trainer")
+	eq(ns.Leveling_IsClassTrainer({ "Riding" }, mine), false, "a riding trainer")
+	eq(ns.Leveling_IsClassTrainer({ "Swords", "Axes" }, mine), false, "a weapon master")
+	eq(ns.Leveling_IsClassTrainer({ "Riding" }, {}), true, "spellbook unreadable: every trainer counts, as before")
+	eq(ns.Leveling_IsClassTrainer({}, mine), false, "no skill lines on the rows")
+end)
+
 test("SortQuests sorts by level, and the shortest timer first", function()
 	local groups = ns.Leveling_SortQuests({
 		{ title = "B", level = 5, difficulty = 2 }, { title = "A", level = 5, difficulty = 2 },

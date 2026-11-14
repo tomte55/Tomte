@@ -12,8 +12,24 @@ local MAP_CONTINENT = 2 -- Enum.UIMapType.Continent: quest spots are read up to 
 local IsSecret = ns.IsSecret
 local Readable = ns.Readable
 
--- The class trainer's rows, or nil at another kind of trainer (trade, pet) or when it's listing nothing. Second return:
--- whether its "not available yet" rows are showing (its own filter), so later levels are in the list.
+-- Your spellbook's skill line names (General, then your class's lines), for telling your class trainer apart.
+local function SpellBookLines()
+	local names = {}
+	if not (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) then
+		return names
+	end
+	for line = 1, C_SpellBook.GetNumSpellBookSkillLines() do
+		local info = C_SpellBook.GetSpellBookSkillLineInfo(line)
+		if info and info.name then
+			names[#names + 1] = info.name
+		end
+	end
+	return names
+end
+
+-- The class trainer's rows, or nil at another kind of trainer (trade, pet, riding, weapons) or when it's listing
+-- nothing. Second return: whether its "not available yet" rows are showing (its own filter), so later levels are in
+-- the list.
 function ns.LevelingRead_Trainer()
 	if C_Trainer.GetTrainerType() ~= Enum.TrainerType.General then
 		return nil
@@ -25,6 +41,16 @@ function ns.LevelingRead_Trainer()
 	local rows = {}
 	for i = 1, total do
 		local name, serviceType, _, level, rank = GetTrainerServiceInfo(i)
+	local lines = {}
+	for i = 1, total do
+		local line = GetTrainerServiceSkillLine and GetTrainerServiceSkillLine(i)
+		if line then
+			lines[#lines + 1] = line
+		end
+	end
+	if not ns.Leveling_IsClassTrainer(lines, SpellBookLines()) then
+		return nil
+	end
 		local row = ns.Leveling_SlimService(name, serviceType, rank, level, (GetTrainerServiceCost(i)))
 		if row then
 			rows[#rows + 1] = row
