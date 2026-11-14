@@ -107,6 +107,16 @@ function ns.Autocorrect_Skip(word)
 	return false
 end
 
+-- Whether a sentence's first word may get its capital: not a word Skip leaves alone, except informal shorthand that is
+-- written like any word ("yeah", "gonna").
+function ns.Autocorrect_TakesCapital(word)
+	local skip, why = ns.Autocorrect_Skip(word)
+	if not skip then
+		return true
+	end
+	return why == "chat shorthand" and ns.AUTOCORRECT_INFORMAL[word:lower()] and true or false
+end
+
 -- Guessing -----------------------------------------------------------------------------------------------------------
 
 local neighbours -- [letter] = { [letter] = true } for keys side by side

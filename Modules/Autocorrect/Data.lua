@@ -201,6 +201,14 @@ achiev achievs achieves mplus whisp whisps guildy guildies pugger puggers pallys
 sellin buyin wowhead raiderio rio wowaudit warcraftlogs wcl simc raidbots
 ]])
 
+-- Shorthand written like any word, not an abbreviation: never spelled differently, but it takes the capital at the
+-- start of a sentence ("Yeah no worries"), where lol, brb and gg stay as typed (lowercase).
+ns.AUTOCORRECT_INFORMAL = Set([[
+ya yah yeh yeah yep yup nope nah hmm hmmm heh haha hehe hihi ugh tho cya goin nothin somethin doin gettin lookin
+comin gonna wanna gotta kinda sorta dunno lemme gimme outta lotta ain innit aye ye yer yall ima imma tryna bruh bro
+heya hai hiya howdy okey okie mhm umm uhh ahh ooh welp sup thanx sellin buyin noob newb nub
+]])
+
 -- WoW words an English dictionary doesn't know, so they're never "fixed" (lowercase): game terms, races, classes,
 -- professions, lore names. They're known words only, never a guess's answer. The client adds more at runtime
 -- (Autocorrect.lua: class, race and map names; words other players use in chat).

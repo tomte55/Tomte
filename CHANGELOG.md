@@ -29,6 +29,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Drawers:** item counts have an outline and stay readable over the cooldown sweep.
 - **Emote Wheel:** buff thanks also thank a buff you already had when someone casts it on you again.
 - **Dressing room:** a look you can't collect on this character says "not for this character" instead of "another class".
+- **Autocorrect:** informal words like yeah, nope and gonna get a capital at the start of a sentence; shorthand like lol, brb and gg stays as you typed it.
 
 ### Fixed
 

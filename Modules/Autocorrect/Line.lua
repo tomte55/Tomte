@@ -126,7 +126,7 @@ function ns.Autocorrect_Finish(text, cursor, ctx, atEnd)
 	ctx.sentenceStart = nil
 	local out = fix or word
 	local lower = word:lower()
-	if sentenceStart and ctx.kinds.capitals and out:find("^%l") and not ns.Autocorrect_Skip(word)
+	if sentenceStart and ctx.kinds.capitals and out:find("^%l") and ns.Autocorrect_TakesCapital(word)
 		and not ctx.keep[lower] and not ctx.names[lower] then
 		out = out:sub(1, 1):upper() .. out:sub(2)
 		kind = kind or "capitals"

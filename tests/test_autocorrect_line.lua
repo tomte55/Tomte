@@ -52,6 +52,9 @@ test("capitals at a sentence start", function()
 	eq((typed("hello ")), "Hello ", "first word of the line")
 	eq((typed("i ")), "I ", "a lone i")
 	eq((typed("lol ")), "lol ", "shorthand stays")
+	lines({ ["yeah "] = "Yeah ", ["sure. nope "] = "sure. Nope ", ["gonna "] = "Gonna ", ["brb "] = "brb ",
+		["gg "] = "gg ", ["ok "] = "ok " })
+	eq((typed("yeah ", { keep = { yeah = true } })), "yeah ", "a kept word")
 	eq((typed("hello ", { kinds = { spelling = true } })), "hello ", "capitals off")
 end)
 
