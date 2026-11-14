@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Alts page, Characters tab: every character Tomte has seen, current one first. Two views (toggle saved):
+-- Alts page, Characters tab: every character Tomte has seen, in the chosen order (yours highlighted). Two views (toggle saved):
 -- compact (one line, sortable columns, details in the row's tooltip) and detailed (two lines, sort dropdown; a third
 -- with the Great Vault and Concentration for characters Weekly tracks). A pill after a profession is its unspent
 -- knowledge. The footer's professions count says in its tooltip who has a free slot for the missing ones. Right-click
@@ -266,7 +266,8 @@ end
 
 local function Layout()
 	local compact = db.roster ~= "detailed"
-	local list = ns.Alts_Roster(db.chars, db.sort, UnitGUID("player"))
+	-- Everyone sorted, you included (your row is highlighted): pinned first, a few characters looked unsorted.
+	local list = ns.Alts_Roster(db.chars, db.sort, nil)
 	tab.head:SetShown(compact)
 	tab.scroll:ClearAllPoints()
 	tab.scroll:SetPoint("TOPLEFT", 0, compact and -(HEAD_H + 34) or -34)

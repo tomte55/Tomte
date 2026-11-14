@@ -46,6 +46,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Gear Check (Forever):** a shield next to your two-hander says it needs a one-handed weapon, not an off-hand.
 - **Whispers:** a whisper from a Battle.net friend's character shows them as online with their level, class and zone instead of "Not on your friends list" (on Forever also when they play from another numbered server).
 - **Whispers:** copying a conversation with an item link in it no longer turns the rest of the text green.
+- **Alts:** sorting the Characters tab sorts every character, the one you're on too, instead of always keeping you on top.
 
 ## v1.34.0 - 2026-11-13
 
