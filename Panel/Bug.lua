@@ -338,6 +338,138 @@ end
 
 Watch()
 
+-- Taint watch --------------------------------------------------------------------------------------------------------
+
+-- Hidden /tomte bug taint: watches Blizzard fields that, once written from a path Tomte's code tainted, get Blizzard's
+-- own code blocked later (the map's zone: Button:SetPassThroughButtons when its quest pins refresh in combat). Right
+-- after Blizzard writes one, a hook asks issecurevariable; the first time per session that it's tainted, the call path
+-- that wrote it is kept, so the cause can be read instead of guessed. Off until turned on; saved on, so it also
+-- catches what happens right after a reload. Hooks run after Blizzard's call and only read.
+local TAINT_KEEP = 5 -- catches kept, newest first
+local TAINT_STACK = 60 -- lines of call path per catch
+
+local TAINT_WATCHES = {
+	{
+		name = "WorldMapFrame.mapID",
+		owner = function()
+			return WorldMapFrame
+		end,
+		field = "mapID",
+		hook = function(fn)
+			if WorldMapFrame and WorldMapFrame.SetMapID then
+				hooksecurefunc(WorldMapFrame, "SetMapID", fn)
+				return true
+			end
+		end,
+	},
+	{
+		name = "QuestMapFrame.DetailsFrame.questID",
+		owner = function()
+			return QuestMapFrame and QuestMapFrame.DetailsFrame
+		end,
+		field = "questID",
+		hook = function(fn)
+			if QuestMapFrame_ShowQuestDetails then
+				hooksecurefunc("QuestMapFrame_ShowQuestDetails", fn)
+				return true
+			end
+		end,
+	},
+}
+
+local taintHooked = {} -- [watch name] = true once its hook is in
+local taintCaught = {} -- [watch name] = true once caught this session
+
+local function TaintDB()
+	if type(ns.db.taintWatch) ~= "table" then
+		ns.db.taintWatch = {}
+	end
+	local t = ns.db.taintWatch
+	if type(t.seen) ~= "table" then
+		t.seen = {}
+	end
+	return t
+end
+
+local function TaintCheck(watch)
+	local t = TaintDB()
+	if not t.on or taintCaught[watch.name] then
+		return
+	end
+	local owner = watch.owner()
+	if not owner then
+		return
+	end
+	local secure, by = issecurevariable(owner, watch.field)
+	if secure then
+		return
+	end
+	taintCaught[watch.name] = true
+	-- 3: past this function and the hook's closure, so the path starts at Blizzard's call.
+	table.insert(t.seen, 1, { at = time(), what = watch.name, by = tostring(by), stack = debugstack(3, TAINT_STACK, 0) })
+	for i = #t.seen, TAINT_KEEP + 1, -1 do
+		t.seen[i] = nil
+	end
+	ns.Print(("%s just became tainted (by %s). /tomte bug taint show has the call path to copy."):format(watch.name,
+		tostring(by)))
+end
+
+local function TaintHook()
+	for _, watch in ipairs(TAINT_WATCHES) do
+		if not taintHooked[watch.name] and watch.hook(function()
+			TaintCheck(watch)
+		end) then
+			taintHooked[watch.name] = true
+		end
+	end
+end
+
+local function TaintState()
+	local parts = {}
+	for _, watch in ipairs(TAINT_WATCHES) do
+		local owner = watch.owner()
+		local secure, by = true, nil
+		if owner then
+			secure, by = issecurevariable(owner, watch.field)
+		end
+		parts[#parts + 1] = ("%s %s"):format(watch.name, secure and "clean" or ("tainted by " .. tostring(by)))
+	end
+	return table.concat(parts, ", ")
+end
+
+-- arg: nil toggles the watch, "show" opens the catches to copy, "clear" forgets them.
+function ns.BugUI_Taint(arg)
+	local t = TaintDB()
+	if arg == "show" then
+		if #t.seen == 0 then
+			ns.Print("the taint watch hasn't caught anything yet.")
+			return
+		end
+		local lines = {}
+		for _, s in ipairs(t.seen) do
+			lines[#lines + 1] = ("%s  %s tainted by %s\n%s"):format(date("%Y-%m-%d %H:%M:%S", s.at), s.what, s.by,
+				s.stack)
+		end
+		ns.Dialog_Show({
+			title = "Tomte taint watch",
+			hint = "Ctrl+C, then paste it to Tomte's author.",
+			text = table.concat(lines, "\n"),
+			readOnly = true,
+			width = 620,
+			height = 440,
+		})
+	elseif arg == "clear" then
+		t.seen = {}
+		ns.Print("taint watch catches cleared.")
+	else
+		t.on = not t.on
+		if t.on then
+			TaintHook()
+		end
+		ns.Print(("taint watch %s. Now: %s."):format(t.on and "on (stays on across reloads)" or "off", TaintState()))
+	end
+end
+
 -- Logout (also /reload): without BugGrabber, keep Tomte's errors of this session for a report later.
 local events = CreateFrame("Frame")
 events:SetScript("OnEvent", ns.Perf_WrapEvents(function(self, event, ...)
@@ -348,6 +480,9 @@ events:RegisterEvent("PLAYER_LOGIN")
 
 function events:PLAYER_LOGIN()
 	Watch()
+	if ns.db and type(ns.db.taintWatch) == "table" and ns.db.taintWatch.on then
+		TaintHook()
+	end
 end
 
 function events:PLAYER_LOGOUT()
