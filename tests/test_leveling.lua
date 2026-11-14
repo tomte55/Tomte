@@ -1,6 +1,7 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_leveling.lua
 local ns = {}
 assert(loadfile("Tomte/Modules/Leveling/Data.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Modules/Leveling/AmmoData.lua"))("Tomte", ns)
 
 local H = dofile("Tomte/tests/harness.lua")
 local test, eq = H.test, H.eq
