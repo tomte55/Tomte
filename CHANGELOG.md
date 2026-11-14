@@ -53,6 +53,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Alts:** sorting the Characters tab sorts every character, the one you're on too, instead of always keeping you on top.
 - **Quest list:** the reward tiles in the quest window show Gear Check's whole verdict instead of cutting it off.
 - **Quest list:** LFG and LFM in General put the message in your chat box to send with Enter: the game blocked Tomte from posting to General itself.
+- **Gold & value:** cloth, herbs and other crafting materials are no longer marked "Keep for a quest" for a quest that isn't in your log.
 
 ## v1.34.0 - 2026-11-13
 

@@ -110,6 +110,10 @@ test("quest item data in the markers", function()
 	eq(waiting.why, "For Nugget Slugs, not in your log.")
 	eq(Kind(With({ questsDone = true })), "delete")
 	eq(Kind(With({ questsDone = true, vendor = 5 })) ~= "delete", true)
+	eq(Kind(With({ questWaiting = "Mending Old Wounds", classID = 7, questItem = false, vendor = 13 })) ~= "quest",
+		true, "a crafting material isn't kept for a quest you haven't taken")
+	eq(Kind(With({ questFor = "Mending Old Wounds", classID = 7, questItem = false, vendor = 13 })), "quest",
+		"it is for one in your log")
 	local given = ns.Value_Marker(With({ questGivenBy = "Mura Runetotem" }))
 	eq(given.kind, nil)
 	eq(given.why, "From Mura Runetotem, which isn't in your log.")

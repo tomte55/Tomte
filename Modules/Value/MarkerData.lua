@@ -34,7 +34,7 @@ local addonName, ns = ...
 --   count         how many you carry
 --   minGain       the player's limit: copper a stack must gain somewhere else to beat a vendor
 
-local WEAPON, ARMOR, QUEST = 2, 4, 12 -- Enum.ItemClass
+local WEAPON, ARMOR, TRADE_GOODS, QUEST = 2, 4, 7, 12 -- Enum.ItemClass
 local UNCOMMON, EPIC = 2, 4 -- Enum.ItemQuality: what can be disenchanted
 
 -- The markers, in the order the settings and the rules page list them. role: the color they're drawn in (MarkerArt.lua
@@ -63,7 +63,8 @@ ns.VALUE_MARKER_RULES = {
 	{ title = "No marker: left alone", text = "Items you told Tomte to ignore (/tomte value ignore), bags, keys, "
 		.. "hearthstones, profession tools, ammunition and caged battle pets." },
 	{ kind = "quest", title = "Keep for a quest", text = "A quest in your log names it in its objectives, it starts "
-		.. "a quest you haven't taken or done yet, or (World of Warcraft: Forever) a quest you can still take asks for it." },
+		.. "a quest you haven't taken or done yet, or (World of Warcraft: Forever) a quest you can still take asks for it "
+		.. "(not crafting materials such as cloth or herbs: those you can get again)." },
 	{ kind = "delete", title = "Delete", text = "It starts a quest you've already done, every quest that uses it is done "
 		.. "(Forever), or it's soulbound gear you can't use and whose look you have, and no vendor buys it." },
 	{ kind = "keep", title = "Keep: gear", text = "Gear Check calls it an upgrade (for you or another character), "
@@ -181,7 +182,9 @@ function ns.Value_Marker(f)
 		return Verdict(R.quest, f.startsQuest and "Its quest needs it handed in." or ("For %s."):format(f.questFor))
 	elseif f.startsQuest and not f.questDone and not f.questActive then
 		return Verdict(R.quest, "It starts a quest.")
-	elseif f.questWaiting then
+	-- Not for crafting materials: you can get those again, and the quest data can't tell where a quest is or whose
+	-- side gives it, so a common cloth was kept for any quest anywhere that asks for some (Linen Cloth, Forever).
+	elseif f.questWaiting and f.classID ~= TRADE_GOODS then
 		return Verdict(R.quest, ("For %s, not in your log."):format(f.questWaiting))
 	end
 	if not Sellable(f) and not Listing(f) then
