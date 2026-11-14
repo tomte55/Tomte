@@ -43,6 +43,17 @@ end
 
 local Place
 
+-- The frame level the map draws its own quest areas at: above the explored-area art (PIN_FRAME_LEVEL_MAP_EXPLORATION),
+-- under the pins. At the canvas's own level our area only showed through where the map was still unexplored. Read
+-- from the map's frame level table, never asked through its functions (a call into the map from here taints it).
+local BLOB_LEVEL_FALLBACK = 2010 -- the map's levels count from 2000; the quest areas sit a few above (Forever 1.60.1)
+local function QuestBlobLevel()
+	local manager = WorldMapFrame.pinFrameLevelsManager
+	local definition = manager and manager.definitions and manager.definitions.PIN_FRAME_LEVEL_QUEST_BLOB
+	return type(definition) == "table" and type(definition.startLevel) == "number" and definition.startLevel
+		or BLOB_LEVEL_FALLBACK
+end
+
 local function Build(canvas)
 	holder = CreateFrame("Frame", nil, canvas)
 	holder:SetAllPoints(canvas)
@@ -51,7 +62,7 @@ local function Build(canvas)
 	area = CreateFrame("QuestPOIFrame", nil, holder)
 	area:SetAllPoints(canvas)
 	area:EnableMouse(false)
-	area:SetFrameLevel(canvas:GetFrameLevel() + 1)
+	area:SetFrameLevel(QuestBlobLevel())
 	area:SetFillTexture(AREA_FILL)
 	area:SetBorderTexture(AREA_BORDER)
 	area:SetFillAlpha(AREA_FILL_ALPHA)
