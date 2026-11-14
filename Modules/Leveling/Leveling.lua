@@ -464,10 +464,10 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "nextQuests", label = "Next quests on screen", onChange = function()
 			ns.LevelingNext_Update()
 		end, tooltip = "A small window with the quests to do next. Quests close to each other are one stop, the nearest stop first: turn-ins, then the lowest level. Hard and dungeon quests only while you're in a group. Click a quest to make it your active quest, Shift-click to track it. Blizzard's Edit Mode moves it. While the Quest list is on, it shows these stops instead." },
-		{ type = "checkbox", key = "nextFollow", label = "Make the top quest active", parent = "nextQuests",
+		{ type = "checkbox", key = "nextFollow", label = "Follow quests along a route", parent = "nextQuests",
 			onChange = function()
 				ns.LevelingNext_Update()
-			end, tooltip = "The quest at the top becomes your active quest in Tomte (marked in the window, and Waypoints' arrow points to it) each time a new one comes to the top. A quest you pick yourself, here or on the map, stays active until then. The game's own map and tracker keep the quest you picked there." },
+			end, tooltip = "Tomte plans a route through your quests, each one's objective and then where it's handed in (hand-ins at one place are one stop), walking the least, and the next stop's quest becomes your active quest in Tomte (marked in the window, and Waypoints' arrow points to it). A quest whose area you're standing in comes first. A quest you pick yourself, here or on the map, stays active until the route moves on. The game's own map and tracker keep the quest you picked there." },
 		{ type = "checkbox", key = "nextMetric", label = "Distances in meters", parent = "nextQuests",
 			onChange = function()
 				ns.LevelingNext_Update()

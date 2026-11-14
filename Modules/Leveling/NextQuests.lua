@@ -154,9 +154,9 @@ local function FollowButton(f)
 		end
 		ns.LevelingNext_Update()
 	end, function(on)
-		return on and "Following the top quest" or "Not following the top quest",
-			on and "The top quest becomes your active quest. Click to stop."
-				or "Click to make the top quest your active quest each time a new one comes up."
+		return on and "Following quests along a route" or "Not following a route",
+			on and "The route's next quest becomes your active quest, hand-ins planned in. Click to stop."
+				or "Click to follow your quests along a route: each one's objective, then where it's handed in."
 	end)
 end
 
@@ -323,7 +323,8 @@ end
 
 -- Updates --------------------------------------------------------------------------------------------------------------
 
--- The top quest becomes Tomte's active quest (Waypoints' arrow follows it) when it changes. Never the game's active
+-- A quest whose area you're in, else the route's next stop (ns.Leveling_FollowPick, ns.LevelingRoute_Pick), becomes
+-- Tomte's active quest (Waypoints' arrow follows it) when it changes. Never the game's active
 -- quest or its tracker: setting those from here tainted the objective tracker and the map's quest log (see
 -- ns.ActiveQuest_Follow). A quest you pick yourself lets go of the follow until the top quest changes.
 local function Unfollow()
@@ -383,7 +384,8 @@ function ns.LevelingNext_Update()
 	if pointsStale or pointsMap ~= mapID then
 		points, pointsMap, pointsStale = mapID and ns.LevelingRead_QuestPoints(mapID) or {}, mapID, false
 	end
-	local stops = ns.Leveling_NextStops(ns.LevelingRead_QuestsTagged(), points, you, IsInGroup(), CLUSTER_YARDS)
+	local quests = ns.LevelingRead_QuestsTagged()
+	local stops = ns.Leveling_NextStops(quests, points, you, IsInGroup(), CLUSTER_YARDS)
 	if #stops == 0 then
 		if not ns.EditMode_Active() then
 			Hide()
@@ -397,7 +399,10 @@ function ns.LevelingNext_Update()
 	end
 	drawnAt, distanceAt = you, you
 	if db.nextFollow and not stops.sample then
-		Follow(stops[1].quests[1])
+		-- A quest whose area you're in first, then the route's first stop (Leveling_FollowPick, LevelingRoute_Pick),
+		-- planned over the quests a stop would list.
+		local pick = ns.LevelingRoute_Pick(quests, points, you, IsInGroup(), followed)
+		Follow(ns.Leveling_FollowPick(quests, ns.LevelingRead_QuestsInArea(), followed, pick, IsInGroup()))
 	elseif not db.nextFollow then
 		Unfollow()
 	end

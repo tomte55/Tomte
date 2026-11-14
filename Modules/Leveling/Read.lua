@@ -8,6 +8,9 @@ local WEAPON_SLOTS = { 16, 17, 18 } -- main hand, off hand, ranged
 local SKILL_GAP = 5 -- weapon skills this far under their cap are listed; Gear Check warns from further behind
 local LAST_CARRIED_BAG = 4 -- bag IDs: 0 is the backpack, 1 to 4 the bags you wear
 local MAP_CONTINENT = 2 -- Enum.UIMapType.Continent: quest spots are read up to here (cosmic and world maps above it)
+local AREA_W, AREA_H = 1002, 668 -- the quest area frame's size (any size; the measured one, the map canvas's shape)
+local AREA_FILL = "Interface\\WorldMap\\UI-QuestBlob-Inside" -- needed before it answers (see QuestsInArea)
+local AREA_FILL_ALPHA = 128 -- of 255, as the map's own quest areas (QuestBlobPinMixin:OnLoad)
 
 local IsSecret = ns.IsSecret
 local Readable = ns.Readable
@@ -38,9 +41,6 @@ function ns.LevelingRead_Trainer()
 	if not total or total == 0 then
 		return nil
 	end
-	local rows = {}
-	for i = 1, total do
-		local name, serviceType, _, level, rank = GetTrainerServiceInfo(i)
 	local lines = {}
 	for i = 1, total do
 		local line = GetTrainerServiceSkillLine and GetTrainerServiceSkillLine(i)
@@ -51,6 +51,9 @@ function ns.LevelingRead_Trainer()
 	if not ns.Leveling_IsClassTrainer(lines, SpellBookLines()) then
 		return nil
 	end
+	local rows = {}
+	for i = 1, total do
+		local name, serviceType, _, level, rank = GetTrainerServiceInfo(i)
 		local row = ns.Leveling_SlimService(name, serviceType, rank, level, (GetTrainerServiceCost(i)))
 		if row then
 			rows[#rows + 1] = row
@@ -335,6 +338,68 @@ function ns.LevelingRead_You()
 		return nil, mapID
 	end
 	return WorldPoint(mapID, x, y), mapID
+end
+
+-- Where a quest is handed in, as world yards ({ x, y, continent }), from the generated data (Data/Forever/QuestEnds.lua),
+-- or false when it isn't known or its zone has no map here. Kept: the data doesn't change.
+local handPoints = {}
+
+function ns.LevelingRead_HandPoint(questID)
+	local known = handPoints[questID]
+	if known ~= nil then
+		return known
+	end
+	local ends = ns.Content_Get(ns.CONTENT_FOREVER, "questEnds")
+	local area, x, y = (ends and ends[questID] or ""):match("^(%d+):([%d%.]+):([%d%.]+)$")
+	local mapID = area and ns.MapForArea(tonumber(area))
+	local point = mapID and WorldPoint(mapID, tonumber(x) / 100, tonumber(y) / 100) or false
+	handPoints[questID] = point
+	return point
+end
+
+-- The quests whose map area you stand in: [questID] = true (empty without a position). One hidden QuestPOIFrame of
+-- ours (never the map's own) draws each quest's area in turn and asks whether your spot is inside, the way the map's
+-- quest areas answer the mouse (QuestBlobPinMixin:UpdateTooltip). Measured on Forever 1.60.1 (2026-11-14): it answers
+-- right after DrawBlob, but only once the frame has a fill texture and a size; without them every answer was nil.
+local areaFrame
+
+function ns.LevelingRead_QuestsInArea()
+	local inside = {}
+	local mapID = C_Map.GetBestMapForUnit("player")
+	if not mapID or not Readable(mapID) or not C_QuestLog.GetQuestsOnMap then
+		return inside
+	end
+	local pos = C_Map.GetPlayerMapPosition(mapID, "player")
+	local x, y
+	if pos then
+		x, y = pos:GetXY()
+	end
+	if not (Readable(x) and Readable(y)) or (x == 0 and y == 0) then
+		return inside
+	end
+	if not areaFrame then
+		areaFrame = CreateFrame("QuestPOIFrame", nil, UIParent)
+		areaFrame:SetSize(AREA_W, AREA_H)
+		areaFrame:SetPoint("CENTER")
+		areaFrame:SetFillTexture(AREA_FILL)
+		areaFrame:SetFillAlpha(AREA_FILL_ALPHA)
+		areaFrame:EnableMouse(false)
+		areaFrame:SetAlpha(0) -- never seen: it only answers where the areas are
+	end
+	areaFrame:SetMapID(mapID)
+	for _, info in ipairs(C_QuestLog.GetQuestsOnMap(mapID) or {}) do
+		local id = info.questID
+		if id and Readable(id) then
+			areaFrame:DrawNone()
+			areaFrame:DrawBlob(id, true)
+			local hit = areaFrame:UpdateMouseOverTooltip(x, y)
+			if hit and Readable(hit) then
+				inside[id] = true
+			end
+		end
+	end
+	areaFrame:DrawNone()
+	return inside
 end
 
 -- Each quest's spot, as the map shows it (its objective, or where it's turned in): [questID] = { x, y (world yards),

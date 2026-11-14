@@ -278,13 +278,13 @@ function ns.OwnTargetTracked()
 	return kind ~= nil and kind ~= Enum.SuperTrackingType.Quest
 end
 
--- The quest Tomte follows (Quest list's and Next quests' follow-the-nearest), kept apart from the game's active quest.
+-- The quest Tomte follows (Quest list's and Next quests' route follow), kept apart from the game's active quest.
 -- Making a quest the game's active one from addon code redraws the objective tracker and the map's quest log inside
 -- the call, which leaves them tainted: measured on Forever 1.60.1 (2026-11-13), a later level-up then errored in the
 -- tracker (secret auras) and quest clicks on the map were blocked in combat. With follow off, no error. So a widget
 -- that picks a quest by itself, and a click on a quest in Tomte's lists (ns.LevelingPage_MakeActive), only sets this;
--- Waypoints' arrow and the lists read ns.ActiveQuest_ID. Your own pick in the game (map, quest log) wins: any change
--- of the game's active quest lets go of it.
+-- Waypoints' arrow and the lists read ns.ActiveQuest_ID. Your own pick in the game (map, quest log) wins: a change
+-- of the game's active quest lets go of it, except the game's own pick of a quest you just accepted (below).
 local followedQuest
 local activeListeners = {}
 
@@ -321,11 +321,49 @@ function ns.ActiveQuest_OnChange(fn)
 	activeListeners[#activeListeners + 1] = fn
 end
 
+-- Zone maps by area ID (World of Warcraft: Forever) ---------------------------------------------------------------
+
+local AREA_PARENT_MAPS = { 1414, 1415 } -- Kalimdor, Eastern Kingdoms: Forever's continents
+local areaZoneMaps -- [zone name] = its map ID, built on first use
+
+-- The map for a zone's area ID (as pfQuest's and QuestieDB's data name zones): its name in this client's language if
+-- the game knows it, or englishName (the data's own, optional). Used by Where to get it's pins and the quest route.
+function ns.MapForArea(areaID, englishName)
+	if not areaZoneMaps then
+		areaZoneMaps = {}
+		for _, parent in ipairs(AREA_PARENT_MAPS) do
+			for _, info in ipairs(C_Map.GetMapChildrenInfo(parent, Enum.UIMapType.Zone, true) or {}) do
+				areaZoneMaps[info.name] = info.mapID
+			end
+		end
+	end
+	local localized = C_Map.GetAreaInfo and C_Map.GetAreaInfo(areaID)
+	return areaZoneMaps[localized or ""] or areaZoneMaps[englishName or ""]
+end
+
+-- Accepting a quest makes it the game's active one by itself (Forever 1.60.1, 2026-11-14: a red quest just taken became
+-- the arrow's target): that's not your pick, so the follow stays. A change this close to an accept counts as the
+-- game's own, whichever of the two events comes first.
+local AUTO_PICK_WINDOW = 1 -- seconds
+local acceptedAt, letGoAt, letGoQuest
+
 events:On("activequest", "SUPER_TRACKING_CHANGED", function()
+	if acceptedAt and GetTime() - acceptedAt <= AUTO_PICK_WINDOW then
+		return
+	end
+	letGoAt, letGoQuest = GetTime(), followedQuest
 	followedQuest = nil
 	ActiveChanged()
 end)
+events:On("activequest", "QUEST_ACCEPTED", function()
+	acceptedAt = GetTime()
+	if letGoQuest and letGoAt and acceptedAt - letGoAt <= AUTO_PICK_WINDOW then
+		followedQuest, letGoQuest = letGoQuest, nil
+		ActiveChanged()
+	end
+end)
 events:TryWatch("activequest", "SUPER_TRACKING_CHANGED") -- a client without super-tracking has no such event
+events:TryWatch("activequest", "QUEST_ACCEPTED")
 
 events:On("safetrack", "PLAYER_REGEN_ENABLED", function(self)
 	self:Unwatch("safetrack", "PLAYER_REGEN_ENABLED")

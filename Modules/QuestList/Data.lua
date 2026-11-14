@@ -222,16 +222,6 @@ function ns.QuestList_Sections(quests, stops, opts)
 	return sections
 end
 
--- The quest "follow the nearest" makes active: the top quest of the nearest stop, nil when the first section isn't a
--- stop (no position, or not grouped by stop).
-function ns.QuestList_FollowQuest(sections)
-	local first = sections[1]
-	if first and first.kind == "stop" then
-		return first.quests[1]
-	end
-	return nil
-end
-
 -- The quest whose item the quest item button holds: the followed quest (followedID) when it has a usable item, else
 -- the first quest with one in the order the list shows them (nearest stop first). Hidden quests never. A done quest's
 -- item counts only when the game keeps showing it (itemWhenDone), as the game's own tracker does.

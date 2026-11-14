@@ -38,7 +38,7 @@ return {
 		{ after = "Themes/Cartographer.lua", files = { "Themes/Forever.lua" } },
 		{ after = "Panel/Widgets.lua", files = { "Panel/ForeverArt.lua" } },
 		{ after = "Panel/Rail.lua", files = { "Panel/ForeverTabs.lua" } },
-		{ after = "Core/Content.lua", files = { "Data/Forever/Teleports.lua", "Data/Forever/Buffs.lua", "Data/Forever/Rogue.lua", "Data/Forever/Tools.lua", "Data/Forever/Fishing.lua", "Data/Forever/Dungeons.lua", "Data/Forever/ArmorKits.lua", "Data/Forever/ItemSources.lua", "Data/Forever/WeaponMasters.lua", "Data/Forever/QuestItems.lua" } },
+		{ after = "Core/Content.lua", files = { "Data/Forever/Teleports.lua", "Data/Forever/Buffs.lua", "Data/Forever/Rogue.lua", "Data/Forever/Tools.lua", "Data/Forever/Fishing.lua", "Data/Forever/Dungeons.lua", "Data/Forever/ArmorKits.lua", "Data/Forever/ItemSources.lua", "Data/Forever/WeaponMasters.lua", "Data/Forever/QuestItems.lua", "Data/Forever/QuestEnds.lua" } },
 		{ after = "Modules/Fishing/Helpers.lua", files = { "Modules/Fishing/Rod.lua" } },
 		-- A split stack doesn't sell when dropped on the vendor there.
 		{ after = "Modules/Upkeep/Merchant.lua", files = { "Modules/Upkeep/SellSplit.lua" } },
@@ -54,7 +54,9 @@ return {
 		{ after = "Modules/Gear/RewardCard.lua", files = { "Modules/Gear/Roll.lua", "Modules/Gear/Forever.lua" } },
 		-- Forever-only modules (docs/superpowers/specs/2026-11-05-tomte-forever-leveling.md), after Gear Check's weapon skills.
 		{ after = "Modules/Upkeep/Durability.lua", files = {
-			"Modules/Leveling/Data.lua", "Modules/Leveling/AmmoData.lua", "Modules/Leveling/XPData.lua", "Modules/Leveling/Read.lua", "Modules/Leveling/XPBar.lua",
+			"Modules/Leveling/Data.lua", "Modules/Leveling/AmmoData.lua", "Modules/Leveling/XPData.lua", "Modules/Leveling/RouteData.lua",
+			"Modules/Leveling/Read.lua",
+			"Modules/Leveling/Route.lua", "Modules/Leveling/XPBar.lua",
 			"Modules/Leveling/Page.lua", "Modules/Leveling/HomeSection.lua", "Modules/Leveling/AmmoCounter.lua",
 			"Modules/Leveling/ArmorKit.lua", "Modules/Leveling/NextQuests.lua",
 			"Modules/Leveling/Leveling.lua",

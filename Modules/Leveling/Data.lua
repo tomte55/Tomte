@@ -337,6 +337,33 @@ function ns.Leveling_NextStops(quests, points, you, grouped, yards)
 	return stops
 end
 
+-- The quest to follow by itself. Where you are beats the nearest stop: a quest whose area you stand in (inside,
+-- [questID] = true, read from the map's quest areas) is followed before fallback (the nearest stop's top quest; a quest
+-- pin is often far from where the quest is done). The followed quest (current, a questID) stays while you're in its
+-- area, so walking through several areas doesn't flip between them. Only quests a stop would list (same rules as
+-- Leveling_NextStops: no grey quests, hard ones only grouped). Returns a quest row, or fallback.
+function ns.Leveling_FollowPick(quests, inside, current, fallback, grouped)
+	local best
+	for _, q in ipairs(quests) do
+		local group = QuestGroup(q)
+		if inside[q.questID] and OnStop(q, group, grouped) then
+			if q.questID == current then
+				return q
+			end
+			local m = { q = q, group = group }
+			if not best or ByStopOrder(m, best) then
+				best = m
+			end
+		end
+	end
+	return best and best.q or fallback
+end
+
+-- Whether a quest belongs on a stop (and so in the quest route): Leveling_NextStops' own rule.
+function ns.Leveling_OnStop(q, grouped)
+	return OnStop(q, QuestGroup(q), grouped)
+end
+
 -- A stop's distance as shown: yards rounded to the nearest ten.
 function ns.Leveling_StopYards(distance)
 	return math.floor((distance + 5) / 10) * 10

@@ -333,9 +333,9 @@ function ns.QuestListUI_New(parent, sample)
 		end, function()
 			ns.QuestList_ToggleFollow()
 		end, function(on)
-			return on and "Following the nearest quest" or "Not following the nearest quest",
-				on and "The nearest stop's top quest becomes your active quest. Click to stop."
-					or "Click to make the nearest stop's top quest your active quest each time a new one comes up."
+			return on and "Following quests along a route" or "Not following a route",
+				on and "The route's next quest becomes your active quest, hand-ins planned in. Click to stop."
+					or "Click to follow your quests along a route: each one's objective, then where it's handed in."
 		end)
 	end
 	return f

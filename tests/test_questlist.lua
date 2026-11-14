@@ -154,14 +154,6 @@ test("an empty log has no sections", function()
 	eq(#ns.QuestList_Sections({}, {}, opts()), 0)
 end)
 
-test("follow takes the nearest stop's top quest only", function()
-	local quests = { Q(1), Q(2, { complete = true }) }
-	local s = ns.QuestList_Sections(quests, { { quests = quests } }, opts())
-	eq(ns.QuestList_FollowQuest(s).questID, 2, "turn-in on top")
-	eq(ns.QuestList_FollowQuest(ns.QuestList_Sections(quests, {}, opts())), nil, "no stops")
-	eq(ns.QuestList_FollowQuest({}), nil)
-end)
-
 test("ItemQuest: the followed quest's item, else the first quest with one as the list shows them", function()
 	local sections = {
 		{ kind = "stop", quests = { Q(1), Q(2, { itemLink = "item:2" }) } },

@@ -425,6 +425,34 @@ test("IsClassTrainer: a row on one of your spellbook's lines", function()
 	eq(ns.Leveling_IsClassTrainer({}, mine), false, "no skill lines on the rows")
 end)
 
+test("FollowPick: a quest whose area you're in beats a turn-in nearby", function()
+	local quests = {
+		{ questID = 1, title = "Gordo's Task", level = 5, complete = true },
+		{ questID = 2, title = "Patience", level = 6, difficulty = 2 },
+		{ questID = 3, title = "The Chill of Death", level = 8, difficulty = 2 },
+	}
+	local inside = { [2] = true, [3] = true }
+	eq(ns.Leveling_FollowPick(quests, inside, nil, quests[1], false).title, "Patience", "lowest level of the areas")
+	eq(ns.Leveling_FollowPick(quests, inside, 3, quests[1], false).title, "The Chill of Death",
+		"the followed quest stays while you're still in its area")
+	eq(ns.Leveling_FollowPick(quests, { [2] = true }, 3, quests[1], false).title, "Patience",
+		"out of the followed quest's area: the best area you're in")
+	eq(ns.Leveling_FollowPick(quests, {}, 3, quests[1], false).title, "Gordo's Task", "in no area: the nearest stop's")
+	eq(ns.Leveling_FollowPick(quests, {}, nil, nil, false), nil)
+end)
+
+test("FollowPick: an area quest a stop wouldn't list isn't followed", function()
+	local quests = {
+		{ questID = 1, title = "Grey", level = 2, difficulty = 0 },
+		{ questID = 2, title = "Elite", level = 8, elite = true },
+		{ questID = 3, title = "Fallback", level = 6, difficulty = 2 },
+	}
+	local inside = { [1] = true, [2] = true }
+	eq(ns.Leveling_FollowPick(quests, inside, nil, quests[3], false).title, "Fallback", "solo: neither")
+	eq(ns.Leveling_FollowPick(quests, inside, 1, quests[3], false).title, "Fallback", "not even the followed one")
+	eq(ns.Leveling_FollowPick(quests, inside, nil, quests[3], true).title, "Elite", "grouped: the elite one")
+end)
+
 test("SortQuests sorts by level, and the shortest timer first", function()
 	local groups = ns.Leveling_SortQuests({
 		{ title = "B", level = 5, difficulty = 2 }, { title = "A", level = 5, difficulty = 2 },

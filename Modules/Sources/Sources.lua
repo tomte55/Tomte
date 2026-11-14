@@ -6,10 +6,8 @@ local addonName, ns = ...
 
 local PAGE_KEY = "sources"
 local ICON = "Interface\\Icons\\INV_Misc_Map_01"
-local PARENT_MAPS = { 1414, 1415 } -- Kalimdor, Eastern Kingdoms
 
 local module, db
-local zoneMaps -- [zone name] = its map ID, built on first use
 local hooked = false
 
 function ns.Sources_Tables()
@@ -46,28 +44,10 @@ function ns.Sources_ForMe(itemID)
 		HereZone())
 end
 
-local function BuildZoneMaps()
-	zoneMaps = {}
-	for _, parent in ipairs(PARENT_MAPS) do
-		for _, info in ipairs(C_Map.GetMapChildrenInfo(parent, Enum.UIMapType.Zone, true) or {}) do
-			zoneMaps[info.name] = info.mapID
-		end
-	end
-end
-
--- The map for a zone's area ID: its name in this client's language if the game knows it, or the table's English one.
-local function MapFor(source)
-	if not zoneMaps then
-		BuildZoneMaps()
-	end
-	local localized = C_Map.GetAreaInfo and C_Map.GetAreaInfo(source.zone)
-	return zoneMaps[localized or ""] or zoneMaps[source.zoneName or ""]
-end
-
 -- A zone to skin in is pinned where most of its creatures of the right level are.
 function ns.Sources_Pin(source)
 	local label = source.kind == "skin" and "Beasts to skin" or source.name
-	local mapID = MapFor(source)
+	local mapID = ns.MapForArea(source.zone, source.zoneName)
 	if not (mapID and ns.Way_SetPoint and ns.Way_SetPoint(mapID, source.x / 100, source.y / 100, label)) then
 		ns.Print(("%s is in %s: no pin for that place."):format(label, source.zoneName or "a place the map doesn't show"))
 		return

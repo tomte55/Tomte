@@ -33,7 +33,8 @@ local drawnAt, distanceAt -- where you stood at the last full draw, and at the l
 local shown = {} -- the sections last drawn
 local expanded = {} -- [section key] = true: "+N more" clicked (this session)
 local seen = {} -- [questID] = { have = { [objective] = count }, complete, changed (GetTime of the last progress) }
-local followed -- the quest follow-the-nearest last made active
+local followed -- the quest the follow last made active
+local route, routeFrom = {}, nil -- the follow's last planned stops (Leveling/RouteData.lua) and where you stood
 -- Folds and opens clicked on stops, this visit only: stops change as you move, so a choice made on one doesn't stick to
 -- whatever stop takes its key later. Wiped when the nearest stop changes.
 local stopFolds = {}
@@ -198,7 +199,8 @@ local function Prune(quests)
 	end
 end
 
--- Follow-the-nearest: the nearest stop's top quest becomes Tomte's active quest when it changes (a quest you pick
+-- Follow-the-nearest: a quest whose area you're in, else the nearest stop's top quest (ns.Leveling_FollowPick),
+-- becomes Tomte's active quest when it changes (a quest you pick
 -- yourself stays until then: picking one lets go of the follow, ns.ActiveQuest_Follow). Never the game's active quest:
 -- setting that from here tainted the objective tracker and the map's quest log (see ns.ActiveQuest_Follow).
 local function Follow(q)
@@ -335,7 +337,20 @@ local function Update()
 		return
 	end
 	if db.follow then
-		Follow(ns.QuestList_FollowQuest(sections))
+		-- A quest whose area you're in first, then the route's first stop (Leveling_FollowPick, LevelingRoute_Pick),
+		-- planned over the quests the list shows (not the Hidden line's).
+		local listed = {}
+		for _, s in ipairs(sections) do
+			if s.kind ~= "hidden" then
+				for _, q in ipairs(s.quests) do
+					listed[#listed + 1] = q
+				end
+			end
+		end
+		local pick
+		pick, route = ns.LevelingRoute_Pick(listed, points, you, IsInGroup(), followed)
+		routeFrom = you
+		Follow(ns.Leveling_FollowPick(quests, ns.LevelingRead_QuestsInArea(), followed, pick, IsInGroup()))
 	elseif followed then -- turned off in the settings
 		followed = nil
 		ns.ActiveQuest_Follow(nil)
@@ -383,7 +398,8 @@ Tick = function()
 		return -- no position (an instance): nothing to measure
 	end
 	local moved = drawnAt and Yards(drawnAt, you) or math.huge
-	if db.groupBy == "stop" and moved >= MOVE_REDRAW then
+	-- The stops, and the route the follow takes (in every grouping), change as you move.
+	if (db.groupBy == "stop" or db.follow) and moved >= MOVE_REDRAW then
 		Update()
 	elseif Yards(distanceAt, you) == nil or Yards(distanceAt, you) >= MOVE_DISTANCE then
 		distanceAt = you
@@ -632,6 +648,15 @@ local function Why()
 	if ns.QuestListSpoken_Installed() then
 		print(ok and "  Spoken: Play buttons on." or ("  Spoken: no Play buttons (" .. tostring(why) .. ")."))
 	end
+	local areas = {}
+	for id in pairs(ns.LevelingRead_QuestsInArea()) do
+		areas[#areas + 1] = C_QuestLog.GetTitleForQuestID(id) or tostring(id)
+	end
+	print(("  Quest areas you're in: %s. Following: %s."):format(#areas > 0 and table.concat(areas, ", ") or "none",
+		followed and (C_QuestLog.GetTitleForQuestID(followed) or tostring(followed)) or "nothing"))
+	if db.follow and routeFrom then
+		ns.LevelingRoute_Print(routeFrom, route)
+	end
 	for i, s in ipairs(shown) do
 		local names = {}
 		for k, q in ipairs(s.quests) do
@@ -770,8 +795,8 @@ module = ns.RegisterModule({
 			choices = Choices({ { value = "stop", text = "Nearby stop" }, { value = "zone", text = "Zone" },
 				{ value = "list", text = "Nothing" } }),
 			tooltip = "Nearby stop: quests close to each other are one stop, the nearest first, as in Leveling's Next quests. The nearest few get a group each; the rest wait in Other quests." },
-		{ type = "checkbox", key = "follow", label = "Follow the nearest quest", onChange = Redraw,
-			tooltip = "The top quest of the nearest stop becomes your active quest in Tomte (marked in the list, and Waypoints' arrow points to it) each time a new one comes to the top. A quest you pick yourself, here or on the map, stays active until then. The game's own map and tracker keep the quest you picked there." },
+		{ type = "checkbox", key = "follow", label = "Follow quests along a route", onChange = Redraw,
+			tooltip = "Tomte plans a route through the quests in the list, each one's objective and then where it's handed in (hand-ins at one place are one stop), walking the least, and the next stop's quest becomes your active quest in Tomte (marked in the list, and Waypoints' arrow points to it). A quest whose area you're standing in comes first. The arrow keeps its stop until you get there, unless another way is clearly shorter. A quest you pick yourself, here or on the map, stays active until the route moves on. The game's own map and tracker keep the quest you picked there." },
 		{ type = "checkbox", key = "mapMark", label = "Show it on the world map", parent = "follow",
 			onChange = function()
 				ns.QuestListMap_Refresh()
