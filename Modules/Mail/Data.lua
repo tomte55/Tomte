@@ -229,13 +229,22 @@ end
 -- reachable(c) -> bool (mail reaches that realm), mailName(c) -> "Name" or "Name-Realm".
 -- Returns { { name = mail name, short = c.name, class } } sorted by name; yourself and unreachable realms left out.
 -- Both factions: your own characters on the same or a connected realm can mail each other across factions. A
--- Pandaren that hasn't picked a faction yet ("Neutral") is left out.
+-- Pandaren that hasn't picked a faction yet ("Neutral") is left out. Two characters with one name on one realm (one
+-- deleted and made again, its old entry still saved): the one seen last (c.seen) is offered, the other left out.
 function ns.Mail_Recipients(chars, me, reachable, mailName)
-	local list = {}
+	local best = {} -- [name and realm] = the character offered for it
 	for guid, c in pairs(chars) do
 		if guid ~= me.guid and c.name and c.faction ~= "Neutral" and reachable(c) then
-			list[#list + 1] = { name = mailName(c), short = c.name, class = c.class }
+			local key = c.name:lower() .. "-" .. tostring(c.realm)
+			local had = best[key]
+			if not had or (c.seen or 0) > (had.seen or 0) then
+				best[key] = c
+			end
 		end
+	end
+	local list = {}
+	for _, c in pairs(best) do
+		list[#list + 1] = { name = mailName(c), short = c.name, class = c.class }
 	end
 	table.sort(list, function(a, b)
 		return a.name < b.name

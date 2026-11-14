@@ -308,14 +308,27 @@ local function Reachable(c)
 end
 
 -- Your characters: everyone the Alts module knows (most are there long before Mail saw them log in), plus Mail's
--- own roster for when Alts is off. Mail's entry wins for a character both know: it has the faction.
+-- own roster for when Alts is off. For a character both know, Mail's fields win (it has the faction) over Alts'
+-- (which has Forever's full name, "Tomte Skogsvarg", the only name mail arrives by there, and when it was last seen).
 local function Recipients()
 	local chars = {}
 	for guid, c in pairs(ns.Alts_Characters and ns.Alts_Characters() or {}) do
 		chars[guid] = c
 	end
 	for guid, c in pairs(db.chars) do
-		chars[guid] = c
+		local alt = chars[guid]
+		if alt then
+			local merged = {}
+			for k, v in pairs(alt) do
+				merged[k] = v
+			end
+			for k, v in pairs(c) do
+				merged[k] = v
+			end
+			chars[guid] = merged
+		else
+			chars[guid] = c
+		end
 	end
 	return ns.Mail_Recipients(chars, { guid = UnitGUID("player") }, Reachable, MailName)
 end

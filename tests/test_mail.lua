@@ -247,6 +247,23 @@ test("recipients: own other characters on reachable realms, both factions", func
 	eq(list[3].name, "Tolvan")
 end)
 
+test("recipients: one entry per name, the character seen last (a deleted one's left out)", function()
+	local chars = {
+		old = { name = "Aldric", realm = "Silvermoon", faction = "Horde", class = "HUNTER" }, -- deleted, never seen again
+		new = { name = "Aldric", realm = "Silvermoon", faction = "Horde", class = "HUNTER", seen = 500,
+			fullName = "Aldric Stonehelm" },
+		m = { name = "Mira", realm = "Silvermoon", faction = "Horde", class = "MAGE", seen = 100 },
+	}
+	local list = ns.Mail_Recipients(chars, { guid = "me" }, function()
+		return true
+	end, function(c)
+		return c.fullName or c.name
+	end)
+	eq(#list, 2)
+	eq(list[1].name, "Aldric Stonehelm")
+	eq(list[2].name, "Mira")
+end)
+
 test("remember: newest first, case-insensitive, capped", function()
 	local recent = ns.Mail_Remember(nil, "Mira", 3)
 	ns.Mail_Remember(recent, "Kesha", 3)
