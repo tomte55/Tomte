@@ -175,6 +175,8 @@ test("PlainText strips colors, links and textures", function()
 	eq(ns.Social_PlainText("|cffff0000red|r text"), "red text")
 	eq(ns.Social_PlainText("got |cffa335ee|Hitem:123::|h[Sword]|h|r!"), "got [Sword]!")
 	eq(ns.Social_PlainText("|TInterface\\Icons\\x:0|t hi"), " hi")
+	-- Forever's item links name their quality color (seen in a copied conversation: the rest turned green).
+	eq(ns.Social_PlainText("|cnIQ2:|Hitem:2132::|h[Training Sword]|h|r ok"), "[Training Sword] ok")
 end)
 
 test("ColorLinks paints uncolored links only", function()
@@ -305,6 +307,25 @@ test("inbox: status line", function()
 	eq(ns.Inbox_StatusText({ online = true, game = "app" }), "On the Battle.net app")
 	eq(ns.Inbox_StatusText({ online = true, game = "Overwatch" }), "Online in Overwatch")
 	eq(ns.Inbox_StatusText({ online = true, game = true }), "Online in another game")
+end)
+
+test("inbox: a whisperer is a Battle.net friend's character", function()
+	local Is = ns.Social_IsCharacter
+	eq(Is("Kesha", "Kesha", "Silvermoon", "Silvermoon"), true, "your realm, short key")
+	eq(Is("Kesha-Silvermoon", "Kesha", "", "Silvermoon"), true, "no realm from Battle.net")
+	eq(Is("Kesha-ArgentDawn", "Kesha", "Argent Dawn", "Silvermoon"), true, "spaces")
+	eq(Is("Kesha-Ravencrest", "Kesha", "Argent Dawn", "Silvermoon"), false, "another realm")
+	eq(Is("Mira", "Kesha", "Silvermoon", "Silvermoon"), false, "another name")
+	eq(Is("Kesha-CAMWOWEU4Realm3PvE", "Kesha", "CAMWOWEU4Realm5PvE", "CAMWOWEU4Realm5PvE", true), true,
+		"Forever: another server of the same ruleset")
+	eq(Is("Kesha-CAMWOWEU4Realm3PvP", "Kesha", "CAMWOWEU4Realm5PvE", "CAMWOWEU4Realm5PvE", true), false,
+		"Forever: another ruleset")
+	eq(Is("Jalen Brightmoor-CAMWOWEU4Realm5PvE", "Jalen Brightmoor", "CAMWOWEU5Realm1PvE", "CAMWOWEU4Realm5PvE", true),
+		true, "Forever: another cluster number too (seen in game)")
+	eq(Is("Kesha-CAMWOWUS4Realm5PvE", "Kesha", "CAMWOWEU4Realm5PvE", "CAMWOWEU4Realm5PvE", true), false,
+		"Forever: another region")
+	eq(Is("Jalen Brightmoor-CAMWOWEU4Realm3PvE", "Jalen Brightmoor", nil, "CAMWOWEU4Realm5PvE", true), true,
+		"Forever: a name with a space, the friend list without a realm")
 end)
 
 test("inbox: NEW divider at the first unread message", function()

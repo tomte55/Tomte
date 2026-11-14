@@ -151,6 +151,28 @@ function ns.Social_With(convo)
 	return convo.with or convo.key
 end
 
+-- Whether a whisper key ("Name-Realm", or "Name" on your realm) is the character a Battle.net friend plays (name,
+-- realm from their game account). myRealm: your realm. Realms compare without spaces and dashes; forever: also
+-- without any number, as World of Warcraft: Forever puts players who play together on differently numbered clusters
+-- and servers of one ruleset (seen in game: a whisper filed under "CAMWOWEU4Realm5PvE" from a friend Battle.net
+-- placed on "CAMWOWEU5Realm1PvE").
+function ns.Social_IsCharacter(key, name, realm, myRealm, forever)
+	if not (key and name) then
+		return false
+	end
+	local keyName, keyRealm = key:match("^(.-)%-(.+)$")
+	keyName, keyRealm = keyName or key, keyRealm or myRealm
+	if keyName ~= name then
+		return false
+	end
+	realm = (realm and realm ~= "") and realm or myRealm
+	local function Plain(r)
+		r = tostring(r or ""):gsub("[%s%-]", "")
+		return forever and (r:gsub("%d+", "")) or r
+	end
+	return Plain(keyRealm) == Plain(realm)
+end
+
 -- Whether the character with this GUID can answer it: its own, untagged (old or Battle.net) ones.
 function ns.Social_IsMine(convo, guid)
 	return convo.char == nil or convo.char == guid
@@ -365,7 +387,8 @@ end
 
 -- Chat text without color codes, textures and link wrappers ("|Hitem:...|h[Sword]|h" -> "[Sword]").
 function ns.Social_PlainText(text)
-	return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("|T.-|t", ""):gsub("|A.-|a", ""))
+	-- |cnIQ2: is a named color (item quality on Forever and current retail), |cff...: the plain one.
+	return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[^:|]*:", ""):gsub("|r", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("|T.-|t", ""):gsub("|A.-|a", ""))
 end
 
 -- Links that start Blizzard's Communities code when clicked (ItemRef.lua). Clicked in a Tomte frame, SetItemRef runs

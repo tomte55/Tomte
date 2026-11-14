@@ -26,7 +26,9 @@ local ROLE_WORDS = {
 
 -- Lowercase words with single spaces, and one at each end so a word can be found whole. A link counts as its name.
 local function Words(text)
-	local plain = text:gsub("|H.-|h%[?(.-)%]?|h", "%1"):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+	-- |cnIQ2: is a named color (item links on Forever and current retail).
+	local plain = text:gsub("|H.-|h%[?(.-)%]?|h", "%1"):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[^:|]*:", "")
+		:gsub("|r", "")
 	plain = plain:lower():gsub("'", ""):gsub("[^%w]+", " ")
 	return " " .. plain .. " "
 end

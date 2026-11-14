@@ -695,6 +695,10 @@ module = ns.RegisterModule({
 			ns.Inbox_Toggle()
 		end },
 		{ "preview", "show sample whisper toasts and an inbox with made-up conversations", Preview },
+		{ "who", "why the newest conversation says who it does: its name and your friends as the game gives them",
+			function()
+				ns.InboxWho_Why(ns.Social_SortedConvos(Store())[1])
+			end },
 	},
 	options = options,
 })

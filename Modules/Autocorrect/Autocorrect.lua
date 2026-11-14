@@ -345,7 +345,7 @@ local function OnChat(_, _, msg, sender, ...)
 	if learned >= LEARN_MAX then
 		return
 	end
-	msg = msg:gsub("|H.-|h", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+	msg = msg:gsub("|H.-|h", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[^:|]*:", ""):gsub("|r", "")
 	for word in msg:gmatch("%a[%a']*") do
 		local lower = word:lower()
 		if #lower >= 3 and not dict.level[lower] then
