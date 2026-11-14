@@ -114,6 +114,8 @@ test("quest item data in the markers", function()
 		true, "a crafting material isn't kept for a quest you haven't taken")
 	eq(Kind(With({ questFor = "Mending Old Wounds", classID = 7, questItem = false, vendor = 13 })), "quest",
 		"it is for one in your log")
+	eq(Kind(With({ questWaiting = "The Alliance Needs Linen Bandages!", classID = 0, consumable = true,
+		questItem = false, vendor = 10 })) ~= "quest", true, "nor a consumable (bandages, potions, food)")
 	local given = ns.Value_Marker(With({ questGivenBy = "Mura Runetotem" }))
 	eq(given.kind, nil)
 	eq(given.why, "From Mura Runetotem, which isn't in your log.")

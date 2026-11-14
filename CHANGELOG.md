@@ -60,6 +60,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Gold & value:** cloth, herbs and other crafting materials are no longer marked "Keep for a quest" for a quest that isn't in your log.
 - **Tomte:** on World of Warcraft: Forever, Key Bindings no longer lists gold world quests, pet battles and housing (unnamed, since they don't load there), and the aspect key is just "Put on your aspect".
 - **Mail:** on World of Warcraft: Forever the recipient menu offers your characters by their full name (the only one mail arrives by), and a character you deleted and made again no longer shows twice.
+- **Gold & value:** consumables like bandages, and quests for the other faction (The Alliance Needs Linen Bandages! for a Horde character), no longer make an item "Keep for a quest".
 
 ## v1.34.0 - 2026-11-13
 

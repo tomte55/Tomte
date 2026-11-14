@@ -515,7 +515,8 @@ or modules, major for changes that reset or break settings.
   [ItemTree](https://www.curseforge.com/wow/addons/itemtree) (no code or data taken).
 - Quest items (Gold & value's markers on World of Warcraft: Forever): which quests ask for, hand out or need each item, from
   [QuestieDB](https://github.com/Questie/QuestieDB)'s Forever data, used under GPLv3 terms as its LICENSE.md allows (only item
-  and quest IDs, titles and who can take each quest; `tools/questitems.py` builds `Data/Forever/QuestItems.lua`).
+  and quest IDs, titles and who can take each quest, including the side its quest givers are friendly to;
+  `tools/questitems.py` builds `Data/Forever/QuestItems.lua`).
 - Fishing: the one-key idea follows [Angleur](https://www.curseforge.com/wow/addons/angleur) by LegolandoBloom (no
   code taken); the fishing channel spell IDs come from the client's spell tables on [wago.tools](https://wago.tools)
   (`tools/fishing.py`).

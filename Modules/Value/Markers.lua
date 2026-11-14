@@ -75,11 +75,14 @@ local function DataQuests(itemID)
 	local info = ns.Content_Get(ns.CONTENT_FOREVER, "questItemQuests") or {}
 	local _, _, race = UnitRace("player")
 	local _, _, class = UnitClass("player")
+	local side = (UnitFactionGroup("player") or ""):sub(1, 1) -- "A" or "H", as the data's 4th field
 	local list = {}
 	for id, kind in entry:gmatch("(%d+):(%a)") do
 		id = tonumber(id)
 		local q = info[id]
-		if q and ns.Value_ForYou(q[2], race) and ns.Value_ForYou(q[3], class) then
+		-- q[4]: the side the quest's givers are friendly to ("" for both): the race masks miss one-side quests.
+		if q and ns.Value_ForYou(q[2], race) and ns.Value_ForYou(q[3], class) and (not q[4] or q[4] == ""
+			or q[4] == side) then
 			local title = C_QuestLog.GetTitleForQuestID(id)
 			list[#list + 1] = { title = (title and not IsSecret(title) and title ~= "") and title or q[1],
 				inLog = C_QuestLog.IsOnQuest(id), done = C_QuestLog.IsQuestFlaggedCompleted(id), gives = kind == "g" }

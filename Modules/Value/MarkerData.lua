@@ -64,7 +64,7 @@ ns.VALUE_MARKER_RULES = {
 		.. "hearthstones, profession tools, ammunition and caged battle pets." },
 	{ kind = "quest", title = "Keep for a quest", text = "A quest in your log names it in its objectives, it starts "
 		.. "a quest you haven't taken or done yet, or (World of Warcraft: Forever) a quest you can still take asks for it "
-		.. "(not crafting materials such as cloth or herbs: those you can get again)." },
+		.. "(not crafting materials or consumables such as cloth, herbs or bandages: those you can get again)." },
 	{ kind = "delete", title = "Delete", text = "It starts a quest you've already done, every quest that uses it is done "
 		.. "(Forever), or it's soulbound gear you can't use and whose look you have, and no vendor buys it." },
 	{ kind = "keep", title = "Keep: gear", text = "Gear Check calls it an upgrade (for you or another character), "
@@ -182,9 +182,10 @@ function ns.Value_Marker(f)
 		return Verdict(R.quest, f.startsQuest and "Its quest needs it handed in." or ("For %s."):format(f.questFor))
 	elseif f.startsQuest and not f.questDone and not f.questActive then
 		return Verdict(R.quest, "It starts a quest.")
-	-- Not for crafting materials: you can get those again, and the quest data can't tell where a quest is or whose
-	-- side gives it, so a common cloth was kept for any quest anywhere that asks for some (Linen Cloth, Forever).
-	elseif f.questWaiting and f.classID ~= TRADE_GOODS then
+	-- Not for crafting materials or consumables (bandages, potions, food): you can make or buy those again, and the
+	-- quest data can't tell where a quest is, so a common cloth was kept for any quest anywhere that asks for some
+	-- (Linen Cloth, Linen Bandage on Forever).
+	elseif f.questWaiting and f.classID ~= TRADE_GOODS and not f.consumable then
 		return Verdict(R.quest, ("For %s, not in your log."):format(f.questWaiting))
 	end
 	if not Sellable(f) and not Listing(f) then
