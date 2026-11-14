@@ -377,6 +377,8 @@ local TAINT_WATCHES = {
 	},
 }
 
+-- No hooks on the panel functions (ShowUIPanel, HideUIPanel) here: with them in, every M press after a reload opened
+-- the map tainted (Forever 1.60.1, 2026-11-14), so the watch only hooks the fields it checks.
 local taintHooked = {} -- [watch name] = true once its hook is in
 local taintCaught = {} -- [watch name] = true once caught this session
 
@@ -401,10 +403,16 @@ local function TaintCheck(watch)
 		return
 	end
 	local secure, by = issecurevariable(owner, watch.field)
+	local wasSecure = watch.lastSecure
+	watch.lastSecure = secure
 	if secure then
 		return
 	end
 	taintCaught[watch.name] = true
+	-- Blizzard writes these only when the value changes: tainted before this call means the path below only found it.
+	if wasSecure == false then
+		by = tostring(by) .. " (already tainted before this call: the path below didn't do it)"
+	end
 	-- 3: past this function and the hook's closure, so the path starts at Blizzard's call.
 	table.insert(t.seen, 1, { at = time(), what = watch.name, by = tostring(by), stack = debugstack(3, TAINT_STACK, 0) })
 	for i = #t.seen, TAINT_KEEP + 1, -1 do
@@ -420,6 +428,10 @@ local function TaintHook()
 			TaintCheck(watch)
 		end) then
 			taintHooked[watch.name] = true
+			local owner = watch.owner()
+			if owner then
+				watch.lastSecure = issecurevariable(owner, watch.field)
+			end
 		end
 	end
 end
@@ -437,17 +449,69 @@ local function TaintState()
 	return table.concat(parts, ", ")
 end
 
--- arg: nil toggles the watch, "show" opens the catches to copy, "clear" forgets them.
+-- Frames whose fields Blizzard's map code reads, and globals on the path from M to the map (the panel functions are
+-- in it: a hook on one must not leave the global itself tainted).
+local SCAN_FRAMES = { "WorldMapFrame", "QuestMapFrame", "QuestScrollFrame", "ObjectiveTrackerFrame" }
+local SCAN_GLOBALS = { "ShowUIPanel", "HideUIPanel", "ToggleWorldMap", "OpenWorldMap", "OpenQuestLog",
+	"GetUIPanel", "UIPanelWindows", "QuestMapFrame_ShowQuestDetails", "QuestLogQuests_Update" }
+
+-- Every tainted field (one level deep, children included) and tainted global, as lines.
+local function TaintScan()
+	local lines = {}
+	for _, name in ipairs(SCAN_GLOBALS) do
+		local secure, by = issecurevariable(name)
+		if not secure then
+			lines[#lines + 1] = ("global %s tainted by %s"):format(name, tostring(by))
+		end
+	end
+	local seen = {}
+	local function Fields(label, t, depth)
+		if type(t) ~= "table" or seen[t] then
+			return
+		end
+		seen[t] = true
+		for key, value in pairs(t) do
+			if type(key) == "string" then
+				local secure, by = issecurevariable(t, key)
+				if not secure then
+					lines[#lines + 1] = ("%s.%s tainted by %s"):format(label, key, tostring(by))
+				end
+				if depth > 0 and type(value) == "table" and key ~= "__index" then
+					Fields(label .. "." .. key, value, depth - 1)
+				end
+			end
+		end
+	end
+	for _, name in ipairs(SCAN_FRAMES) do
+		Fields(name, _G[name], 1)
+	end
+	if #lines == 0 then
+		lines[1] = "nothing tainted"
+	end
+	return lines
+end
+
+-- arg: nil toggles the watch, "show" opens the catches to copy, "clear" forgets them, "scan" lists tainted fields.
 function ns.BugUI_Taint(arg)
 	local t = TaintDB()
-	if arg == "show" then
+	if arg == "scan" then
+		local lines = TaintScan()
+		ns.Dialog_Show({
+			title = "Tomte taint scan",
+			hint = "Ctrl+C, then paste it to Tomte's author.",
+			text = table.concat(lines, "\n"),
+			readOnly = true,
+			width = 620,
+			height = 440,
+		})
+	elseif arg == "show" then
 		if #t.seen == 0 then
 			ns.Print("the taint watch hasn't caught anything yet.")
 			return
 		end
 		local lines = {}
 		for _, s in ipairs(t.seen) do
-			lines[#lines + 1] = ("%s  %s tainted by %s\n%s"):format(date("%Y-%m-%d %H:%M:%S", s.at), s.what, s.by,
+			lines[#lines + 1] = ("%s  %s tainted by %s\n%s\n"):format(date("%Y-%m-%d %H:%M:%S", s.at), s.what, s.by,
 				s.stack)
 		end
 		ns.Dialog_Show({
