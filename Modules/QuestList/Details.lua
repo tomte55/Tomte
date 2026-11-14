@@ -17,9 +17,13 @@ local CHECK = 14 -- an objective's box
 local OBJ_PAD = 10 -- inside the checklist
 local OBJ_GAP = 7
 local BAR_H = 4
-local TILE_H = 50
+local TILE_H = 50 -- at least; a tile grows with a verdict that wraps
 local TILE_ICON = 34
 local TILE_GAP = 6
+local TILE_TEXT_X = 8 + TILE_ICON + 8 -- the name and the line under it start right of the icon
+local TILE_TEXT_TOP = (TILE_H - TILE_ICON) / 2 -- level with the icon's top in a tile of the least height
+local TILE_SUB_GAP = 3
+local TILE_SUB_LINES = 3 -- Gear Check's longest verdicts take three lines on a half-width tile
 local TEXT_SPACING = 3 -- extra line spacing in the quest's text
 local FOOT_H = 44
 local HEADER_H = 58
@@ -250,7 +254,7 @@ local function MakeTile(content)
 	t.pick:SetWidth(3)
 	t.icon = t:CreateTexture(nil, "ARTWORK")
 	t.icon:SetSize(TILE_ICON, TILE_ICON)
-	t.icon:SetPoint("LEFT", 8, 0)
+	t.icon:SetPoint("TOPLEFT", 8, -TILE_TEXT_TOP) -- at the top: a taller tile grows below it
 	t.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 	-- The item's quality on the icon's edge (four 1px lines in the quality color).
 	t.ring = CreateFrame("Frame", nil, t)
@@ -259,16 +263,16 @@ local function MakeTile(content)
 	UI.Border(t.ring, "frame", 1)
 	t.count = UI.Text(t, 11, "text", "number")
 	t.count:SetPoint("BOTTOMRIGHT", t.icon, "BOTTOMRIGHT", -1, 2)
+	-- Widths are set in Tile (not by a right anchor): the wrapped line's height is measured right after its text.
 	t.name = UI.Text(t, 12, "text", "body")
-	t.name:SetPoint("TOPLEFT", t.icon, "TOPRIGHT", 8, -1)
-	t.name:SetPoint("RIGHT", -8, 0)
+	t.name:SetPoint("TOPLEFT", TILE_TEXT_X, -(TILE_TEXT_TOP + 1))
 	t.name:SetJustifyH("LEFT")
 	t.name:SetWordWrap(false)
 	t.sub = UI.Text(t, 11, "textMuted")
-	t.sub:SetPoint("BOTTOMLEFT", t.icon, "BOTTOMRIGHT", 8, 1)
-	t.sub:SetPoint("RIGHT", -8, 0)
+	t.sub:SetPoint("TOPLEFT", t.name, "BOTTOMLEFT", 0, -TILE_SUB_GAP)
 	t.sub:SetJustifyH("LEFT")
-	t.sub:SetWordWrap(false)
+	t.sub:SetWordWrap(true)
+	t.sub:SetMaxLines(TILE_SUB_LINES)
 	t:SetScript("OnEnter", TileEnter)
 	t:SetScript("OnLeave", GameTooltip_Hide)
 	-- Shift-click links it in chat. No Ctrl-click try-on: the dressing room is a UI panel too.
@@ -299,6 +303,7 @@ local function TileSub(e)
 	return ""
 end
 
+-- Places a tile and returns it with the height its text needs (at least TILE_H; Tiles sets the height).
 local function Tile(content, x, y, width, e)
 	local t = Take(pools.tile, function()
 		return MakeTile(content)
@@ -307,6 +312,8 @@ local function Tile(content, x, y, width, e)
 	t:ClearAllPoints()
 	t:SetPoint("TOPLEFT", x, -y)
 	t:SetWidth(width)
+	t.name:SetWidth(width - TILE_TEXT_X - 8)
+	t.sub:SetWidth(width - TILE_TEXT_X - 8)
 	t.icon:SetTexture(e.texture or ICON_UNKNOWN)
 	t.count:SetText(e.count and e.count > 1 and e.count or "")
 	local quality = e.quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[e.quality]
@@ -324,20 +331,27 @@ local function Tile(content, x, y, width, e)
 	t.pick:SetColorTexture(UI.Color("accent"))
 	t.pick:SetShown(e.tag ~= nil)
 	UI.SetBorderColor(t, e.tag and "accent" or "frame", e.tag and 0.7 or 0.3)
+	local sub = (t.sub:GetText() or "") ~= "" and (TILE_SUB_GAP + t.sub:GetStringHeight()) or 0
+	return t, math.max(TILE_H, math.ceil(TILE_TEXT_TOP * 2 + t.name:GetStringHeight() + sub))
 end
 
--- A grid of tiles, two to a row (one alone takes the whole row); returns the y below it.
+-- A grid of tiles, two to a row (one alone takes the whole row), both of a row as tall as the taller; returns the y
+-- below it.
 local function Tiles(content, y, width, list)
-	if #list == 1 then
-		Tile(content, 0, y, width, list[1])
-		return y + TILE_H + TILE_GAP
-	end
-	local w = math.floor((width - TILE_GAP) / 2)
+	local perRow = #list == 1 and 1 or 2
+	local w = perRow == 1 and width or math.floor((width - TILE_GAP) / 2)
+	local row, rowH = {}, TILE_H
 	for i, e in ipairs(list) do
-		local col = (i - 1) % 2
-		Tile(content, col * (w + TILE_GAP), y, w, e)
-		if col == 1 or i == #list then
-			y = y + TILE_H + TILE_GAP
+		local col = (i - 1) % perRow
+		local t, h = Tile(content, col * (w + TILE_GAP), y, w, e)
+		row[#row + 1] = t
+		rowH = math.max(rowH, h)
+		if col == perRow - 1 or i == #list then
+			for _, rt in ipairs(row) do
+				rt:SetHeight(rowH)
+			end
+			y = y + rowH + TILE_GAP
+			row, rowH = {}, TILE_H
 		end
 	end
 	return y

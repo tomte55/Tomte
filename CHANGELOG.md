@@ -50,6 +50,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Whispers:** a whisper from a Battle.net friend's character shows them as online with their level, class and zone instead of "Not on your friends list" (on Forever also when they play from another numbered server).
 - **Whispers:** copying a conversation with an item link in it no longer turns the rest of the text green.
 - **Alts:** sorting the Characters tab sorts every character, the one you're on too, instead of always keeping you on top.
+- **Quest list:** the reward tiles in the quest window show Gear Check's whole verdict instead of cutting it off.
 
 ## v1.34.0 - 2026-11-13
 
