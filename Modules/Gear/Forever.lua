@@ -14,6 +14,7 @@ local EQUIPPED_HOLD = 5 -- seconds for the "Equipped" toast
 local EQUIP_WAIT = 60 -- seconds a clicked item may take to be worn (a Bind on Equip popup waits for you)
 local LEVEL_LAG = 2 -- seconds: UnitLevel (and the red "Requires Level" lines) can lag behind PLAYER_LEVEL_UP
 local INFO_BURST = 0.3 -- seconds: item data arrives in bursts
+local TAKEN_OFF = 10 -- seconds an item just taken off (a fishing pole put on) isn't new when it reaches the bags
 -- Verdict color keys (Rules.lua) to theme roles, as retail's tooltip does.
 local COLOR_ROLES = { green = "success", yellow = "warning", grey = "textMuted", red = "danger", orange = "warning" }
 local MAX_REASONS = 3
@@ -33,6 +34,8 @@ local settleUntil = 0
 local banking = false
 local retryQueued = false
 local equipping -- { itemID, name, icon, oldName, untilTime }: clicked on the toast, not worn yet
+local wornIDs = {} -- [slot] = itemID worn there, to know what a PLAYER_EQUIPMENT_CHANGED took off
+local takenOff = {} -- [itemID] = GetTime() it was taken off
 
 -- Verdicts for other files --------------------------------------------------------------------------------------------
 
@@ -363,6 +366,17 @@ local function BagLinks()
 	return links
 end
 
+local function NoteWorn()
+	for slot = INVSLOT_FIRST_EQUIPPED, INVSLOT_LAST_EQUIPPED do
+		wornIDs[slot] = GetInventoryItemID("player", slot)
+	end
+end
+
+local function RecentlyTakenOff(link)
+	local when = takenOff[C_Item.GetItemInfoInstant(link) or 0]
+	return when ~= nil and GetTime() - when < TAKEN_OFF
+end
+
 -- Notes what's in the bags without saying anything.
 local function NoteBags()
 	local _, now = ns.GearForever_NewItems(seen, BagLinks())
@@ -378,7 +392,9 @@ function Scan()
 	end
 	local links = {}
 	for _, link in ipairs(new) do
-		pending[link] = pending[link] or 0
+		if not RecentlyTakenOff(link) then -- gear you just took off isn't new
+			pending[link] = pending[link] or 0
+		end
 	end
 	for link in pairs(pending) do
 		if now[link] then
@@ -449,11 +465,19 @@ end
 events:On("gear", "PLAYER_ENTERING_WORLD", function()
 	settleUntil = GetTime() + SETTLE
 	ns.GearForever_ForgetWorn()
+	NoteWorn()
 	NoteBags()
 	Invalidate()
 end)
 
 events:On("gear", "PLAYER_EQUIPMENT_CHANGED", function(_, slot)
+	if type(slot) == "number" then
+		local old = wornIDs[slot]
+		if old and old ~= GetInventoryItemID("player", slot) then
+			takenOff[old] = GetTime()
+		end
+	end
+	NoteWorn()
 	ns.GearForever_ForgetWorn()
 	Invalidate()
 	CheckEquipped(slot)
@@ -552,6 +576,7 @@ local function Start()
 	HookTooltips()
 	settleUntil = GetTime() + SETTLE
 	ns.GearForever_ForgetWorn()
+	NoteWorn()
 	NoteBags()
 	ns.GearRewardCard_Start(db)
 	Invalidate()
@@ -565,6 +590,8 @@ local function Stop()
 	banking = false
 	ownCtx = nil
 	equipping = nil
+	wipe(wornIDs)
+	wipe(takenOff)
 end
 
 module = ns.RegisterModule({
