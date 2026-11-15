@@ -54,7 +54,7 @@ Waypoints, Flight Timer, Fishing, Gathering, Material uses, Almost Done, Moments
 Talent check, Hunter Pets, Rogue Poisons, Pet Health, DPS meter, Buff reminders, Instances, Tooltip extras, Drawers, Nameplates,
 Quests, the chat modules, Whispers, Mentions, Friends, Group Alerts, Friend sharing, AFK Screen, Casino, Recent, Minimap
 Buttons, Next up, Cursor highlight, Graphics presets and Performance, some with fewer features where that game has less to
-work with. Leveling, Quest list, Tomte map, Pet care, Groups in chat and Where to get it are Forever only. Anything else in this README is retail only for now. Move Tomte's
+work with. Leveling, Quest list, Tomte map, Pet care, Groups in chat, Where to get it and Dungeon journal are Forever only. Anything else in this README is retail only for now. Move Tomte's
 widgets with `/tomte unlock` and `/tomte lock`.
 
 ## A tour
@@ -331,6 +331,7 @@ are Tomte window settings.
 | Tomte map | Travel | World of Warcraft: Forever only, off by default. A world map of Tomte's own, in its own window: both continents and every zone stitched into one world, zoomed toward the mouse with the wheel and dragged around. Shows you and your party, your quests (the active one larger, with its area), flight masters, dungeon entrances and your map pin; click a quest to make it your active quest, Ctrl-click to place a map pin, right-click to zoom out. A side panel holds your quest log (click a quest to make it active and go to it) and the Teleports list. Close up, the game's own minimap pictures fade in; how soon each level of detail comes in is up to you. Bind a key to it (Key Bindings > Tomte); bind M to use it instead of the game's map. It never touches the game's map, so it can't break it, and it works in combat. |
 | Pet care | Class & combat | World of Warcraft: Forever only, for Hunters. A button that feeds your pet when it's below happy and you carry food it eats, counts down while it eats so no food is wasted, and warns about food too low for its level. A toast names its diet when you have no food for it. A toast and a button that opens Beast Training when your pet can learn something new. |
 | Where to get it | Gear & loot | World of Warcraft: Forever only. Type any item's name to see who sells it, what it's gathered from and which mobs drop it, the best places for your level first (the zone you're in before the rest), and for leather and hides the zones to skin beasts in. Click a place to put a pin on the map. Also a line on item tooltips (for drops like cloth that come from mobs all over: "Drops from many mobs", with one in your zone when there is one), and Ctrl+right-click on an item opens it. Classic's data, so Forever may differ; crafted items and quest rewards aren't covered yet. |
+| Dungeon journal | Quests | World of Warcraft: Forever only. A page with every dungeon, sorted around your level (right for you, coming up, behind you) with a bar of each one's level range, how many of its quests you can take and how many upgrades it drops. Open one for its quests (what to pick up on the way, who starts each and where, with a map pin, what they ask, what they follow and what they give) or its bosses, each standing in a lit band you can turn by dragging, with their loot as tiles marked Upgrade, Owned or the level it needs. Star items you want, hide loot you can't use, pin the entrance on the map. Search by dungeon, boss, quest or item: it opens on what it found. Opens with `/tomte dj` (inside a dungeon, on that one), a key binding or a minimap button (off by default). AllTheThings' data, so a new dungeon's loot may still be missing. |
 | Groups in chat | Groups & friends | World of Warcraft: Forever only. A page listing everyone looking for a group in the chat channels you've joined, for a dungeon, a quest or anything else, by dungeon and role, near your level or all. Click to whisper. Reads English messages and abbreviations. A toast when someone groups for a quest you still have to do: click it to whisper them. |
 | Teleports | Travel | A Teleports tab in the world map's side panel: Hearthstone, a random hearthstone toy, your house, dungeon teleports (this season first, unearned ones greyed out), class teleports and teleport items, with cooldowns. Teleports to the map you're viewing float to the top, with a pin on dungeon entrances. Click to use (out of combat), right-click to favorite. |
 | AFK Screen | Ambience | A cinematic screen while you're AFK: orbiting camera, your character, time away, clock, session stats and missed whispers. It gets out of the way for queue pops, ready checks, invites, summons, duels and trades. |
@@ -389,6 +390,7 @@ want:
 - `/tomte gear sim` (how to check an item on Raidbots), `/tomte gear import` / `weights` / `clear`, `/tomte gear upgrades` (reveal the upgrades already in your bags)
 - `/tomte value price <item link or ID>`, `/tomte value track <item link or ID>` (show an item on the bag's currency bar, or stop), `/tomte value ignore <item>` (no marker on it, or one again)
 - `/tomte sources find <name>` (where to get an item)
+- `/tomte dj` (World of Warcraft: Forever: the Dungeon journal)
 - `/tomte autocorrect keep <word>` (never change it), `/tomte autocorrect add <typo> <fix>` (a correction of your own), `/tomte autocorrect forget <word>`, `/tomte autocorrect list`
 - `/tomte alts list` (the crafting list), `/tomte alts tracker` (show/hide the craft tracker), `/tomte alts forget <name>`
 - `/tomte casino` (open or close), `/tomte casino blackjack` / `poker` / `slots`, `/tomte casino stats`, `/tomte casino today` (chips earned today)
@@ -525,6 +527,10 @@ or modules, major for changes that reset or break settings.
 - Quest hand-ins (the quest route on World of Warcraft: Forever): where each quest is handed in, from the same
   QuestieDB Forever data under the same terms (only quest, NPC and object IDs and spawn coordinates;
   `tools/questends.py` builds `Data/Forever/QuestEnds.lua`).
+- Dungeon journal: each Forever dungeon's quests, bosses and loot from [AllTheThings](https://github.com/ATTWoWAddon/AllTheThings)'
+  Forever database, MIT License (only IDs, levels, coordinates, which boss drops what and the English names in its
+  comments; `tools/dungeonjournal.lua` builds `Data/Forever/DungeonJournal.lua`). The idea follows ExehnTV's
+  [DungeonJournal](https://www.curseforge.com/wow/addons/dungeonjournal) (no code or data taken).
 - Fishing: the one-key idea follows [Angleur](https://www.curseforge.com/wow/addons/angleur) by LegolandoBloom (no
   code taken); the fishing channel spell IDs come from the client's spell tables on [wago.tools](https://wago.tools)
   (`tools/fishing.py`).

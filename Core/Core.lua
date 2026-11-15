@@ -523,6 +523,8 @@ _G["BINDING_NAME_CLICK TomteMapButton:LeftButton"] = ns.FOREVER and "Tomte map"
 	or "Tomte map (World of Warcraft: Forever)"
 _G["BINDING_NAME_CLICK TomteMapButton:RightButton"] = ns.FOREVER and "Tomte map with quest log"
 	or "Tomte map with quest log (World of Warcraft: Forever)"
+_G["BINDING_NAME_CLICK TomteDungeonJournalButton:LeftButton"] = ns.FOREVER and "Dungeon journal"
+	or "Dungeon journal (World of Warcraft: Forever)"
 
 -- A key binding of moduleKey's: fn runs while that module is on; while it's off the key says so.
 function ns.Binding_Add(name, moduleKey, fn)

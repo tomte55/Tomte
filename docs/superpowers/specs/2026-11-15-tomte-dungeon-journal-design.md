@@ -112,3 +112,35 @@ Hand-kept data and QuestieDB were ruled out.
 Row and pane layout within the Tomte page style; how the quest state reads cached quest data; portrait framing; how
 search ranks; where raids sit in the list (my call: a second group under the dungeons); how missing client data
 (an item not yet cached) shows while it loads.
+
+## Second pass: the dungeon view's look and eight additions
+
+After the first in-game check the user found the dungeon view "basic, not very professional". Mockups were made
+(boss stage, loot first, three columns); the user picked "loot first" with the three-column one's depth (mockup D):
+
+- Three layers. The left list sits in a recessed well (the game's well art on the Forever theme). The right side
+  opens with a lit band: the boss (or the quest giver) as a still model standing on the band's bottom edge, a warm
+  glow behind it, the name large beside it, and a shadow cast on what's below. The loot is a grid of raised tiles
+  (two or three across by width): the icon in its frame with a glow in the item's quality color, the name, slot and
+  type, and a badge (Upgrade, Owned, the level it needs).
+- A real back button ("All dungeons") at the top left, beside the dungeon's name.
+
+The additions, all wanted by the user:
+
+1. Upgrades per dungeon: rows in "Right for your level" also count the upgrades for you among the dungeon's drops.
+   The items load a few at a time while the page is open, so the count fills in.
+2. "Usable by you": a switch on the boss band hides loot Gear Check says isn't for you (saved; off by default).
+   Without Gear Check on, nothing is hidden.
+3. Wanted items: a star on each tile, saved per character. A boss with a wanted item has a star in the list, and a
+   dungeon row says how many wanted items drop there.
+4. Show the entrance: the dungeon's door from AllTheThings' coordinates (50, 50 is ATT's "somewhere in the city":
+   left out), else the game's discovered entrances (C_EncounterJournal.GetDungeonEntrancesForMap) matched by
+   journal instance ID; a map pin as Show on map does.
+5. Before you go: the first entry of the quest list gathers your quests for the dungeon you can take now, grouped
+   by the zone they start in, each with Show on map.
+6. Opening the journal inside a dungeon opens that dungeon (the instance's name against the area's name).
+7. The model turns when dragged.
+8. A search that matched a boss, quest or item opens the dungeon on it, the item marked and scrolled to.
+
+The in-dungeon run tracker (timer, XP, bosses killed, the dungeon's quests, a summary and saved runs) is the next
+piece, with its own design.

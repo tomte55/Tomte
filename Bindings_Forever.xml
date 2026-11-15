@@ -47,4 +47,5 @@
 	</Binding>
 	<Binding name="CLICK TomteMapButton:LeftButton" category="Tomte"/>
 	<Binding name="CLICK TomteMapButton:RightButton" category="Tomte"/>
+	<Binding name="CLICK TomteDungeonJournalButton:LeftButton" category="Tomte"/>
 </Bindings>
