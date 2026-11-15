@@ -568,6 +568,20 @@ test("moving or splitting a stack isn't new; loot that spills into another slot 
 	eq(spilled[3].new, true)
 end)
 
+test("gear swapped with what you wear isn't new", function()
+	-- Wearing the weapon (20), the fishing pole (30) in the bags.
+	local before = ns.Bags_Held({ Slot(0, 1, 30, 1) }, { [20] = 1 })
+	local swapped = { Slot(0, 1, 20, 1) } -- pole put on, weapon in the bags
+	ns.Bags_MarkGained(swapped, before, { [30] = 1 })
+	eq(swapped[1].new, nil, "the weapon was worn")
+	local back = { Slot(0, 1, 30, 1) }
+	ns.Bags_MarkGained(back, before, { [20] = 1 })
+	eq(back[1].new, nil, "the pole was in the bags")
+	local looted = { Slot(0, 1, 30, 1), Slot(0, 2, 20, 1) } -- a second copy of the weapon looted
+	ns.Bags_MarkGained(looted, before, { [20] = 1 })
+	eq(looted[2].new, true)
+end)
+
 test("bind state from the bind type and whether this copy is bound", function()
 	eq(ns.Bags_BindState(1, true), "soulbound")
 	eq(ns.Bags_BindState(2, false), "boe")

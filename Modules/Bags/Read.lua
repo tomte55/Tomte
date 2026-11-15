@@ -47,6 +47,18 @@ local function Key(bag, slot)
 	return bag * 1000 + slot
 end
 
+-- What you wear, [itemID] = count: gear taken off into the bags (a fishing pole put on) isn't new.
+local function Worn()
+	local worn = {}
+	for slot = INVSLOT_FIRST_EQUIPPED, INVSLOT_LAST_EQUIPPED do
+		local id = GetInventoryItemID("player", slot)
+		if id then
+			worn[id] = (worn[id] or 0) + 1
+		end
+	end
+	return worn
+end
+
 -- Housing decor (C_Item.IsDecorItem, as Blizzard's item buttons ask; missing on clients without housing).
 local function IsDecor(itemID)
 	return C_Item.IsDecorItem ~= nil and C_Item.IsDecorItem(itemID) == true
@@ -255,8 +267,9 @@ function ns.BagsRead_Bags(containers)
 	if not containers then
 		-- The first read of the session counts what you have, so loot is caught before the bags first close: the
 		-- game's flag alone can be gone before this read (the slot was under the mouse, as when opening a container).
-		heldAtClose = heldAtClose or Held(items)
-		MarkGained(items, heldAtClose)
+		local worn = Worn()
+		heldAtClose = heldAtClose or Held(items, worn)
+		MarkGained(items, heldAtClose, worn)
 	end
 	return items, pending
 end
@@ -365,7 +378,7 @@ function ns.BagsRead_ClearNew()
 			end
 		end
 	end
-	heldAtClose = Held(held)
+	heldAtClose = Held(held, Worn())
 end
 
 -- Whether you can use gear and recipes may have changed: each cached one checks its red tint again when next read

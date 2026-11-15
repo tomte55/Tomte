@@ -760,23 +760,34 @@ function ns.Bags_Counts(items)
 	return counts
 end
 
--- What the bags held, for Bags_MarkGained: { totals = Bags_Counts, slots = { [bag * 1000 + slot] = { itemID, count } } }.
-function ns.Bags_Held(items)
+-- Bags_Counts plus what you wear (worn: [itemID] = count), so gear moving between you and the bags isn't gained.
+local function CountsWithWorn(items, worn)
+	local counts = ns.Bags_Counts(items)
+	for id, n in pairs(worn or {}) do
+		counts[id] = (counts[id] or 0) + n
+	end
+	return counts
+end
+
+-- What the bags held, for Bags_MarkGained: { totals = Bags_Counts plus worn, slots = { [bag * 1000 + slot] =
+-- { itemID, count } } }. worn (optional): [itemID] = count of what you wear.
+function ns.Bags_Held(items, worn)
 	local slots = {}
 	for _, item in ipairs(items) do
 		if not item.empty and item.itemID and item.bag and item.slot then
 			slots[item.bag * 1000 + item.slot] = { itemID = item.itemID, count = item.count or 1 }
 		end
 	end
-	return { totals = ns.Bags_Counts(items), slots = slots }
+	return { totals = CountsWithWorn(items, worn), slots = slots }
 end
 
 -- Marks item.new on the stacks that grew since before (Bags_Held of an earlier read): the game flags only slots that
 -- were empty, so loot that lands on a stack you had wouldn't count as new otherwise. Only a slot holding more of the
 -- item than it did, and only while there's more of it in all than before: picking up one Light Leather marks the stack
--- it went onto, not every stack of it, and moving or splitting a stack marks nothing.
-function ns.Bags_MarkGained(items, before)
-	local now = ns.Bags_Counts(items)
+-- it went onto, not every stack of it, and moving or splitting a stack marks nothing. worn (optional, as in Bags_Held):
+-- gear you took off (a weapon swapped for a fishing pole) isn't new.
+function ns.Bags_MarkGained(items, before, worn)
+	local now = CountsWithWorn(items, worn)
 	local totals, slots = before.totals or {}, before.slots or {}
 	for _, item in ipairs(items) do
 		local id = not item.empty and item.itemID
