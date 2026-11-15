@@ -49,18 +49,50 @@ local function NewTid()
 	return table.concat(parts)
 end
 
--- "Name-Realm" for a typed or given name; the realm is ours when none is given.
+-- "Name-Realm" for a typed or given name; the realm is ours when none is given. Forever keeps the name as it is:
+-- "Name Surname" is unique in the region and a realm only stops the whisper from arriving.
 local function FullName(name)
-	if name:find("-", 1, true) then
+	if ns.FOREVER or name:find("-", 1, true) then
 		return name
 	end
 	local realm = GetNormalizedRealmName()
 	return realm and (name .. "-" .. realm) or name
 end
 
+-- A unit's name as whispers address it: on Forever the first name and surname ("Aldric Stonebrook"; names are
+-- unique in the region, the first name alone reaches no one), on retail the plain name. nil when unreadable.
+local function UnitAddress(unit)
+	local name, surname = UnitNameUnmodified(unit)
+	if not name or ns.IsSecret(name, surname) then
+		return nil
+	end
+	if ns.FOREVER and NameUtil and NameUtil.GetUnmodifiedUnitFullName then
+		return NameUtil.GetUnmodifiedUnitFullName(unit)
+	end
+	return name
+end
+
 local function IsSelf(full)
-	local me = UnitNameUnmodified("player")
+	local me = UnitAddress("player")
 	return me ~= nil and FullName(me):lower() == full:lower()
+end
+
+-- Forever: a first name alone finds the full name of your target or a group member who has it, else nil.
+local function ForeverFullName(first)
+	local units = { "target" }
+	for i = 1, GetNumGroupMembers() do
+		units[#units + 1] = IsInRaid() and ("raid" .. i) or ("party" .. i)
+	end
+	first = first:lower()
+	for _, unit in ipairs(units) do
+		if UnitIsPlayer(unit) then
+			local name = UnitNameUnmodified(unit)
+			if name and not ns.IsSecret(name) and name:lower() == first then
+				return UnitAddress(unit)
+			end
+		end
+	end
+	return nil
 end
 
 -- Sending ----------------------------------------------------------------------------------------------------------
@@ -81,7 +113,9 @@ local function Pump()
 		pumping = false
 		return
 	end
-	local result = C_ChatInfo.SendAddonMessage(PREFIX, item.text, "WHISPER", item.to)
+	-- Without our own realm: Forever answers a whisper to "Name-OurRealm" with "No player named ...", while the
+	-- plain name reaches them (retail takes either).
+	local result = C_ChatInfo.SendAddonMessage(PREFIX, item.text, "WHISPER", Ambiguate(item.to, "none"))
 	local wait = SEND_GAP
 	local R = Enum.SendAddonMessageResult
 	if R and (result == R.AddonMessageThrottle or result == R.ChannelThrottle) then
@@ -331,6 +365,14 @@ function ns.ShareSend_ToPlayer(name)
 		ns.Print("whose settings? /tomte profile send <name>")
 		return
 	end
+	if ns.FOREVER and not name:find("[%s%-]") then
+		local found = ForeverFullName(name)
+		if not found then
+			ns.Print(("type %s's full name, first name and surname (or target them first)."):format(name))
+			return
+		end
+		name = found
+	end
 	local full = FullName(name)
 	if IsSelf(full) then
 		ns.Print("those are already your settings.")
@@ -348,6 +390,9 @@ local function TargetName()
 	if not UnitIsPlayer("target") or UnitIsUnit("target", "player") then
 		return ""
 	end
+	if ns.FOREVER then
+		return UnitAddress("target") or "" -- the second return is the surname there, not a realm
+	end
 	local name, realm = UnitNameUnmodified("target")
 	if not name or ns.IsSecret(name) or ns.IsSecret(realm) then
 		return ""
@@ -362,8 +407,9 @@ function ns.ShareSend_Ask()
 	end
 	ns.Dialog_Show({
 		title = "Send your settings to a player",
-		hint = "Their character's name (Name, or Name-Realm from another realm). They're asked first, and see what "
-			.. "changes before anything is imported.",
+		hint = (ns.FOREVER and "Their character's full name, first name and surname." or "Their character's name "
+			.. "(Name, or Name-Realm from another realm).") .. " They're asked first, and see what changes before "
+			.. "anything is imported.",
 		text = TargetName(),
 		saveText = "Send",
 		height = 150,
@@ -395,6 +441,14 @@ local function MenuTarget(context)
 	end
 	local name = context.name
 	if type(name) ~= "string" or name == "" or ns.IsSecret(name) then
+		return nil
+	end
+	if ns.FOREVER then
+		-- The name Blizzard's own Whisper entry uses: "Name Surname" there (context.surname is no realm).
+		local ok, full = pcall(UnitPopupSharedUtil.GetFullPlayerName, context)
+		if ok and type(full) == "string" and full ~= "" and not ns.IsSecret(full) then
+			return "whisper", full
+		end
 		return nil
 	end
 	local server = context.server
