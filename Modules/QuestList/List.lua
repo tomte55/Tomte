@@ -460,10 +460,12 @@ end
 -- doesn't already say it. nil when there's nothing.
 local function Details(q, db, s)
 	local left, leftRole
-	if q.complete then
+	-- A timed quest still has to be handed in before the time runs out, so its clock wins over "Ready to turn in".
+	if q.timeLeft and ns.Leveling_TimeLeft then
+		left = ns.Leveling_TimeLeft(q.timeLeft)
+		left, leftRole = q.complete and ("Turn in within " .. left) or (left .. " left"), "warning"
+	elseif q.complete then
 		left, leftRole = "Ready to turn in", "success"
-	elseif q.timeLeft and ns.Leveling_TimeLeft then
-		left, leftRole = ns.Leveling_TimeLeft(q.timeLeft) .. " left", "warning"
 	elseif db.xp and (q.xp or 0) > 0 then
 		left, leftRole = ("%s XP"):format(ns.Thousands(q.xp)), "textFaint"
 	end

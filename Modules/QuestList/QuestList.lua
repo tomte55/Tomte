@@ -230,6 +230,7 @@ local function HiddenNow()
 end
 
 local Tick
+local timed = false -- a quest in the list has a time limit running (Tick redraws it)
 
 -- A stop in the zone you're in is named by the way it lies from you (its nearest quest); elsewhere by its zone.
 local function NameStop(s, you, nearestPoint, here)
@@ -331,6 +332,10 @@ local function Update()
 		axes, axesMap = zoneMap and ns.QuestListRead_Axes(zoneMap), zoneMap
 	end
 	shown = sections
+	timed = false
+	for _, q in ipairs(quests) do
+		timed = timed or q.timeLeft ~= nil
+	end
 	Distances(you, false)
 	if #sections == 0 and not ns.EditMode_Active() then
 		Hide()
@@ -391,6 +396,10 @@ end)
 -- Distances only: each shown quest's yards and each stop's (its nearest quest).
 Tick = function()
 	if not (frame and frame:IsShown()) then
+		return
+	end
+	if timed then -- a quest's clock runs: its time left counts down on each tick
+		Update()
 		return
 	end
 	local you = ns.LevelingRead_You()

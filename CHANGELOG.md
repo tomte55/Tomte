@@ -68,6 +68,9 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Quest list:** the followed quest's area on the world map shows over explored land too, not only where the map is still unexplored.
 - **Quest list:** the followed quest's area on the world map changes as soon as you finish its objectives, instead of keeping the old area.
 - **Quest list:** accepting a quest no longer takes the arrow off the quest Tomte follows.
+- **Quest list:** a quest with a time limit shows its time left again, also once it's ready to hand in ("Turn in within 4m"), counting down.
+- **Gear Check (Forever):** putting on a fishing pole no longer pops an upgrade toast for the weapon it replaced.
+- **Bags:** gear you take off (a weapon swapped for a fishing pole, and back) no longer gets the "new" mark.
 
 ## v1.34.0 - 2026-11-13
 
