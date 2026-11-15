@@ -42,6 +42,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Leveling:** the XP line says how far into the next level your finished quests take you ("Hand-ins: level 10 + 31%").
 - **Where to get it:** drops in the zone you're in come first, and for items like cloth that drop all over, the tooltip says "Drops from many mobs" (with one in your zone when there is one) instead of naming one far away.
 - **Emote wheel:** when the game doesn't say who gave you a buff, the buff thanks toast says "Someone nearby" and its click thanks everyone around you. A buff from an NPC gets none.
+- **Bags:** Clean up bags also clears the "new" mark, so new items go to their own group in the same click.
 
 ### Fixed
 

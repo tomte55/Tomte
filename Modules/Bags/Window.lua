@@ -657,7 +657,10 @@ local function Build()
 				ns.Print_Combat("sort your bags")
 				return
 			end
+			-- New items leave their own group too, so everything lands where it belongs.
+			ns.BagsRead_ClearNew()
 			C_Container.SortBags()
+			Draw()
 		end },
 		{ glyph = "Gear", tip = "Bags settings", onClick = function()
 			ns.Panel_OpenModule("bags")
