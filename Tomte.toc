@@ -20,6 +20,7 @@ Themes/Void.lua
 Core/Format.lua
 Core/Compat.lua
 Core/OtherAddons.lua
+Core/MinimapData.lua
 Core/Migrations.lua
 Core/PerfData.lua
 Core/Perf.lua
@@ -440,7 +441,6 @@ Modules/TradingPost/TradingPost.lua
 Modules/Gather/Data.lua
 Modules/Gather/Nodes.lua
 Modules/Gather/Route.lua
-Modules/Gather/MinimapData.lua
 Modules/Gather/Detect.lua
 Modules/Gather/Tracker.lua
 Modules/Gather/Page.lua

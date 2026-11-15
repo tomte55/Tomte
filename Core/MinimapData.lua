@@ -1,14 +1,14 @@
 local addonName, ns = ...
 
--- Gathering nodes on the minimap: pure logic (no WoW API calls; unit-tested in tests/test_gather_minimap.lua). Where a
--- map spot lands on the minimap relative to the player (yards east and north, turned with a rotating minimap), whether
+-- Minimap markers: pure logic (no WoW API calls; unit-tested in tests/test_minimap_data.lua). Where a map spot
+-- lands on the minimap relative to the player (yards east and north, turned with a rotating minimap), whether
 -- it's inside a round or square minimap, the edge point toward it, and a route leg clipped to the minimap.
--- Drawn by MinimapPins.lua.
+-- Used by Gather's node pins (Modules/Gather/MinimapPins.lua).
 
 -- Offset of a spot from the player in yards: east, north. Map coordinates grow east (x) and south (y). facing
 -- (radians counterclockwise from north, GetPlayerFacing) turns the result so the player faces up; nil for a minimap
 -- that doesn't rotate.
-function ns.GatherMini_Offset(sx, sy, px, py, w, h, facing)
+function ns.Mini_Offset(sx, sy, px, py, w, h, facing)
 	local east, north = (sx - px) * w, (py - sy) * h
 	if not facing then
 		return east, north
@@ -18,7 +18,7 @@ function ns.GatherMini_Offset(sx, sy, px, py, w, h, facing)
 end
 
 -- True when x, y (any unit, minimap center at 0, 0) is within radius r: a circle, or a square for any other shape.
-function ns.GatherMini_Inside(x, y, r, round)
+function ns.Mini_Inside(x, y, r, round)
 	if round then
 		return x * x + y * y <= r * r
 	end
@@ -26,7 +26,7 @@ function ns.GatherMini_Inside(x, y, r, round)
 end
 
 -- The point on the edge (radius r) in the direction of x, y.
-function ns.GatherMini_Clamp(x, y, r, round)
+function ns.Mini_Clamp(x, y, r, round)
 	if round then
 		local d = math.sqrt(x * x + y * y)
 		if d == 0 then
@@ -42,7 +42,7 @@ function ns.GatherMini_Clamp(x, y, r, round)
 end
 
 -- The part of the leg x1, y1 -> x2, y2 inside the minimap (radius r): four numbers, or nil when none of it is.
-function ns.GatherMini_Clip(x1, y1, x2, y2, r, round)
+function ns.Mini_Clip(x1, y1, x2, y2, r, round)
 	local dx, dy = x2 - x1, y2 - y1
 	local t0, t1 = 0, 1
 	if round then

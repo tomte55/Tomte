@@ -2,7 +2,7 @@ local addonName, ns = ...
 
 -- Gathering node spots on the minimap: a hollow ring on each spot of the player's map within the minimap's view,
 -- turning with a rotating minimap, round or square. While following a route (Follow.lua) its legs are drawn too and
--- the followed spot sits on the edge when it's out of view. Geometry in MinimapData.lua (pure). Plain frames on the
+-- the followed spot sits on the edge when it's out of view. Geometry in Core/MinimapData.lua (pure). Plain frames on the
 -- minimap, no mouse (clicks and pings stay the minimap's). Registered in Gather.lua.
 
 -- Hollow, and wider than Blizzard's node blip (about 14 pixels): the blip is drawn by the minimap itself, under any
@@ -71,7 +71,7 @@ local function Pick(px, py, radius)
 	local range = radius * PICK_RANGE
 	wipe(near)
 	for _, spot in ipairs(spots) do
-		local e, n = ns.GatherMini_Offset(spot.x, spot.y, px, py, mapW, mapH)
+		local e, n = ns.Mini_Offset(spot.x, spot.y, px, py, mapW, mapH)
 		if e * e + n * n <= range * range then
 			spot.recent = ns.GatherRoute_IsRecent(mapID, spot.pos)
 			near[#near + 1] = spot
@@ -89,9 +89,9 @@ local function Pick(px, py, radius)
 	local order = route.order
 	for i = 1, #order do
 		local a, b = rspots[order[i]], rspots[order[i % #order + 1]]
-		local ax, ay = ns.GatherMini_Offset(a.x, a.y, fx, fy, w, h)
-		local bx, by = ns.GatherMini_Offset(b.x, b.y, fx, fy, w, h)
-		if ns.GatherMini_Clip(ax, ay, bx, by, range, true) then
+		local ax, ay = ns.Mini_Offset(a.x, a.y, fx, fy, w, h)
+		local bx, by = ns.Mini_Offset(b.x, b.y, fx, fy, w, h)
+		if ns.Mini_Clip(ax, ay, bx, by, range, true) then
 			legs[#legs + 1] = { a, b }
 		end
 	end
@@ -130,9 +130,9 @@ local function Update()
 	local edge = half - PIN / 2
 	for _, spot in ipairs(near) do
 		if not (followMap == mapID and followPos == spot.pos) then
-			local e, n = ns.GatherMini_Offset(spot.x, spot.y, px, py, mapW, mapH, facing)
+			local e, n = ns.Mini_Offset(spot.x, spot.y, px, py, mapW, mapH, facing)
 			local x, y = e * scale, n * scale
-			if ns.GatherMini_Inside(x, y, edge, round) then
+			if ns.Mini_Inside(x, y, edge, round) then
 				used = used + 1
 				local pin = pins[used]
 				if not pin then
@@ -161,9 +161,9 @@ local function Update()
 	if fx then
 		local r, g, b = UI.Color("accent")
 		for _, leg in ipairs(legs) do
-			local ax, ay = ns.GatherMini_Offset(leg[1].x, leg[1].y, fx, fy, w, h, facing)
-			local bx, by = ns.GatherMini_Offset(leg[2].x, leg[2].y, fx, fy, w, h, facing)
-			local x1, y1, x2, y2 = ns.GatherMini_Clip(ax * scale, ay * scale, bx * scale, by * scale, half - 1, round)
+			local ax, ay = ns.Mini_Offset(leg[1].x, leg[1].y, fx, fy, w, h, facing)
+			local bx, by = ns.Mini_Offset(leg[2].x, leg[2].y, fx, fy, w, h, facing)
+			local x1, y1, x2, y2 = ns.Mini_Clip(ax * scale, ay * scale, bx * scale, by * scale, half - 1, round)
 			if x1 then
 				used = used + 1
 				local line = lines[used]
@@ -185,11 +185,11 @@ local function Update()
 		if followPin.spot ~= spot or followPin.theme ~= ns.Theme.name then
 			Dress(followPin, spot, true)
 		end
-		local e, n = ns.GatherMini_Offset(spot.x, spot.y, fx, fy, w, h, facing)
+		local e, n = ns.Mini_Offset(spot.x, spot.y, fx, fy, w, h, facing)
 		local x, y = e * scale, n * scale
 		local inner = half - FOLLOWED_PIN / 2
-		if not ns.GatherMini_Inside(x, y, inner, round) then
-			x, y = ns.GatherMini_Clamp(x, y, inner, round)
+		if not ns.Mini_Inside(x, y, inner, round) then
+			x, y = ns.Mini_Clamp(x, y, inner, round)
 		end
 		followPin:SetPoint("CENTER", holder, "CENTER", x, y)
 		followPin:Show()
