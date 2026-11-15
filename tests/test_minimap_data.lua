@@ -61,4 +61,25 @@ test("clip a leg to a square", function()
 	eq(ns.Mini_Clip(70, 120, 120, 70, 100, false) ~= nil, true, "crosses the square's corner")
 end)
 
+test("world offset through the map's axes", function()
+	-- WoW's world x runs north and y west: east is -y, north is +x.
+	local axes = { ex = 0, ey = -1, nx = 1, ny = 0 }
+	local e, n = ns.Mini_WorldOffset(30, -40, axes)
+	near(e, 40, "east"); near(n, 30, "north")
+end)
+
+test("strips follow the circle at their middles", function()
+	local strips = ns.Mini_Strips(100, 10)
+	eq(#strips, 10)
+	near(strips[1].top, 100, "first starts at the top")
+	near(strips[10].top - strips[10].height, -100, "last ends at the bottom")
+	near(strips[1].halfWidth, math.sqrt(100 * 100 - 90 * 90), "top strip: chord at y 90")
+	near(strips[5].halfWidth, math.sqrt(100 * 100 - 10 * 10), "middle strip: chord at y 10")
+	near(strips[6].halfWidth, strips[5].halfWidth, "symmetric")
+	for _, s in ipairs(strips) do
+		local mid = s.top - s.height / 2
+		near(s.halfWidth * s.halfWidth + mid * mid, 100 * 100, "the middle's ends are on the circle")
+	end
+end)
+
 H.done()

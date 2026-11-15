@@ -64,11 +64,15 @@ return {
 			-- Party.lua makes the event bus QuestList.lua takes at file load.
 			"Modules/QuestList/Data.lua", "Modules/QuestList/PartyData.lua", "Modules/QuestList/Read.lua",
 			"Modules/QuestList/Party.lua", "Modules/QuestList/Spoken.lua", "Modules/QuestList/Map.lua",
+			"Modules/QuestList/Minimap.lua",
 			"Modules/QuestList/ItemButton.lua", "Modules/QuestList/Details.lua", "Modules/QuestList/List.lua", "Modules/QuestList/Tracker.lua", "Modules/QuestList/QuestList.lua",
 			"Modules/PetCare/Data.lua", "Modules/PetCare/PetCare.lua",
 			-- docs/superpowers/specs/2026-11-06-tomte-forever-rest-and-chat-groups.md
 			"Modules/ChatGroups/Data.lua", "Modules/ChatGroups/Page.lua", "Modules/ChatGroups/ChatGroups.lua",
 			"Modules/Sources/Data.lua", "Modules/Sources/Page.lua", "Modules/Sources/Sources.lua",
+			-- docs/superpowers/specs/2026-11-15-tomte-world-map-design.md: uses the Quest list's and Leveling's reads.
+			"Modules/Map/Data.lua", "Modules/Map/Art.lua", "Modules/Map/Pins.lua", "Modules/Map/Window.lua",
+			"Modules/Map/Map.lua",
 		} },
 	},
 }

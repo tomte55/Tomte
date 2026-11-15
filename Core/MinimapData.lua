@@ -3,18 +3,43 @@ local addonName, ns = ...
 -- Minimap markers: pure logic (no WoW API calls; unit-tested in tests/test_minimap_data.lua). Where a map spot
 -- lands on the minimap relative to the player (yards east and north, turned with a rotating minimap), whether
 -- it's inside a round or square minimap, the edge point toward it, and a route leg clipped to the minimap.
--- Used by Gather's node pins (Modules/Gather/MinimapPins.lua).
+-- Used by Gather's node pins (Modules/Gather/MinimapPins.lua) and the Quest list's markers
+-- (Modules/QuestList/Minimap.lua).
 
 -- Offset of a spot from the player in yards: east, north. Map coordinates grow east (x) and south (y). facing
 -- (radians counterclockwise from north, GetPlayerFacing) turns the result so the player faces up; nil for a minimap
 -- that doesn't rotate.
 function ns.Mini_Offset(sx, sy, px, py, w, h, facing)
-	local east, north = (sx - px) * w, (py - sy) * h
+	return ns.Mini_Turn((sx - px) * w, (py - sy) * h, facing)
+end
+
+-- An offset east, north turned so the player faces up on a rotating minimap (facing as above; nil: unchanged).
+function ns.Mini_Turn(east, north, facing)
 	if not facing then
 		return east, north
 	end
 	local c, s = math.cos(facing), math.sin(facing)
 	return east * c + north * s, north * c - east * s
+end
+
+-- A world offset (dx, dy in world yards) as yards east and north, with axes as Quest list's QuestListRead_Axes gives
+-- them ({ ex, ey, nx, ny }: unit vectors of east and north in world coordinates).
+function ns.Mini_WorldOffset(dx, dy, axes)
+	return dx * axes.ex + dy * axes.ey, dx * axes.nx + dy * axes.ny
+end
+
+-- The strips that stand in for a round minimap's circle when clipping frames (the game clips only to rectangles):
+-- n strips of equal height down a circle of radius r, each { top, height, halfWidth }, its width the circle's chord at
+-- the strip's middle. Thin strips (a few pixels) follow the circle closely; the bit past it sits under the minimap's
+-- border ring. (Chords at the strip's outer edge left visible notches with 12 strips, measured 2026-11-15.)
+function ns.Mini_Strips(r, n)
+	local list, h = {}, 2 * r / n
+	for i = 0, n - 1 do
+		local top = r - i * h
+		local mid = top - h / 2
+		list[#list + 1] = { top = top, height = h, halfWidth = math.sqrt(math.max(0, r * r - mid * mid)) }
+	end
+	return list
 end
 
 -- True when x, y (any unit, minimap center at 0, 0) is within radius r: a circle, or a square for any other shape.

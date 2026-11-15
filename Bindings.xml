@@ -49,4 +49,7 @@
 	<Binding name="TOMTE_LOOT_TAKE_ALL" category="Tomte">
 		Tomte_Binding("LOOT_TAKE_ALL")
 	</Binding>
+	<Binding name="TOMTE_MAP" category="Tomte">
+		Tomte_Binding("MAP")
+	</Binding>
 </Bindings>

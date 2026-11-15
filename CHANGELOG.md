@@ -29,6 +29,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Quest list:** a button beside the list holds the item a quest asks you to use (the followed quest's, else the first one down the list), with a key binding (Use quest item). In a fight it keeps the item it had.
 - **Tomte:** send your settings straight to another player: right-click them and pick Send my Tomte settings (or Send in Setup and sharing, or `/tomte profile send <name>`). They're asked first and see what changes before anything is imported. Battle.net friends with Friend sharing on get a Send settings button on the Friends page.
 - **Quest list:** "Follow quests along a route": Tomte plans each quest's objective and then where it's handed in (known ahead, hand-ins at one place as one stop) and leads the arrow along the shortest way. Finished quests handed in close by come first, a quest you're standing in comes first, and a place whose other quests are still too high for you is saved for the end of the route. Next quests follows the same route.
+- **Quest list:** the active quest on the minimap: a ring on its spot, an arrow on the edge while it's farther away, a gold ? once it's ready to hand in, and its area drawn around it. Other quests' spots can show too.
+- **Tomte map (new module):** World of Warcraft: Forever only, off by default, still being built. A world map in its own window, both continents and every zone in one piece, zoomed toward the mouse with the wheel and dragged around, with you, your party, your quests (the active one with its area), flight masters, dungeon entrances and your map pin. Open it with `/tomte map` or a key (Key Bindings > Tomte). It never touches the game's map, so it can't break it.
 
 ### Improved
 
@@ -64,6 +66,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Mail:** on World of Warcraft: Forever the recipient menu offers your characters by their full name (the only one mail arrives by), and a character you deleted and made again no longer shows twice.
 - **Gold & value:** consumables like bandages, and quests for the other faction (The Alliance Needs Linen Bandages! for a Horde character), no longer make an item "Keep for a quest".
 - **Quest list:** the followed quest's area on the world map shows over explored land too, not only where the map is still unexplored.
+- **Quest list:** the followed quest's area on the world map changes as soon as you finish its objectives, instead of keeping the old area.
 - **Quest list:** accepting a quest no longer takes the arrow off the quest Tomte follows.
 
 ## v1.34.0 - 2026-11-13

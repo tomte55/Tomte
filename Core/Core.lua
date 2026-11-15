@@ -508,6 +508,7 @@ _G["BINDING_NAME_CLICK TomteHunterAspect:LeftButton"] = ns.FOREVER and "Put on y
 	or "Put on your aspect (World of Warcraft: Forever)"
 _G["BINDING_NAME_CLICK TomteQuestItem:LeftButton"] = ns.FOREVER and "Use quest item"
 	or "Use quest item (World of Warcraft: Forever)"
+BINDING_NAME_TOMTE_MAP = ns.FOREVER and "Tomte map" or "Tomte map (World of Warcraft: Forever)"
 
 -- A key binding of moduleKey's: fn runs while that module is on; while it's off the key says so.
 function ns.Binding_Add(name, moduleKey, fn)

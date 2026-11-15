@@ -221,6 +221,12 @@ function ns.QuestListMap_Stop()
 	PlaceLogMark()
 end
 
+-- The quest log changed (objectives done, a quest finished): the followed quest keeps its ID, so the area and the ring
+-- are drawn again on the map's next frame (or when it next shows), not at every log update.
+function ns.QuestListMap_QuestsChanged()
+	placedMap = nil
+end
+
 -- A setting changed.
 function ns.QuestListMap_Refresh()
 	if active then

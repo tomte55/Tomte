@@ -280,6 +280,7 @@ Modules/QuestList/Read.lua
 Modules/QuestList/Party.lua
 Modules/QuestList/Spoken.lua
 Modules/QuestList/Map.lua
+Modules/QuestList/Minimap.lua
 Modules/QuestList/ItemButton.lua
 Modules/QuestList/Details.lua
 Modules/QuestList/List.lua
@@ -293,6 +294,11 @@ Modules/ChatGroups/ChatGroups.lua
 Modules/Sources/Data.lua
 Modules/Sources/Page.lua
 Modules/Sources/Sources.lua
+Modules/Map/Data.lua
+Modules/Map/Art.lua
+Modules/Map/Pins.lua
+Modules/Map/Window.lua
+Modules/Map/Map.lua
 Modules/Alts/PlanData.lua
 Modules/Alts/RosterData.lua
 Modules/Alts/GearData.lua

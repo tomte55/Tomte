@@ -540,6 +540,8 @@ end
 
 local function QuestsChanged()
 	pointsStale = true
+	ns.QuestListMap_QuestsChanged()
+	ns.QuestListMini_QuestsChanged()
 	UpdateSoon()
 end
 
@@ -589,6 +591,7 @@ local function Start()
 	ns.QuestListSpoken_Start(SpokenChanged)
 	ns.QuestListParty_Start(db, UpdateSoon)
 	ns.QuestListMap_Start()
+	ns.QuestListMini_Start()
 	ns.QuestListItem_Start()
 	ApplyTracker()
 	if ns.LevelingNext_Update then
@@ -604,6 +607,7 @@ local function Stop()
 	ns.QuestListSpoken_Stop()
 	ns.QuestListParty_Stop()
 	ns.QuestListMap_Stop()
+	ns.QuestListMini_Stop()
 	ns.QuestListItem_Stop()
 	ns.QuestListDetails_Hide()
 	ApplyTracker()
@@ -728,6 +732,9 @@ module = ns.RegisterModule({
 		groupBy = "stop", -- "stop" | "zone" | "list"
 		follow = true,
 		mapMark = true, -- the followed quest's area, pin ring and quest log bar on the world map
+		minimapMark = true, -- the active quest's spot on the minimap (Minimap.lua)
+		minimapArea = true, -- and its area
+		minimapOthers = false, -- the other quests' spots too
 		itemButton = true, -- a button beside the list with the quest item to use (ItemButton.lua)
 		open = 1, -- sections shown open
 		stops = 3, -- nearest stops with a group of their own; the rest share Other quests
@@ -801,7 +808,21 @@ module = ns.RegisterModule({
 			onChange = function()
 				ns.QuestListMap_Refresh()
 			end,
-			tooltip = "The quest Tomte follows gets the game's active-quest look on the world map: its area drawn, a ring around its pin and a bar on it in the map's quest log. Tomte can't make it the game's own active quest without breaking the map in combat, so the minimap doesn't show its area." },
+			tooltip = "The quest Tomte follows gets the game's active-quest look on the world map: its area drawn, a ring around its pin and a bar on it in the map's quest log." },
+		{ type = "checkbox", key = "minimapMark", label = "Active quest on the minimap", onChange = function()
+				ns.QuestListMini_Refresh()
+			end,
+			tooltip = "A ring on the active quest's spot on the minimap, on the edge while it's farther away, and a gold ? once it's ready to hand in." },
+		{ type = "checkbox", key = "minimapArea", label = "Its area too", parent = "minimapMark",
+			onChange = function()
+				ns.QuestListMini_Refresh()
+			end,
+			tooltip = "The active quest's area drawn on the minimap, as the world map draws it. Not while the minimap turns with you (Rotate Minimap)." },
+		{ type = "checkbox", key = "minimapOthers", label = "Other quests on the minimap", parent = "minimapMark",
+			onChange = function()
+				ns.QuestListMini_Refresh()
+			end,
+			tooltip = "A small ring on every other quest's spot nearby, a ? for those ready to hand in." },
 		{ type = "checkbox", key = "itemButton", label = "Quest item button", onChange = Redraw,
 			tooltip = "A button beside the list with the item a quest asks you to use: the followed quest's, else the first quest with one down the list. Bind a key to it in Key Bindings > Tomte (Use quest item). In a fight it keeps the item it had." },
 		{ type = "slider", key = "open", label = "Groups shown open", min = 1, max = 5, step = 1, onChange = Redraw,
