@@ -16,9 +16,9 @@ local CLICK_TIME = 0.4
 local MODE_NONE = 0 -- Enum.HouseEditorMode.None
 local MODE_BASIC = 1 -- Enum.HouseEditorMode.BasicDecor, when the enum is missing
 local MODE_CUSTOMIZE = 4 -- Enum.HouseEditorMode.Customize, when the enum is missing
-local ENTRY_DECOR = 1 -- Enum.HousingCatalogEntryType.Decor, when the enum is missing
 local MOUSE_OVER = "HousingDecorInstance.MouseOver" -- EventRegistry event of Blizzard_HouseEditorTemplates.lua
 local ALT_KEYS = { LALT = true, RALT = true }
+local PRESETS_MAX = 10 -- saved dye presets
 local UI = ns.UI
 
 local OWNER = "editor"
@@ -33,7 +33,7 @@ local hoverRegistered = false
 local hovered -- { decorID, dyeSlots } of the decor hovered in decorate mode
 local copied -- the copied dye colors (ns.DecorEditor_DyeColors), until the editor closes
 local rightDown -- { x, y, t } at the last right mouse press in customize mode
-local clock, ticker, paste
+local clock, ticker, paste, presetsButton
 local editStart -- GetTime() when editing started, nil while not editing
 local sessionSeconds = 0 -- finished editing stretches this session
 
@@ -41,25 +41,8 @@ local function Mode(name, fallback)
 	return Enum.HouseEditorMode and Enum.HouseEditorMode[name] or fallback
 end
 
-local function DecorType()
-	return Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Decor or ENTRY_DECOR
-end
-
 local function Editing()
 	return mode ~= MODE_NONE
-end
-
--- The catalog's entry for a decor ID (HousingCatalogEntryInfo), or nil.
-local function CatalogInfo(decorID)
-	if type(decorID) ~= "number" then
-		return nil
-	end
-	local ok, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByRecordID, DecorType(), decorID)
-	return ok and type(info) == "table" and info or nil
-end
-
-local function ErrorText(text)
-	UIErrorsFrame:AddExternalErrorMessage(text)
 end
 
 -- Hover info and dye lines ------------------------------------------------------------------------------------------
@@ -101,7 +84,7 @@ local function OnMouseOver(_, modeFrame, tooltip)
 			GameTooltip:SetText(instance.name or "", UI.Color("heading"))
 			tooltip = GameTooltip
 		end
-		HoverLines(tooltip, CatalogInfo(instance.decorID))
+		HoverLines(tooltip, ns.DecorPlace_CatalogInfo(instance.decorID))
 		tooltip:Show()
 	elseif mode == Mode("Customize", MODE_CUSTOMIZE) and db.dyeCopy and tooltip then
 		DyeLines(tooltip, C_HousingCustomizeMode.GetHoveredDecorInfo())
@@ -117,25 +100,7 @@ local function PlaceAnother()
 		or C_HousingDecor.IsPreviewState() then
 		return
 	end
-	local info = CatalogInfo(target.decorID)
-	if not info or ns.DecorEditor_Stored(info) == 0 then
-		ErrorText("You have none of this decor in storage.")
-		return
-	end
-	if not ns.DecorEditor_BudgetAllows(C_HousingDecor.GetSpentPlacementBudget(),
-		C_HousingDecor.GetMaxPlacementBudget(), C_HousingDecor.HasMaxPlacementBudget(), info.placementCost) then
-		ErrorText("No room left in this house's decor budget.")
-		return
-	end
-	local ok, variants = pcall(C_HousingCatalog.GetAllVariantInfosForEntry,
-		{ recordID = target.decorID, entryType = DecorType() })
-	local variantID = ns.DecorEditor_PickVariant(ok and variants or nil, target.dyeSlots,
-		(info.remainingRedeemable or 0) > 0)
-	if not variantID then
-		ErrorText("Tomte can't find this decor in your storage.")
-		return
-	end
-	C_HousingBasicMode.StartPlacingNewDecor(variantID)
+	ns.DecorPlace_Start(target.decorID, { dyeSlots = target.dyeSlots })
 end
 
 events:On(OWNER, "HOUSING_BASIC_MODE_HOVERED_TARGET_CHANGED", function(_, isHovering)
@@ -171,8 +136,10 @@ local function UpdatePaste()
 		return
 	end
 	local pane = CustomizePane()
-	paste:SetShown(active and db.dyeCopy and copied ~= nil and mode == Mode("Customize", MODE_CUSTOMIZE)
-		and pane ~= nil and pane:IsShown() and SelectedDyeable() ~= nil)
+	local ready = active and db.dyeCopy and mode == Mode("Customize", MODE_CUSTOMIZE) and pane ~= nil and pane:IsShown()
+		and SelectedDyeable() ~= nil
+	paste:SetShown(ready and copied ~= nil)
+	presetsButton:SetShown(ready and (copied ~= nil or #db.dyePresets > 0))
 end
 
 local function Paste()
@@ -182,12 +149,49 @@ local function Paste()
 	end
 	local plan = ns.DecorEditor_DyePlan(copied, info.dyeSlots)
 	if #plan == 0 then
-		ErrorText("This decor already has the copied dyes.")
+		ns.DecorPlace_Error("This decor already has the copied dyes.")
 		return
 	end
 	for _, change in ipairs(plan) do
 		C_HousingCustomizeMode.ApplyDyeToSelectedDecor(change.slotID, change.colorID)
 	end
+end
+
+-- A preset's name: its dye colors' names ("Crimson, none, Gold").
+local function PresetName(colors)
+	local names = {}
+	for i, id in ipairs(colors) do
+		local info = id ~= 0 and C_DyeColor and C_DyeColor.GetDyeColorInfo(id)
+		names[i] = info and info.name or "none"
+	end
+	return table.concat(names, ", ")
+end
+
+local function PresetsMenu(button)
+	UI.ContextMenu(button, function(_, root)
+		root:CreateTitle("Dye presets")
+		if copied then
+			root:CreateButton("Save the copied dyes", function()
+				ns.DecorEditor_PresetAdd(db.dyePresets, copied, PresetName(copied), PRESETS_MAX)
+			end)
+		end
+		for _, preset in ipairs(db.dyePresets) do
+			root:CreateButton(preset.name, function()
+				copied = preset.colors
+				Paste()
+				UpdatePaste()
+			end)
+		end
+		if #db.dyePresets > 0 then
+			local forget = root:CreateButton("Delete a preset")
+			for i, preset in ipairs(db.dyePresets) do
+				forget:CreateButton(preset.name, function()
+					table.remove(db.dyePresets, i)
+					UpdatePaste()
+				end)
+			end
+		end
+	end)
 end
 
 local function PasteEnter(self)
@@ -213,6 +217,19 @@ local function CreatePaste()
 	paste:SetScript("OnEnter", PasteEnter)
 	paste:SetScript("OnLeave", GameTooltip_Hide)
 	paste:Hide()
+	presetsButton = UI.Button(pane:GetParent(), 80, "Presets")
+	UI.FitButton(presetsButton, 80)
+	presetsButton:SetPoint("RIGHT", paste, "LEFT", -6, 0)
+	presetsButton:SetFrameLevel(pane:GetFrameLevel() + 5)
+	presetsButton:SetScript("OnClick", PresetsMenu)
+	presetsButton:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Dye presets", UI.Color("heading"))
+		UI.TipLine("Save the copied dyes, or put a saved set on this decor (Blizzard's Apply saves it).", "text", true)
+		GameTooltip:Show()
+	end)
+	presetsButton:SetScript("OnLeave", GameTooltip_Hide)
+	presetsButton:Hide()
 end
 
 local function Copy()
