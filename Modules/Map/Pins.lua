@@ -11,22 +11,22 @@ local DOT = "Interface\\Buttons\\WHITE8X8"
 local TURN_IN = "Interface\\GossipFrame\\ActiveQuestIcon" -- the gold "?"
 local TAXI = "Interface\\TaxiFrame\\UI-Taxi-Icon-Green" -- if a node's atlas isn't on this client
 local WAYPOINT_ATLAS = "Waypoint-MapPin-Tracked"
-local SIZE = { arrow = 28, party = 10, quest = 18, active = 22, taxi = 16, dungeon = 20, waypoint = 22 } -- pixels
--- Quest pins in the game's own look (Blizzard_POIButton: POIButton.lua, POIButton.xml): a round button, the active
--- quest's one lit and glowing, an icon on it; its button art is 32 pixels on a 20-pixel button, the glow 50.
-local QUEST_ATLAS = {
-	button = "UI-QuestPoi-QuestNumber", activeButton = "UI-QuestPoi-QuestNumber-SuperTracked",
-	glow = "UI-QuestPoi-OuterGlow", highlight = "UI-QuestPoi-InnerGlow",
-	progress = "Quest-In-Progress-Icon-yellow", activeProgress = "Quest-In-Progress-Icon-Brown",
-	ready = "UI-QuestIcon-TurnIn-Normal",
-}
-local QUEST_ART, QUEST_GLOW, QUEST_ICON = 32 / 20, 50 / 20, 0.8 -- sizes as shares of the pin
+local SIZE = { arrow = 34, party = 10, quest = 18, active = 22, taxi = 16, dungeon = 20, waypoint = 22 } -- pixels
 -- Frame levels over the pin layer: places, then quests (one level each, so overlapping ones always stack the same
 -- way), then the map pin, your party and you.
-local LEVEL = { taxi = 2, dungeon = 3, quest = 10, waypoint = 200, party = 210, arrow = 220 }
+local LEVEL = { taxi = 2, dungeon = 3, quest = 10, waypoint = 200, spot = 205, focus = 207, party = 210, arrow = 220 }
+local FOCUS_SIZE, FOCUS_PULSE = 26, 1.2 -- pixels, and seconds per pulse of the ring round a spot shown from elsewhere
+-- When the map opens, rings pulse out from you a few times so the eye finds you (as the game's map shows you).
+local PING_TIMES, PING_SECONDS, PING_FROM, PING_TO = 3, 0.9, 0.6, 2.6 -- pulses, seconds each, ring size in arrows
+local HOVER_SCALE = 1.5 -- a quest pin while its row in the side panel is under the mouse
+local FAN_GAP = 0.85 -- quest pins closer than this many of their widths gather and ring out (Data.lua, Map_Clusters)
+local FAN_EASE = 0.35 -- share of the way a pin moves toward its place in its ring each layout (no jumps as groups form)
 local AREA_FILL = "Interface\\WorldMap\\UI-QuestBlob-Inside"
 local AREA_BORDER = "Interface\\WorldMap\\UI-QuestBlob-Outside"
-local AREA_FILL_ALPHA, AREA_BORDER_ALPHA = 128, 192 -- of 255, as the map's own (QuestBlobPinMixin:OnLoad)
+-- Of 255, fill and border: over the ground pictures as light as the minimap's (Modules/QuestList/Minimap.lua), which
+-- lets the terrain show; over the zone maps' bright parchment the game's own (QuestBlobPinMixin:OnLoad), or it's hard
+-- to see. Between the two as the ground pictures fade in.
+local AREA_LIGHT, AREA_STRONG = { 56, 128 }, { 128, 192 }
 local UNDISCOVERED_ALPHA = 0.4
 local FACTION = { Neutral = 0, Horde = 1, Alliance = 2 } -- Enum.FlightPathFaction
 
@@ -37,7 +37,14 @@ local pools = {} -- [kind] = { used = n, list }
 local quests = {} -- { questID, mapID, x, y, ready }
 local taxis, dungeons = nil, nil -- read once (they don't change)
 local waypoint -- { mapID, x, y }
+local spot -- { mapID, x, y }: a place a side panel row points at (a teleport's destination)
+local focus -- { mapID, x, y, label }: a place another module asked the map to show (ns.MapWindow_ShowSpot)
+local focusPin -- its own frame, not pooled: pooled pins hide and show on every layout, which would restart the pulse
+local hovered -- questID whose row in the side panel is under the mouse
+local order = {} -- the quests' drawing order (Data.lua, Map_DrawOrder), made when they're read
 local level = "world"
+local zoomGrow, questGrow = 1, 1 -- pins grow as you zoom in close (Data.lua, Map_PinGrow); quest buttons less
+local GROW, QUEST_GROW = 1.6, 1.3 -- the most they grow
 local blobQuest
 local arrow
 local party = {} -- unit tokens shown
@@ -88,10 +95,9 @@ local function Acquire(kind)
 		pin = NewPin(kind)
 		pool.list[pool.used] = pin
 	end
-	local size = SIZE[kind] * (db and db.pinScale or 1)
+	local grow = (kind == "quest" or kind == "active") and questGrow or zoomGrow
+	local size = SIZE[kind] * (db and db.pinScale or 1) * grow
 	pin:SetSize(size, size)
-	pin.icon:SetVertexColor(1, 1, 1)
-	pin.icon:SetTexCoord(0, 1, 0, 1)
 	pin.ring:Hide()
 	pin:SetAlpha(1)
 	pin.tip, pin.click = nil, nil
@@ -108,6 +114,7 @@ local function Release(kind)
 end
 
 local function Disc(pin, role)
+	pin.iconKey = nil
 	pin.icon:SetTexture(DOT)
 	pin.icon:SetVertexColor(UI.Color(role))
 	if not pin.mask then
@@ -118,46 +125,31 @@ local function Disc(pin, role)
 	pin.ring:Show()
 end
 
--- The game's quest button art on a pin (made once per pin); false when this client lacks it.
-local questLook
+-- The game's quest button art on a pin (Core/QuestPin.lua); false when this client lacks it.
 local function QuestLook(pin, active, ready)
-	if questLook == nil then
-		questLook = C_Texture.GetAtlasInfo(QUEST_ATLAS.button) ~= nil
-	end
-	if not questLook then
+	if not ns.QuestPin_Look(pin, pin:GetWidth(), active, ready) then
 		return false
 	end
-	if not pin.button then
-		pin.glow = pin:CreateTexture(nil, "BACKGROUND")
-		pin.glow:SetPoint("CENTER")
-		pin.glow:SetAtlas(QUEST_ATLAS.glow)
-		pin.glow:SetBlendMode("ADD")
-		pin.button = pin:CreateTexture(nil, "BORDER")
-		pin.button:SetPoint("CENTER")
-		pin.mark = pin:CreateTexture(nil, "ARTWORK", nil, 1)
-		pin.mark:SetPoint("CENTER")
-		pin.lit = pin:CreateTexture(nil, "HIGHLIGHT")
-		pin.lit:SetPoint("CENTER")
-		pin.lit:SetAtlas(QUEST_ATLAS.highlight)
-		pin.lit:SetBlendMode("ADD")
+	if pin.iconKey ~= false then
+		pin.iconKey = false
+		pin.icon:SetTexture(nil)
 	end
-	local size = pin:GetWidth()
-	pin.glow:SetSize(size * QUEST_GLOW, size * QUEST_GLOW)
-	pin.glow:SetShown(active)
-	pin.button:SetSize(size * QUEST_ART, size * QUEST_ART)
-	pin.button:SetAtlas(active and QUEST_ATLAS.activeButton or QUEST_ATLAS.button)
-	pin.lit:SetSize(size * QUEST_ART, size * QUEST_ART)
-	pin.mark:SetSize(size * QUEST_ICON, size * QUEST_ICON)
-	pin.mark:SetAtlas(ready and QUEST_ATLAS.ready or active and QUEST_ATLAS.activeProgress or QUEST_ATLAS.progress)
-	pin.icon:SetTexture(nil)
 	return true
 end
 
+-- A pin's icon: atlas, or texture where this client lacks it. Set again only when it changed (pins are placed again
+-- every frame the view moves, and setting an atlas isn't free).
 local function Icon(pin, atlas, texture)
+	local key = (atlas or "") .. "|" .. tostring(texture)
+	if pin.iconKey == key then
+		return
+	end
+	pin.iconKey = key
 	if pin.mask then
 		pin.icon:RemoveMaskTexture(pin.mask)
 		pin.mask = nil
 	end
+	pin.icon:SetTexCoord(0, 1, 0, 1)
 	if not (atlas and pin.icon:SetAtlas(atlas)) then
 		pin.icon:SetTexture(texture)
 	end
@@ -165,11 +157,18 @@ end
 
 -- Reading ---------------------------------------------------------------------------------------------------------------
 
+-- A position from the API: a Vector2D, or on Forever sometimes a plain { x, y } without its methods (a map pin's and
+-- some places' positions errored on GetXY, 2026-11-15).
 local function Pos(v)
-	if not v then
+	if type(v) ~= "table" then
 		return nil
 	end
-	local x, y = v:GetXY()
+	local x, y
+	if type(v.GetXY) == "function" then
+		x, y = v:GetXY()
+	else
+		x, y = v.x, v.y
+	end
 	if ns.Readable(x) and ns.Readable(y) and not (x == 0 and y == 0) then
 		return x, y
 	end
@@ -188,6 +187,7 @@ local function ReadQuests()
 			end
 		end
 	end
+	order = ns.Map_DrawOrder(quests)
 end
 
 local function PlayerFaction()
@@ -210,13 +210,24 @@ local function ReadStatic()
 	local seen = {}
 	for _, z in ipairs(ns.MapArt_Zones()) do
 		for _, e in ipairs(C_EncounterJournal.GetDungeonEntrancesForMap(z.mapID) or {}) do
-			local key = e.journalInstanceID or e.name
+			local key = e.name
 			local x, y = Pos(e.position)
 			if x and not seen[key] then
 				seen[key] = true
 				dungeons[#dungeons + 1] = { mapID = z.mapID, x = x, y = y, name = e.name, atlas = e.atlasName,
 					description = e.description }
 			end
+		end
+	end
+	-- The game lists no entrances on Forever's zone maps (measured 2026-11-15): the Dungeon journal's data has them
+	-- (Data/Forever/DungeonJournal.lua, door = { map, x, y in percent }).
+	for _, d in ipairs(ns.Content_Get(ns.CONTENT_FOREVER, "dungeonJournal") or {}) do
+		local door = d.door
+		if door and not seen[d.name] and ns.MapArt_Box(door.map) then
+			seen[d.name] = true
+			local levels = d.min and (d.max and ("Level %d-%d"):format(d.min, d.max) or ("Level %d+"):format(d.min))
+			dungeons[#dungeons + 1] = { mapID = door.map, x = door.x / 100, y = door.y / 100, name = d.name,
+				description = levels }
 		end
 	end
 end
@@ -253,6 +264,14 @@ local function QuestClick(pin)
 	end)
 end
 
+-- Ctrl-click on your map pin: gone, with its tracking (ns.ClearOwnPin), or the Quest list's follow went on stepping
+-- aside for a pin no longer there (measured 2026-11-15).
+local function RemovePin()
+	if IsControlKeyDown() then
+		ns.ClearOwnPin()
+	end
+end
+
 local function NameTip(pin)
 	UI.TipLine(pin.name or "", "heading")
 	if pin.note then
@@ -274,8 +293,6 @@ local function AreaFrame(canvas)
 		blob:EnableMouse(false)
 		blob:SetFillTexture(AREA_FILL)
 		blob:SetBorderTexture(AREA_BORDER)
-		blob:SetFillAlpha(AREA_FILL_ALPHA)
-		blob:SetBorderAlpha(AREA_BORDER_ALPHA)
 		blob:SetBorderScalar(1.0)
 	end
 	return blob
@@ -337,6 +354,9 @@ end
 -- where the frame was; drawn a frame later it shook during a zoom, measured 2026-11-15).
 function ns.MapPins_RedrawArea()
 	if blob and blob:IsShown() and blob.drawn then
+		local ground = ns.MapMini_Showing()
+		blob:SetFillAlpha(math.floor(AREA_STRONG[1] + (AREA_LIGHT[1] - AREA_STRONG[1]) * ground + 0.5))
+		blob:SetBorderAlpha(math.floor(AREA_STRONG[2] + (AREA_LIGHT[2] - AREA_STRONG[2]) * ground + 0.5))
 		blob:GetLeft()
 		blob:DrawNone()
 		blob:DrawBlob(blob.drawn, true)
@@ -360,6 +380,9 @@ local function Put(pin, mapID, x, y, toView)
 	pin:SetPoint("CENTER", layer, "CENTER", vx, -vy)
 end
 
+local onView = {} -- this layout's quest pins on the view: { pin, x, y, key }, then tx, ty (Map_Clusters)
+local shownAt = {} -- [questID] = { x, y }: where each pin is drawn from its spot now (eased toward its ring place)
+
 local function LayoutQuests(toView)
 	Release("quest")
 	Release("active")
@@ -367,7 +390,8 @@ local function LayoutQuests(toView)
 		return
 	end
 	local active = ns.ActiveQuest_ID()
-	local order = ns.Map_DrawOrder(quests)
+	local gap = SIZE.quest * (db.pinScale or 1) * questGrow * FAN_GAP
+	wipe(onView)
 	for rank, i in ipairs(order) do
 		local q = quests[i]
 		local isActive = q.questID == active
@@ -384,10 +408,49 @@ local function LayoutQuests(toView)
 				Disc(pin, isActive and "accent" or "warning")
 			end
 		end
-		-- One level each, south on top; the active quest over all of them.
-		pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.quest + (isActive and #quests + 1 or rank))
+		-- One level each, south on top; the active quest over all of them, the one hovered in the side panel over that.
+		local top = q.questID == hovered
+		if top then
+			local size = pin:GetWidth() * HOVER_SCALE
+			pin:SetSize(size, size)
+			QuestLook(pin, isActive, q.ready)
+		end
+		pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.quest + (top and #quests + 2 or isActive and #quests + 1 or rank))
 		pin.questID, pin.ready, pin.tip, pin.click = q.questID, q.ready, QuestTip, QuestClick
-		Put(pin, q.mapID, q.x, q.y, toView)
+		local cx, cy = ns.MapArt_ToCanvas(q.mapID, q.x, q.y)
+		local vx, vy
+		if cx then
+			vx, vy = toView(cx, cy)
+		end
+		if vx then
+			onView[#onView + 1] = { pin = pin, x = vx, y = vy, key = q.questID }
+		else
+			pin:Hide()
+		end
+	end
+	-- Pins that overlap ring out round their middle; each eases there, so groups forming as you zoom don't jump.
+	ns.Map_Clusters(onView, gap)
+	local moving = false
+	for _, s in ipairs(onView) do
+		local want = shownAt[s.key]
+		local dx, dy = s.tx - s.x, s.ty - s.y
+		if not want then
+			want = { x = dx, y = dy }
+			shownAt[s.key] = want
+		else
+			want.x = want.x + (dx - want.x) * FAN_EASE
+			want.y = want.y + (dy - want.y) * FAN_EASE
+			if math.abs(dx - want.x) + math.abs(dy - want.y) > 0.5 then
+				moving = true
+			else
+				want.x, want.y = dx, dy
+			end
+		end
+		s.pin:ClearAllPoints()
+		s.pin:SetPoint("CENTER", layer, "CENTER", s.x + want.x, -(s.y + want.y))
+	end
+	if moving and ns.MapWindow_Relayout then
+		ns.MapWindow_Relayout()
 	end
 end
 
@@ -424,8 +487,18 @@ local function LayoutWaypoint(toView)
 		local pin = Acquire("waypoint")
 		Icon(pin, WAYPOINT_ATLAS, RING)
 		pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.waypoint)
-		pin.name, pin.note, pin.tip = MAP_PIN or "Map pin", nil, NameTip
+		pin.name, pin.note, pin.tip = MAP_PIN or "Map pin", "Ctrl-click to remove it", NameTip
+		pin.click = RemovePin
 		Put(pin, waypoint.mapID, waypoint.x, waypoint.y, toView)
+	end
+	Release("spot")
+	if spot then
+		local pin = Acquire("spot")
+		pin:EnableMouse(false)
+		Icon(pin, WAYPOINT_ATLAS, RING)
+		pin.icon:SetVertexColor(UI.Color("accent"))
+		pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.spot)
+		Put(pin, spot.mapID, spot.x, spot.y, toView)
 	end
 end
 
@@ -439,6 +512,65 @@ local function Where(unit)
 	end
 end
 
+-- The focus: the map pin's art in the accent colour, a ring pulsing out of it, its label on hover.
+local function FocusPin()
+	if focusPin then
+		return focusPin
+	end
+	local pin = CreateFrame("Frame", nil, layer)
+	pin:SetSize(FOCUS_SIZE, FOCUS_SIZE)
+	pin.icon = pin:CreateTexture(nil, "OVERLAY")
+	pin.icon:SetAllPoints()
+	if not pin.icon:SetAtlas(WAYPOINT_ATLAS) then
+		pin.icon:SetTexture(RING)
+	end
+	pin.icon:SetVertexColor(UI.Color("accent"))
+	pin.halo = pin:CreateTexture(nil, "ARTWORK")
+	pin.halo:SetPoint("CENTER")
+	pin.halo:SetSize(FOCUS_SIZE * 1.4, FOCUS_SIZE * 1.4)
+	pin.halo:SetTexture(RING)
+	pin.halo:SetVertexColor(UI.Color("accent"))
+	local pulse = pin.halo:CreateAnimationGroup()
+	pulse:SetLooping("REPEAT")
+	local grow = pulse:CreateAnimation("Scale")
+	grow:SetScaleFrom(0.6, 0.6)
+	grow:SetScaleTo(1.8, 1.8)
+	grow:SetDuration(FOCUS_PULSE)
+	local fade = pulse:CreateAnimation("Alpha")
+	fade:SetFromAlpha(1)
+	fade:SetToAlpha(0)
+	fade:SetDuration(FOCUS_PULSE)
+	pin.pulse = pulse
+	pin:EnableMouse(true)
+	pin:SetScript("OnEnter", function(self)
+		if self.label then
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			UI.TipLine(self.label, "heading")
+			GameTooltip:Show()
+		end
+	end)
+	pin:SetScript("OnLeave", GameTooltip_Hide)
+	pin:SetScript("OnShow", function(self)
+		self.pulse:Play()
+	end)
+	focusPin = pin
+	return pin
+end
+
+local function LayoutFocus(toView)
+	if not focus then
+		if focusPin then
+			focusPin:Hide()
+		end
+		return
+	end
+	local pin = FocusPin()
+	pin.label = focus.label
+	pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.focus)
+	pin:Show()
+	Put(pin, focus.mapID, focus.x, focus.y, toView)
+end
+
 local function LayoutUnits(toView)
 	if not arrow then
 		arrow = CreateFrame("Frame", nil, layer)
@@ -446,7 +578,33 @@ local function LayoutUnits(toView)
 		arrow.tex = arrow:CreateTexture(nil, "OVERLAY")
 		arrow.tex:SetAllPoints()
 		arrow.tex:SetTexture(ARROW)
+		-- The ping: a ring round you, grown and faded out a few times (ns.MapPins_PingPlayer).
+		arrow.ring = arrow:CreateTexture(nil, "ARTWORK")
+		arrow.ring:SetPoint("CENTER")
+		arrow.ring:SetTexture(RING)
+		arrow.ring:SetVertexColor(UI.Color("accent"))
+		arrow.ring:SetAlpha(0)
+		local ping = arrow.ring:CreateAnimationGroup()
+		local grow = ping:CreateAnimation("Scale")
+		grow:SetScaleFrom(PING_FROM, PING_FROM)
+		grow:SetScaleTo(PING_TO, PING_TO)
+		grow:SetDuration(PING_SECONDS)
+		grow:SetSmoothing("OUT")
+		local fade = ping:CreateAnimation("Alpha")
+		fade:SetFromAlpha(1)
+		fade:SetToAlpha(0)
+		fade:SetDuration(PING_SECONDS)
+		fade:SetSmoothing("IN")
+		ping:SetLooping("REPEAT")
+		ping:SetScript("OnLoop", function(self)
+			self.left = (self.left or 1) - 1
+			if self.left <= 0 then
+				self:Stop()
+			end
+		end)
+		arrow.ping = ping
 	end
+	arrow.ring:SetSize(SIZE.arrow * db.pinScale, SIZE.arrow * db.pinScale)
 	arrow:SetSize(SIZE.arrow * db.pinScale, SIZE.arrow * db.pinScale)
 	arrow:SetFrameLevel(layer:GetFrameLevel() + LEVEL.arrow)
 	local mapID, x, y = Where("player")
@@ -477,6 +635,7 @@ local function LayoutUnits(toView)
 			local m, ux, uy = Where(unit)
 			if m then
 				local pin = Acquire("party")
+				pin.iconKey = nil
 				pin.icon:SetTexture(DOT)
 				if not pin.mask then
 					pin.mask = UI.CircleMask(pin.icon, pin)
@@ -500,11 +659,13 @@ function ns.MapPins_Init(pinLayer, moduleDB)
 end
 
 -- The view moved or zoomed: everything placed again.
-function ns.MapPins_Layout(toView, artLevel)
+function ns.MapPins_Layout(toView, artLevel, zoom)
 	level = artLevel
+	zoomGrow, questGrow = ns.Map_PinGrow(zoom or 1, GROW), ns.Map_PinGrow(zoom or 1, QUEST_GROW)
 	LayoutQuests(toView)
 	LayoutPlaces(toView)
 	LayoutWaypoint(toView)
+	LayoutFocus(toView)
 	LayoutUnits(toView)
 	DrawAreas(false)
 end
@@ -527,6 +688,55 @@ end
 function ns.MapPins_Quests()
 	ReadQuests()
 	blobQuest = nil
+	if ns.MapWindow_Relayout then
+		ns.MapWindow_Relayout()
+	end
+end
+
+-- Window.lua, as the map opens: rings pulse out from you.
+function ns.MapPins_PingPlayer()
+	if arrow and arrow.ping then
+		arrow.ping:Stop()
+		arrow.ping.left = PING_TIMES
+		arrow.ping:Play()
+	end
+end
+
+-- The side panel: the spot a quest pin sits on (mapID, x, y), or nil when it has none on the map.
+function ns.MapPins_QuestSpot(questID)
+	for _, q in ipairs(quests) do
+		if q.questID == questID then
+			return q.mapID, q.x, q.y
+		end
+	end
+end
+
+-- The zone a quest belongs to (its region in Art.lua), for zooming to it.
+function ns.MapPins_QuestZone(questID)
+	return QuestZone(questID)
+end
+
+-- The side panel: the quest whose row is under the mouse (its pin grows and comes to the top), or nil.
+function ns.MapPins_Hover(questID)
+	if hovered ~= questID then
+		hovered = questID
+		if ns.MapWindow_Relayout then
+			ns.MapWindow_Relayout()
+		end
+	end
+end
+
+-- A place another module asked the map to show (mapID, x, y on it, a label for its tooltip), or nil to take it away.
+function ns.MapPins_Focus(mapID, x, y, label)
+	focus = mapID and { mapID = mapID, x = x, y = y, label = label } or nil
+	if ns.MapWindow_Relayout then
+		ns.MapWindow_Relayout()
+	end
+end
+
+-- A side panel row's place on the map (mapID, x, y on it), or nil to take it away.
+function ns.MapPins_Spot(mapID, x, y)
+	spot = mapID and { mapID = mapID, x = x, y = y } or nil
 	if ns.MapWindow_Relayout then
 		ns.MapWindow_Relayout()
 	end

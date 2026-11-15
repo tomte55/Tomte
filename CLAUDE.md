@@ -116,7 +116,8 @@ just restates the code. Fix comments that point at moved or renamed code in the 
 ### Names and globals
 
 - Only globals: `TomteDB` (SavedVariables), `Tomte_OnAddonCompartmentClick`, frame names that `Bindings.xml`,
-  `CLICK` bindings or `UISpecialFrames` need (prefix `Tomte`), and `BINDING_NAME_*` strings. Everything else is
+  `CLICK` bindings or `UISpecialFrames` need (prefix `Tomte`), `BINDING_NAME_*` strings, and `GetMinimapShape` while
+  Square minimap is on (the convention other minimap addons read; only when no other addon defines it). Everything else is
   `local` or on `ns`.
 - Cross-file functions: `ns.<Prefix>_<Name>` where the prefix is the module or service (`ns.Rogue_PoisonProblems`,
   `ns.Recent_Note`, `ns.Toast_Show`, `ns.Content_Get`). Cross-file constants: `ns.<PREFIX>_<NAME>`

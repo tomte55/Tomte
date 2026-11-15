@@ -108,6 +108,40 @@ only knows rough zone shapes), so the user chose OpenMap-style prepared art (opt
   of popping in. Quest pins take the game's own quest-button art (Blizzard_POIButton) and one frame level each, south
   on top, so overlapping pins no longer flicker. A strip of land between Dun Morogh and Elwynn lies in no zone's
   picture: only the continent's, with its title lettering, covers it.
+- Colour matching, tried offline (2026-11-15): per-zone tints toward the continent's median colour. A vertex colour
+  can only darken, and with every piece drawn the zones' colours are Blizzard's own design (Burning Steppes red,
+  Eastern Plaguelands pale); the tints changed little and muddied the yellow zones. Left out.
+
+## Side panel and detail settings (2026-11-15)
+
+- "Detail" settings: where continents and zones fade in (`continentZoom`, `zoneZoom`) and whether and from where the
+  game's minimap pictures show (`ground`, `groundZoom`), with a Defaults button.
+- A side panel right of the view (Side.lua; "Quest log" button in the title bar, `sideShown`, `side`):
+  - Quests (QuestTab.lua): the log under its zone headings (ns.LevelingRead_Quests), the active one marked. Click: the
+    active quest, and the view glides to its pin, zoomed until its zone fills most of the view. Right-click: the Quest
+    list's menu. Hover: its pin grows and comes to the top.
+  - Teleports: the world map's tab panel, lent to the Tomte map (ns.MapTabs_Borrow / Return in Panel/MapTabs.lua). The
+    tab reads the viewed map and marks destinations through its host (ns.MapTabs_Host, ns.MapTabs_ViewedMap). Collect
+    here and World quests don't load on Forever, so only Teleports moves. The world map gets the panel back when it
+    picks that tab, when Teleports is turned off, or when the Tomte map closes.
+- After the first look: the side panel slides (0.2 s) and the map's scale comes from the view as if it were closed, the
+  view keeping its left edge, so opening it doesn't move the map. Detail defaults 1.2x / 5x / 10x (the user's). The
+  quest area: light over the ground pictures, the game's strength over the parchment, blended as they fade in. Quest
+  buttons shared with the minimap markers (Core/QuestPin.lua). Dungeon entrances from the Dungeon journal's data
+  (the game lists none on Forever's zone maps). Ctrl-click places a map pin on the first map up from the cursor that
+  takes one; Ctrl-click on the pin removes it.
+- ns.MapWindow_ShowSpot(mapID, x, y, label) for the Dungeon journal's "Show on map": the map flies there (out to an
+  overview, across, then in) and marks the spot with a pulsing ring. A "Key" setting binds a key to the map as an
+  override binding (M replaces the game's map). Removing a pin also drops its tracking, as the game's map does.
+- Place names (mask version 4): a zone's names live in its pieces, so where zones meet one zone's art cut the other's
+  names (drawing all pieces above every zone instead let one zone's colour cover the next one's names, and was taken
+  back). tools/mapart.py finds the names by layout (small dark shapes of one height on one baseline, three or more,
+  with the words and lines beside them; darkness measured against the surroundings), writes their boxes to the index
+  and a soft mask per zone (Masks/Labels<art>.tga, 512 pixels); Art.lua draws the piece tiles touching a box again
+  through that mask in a frame above every zone. 263 names in 44 zones.
+- Square minimap (its own module, both clients): the minimap's mask square, the round border hidden, a thin themed
+  frame; ns.MinimapShape answers "SQUARE" so buttons and markers follow.
+
 - Still open: colour matching between zones (Eastern Plaguelands, Burning Steppes, Shen'dralas stand out); a few
   coastal strips no zone's picture covers show the continent picture; releasing `Tomte_MapArt` (its own zip on the
   GitHub release, maybe its own CurseForge project).

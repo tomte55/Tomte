@@ -134,7 +134,8 @@ local ELLESMERE_ROUND = { circle = true, textured_circle = true }
 
 -- The minimap's shape in the LibDBIcon convention ("ROUND", "SQUARE", "CORNER-TOPLEFT", ...): GetMinimapShape when a
 -- minimap addon defines it, else EllesmereUI Minimap's own shape (it reshapes the map without defining that), else
--- Blizzard's round map. pcall: EllesmereUI's function is internal and could change or error.
+-- square while Tomte's Square minimap module draws it so, else Blizzard's round map. pcall: EllesmereUI's function is
+-- internal and could change or error.
 function ns.MinimapShape()
 	local get = rawget(_G, "GetMinimapShape")
 	if type(get) == "function" then
@@ -155,6 +156,9 @@ function ns.MinimapShape()
 			end
 		end
 		return "SQUARE" -- EllesmereUI Minimap's default
+	end
+	if ns.SquareMinimap_On and ns.SquareMinimap_On() then
+		return "SQUARE"
 	end
 	return "ROUND"
 end

@@ -4,7 +4,8 @@ local addonName, ns = ...
 -- own art pixels, scaled to where the world map puts that map (C_Map.GetMapRectOnMap). A zone's picture also shows its
 -- neighbours and a parchment border. With the Tomte_MapArt addon a zone's picture is drawn through its soft territory
 -- mask (its land and what lies nearer it than any other zone's, tools/mapart.py), its explored-area pieces over it
--- (every one, or only those you've explored: Map.lua's "whole map" setting); without it, the zone is drawn from
+-- (every one, or only those you've explored: Map.lua's "whole map" setting) and its place names drawn again above every
+-- zone (the addon's names masks); without it, the zone is drawn from
 -- its explored-area pieces, every one of them (Data/Forever/MapReveal.lua), which cover only its own land. A zone
 -- without pieces there is cut to its own shape: its art is sampled on a grid, the game says which zone owns each point
 -- (C_Map.GetMapInfoAtPosition on the continent) and only the zone's own cells are drawn, as horizontal runs (blocky:
@@ -21,6 +22,8 @@ local MASKS = "Interface\\AddOns\\Tomte_MapArt\\Masks\\" -- then Zone<uiMapArtID
 local OVERLAY_TILE = 256 -- explored-area pieces are cut in 256-pixel files (MapExplorationPinMixin)
 local MAP_CONTINENT, MAP_ZONE = 2, 3 -- Enum.UIMapType
 local FILTER = "TRILINEAR" -- mipmapped: the art is drawn far smaller than its files at most zooms
+local LABELS_LEVEL = 12 -- frame levels over the canvas: the place names, over every zone's art (3 to 8), under the
+-- minimap pictures (Mini.lua, 20)
 
 local world -- { mapID, box, ... } the world map's own picture
 local continents = {} -- list of regions
@@ -58,6 +61,19 @@ function ns.MapArt_ToCanvas(mapID, x, y)
 	if box then
 		return ns.Map_InBox(box, x, y)
 	end
+end
+
+-- The smallest zone whose box holds canvas point cx, cy, or nil (a spot given on a continent's map gets its zone).
+function ns.MapArt_ZoneAt(cx, cy)
+	local best
+	for _, z in ipairs(zones) do
+		local b = z.box
+		if cx >= b.l and cx <= b.l + b.w and cy >= b.t and cy <= b.t + b.h
+			and (not best or b.w * b.h < best.box.w * best.box.h) then
+			best = z
+		end
+	end
+	return best
 end
 
 function ns.MapArt_Continents()
@@ -138,8 +154,21 @@ local function AddTile(region, file, tile, layer, sublevel, ox, oy)
 	return tex
 end
 
+-- Whether art rect l, t, w, h touches one of the zone's place name boxes (Data/Forever/MapArtIndex.lua).
+local function OnALabel(region, l, t, w, h)
+	for _, b in ipairs(region.labelBoxes) do
+		if l < b[3] and l + w > b[1] and t < b[4] and t + h > b[2] then
+			return true
+		end
+	end
+	return false
+end
+
 -- One explored-area piece at x, y on its zone's art, w x h, its files in order (256-pixel tiles); masked like the
--- zone's picture when it has a mask.
+-- zone's picture when it has a mask. The tiles that hold a place name are drawn again on the zone's names frame,
+-- through the names mask (Tomte_MapArt, tools/mapart.py): above every zone's art, so neither a neighbour's picture nor
+-- the territory's edge cuts a name. (All pieces above every zone cut names too: one zone's colour covered the next
+-- one's names, measured 2026-11-15.)
 local function AddPiece(region, x, y, w, h, fileAt)
 	for _, tile in ipairs(ns.Map_Tiles(w, h, OVERLAY_TILE, OVERLAY_TILE, true)) do
 		local file = fileAt(tile.index)
@@ -149,6 +178,12 @@ local function AddPiece(region, x, y, w, h, fileAt)
 				tex:AddMaskTexture(region.mask)
 			end
 			region.overlays[#region.overlays + 1] = tex
+			if region.labels and OnALabel(region, x + tile.x, y + tile.y, tile.w, tile.h) then
+				local copy = AddTile(region, file, tile, "ARTWORK", 0, x, y)
+				copy:SetParent(region.labels)
+				copy:AddMaskTexture(region.labelMask)
+				region.overlays[#region.overlays + 1] = copy
+			end
 		end
 	end
 end
@@ -268,6 +303,15 @@ local function MaskFile(artID, level)
 	end
 end
 
+-- A zone's place name boxes and their mask file, or nil (the art addon's index, as MaskFile).
+local function LabelFiles(artID)
+	MaskFile(artID, "zone")
+	local boxes = artOK and artOK.labels and artOK.labels[artID]
+	if boxes then
+		return boxes, MASKS .. "Labels" .. artID
+	end
+end
+
 -- For /tomte map why: whether the art addon is loaded, its version and the version Tomte knows.
 function ns.MapArt_AddonState()
 	local index = ns.Content_Get(ns.CONTENT_FOREVER, "mapArtIndex")
@@ -308,6 +352,18 @@ local function Build(region, frameLevel)
 		end
 		region.cut, region.mode, region.mask = true, "mask", mask
 		if region.level == "zone" then
+			-- Its place names, drawn again above every zone (AddPiece). A child, so it fades and hides with the zone.
+			local boxes, labelFile = LabelFiles(artID)
+			if boxes then
+				local labels = CreateFrame("Frame", nil, frame)
+				labels:SetAllPoints(frame)
+				labels:EnableMouse(false)
+				labels:SetFrameLevel(canvas:GetFrameLevel() + LABELS_LEVEL)
+				local labelMask = labels:CreateMaskTexture()
+				labelMask:SetTexture(labelFile, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+				labelMask:SetAllPoints(frame)
+				region.labels, region.labelMask, region.labelBoxes = labels, labelMask, boxes
+			end
 			-- The picture alone lacks most of a zone's detail: the game draws it in the explored-area pieces.
 			BuildOverlays(region)
 		end
@@ -426,13 +482,16 @@ end
 function ns.MapArt_Update(viewBox, continentAlpha, zoneAlpha)
 	-- The world picture stays under the continents: with their masks they fade out past their shores.
 	Show(world, true)
-	for _, list in ipairs({ continents, zones }) do
-		local alpha = list == zones and zoneAlpha or continentAlpha
-		for _, r in ipairs(list) do
-			Show(r, alpha > 0 and ns.Map_Overlaps(r.box, viewBox))
-			if r.frame then
-				r.frame:SetAlpha(alpha)
-			end
+	for _, r in ipairs(continents) do
+		Show(r, continentAlpha > 0 and ns.Map_Overlaps(r.box, viewBox))
+		if r.frame then
+			r.frame:SetAlpha(continentAlpha)
+		end
+	end
+	for _, r in ipairs(zones) do
+		Show(r, zoneAlpha > 0 and ns.Map_Overlaps(r.box, viewBox))
+		if r.frame then
+			r.frame:SetAlpha(zoneAlpha)
 		end
 	end
 end

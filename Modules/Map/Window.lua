@@ -2,15 +2,21 @@ local addonName, ns = ...
 
 -- Tomte map: the window. A movable, resizable Tomte window (Esc closes it) with the view: a scroll frame holding the
 -- canvas (scaled by fit * zoom, scrolled so its point u, v is at the view's centre) and the pin layer over it. Wheel zooms toward the
--- cursor, drag pans, right-click zooms out, Ctrl-click places a map pin. Nothing here touches Blizzard's world map.
--- Maths in Data.lua, art in Art.lua, pins in Pins.lua, registered in Map.lua.
+-- cursor, drag pans, right-click zooms out, Ctrl-click places a map pin. The side panel (Side.lua) sits right of the
+-- view. Nothing here touches Blizzard's world map. Maths in Data.lua, art in Art.lua, pins in Pins.lua, registered in
+-- Map.lua.
 
-local TITLE_H = 30
-local PAD = 8
-local MIN_W, MIN_H = 420, 320
+local TITLE_H = 36
+local PAD = 12
+local MIN_W, MIN_H = 640, 360
+local SIDE_GAP = 10 -- pixels between the view and the side panel (each sits in its own well)
+local TOOL = 22 -- pixels: the title bar's icon buttons
+local TOOL_RIGHT = 44 -- pixels from the window's right edge to them, clear of the close button on its corner
+local LOG_ICON = "Interface\\Icons\\INV_Misc_Book_09"
+local FIND_ICON = "Interface\\Icons\\INV_Misc_Spyglass_03"
+local WELL_OUT = 4 -- pixels a well reaches past what it frames
+local SIDE_TIME = 0.2 -- seconds the side panel takes to open or close
 local MIN_ZOOM, MAX_ZOOM = 1, 64 -- 1: the whole world fits; 64: closer than a zone fills the window
-local CONTINENT_ZOOM = 1.6 -- the continents' own art from here (the world map's picture below)
-local ZONE_ZOOM = 3.5 -- zone art from here: a typical zone is a couple of hundred pixels wide by then
 local FADE_BAND = 1.3 -- each level fades in from its start / this to its start * this (Data.lua, Map_LevelAlphas)
 local WHEEL_STEP = 1.25 -- zoom per wheel notch
 local EASE = 14 -- zoom easing speed (per second, in log space)
@@ -22,10 +28,16 @@ local FIND_SHARE = 0.85 -- finding you zooms until your zone fills this much of 
 local UI = ns.UI
 
 local db
-local frame, view, canvas, layer, zoneText, coordText
+local frame, view, canvas, layer, zoneText, coordText, side, sideClip, logButton
+local sideWidth = 0 -- the side panel's width (Side.lua)
+local sideOpen = 0 -- 0..1: how far it's open (it slides)
+local sideWanted = false -- shown now: the saved choice (db.sideShown), or opened with the quest log key for once
 local W, H, fit = 1, 1, 1
 local state = { u = 0.5, v = 0.5, zoom = 1 }
 local target -- { zoom, sx, sy }: an easing zoom toward a point
+local glide -- { flight (Data.lua, Map_Flight), from = { u, v, zoom }, t }: the view flying somewhere
+local aim -- { cx, cy, zoom, box }: a glide asked for before the view had its size (the window's first show)
+local pinCursor = false -- the map pin cursor is up (Ctrl held over the view)
 local drag -- { x, y, moved }
 local dirty = true
 local drawnScale, areaDirty
@@ -36,6 +48,16 @@ local lastCursorX, lastCursorY
 
 local function ViewSize()
 	return view:GetWidth(), view:GetHeight()
+end
+
+-- The width the side panel takes from the view now.
+local function SideTaken()
+	return sideOpen * (sideWidth + SIDE_GAP)
+end
+
+-- The canvas's base scale, from the view as if the side panel were closed: opening it doesn't zoom the map.
+local function Fit(vw, vh)
+	return ns.Map_Fit(vw + SideTaken(), vh, W, H)
 end
 
 -- Cursor offset from the view's centre in view pixels (x right, y down).
@@ -55,8 +77,10 @@ local function ToView(cx, cy)
 	return x, y
 end
 
+-- Where the continents' and the zones' art starts: the "Detail" settings (Map.lua; defaults 1.2 and 5, where a
+-- typical zone is a couple of hundred pixels wide).
 local function Level()
-	return ns.Map_Level(state.zoom, CONTINENT_ZOOM, ZONE_ZOOM)
+	return ns.Map_Level(state.zoom, db.continentZoom, db.zoneZoom)
 end
 
 local function Apply()
@@ -65,7 +89,12 @@ local function Apply()
 	if vw <= 0 or vh <= 0 then
 		return
 	end
-	fit = ns.Map_Fit(vw, vh, W, H)
+	fit = Fit(vw, vh)
+	if aim then
+		local a = aim
+		aim = nil
+		ns.MapWindow_Aim(a.cx, a.cy, a.box, a.zoom)
+	end
 	ns.Map_Clamp(state, MIN_ZOOM, MAX_ZOOM, vw, vh, fit, W, H)
 	local scale = fit * state.zoom
 	canvas:SetScale(scale)
@@ -79,9 +108,12 @@ local function Apply()
 		drawnScale, areaDirty = scale, true
 	end
 	local viewBox = ns.Map_ViewBox(state, vw, vh, fit, W, H, MARGIN)
-	ns.MapArt_Update(viewBox, ns.Map_LevelAlphas(state.zoom, CONTINENT_ZOOM, ZONE_ZOOM, FADE_BAND))
+	if ns.MapSide_WantsMap() then
+		ns.MapSide_Viewing(ns.MapWindow_CenterMap())
+	end
+	ns.MapArt_Update(viewBox, ns.Map_LevelAlphas(state.zoom, db.continentZoom, db.zoneZoom, FADE_BAND))
 	ns.MapMini_Update(viewBox, state.zoom)
-	ns.MapPins_Layout(ToView, Level())
+	ns.MapPins_Layout(ToView, Level(), state.zoom)
 	if areaDirty then
 		areaDirty = false
 		ns.MapPins_RedrawArea()
@@ -119,10 +151,106 @@ local function MapAt(sx, sy)
 	end
 end
 
+-- Ctrl-click: a map pin there, as on the game's map. The map under the cursor may not take one (a sub-zone, a city's
+-- inside): then the maps above it, up to the continent. Ctrl-click on the pin takes it away (Pins.lua).
+local function PinAt(sx, sy)
+	local info = MapAt(sx, sy)
+	local cx, cy = ns.Map_At(state, sx, sy, fit, W, H)
+	local mapID, seen = info and info.mapID, {}
+	while mapID and not seen[mapID] do
+		seen[mapID] = true
+		local box = ns.MapArt_Box(mapID)
+		local x, y
+		if box then
+			x, y = ns.Map_FromBox(box, cx, cy)
+		end
+		if x and C_Map.CanSetUserWaypointOnMap(mapID) then
+			-- Through Waypoints when it's there: it names the pin after the place.
+			if ns.Way_SetPoint then
+				ns.Way_SetPoint(mapID, x, y, info.name)
+			else
+				ns.TrackPin(mapID, x, y)
+			end
+			return
+		end
+		local map = C_Map.GetMapInfo(mapID)
+		mapID = map and map.parentMapID
+	end
+	ns.Print("can't place a map pin there.")
+end
+
 -- Moving the view -------------------------------------------------------------------------------------------------------
 
 local function ZoomTo(zoom, sx, sy)
+	glide = nil
 	target = { zoom = math.min(math.max(zoom, MIN_ZOOM), MAX_ZOOM), sx = sx or 0, sy = sy or 0 }
+end
+
+-- The map at the view's centre: the world at world zoom, else the continent there, or at zone zoom the zone there.
+function ns.MapWindow_CenterMap()
+	if not frame then
+		return nil
+	end
+	local level = Level()
+	if level == "world" then
+		return ns.MapArt_WorldID()
+	end
+	local cx, cy = state.u * W, state.v * H
+	for _, c in ipairs(ns.MapArt_Continents()) do
+		local x, y = ns.Map_FromBox(c.box, cx, cy)
+		if x then
+			if level == "zone" then
+				local info = C_Map.GetMapInfoAtPosition(c.mapID, x, y)
+				return info and info.mapID or c.mapID
+			end
+			return c.mapID
+		end
+	end
+	return ns.MapArt_WorldID()
+end
+
+-- The view flies to canvas point cx, cy (Data.lua, Map_Flight: out only as far as needed to see both places, then
+-- in), ending zoomed in until box (a map's canvas box) fills most of the view, or at zoom when given. Before the view
+-- has its size (the window only just shown) it waits for the next layout.
+function ns.MapWindow_Aim(cx, cy, box, zoom)
+	local vw, vh = ViewSize()
+	target = nil
+	if not (vw > 0 and vh > 0) then
+		aim, glide = { cx = cx, cy = cy, box = box, zoom = zoom }, nil
+		dirty = true
+		return
+	end
+	local fitNow = Fit(vw, vh)
+	if not zoom then
+		zoom = box and ns.Map_ZoomFor(box, vw, vh, fitNow, FIND_SHARE) or state.zoom
+	end
+	-- Ends where Apply would let the view be (a spot near the world's edge).
+	local to = ns.Map_Clamp({ u = cx / W, v = cy / H, zoom = zoom }, MIN_ZOOM, MAX_ZOOM, vw, vh, fitNow, W, H)
+	glide = { flight = ns.Map_Flight(state, to, vw, vh, fitNow, W, H, MIN_ZOOM), t = 0,
+		from = { u = state.u, v = state.v, zoom = state.zoom } }
+	dirty = true
+end
+
+-- Where finding something ends: the same zoom every time, a little past where zone maps come in (zones differ in size,
+-- so fitting the zone to the view ended nearer for some quests than for others).
+local FIND_ZOOM_SHARE = 1.6
+local function FindZoom()
+	return db.zoneZoom * FIND_ZOOM_SHARE
+end
+
+-- The side panel picked a quest: the view glides to its spot, zoomed in to the find zoom (never out). False when it
+-- has no spot on the map.
+function ns.MapWindow_GoToQuest(questID)
+	local mapID, x, y = ns.MapPins_QuestSpot(questID)
+	local cx, cy
+	if mapID then
+		cx, cy = ns.MapArt_ToCanvas(mapID, x, y)
+	end
+	if not (frame and cx) then
+		return false
+	end
+	ns.MapWindow_Aim(cx, cy, nil, math.max(state.zoom, FindZoom()))
+	return true
 end
 
 -- Centres on you, zoomed in until your zone fills most of the view (never out). False without a position.
@@ -141,7 +269,7 @@ function ns.MapWindow_FindMe()
 				local box = zoneID and ns.Readable(zoneID) and ns.MapArt_Box(zoneID)
 				local vw, vh = ViewSize()
 				if box and vw > 0 then
-					state.zoom = math.max(state.zoom, ns.Map_ZoomFor(box, vw, vh, ns.Map_Fit(vw, vh, W, H), FIND_SHARE))
+					state.zoom = math.max(state.zoom, ns.Map_ZoomFor(box, vw, vh, Fit(vw, vh), FIND_SHARE))
 				end
 				target = nil
 				dirty = true
@@ -164,6 +292,16 @@ local function OnUpdate(_, elapsed)
 			dirty = true
 		end
 	end
+	if glide then
+		-- One move: out and back in as it goes across (Data.lua, Map_FlightAt).
+		glide.t = glide.t + elapsed
+		local p = math.min(1, glide.t / glide.flight.time)
+		state.u, state.v, state.zoom = ns.Map_FlightAt(glide.from, glide.flight, p)
+		if p >= 1 then
+			glide = nil
+		end
+		dirty = true
+	end
 	if target then
 		local from, to = math.log(state.zoom), math.log(target.zoom)
 		local step = from + (to - from) * math.min(1, elapsed * EASE)
@@ -179,8 +317,17 @@ local function OnUpdate(_, elapsed)
 	if dirty then
 		Apply()
 	end
-	-- The zone under the cursor, when it moved.
-	if view:IsMouseOver() then
+	-- Ctrl over the map: the game's map pin cursor, as its own map shows (WaypointLocationDataProviderMixin).
+	local over = view:IsMouseOver()
+	if over and IsControlKeyDown() and not drag then
+		SetCursor("MAP_PIN_CURSOR")
+		pinCursor = true
+	elseif pinCursor then
+		ResetCursor()
+		pinCursor = false
+	end
+	-- The title: the place under the cursor, when it moved (where you are when it's off the map: ShowHere).
+	if over then
 		local x, y = GetCursorPosition()
 		if x ~= lastCursorX or y ~= lastCursorY then
 			lastCursorX, lastCursorY = x, y
@@ -196,12 +343,62 @@ local function OnUpdate(_, elapsed)
 	end
 end
 
+-- The title while the cursor is off the map: where you are, and your spot there.
+local function ShowHere()
+	local mapID = C_Map.GetBestMapForUnit("player")
+	local info = mapID and ns.Readable(mapID) and C_Map.GetMapInfo(mapID)
+	zoneText:SetText(info and info.name or WORLD_MAP or "Map")
+	local pos = info and C_Map.GetPlayerMapPosition(mapID, "player")
+	local x, y
+	if pos then
+		x, y = pos:GetXY()
+	end
+	if x and ns.Readable(x) and ns.Readable(y) and not (x == 0 and y == 0) then
+		coordText:SetFormattedText("%.1f, %.1f", x * 100, y * 100)
+	else
+		coordText:SetText("")
+	end
+end
+
+-- A title bar button: an icon in the game's action button frame (UI.ActionIcon), its name and what it does on hover.
+local function ToolButton(icon, name, tip, onClick)
+	local b = CreateFrame("Button", nil, frame)
+	b:SetSize(TOOL, TOOL)
+	b.icon = b:CreateTexture(nil, "ARTWORK")
+	b.icon:SetAllPoints()
+	b.icon:SetTexture(icon)
+	UI.ActionIcon(b, b.icon, TOOL, 0.6)
+	b:SetScript("OnClick", onClick)
+	b:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+		UI.TipLine(name, "heading")
+		UI.TipLine(tip, "textMuted", true)
+		GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", GameTooltip_Hide)
+	return b
+end
+
+-- The quest log button is lit while its panel is open.
+local function SyncLogButton()
+	if logButton then
+		logButton.icon:SetDesaturated(not sideWanted)
+		logButton.icon:SetAlpha(sideWanted and 1 or 0.75)
+		if sideWanted then
+			logButton:LockHighlight()
+		else
+			logButton:UnlockHighlight()
+		end
+	end
+end
+
 -- Mouse -----------------------------------------------------------------------------------------------------------------
 
 local function OnMouseDown(_, button)
 	if button == "LeftButton" then
 		local sx, sy = Cursor()
 		drag = { x = sx, y = sy, moved = false }
+		glide = nil
 	end
 end
 
@@ -215,12 +412,7 @@ local function OnMouseUp(_, button)
 	if button == "RightButton" then
 		ZoomTo(state.zoom / (WHEEL_STEP * WHEEL_STEP), sx, sy)
 	elseif button == "LeftButton" and IsControlKeyDown() then
-		local info, x, y = MapAt(sx, sy)
-		if info and ns.Way_SetPoint then
-			if ns.Way_SetPoint(info.mapID, x, y, info.name) == nil then
-				ns.Print("can't place a map pin there.")
-			end
-		end
+		PinAt(sx, sy)
 	end
 end
 
@@ -267,30 +459,55 @@ local function Build()
 		dirty = true
 	end)
 
-	local title = UI.Text(frame, 14, "heading", "title")
-	title:SetPoint("TOPLEFT", PAD + 4, -9)
-	title:SetText(WORLD_MAP or "Map")
-	zoneText = UI.Text(frame, 13, "text")
-	zoneText:SetPoint("LEFT", title, "RIGHT", 16, 0)
+	-- The title is the place: the one under the cursor, else where you are, its coordinates beside it.
+	zoneText = UI.Text(frame, 17, "heading", "title")
+	zoneText:SetPoint("TOPLEFT", PAD + 6, -8)
+	zoneText:SetWordWrap(false)
 	coordText = UI.Text(frame, 12, "textMuted", "number")
-	coordText:SetPoint("LEFT", zoneText, "RIGHT", 10, 0)
+	coordText:SetPoint("BOTTOMLEFT", zoneText, "BOTTOMRIGHT", 10, 1)
 	local close = CreateFrame("Button", nil, frame, "UIPanelCloseButtonNoScripts")
 	close:SetPoint("TOPRIGHT", -2, -2)
 	close:SetScript("OnClick", function()
 		frame:Hide()
 	end)
-	local find = UI.Button(frame, 70, "Find me")
-	find:SetPoint("RIGHT", close, "LEFT", -6, 0)
-	find:SetScript("OnClick", function()
+	local find = ToolButton(FIND_ICON, "Find me", "Go to where you are, zoomed in on your zone.", function()
 		if not ns.MapWindow_FindMe() then
 			ns.Print("the map can't show where you are here.")
 		end
 	end)
+	-- Inside the title bar, level with the title, not on the window's edge as the close button is.
+	find:SetPoint("TOPRIGHT", -TOOL_RIGHT, -8)
+	logButton = ToolButton(LOG_ICON, QUEST_LOG or "Quest log",
+		"Show or hide your quests beside the map. The map key opens it the way you leave it.", function()
+		-- The button is your choice, kept: the map key opens the map this way from now on.
+		sideWanted = not sideWanted
+		db.sideShown = sideWanted
+		ns.MapWindow_LayoutSide()
+	end)
+	logButton:SetPoint("RIGHT", find, "LEFT", -8, 0)
 
 	-- A scroll frame with the canvas as its scroll child, as the game's map (see Apply).
 	view = CreateFrame("ScrollFrame", nil, frame)
-	view:SetPoint("TOPLEFT", PAD, -TITLE_H)
-	view:SetPoint("BOTTOMRIGHT", -PAD, PAD)
+	-- The map sits in a sunken well, as the game's own windows frame their content (Forever theme; a rule elsewhere).
+	local well = ns.Theme.panel == "forever" and UI.Forever_Well and UI.Forever_Well(frame)
+	if not well then
+		well = CreateFrame("Frame", nil, frame)
+		UI.Border(well, "frame", 0.6)
+	end
+	well:SetFrameLevel(frame:GetFrameLevel()) -- under the map
+	well:SetPoint("TOPLEFT", view, "TOPLEFT", -WELL_OUT, WELL_OUT)
+	well:SetPoint("BOTTOMRIGHT", view, "BOTTOMRIGHT", WELL_OUT, -WELL_OUT)
+	-- The side panel rides the view's right edge inside a frame that clips it at the window's edge, so panel and map move
+	-- as one while it slides.
+	sideClip = CreateFrame("Frame", nil, frame)
+	sideClip:SetClipsChildren(true)
+	sideClip:SetFrameLevel(view:GetFrameLevel() + 60)
+	side, sideWidth = ns.MapSide_Build(sideClip, db)
+	side:SetPoint("TOPLEFT")
+	side:SetPoint("BOTTOMLEFT")
+	sideWanted = db.sideShown
+	sideOpen = sideWanted and 1 or 0
+	ns.MapWindow_LayoutSide(true)
 	view:EnableMouse(true)
 	view:EnableMouseWheel(true)
 	local sea = frame:CreateTexture(nil, "BACKGROUND", nil, 7)
@@ -309,7 +526,7 @@ local function Build()
 	layer:SetFrameLevel(view:GetFrameLevel() + 40)
 
 	ns.MapArt_Init(canvas, W, H, worldID)
-	ns.MapMini_Init(canvas)
+	ns.MapMini_Init(canvas, db)
 	ns.MapPins_Init(layer, db)
 
 	view:SetScript("OnMouseDown", OnMouseDown)
@@ -321,27 +538,121 @@ local function Build()
 	view:SetScript("OnUpdate", ns.Perf_Wrap(OnUpdate, "OnUpdate"))
 	view:SetScript("OnLeave", function()
 		lastCursorX = nil
+		ShowHere()
 	end)
 
 	frame:HookScript("OnShow", function()
 		ns.Map_Shown(true)
 		ns.MapPins_Read()
+		ns.MapQuests_Refresh() -- the quest list drew before the quests' spots were read (its find buttons)
+		ShowHere()
+		-- After the first layout (the arrow is made and placed there).
+		C_Timer.After(0, ns.MapPins_PingPlayer)
 		dirty = true
 		ticker = C_Timer.NewTicker(TICK, function()
 			if not dirty then
 				ns.MapPins_Tick(ToView)
 			end
+			if not view:IsMouseOver() then
+				ShowHere()
+			end
 		end)
 	end)
 	frame:HookScript("OnHide", function()
-		drag, target = nil, nil
+		drag, target, aim, glide = nil, nil, nil, nil
+		if pinCursor then
+			ResetCursor()
+			pinCursor = false
+		end
 		if ticker then
 			ticker:Cancel()
 			ticker = nil
 		end
 		ns.Map_Shown(false) -- art loading pauses by itself: its loader is on the hidden canvas
+		ns.MapPins_Focus(nil) -- a spot shown from elsewhere lasts while the window is open
 	end)
 	PlaceFrame()
+	return true
+end
+
+-- The side panel open this far (0..1): the view's right edge moves with it, and the view keeps what's at its left
+-- edge where it is (the map doesn't move under you as the panel opens). The panel slides in on that edge.
+local function SetSideOpen(open, keepLeft)
+	local before = SideTaken()
+	sideOpen = open
+	local taken = SideTaken()
+	if keepLeft then
+		local vw, vh = ViewSize()
+		local scale = vw > 0 and Fit(vw, vh) * state.zoom or 0
+		if scale > 0 then
+			state.u = state.u - (taken - before) / (2 * scale * W)
+		end
+	end
+	view:ClearAllPoints()
+	view:SetPoint("TOPLEFT", PAD, -TITLE_H)
+	view:SetPoint("BOTTOMRIGHT", -PAD - taken, PAD)
+	sideClip:ClearAllPoints()
+	sideClip:SetPoint("TOPLEFT", view, "TOPRIGHT", SIDE_GAP, 0)
+	sideClip:SetPoint("BOTTOMRIGHT", -PAD, PAD)
+	sideClip:SetShown(open > 0)
+	side:SetShown(open > 0)
+	dirty = true
+end
+
+-- The side panel opens or closes as sideWanted says (now: no slide, when the window is built).
+function ns.MapWindow_LayoutSide(now)
+	if not side then
+		return
+	end
+	SyncLogButton()
+	local from, to = sideOpen, sideWanted and 1 or 0
+	if now or not frame:IsVisible() then
+		UI.TweenStop(side, "open")
+		SetSideOpen(to, false)
+		return
+	end
+	UI.Tween(side, "open", SIDE_TIME, function(t)
+		SetSideOpen(from + (to - from) * t, true)
+	end, nil, UI.EaseOut)
+end
+
+-- For other modules (the Dungeon journal's "Show on map"): opens the map on spot x, y (0..1) of mapID, flying there
+-- (out to an overview, across, then in until that map fills most of the view), and marks it with a pulsing ring (its label on
+-- hover) until the next spot or the window closes. Called from a click. False while the Tomte map is off or when the
+-- world map doesn't place mapID.
+function ns.MapWindow_ShowSpot(mapID, x, y, label)
+	if not (ns.Map_IsOn() and mapID and x and y) then
+		return false
+	end
+	if not frame and not Build() then
+		return false
+	end
+	local cx, cy = ns.MapArt_ToCanvas(mapID, x, y)
+	if not cx then
+		return false
+	end
+	if not frame:IsShown() then
+		-- Not through Toggle (no finding you first): it opens on the whole world and flies from there.
+		state.zoom = MIN_ZOOM
+		frame:Show()
+	end
+	ns.MapWindow_Aim(cx, cy, nil, FindZoom())
+	ns.MapPins_Focus(mapID, x, y, label)
+	return true
+end
+
+-- The side panel's find button: flies to the quest the way "Show on map" does and rings its pin. False without a spot.
+function ns.MapWindow_FindQuest(questID, label)
+	local mapID, x, y = ns.MapPins_QuestSpot(questID)
+	local cx, cy
+	if mapID then
+		cx, cy = ns.MapArt_ToCanvas(mapID, x, y)
+	end
+	if not (frame and cx) then
+		return false
+	end
+	ns.MapWindow_Aim(cx, cy, nil, FindZoom())
+	ns.MapPins_Focus(mapID, x, y, label)
 	return true
 end
 
@@ -351,8 +662,17 @@ function ns.MapWindow_Init(moduleDB)
 	db = moduleDB
 end
 
-function ns.MapWindow_Toggle()
+-- The map key and the quest log key (as the game's M and L). withLog: the quest log key, which opens the map with its
+-- quest list showing this time (a map already open gets it) without changing what the map key does; the map key opens
+-- it as you last left the Quest log button.
+function ns.MapWindow_Toggle(withLog)
 	if frame and frame:IsShown() then
+		if withLog and not sideWanted then
+			db.side = "quests"
+			sideWanted = true
+			ns.MapWindow_LayoutSide()
+			return
+		end
 		frame:Hide()
 		return
 	end
@@ -360,6 +680,11 @@ function ns.MapWindow_Toggle()
 		ns.Print("the world map's art isn't available on this client.")
 		return
 	end
+	sideWanted = withLog or db.sideShown
+	if withLog then
+		db.side = "quests"
+	end
+	ns.MapWindow_LayoutSide(true)
 	frame:Show()
 	if not ns.MapWindow_FindMe() then
 		dirty = true

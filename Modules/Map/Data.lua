@@ -238,6 +238,102 @@ function ns.Map_LevelAlphas(zoom, continentZoom, zoneZoom, band)
 	return ns.Map_Fade(z, c - b, c + b), ns.Map_Fade(z, s - b, s + b)
 end
 
+-- How much larger pins are drawn at a zoom: as they are up to zone zoom, growing to most times from 8x to 32x (close
+-- up the art is many times larger and pins their size looked lost on it).
+function ns.Map_PinGrow(zoom, most)
+	return 1 + (most - 1) * ns.Map_Fade(math.log(zoom), math.log(8), math.log(32))
+end
+
+-- A flight from view `from` to `to` ({ u, v, zoom } each): one move { u, v, zoom, time, rise }. rise: how far (log
+-- zoom) it zooms out above the straight way from one zoom to the other at its middle, just enough to see both places
+-- (0 when they're close or the target is already in view). vw, vh: the view in pixels; fit: the canvas's base scale;
+-- W, H: the canvas; minZoom: the least zoom.
+local FLIGHT_ROOM = 1.4 -- both places fit with this much room
+function ns.Map_Flight(from, to, vw, vh, fit, W, H, minZoom)
+	local dx, dy = math.abs(to.u - from.u) * W, math.abs(to.v - from.v) * H
+	local both = math.min(vw / (dx * FLIGHT_ROOM + 1), vh / (dy * FLIGHT_ROOM + 1)) / fit
+	local out = math.max(minZoom, both) -- the zoom that shows both places
+	local middle = (math.log(from.zoom) + math.log(to.zoom)) / 2
+	local rise = math.max(0, middle - math.log(out))
+	local zoomPart = math.abs(math.log(to.zoom / from.zoom)) * 0.12 + rise * 0.22
+	local pan = math.sqrt(dx * dx + dy * dy) * fit * out / vw
+	local time = math.min(math.max(0.45 + zoomPart * 1.3 + 0.4 * math.min(pan, 1.5), 0.45), 2)
+	return { u = to.u, v = to.v, zoom = to.zoom, time = time, rise = rise }
+end
+
+-- Where a flight is at p (0..1): pan eased in and out more gently than the zoom, so it moves mostly while zoomed out;
+-- zoom along the straight way in log space, lifted by rise in the middle. Returns u, v, zoom.
+function ns.Map_FlightAt(from, flight, p)
+	local e = p * p * (3 - 2 * p)
+	local panE = e * e * (3 - 2 * e)
+	local u = from.u + (flight.u - from.u) * panE
+	local v = from.v + (flight.v - from.v) * panE
+	local logZoom = math.log(from.zoom) + (math.log(flight.zoom) - math.log(from.zoom)) * e - flight.rise * 4 * e * (1 - e)
+	return u, v, math.exp(logZoom)
+end
+
+-- Pins that overlap on the view gather into groups (pins closer than gap, and pins close to those), and each group
+-- spreads round its middle in a ring, in a fixed order (key), so each can be seen and clicked, as the game's map
+-- spreads its quest pins. spots: { x, y, key } in view pixels; sets each spot's tx, ty (where to draw it).
+function ns.Map_Clusters(spots, gap)
+	local n = #spots
+	local parent = {}
+	for i = 1, n do
+		parent[i] = i
+	end
+	local function Root(i)
+		while parent[i] ~= i do
+			parent[i] = parent[parent[i]]
+			i = parent[i]
+		end
+		return i
+	end
+	for i = 1, n - 1 do
+		for j = i + 1, n do
+			local a, b = spots[i], spots[j]
+			if (a.x - b.x) ^ 2 + (a.y - b.y) ^ 2 < gap * gap then
+				parent[Root(j)] = Root(i)
+			end
+		end
+	end
+	local groups = {}
+	for i = 1, n do
+		local r = Root(i)
+		groups[r] = groups[r] or {}
+		table.insert(groups[r], spots[i])
+	end
+	for _, g in pairs(groups) do
+		if #g == 1 then
+			g[1].tx, g[1].ty = g[1].x, g[1].y
+		else
+			table.sort(g, function(a, b)
+				return a.key < b.key
+			end)
+			local cx, cy = 0, 0
+			for _, sp in ipairs(g) do
+				cx, cy = cx + sp.x, cy + sp.y
+			end
+			cx, cy = cx / #g, cy / #g
+			for k, sp in ipairs(g) do
+				local ox, oy = ns.Map_FanOffset(k, #g, gap)
+				sp.tx, sp.ty = cx + ox, cy + oy
+			end
+		end
+	end
+	return spots
+end
+
+-- Where pin i of n in a group sits from their spot, in pixels (x right, y down): round a ring wide enough that
+-- neighbours are gap apart, the first at the top. 0, 0 for a pin alone.
+function ns.Map_FanOffset(i, n, gap)
+	if not n or n < 2 then
+		return 0, 0
+	end
+	local r = gap / 2 / math.sin(math.pi / n)
+	local angle = -math.pi / 2 + (i - 1) * 2 * math.pi / n
+	return r * math.cos(angle), r * math.sin(angle)
+end
+
 -- The order pins are drawn in: those further south (larger y) on top, as on the game's map, so overlapping pins
 -- always stack the same way. spots: { y = ... } each; returns a list of their indexes, the one to draw first first.
 function ns.Map_DrawOrder(spots)

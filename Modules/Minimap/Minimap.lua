@@ -259,11 +259,18 @@ ns.moduleToggled[#ns.moduleToggled + 1] = function(owner)
 	end
 end
 
--- Edit Mode can resize the minimap.
-Minimap:HookScript("OnSizeChanged", function()
+local function PlaceAll()
 	for _, button in pairs(buttons) do
 		if button:IsShown() then
 			Place(button)
 		end
 	end
-end)
+end
+
+-- Square minimap changed the minimap's shape.
+function ns.Minimap_PlaceButtons()
+	PlaceAll()
+end
+
+-- Edit Mode can resize the minimap.
+Minimap:HookScript("OnSizeChanged", PlaceAll)

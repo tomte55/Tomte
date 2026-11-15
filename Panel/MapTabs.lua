@@ -12,6 +12,10 @@ local addonName, ns = ...
 -- ns.MapTabs_SetShown(key, shown), ns.MapTabs_Select(key), ns.MapTabs_IsActive(key), ns.MapTabs_Open(key)
 -- ns.MapTabs_Opener(button, opensMap, dims): a Home button that opens the world map first (dimmed in combat).
 -- ns.MapTabs_ResolveMap(mapID): which map a tab lists for the viewed map (shared by Collect here and World quests).
+-- ns.MapTabs_Borrow(key, parent, host) / ns.MapTabs_Return(key): another map window (the Tomte map) shows a tab's
+-- panel in its own side panel for a while; host = { mapID() -> the map it views, showSpot(mapID, x, y),
+-- hideSpot(), taken() (the panel went back: the world map picked it, or the tab was turned off) }. Tabs that draw on
+-- the map ask ns.MapTabs_Host(key) and ns.MapTabs_ViewedMap(key) instead of the world map.
 
 local UI = ns.UI
 local MAX_MAP_DEPTH = 10
@@ -74,10 +78,15 @@ local function GiveBack(questMap)
 	end
 end
 
+local Return
+
 function ns.MapTabs_Select(key)
 	local t = byKey[key]
 	if not t or not t.shown then
 		return
+	end
+	if t.borrowed then
+		Return(t)
 	end
 	for _, frame in ipairs(QuestMapFrame.ContentFrames) do
 		frame:Hide()
@@ -200,6 +209,9 @@ function ns.MapTabs_SetShown(key, shown)
 	end
 	t.shown = shown and true or false
 	t.tab:SetShown(t.shown)
+	if not t.shown and t.borrowed then
+		Return(t)
+	end
 	if not t.shown and activeKey == key then
 		GiveBack(QuestMapFrame)
 	end
@@ -245,11 +257,17 @@ local function CreateTab(spec)
 	return tab
 end
 
-local function CreatePanel(spec)
-	local panel = CreateFrame("Frame", nil, QuestMapFrame)
+local function PlaceInSidePanel(panel)
+	panel:SetParent(QuestMapFrame)
+	panel:ClearAllPoints()
 	panel:SetPoint("TOPLEFT", QuestMapFrame.ContentsAnchor, "TOPLEFT")
 	-- -22: the right inset Blizzard's own content frames use (QuestsFrame, MapLegend in QuestMapFrame.xml).
 	panel:SetPoint("BOTTOMRIGHT", QuestMapFrame.ContentsAnchor, "BOTTOMRIGHT", -22, 0)
+end
+
+local function CreatePanel(spec)
+	local panel = CreateFrame("Frame", nil, QuestMapFrame)
+	PlaceInSidePanel(panel)
 	panel:Hide()
 	panel.look = UI.Panel(panel, { size = "medium", alpha = 0.96 })
 	panel.title = UI.Text(panel, 14, "heading", "title")
@@ -292,6 +310,82 @@ function ns.MapTabs_Add(spec)
 	Hook()
 	Layout()
 	return t.tab, t.panel
+end
+
+-- Lending a panel to another map window -------------------------------------------------------------------------
+
+-- quiet: the host asked for it, so it isn't told.
+function Return(t, quiet)
+	local host = t.borrowed
+	t.borrowed = nil
+	t.panel:Hide()
+	if t.spec.onHide then
+		t.spec.onHide(t.panel)
+	end
+	PlaceInSidePanel(t.panel)
+	if not quiet then
+		host.taken()
+	end
+end
+
+-- Shows tab key's panel filling parent, for host (see the top). Returns the panel, or nil for a tab that isn't there
+-- or is turned off. The world map gets its own frames back first if it was showing this one.
+function ns.MapTabs_Borrow(key, parent, host)
+	local t = byKey[key]
+	if not (t and t.shown) then
+		return nil
+	end
+	if activeKey == key then
+		GiveBack(QuestMapFrame)
+	end
+	if t.borrowed and t.borrowed ~= host then
+		Return(t)
+	end
+	t.borrowed = host
+	t.panel:SetParent(parent)
+	t.panel:ClearAllPoints()
+	t.panel:SetAllPoints(parent)
+	t.panel:Show()
+	if t.spec.onShow then
+		t.spec.onShow(t.panel)
+	end
+	return t.panel
+end
+
+-- The other window is done with it: back in the world map's side panel, hidden.
+function ns.MapTabs_Return(key)
+	local t = byKey[key]
+	if t and t.borrowed then
+		Return(t, true)
+	end
+end
+
+function ns.MapTabs_IsShown(key)
+	local t = byKey[key]
+	return t ~= nil and t.shown
+end
+
+-- The window showing tab key's panel when it isn't the world map, or nil.
+function ns.MapTabs_Host(key)
+	local t = byKey[key]
+	return t and t.borrowed or nil
+end
+
+-- The map tab key's panel is looking at: its host's, else the world map's.
+function ns.MapTabs_ViewedMap(key)
+	local host = ns.MapTabs_Host(key)
+	if host then
+		return host.mapID()
+	end
+	return WorldMapFrame:GetMapID()
+end
+
+-- The host's view moved to another map: the tab redraws for it.
+function ns.MapTabs_MapChanged(key)
+	local t = byKey[key]
+	if t and t.borrowed and t.spec.onMapChanged then
+		t.spec.onMapChanged(t.panel)
+	end
 end
 
 -- The map to list for a viewed map: zones and dungeons as they are, micro and orphan maps up to their zone,

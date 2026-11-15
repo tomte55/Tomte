@@ -5,7 +5,8 @@ local addonName, ns = ...
 -- (a secure button inside the map would make the map protected, so it couldn't open or close in combat). In combat
 -- the secure button is hidden and the list greys out; the map itself keeps working.
 --
--- The tab itself (switching with Blizzard's tabs without taint) is Panel/MapTabs.lua.
+-- The tab itself (switching with Blizzard's tabs without taint) is Panel/MapTabs.lua. The Tomte map (Modules/Map)
+-- can borrow the panel for its own side panel: then the viewed map and the destination pin are that map's.
 
 local UI = ns.UI
 local ROW_H, HEADER_H, ICON = 34, 24, 26
@@ -55,6 +56,10 @@ end
 -- Map pin -----------------------------------------------------------------------------------------------------------
 
 local function HidePin()
+	local host = ns.MapTabs_Host(KEY)
+	if host then
+		host.hideSpot()
+	end
 	if pin then
 		pin:Hide()
 	end
@@ -63,6 +68,11 @@ end
 local function ShowPin(e)
 	if not e.pinPos then
 		HidePin()
+		return
+	end
+	local host = ns.MapTabs_Host(KEY)
+	if host then
+		host.showSpot(ns.MapTabs_ViewedMap(KEY), e.pinPos.x, e.pinPos.y)
 		return
 	end
 	local canvas = WorldMapFrame:GetCanvas()
@@ -344,7 +354,7 @@ end
 -- Layout ------------------------------------------------------------------------------------------------------------
 
 local function ViewedMapNames()
-	local mapID = WorldMapFrame:GetMapID()
+	local mapID = ns.MapTabs_ViewedMap(KEY)
 	local info = mapID and C_Map.GetMapInfo(mapID)
 	-- The whole world (or cosmic) map would match everything.
 	if not info or info.mapType < Enum.UIMapType.Continent then

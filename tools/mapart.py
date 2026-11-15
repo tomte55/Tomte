@@ -10,7 +10,16 @@ A zone's mask is its territory on its continent:
   its sea grey) until it meets a neighbour's, at most REACH, never onto its own picture's burnt frame;
 - grown a little more under its neighbours (the larger zone is drawn first, so seams have no see-through line) and
   blurred.
-A zone that isn't on a continent's picture gets its own land only. The idea of zone territories follows OpenMap's
+A zone that isn't on a continent's picture gets its own land only.
+
+Each zone's place names (in its pieces, dark capitals on a pale glow, the same brown as its roads and mountains) are
+found by their layout: small dark shapes of one height side by side on one baseline, three or more, with the words and
+lines next to them. Where two zones' pieces carry a name in the same spot (a zone's map also names places just past
+its edge, often cut off: Thousand Needles' "Razorfen Kraul"), only the one of the zone whose territory holds that spot
+is kept; every other name is kept, also near a border (Camp Taurajo). Their boxes go in the index and a soft mask of
+them in the addon (Masks/Labels<art>.tga): the map
+draws those parts of the pieces again above every zone, so a neighbour's picture or the territory's edge doesn't cut a
+name (Modules/Map/Art.lua). The idea of zone territories follows OpenMap's
 territory masks (MIT, github.com/openmap-world/openmap, tools/map-preview/territory.py); written anew here, with
 Pillow and numpy.
 
@@ -34,7 +43,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import wago  # noqa: E402
 
-VERSION = 3  # bump when the masks change shape: Tomte only uses an addon whose version it knows (MapArtIndex.lua)
+VERSION = 6  # bump when the masks change shape: Tomte only uses an addon whose version it knows (MapArtIndex.lua)
 ART_W, ART_H = 1002, 668  # every map's art on this client (its UiMapArt layer)
 TILE = 256  # art and pieces are cut in 256-pixel tiles, a piece's last row and column in the next power of two
 MASK = 256  # the mask file's size (stretched over the art; soft edges don't need more)
@@ -44,6 +53,8 @@ BLUR = 4  # art pixels: that zone's soft edge
 G = 2  # territory grid pixels per continent art pixel
 REACH = 60  # grid pixels a zone's territory grows past its own land at most (zones are about 250 to 550 across)
 MARGIN = 0.03  # share of a zone's picture on each side that is its burnt frame: never part of its territory
+FRAME_FADE = 0.04  # share of a zone's picture inside that margin over which its art fades in (a hard cut there showed
+# as a straight line where a zone's territory reached its picture's edge: Feralas's top over Desolace)
 OVERLAP = 4  # grid pixels a territory reaches under its neighbours before the blur
 SOFT = 2  # grid pixels: the territory's soft edge
 LAND_S, LAND_V = 160, 110  # a continent picture's land: HSV saturation and value above these (its sea is greyer)
@@ -54,6 +65,14 @@ EDGE = (0.05, 0.15)  # share of a continent picture from each side where it is g
 # frame is gone; a wide fade leaves no line where its sea and the world picture's differ in colour)
 FRAME = 0.07  # share of a continent picture on each side that is never land (its burnt frame reads as land by colour)
 INDEX = os.path.join("Data", "Forever", "MapArtIndex.lua")
+LABEL_MASK = 512  # the names mask's size: sharper than the territories', the boxes are small
+GLYPH_H, GLYPH_W, GLYPH_N = (5, 14), (2, 16), 5  # a letter: height and width in art pixels, at least this many pixels
+CONTRAST = 0.66  # a letter's pixel is darker than this share of its surroundings (6-pixel box blur)
+LINE_TOL, LINE_GAP = 2, 1.2  # letters of a line: top and bottom within this many pixels, gaps under this many heights
+LABEL_PAD = (1.0, 0.5)  # a name's box reaches this many letter heights past its letters, sideways and up and down
+# (the pale glow round them; sideways more, so an end letter the search missed is still in)
+LABEL_SOFT = 3  # art pixels: how softly a name's patch fades into what's under it
+LABEL_MAX_H = 5  # a name's box is at most this many letter heights tall (busy coasts otherwise grew boxes)
 MAP_CONTINENT, MAP_ZONE = 2, 3
 
 
@@ -115,6 +134,114 @@ def own_land(pieces, folder, build):
                 land = ImageChops.lighter(land, spot)
     solid = land.point(lambda v: 255 if v > 127 else 0)
     return fill_holes(solid.filter(ImageFilter.MaxFilter(CLOSE)).filter(ImageFilter.MinFilter(CLOSE)))
+
+
+def pieces_picture(pieces, folder, build):
+    """The pieces drawn together (RGBA, transparent where none), as the game lays them on the art."""
+    img = Image.new("RGBA", (ART_W, ART_H), (0, 0, 0, 0))
+    for x, y, w, h, files in pieces:
+        cols, rows = -(-w // TILE), -(-h // TILE)
+        for r in range(rows):
+            for c in range(cols):
+                i = r * cols + c
+                if i >= len(files):
+                    continue
+                tile = fetch(files[i], folder, build)
+                if tile is None:
+                    continue
+                part = tile.convert("RGBA").crop((0, 0, side(w, c, cols), side(h, r, rows)))
+                img.alpha_composite(part, (x + c * TILE, y + r * TILE))
+    return img
+
+
+def glyph_shapes(mask):
+    """Connected dark shapes (8 neighbours): (left, top, right, bottom, pixels) each."""
+    h, w = mask.shape
+    seen = np.zeros_like(mask, bool)
+    shapes = []
+    for y0, x0 in zip(*np.nonzero(mask)):
+        if seen[y0, x0]:
+            continue
+        stack = [(y0, x0)]
+        seen[y0, x0] = True
+        l = r = x0
+        t = b = y0
+        n = 0
+        while stack:
+            y, x = stack.pop()
+            n += 1
+            l, r, t, b = min(l, x), max(r, x), min(t, y), max(b, y)
+            for yy in (y - 1, y, y + 1):
+                for xx in (x - 1, x, x + 1):
+                    if 0 <= yy < h and 0 <= xx < w and mask[yy, xx] and not seen[yy, xx]:
+                        seen[yy, xx] = True
+                        stack.append((yy, xx))
+        shapes.append((l, t, r, b, n))
+    return shapes
+
+
+def label_boxes(img):
+    """Boxes (left, top, right, bottom, art pixels) round the place names in a zone's pieces."""
+    a = np.asarray(img).astype(float)
+    lum = a[..., 0] * 0.3 + a[..., 1] * 0.59 + a[..., 2] * 0.11
+    mean = np.asarray(Image.fromarray(lum.clip(0, 255).astype(np.uint8)).filter(ImageFilter.BoxBlur(6))).astype(float)
+    dark = (lum < CONTRAST * mean) & (lum < 150) & (a[..., 3] > 200) & (a[..., 2] < a[..., 0])
+    glyphs = sorted((g for g in glyph_shapes(dark) if GLYPH_H[0] <= g[3] - g[1] + 1 <= GLYPH_H[1]
+                     and GLYPH_W[0] <= g[2] - g[0] + 1 <= GLYPH_W[1] and g[4] >= GLYPH_N), key=lambda g: g[0])
+    used = [False] * len(glyphs)
+    lines = []  # [left, top, right, bottom, letters, height]
+    for i, g in enumerate(glyphs):
+        if used[i]:
+            continue
+        chain, last = [g], g
+        used[i] = True
+        for j in range(i + 1, len(glyphs)):
+            o = glyphs[j]
+            if used[j]:
+                continue
+            gh = last[3] - last[1] + 1
+            if o[0] - last[2] > LINE_GAP * gh + 1:
+                if o[0] - last[2] > 3 * gh:
+                    break
+                continue
+            if abs(o[1] - last[1]) <= LINE_TOL and abs(o[3] - last[3]) <= LINE_TOL:
+                chain.append(o)
+                used[j] = True
+                last = o
+        if len(chain) >= 2:
+            lines.append([min(c[0] for c in chain), min(c[1] for c in chain), max(c[2] for c in chain),
+                          max(c[3] for c in chain), len(chain), max(c[3] - c[1] + 1 for c in chain)])
+    boxes = []
+    taken = [False] * len(lines)
+    for i, ln in enumerate(lines):
+        if taken[i] or ln[4] < 3:
+            continue
+        box, gh = list(ln[:4]), ln[5]
+        taken[i] = True
+        grew = True
+        while grew:
+            grew = False
+            for j, o in enumerate(lines):
+                if taken[j] or abs(o[5] - gh) > 3:
+                    continue
+                if o[0] <= box[2] + 2 * gh and o[2] >= box[0] - 2 * gh and o[1] <= box[3] + 1.2 * gh \
+                        and o[3] >= box[1] - 1.2 * gh and max(box[3], o[3]) - min(box[1], o[1]) <= LABEL_MAX_H * gh:
+                    box = [min(box[0], o[0]), min(box[1], o[1]), max(box[2], o[2]), max(box[3], o[3])]
+                    taken[j] = True
+                    grew = True
+        px, py = LABEL_PAD[0] * gh, LABEL_PAD[1] * gh
+        boxes.append((max(int(box[0] - px), 0), max(int(box[1] - py), 0), min(int(box[2] + px + 1), ART_W),
+                      min(int(box[3] + py + 1), ART_H)))
+    return boxes
+
+
+def label_mask(boxes):
+    """The names' soft mask (art-sized L image)."""
+    m = Image.new("L", (ART_W, ART_H), 0)
+    d = ImageDraw.Draw(m)
+    for l, t, r, b in boxes:
+        d.rectangle((l, t, r, b), fill=255)
+    return m.filter(ImageFilter.GaussianBlur(LABEL_SOFT))
 
 
 def picture(art, art_tiles, folder, build):
@@ -230,13 +357,18 @@ def place(own, box, shape):
 
 def territory_mask(labels, i, box):
     """Zone i's mask (art-sized L image): its territory, reaching OVERLAP under its neighbours, inside its picture
-    less the frame, blurred."""
+    less the frame (fading in over FRAME_FADE), blurred."""
     x0, y0, w, h = box
     m = Image.fromarray(((labels == i) * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(2 * OVERLAP + 1))
-    frame = np.zeros(labels.shape, np.uint8)
-    l, t = max(int(x0 + w * MARGIN), 0), max(int(y0 + h * MARGIN), 0)
-    frame[t:int(y0 + h * (1 - MARGIN)), l:int(x0 + w * (1 - MARGIN))] = 255
-    m = Image.fromarray(np.minimum(np.asarray(m), frame)).filter(ImageFilter.GaussianBlur(SOFT))
+    m = np.asarray(m.filter(ImageFilter.GaussianBlur(SOFT))).astype(np.float32)
+    gh, gw = labels.shape
+    xs = (np.arange(gw) - x0) / w
+    ys = (np.arange(gh) - y0) / h
+    sx = np.clip((np.minimum(xs, 1 - xs) - MARGIN) / FRAME_FADE, 0, 1)
+    sy = np.clip((np.minimum(ys, 1 - ys) - MARGIN) / FRAME_FADE, 0, 1)
+    edge = np.minimum(sy[:, None], sx[None, :])
+    edge = edge * edge * (3 - 2 * edge)
+    m = Image.fromarray((m * edge).astype(np.uint8))
     return m.crop((x0, y0, x0 + w, y0 + h)).resize((ART_W, ART_H), Image.BILINEAR)
 
 
@@ -259,8 +391,8 @@ def soften(own):
     return own.filter(ImageFilter.MaxFilter(GROW)).filter(ImageFilter.GaussianBlur(BLUR))
 
 
-def write_tga(alpha, path):
-    alpha = alpha.resize((MASK, MASK), Image.LANCZOS)
+def write_tga(alpha, path, size=MASK):
+    alpha = alpha.resize((size, size), Image.LANCZOS)
     img = Image.merge("RGBA", (Image.new("L", alpha.size, 255),) * 3 + (alpha,))
     img.save(path, compression=None)  # 32-bit uncompressed TGA: what the client reads
 
@@ -275,7 +407,7 @@ def write_addon(out, arts, build):
                 "Made from Blizzard Entertainment's map art; not covered by Tomte's license.\n" % (VERSION, len(arts), build))
 
 
-def write_index(arts, continents, build):
+def write_index(arts, continents, labels, build):
     lines = [
         "local addonName, ns = ...",
         "",
@@ -288,6 +420,13 @@ def write_index(arts, continents, build):
         "\tmasks = { %s }," % ", ".join("[%d] = true" % a for a in sorted(arts)),
         "\tcontinents = { %s }, -- Masks\\Continent<uiMapArtID>.tga" % ", ".join(
             "[%d] = true" % a for a in sorted(continents)),
+        "\t-- [uiMapArtID] = the place names' boxes { left, top, right, bottom } (art pixels), Masks\\Labels<uiMapArtID>.tga",
+        "\tlabels = {",
+    ]
+    for art in sorted(labels):
+        lines.append("\t\t[%d] = { %s }," % (art, ", ".join("{ %d, %d, %d, %d }" % b for b in labels[art])))
+    lines += [
+        "\t},",
         "})",
     ]
     with open(INDEX, "w", encoding="utf-8", newline="\r\n") as f:
@@ -323,7 +462,7 @@ def main():
                                                  int(o["TextureHeight"]), [fid for _, _, fid in sorted(tiles[oid])]))
     zones = [m for m, r in maps.items() if int(r["Type"]) == MAP_ZONE and pieces.get(art_of.get(m))]
     layout = Layout(data["UiMapAssignment"])
-    masks, shores = {}, {}
+    masks, shores, names = {}, {}, {}  # names: [art] = its place names' boxes
     by_continent = defaultdict(list)
     for z in zones:
         parent = int(maps[z]["ParentUiMapID"])
@@ -343,18 +482,38 @@ def main():
             print("  %s" % maps[z]["Name_lang"])
             placed.append((box, place(own_land(pieces[art_of[z]], folder, build), box, (gh, gw))))
         labels = territories(placed, land)
+        found = []  # (zone index, box in art pixels, box on the continent grid, owner of its middle)
         for i, z in enumerate(members):
             masks[art_of[z]] = territory_mask(labels, i, placed[i][0])
+            gx0, gy0, gw_, gh_ = placed[i][0]
+            for b in label_boxes(pieces_picture(pieces[art_of[z]], folder, build)):
+                g = (gx0 + b[0] / ART_W * gw_, gy0 + b[1] / ART_H * gh_, gx0 + b[2] / ART_W * gw_,
+                     gy0 + b[3] / ART_H * gh_)
+                mx, my = int((g[0] + g[2]) / 2), int((g[1] + g[3]) / 2)
+                owner = labels[my, mx] if 0 <= my < labels.shape[0] and 0 <= mx < labels.shape[1] else -1
+                found.append((i, b, g, owner))
+        # Two zones naming the same spot: the zone whose territory holds it keeps its name.
+        for i, b, g, owner in found:
+            clash = any(j != i and g[0] < h[2] and g[2] > h[0] and g[1] < h[3] and g[3] > h[1] and owner != i
+                        and (o == j or owner == j) for j, _, h, o in found)
+            if not clash:
+                names.setdefault(art_of[members[i]], []).append(b)
     for z in zones:
         if art_of[z] not in masks:
             print("zone %d (%s), off any continent" % (z, maps[z]["Name_lang"]))
             masks[art_of[z]] = soften(own_land(pieces[art_of[z]], folder, build))
+    labels = {}
+    for art, boxes in names.items():
+        if boxes:
+            labels[art] = boxes
+            write_tga(label_mask(boxes), os.path.join(out, "Masks", "Labels%d.tga" % art), LABEL_MASK)
+    print("place names in %d zones, %d in all" % (len(labels), sum(len(b) for b in labels.values())))
     for art, mask in masks.items():
         write_tga(mask, os.path.join(out, "Masks", "Zone%d.tga" % art))
     for art, mask in shores.items():
         write_tga(mask, os.path.join(out, "Masks", "Continent%d.tga" % art))
     write_addon(out, list(masks), build)
-    write_index(list(masks), list(shores), build)
+    write_index(list(masks), list(shores), labels, build)
     print("wrote %d masks to %s and %s" % (len(masks), out, INDEX))
 
 

@@ -5,13 +5,15 @@ local addonName, ns = ...
 -- tiles are placed through the continent's world corners (C_Map.GetWorldPosFromMapPos) and drawn only near the view,
 -- from a pool. Geometry in Data.lua; Window.lua calls ns.MapMini_Update after every move.
 
-local FADE_FROM, FADE_TO = 10, 22 -- zoom: the tiles fade in between these (a tile is about 100 to 230 pixels there)
-local MIX = 0.85 -- the tiles' alpha once faded in: a little of the map's colour stays under them
+local FADE_SPAN = 2.2 -- the tiles fade in from the "Ground pictures from" zoom (Map.lua, default 10: a tile is about
+-- 100 pixels there) to this many times it
+local MIX = 1 -- the tiles' alpha once faded in (at 0.85 the map's place names showed through, "engraved" in the ground)
 local DESATURATE = 0.35 -- the minimap's colours are stronger than the parchment's (OpenMap uses the same)
 local MAX_TILES = 120 -- never more textures than this: zoomed out further, no tiles
 local LEVEL = 20 -- frame levels above the canvas: over every zone's art, under the quest area (Pins.lua, 30)
 
-local layer
+local layer, db
+local showing = 0 -- how far the tiles have faded in, 0..1
 local tiles = {} -- { box, file }, both continents
 local pool, used = {}, 0
 local built = false
@@ -66,8 +68,9 @@ local function Texture(i)
 	return tex
 end
 
--- Window.lua: the canvas frame (built once).
-function ns.MapMini_Init(canvas)
+-- Window.lua: the canvas frame (built once) and the module's settings.
+function ns.MapMini_Init(canvas, moduleDB)
+	db = moduleDB
 	layer = CreateFrame("Frame", nil, canvas)
 	layer:SetAllPoints(canvas)
 	layer:EnableMouse(false)
@@ -79,7 +82,7 @@ function ns.MapMini_Update(viewBox, zoom)
 	if not layer then
 		return
 	end
-	local mix = MIX * ns.Map_Fade(zoom, FADE_FROM, FADE_TO)
+	local mix = db.ground and MIX * ns.Map_Fade(zoom, db.groundZoom, db.groundZoom * FADE_SPAN) or 0
 	local near = {}
 	if mix > 0 then
 		if not built then
@@ -116,4 +119,10 @@ function ns.MapMini_Update(viewBox, zoom)
 	used = n
 	layer:SetAlpha(mix)
 	layer:SetShown(n > 0)
+	showing = n > 0 and mix / MIX or 0
+end
+
+-- How far the ground pictures have faded in (0..1): Pins.lua draws the quest area lighter over them.
+function ns.MapMini_Showing()
+	return showing
 end

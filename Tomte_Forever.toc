@@ -23,6 +23,7 @@ Core/Format.lua
 Core/Compat.lua
 Core/OtherAddons.lua
 Core/MinimapData.lua
+Core/QuestPin.lua
 Core/Migrations.lua
 Core/PerfData.lua
 Core/Perf.lua
@@ -96,6 +97,7 @@ Panel/ModelPreview.lua
 Panel/Entries.lua
 Modules/Minimap/Data.lua
 Modules/Minimap/Minimap.lua
+Modules/SquareMinimap/SquareMinimap.lua
 Modules/Flight/Data.lua
 Modules/Flight/ShareData.lua
 Modules/Flight/Bar.lua
@@ -301,6 +303,8 @@ Modules/Map/Data.lua
 Modules/Map/Art.lua
 Modules/Map/Mini.lua
 Modules/Map/Pins.lua
+Modules/Map/QuestTab.lua
+Modules/Map/Side.lua
 Modules/Map/Window.lua
 Modules/Map/Map.lua
 Modules/Alts/PlanData.lua

@@ -11,6 +11,8 @@ local ICON = "Interface\\Icons\\INV_Misc_Map_01"
 local module, db
 local events = CreateFrame("Frame")
 local shown = false
+local ApplyKey -- the settings' key (below)
+local keyPending = false -- it changed in combat: applied when that ends
 
 local EVENTS = {
 	"QUEST_LOG_UPDATE", "QUEST_POI_UPDATE", "USER_WAYPOINT_UPDATED", "MAP_EXPLORATION_UPDATED", "PLAYER_ENTERING_WORLD",
@@ -30,14 +32,26 @@ end
 -- Events: only while the window shows ------------------------------------------------------------------------------
 
 events:SetScript("OnEvent", function(_, event)
-	if event == "USER_WAYPOINT_UPDATED" then
+	if event == "PLAYER_REGEN_ENABLED" then
+		events:UnregisterEvent("PLAYER_REGEN_ENABLED")
+		if keyPending then
+			ApplyKey()
+		end
+		return
+	elseif event == "USER_WAYPOINT_UPDATED" then
 		ns.MapPins_Waypoint()
 	elseif event == "MAP_EXPLORATION_UPDATED" then
 		ns.MapArt_Explored()
 	else
 		ns.MapPins_Quests()
+		ns.MapQuests_Refresh()
 	end
 end)
+
+-- Whether the Tomte map is on (other modules check before sending the player to it).
+function ns.Map_IsOn()
+	return module ~= nil and module.active == true
+end
 
 -- Window.lua: the window showed or hid.
 function ns.Map_Shown(on)
@@ -54,6 +68,7 @@ end
 ns.ActiveQuest_OnChange(function()
 	if shown then
 		ns.MapPins_Quests()
+		ns.MapQuests_Refresh()
 	end
 end)
 
@@ -63,9 +78,49 @@ local function Toggle()
 	end
 end
 
-ns.Binding_Add("MAP", "map", function()
-	ns.MapWindow_Toggle()
+-- The keys: a hidden button clicked by them (Key Bindings > Tomte: "CLICK TomteMapButton:LeftButton" opens the map,
+-- ":RightButton" the map with its quest log, like the game's M and L). Command bindings (a <Binding> calling Lua)
+-- didn't show in Forever's Key Bindings and an override to one did nothing (2026-11-15); click bindings work there.
+-- Acts on the key going down; a client that sends only the release acts on that.
+local KEY_REPEAT = 0.5 -- seconds: a release this soon after a press is the same key press
+local keyButton = CreateFrame("Button", "TomteMapButton", UIParent)
+keyButton:Hide()
+keyButton:RegisterForClicks("AnyDown", "AnyUp")
+local lastDown = 0
+keyButton:SetScript("OnClick", function(_, mouseButton, down)
+	local now = GetTime()
+	if down then
+		lastDown = now
+	elseif now - lastDown < KEY_REPEAT then
+		return
+	end
+	if ns.Module_RequireOn(module) then
+		ns.MapWindow_Toggle(mouseButton == "RightButton")
+	end
 end)
+
+-- The settings' keys: override bindings clicking that button, over the game's own use of those keys (M and L open
+-- this map instead of the game's). Override bindings can't change in combat: then once it ends.
+local keyOwner
+function ApplyKey()
+	if InCombatLockdown() then
+		keyPending = true
+		events:RegisterEvent("PLAYER_REGEN_ENABLED")
+		return
+	end
+	keyPending = false
+	keyOwner = keyOwner or CreateFrame("Frame")
+	ClearOverrideBindings(keyOwner)
+	if not (module and module.active) then
+		return
+	end
+	if type(db.key) == "string" and db.key ~= "" then
+		SetOverrideBindingClick(keyOwner, true, db.key, "TomteMapButton", "LeftButton")
+	end
+	if type(db.logKey) == "string" and db.logKey ~= "" then
+		SetOverrideBindingClick(keyOwner, true, db.logKey, "TomteMapButton", "RightButton")
+	end
+end
 
 -- Commands --------------------------------------------------------------------------------------------------------------
 
@@ -111,6 +166,10 @@ end
 
 -- Options ---------------------------------------------------------------------------------------------------------------
 
+local function ZoomText(v)
+	return ("%gx"):format(math.floor(v * 100 + 0.5) / 100)
+end
+
 local function Relayout()
 	if ns.MapWindow_Relayout then
 		ns.MapWindow_Relayout()
@@ -139,7 +198,15 @@ module = ns.RegisterModule({
 		dungeons = true,
 		party = true,
 		pinScale = 1,
+		key = "", -- a key that opens the map (binding string, "" for none), on top of Key Bindings > Tomte
+		logKey = "", -- a key that opens it with its quest log (as the game's L)
 		revealAll = true, -- every part of each zone drawn, explored or not (needs Tomte_MapArt)
+		continentZoom = 1.2, -- zoom (1: the whole world fits) where the continents' own maps fade in
+		zoneZoom = 5, -- and the zones'
+		sideShown = true, -- the side panel right of the map
+		side = "quests", -- its tab: "quests" or "tp" (Teleports)
+		ground = true, -- the game's minimap pictures close up
+		groundZoom = 10, -- zoom where they start fading in
 		window = false, -- { w, h, point, relPoint, x, y } once moved or resized
 	},
 	init = function(moduleDB)
@@ -151,6 +218,7 @@ module = ns.RegisterModule({
 		if not on then
 			ns.MapWindow_Hide()
 		end
+		ApplyKey()
 	end,
 	commands = {
 		{ hidden = true, "", "open or close the map", function()
@@ -168,6 +236,10 @@ module = ns.RegisterModule({
 		{ type = "button", label = "Open the map", text = "Open", onClick = function()
 			Toggle()
 		end, tooltip = "Or bind a key to it in Key Bindings > Tomte (Tomte map). Bind M to use it instead of the game's map." },
+		{ type = "key", key = "key", label = "Map key", onChange = ApplyKey,
+			tooltip = "A key that opens and closes the map, as you last left its quest log. Pick M to use it instead of the game's map. Also under Key Bindings > Tomte." },
+		{ type = "key", key = "logKey", label = "Quest log key", onChange = ApplyKey,
+			tooltip = "A key that opens the map with its quest log showing, without changing how the map key opens it. Pick L to use it instead of the game's quest log." },
 		{ type = "button", label = "Window", text = "Reset", onClick = function()
 			ns.MapWindow_ResetFrame()
 		end, tooltip = "Back in the middle of the screen at its default size." },
@@ -178,6 +250,24 @@ module = ns.RegisterModule({
 			format = function(v)
 				return ("%d%%"):format(math.floor(v * 100 + 0.5))
 			end, onChange = Relayout },
+
+		{ type = "header", label = "Detail" },
+		{ type = "slider", key = "continentZoom", label = "Continent maps from", min = 1.1, max = 3, step = 0.1,
+			format = ZoomText, onChange = Relayout,
+			tooltip = "How far you zoom in (1x: the whole world fits) before each continent's own map fades in over the world map." },
+		{ type = "slider", key = "zoneZoom", label = "Zone maps from", min = 2, max = 12, step = 0.25,
+			format = ZoomText, onChange = Relayout,
+			tooltip = "How far you zoom in before each zone's own map fades in over its continent." },
+		{ type = "checkbox", key = "ground", label = "Ground pictures close up", onChange = Relayout,
+			tooltip = "The game's minimap pictures over the map once you're zoomed in close: the real ground, rocks and roads." },
+		{ type = "slider", key = "groundZoom", label = "Ground pictures from", min = 3, max = 40, step = 1,
+			parent = "ground", format = ZoomText, onChange = Relayout,
+			tooltip = "Lower shows them sooner. Zoomed far out there are too many of them to draw, so they stay off there." },
+		{ type = "button", label = "Detail", text = "Defaults", onClick = function()
+			db.continentZoom, db.zoneZoom, db.ground, db.groundZoom = 1.2, 5, true, 10
+			Relayout()
+			ns.Panel_Refresh()
+		end, tooltip = "Back to the zooms the map starts with." },
 
 		{ type = "header", label = "On the map" },
 		{ type = "checkbox", key = "quests", label = "Quests", onChange = Relayout,

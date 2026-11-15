@@ -11,6 +11,8 @@ local PAD = 8
 local TITLE_H = 24
 local HEADER_H = 18
 local QUEST_H = 17 -- a quest's title line
+local CLEAR_PIN_ATLAS = "Waypoint-MapPin-Tracked" -- the title bar's "remove my map pin" button
+local CLEAR_PIN_TEXTURE = "Interface\\Buttons\\UI-GroupLoot-Pass-Up" -- without that atlas
 local LINE_H = 14 -- an objective or the detail line, as text
 local BAR_LINE_H = 18 -- an objective with its bar under the label
 local BAR_H = 2 -- thin, so the bar sits under its text instead of competing with it
@@ -337,6 +339,27 @@ function ns.QuestListUI_New(parent, sample)
 				on and "The route's next quest becomes your active quest, hand-ins planned in. Click to stop."
 					or "Click to follow your quests along a route: each one's objective, then where it's handed in."
 		end)
+		-- Your own map pin holds the follow back (ns.OwnTargetTracked): one click takes it away. Shown only then.
+		f.clearPin = CreateFrame("Button", nil, f)
+		f.clearPin:SetSize(16, 16)
+		f.clearPin:SetPoint("RIGHT", f.follow, "LEFT", -4, 0)
+		f.clearPin.icon = f.clearPin:CreateTexture(nil, "ARTWORK")
+		f.clearPin.icon:SetAllPoints()
+		if not f.clearPin.icon:SetAtlas(CLEAR_PIN_ATLAS) then
+			f.clearPin.icon:SetTexture(CLEAR_PIN_TEXTURE)
+		end
+		f.clearPin:SetHighlightTexture(CLEAR_PIN_TEXTURE, "ADD")
+		f.clearPin:SetScript("OnClick", function()
+			ns.ClearOwnPin()
+		end)
+		f.clearPin:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+			UI.TipLine("Your map pin", "heading")
+			UI.TipLine("You're heading for your own map pin, so the list doesn't pick your quests. Click to remove the pin and go back to them.", "text", true)
+			GameTooltip:Show()
+		end)
+		f.clearPin:SetScript("OnLeave", GameTooltip_Hide)
+		f.clearPin:Hide()
 	end
 	return f
 end
@@ -520,6 +543,9 @@ function ns.QuestListUI_Draw(f, sections, total, speaking)
 		edge:SetShown(db.background ~= "none")
 	end
 	f.count:SetText(tostring(total or 0))
+	if f.clearPin then
+		f.clearPin:SetShown(ns.OwnTargetTracked() and true or false)
+	end
 	local levelW = db.level == "hidden" and 0 or LEVEL_W
 	local textX = MARK_W + 3 + levelW + (levelW > 0 and 5 or 0) -- inside a row
 	local objX = ROW_INSET + textX + 2

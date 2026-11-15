@@ -11,7 +11,7 @@ return {
 		-- The launch set (spec: "Launch set").
 		"Modules/Cursor/", "Modules/Mail/", "Modules/Upkeep/", "Modules/Loot/", "Modules/Value/", "Modules/Flight/",
 		"Modules/Fishing/", "Modules/Drawers/", "Modules/Nameplates/", "Modules/Chat/", "Modules/Autocorrect/", "Modules/Social/",
-		"Modules/Share/", "Modules/AFK/", "Modules/Games/", "Modules/Quests/", "Modules/Recent/", "Modules/Minimap/",
+		"Modules/Share/", "Modules/AFK/", "Modules/Games/", "Modules/Quests/", "Modules/Recent/", "Modules/Minimap/", "Modules/SquareMinimap/",
 		"Modules/NextUp/",
 		-- docs/superpowers/specs/2026-11-05-tomte-forever-all-modules.md: everything else that can work there.
 		"Modules/Bags/", "Modules/Counts/", "Modules/Mount/", "Modules/Teleports/", "Modules/Alts/",
@@ -72,7 +72,7 @@ return {
 			"Modules/Sources/Data.lua", "Modules/Sources/Page.lua", "Modules/Sources/Sources.lua",
 			-- docs/superpowers/specs/2026-11-15-tomte-world-map-design.md: uses the Quest list's and Leveling's reads.
 			"Modules/Map/Data.lua", "Modules/Map/Art.lua", "Modules/Map/Mini.lua", "Modules/Map/Pins.lua",
-			"Modules/Map/Window.lua", "Modules/Map/Map.lua",
+			"Modules/Map/QuestTab.lua", "Modules/Map/Side.lua", "Modules/Map/Window.lua", "Modules/Map/Map.lua",
 		} },
 	},
 }

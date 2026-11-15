@@ -154,6 +154,45 @@ test("levels fade into each other", function()
 	eq(c, 1); eq(z, 1)
 end)
 
+test("pins grow close up", function()
+	eq(ns.Map_PinGrow(1, 1.6), 1); eq(ns.Map_PinGrow(8, 1.6), 1)
+	near(ns.Map_PinGrow(16, 1.6), 1.3, "halfway in log space"); near(ns.Map_PinGrow(64, 1.6), 1.6)
+	near(ns.Map_PinGrow(64, 1.3), 1.3)
+end)
+
+test("pins that overlap gather and ring round their middle", function()
+	local spots = ns.Map_Clusters({ { x = 0, y = 0, key = 2 }, { x = 5, y = 0, key = 1 }, { x = 12, y = 0, key = 3 },
+		{ x = 200, y = 0, key = 4 } }, 16)
+	eq(spots[4].tx, 200, "alone: where it is"); eq(spots[4].ty, 0)
+	for i = 1, 3 do
+		for j = i + 1, 3 do
+			local d = math.sqrt((spots[i].tx - spots[j].tx) ^ 2 + (spots[i].ty - spots[j].ty) ^ 2)
+			assert(d > 15, ("pins %d and %d still overlap (%.1f)"):format(i, j, d))
+		end
+	end
+	near(spots[2].tx, 17 / 3, "the lowest key on top, over the middle")
+	local x1, y1 = ns.Map_FanOffset(1, 2, 16)
+	local x2, y2 = ns.Map_FanOffset(2, 2, 16)
+	near(math.sqrt((x1 - x2) ^ 2 + (y1 - y2) ^ 2), 16, "neighbours a gap apart")
+	eq(ns.Map_FanOffset(1, 1, 16), 0)
+end)
+
+test("a flight: close stays in, far rises out and comes back in, in one move", function()
+	local from = { u = 0.5, v = 0.5, zoom = 8 }
+	local f = ns.Map_Flight(from, { u = 0.51, v = 0.5, zoom = 16 }, 800, 600, 0.8, 1000, 500, 1)
+	eq(f.rise, 0, "close by"); eq(f.zoom, 16)
+	from = { u = 0.2, v = 0.5, zoom = 16 }
+	f = ns.Map_Flight(from, { u = 0.8, v = 0.5, zoom = 16 }, 800, 600, 0.8, 1000, 500, 1)
+	assert(f.rise > 2, "far: out until both fit")
+	assert(f.time >= 0.45 and f.time <= 2)
+	local u, v, zoom = ns.Map_FlightAt(from, f, 0)
+	near(u, 0.2); near(zoom, 16)
+	u, v, zoom = ns.Map_FlightAt(from, f, 0.5)
+	near(u, 0.5, "halfway across at the middle"); assert(zoom < 3, "zoomed out in the middle")
+	u, v, zoom = ns.Map_FlightAt(from, f, 1)
+	near(u, 0.8); near(zoom, 16)
+end)
+
 test("pins further south drawn on top", function()
 	local order = ns.Map_DrawOrder({ { y = 0.5 }, { y = 0.2 }, { y = 0.5 }, { y = 0.9 } })
 	eq(order[1], 2); eq(order[2], 1); eq(order[3], 3, "a tie keeps its order"); eq(order[4], 4)

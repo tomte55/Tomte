@@ -261,6 +261,17 @@ function ns.TrackPin(mapID, x, y)
 	end)
 end
 
+-- Takes away the map pin you placed and its tracking, as the game's map does when you Ctrl-click it
+-- (WaypointLocationDataProviderMixin:HandleClick): the arrow and the Quest list's follow go back to your quests.
+function ns.ClearOwnPin()
+	ns.SafeTrack(function()
+		C_Map.ClearUserWaypoint()
+		if C_SuperTrack and C_SuperTrack.SetSuperTrackedUserWaypoint then
+			C_SuperTrack.SetSuperTrackedUserWaypoint(false)
+		end
+	end)
+end
+
 -- Something of the player's own is tracked: a map pin they placed (tracked or not), their corpse, or any other target
 -- that isn't a quest. Widgets that pick the active quest by themselves (Quest list's and Next quests' follow) leave it
 -- alone then: making a quest active drops the pin's tracking (LevelingPage_MakeActive).
@@ -508,7 +519,10 @@ _G["BINDING_NAME_CLICK TomteHunterAspect:LeftButton"] = ns.FOREVER and "Put on y
 	or "Put on your aspect (World of Warcraft: Forever)"
 _G["BINDING_NAME_CLICK TomteQuestItem:LeftButton"] = ns.FOREVER and "Use quest item"
 	or "Use quest item (World of Warcraft: Forever)"
-BINDING_NAME_TOMTE_MAP = ns.FOREVER and "Tomte map" or "Tomte map (World of Warcraft: Forever)"
+_G["BINDING_NAME_CLICK TomteMapButton:LeftButton"] = ns.FOREVER and "Tomte map"
+	or "Tomte map (World of Warcraft: Forever)"
+_G["BINDING_NAME_CLICK TomteMapButton:RightButton"] = ns.FOREVER and "Tomte map with quest log"
+	or "Tomte map with quest log (World of Warcraft: Forever)"
 
 -- A key binding of moduleKey's: fn runs while that module is on; while it's off the key says so.
 function ns.Binding_Add(name, moduleKey, fn)

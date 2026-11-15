@@ -1,21 +1,24 @@
 local addonName, ns = ...
 
--- Quest list: the active quest (ns.ActiveQuest_ID) on the minimap: a ring on its spot (on the edge while it's out of
--- view, a "?" once it's ready to hand in) and its area, drawn by our own QuestPOIFrames since the game only draws the
--- area of its own active quest (and making ours that one taints, see ns.ActiveQuest_Follow). Optionally the other
--- quests' spots too. Plain frames on the minimap, no mouse. Geometry in Core/MinimapData.lua. Started from QuestList.lua.
+-- Quest list: the active quest (ns.ActiveQuest_ID) on the minimap: the game's quest button on its spot, as the Tomte map
+-- draws it (Core/QuestPin.lua; an arrow on the edge while it's out of view, the turn-in mark once it's ready) and its
+-- area, drawn by our own QuestPOIFrames since the game only draws the area of its own active quest (and making ours
+-- that one taints, see ns.ActiveQuest_Follow). Optionally the other quests' spots too. Plain frames on the minimap, no mouse. Geometry in Core/MinimapData.lua. Started from QuestList.lua.
 
 local RING = ns.Theme.MEDIA .. "Gather\\Ring" -- a thin white ring, tinted (also Gather's pins)
 local TURN_IN = "Interface\\GossipFrame\\ActiveQuestIcon" -- the gold "?"
 local ARROW = "Interface\\Minimap\\MinimapArrow" -- points up at rotation 0; tinted, it points at a quest out of view
-local PIN = 18 -- pixels: the active quest's ring
-local OTHER = 10 -- pixels: other quests' rings
+local PIN = 16 -- pixels: the active quest's button (its art is larger: Core/QuestPin.lua)
+local OTHER = 12 -- pixels: other quests' buttons
 local OTHER_ALPHA = 0.7
 local STRIP_PX = 4 -- pixels per clip strip standing in for a round minimap (ns.Mini_Strips); 12 strips looked square
 local AREA_FILL = "Interface\\WorldMap\\UI-QuestBlob-Inside"
 local AREA_BORDER = "Interface\\WorldMap\\UI-QuestBlob-Outside"
-local AREA_FILL_ALPHA, AREA_BORDER_ALPHA = 128, 192 -- of 255, as the map's own (QuestBlobPinMixin:OnLoad)
-local PICK = 1 -- seconds between reading the quests' spots
+-- Of 255: lighter than the game's own (128, 192 in QuestBlobPinMixin:OnLoad), which hid the small minimap's terrain.
+-- The Tomte map uses the same (Modules/Map/Pins.lua).
+local AREA_FILL_ALPHA, AREA_BORDER_ALPHA = 56, 128
+local PICK = 1 -- seconds between checking the minimap's shape, rotation and your map (the quests' spots are read
+-- again only when the quest log, the active quest or your map changes: reading them made most of this file's garbage)
 local MAP_ZONE = 3 -- Enum.UIMapType.Zone: quest areas are drawn on zone maps
 
 local UI = ns.UI
@@ -28,9 +31,17 @@ local stripsFor -- "round:half" or "square:half": the shape the strips were laid
 local points = {} -- [questID] = world point { x, y, continent } (Leveling's readers)
 local axes, axesMap
 local zoneMap, zoneW, zoneH -- the player's zone map and its size in yards
+local corner -- the zone map's world corners: { x0, y0, dxx, dxy, dyx, dyy, continent } (top left, then per unit of
+-- map x and of map y), so your world point comes from your map spot without the game making vectors every frame
 local blobQuest, blobMap, blobW -- what the area frames last drew, and how wide
 local pickAt = 0
+local pointsDirty = true -- the quests' spots need reading again
+local pointsMap -- the map they were read for
+local ready = {} -- [questID] = ready to hand in, read with the spots
 local round, rotate = true, false
+local you, youX, youY, youMap -- your world point, and the zone map spot it was read at (read again once you move)
+local facing, ppy -- for Spot, set each frame
+local lastPx, lastPy, lastW -- what the area strips were last scrolled for
 
 local function DB()
 	return ns.QuestList_DB()
@@ -70,12 +81,22 @@ local function NewPin(size)
 	return pin
 end
 
--- A ring, or the gold "?" for a quest ready to hand in.
-local function Dress(pin, ready, role)
+-- The game's quest button (Core/QuestPin.lua), else a ring or the gold "?" for a quest ready to hand in. Done again
+-- only when that changes.
+local function Dress(pin, isReady, role)
+	if pin.ready == isReady and pin.role == role and not pin.arrow:IsShown() then
+		return
+	end
+	pin.ready, pin.role = isReady, role
+	if ns.QuestPin_Look(pin, pin:GetWidth(), role == "accent", isReady) then
+		pin.ring:Hide()
+		pin.mark:Hide()
+		return
+	end
 	pin.ring:SetTexture(RING)
 	pin.ring:SetVertexColor(UI.Color(role))
-	pin.ring:SetShown(not ready)
-	pin.mark:SetShown(ready)
+	pin.ring:SetShown(not isReady)
+	pin.mark:SetShown(isReady)
 end
 
 -- A strip is a scroll frame (it clips) whose scroll child holds the area: as you walk the area is scrolled, never moved,
@@ -120,6 +141,7 @@ local function LayStrips(half)
 		strips[i].frame:Hide()
 	end
 	blobQuest = nil -- drawn again into the strips now shown
+	lastPx = nil
 end
 
 local function HideArea()
@@ -138,6 +160,10 @@ local function DrawArea(questID, px, py, ppy)
 	-- Sized in pixels, never scaled. A new size (the minimap zoomed, another zone or quest) is drawn at once.
 	local w, h = zoneW * ppy, zoneH * ppy
 	local redraw = questID ~= blobQuest or zoneMap ~= blobMap or w ~= blobW
+	if not redraw and px == lastPx and py == lastPy and w == lastW then
+		return -- standing still: every strip is where it was
+	end
+	lastPx, lastPy, lastW = px, py, w
 	blobQuest, blobMap, blobW = questID, zoneMap, w
 	-- The area's top left sits at (-px * w, py * h) from the minimap's centre; each strip scrolls to show its part.
 	for _, strip in ipairs(strips) do
@@ -177,13 +203,33 @@ local function Pick()
 		if not (zoneW and zoneW > 0) then
 			zoneMap = nil
 		end
+		corner = nil
+		if zoneMap then
+			local continent, p00 = C_Map.GetWorldPosFromMapPos(zoneMap, CreateVector2D(0, 0))
+			local _, p10 = C_Map.GetWorldPosFromMapPos(zoneMap, CreateVector2D(1, 0))
+			local _, p01 = C_Map.GetWorldPosFromMapPos(zoneMap, CreateVector2D(0, 1))
+			if continent and p00 and p10 and p01 then
+				local x0, y0 = p00:GetXY()
+				local x1, y1 = p10:GetXY()
+				local x2, y2 = p01:GetXY()
+				corner = { x0, y0, x1 - x0, y1 - y0, x2 - x0, y2 - y0, continent }
+			end
+		end
+		you = nil
 	end
 	local best = C_Map.GetBestMapForUnit("player")
 	best = best and ns.Readable(best) and best or nil
-	points = best and ns.LevelingRead_QuestPoints(best) or {}
-	local quest = Quest()
-	if quest and not points[quest] then
-		points[quest] = ns.LevelingRead_HandPoint(quest) or nil
+	if pointsDirty or best ~= pointsMap then
+		pointsDirty, pointsMap = false, best
+		points = best and ns.LevelingRead_QuestPoints(best) or {}
+		local quest = Quest()
+		if quest and not points[quest] then
+			points[quest] = ns.LevelingRead_HandPoint(quest) or nil
+		end
+		wipe(ready)
+		for id in pairs(points) do
+			ready[id] = Ready(id) and true or false
+		end
 	end
 	if best ~= axesMap then
 		-- A cave or building map may have no world position: the zone's axes then.
@@ -204,24 +250,22 @@ local function HideAll()
 	HideArea()
 end
 
+-- A world point's offset from you on the minimap, in pixels, or nil on another continent.
+local function Spot(point)
+	if point.continent ~= you.continent then
+		return nil
+	end
+	local e, n = ns.Mini_WorldOffset(point.x - you.x, point.y - you.y, axes)
+	e, n = ns.Mini_Turn(e, n, facing)
+	return e * ppy, n * ppy
+end
+
 local function Update()
 	if GetTime() >= pickAt then
 		Pick()
 	end
 	local radius = C_Minimap.GetViewRadius()
-	local you = ns.LevelingRead_You()
-	if not (you and axes and radius and radius > 0) then
-		HideAll()
-		return
-	end
-	local half = Minimap:GetWidth() / 2
-	local ppy = half / radius -- pixels per yard
-	local facing = rotate and Facing() or nil
-	local quest = Quest()
-	local db = DB()
-
-	-- The area, on the player's zone map.
-	LayStrips(half)
+	-- Your spot on the zone map: read every frame (one call); your world point only once it moved.
 	local pos = zoneMap and C_Map.GetPlayerMapPosition(zoneMap, "player")
 	local px, py
 	if pos then
@@ -230,17 +274,33 @@ local function Update()
 			px, py = nil, nil
 		end
 	end
+	if px and corner then
+		-- From the zone map's corners: one table, filled again as you move.
+		if px ~= youX or py ~= youY or zoneMap ~= youMap or not you then
+			you = you or {}
+			you.x = corner[1] + px * corner[3] + py * corner[5]
+			you.y = corner[2] + px * corner[4] + py * corner[6]
+			you.continent = corner[7]
+			youX, youY, youMap = px, py, zoneMap
+		end
+	elseif not px or px ~= youX or py ~= youY or zoneMap ~= youMap then
+		you, youX, youY, youMap = ns.LevelingRead_You(), px, py, zoneMap
+	end
+	if not (you and axes and radius and radius > 0) then
+		HideAll()
+		return
+	end
+	local half = Minimap:GetWidth() / 2
+	ppy = half / radius -- pixels per yard
+	facing = rotate and Facing() or nil
+	local quest = Quest()
+	local db = DB()
+
+	-- The area, on the player's zone map.
+	LayStrips(half)
 	DrawArea(quest, px, py, ppy)
 
 	-- The pins.
-	local function Spot(point)
-		if point.continent ~= you.continent then
-			return nil
-		end
-		local e, n = ns.Mini_WorldOffset(point.x - you.x, point.y - you.y, axes)
-		e, n = ns.Mini_Turn(e, n, facing)
-		return e * ppy, n * ppy
-	end
 	local used = 0
 	if db.minimapOthers then
 		local edge = half - OTHER / 2
@@ -251,7 +311,7 @@ local function Update()
 					used = used + 1
 					local pin = others[used] or NewPin(OTHER)
 					others[used] = pin
-					Dress(pin, Ready(id), "frame")
+					Dress(pin, ready[id], "frame")
 					pin:SetAlpha(OTHER_ALPHA)
 					pin:SetPoint("CENTER", holder, "CENTER", x, y)
 					pin:Show()
@@ -279,7 +339,7 @@ local function Update()
 	activePin:SetFrameLevel(holder:GetFrameLevel() + 3)
 	local inner = half - PIN / 2
 	if ns.Mini_Inside(x, y, inner, round) then
-		Dress(activePin, Ready(quest), "accent")
+		Dress(activePin, ready[quest] or false, "accent")
 		activePin.arrow:Hide()
 	else
 		-- Out of view: an arrow on the edge pointing at it.
@@ -287,6 +347,7 @@ local function Update()
 		x, y = ns.Mini_Clamp(x, y, inner, round)
 		activePin.ring:Hide()
 		activePin.mark:Hide()
+		ns.QuestPin_Show(activePin, false)
 		activePin.arrow:SetRotation(angle)
 		activePin.arrow:SetVertexColor(UI.Color("accent"))
 		activePin.arrow:Show()
@@ -319,19 +380,19 @@ local function Apply()
 		holder:SetScript("OnUpdate", ns.Perf_Wrap(OnUpdate, "OnUpdate"))
 	end
 	holder:SetFrameLevel(Minimap:GetFrameLevel() + 4)
-	pickAt, blobQuest, stripsFor = 0, nil, nil
+	pickAt, blobQuest, stripsFor, pointsDirty = 0, nil, nil, true
 	holder:Show()
 end
 
 ns.ActiveQuest_OnChange(function()
 	if active then
-		pickAt, blobQuest = 0, nil
+		pickAt, blobQuest, pointsDirty = 0, nil, true
 	end
 end)
 
 -- The quest log changed: spots are read again and the area drawn again (a finished quest's area changes).
 function ns.QuestListMini_QuestsChanged()
-	pickAt, blobQuest = 0, nil
+	pickAt, blobQuest, pointsDirty = 0, nil, true
 end
 
 function ns.QuestListMini_Start()
