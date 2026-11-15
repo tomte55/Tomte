@@ -33,10 +33,22 @@ function ns.Map_Fit(viewW, viewH, W, H)
 end
 
 -- The view keeps u, v on the canvas and the zoom within its range.
-function ns.Map_Clamp(view, minZoom, maxZoom)
+-- With the view's size (vw, vh pixels, fit, canvas W x H) the canvas also keeps covering the view: no empty edge
+-- shows while it's larger than the view, and it sits in the middle while it's smaller.
+function ns.Map_Clamp(view, minZoom, maxZoom, vw, vh, fit, W, H)
 	view.zoom = math.min(math.max(view.zoom, minZoom), maxZoom)
-	view.u = math.min(math.max(view.u, 0), 1)
-	view.v = math.min(math.max(view.v, 0), 1)
+	local function Side(c, viewPx, total)
+		if not viewPx then
+			return math.min(math.max(c, 0), 1)
+		end
+		local half = viewPx / 2 / (fit * view.zoom) / total -- half the view, as a share of the canvas
+		if half >= 0.5 then
+			return 0.5
+		end
+		return math.min(math.max(c, half), 1 - half)
+	end
+	view.u = Side(view.u, vw, W)
+	view.v = Side(view.v, vh, H)
 	return view
 end
 
@@ -172,6 +184,41 @@ function ns.Map_RunPieces(run, totalW, tileW, tileH)
 	return pieces
 end
 
+-- Minimap tiles -------------------------------------------------------------------------------------------------------
+
+local MINI_TILE = 1600 / 3 -- yards across one terrain (and minimap) tile
+local MINI_GRID = 64
+
+-- From world yards to a spot on a map, given the world points of the map's corners 0,0, 1,0 and 0,1 (each { x, y },
+-- as C_Map.GetWorldPosFromMapPos gives them). Returns a function (wx, wy) -> x, y (0..1 on the map), or nil when the
+-- corners don't span the map.
+function ns.Map_FromWorld(w00, w10, w01)
+	local ax, ay = w10.x - w00.x, w10.y - w00.y -- world change across the map's x
+	local bx, by = w01.x - w00.x, w01.y - w00.y -- and its y
+	local det = ax * by - ay * bx
+	if math.abs(det) < 1e-9 then
+		return nil
+	end
+	return function(wx, wy)
+		local dx, dy = wx - w00.x, wy - w00.y
+		return (dx * by - dy * bx) / det, (ax * dy - ay * dx) / det
+	end
+end
+
+-- A minimap tile's corners in world yards: key = x * 64 + y (x running east, y south). Returns the north-west corner
+-- and the south-east one: wx1, wy1, wx2, wy2 (world x grows north, y west; tile 32, 32 starts at 0, 0).
+function ns.Map_MiniTileWorld(key)
+	local x, y = math.floor(key / MINI_GRID), key % MINI_GRID
+	local north, west = (32 - y) * MINI_TILE, (32 - x) * MINI_TILE
+	return north, west, north - MINI_TILE, west - MINI_TILE
+end
+
+-- 0..1 between from and to, eased (the minimap tiles fade in as you zoom).
+function ns.Map_Fade(v, from, to)
+	local t = math.min(math.max((v - from) / (to - from), 0), 1)
+	return t * t * (3 - 2 * t)
+end
+
 -- Which art shows at a zoom: "world" (the world map's own picture), "continent", "zone" (continents with zones over
 -- them). continentZoom, zoneZoom: where each starts.
 function ns.Map_Level(zoom, continentZoom, zoneZoom)
@@ -181,4 +228,28 @@ function ns.Map_Level(zoom, continentZoom, zoneZoom)
 		return "continent"
 	end
 	return "world"
+end
+
+-- How much of the continents' and the zones' art shows at a zoom (0..1 each): each fades in across its start, from
+-- start / band to start * band (in log space, as the zoom eases), so one level melts into the next instead of popping in.
+function ns.Map_LevelAlphas(zoom, continentZoom, zoneZoom, band)
+	local z, b = math.log(zoom), math.log(band)
+	local c, s = math.log(continentZoom), math.log(zoneZoom)
+	return ns.Map_Fade(z, c - b, c + b), ns.Map_Fade(z, s - b, s + b)
+end
+
+-- The order pins are drawn in: those further south (larger y) on top, as on the game's map, so overlapping pins
+-- always stack the same way. spots: { y = ... } each; returns a list of their indexes, the one to draw first first.
+function ns.Map_DrawOrder(spots)
+	local order = {}
+	for i = 1, #spots do
+		order[i] = i
+	end
+	table.sort(order, function(a, b)
+		if spots[a].y ~= spots[b].y then
+			return spots[a].y < spots[b].y
+		end
+		return a < b
+	end)
+	return order
 end

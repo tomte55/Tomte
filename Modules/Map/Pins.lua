@@ -11,7 +11,19 @@ local DOT = "Interface\\Buttons\\WHITE8X8"
 local TURN_IN = "Interface\\GossipFrame\\ActiveQuestIcon" -- the gold "?"
 local TAXI = "Interface\\TaxiFrame\\UI-Taxi-Icon-Green" -- if a node's atlas isn't on this client
 local WAYPOINT_ATLAS = "Waypoint-MapPin-Tracked"
-local SIZE = { arrow = 28, party = 10, quest = 14, active = 20, taxi = 16, dungeon = 20, waypoint = 22 } -- pixels
+local SIZE = { arrow = 28, party = 10, quest = 18, active = 22, taxi = 16, dungeon = 20, waypoint = 22 } -- pixels
+-- Quest pins in the game's own look (Blizzard_POIButton: POIButton.lua, POIButton.xml): a round button, the active
+-- quest's one lit and glowing, an icon on it; its button art is 32 pixels on a 20-pixel button, the glow 50.
+local QUEST_ATLAS = {
+	button = "UI-QuestPoi-QuestNumber", activeButton = "UI-QuestPoi-QuestNumber-SuperTracked",
+	glow = "UI-QuestPoi-OuterGlow", highlight = "UI-QuestPoi-InnerGlow",
+	progress = "Quest-In-Progress-Icon-yellow", activeProgress = "Quest-In-Progress-Icon-Brown",
+	ready = "UI-QuestIcon-TurnIn-Normal",
+}
+local QUEST_ART, QUEST_GLOW, QUEST_ICON = 32 / 20, 50 / 20, 0.8 -- sizes as shares of the pin
+-- Frame levels over the pin layer: places, then quests (one level each, so overlapping ones always stack the same
+-- way), then the map pin, your party and you.
+local LEVEL = { taxi = 2, dungeon = 3, quest = 10, waypoint = 200, party = 210, arrow = 220 }
 local AREA_FILL = "Interface\\WorldMap\\UI-QuestBlob-Inside"
 local AREA_BORDER = "Interface\\WorldMap\\UI-QuestBlob-Outside"
 local AREA_FILL_ALPHA, AREA_BORDER_ALPHA = 128, 192 -- of 255, as the map's own (QuestBlobPinMixin:OnLoad)
@@ -104,6 +116,41 @@ local function Disc(pin, role)
 	pin.ring:SetTexture(RING)
 	pin.ring:SetVertexColor(UI.Color("frameDark"))
 	pin.ring:Show()
+end
+
+-- The game's quest button art on a pin (made once per pin); false when this client lacks it.
+local questLook
+local function QuestLook(pin, active, ready)
+	if questLook == nil then
+		questLook = C_Texture.GetAtlasInfo(QUEST_ATLAS.button) ~= nil
+	end
+	if not questLook then
+		return false
+	end
+	if not pin.button then
+		pin.glow = pin:CreateTexture(nil, "BACKGROUND")
+		pin.glow:SetPoint("CENTER")
+		pin.glow:SetAtlas(QUEST_ATLAS.glow)
+		pin.glow:SetBlendMode("ADD")
+		pin.button = pin:CreateTexture(nil, "BORDER")
+		pin.button:SetPoint("CENTER")
+		pin.mark = pin:CreateTexture(nil, "ARTWORK", nil, 1)
+		pin.mark:SetPoint("CENTER")
+		pin.lit = pin:CreateTexture(nil, "HIGHLIGHT")
+		pin.lit:SetPoint("CENTER")
+		pin.lit:SetAtlas(QUEST_ATLAS.highlight)
+		pin.lit:SetBlendMode("ADD")
+	end
+	local size = pin:GetWidth()
+	pin.glow:SetSize(size * QUEST_GLOW, size * QUEST_GLOW)
+	pin.glow:SetShown(active)
+	pin.button:SetSize(size * QUEST_ART, size * QUEST_ART)
+	pin.button:SetAtlas(active and QUEST_ATLAS.activeButton or QUEST_ATLAS.button)
+	pin.lit:SetSize(size * QUEST_ART, size * QUEST_ART)
+	pin.mark:SetSize(size * QUEST_ICON, size * QUEST_ICON)
+	pin.mark:SetAtlas(ready and QUEST_ATLAS.ready or active and QUEST_ATLAS.activeProgress or QUEST_ATLAS.progress)
+	pin.icon:SetTexture(nil)
+	return true
 end
 
 local function Icon(pin, atlas, texture)
@@ -276,7 +323,7 @@ local function DrawAreas(force)
 		frame:ClearAllPoints()
 		frame:SetPoint("TOPLEFT", canvas, "TOPLEFT", zone.box.l, -zone.box.t)
 		frame:SetSize(zone.box.w, zone.box.h)
-		frame:SetFrameLevel(zone.frame:GetFrameLevel() + 1)
+		frame:SetFrameLevel(canvas:GetFrameLevel() + 30) -- over the zones' art and the minimap tiles (Mini.lua, 20)
 		frame:SetMapID(zone.mapID)
 		frame:DrawNone()
 		frame.drawn, frame.zone = quest, zone
@@ -320,20 +367,25 @@ local function LayoutQuests(toView)
 		return
 	end
 	local active = ns.ActiveQuest_ID()
-	for _, q in ipairs(quests) do
+	local order = ns.Map_DrawOrder(quests)
+	for rank, i in ipairs(order) do
+		local q = quests[i]
 		local isActive = q.questID == active
 		local pin = Acquire(isActive and "active" or "quest")
-		if q.ready then
-			Icon(pin, nil, TURN_IN)
-			if isActive then
-				pin.ring:SetTexture(RING)
-				pin.ring:SetVertexColor(UI.Color("accent"))
-				pin.ring:Show()
+		if not QuestLook(pin, isActive, q.ready) then
+			if q.ready then
+				Icon(pin, nil, TURN_IN)
+				if isActive then
+					pin.ring:SetTexture(RING)
+					pin.ring:SetVertexColor(UI.Color("accent"))
+					pin.ring:Show()
+				end
+			else
+				Disc(pin, isActive and "accent" or "warning")
 			end
-		else
-			Disc(pin, isActive and "accent" or "warning")
 		end
-		pin:SetFrameLevel(layer:GetFrameLevel() + (isActive and 6 or 4))
+		-- One level each, south on top; the active quest over all of them.
+		pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.quest + (isActive and #quests + 1 or rank))
 		pin.questID, pin.ready, pin.tip, pin.click = q.questID, q.ready, QuestTip, QuestClick
 		Put(pin, q.mapID, q.x, q.y, toView)
 	end
@@ -350,7 +402,7 @@ local function LayoutPlaces(toView)
 			local pin = Acquire("taxi")
 			Icon(pin, t.atlas, TAXI)
 			pin:SetAlpha(t.undiscovered and UNDISCOVERED_ALPHA or 1)
-			pin:SetFrameLevel(layer:GetFrameLevel() + 2)
+			pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.taxi)
 			pin.name, pin.note, pin.tip = t.name, nil, NameTip
 			Put(pin, t.mapID, t.x, t.y, toView)
 		end
@@ -359,7 +411,7 @@ local function LayoutPlaces(toView)
 		for _, d in ipairs(dungeons or {}) do
 			local pin = Acquire("dungeon")
 			Icon(pin, d.atlas, "Interface\\Minimap\\Dungeon")
-			pin:SetFrameLevel(layer:GetFrameLevel() + 3)
+			pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.dungeon)
 			pin.name, pin.note, pin.tip = d.name, d.description, NameTip
 			Put(pin, d.mapID, d.x, d.y, toView)
 		end
@@ -371,7 +423,7 @@ local function LayoutWaypoint(toView)
 	if waypoint then
 		local pin = Acquire("waypoint")
 		Icon(pin, WAYPOINT_ATLAS, RING)
-		pin:SetFrameLevel(layer:GetFrameLevel() + 7)
+		pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.waypoint)
 		pin.name, pin.note, pin.tip = MAP_PIN or "Map pin", nil, NameTip
 		Put(pin, waypoint.mapID, waypoint.x, waypoint.y, toView)
 	end
@@ -396,7 +448,7 @@ local function LayoutUnits(toView)
 		arrow.tex:SetTexture(ARROW)
 	end
 	arrow:SetSize(SIZE.arrow * db.pinScale, SIZE.arrow * db.pinScale)
-	arrow:SetFrameLevel(layer:GetFrameLevel() + 9)
+	arrow:SetFrameLevel(layer:GetFrameLevel() + LEVEL.arrow)
 	local mapID, x, y = Where("player")
 	if mapID then
 		arrow:Show()
@@ -433,7 +485,7 @@ local function LayoutUnits(toView)
 				if color then
 					pin.icon:SetVertexColor(color.r, color.g, color.b)
 				end
-				pin:SetFrameLevel(layer:GetFrameLevel() + 8)
+				pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.party)
 				pin.name, pin.note, pin.tip = UnitName(unit), nil, NameTip
 				Put(pin, m, ux, uy, toView)
 			end

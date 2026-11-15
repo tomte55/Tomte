@@ -2,16 +2,22 @@ local addonName, ns = ...
 
 -- Tomte map: the art. The world map's own picture, both continents and every zone, each a frame on the canvas in its
 -- own art pixels, scaled to where the world map puts that map (C_Map.GetMapRectOnMap). A zone's picture also shows its
--- neighbours and a parchment border, so each zone is cut to its own shape: its art is sampled on a grid, the game
--- says which zone owns each point (C_Map.GetMapInfoAtPosition on the continent) and only the zone's own cells are
--- drawn, as horizontal runs. Zones also get the parts of them you've explored (C_MapExplorationInfo), as the game's
--- map does. Built on first sight, a few hundred samples and textures a frame (setting hundreds of files at once
--- hitches; OpenMap measured about 35 ms for 300), hidden while out of view. The loader is a child of the canvas, so it pauses while the window is closed and
--- goes on when it opens. Geometry in Data.lua; the view in Window.lua.
+-- neighbours and a parchment border. With the Tomte_MapArt addon a zone's picture is drawn through its soft territory
+-- mask (its land and what lies nearer it than any other zone's, tools/mapart.py), its explored-area pieces over it
+-- (every one, or only those you've explored: Map.lua's "whole map" setting); without it, the zone is drawn from
+-- its explored-area pieces, every one of them (Data/Forever/MapReveal.lua), which cover only its own land. A zone
+-- without pieces there is cut to its own shape: its art is sampled on a grid, the game says which zone owns each point
+-- (C_Map.GetMapInfoAtPosition on the continent) and only the zone's own cells are drawn, as horizontal runs (blocky:
+-- the game only knows rough shapes), with the parts of it you've explored (C_MapExplorationInfo) over it, as the
+-- game's map does. Built on first sight, a few hundred samples and textures a frame (setting hundreds of files at once
+-- hitches; OpenMap measured about 35 ms for 300), hidden while out of view. The loader is a child of the canvas, so it
+-- pauses while the window is closed and goes on when it opens. Geometry in Data.lua; the view in Window.lua.
 
 local LOAD_PER_FRAME = 48 -- texture files set per frame while art loads
 local CELL = 12 -- art pixels: the grid a zone is cut on (about 1.2% of a zone's width; finer is smoother and slower)
 local SAMPLES_PER_FRAME = 500 -- GetMapInfoAtPosition calls per frame while zones are cut
+local ART_ADDON = "Tomte_MapArt" -- the zone masks, made by tools/mapart.py (optional, shipped on its own)
+local MASKS = "Interface\\AddOns\\Tomte_MapArt\\Masks\\" -- then Zone<uiMapArtID> or Continent<uiMapArtID>
 local OVERLAY_TILE = 256 -- explored-area pieces are cut in 256-pixel files (MapExplorationPinMixin)
 local MAP_CONTINENT, MAP_ZONE = 2, 3 -- Enum.UIMapType
 local FILTER = "TRILINEAR" -- mipmapped: the art is drawn far smaller than its files at most zooms
@@ -27,6 +33,7 @@ local cuts = {} -- zones being cut, first first: { region, routine }
 local owners = {} -- [mapID at a point] = the zone it belongs to (caves and sub-zones belong to theirs), false: none
 local budget = 0 -- samples left this frame
 local loader
+local revealAll = true -- Map.lua's "whole map" setting: every part of a masked zone drawn, explored or not
 
 -- Maps on the canvas -----------------------------------------------------------------------------------------------
 
@@ -131,22 +138,44 @@ local function AddTile(region, file, tile, layer, sublevel, ox, oy)
 	return tex
 end
 
--- The explored parts of a zone, drawn over its base art.
+-- One explored-area piece at x, y on its zone's art, w x h, its files in order (256-pixel tiles); masked like the
+-- zone's picture when it has a mask.
+local function AddPiece(region, x, y, w, h, fileAt)
+	for _, tile in ipairs(ns.Map_Tiles(w, h, OVERLAY_TILE, OVERLAY_TILE, true)) do
+		local file = fileAt(tile.index)
+		if file then
+			local tex = AddTile(region, file, tile, "ARTWORK", 0, x, y)
+			if region.mask then
+				tex:AddMaskTexture(region.mask)
+			end
+			region.overlays[#region.overlays + 1] = tex
+		end
+	end
+end
+
+-- The parts of a zone drawn over its base art: the ones you've explored, as the game's map does, or with "the whole
+-- map" on (and a zone drawn through its mask) every one of them (Data/Forever/MapReveal.lua).
 local function BuildOverlays(region)
 	for _, tex in ipairs(region.overlays or {}) do
 		tex:Hide()
 		tex.file = nil
 	end
 	region.overlays = {}
+	local all = revealAll and region.mode == "mask" and ns.Content_Get(ns.CONTENT_FOREVER, "mapReveal")
+	local pieces = all and region.artID and all[region.artID]
+	if pieces then
+		for _, p in ipairs(pieces) do
+			AddPiece(region, p[1], p[2], p[3], p[4], function(i)
+				return p[4 + i]
+			end)
+		end
+		return
+	end
 	for _, info in ipairs(C_MapExplorationInfo.GetExploredMapTextures(region.mapID) or {}) do
 		if not info.isShownByMouseOver and info.fileDataIDs then
-			for _, tile in ipairs(ns.Map_Tiles(info.textureWidth, info.textureHeight, OVERLAY_TILE, OVERLAY_TILE, true)) do
-				local file = info.fileDataIDs[tile.index]
-				if file then
-					local tex = AddTile(region, file, tile, "ARTWORK", 0, info.offsetX, info.offsetY)
-					region.overlays[#region.overlays + 1] = tex
-				end
-			end
+			AddPiece(region, info.offsetX, info.offsetY, info.textureWidth, info.textureHeight, function(i)
+				return info.fileDataIDs[i]
+			end)
 		end
 	end
 end
@@ -221,6 +250,30 @@ local function Cut(region, layer, files)
 	end
 end
 
+-- The mask Tomte_MapArt has for a zone's or a continent's art, or nil: only while that addon is loaded and is the
+-- version Data/Forever/MapArtIndex.lua was made for (an older art addon's masks may not match).
+local artOK -- nil: not asked yet
+local function MaskFile(artID, level)
+	if artOK == nil then
+		local index = ns.Content_Get(ns.CONTENT_FOREVER, "mapArtIndex")
+		artOK = index and C_AddOns.IsAddOnLoaded(ART_ADDON)
+			and C_AddOns.GetAddOnMetadata(ART_ADDON, "Version") == tostring(index.version) and index or false
+	end
+	if not artOK then
+		return nil
+	elseif level == "zone" and artOK.masks[artID] then
+		return MASKS .. "Zone" .. artID
+	elseif level == "continent" and artOK.continents and artOK.continents[artID] then
+		return MASKS .. "Continent" .. artID
+	end
+end
+
+-- For /tomte map why: whether the art addon is loaded, its version and the version Tomte knows.
+function ns.MapArt_AddonState()
+	local index = ns.Content_Get(ns.CONTENT_FOREVER, "mapArtIndex")
+	return C_AddOns.IsAddOnLoaded(ART_ADDON), C_AddOns.GetAddOnMetadata(ART_ADDON, "Version"), index and index.version
+end
+
 -- The region's frame and textures, on first sight (a zone's after it's cut).
 local function Build(region, frameLevel)
 	local layers = C_Map.GetMapArtLayers(region.mapID)
@@ -239,7 +292,46 @@ local function Build(region, frameLevel)
 	frame:SetFrameLevel(frameLevel)
 	region.frame = frame
 	local files = C_Map.GetMapArtLayerTextures(region.mapID, 1) or {}
+	local artID = region.level ~= "world" and C_Map.GetMapArtID and C_Map.GetMapArtID(region.mapID) or nil
+	local maskFile = artID and MaskFile(artID, region.level)
+	region.artID = artID
+	if maskFile then
+		-- The whole picture through its soft mask (Tomte_MapArt): a zone's detail without frame or neighbours, fading
+		-- out at its border; a continent's land and shores without its frame, the world picture showing past them.
+		local mask = frame:CreateMaskTexture()
+		mask:SetTexture(maskFile, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+		mask:SetAllPoints(frame)
+		for _, tile in ipairs(ns.Map_Tiles(layer.layerWidth, layer.layerHeight, layer.tileWidth, layer.tileHeight)) do
+			if files[tile.index] then
+				AddTile(region, files[tile.index], tile, "BACKGROUND", 0):AddMaskTexture(mask)
+			end
+		end
+		region.cut, region.mode, region.mask = true, "mask", mask
+		if region.level == "zone" then
+			-- The picture alone lacks most of a zone's detail: the game draws it in the explored-area pieces.
+			BuildOverlays(region)
+		end
+		return
+	end
+	local reveal = region.level == "zone" and artID and ns.Content_Get(ns.CONTENT_FOREVER, "mapReveal")
+	local pieces = reveal and reveal[artID]
+	if pieces then
+		-- Drawn from its explored-area pieces only, all of them (Data/Forever/MapReveal.lua): they cover the zone's own
+		-- land, so no frame or neighbours show (its base picture had both).
+		region.overlays = {}
+		for _, p in ipairs(pieces) do
+			for _, tile in ipairs(ns.Map_Tiles(p[3], p[4], OVERLAY_TILE, OVERLAY_TILE, true)) do
+				local file = p[4 + tile.index]
+				if file then
+					region.overlays[#region.overlays + 1] = AddTile(region, file, tile, "ARTWORK", 0, p[1], p[2])
+				end
+			end
+		end
+		region.cut, region.mode = true, "pieces"
+		return
+	end
 	if region.level == "zone" then
+		region.mode = "cut"
 		cuts[#cuts + 1] = { region = region, routine = coroutine.create(function()
 			Cut(region, layer, files)
 		end) }
@@ -251,6 +343,16 @@ local function Build(region, frameLevel)
 			AddTile(region, files[tile.index], tile, "BACKGROUND", 0)
 		end
 	end
+end
+
+-- A capital the game doesn't flag as a city (none of the old capitals are on this client): its art has no
+-- explored-area pieces (an empty list in Data/Forever/MapReveal.lua). Drawn as a zone it covered its neighbour with its
+-- whole rectangle (Thunder Bluff over Mulgore).
+local function IsCapital(mapID)
+	local reveal = ns.Content_Get(ns.CONTENT_FOREVER, "mapReveal")
+	local artID = reveal and C_Map.GetMapArtID and C_Map.GetMapArtID(mapID)
+	local pieces = artID and reveal[artID]
+	return pieces ~= nil and #pieces == 0
 end
 
 -- The world map's layout: its picture, the continents on it and their zones. Once per session (the maps don't move).
@@ -267,7 +369,7 @@ function ns.MapArt_Init(canvasFrame, width, height, worldMapID)
 			byMap[info.mapID] = region
 			for _, child in ipairs(C_Map.GetMapChildrenInfo(info.mapID, MAP_ZONE) or {}) do
 				-- Cities are left out: their zone's art draws them, and their own rectangle would cover its neighbours.
-				local city = C_Map.IsCityMap and C_Map.IsCityMap(child.mapID)
+				local city = C_Map.IsCityMap and C_Map.IsCityMap(child.mapID) or IsCapital(child.mapID)
 				local zoneBox = not city and not byMap[child.mapID] and ns.MapArt_Box(child.mapID)
 				if zoneBox then
 					local zone = Region(child.mapID, zoneBox, "zone")
@@ -318,28 +420,51 @@ local function Show(region, on)
 	region.visible = on and region.frame ~= nil
 end
 
--- After the view moved: the art of level ("world", "continent" or "zone") that overlaps viewBox shows; the rest hides.
--- Continents stay under the zones as a backdrop.
-function ns.MapArt_Update(viewBox, level)
-	Show(world, level == "world")
-	for _, c in ipairs(continents) do
-		Show(c, level ~= "world" and ns.Map_Overlaps(c.box, viewBox))
-	end
-	for _, z in ipairs(zones) do
-		Show(z, level == "zone" and ns.Map_Overlaps(z.box, viewBox))
+-- After the view moved: the continents and zones that overlap viewBox show at the alpha this zoom gives their level
+-- (Data.lua, Map_LevelAlphas), so each level fades in over the one under it; the rest hides. Continents stay under the
+-- zones as a backdrop.
+function ns.MapArt_Update(viewBox, continentAlpha, zoneAlpha)
+	-- The world picture stays under the continents: with their masks they fade out past their shores.
+	Show(world, true)
+	for _, list in ipairs({ continents, zones }) do
+		local alpha = list == zones and zoneAlpha or continentAlpha
+		for _, r in ipairs(list) do
+			Show(r, alpha > 0 and ns.Map_Overlaps(r.box, viewBox))
+			if r.frame then
+				r.frame:SetAlpha(alpha)
+			end
+		end
 	end
 end
 
--- The game revealed more of a zone: its overlays are cut again (the shown ones now, the rest on first sight).
+local function Rebuild(region)
+	BuildOverlays(region)
+	if region.visible then
+		for _, tex in ipairs(region.overlays) do
+			Want(tex)
+		end
+	end
+end
+
+-- Map.lua's "whole map" setting: every part of each zone, or only those you've explored.
+function ns.MapArt_RevealAll(on)
+	if revealAll == on then
+		return
+	end
+	revealAll = on
+	for _, z in ipairs(zones) do
+		if z.frame and z.mode == "mask" then
+			Rebuild(z)
+		end
+	end
+end
+
+-- The game revealed more of a zone: its overlays are cut again (the shown ones now, the rest on first sight). Zones
+-- drawn from all their pieces show them all already.
 function ns.MapArt_Explored()
 	for _, z in ipairs(zones) do
-		if z.frame and z.cut then
-			BuildOverlays(z)
-			if z.visible then
-				for _, tex in ipairs(z.overlays) do
-					Want(tex)
-				end
-			end
+		if z.frame and z.cut and z.mode ~= "pieces" and not (z.mode == "mask" and revealAll) then
+			Rebuild(z)
 		end
 	end
 end

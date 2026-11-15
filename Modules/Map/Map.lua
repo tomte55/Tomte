@@ -89,6 +89,24 @@ local function Why()
 		end
 	end
 	print(("  %d maps shown, %d textures on them"):format(drawn, textures))
+	local loaded, version, known = ns.MapArt_AddonState()
+	local modes, cut = {}, {}
+	for _, z in ipairs(ns.MapArt_Zones()) do
+		if z.mode then
+			modes[z.mode] = (modes[z.mode] or 0) + 1
+		end
+		if z.mode == "cut" then
+			local info = C_Map.GetMapInfo(z.mapID)
+			cut[#cut + 1] = ("%s (map %d, art %s, parent %s)"):format(z.name or "?", z.mapID,
+				tostring(C_Map.GetMapArtID(z.mapID)), tostring(info and info.parentMapID))
+		end
+	end
+	print(("  Tomte_MapArt %s (version %s, Tomte knows %s); zones drawn: %d masked, %d from pieces, %d cut"):format(
+		loaded and "loaded" or "not loaded", tostring(version), tostring(known), modes.mask or 0, modes.pieces or 0,
+		modes.cut or 0))
+	for _, line in ipairs(cut) do
+		print("  cut: " .. line)
+	end
 end
 
 -- Options ---------------------------------------------------------------------------------------------------------------
@@ -112,6 +130,8 @@ module = ns.RegisterModule({
 		.. "M to it to use it instead of the game's map. It never touches the game's map, so it can't break it, and it "
 		.. "works in combat.",
 	enabledByDefault = false,
+	uses = { { addon = "Tomte_MapArt", why = "soft borders between zones",
+		without = "zones are drawn from their explored areas, with harder edges" } },
 	defaults = {
 		quests = true,
 		questArea = true, -- the active quest's area on its zone
@@ -119,10 +139,12 @@ module = ns.RegisterModule({
 		dungeons = true,
 		party = true,
 		pinScale = 1,
+		revealAll = true, -- every part of each zone drawn, explored or not (needs Tomte_MapArt)
 		window = false, -- { w, h, point, relPoint, x, y } once moved or resized
 	},
 	init = function(moduleDB)
 		db = moduleDB
+		ns.MapArt_RevealAll(db.revealAll)
 		ns.MapWindow_Init(db)
 	end,
 	toggle = function(on)
@@ -149,6 +171,9 @@ module = ns.RegisterModule({
 		{ type = "button", label = "Window", text = "Reset", onClick = function()
 			ns.MapWindow_ResetFrame()
 		end, tooltip = "Back in the middle of the screen at its default size." },
+		{ type = "checkbox", key = "revealAll", label = "Show the whole map", onChange = function(on)
+			ns.MapArt_RevealAll(on)
+		end, tooltip = "Draw every part of each zone, also the ones you haven't explored yet. Needs Tomte Map Art; without it the whole map always shows." },
 		{ type = "slider", key = "pinScale", label = "Icon size", min = 0.7, max = 1.6, step = 0.05,
 			format = function(v)
 				return ("%d%%"):format(math.floor(v * 100 + 0.5))

@@ -11,6 +11,7 @@ local MIN_W, MIN_H = 420, 320
 local MIN_ZOOM, MAX_ZOOM = 1, 64 -- 1: the whole world fits; 64: closer than a zone fills the window
 local CONTINENT_ZOOM = 1.6 -- the continents' own art from here (the world map's picture below)
 local ZONE_ZOOM = 3.5 -- zone art from here: a typical zone is a couple of hundred pixels wide by then
+local FADE_BAND = 1.3 -- each level fades in from its start / this to its start * this (Data.lua, Map_LevelAlphas)
 local WHEEL_STEP = 1.25 -- zoom per wheel notch
 local EASE = 14 -- zoom easing speed (per second, in log space)
 local MARGIN = 0.35 -- art is shown this much beyond the view, so it's there before it scrolls in
@@ -65,7 +66,7 @@ local function Apply()
 		return
 	end
 	fit = ns.Map_Fit(vw, vh, W, H)
-	ns.Map_Clamp(state, MIN_ZOOM, MAX_ZOOM)
+	ns.Map_Clamp(state, MIN_ZOOM, MAX_ZOOM, vw, vh, fit, W, H)
 	local scale = fit * state.zoom
 	canvas:SetScale(scale)
 	-- Panned by scrolling, as the game's map (MapCanvasScrollControllerMixin:SetNormalizedHorizontalScroll): the quest
@@ -77,7 +78,9 @@ local function Apply()
 		-- (as QuestBlobPinMixin:OnCanvasScaleChanged), in this same frame (ns.MapPins_RedrawArea).
 		drawnScale, areaDirty = scale, true
 	end
-	ns.MapArt_Update(ns.Map_ViewBox(state, vw, vh, fit, W, H, MARGIN), Level())
+	local viewBox = ns.Map_ViewBox(state, vw, vh, fit, W, H, MARGIN)
+	ns.MapArt_Update(viewBox, ns.Map_LevelAlphas(state.zoom, CONTINENT_ZOOM, ZONE_ZOOM, FADE_BAND))
+	ns.MapMini_Update(viewBox, state.zoom)
 	ns.MapPins_Layout(ToView, Level())
 	if areaDirty then
 		areaDirty = false
@@ -306,6 +309,7 @@ local function Build()
 	layer:SetFrameLevel(view:GetFrameLevel() + 40)
 
 	ns.MapArt_Init(canvas, W, H, worldID)
+	ns.MapMini_Init(canvas)
 	ns.MapPins_Init(layer, db)
 
 	view:SetScript("OnMouseDown", OnMouseDown)

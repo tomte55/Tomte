@@ -80,6 +80,38 @@ Tomte map: open with Esc closes it (fixed), "Show flight masters", "Show dungeon
 - `GetPlayerMapPosition(1414/1415, "party1")` works; `QuestPOIFrame` draws at small sizes and in clipped strips.
 - Frame time while panning and zooming (Performance module).
 
+## Art, after the first in-game round (2026-11-15)
+
+Zone rectangles overlapped with frames and neighbours, and a grid cut by `GetMapInfoAtPosition` was blocky (the game
+only knows rough zone shapes), so the user chose OpenMap-style prepared art (option 1), as an optional separate addon.
+
+- **Minimap tiles** (`tools/minimaptiles.py` -> `Data/Forever/MinimapTiles.lua`, 1724 tiles, ~27 KB): the game's own
+  minimap files per terrain tile, read from each continent's WDT (MAIN/MAID). Drawn over the art from zoom 10 to 22
+  (`Modules/Map/Mini.lua`), desaturated, at most 120 at a time. No art shipped.
+- **All explored pieces** (`tools/mapreveal.py` -> `Data/Forever/MapReveal.lua`, 572 pieces, ~25 KB): without the art
+  addon a zone is drawn from all its pieces (they cover only its own land).
+- **Zone masks** (`tools/mapart.py` -> the `Tomte_MapArt` addon, 44 masks, 12 MB, not in git; index in
+  `Data/Forever/MapArtIndex.lua`): each zone's own land (union of its pieces' alpha, closed, holes filled, grown and
+  blurred), so its full picture is drawn through a soft mask. Used only when the addon's `## Version` matches the index.
+- Second round (mask version 2): own land alone left holes between a zone's named areas, where the continent's
+  picture showed blown up, and land running to a zone picture's edge brought its burnt frame along as a hard line.
+  Each mask is now the zone's territory on its continent: own land grown over the continent's land (read from the
+  continent picture's colours) until it meets a neighbour's, never onto the zone picture's outer 3% (its frame).
+  Capitals have no pieces, and the game doesn't flag them as cities on this client: MapReveal.lua lists them with no
+  pieces and the map leaves them out (they covered their zone with their whole rectangle).
+- Mask version 3: each continent picture gets a mask too (its land, a wide band of sea, fading out well before its
+  burnt frame) and the world picture always lies under the continents, so the continent's edge no longer shows as a
+  hard line over the world's sea.
+- Fourth round: a masked zone's picture holds little of its detail (the game draws most of it in the explored-area
+  pieces), so the pieces are drawn over it through the same mask: all of them by default ("Show the whole map"), or
+  only the explored ones. Continents and zones fade in across their start zoom (x/1.3 to x*1.3, in log space) instead
+  of popping in. Quest pins take the game's own quest-button art (Blizzard_POIButton) and one frame level each, south
+  on top, so overlapping pins no longer flicker. A strip of land between Dun Morogh and Elwynn lies in no zone's
+  picture: only the continent's, with its title lettering, covers it.
+- Still open: colour matching between zones (Eastern Plaguelands, Burning Steppes, Shen'dralas stand out); a few
+  coastal strips no zone's picture covers show the continent picture; releasing `Tomte_MapArt` (its own zip on the
+  GitHub release, maybe its own CurseForge project).
+
 ## Left to the builder
 
 Pin icons (atlases the Forever client has), exact zoom range (whole world to about 6x a zone), strip count.

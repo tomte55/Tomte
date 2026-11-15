@@ -38,7 +38,7 @@ return {
 		{ after = "Themes/Cartographer.lua", files = { "Themes/Forever.lua" } },
 		{ after = "Panel/Widgets.lua", files = { "Panel/ForeverArt.lua" } },
 		{ after = "Panel/Rail.lua", files = { "Panel/ForeverTabs.lua" } },
-		{ after = "Core/Content.lua", files = { "Data/Forever/Teleports.lua", "Data/Forever/Buffs.lua", "Data/Forever/Rogue.lua", "Data/Forever/Tools.lua", "Data/Forever/Fishing.lua", "Data/Forever/Dungeons.lua", "Data/Forever/ArmorKits.lua", "Data/Forever/ItemSources.lua", "Data/Forever/WeaponMasters.lua", "Data/Forever/QuestItems.lua", "Data/Forever/QuestEnds.lua" } },
+		{ after = "Core/Content.lua", files = { "Data/Forever/Teleports.lua", "Data/Forever/Buffs.lua", "Data/Forever/Rogue.lua", "Data/Forever/Tools.lua", "Data/Forever/Fishing.lua", "Data/Forever/Dungeons.lua", "Data/Forever/ArmorKits.lua", "Data/Forever/ItemSources.lua", "Data/Forever/WeaponMasters.lua", "Data/Forever/QuestItems.lua", "Data/Forever/QuestEnds.lua", "Data/Forever/MinimapTiles.lua", "Data/Forever/MapReveal.lua", "Data/Forever/MapArtIndex.lua" } },
 		{ after = "Modules/Fishing/Helpers.lua", files = { "Modules/Fishing/Rod.lua" } },
 		-- A split stack doesn't sell when dropped on the vendor there.
 		{ after = "Modules/Upkeep/Merchant.lua", files = { "Modules/Upkeep/SellSplit.lua" } },
@@ -71,8 +71,8 @@ return {
 			"Modules/ChatGroups/Data.lua", "Modules/ChatGroups/Page.lua", "Modules/ChatGroups/ChatGroups.lua",
 			"Modules/Sources/Data.lua", "Modules/Sources/Page.lua", "Modules/Sources/Sources.lua",
 			-- docs/superpowers/specs/2026-11-15-tomte-world-map-design.md: uses the Quest list's and Leveling's reads.
-			"Modules/Map/Data.lua", "Modules/Map/Art.lua", "Modules/Map/Pins.lua", "Modules/Map/Window.lua",
-			"Modules/Map/Map.lua",
+			"Modules/Map/Data.lua", "Modules/Map/Art.lua", "Modules/Map/Mini.lua", "Modules/Map/Pins.lua",
+			"Modules/Map/Window.lua", "Modules/Map/Map.lua",
 		} },
 	},
 }

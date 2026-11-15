@@ -5,7 +5,7 @@
 ## Version: 1.35.0-beta.1
 ## IconTexture: Interface\AddOns\Tomte\Media\Logo
 ## SavedVariables: TomteDB
-## OptionalDeps: Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI, Syndicator, Auctionator, TradeSkillMaster, DialogueUI
+## OptionalDeps: Baganator, MountJournalEnhanced, AlmostCompletedAchievements, WaypointUI, Syndicator, Auctionator, TradeSkillMaster, DialogueUI, Tomte_MapArt
 ## AddonCompartmentFunc: Tomte_OnAddonCompartmentClick
 ## X-Curse-Project-ID: 1746323
 
