@@ -52,6 +52,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### Fixed
 
+- **Gear Check:** World of Warcraft: Forever: Paladins count Agility, so mail with Agility and more armor than you wear is an upgrade instead of "wrong main stat".
 - **Quest list:** following the nearest quest no longer leads to a Lua error from the objective tracker after a level-up, or to blocked quest clicks on the map in combat. The followed quest now guides Tomte's arrow and lists, and the game's map and tracker keep the quest you pick there. The same for Next quests.
 - **Quest list:** clicking a quest (also in Next quests and on the Leveling page) makes it the one Tomte's arrow and lists lead to, without changing the game's active quest, so the tracker error after a level-up no longer comes back after a click.
 - **Leveling:** talking to a riding trainer or a weapon master no longer replaces your class trainer's list under "Next at your trainer".

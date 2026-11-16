@@ -28,10 +28,12 @@ local RANGED_LOCS = { INVTYPE_RANGED = true, INVTYPE_RANGEDRIGHT = true, INVTYPE
 -- From Equip lines (GearForever_ParseEquip): SP spell damage and healing, SPSCHOOL one school's damage, HEAL healing,
 -- SCRIT / SHIT spell crit and hit and MCRIT / MHIT the physical ones (per 1%, about ten points of the main stat), DEF
 -- defense, MP5 mana every 5 seconds.
+-- A paladin's Agility gives crit, dodge and armor as a warrior's does, a little under the warrior's value: without it an
+-- Agility mail piece with more armor was called "wrong main stat" for a leveling paladin.
 local WEIGHTS = {
 	WARRIOR = { STR = 1, AGI = 0.5, STA = 0.5, AP = 0.5, MCRIT = 10, MHIT = 8, DEF = 0.5 },
-	PALADIN = { STR = 1, INT = 0.5, STA = 0.5, SPI = 0.1, AP = 0.5, MCRIT = 8, MHIT = 6, DEF = 0.4, SP = 0.3, HEAL = 0.3,
-		SCRIT = 3, MP5 = 1 },
+	PALADIN = { STR = 1, AGI = 0.4, INT = 0.5, STA = 0.5, SPI = 0.1, AP = 0.5, MCRIT = 8, MHIT = 6, DEF = 0.4, SP = 0.3,
+		HEAL = 0.3, SCRIT = 3, MP5 = 1 },
 	HUNTER = { AGI = 1, INT = 0.3, STA = 0.5, SPI = 0.1, AP = 0.5, RAP = 0.5, MCRIT = 10, MHIT = 8, MP5 = 1 },
 	ROGUE = { AGI = 1, STR = 0.5, STA = 0.5, AP = 0.5, MCRIT = 10, MHIT = 10 },
 	PRIEST = { INT = 1, STA = 0.5, SPI = 0.7, SP = 0.8, SPSCHOOL = 0.5, HEAL = 0.8, SCRIT = 8, SHIT = 6, MP5 = 2 },

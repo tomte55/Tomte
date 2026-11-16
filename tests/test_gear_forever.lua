@@ -242,6 +242,17 @@ test("level requirements, red tooltip lines and the wrong main stat say not for 
 	eq(ns.GearForever_Evaluate(Chest(10, CLOTH, { PRIMARY = { INT = 5, STR = 2 } }), {}, ctx).kind, "empty")
 end)
 
+test("a paladin uses Agility: an Agility and Spirit mail chest over a plain one is an upgrade", function()
+	local ctx = Ctx("PALADIN", 12)
+	local worn = Chest(5, MAIL, { ARMOR = 102 })
+	worn.minLevel = 5
+	local hauberk = Chest(15, MAIL, { ARMOR = 144, SPI = 3, PRIMARY = { AGI = 3 } })
+	hauberk.minLevel = 10
+	local v = ns.GearForever_Evaluate(hauberk, { [5] = worn }, ctx)
+	eq(v.kind ~= "notForYou", true, "not ruled out by its Agility")
+	eq(ns.Gear_IsCleanUpgrade(v), true)
+end)
+
 test("the level requirement is met on the level itself", function()
 	local chest = Chest(20)
 	chest.minLevel = 10
