@@ -126,7 +126,7 @@ function UI.Dialog(name, width, height, opts)
 	frame:SetScript("OnDragStart", frame.StartMoving)
 	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
 	frame:Hide()
-	UI.Panel(frame)
+	UI.Panel(frame, opts.look) -- opts.look: UI.Panel's options (the Tomte map's portrait frame)
 	if opts.escape ~= false then
 		UI.CloseOnEscape(frame) -- Controls.lua: only this dialog closes, not the Tomte window under it
 	end

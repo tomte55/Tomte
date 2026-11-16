@@ -20,6 +20,15 @@ local function Open()
 	ns.Panel_OpenPage(PAGE_KEY)
 end
 
+-- For other modules (the Tomte map's dungeon entrances): opens the journal on a dungeon (its instance ID). Says so in
+-- chat and does nothing while the journal is off.
+function ns.DJ_Open(instanceID)
+	if ns.Module_RequireOn("dj") then
+		ns.DJPage_Show(instanceID)
+		ns.Panel_OpenPage(PAGE_KEY)
+	end
+end
+
 ns.RegisterModule({
 	key = "dj",
 	name = "Dungeon journal",

@@ -4,7 +4,9 @@ local addonName, ns = ...
 -- UI.ContextMenu takes the same generator as Blizzard's MenuUtil.CreateContextMenu, with the parts Tomte uses:
 -- CreateTitle, CreateButton (with children it opens a submenu), CreateRadio, CreateCheckbox, CreateDivider. A pick
 -- closes the menu, a checkbox keeps it open; a click outside or Esc closes it. A button can also do something on a
--- right-click (desc:SetOnRightClick(fn)), such as opening a menu of its own.
+-- right-click (desc:SetOnRightClick(fn)), such as opening a menu of its own. desc:SetIcon(texture) shows an icon at a
+-- row's right end. On the Forever theme the menus are drawn as the game's own (Blizzard_Menu: Forever loads the
+-- Mainline variants, as the minimap's tracking menu shows them).
 
 local UI = ns.UI
 local ROW_H = 22
@@ -14,6 +16,22 @@ local TEXT_INSET = 12
 local CHECK = 10 -- checkbox square
 local ARROW_W = 14 -- room for a submenu's ">"
 local SCROLL_W = 10
+local ICON = 16 -- a row's icon at its right end (desc:SetIcon)
+
+-- The Forever theme: the game's menu (MenuStyle1Mixin, Blizzard_Menu/Mainline/MenuTemplates.lua) and its checkboxes
+-- and radios (Mainline/MenuVariants.lua: an empty square or ring, the yellow tick drawn over it), the divider and the
+-- hover (MenuVariants.lua). Forever has no "-classic" art (seen in game: the menu came out bare).
+local GAME_BG = "common-dropdown-bg"
+local GAME_BG_X, GAME_BG_Y = 10, 3 -- the art reaches this far past the menu's edges
+local GAME_BG_ALPHA = 0.925
+local GAME_INSET_X, GAME_INSET_TOP, GAME_INSET_BOTTOM = 8, 8, 15 -- MenuStyle1Mixin:GetInset
+local GAME_ROW_H = 20
+local GAME_BOX, GAME_CHECKED = "common-dropdown-ticksquare", "common-dropdown-icon-checkmark-yellow"
+local GAME_RING, GAME_RADIO_ON = "common-dropdown-tickradial", "common-dropdown-icon-radialtick-yellow"
+local GAME_TEXT_GAP = 7 -- pixels from the square to its text
+local GAME_DIVIDER = "Interface\\Common\\UI-TooltipDivider-Transparent"
+local GAME_HIGHLIGHT = "Interface\\QuestFrame\\UI-QuestTitleHighlight"
+local GAME_ARROW = "Interface\\ChatFrame\\ChatFrameExpandArrow"
 
 local levels = {} -- [depth] = menu frame; 1 is the menu, 2 a submenu
 local catcher
@@ -68,6 +86,11 @@ function Desc:CreateCheckbox(text, isSelected, onSelect, data)
 	return d
 end
 
+-- An icon at the row's right end (a texture path or file ID).
+function Desc:SetIcon(texture)
+	self.icon = texture
+end
+
 -- Frames ------------------------------------------------------------------------------------------------------
 
 local function CloseFrom(depth)
@@ -86,9 +109,35 @@ UI.CloseChoiceList = CloseAll
 
 local Render -- forward declaration
 
+-- The game's own menu look (the Forever theme).
+local function GameLook()
+	return ns.Theme.panel == "forever"
+end
+
 local function Paint(row)
 	local d = row.desc
 	local selected = (d.kind == "radio" or d.kind == "checkbox") and d.isSelected(d.data) and true or false
+	if GameLook() then
+		row.bar:Hide()
+		row.boxFill:Hide()
+		local box = d.kind == "checkbox" and GAME_BOX or d.kind == "radio" and GAME_RING
+		row.tick:SetShown(box and true or false)
+		row.tickMark:SetShown(box and selected or false)
+		if box then
+			row.tick:SetAtlas(box, true)
+			row.tickMark:SetAtlas(d.kind == "checkbox" and GAME_CHECKED or GAME_RADIO_ON, true)
+			row.tickMark:ClearAllPoints()
+			if d.kind == "checkbox" then
+				row.tickMark:SetPoint("CENTER", row.tick, "CENTER", 2, 1)
+			else
+				row.tickMark:SetPoint("TOPLEFT", row.tick, "TOPLEFT")
+			end
+		end
+		UI.SetTextRole(row.label, d.kind == "title" and "heading" or "text")
+		return
+	end
+	row.tick:Hide()
+	row.tickMark:Hide()
 	row.bar:SetShown(d.kind == "radio" and selected)
 	row.boxFill:SetShown(d.kind == "checkbox" and selected)
 	if d.kind == "title" then
@@ -122,6 +171,16 @@ local function CreateRow(level)
 	row.boxFill:SetPoint("TOPLEFT", 2, -2)
 	row.boxFill:SetPoint("BOTTOMRIGHT", -2, 2)
 	row.boxFill:SetColorTexture(UI.Color("accent"))
+	row.tick = row:CreateTexture(nil, "ARTWORK", nil, 1)
+	row.tick:SetPoint("LEFT")
+	row.tickMark = row:CreateTexture(nil, "ARTWORK", nil, 2)
+	row.gameLight = row:CreateTexture(nil, "BACKGROUND")
+	row.gameLight:SetAllPoints()
+	row.gameLight:SetTexture(GAME_HIGHLIGHT)
+	row.gameLight:SetBlendMode("ADD")
+	row.gameLight:Hide()
+	row.icon = row:CreateTexture(nil, "ARTWORK")
+	row.icon:SetSize(ICON, ICON)
 	row.label = UI.Text(row, 12, "text")
 	row.label:SetWordWrap(false)
 	row.arrow = UI.Text(row, 11, "accent")
@@ -135,7 +194,11 @@ local function CreateRow(level)
 	row:SetScript("OnEnter", function(self)
 		local d = self.desc
 		if Interactive(d) then
-			UI.WashTo(self.bg, true)
+			if GameLook() then
+				self.gameLight:Show()
+			else
+				UI.WashTo(self.bg, true)
+			end
 		end
 		local hover = levels[1].root.onHover
 		if hover and d.kind == "radio" then
@@ -148,6 +211,7 @@ local function CreateRow(level)
 		end
 	end)
 	row:SetScript("OnLeave", function(self)
+		self.gameLight:Hide()
 		UI.WashTo(self.bg, false)
 		local hover = levels[1].root.onHover
 		if hover then
@@ -216,6 +280,12 @@ local function Level(depth)
 	local r, g, b = UI.Color("bg")
 	level.bg:SetColorTexture(r, g, b, 1) -- opaque, whatever the theme's alpha: it sits over other frames
 	UI.Border(level, "frame", 0.8)
+	-- The game's look, at MenuStyle2Mixin's offsets (shown instead on the Forever theme, in Render).
+	level.gameBg = level:CreateTexture(nil, "BACKGROUND", nil, 1)
+	level.gameBg:SetAtlas(GAME_BG)
+	level.gameBg:SetPoint("TOPLEFT", -GAME_BG_X, GAME_BG_Y)
+	level.gameBg:SetPoint("BOTTOMRIGHT", GAME_BG_X, -GAME_BG_Y)
+	level.gameBg:SetAlpha(GAME_BG_ALPHA)
 	level.scroll = UI.Scroll(level)
 	if depth == 1 then
 		-- Esc closes only the menu, not the window behind it. Keyboard input can't be claimed in combat, so the menu
@@ -245,38 +315,79 @@ local function Level(depth)
 	return level
 end
 
--- Lays desc's children out in the menu at depth. anchor: a row (submenu), or { owner = frame } to open under it, or
--- nil to open at the cursor. minWidth: at least this wide (a dropdown's button).
+-- Lays desc's children out in the menu at depth. anchor: a row (submenu), { owner = frame } to open under it,
+-- { owner = frame, side = "LEFT" } to open beside it on its left (its tops level), or nil to open at the cursor.
+-- minWidth: at least this wide (a dropdown's button).
 function Render(depth, desc, anchor, minWidth)
 	local level = Level(depth)
 	CloseFrom(depth + 1)
+	local game = GameLook()
+	level.bg:SetShown(not game)
+	for _, t in ipairs(level.borderEdges) do
+		t:SetShown(not game)
+	end
+	level.gameBg:SetShown(game)
+	-- The rows inside the menu's edge.
+	local insetX, insetTop, insetBottom = 1, 1, 1
+	if game then
+		insetX, insetTop, insetBottom = GAME_INSET_X, GAME_INSET_TOP, GAME_INSET_BOTTOM
+	end
+	local textInset = game and 0 or TEXT_INSET
 	local y, widest = 0, minWidth or 0
 	for i, d in ipairs(desc.children) do
 		local row = level.rows[i] or CreateRow(level)
 		level.rows[i] = row
 		row.desc = d
-		local height = d.kind == "divider" and DIVIDER_H or ROW_H
+		local height = d.kind == "divider" and DIVIDER_H or game and GAME_ROW_H or ROW_H
 		row:SetHeight(height)
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", 0, -y)
 		row:SetPoint("RIGHT", level.scroll.content, "RIGHT")
 		row.rule:SetShown(d.kind == "divider")
-		row.box:SetShown(d.kind == "checkbox")
-		row.arrow:SetShown(d.kind == "button" and #d.children > 0)
-		local left = TEXT_INSET + (d.kind == "checkbox" and CHECK + 8 or 0)
+		if game then
+			row.rule:SetTexture(GAME_DIVIDER)
+			row.rule:SetHeight(13)
+			row.arrow:SetText("")
+		else
+			row.rule:SetColorTexture(UI.Color("rule"))
+			row.rule:SetHeight(1)
+			row.arrow:SetText(">")
+		end
+		if game and not row.gameArrow then
+			row.gameArrow = row:CreateTexture(nil, "ARTWORK")
+			row.gameArrow:SetSize(16, 16)
+			row.gameArrow:SetPoint("RIGHT")
+			row.gameArrow:SetTexture(GAME_ARROW)
+		end
+		local sub = d.kind == "button" and #d.children > 0
+		if row.gameArrow then
+			row.gameArrow:SetShown(game and sub)
+		end
+		row.box:SetShown(not game and d.kind == "checkbox")
+		row.arrow:SetShown(sub)
+		local ticked = d.kind == "checkbox" or (game and d.kind == "radio")
+		Paint(row) -- first: it sets the game's square, whose width places the label
+		local tickW = game and math.ceil(row.tick:GetWidth()) + GAME_TEXT_GAP or CHECK + 8
+		local left = textInset + (ticked and tickW or 0)
+		row.icon:SetShown(d.icon ~= nil)
+		row.icon:ClearAllPoints()
+		row.icon:SetPoint("RIGHT", sub and -ARROW_W or (game and 0 or -8), 0)
+		if d.icon then
+			row.icon:SetTexture(d.icon)
+		end
+		local right = (sub and ARROW_W or 0) + (d.icon and ICON + 6 or 0) + (game and 0 or 8)
 		row.label:ClearAllPoints()
 		row.label:SetPoint("LEFT", left, 0)
-		row.label:SetPoint("RIGHT", row.arrow:IsShown() and -(8 + ARROW_W) or -8, 0)
+		row.label:SetPoint("RIGHT", -right, 0)
 		if d.kind == "title" then
 			UI.SetFont(row.label, "label", 11)
 		else
 			UI.SetFont(row.label, "body", 12)
 		end
 		row.label:SetText(d.text or "")
-		widest = math.max(widest, math.ceil(row.label:GetUnboundedStringWidth()) + left + 16
-			+ (row.arrow:IsShown() and ARROW_W or 0))
+		widest = math.max(widest, math.ceil(row.label:GetUnboundedStringWidth()) + left + right + 8)
+		row.gameLight:Hide()
 		UI.WashTo(row.bg, false, true)
-		Paint(row)
 		row:Show()
 		y = y + height
 	end
@@ -284,21 +395,26 @@ function Render(depth, desc, anchor, minWidth)
 		level.rows[i]:Hide()
 	end
 
-	local scrolls = y > MAX_H
-	local width = widest + (scrolls and SCROLL_W or 0)
-	local height = math.min(y, MAX_H) + 2
+	local maxH = game and 16 * GAME_ROW_H or MAX_H -- the game's menus are taller before they scroll
+	local scrolls = y > maxH
+	local width = widest + (scrolls and SCROLL_W or 0) + 2 * insetX
+	local height = math.min(y, maxH) + insetTop + insetBottom
 	level:SetSize(width, height)
 	level.scroll:ClearAllPoints()
-	level.scroll:SetPoint("TOPLEFT", 1, -1)
-	level.scroll:SetPoint("BOTTOMRIGHT", scrolls and -(1 + SCROLL_W) or -1, 1)
-	level.scroll.content:SetWidth(width - 2 - (scrolls and SCROLL_W or 0))
+	level.scroll:SetPoint("TOPLEFT", insetX, -insetTop)
+	level.scroll:SetPoint("BOTTOMRIGHT", -(insetX + (scrolls and SCROLL_W or 0)), insetBottom)
+	level.scroll.content:SetWidth(width - 2 * insetX - (scrolls and SCROLL_W or 0))
 	level.scroll:SetContentHeight(y)
 	level.scroll:SetScroll(0)
 
 	level:ClearAllPoints()
 	if depth > 1 then
 		level:SetScale(levels[depth - 1]:GetScale())
-		level:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 2, 1)
+		level:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 2 + insetX, insetTop)
+	elseif anchor and anchor.side == "LEFT" then
+		local o = anchor.owner
+		level:SetScale(o:GetEffectiveScale() / host:GetEffectiveScale())
+		level:SetPoint("TOPRIGHT", o, "TOPLEFT", -2, 0)
 	elseif anchor then
 		local o = anchor.owner
 		level:SetScale(o:GetEffectiveScale() / host:GetEffectiveScale())
@@ -383,10 +499,11 @@ end
 -- API ---------------------------------------------------------------------------------------------------------
 
 -- Right-click menu at the cursor. generator(owner, root) fills root like Blizzard's MenuUtil.CreateContextMenu.
-function UI.ContextMenu(by, generator)
+-- side: "LEFT" opens it beside by on its left instead (a button's menu that should cover what's left of it).
+function UI.ContextMenu(by, generator, side)
 	local root = NewDesc("root")
 	generator(by, root)
-	Open(by, root, nil)
+	Open(by, root, side and { owner = by, side = side } or nil)
 end
 
 -- A dropdown's list under its button. choices: { { text, value } }; isSelected(value) marks the current one;

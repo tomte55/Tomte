@@ -198,4 +198,58 @@ test("pins further south drawn on top", function()
 	eq(order[1], 2); eq(order[2], 1); eq(order[3], 3, "a tie keeps its order"); eq(order[4], 4)
 end)
 
+test("quest log search: every word, any case, any text", function()
+	local texts = { "Boulderslide Ravine", "Stonetalon Mountains", "0/10 Resonite Crystal" }
+	eq(ns.Map_QuestMatches("", texts), true)
+	eq(ns.Map_QuestMatches("  ", texts), true)
+	eq(ns.Map_QuestMatches("ravine", texts), true)
+	eq(ns.Map_QuestMatches("crystal stonetalon", texts), true, "words from different texts")
+	eq(ns.Map_QuestMatches("crystal barrens", texts), false)
+	eq(ns.Map_QuestMatches("(", texts), false, "plain text, not a pattern")
+	eq(ns.Map_QuestMatches("ravine", { nil, "Ravine" }), true, "nils skipped")
+end)
+
+test("quest steps: ready, objectives, or the summary", function()
+	local ready = ns.Map_QuestSteps({ { text = "0/1 Head" } }, true, "Bring a head.")
+	eq(#ready, 1); eq(ready[1].text, "Ready to turn in"); eq(ready[1].role, "success")
+	local steps = ns.Map_QuestSteps({ { text = "0/10 Resonite Crystal" }, { text = "Investigate Cave", finished = true } })
+	eq(#steps, 1, "done steps left out"); eq(steps[1].text, "- 0/10 Resonite Crystal"); eq(steps[1].role, "textMuted")
+	eq(#ns.Map_QuestSteps({ { text = "Done", finished = true } }, false, "Summary"), 0, "no summary for counted quests")
+	local told = ns.Map_QuestSteps({}, false, "  Deliver the envelope.\n")
+	eq(#told, 1); eq(told[1].text, "- Deliver the envelope.")
+	eq(#ns.Map_QuestSteps({}, false, "  "), 0)
+	eq(#ns.Map_QuestSteps(nil, false, nil), 0)
+end)
+
+test("town markers close together group", function()
+	local spots = { { x = 0, y = 0 }, { x = 5, y = 0 }, { x = 100, y = 100 }, { x = 0, y = 8 }, { x = 30, y = 0 } }
+	local groups = ns.Map_Group(spots, #spots, 10)
+	eq(#groups, 3)
+	eq(#groups[1].members, 3, "the first, its neighbour and the one under it")
+	near(groups[1].x, 5 / 3); near(groups[1].y, 8 / 3)
+	eq(groups[2].members[1], 3)
+	eq(groups[3].members[1], 5, "too far from the first spot")
+	eq(#ns.Map_Group(spots, 2, 10), 1, "only the first n")
+	eq(#ns.Map_Group(spots, 0, 10), 0)
+end)
+
+test("town rows: your side and your class", function()
+	local rows = {
+		{ 1453, 60, 70, "Aldric", "Banker", "A" },
+		{ 1454, 50, 40, "Kesha", "Banker", "H" },
+		{ 1453, 61, 71, "Mira", "Warrior Trainer", "A", "WARRIOR" },
+		{ 1453, 62, 72, "Tobin", "Mage Trainer", "A", "MAGE" },
+		{ 1437, 10, 20 },
+	}
+	local mine = ns.Map_TownRows(rows, "A", "MAGE")
+	eq(#mine, 3)
+	eq(mine[1].name, "Aldric"); near(mine[1].x, 0.6); near(mine[1].y, 0.7); eq(mine[1].mapID, 1453)
+	eq(mine[2].name, "Tobin", "other classes' trainers left out")
+	eq(mine[3].name, nil, "a row for both sides (a mailbox)")
+	eq(#ns.Map_TownRows(nil, "H"), 0)
+	for _, kind in ipairs(ns.MAP_TOWN_KINDS) do
+		eq(type(kind.key), "string"); eq(type(kind.icon), "string")
+	end
+end)
+
 H.done()

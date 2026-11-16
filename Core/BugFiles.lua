@@ -507,6 +507,7 @@ ns.BUG_FILES = {
 	"Data/Forever/MapReveal.lua",
 	"Data/Forever/MapArtIndex.lua",
 	"Data/Forever/DungeonJournal.lua",
+	"Data/Forever/Townsfolk.lua",
 	"Panel/ForeverArt.lua",
 	"Panel/ForeverTabs.lua",
 	"Modules/Hunter/Aspect.lua",

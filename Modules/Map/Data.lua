@@ -334,6 +334,114 @@ function ns.Map_FanOffset(i, n, gap)
 	return r * math.cos(angle), r * math.sin(angle)
 end
 
+-- Town markers --------------------------------------------------------------------------------------------------------
+
+-- The town marker kinds, in the minimap tracking menu's order: key (Data/Forever/Townsfolk.lua's, and db.town's),
+-- the game's name for it (a global, looked up when shown) with an English fallback, and its tracking icon
+-- (Interface\Minimap\Tracking\<icon>). Flight masters and dungeons are the map's own pins, in the same menu.
+ns.MAP_TOWN_KINDS = {
+	{ key = "auctioneer", global = "MINIMAP_TRACKING_AUCTIONEER", name = "Auctioneer", icon = "Auctioneer" },
+	{ key = "banker", global = "MINIMAP_TRACKING_BANKER", name = "Banker", icon = "Banker" },
+	{ key = "battlemaster", global = "MINIMAP_TRACKING_BATTLEMASTER", name = "Battlemaster", icon = "BattleMaster" },
+	{ key = "innkeeper", global = "MINIMAP_TRACKING_INNKEEPER", name = "Innkeeper", icon = "Innkeeper" },
+	{ key = "mailbox", global = "MINIMAP_TRACKING_MAILBOX", name = "Mailbox", icon = "Mailbox" },
+	{ key = "class", global = "MINIMAP_TRACKING_TRAINER_CLASS", name = "Class Trainer", icon = "Class" },
+	{ key = "profession", global = "MINIMAP_TRACKING_TRAINER_PROFESSION", name = "Profession Trainers",
+		icon = "Profession" },
+	{ key = "repair", global = "MINIMAP_TRACKING_REPAIR", name = "Repair", icon = "Repair" },
+	{ key = "stablemaster", global = "MINIMAP_TRACKING_STABLEMASTER", name = "Stable Master", icon = "StableMaster" },
+}
+
+-- The rows of one kind you'd use: friendly to your side ("A" or "H"; a row without a side serves both) and, for
+-- class trainers, of your class (token). rows: Townsfolk.lua's { map, x, y, name, title, side, class }. Returns
+-- { mapID, x, y (0..1), name, title }.
+function ns.Map_TownRows(rows, side, class)
+	local out = {}
+	for _, r in ipairs(rows or {}) do
+		if (not r[6] or r[6] == side) and (not r[7] or r[7] == class) then
+			out[#out + 1] = { mapID = r[1], x = r[2] / 100, y = r[3] / 100, name = r[4], title = r[5] }
+		end
+	end
+	return out
+end
+
+-- Quest log search ----------------------------------------------------------------------------------------------------
+
+-- Whether a quest matches what's typed in the quest log's search box: every word (any case) somewhere in its texts
+-- (title, zone heading, objective lines; nils skipped). Empty text matches everything.
+function ns.Map_QuestMatches(text, texts)
+	local words = {}
+	for word in (text or ""):lower():gmatch("%S+") do
+		words[#words + 1] = word
+	end
+	if #words == 0 then
+		return true
+	end
+	local all = {}
+	for i = 1, #texts do
+		if texts[i] then
+			all[#all + 1] = tostring(texts[i]):lower()
+		end
+	end
+	local haystack = table.concat(all, "\n")
+	for _, word in ipairs(words) do
+		if not haystack:find(word, 1, true) then
+			return false
+		end
+	end
+	return true
+end
+
+-- The lines under a quest in the map's quest log while its steps show, as the game's quest log has them: "Ready to
+-- turn in" once it can be handed in, else each objective not done yet ("- 0/10 Resonite Crystal"; done ones are
+-- left out, as the game's log does), else the quest's own short summary (a quest with nothing to count). objectives: { { text, finished } }. Returns
+-- { { text, role } }.
+function ns.Map_QuestSteps(objectives, complete, summary)
+	if complete then
+		return { { text = "Ready to turn in", role = "success" } }
+	end
+	local lines = {}
+	for _, o in ipairs(objectives or {}) do
+		if not o.finished then
+			lines[#lines + 1] = { text = "- " .. o.text, role = "textMuted" }
+		end
+	end
+	if #(objectives or {}) == 0 and summary and summary:find("%S") then
+		lines[1] = { text = "- " .. summary:gsub("^%s+", ""):gsub("%s+$", ""), role = "textMuted" }
+	end
+	return lines
+end
+
+-- Town markers of one kind close together on the view become one pin: each spot joins the first group whose first
+-- spot is within gap (pixels) of it. spots[1..n]: { x, y } in view pixels, always in the same order, so groups don't
+-- change from frame to frame while nothing moves. Returns { { x, y (the members' middle), members = { i, ... } } }.
+function ns.Map_Group(spots, n, gap)
+	local groups = {}
+	local gap2 = gap * gap
+	for i = 1, n do
+		local s = spots[i]
+		local home
+		for _, g in ipairs(groups) do
+			local first = spots[g.members[1]]
+			local dx, dy = s.x - first.x, s.y - first.y
+			if dx * dx + dy * dy <= gap2 then
+				home = g
+				break
+			end
+		end
+		if home then
+			home.members[#home.members + 1] = i
+			home.sx, home.sy = home.sx + s.x, home.sy + s.y
+		else
+			groups[#groups + 1] = { members = { i }, sx = s.x, sy = s.y }
+		end
+	end
+	for _, g in ipairs(groups) do
+		g.x, g.y = g.sx / #g.members, g.sy / #g.members
+	end
+	return groups
+end
+
 -- The order pins are drawn in: those further south (larger y) on top, as on the game's map, so overlapping pins
 -- always stack the same way. spots: { y = ... } each; returns a list of their indexes, the one to draw first first.
 function ns.Map_DrawOrder(spots)

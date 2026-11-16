@@ -7,13 +7,39 @@ local addonName, ns = ...
 -- Map.lua.
 
 local TITLE_H = 36
+-- The Forever theme: the frame other windows have (the metal strip, the round badge, the red close button), the
+-- coordinates and buttons on a row under the strip, as the Character window's level line.
+local FOREVER_STRIP_H = 21 -- the metal title strip, where the rock starts (Panel/ForeverArt.lua)
+local FOREVER_ROW_H = 30 -- the row under it
+local FOREVER_BADGE_ROOM = 64 -- the row's text starts past the round badge
+local FOREVER_BAR_LEVEL = 14 -- the title's frame level above the window: over the frame's metal (ForeverArt.lua)
+local BADGE_ICON = "Interface\\QuestFrame\\UI-QuestLog-BookIcon" -- the game's map (WorldMapFrame's portrait)
+-- The town markers' and Find me buttons on the map's top-right corner: the minimap's tracking button (MiniMapTracking,
+-- Camelot), its art at the same offsets.
+local TRACK_SIZE = 32
+local TRACK_GAP = 0 -- pixels between the two (their rings' art has room round it)
+local TRACK_ICON = "Interface\\Minimap\\Tracking\\None"
+local FIND_ICON = "Interface\\Minimap\\MinimapArrow" -- you, as the map and minimap draw you
+local FIND_ARROW = 26 -- pixels: the arrow's art has room round it, so it's drawn larger than an icon
+local FIND_TURN = -math.pi / 4 -- pointing up and to the right
+-- Where the arrow's middle goes: the ring's centre, nudged up and right, as the art's arrow sits low and left of its
+-- texture's middle once turned (seen in game).
+local FIND_CENTER_X, FIND_CENTER_Y = 17, -15
+local TRACK_BG = "Interface\\Minimap\\UI-Minimap-Background"
+local TRACK_BORDER = "Interface\\Minimap\\MiniMap-TrackingBorder"
+local TRACK_HIGHLIGHT = "Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight"
+local TRACK_INSET = 2 -- pixels in from the map's corner
+local TRACKING_ART = "Interface\\Minimap\\Tracking\\"
+local DUNGEON_ICON = "Interface\\Minimap\\Dungeon"
+-- The quest log button on the map's bottom-right corner: the game map's side panel toggle (WorldMapSidePanelToggle).
+local LOG_SIZE = 32
+local LOG_SHOW, LOG_SHOW_DOWN = "QuestCollapse-Show-Up", "QuestCollapse-Show-Down"
+local LOG_HIDE, LOG_HIDE_DOWN = "QuestCollapse-Hide-Up", "QuestCollapse-Hide-Down"
+local LOG_SHADOW = "MapCornerShadow-Right"
+local LOG_HIGHLIGHT = "Interface\\Buttons\\UI-Common-MouseHilight"
 local PAD = 12
 local MIN_W, MIN_H = 640, 360
 local SIDE_GAP = 10 -- pixels between the view and the side panel (each sits in its own well)
-local TOOL = 22 -- pixels: the title bar's icon buttons
-local TOOL_RIGHT = 44 -- pixels from the window's right edge to them, clear of the close button on its corner
-local LOG_ICON = "Interface\\Icons\\INV_Misc_Book_09"
-local FIND_ICON = "Interface\\Icons\\INV_Misc_Spyglass_03"
 local WELL_OUT = 4 -- pixels a well reaches past what it frames
 local SIDE_TIME = 0.2 -- seconds the side panel takes to open or close
 local MIN_ZOOM, MAX_ZOOM = 1, 64 -- 1: the whole world fits; 64: closer than a zone fills the window
@@ -33,6 +59,7 @@ local sideWidth = 0 -- the side panel's width (Side.lua)
 local sideOpen = 0 -- 0..1: how far it's open (it slides)
 local sideWanted = false -- shown now: the saved choice (db.sideShown), or opened with the quest log key for once
 local W, H, fit = 1, 1, 1
+local titleH = TITLE_H -- the view's top: TITLE_H, or the Forever frame's strip and row
 local state = { u = 0.5, v = 0.5, zoom = 1 }
 local target -- { zoom, sx, sy }: an easing zoom toward a point
 local glide -- { flight (Data.lua, Map_Flight), from = { u, v, zoom }, t }: the view flying somewhere
@@ -43,8 +70,9 @@ local dirty = true
 local drawnScale, areaDirty
 local ticker
 local lastCursorX, lastCursorY
+local pingWhenLanded = false -- Find me: rings pulse out from you once the flight there ends
 
--- Geometry --------------------------------------------------------------------------------------------------------------
+-- Geometry ------------------------------------------------------------------------------------------------------------
 
 local function ViewSize()
 	return view:GetWidth(), view:GetHeight()
@@ -179,10 +207,10 @@ local function PinAt(sx, sy)
 	ns.Print("can't place a map pin there.")
 end
 
--- Moving the view -------------------------------------------------------------------------------------------------------
+-- Moving the view -----------------------------------------------------------------------------------------------------
 
 local function ZoomTo(zoom, sx, sy)
-	glide = nil
+	glide, pingWhenLanded = nil, false
 	target = { zoom = math.min(math.max(zoom, MIN_ZOOM), MAX_ZOOM), sx = sx or 0, sy = sy or 0 }
 end
 
@@ -214,7 +242,7 @@ end
 -- has its size (the window only just shown) it waits for the next layout.
 function ns.MapWindow_Aim(cx, cy, box, zoom)
 	local vw, vh = ViewSize()
-	target = nil
+	target, pingWhenLanded = nil, false -- a new flight: Find me sets it again after this
 	if not (vw > 0 and vh > 0) then
 		aim, glide = { cx = cx, cy = cy, box = box, zoom = zoom }, nil
 		dirty = true
@@ -253,8 +281,10 @@ function ns.MapWindow_GoToQuest(questID)
 	return true
 end
 
--- Centres on you, zoomed in until your zone fills most of the view (never out). False without a position.
-function ns.MapWindow_FindMe()
+-- Centres on you, zoomed in until your zone fills most of the view (never out). False without a position. fly: the view
+-- flies there as finding a quest does, and rings pulse out from you once it's there (the Find me button); without it,
+-- it's there at once (opening the map).
+function ns.MapWindow_FindMe(fly)
 	if not frame then
 		return false
 	end
@@ -264,13 +294,19 @@ function ns.MapWindow_FindMe()
 			local x, y = pos:GetXY()
 			if ns.Readable(x) and ns.Readable(y) and not (x == 0 and y == 0) then
 				local cx, cy = ns.Map_InBox(c.box, x, y)
-				state.u, state.v = cx / W, cy / H
 				local zoneID = C_Map.GetBestMapForUnit("player")
 				local box = zoneID and ns.Readable(zoneID) and ns.MapArt_Box(zoneID)
 				local vw, vh = ViewSize()
+				local zoom = state.zoom
 				if box and vw > 0 then
-					state.zoom = math.max(state.zoom, ns.Map_ZoomFor(box, vw, vh, Fit(vw, vh), FIND_SHARE))
+					zoom = math.max(state.zoom, ns.Map_ZoomFor(box, vw, vh, Fit(vw, vh), FIND_SHARE))
 				end
+				if fly then
+					ns.MapWindow_Aim(cx, cy, nil, zoom)
+					pingWhenLanded = true
+					return true
+				end
+				state.u, state.v, state.zoom = cx / W, cy / H, zoom
 				target = nil
 				dirty = true
 				return true
@@ -299,6 +335,10 @@ local function OnUpdate(_, elapsed)
 		state.u, state.v, state.zoom = ns.Map_FlightAt(glide.from, glide.flight, p)
 		if p >= 1 then
 			glide = nil
+			if pingWhenLanded then
+				pingWhenLanded = false
+				ns.MapPins_PingPlayer()
+			end
 		end
 		dirty = true
 	end
@@ -360,17 +400,72 @@ local function ShowHere()
 	end
 end
 
--- A title bar button: an icon in the game's action button frame (UI.ActionIcon), its name and what it does on hover.
-local function ToolButton(icon, name, tip, onClick)
+-- Town markers: the button and its menu, as the minimap's tracking button ---------------------------------------------
+
+local function Marked()
+	dirty = true
+	if ns.Panel_Refresh then
+		ns.Panel_Refresh() -- the map's settings page shows the same choices
+	end
+end
+
+-- As the minimap's tracking menu: a checkbox per kind, its icon at the right; it opens leftward, over the map.
+local function TrackMenu(owner)
+	UI.ContextMenu(owner, function(_, root)
+		root:CreateButton("Uncheck all", function()
+			for _, kind in ipairs(ns.MAP_TOWN_KINDS) do
+				db.town[kind.key] = false
+			end
+			db.taxis, db.dungeons = false, false
+			Marked()
+		end)
+		for _, kind in ipairs(ns.MAP_TOWN_KINDS) do
+			root:CreateCheckbox(_G[kind.global] or kind.name, function()
+				return db.town[kind.key]
+			end, function()
+				db.town[kind.key] = not db.town[kind.key]
+				Marked()
+			end):SetIcon(TRACKING_ART .. kind.icon)
+		end
+		root:CreateCheckbox(MINIMAP_TRACKING_FLIGHTMASTER or "Flight Master", function()
+			return db.taxis
+		end, function()
+			db.taxis = not db.taxis
+			Marked()
+		end):SetIcon(TRACKING_ART .. "FlightMaster")
+		root:CreateCheckbox("Dungeon entrances", function()
+			return db.dungeons
+		end, function()
+			db.dungeons = not db.dungeons
+			Marked()
+		end):SetIcon(DUNGEON_ICON)
+	end, "LEFT")
+end
+
+-- A round button in the minimap tracking button's art, with icon in its ring; tip: name and what it does.
+local function RoundButton(icon, name, tip, onClick)
 	local b = CreateFrame("Button", nil, frame)
-	b:SetSize(TOOL, TOOL)
+	b:SetSize(TRACK_SIZE, TRACK_SIZE)
+	local bg = b:CreateTexture(nil, "BACKGROUND")
+	bg:SetSize(25, 25)
+	bg:SetPoint("TOPLEFT", 2, -4)
+	bg:SetTexture(TRACK_BG)
 	b.icon = b:CreateTexture(nil, "ARTWORK")
-	b.icon:SetAllPoints()
+	b.icon:SetSize(20, 20)
+	b.icon:SetPoint("TOPLEFT", 6, -6)
 	b.icon:SetTexture(icon)
-	UI.ActionIcon(b, b.icon, TOOL, 0.6)
-	b:SetScript("OnClick", onClick)
+	local border = b:CreateTexture(nil, "OVERLAY")
+	border:SetSize(54, 54)
+	border:SetPoint("TOPLEFT")
+	border:SetTexture(TRACK_BORDER)
+	b:SetHighlightTexture(TRACK_HIGHLIGHT, "ADD")
+	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	b:SetScript("OnClick", function(self)
+		GameTooltip:Hide()
+		onClick(self)
+	end)
 	b:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		UI.TipLine(name, "heading")
 		UI.TipLine(tip, "textMuted", true)
 		GameTooltip:Show()
@@ -379,26 +474,51 @@ local function ToolButton(icon, name, tip, onClick)
 	return b
 end
 
--- The quest log button is lit while its panel is open.
+-- The quest log button: the game map's side panel toggle, its arrow pointing the way the panel will go.
+local function LogButton()
+	local b = CreateFrame("Button", nil, frame)
+	b:SetSize(LOG_SIZE, LOG_SIZE)
+	local shadow = b:CreateTexture(nil, "BACKGROUND")
+	shadow:SetAtlas(LOG_SHADOW, true)
+	shadow:SetPoint("BOTTOMRIGHT", 2, -1)
+	local light = b:CreateTexture(nil, "HIGHLIGHT")
+	light:SetTexture(LOG_HIGHLIGHT)
+	light:SetBlendMode("ADD")
+	light:SetSize(48, 48)
+	light:SetPoint("CENTER")
+	b:SetScript("OnClick", function()
+		-- The button is your choice, kept: the map key opens the map this way from now on.
+		sideWanted = not sideWanted
+		db.sideShown = sideWanted
+		ns.MapWindow_LayoutSide()
+	end)
+	b:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		UI.TipLine(QUEST_LOG or "Quest log", "heading")
+		UI.TipLine("Show or hide your quests beside the map. The map key opens it the way you leave it.", "textMuted",
+			true)
+		GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", GameTooltip_Hide)
+	return b
+end
+
+-- The quest log button's arrow points the way the panel moves: right (into the window's edge) while it shows, left
+-- (out from it) while it's hidden. The game's map has it the other way round (seen in game).
 local function SyncLogButton()
 	if logButton then
-		logButton.icon:SetDesaturated(not sideWanted)
-		logButton.icon:SetAlpha(sideWanted and 1 or 0.75)
-		if sideWanted then
-			logButton:LockHighlight()
-		else
-			logButton:UnlockHighlight()
-		end
+		logButton:SetNormalAtlas(sideWanted and LOG_SHOW or LOG_HIDE)
+		logButton:SetPushedAtlas(sideWanted and LOG_SHOW_DOWN or LOG_HIDE_DOWN)
 	end
 end
 
--- Mouse -----------------------------------------------------------------------------------------------------------------
+-- Mouse ---------------------------------------------------------------------------------------------------------------
 
 local function OnMouseDown(_, button)
 	if button == "LeftButton" then
 		local sx, sy = Cursor()
 		drag = { x = sx, y = sy, moved = false }
-		glide = nil
+		glide, pingWhenLanded = nil, false
 	end
 end
 
@@ -422,7 +542,7 @@ local function OnMouseWheel(_, delta)
 	ZoomTo(base * WHEEL_STEP ^ delta, sx, sy)
 end
 
--- Building ----------------------------------------------------------------------------------------------------------------
+-- Building ------------------------------------------------------------------------------------------------------------
 
 local function SaveFrame()
 	local point, _, relPoint, x, y = frame:GetPoint()
@@ -449,7 +569,9 @@ local function Build()
 	end
 	W, H = layers[1].layerWidth, layers[1].layerHeight
 
-	frame = UI.Dialog("TomteMapFrame", MIN_W, MIN_H) -- Escape closes it
+	local forever = ns.Theme.panel == "forever"
+	titleH = forever and FOREVER_STRIP_H + FOREVER_ROW_H or TITLE_H
+	frame = UI.Dialog("TomteMapFrame", MIN_W, MIN_H, forever and { look = { portrait = true } } or nil) -- Esc closes it
 	frame:SetFrameStrata("HIGH")
 	frame:SetResizable(true)
 	frame:SetResizeBounds(MIN_W, MIN_H)
@@ -459,32 +581,33 @@ local function Build()
 		dirty = true
 	end)
 
-	-- The title is the place: the one under the cursor, else where you are, its coordinates beside it.
-	zoneText = UI.Text(frame, 17, "heading", "title")
-	zoneText:SetPoint("TOPLEFT", PAD + 6, -8)
+	-- The title is the place: the one under the cursor, else where you are, its coordinates beside it (on Forever,
+	-- centered on the frame's strip, the coordinates on the row under it).
+	local close
+	if forever then
+		UI.Forever_Badge(frame, BADGE_ICON, nil, nil, nil, true)
+		local bar = CreateFrame("Frame", nil, frame)
+		bar:SetAllPoints()
+		bar:SetFrameLevel(frame:GetFrameLevel() + FOREVER_BAR_LEVEL)
+		zoneText = UI.Text(bar, 13, "heading", "title")
+		zoneText:SetPoint("TOP", frame, "TOP", 0, -5)
+		coordText = UI.Text(bar, 12, "textMuted", "number")
+		coordText:SetPoint("LEFT", frame, "TOPLEFT", FOREVER_BADGE_ROOM, -(FOREVER_STRIP_H + FOREVER_ROW_H / 2))
+		close = UI.Button(bar, 20, "x")
+		close:SetSize(28, 28) -- UIPanelCloseButtonDefaultAnchorsMixin (Camelot), as the Tomte window's
+		close:SetPoint("TOPRIGHT", 0, 3)
+	else
+		zoneText = UI.Text(frame, 17, "heading", "title")
+		zoneText:SetPoint("TOPLEFT", PAD + 6, -8)
+		coordText = UI.Text(frame, 12, "textMuted", "number")
+		coordText:SetPoint("BOTTOMLEFT", zoneText, "BOTTOMRIGHT", 10, 1)
+		close = CreateFrame("Button", nil, frame, "UIPanelCloseButtonNoScripts")
+		close:SetPoint("TOPRIGHT", -2, -2)
+	end
 	zoneText:SetWordWrap(false)
-	coordText = UI.Text(frame, 12, "textMuted", "number")
-	coordText:SetPoint("BOTTOMLEFT", zoneText, "BOTTOMRIGHT", 10, 1)
-	local close = CreateFrame("Button", nil, frame, "UIPanelCloseButtonNoScripts")
-	close:SetPoint("TOPRIGHT", -2, -2)
 	close:SetScript("OnClick", function()
 		frame:Hide()
 	end)
-	local find = ToolButton(FIND_ICON, "Find me", "Go to where you are, zoomed in on your zone.", function()
-		if not ns.MapWindow_FindMe() then
-			ns.Print("the map can't show where you are here.")
-		end
-	end)
-	-- Inside the title bar, level with the title, not on the window's edge as the close button is.
-	find:SetPoint("TOPRIGHT", -TOOL_RIGHT, -8)
-	logButton = ToolButton(LOG_ICON, QUEST_LOG or "Quest log",
-		"Show or hide your quests beside the map. The map key opens it the way you leave it.", function()
-		-- The button is your choice, kept: the map key opens the map this way from now on.
-		sideWanted = not sideWanted
-		db.sideShown = sideWanted
-		ns.MapWindow_LayoutSide()
-	end)
-	logButton:SetPoint("RIGHT", find, "LEFT", -8, 0)
 
 	-- A scroll frame with the canvas as its scroll child, as the game's map (see Apply).
 	view = CreateFrame("ScrollFrame", nil, frame)
@@ -524,6 +647,27 @@ local function Build()
 	layer:SetAllPoints(view)
 	layer:SetClipsChildren(true)
 	layer:SetFrameLevel(view:GetFrameLevel() + 40)
+	-- On the map's corners, as the game's map has its buttons: town markers and Find me top right, the quest log
+	-- bottom right. They ride the view's edge as the side panel slides.
+	local track = RoundButton(TRACK_ICON, "Town markers", "Choose what the map shows: mailboxes, bankers, inns, "
+		.. "trainers and more. They show once you're zoomed in on a zone.", TrackMenu)
+	track:SetPoint("TOPRIGHT", view, "TOPRIGHT", -TRACK_INSET, -TRACK_INSET)
+	track:SetFrameLevel(view:GetFrameLevel() + 50)
+	local find = RoundButton(FIND_ICON, "Find me", "Go to where you are, zoomed in on your zone.", function()
+		if not ns.MapWindow_FindMe(true) then
+			ns.Print("the map can't show where you are here.")
+		end
+	end)
+	find:SetPoint("RIGHT", track, "LEFT", -TRACK_GAP, 0)
+	find.icon:ClearAllPoints()
+	find.icon:SetPoint("CENTER", find, "TOPLEFT", FIND_CENTER_X, FIND_CENTER_Y)
+	find.icon:SetSize(FIND_ARROW, FIND_ARROW)
+	find.icon:SetRotation(FIND_TURN)
+	find:SetFrameLevel(view:GetFrameLevel() + 50)
+	logButton = LogButton()
+	logButton:SetPoint("BOTTOMRIGHT", view, "BOTTOMRIGHT", -TRACK_INSET, TRACK_INSET)
+	logButton:SetFrameLevel(view:GetFrameLevel() + 50)
+	SyncLogButton()
 
 	ns.MapArt_Init(canvas, W, H, worldID)
 	ns.MapMini_Init(canvas, db)
@@ -559,7 +703,7 @@ local function Build()
 		end)
 	end)
 	frame:HookScript("OnHide", function()
-		drag, target, aim, glide = nil, nil, nil, nil
+		drag, target, aim, glide, pingWhenLanded = nil, nil, nil, nil, false
 		if pinCursor then
 			ResetCursor()
 			pinCursor = false
@@ -589,7 +733,7 @@ local function SetSideOpen(open, keepLeft)
 		end
 	end
 	view:ClearAllPoints()
-	view:SetPoint("TOPLEFT", PAD, -TITLE_H)
+	view:SetPoint("TOPLEFT", PAD, -titleH)
 	view:SetPoint("BOTTOMRIGHT", -PAD - taken, PAD)
 	sideClip:ClearAllPoints()
 	sideClip:SetPoint("TOPLEFT", view, "TOPRIGHT", SIDE_GAP, 0)
@@ -618,7 +762,7 @@ end
 
 -- For other modules (the Dungeon journal's "Show on map"): opens the map on spot x, y (0..1) of mapID, flying there
 -- (out to an overview, across, then in until that map fills most of the view), and marks it with a pulsing ring (its label on
--- hover) until the next spot or the window closes. Called from a click. False while the Tomte map is off or when the
+-- hover) for a few seconds (Pins.lua, FOCUS_LASTS). Called from a click. False while the Tomte map is off or when the
 -- world map doesn't place mapID.
 function ns.MapWindow_ShowSpot(mapID, x, y, label)
 	if not (ns.Map_IsOn() and mapID and x and y) then
@@ -656,7 +800,7 @@ function ns.MapWindow_FindQuest(questID, label)
 	return true
 end
 
--- From Map.lua ------------------------------------------------------------------------------------------------------------
+-- From Map.lua --------------------------------------------------------------------------------------------------------
 
 function ns.MapWindow_Init(moduleDB)
 	db = moduleDB

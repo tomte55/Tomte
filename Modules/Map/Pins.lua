@@ -1,9 +1,11 @@
 local addonName, ns = ...
 
 -- Tomte map: everything on the art. You (an arrow turned your way) and your party, the quests in your log (the active
--- one larger, with its area drawn on its zone as the game's map does), flight masters, dungeon entrances and your map
--- pin. Pins sit on a layer over the view that isn't scaled, so they keep their size at any zoom; Window.lua tells them
--- where canvas points land (ns.MapPins_Layout). Art and canvas boxes in Art.lua.
+-- one larger, with its area drawn on its zone as the game's map does), flight masters, dungeon entrances (a click opens
+-- the Dungeon journal), town markers (mailboxes, bankers ...: Data/Forever/Townsfolk.lua, picked in the map's
+-- tracking menu; those of a kind close together share one pin) and your map pin. Pins sit on a layer over the view
+-- that isn't scaled, so they keep their size at any zoom; Window.lua tells them where canvas points land
+-- (ns.MapPins_Layout). Art and canvas boxes in Art.lua.
 
 local ARROW = "Interface\\Minimap\\MinimapArrow"
 local RING = ns.Theme.MEDIA .. "Gather\\Ring" -- a thin white ring, tinted
@@ -11,11 +13,15 @@ local DOT = "Interface\\Buttons\\WHITE8X8"
 local TURN_IN = "Interface\\GossipFrame\\ActiveQuestIcon" -- the gold "?"
 local TAXI = "Interface\\TaxiFrame\\UI-Taxi-Icon-Green" -- if a node's atlas isn't on this client
 local WAYPOINT_ATLAS = "Waypoint-MapPin-Tracked"
-local SIZE = { arrow = 34, party = 10, quest = 18, active = 22, taxi = 16, dungeon = 20, waypoint = 22 } -- pixels
+local SIZE = { arrow = 34, party = 10, quest = 18, active = 22, taxi = 16, dungeon = 20, waypoint = 22, -- pixels
+	town = 14 }
 -- Frame levels over the pin layer: places, then quests (one level each, so overlapping ones always stack the same
 -- way), then the map pin, your party and you.
-local LEVEL = { taxi = 2, dungeon = 3, quest = 10, waypoint = 200, spot = 205, focus = 207, party = 210, arrow = 220 }
+local LEVEL = { town = 1, taxi = 2, dungeon = 3, quest = 10, waypoint = 200, spot = 205, focus = 207, party = 210,
+	arrow = 220 }
 local FOCUS_SIZE, FOCUS_PULSE = 26, 1.2 -- pixels, and seconds per pulse of the ring round a spot shown from elsewhere
+-- That ring stays this many seconds (the flight there takes one or two), then fades out over FOCUS_FADE.
+local FOCUS_LASTS, FOCUS_FADE = 7, 0.8
 -- When the map opens, rings pulse out from you a few times so the eye finds you (as the game's map shows you).
 local PING_TIMES, PING_SECONDS, PING_FROM, PING_TO = 3, 0.9, 0.6, 2.6 -- pulses, seconds each, ring size in arrows
 local HOVER_SCALE = 1.5 -- a quest pin while its row in the side panel is under the mouse
@@ -29,6 +35,10 @@ local AREA_BORDER = "Interface\\WorldMap\\UI-QuestBlob-Outside"
 local AREA_LIGHT, AREA_STRONG = { 56, 128 }, { 128, 192 }
 local UNDISCOVERED_ALPHA = 0.4
 local FACTION = { Neutral = 0, Horde = 1, Alliance = 2 } -- Enum.FlightPathFaction
+local SIDE = { Horde = "H", Alliance = "A" } -- Townsfolk.lua's sides
+-- Town markers of a kind closer than this many of their widths become one pin, its tooltip listing them all.
+local TOWN_GAP = 1.1
+local TRACKING = "Interface\\Minimap\\Tracking\\"
 
 local UI = ns.UI
 
@@ -36,6 +46,8 @@ local layer, db
 local pools = {} -- [kind] = { used = n, list }
 local quests = {} -- { questID, mapID, x, y, ready }
 local taxis, dungeons = nil, nil -- read once (they don't change)
+local towns = {} -- [kind] = Map_TownRows' rows with cx, cy (canvas) added: read the first time a kind is shown
+local townSpots = {} -- this layout's town spots on the view, { x, y, row }, kept between layouts (no garbage)
 local waypoint -- { mapID, x, y }
 local spot -- { mapID, x, y }: a place a side panel row points at (a teleport's destination)
 local focus -- { mapID, x, y, label }: a place another module asked the map to show (ns.MapWindow_ShowSpot)
@@ -49,7 +61,7 @@ local blobQuest
 local arrow
 local party = {} -- unit tokens shown
 
--- Pins ------------------------------------------------------------------------------------------------------------------
+-- Pins ----------------------------------------------------------------------------------------------------------------
 
 local function Pool(kind)
 	local pool = pools[kind]
@@ -100,7 +112,7 @@ local function Acquire(kind)
 	pin:SetSize(size, size)
 	pin.ring:Hide()
 	pin:SetAlpha(1)
-	pin.tip, pin.click = nil, nil
+	pin.tip, pin.click, pin.hint = nil, nil, nil
 	pin:Show()
 	return pin
 end
@@ -155,7 +167,7 @@ local function Icon(pin, atlas, texture)
 	end
 end
 
--- Reading ---------------------------------------------------------------------------------------------------------------
+-- Reading -------------------------------------------------------------------------------------------------------------
 
 -- A position from the API: a Vector2D, or on Forever sometimes a plain { x, y } without its methods (a map pin's and
 -- some places' positions errored on GetXY, 2026-11-15).
@@ -227,7 +239,7 @@ local function ReadStatic()
 			seen[d.name] = true
 			local levels = d.min and (d.max and ("Level %d-%d"):format(d.min, d.max) or ("Level %d+"):format(d.min))
 			dungeons[#dungeons + 1] = { mapID = door.map, x = door.x / 100, y = door.y / 100, name = d.name,
-				description = levels }
+				description = levels, id = d.id }
 		end
 	end
 end
@@ -241,7 +253,7 @@ local function ReadWaypoint()
 	waypoint = x and { mapID = point.uiMapID, x = x, y = y } or nil
 end
 
--- Tooltips and clicks ---------------------------------------------------------------------------------------------------
+-- Tooltips and clicks -------------------------------------------------------------------------------------------------
 
 local function QuestTip(pin)
 	local id = pin.questID
@@ -277,6 +289,14 @@ local function NameTip(pin)
 	if pin.note then
 		UI.TipLine(pin.note, "textMuted", true)
 	end
+	if pin.hint then
+		UI.TipLine(pin.hint, "textMuted")
+	end
+end
+
+-- A dungeon entrance from the Dungeon journal's data: a click opens it there.
+local function DungeonClick(pin)
+	ns.DJ_Open(pin.instanceID)
 end
 
 -- The active quest's area --------------------------------------------------------------------------------------------
@@ -476,7 +496,97 @@ local function LayoutPlaces(toView)
 			Icon(pin, d.atlas, "Interface\\Minimap\\Dungeon")
 			pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.dungeon)
 			pin.name, pin.note, pin.tip = d.name, d.description, NameTip
+			if d.id and ns.DJ_Open then
+				pin.instanceID, pin.click = d.id, DungeonClick
+				pin.hint = "Click: open it in the Dungeon journal"
+			end
 			Put(pin, d.mapID, d.x, d.y, toView)
+		end
+	end
+end
+
+-- Town markers --------------------------------------------------------------------------------------------------------
+
+-- One kind's rows for you: your side, your class's trainers, with their canvas spots (they never move).
+local function TownRows(kind)
+	local rows = towns[kind]
+	if rows then
+		return rows
+	end
+	local data = ns.Content_Get(ns.CONTENT_FOREVER, "townsfolk") or {}
+	rows = {}
+	local side, class = SIDE[UnitFactionGroup("player") or ""], select(2, UnitClass("player"))
+	for _, r in ipairs(ns.Map_TownRows(data[kind], side, class)) do
+		r.cx, r.cy = ns.MapArt_ToCanvas(r.mapID, r.x, r.y)
+		if r.cx then
+			rows[#rows + 1] = r
+		end
+	end
+	towns[kind] = rows
+	return rows
+end
+
+-- One marker: its name and what it is. A group: what they are, then each one's name and title (mailboxes have none:
+-- their count).
+local function TownTip(pin)
+	local list = pin.rows
+	if #list == 1 then
+		local r = list[1]
+		UI.TipLine(r.name or pin.kindName, "heading")
+		if r.name then
+			UI.TipLine(r.title or pin.kindName, "textMuted")
+		end
+		return
+	end
+	UI.TipLine(pin.kindName, "heading")
+	local named = 0
+	for _, r in ipairs(list) do
+		if r.name then
+			named = named + 1
+			local lr, lg, lb = UI.Color("text")
+			local rr, rg, rb = UI.Color("textMuted")
+			GameTooltip:AddDoubleLine(r.name, r.title or "", lr, lg, lb, rr, rg, rb)
+		end
+	end
+	if named == 0 then
+		UI.TipLine(("%d here"):format(#list), "textMuted")
+	end
+end
+
+-- Only at the zones' level: zoomed out they'd bury the continents. Only spots on the view are looked at (there are
+-- hundreds), and those of a kind close together on the view share one pin (Data.lua, Map_Group).
+local function LayoutTowns(toView)
+	Release("town")
+	if level ~= "zone" or not db.town then
+		return
+	end
+	local gap = SIZE.town * (db.pinScale or 1) * zoomGrow * TOWN_GAP
+	for _, kind in ipairs(ns.MAP_TOWN_KINDS) do
+		if db.town[kind.key] then
+			local n = 0
+			for _, r in ipairs(TownRows(kind.key)) do
+				local vx, vy = toView(r.cx, r.cy)
+				if vx then
+					n = n + 1
+					local s = townSpots[n] or {}
+					townSpots[n] = s
+					s.x, s.y, s.row = vx, vy, r
+				end
+			end
+			local kindName = _G[kind.global] or kind.name
+			for _, g in ipairs(ns.Map_Group(townSpots, n, gap)) do
+				local pin = Acquire("town")
+				Icon(pin, nil, TRACKING .. kind.icon)
+				pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.town)
+				pin.rows = pin.rows or {}
+				wipe(pin.rows)
+				for i, m in ipairs(g.members) do
+					pin.rows[i] = townSpots[m].row
+				end
+				pin.kindName, pin.tip = kindName, TownTip
+				pin:ClearAllPoints()
+				pin:SetPoint("CENTER", layer, "CENTER", g.x, -g.y)
+			end
 		end
 	end
 end
@@ -652,7 +762,7 @@ local function LayoutUnits(toView)
 	end
 end
 
--- From the window ---------------------------------------------------------------------------------------------------------
+-- From the window -----------------------------------------------------------------------------------------------------
 
 function ns.MapPins_Init(pinLayer, moduleDB)
 	layer, db = pinLayer, moduleDB
@@ -664,6 +774,7 @@ function ns.MapPins_Layout(toView, artLevel, zoom)
 	zoomGrow, questGrow = ns.Map_PinGrow(zoom or 1, GROW), ns.Map_PinGrow(zoom or 1, QUEST_GROW)
 	LayoutQuests(toView)
 	LayoutPlaces(toView)
+	LayoutTowns(toView)
 	LayoutWaypoint(toView)
 	LayoutFocus(toView)
 	LayoutUnits(toView)
@@ -727,8 +838,43 @@ function ns.MapPins_Hover(questID)
 end
 
 -- A place another module asked the map to show (mapID, x, y on it, a label for its tooltip), or nil to take it away.
+-- Its ring fades out after FOCUS_LASTS seconds.
+local focusTimer
+
+local function FocusGone()
+	focus = nil
+	if focusPin then
+		focusPin:Hide()
+		focusPin:SetAlpha(1)
+	end
+	if ns.MapWindow_Relayout then
+		ns.MapWindow_Relayout()
+	end
+end
+
 function ns.MapPins_Focus(mapID, x, y, label)
+	if focusTimer then
+		focusTimer:Cancel()
+		focusTimer = nil
+	end
+	if focusPin then
+		UI.TweenStop(focusPin, "fade")
+		focusPin:SetAlpha(1)
+	end
 	focus = mapID and { mapID = mapID, x = x, y = y, label = label } or nil
+	if focus then
+		-- It has done its job once the eye has found it: it fades out by itself.
+		focusTimer = C_Timer.NewTimer(FOCUS_LASTS, function()
+			focusTimer = nil
+			if not (focusPin and focusPin:IsShown()) then
+				FocusGone()
+				return
+			end
+			UI.Tween(focusPin, "fade", FOCUS_FADE, function(t)
+				focusPin:SetAlpha(1 - t)
+			end, FocusGone)
+		end)
+	end
 	if ns.MapWindow_Relayout then
 		ns.MapWindow_Relayout()
 	end

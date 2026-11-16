@@ -56,6 +56,7 @@ Data/Forever/MinimapTiles.lua
 Data/Forever/MapReveal.lua
 Data/Forever/MapArtIndex.lua
 Data/Forever/DungeonJournal.lua
+Data/Forever/Townsfolk.lua
 Core/Journal.lua
 Core/CheckData.lua
 Core/Check.lua

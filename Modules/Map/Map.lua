@@ -184,7 +184,9 @@ module = ns.RegisterModule({
 	summary = "A world map of Tomte's own: the whole world in one piece, zoomed with the wheel.",
 	description = "A world map in its own window: both continents and every zone stitched into one world you zoom "
 		.. "toward the mouse and drag around. Shows you and your party, your quests (the active one with its area), "
-		.. "flight masters, dungeon entrances and your map pin. Click a quest to make it your active quest, Ctrl-click "
+		.. "flight masters, dungeon entrances (click one to open it in the Dungeon journal), town markers such as "
+		.. "mailboxes, bankers and trainers (the magnifying glass on the map) and your map pin. Click a quest to make "
+		.. "it your active quest, Ctrl-click "
 		.. "to place a map pin, right-click to zoom out. Open it with /tomte map or a key (Key Bindings > Tomte); bind "
 		.. "M to it to use it instead of the game's map. It never touches the game's map, so it can't break it, and it "
 		.. "works in combat.",
@@ -197,6 +199,9 @@ module = ns.RegisterModule({
 		taxis = true,
 		dungeons = true,
 		party = true,
+		-- Town markers (the map's magnifying glass; kinds in Data.lua, MAP_TOWN_KINDS): off until picked.
+		town = { auctioneer = false, banker = false, battlemaster = false, innkeeper = false, mailbox = false,
+			class = false, profession = false, repair = false, stablemaster = false },
 		pinScale = 1,
 		key = "", -- a key that opens the map (binding string, "" for none), on top of Key Bindings > Tomte
 		logKey = "", -- a key that opens it with its quest log (as the game's L)
@@ -204,6 +209,7 @@ module = ns.RegisterModule({
 		continentZoom = 1.2, -- zoom (1: the whole world fits) where the continents' own maps fade in
 		zoneZoom = 5, -- and the zones'
 		sideShown = true, -- the side panel right of the map
+		questSteps = true, -- each quest's steps under it in that panel's quest log
 		side = "quests", -- its tab: "quests" or "tp" (Teleports)
 		ground = true, -- the game's minimap pictures close up
 		groundZoom = 10, -- zoom where they start fading in
@@ -280,5 +286,23 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "taxis", label = "Flight masters", onChange = Relayout },
 		{ type = "checkbox", key = "dungeons", label = "Dungeon entrances", onChange = Relayout },
 		{ type = "checkbox", key = "party", label = "Party and raid members", onChange = Relayout },
+		{ type = "checkbox", key = "questSteps", label = "Quest steps in the quest log", onChange = function()
+			if ns.MapQuests_Refresh then
+				ns.MapQuests_Refresh()
+			end
+		end, tooltip = "Each quest's objectives under it in the quest log beside the map, as the game's quest log "
+			.. "shows them. Also in the gear menu by its search box." },
+
+		{ type = "header", label = "Town markers" },
+		{ type = "checkbox", key = "town.mailbox", label = "Mailboxes", onChange = Relayout,
+			tooltip = "Also in the menu of the magnifying glass on the map. Town markers show once you're zoomed in on a zone." },
+		{ type = "checkbox", key = "town.auctioneer", label = "Auctioneers", onChange = Relayout },
+		{ type = "checkbox", key = "town.banker", label = "Bankers", onChange = Relayout },
+		{ type = "checkbox", key = "town.innkeeper", label = "Innkeepers", onChange = Relayout },
+		{ type = "checkbox", key = "town.repair", label = "Repair", onChange = Relayout },
+		{ type = "checkbox", key = "town.class", label = "Your class trainers", onChange = Relayout },
+		{ type = "checkbox", key = "town.profession", label = "Profession trainers", onChange = Relayout },
+		{ type = "checkbox", key = "town.stablemaster", label = "Stable masters", onChange = Relayout },
+		{ type = "checkbox", key = "town.battlemaster", label = "Battlemasters", onChange = Relayout },
 	},
 })
