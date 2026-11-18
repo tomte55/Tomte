@@ -22,19 +22,23 @@ end
 -- own stop, so a finished one is never held back by an unfinished one handed in at the same place; stops at one place
 -- are 0 yards apart, so the route takes them together anyway, and Merge joins them afterwards. A hand stop's
 -- needs = { [questID] = true } when its quest's do stop comes first; ready = it can be handed in right away.
-local function Build(quests)
+-- part: "do" for only the do stops (the quests done close by first), "hand" for only the hand stops of those (their
+-- objective is already planned before this set: they wait for nothing here), nil for both.
+local function Build(quests, part)
 	local stops = {}
 	for _, q in ipairs(quests) do
 		if q.complete then
 			local at = q.point or q.hand
-			if at then
+			if at and part ~= "do" then
 				stops[#stops + 1] = { kind = "hand", x = at.x, y = at.y, quests = { q.questID }, needs = {}, ready = true }
 			end
 		elseif q.point then
-			stops[#stops + 1] = { kind = "do", x = q.point.x, y = q.point.y, quests = { q.questID } }
-			if q.hand then
+			if part ~= "hand" then
+				stops[#stops + 1] = { kind = "do", x = q.point.x, y = q.point.y, quests = { q.questID } }
+			end
+			if q.hand and part ~= "do" then
 				stops[#stops + 1] = { kind = "hand", x = q.hand.x, y = q.hand.y, quests = { q.questID },
-					needs = { [q.questID] = true } }
+					needs = part == "hand" and {} or { [q.questID] = true } }
 			end
 		end
 	end
@@ -196,14 +200,9 @@ local function Strip(path)
 	return out
 end
 
--- you: { x, y } (world yards). quests: { { questID, complete, point = { x, y } (where to do it; for a finished quest
--- the game's turn-in spot), hand = { x, y } (where it's handed in, from data), later (saved for later: planned after
--- the rest) } }, all on your continent. followedID:
--- the quest followed now, or nil. Returns stops in route order: { { kind = "do" | "hand", x, y, quests = { IDs },
--- needs } }. The followed quest's stop stays first unless a plan starting elsewhere is clearly shorter (KEEP_UNLESS).
--- One set of quests planned from `from`, unmerged.
-local function PlanSet(from, quests, followedID)
-	local stops = Build(quests)
+-- Stops planned from `from`, unmerged: nearest first, untangled. The followed quest's stop stays first unless a plan
+-- starting elsewhere is clearly shorter (KEEP_UNLESS).
+local function PlanStops(from, stops, followedID)
 	if #stops == 0 then
 		return {}
 	end
@@ -226,22 +225,54 @@ local function PlanSet(from, quests, followedID)
 	return Strip(free)
 end
 
+-- Whether an unfinished quest is done close by first: you're in its area (q.inside), or its spot is within hereYards.
+-- A quest saved for later waits all the same.
+local function Here(you, q, hereYards)
+	if hereYards == nil or q.complete or q.later or not q.point then
+		return false
+	end
+	return q.inside == true or Dist(you, q.point) <= hereYards
+end
+
+local function Append(path, stops)
+	for _, s in ipairs(stops) do
+		path[#path + 1] = s
+	end
+end
+
+-- you: { x, y } (world yards). quests: { { questID, complete, point = { x, y } (where to do it; for a finished quest
+-- the game's turn-in spot), hand = { x, y } (where it's handed in, from data), later (saved for later: planned after
+-- the rest), inside (you're in its area) } }, all on your continent. followedID: the quest followed now, or nil.
+-- hereYards: how close a quest's spot counts as close by (nil: no close-by step). Returns stops in route order:
+-- { { kind = "do" | "hand", x, y, quests = { IDs }, needs } }.
 -- Finished quests handed in within NEAR_HAND_YARDS of you come first, even where going on first is shorter (their
 -- hand-in passed on the way back): their XP counts now (a level opens quests saved for later), and they aren't left
--- for later. Then the rest, then quests saved for later (q.later: Route_SavedForLater), each from where the last ends.
-function ns.Route_Plan(you, quests, followedID, mergeYards)
-	local near, now, later = {}, {}, {}
+-- for later. Then the quests close by (Here): their objectives, nearest first, before the route goes anywhere else.
+-- Planning the whole tour for the fewest yards left them for the way back, so the arrow walked away from quests you
+-- stood in (Tirisfal, 2026-11-16: Rear Guard Patrol, then A New Plague to the northeast, then back for two quests that
+-- were right there). Their hand-ins go with the rest. Then the rest, then quests saved for later (q.later:
+-- Route_SavedForLater), each from where the last ends.
+function ns.Route_Plan(you, quests, followedID, mergeYards, hereYards)
+	local near, here, now, later = {}, {}, {}, {}
 	for _, q in ipairs(quests) do
 		local at = q.complete and (q.point or q.hand)
-		local list = (at and Dist(you, at) <= NEAR_HAND_YARDS) and near or (q.later and later or now)
-		list[#list + 1] = q
-	end
-	local path = PlanSet(you, near, nil)
-	for _, set in ipairs({ now, later }) do
-		for _, s in ipairs(PlanSet(path[#path] or you, set, followedID)) do
-			path[#path + 1] = s
+		if at and Dist(you, at) <= NEAR_HAND_YARDS then
+			near[#near + 1] = q
+		elseif Here(you, q, hereYards) then
+			here[#here + 1] = q
+		elseif q.later then
+			later[#later + 1] = q
+		else
+			now[#now + 1] = q
 		end
 	end
+	local path = PlanStops(you, Build(near), nil)
+	Append(path, PlanStops(path[#path] or you, Build(here, "do"), followedID))
+	-- The close-by quests' hand-ins go with the rest (their objectives are behind you by then).
+	local rest = Build(now)
+	Append(rest, Build(here, "hand"))
+	Append(path, PlanStops(path[#path] or you, rest, followedID))
+	Append(path, PlanStops(path[#path] or you, Build(later), followedID))
 	return Merge(path, mergeYards)
 end
 

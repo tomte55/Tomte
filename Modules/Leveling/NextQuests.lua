@@ -401,8 +401,9 @@ function ns.LevelingNext_Update()
 	if db.nextFollow and not stops.sample then
 		-- A quest whose area you're in first, then the route's first stop (Leveling_FollowPick, LevelingRoute_Pick),
 		-- planned over the quests a stop would list.
-		local pick = ns.LevelingRoute_Pick(quests, points, you, IsInGroup(), followed)
-		Follow(ns.Leveling_FollowPick(quests, ns.LevelingRead_QuestsInArea(), followed, pick, IsInGroup()))
+		local inside = ns.LevelingRead_QuestsInArea()
+		local pick = ns.LevelingRoute_Pick(quests, points, you, IsInGroup(), followed, inside)
+		Follow(ns.Leveling_FollowPick(quests, inside, followed, pick, IsInGroup()))
 	elseif not db.nextFollow then
 		Unfollow()
 	end

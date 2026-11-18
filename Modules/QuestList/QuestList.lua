@@ -353,9 +353,10 @@ local function Update()
 			end
 		end
 		local pick
-		pick, route = ns.LevelingRoute_Pick(listed, points, you, IsInGroup(), followed)
+		local inside = ns.LevelingRead_QuestsInArea()
+		pick, route = ns.LevelingRoute_Pick(listed, points, you, IsInGroup(), followed, inside)
 		routeFrom = you
-		Follow(ns.Leveling_FollowPick(quests, ns.LevelingRead_QuestsInArea(), followed, pick, IsInGroup()))
+		Follow(ns.Leveling_FollowPick(quests, inside, followed, pick, IsInGroup()))
 	elseif followed then -- turned off in the settings
 		followed = nil
 		ns.ActiveQuest_Follow(nil)

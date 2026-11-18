@@ -10,14 +10,18 @@ local MERGE_YARDS = 150
 -- A quest this close to one still too high for you is saved for the end of the route: the quest list's stop size, so
 -- one place (Shadowvale's three quests at level 9) is done in one trip once you can do them all.
 local LATER_YARDS = 300
+-- Quests this close (or whose area you're in) are done before the route goes anywhere else: the list's stop size, so
+-- what the list shows together around you is what the arrow takes first (RouteData.lua's Route_Plan).
+local HERE_YARDS = 300
 
 local UI = ns.UI
 
 -- quests: the quest rows to plan (each caller passes the ones it lists). points: Leveling's quest spots
--- (LevelingRead_QuestPoints). you: where you stand (LevelingRead_You). followedID: the quest followed now. Returns the
+-- (LevelingRead_QuestPoints). you: where you stand (LevelingRead_You). followedID: the quest followed now. inside:
+-- [questID] = true for the quest areas you're in (LevelingRead_QuestsInArea). Returns the
 -- quest row to follow (the first stop's: its quest, or the first one handed in there) and the planned stops; nil and {}
 -- without a position or anything to plan. Only your continent counts; a hand-in elsewhere is left out.
-function ns.LevelingRoute_Pick(quests, points, you, grouped, followedID)
+function ns.LevelingRoute_Pick(quests, points, you, grouped, followedID, inside)
 	if not you then
 		return nil, {}
 	end
@@ -31,7 +35,8 @@ function ns.LevelingRoute_Pick(quests, points, you, grouped, followedID)
 				hand = nil
 			end
 			if point or (q.complete and hand) then
-				input[#input + 1] = { questID = q.questID, complete = q.complete, point = point, hand = hand or nil }
+				input[#input + 1] = { questID = q.questID, complete = q.complete, point = point, hand = hand or nil,
+					inside = inside and inside[q.questID] or nil }
 				byID[q.questID] = q
 			end
 		elseif point and not grouped and not q.elite and not q.dungeon and ns.Leveling_QuestGroup(q) == "hard" then
@@ -42,7 +47,7 @@ function ns.LevelingRoute_Pick(quests, points, you, grouped, followedID)
 	for _, q in ipairs(input) do
 		q.later = not q.complete and later[q.questID] or nil
 	end
-	local stops = ns.Route_Plan(you, input, followedID, MERGE_YARDS)
+	local stops = ns.Route_Plan(you, input, followedID, MERGE_YARDS, HERE_YARDS)
 	for _, s in ipairs(stops) do
 		s.later = s.kind == "do" and later[s.quests[1]] or nil
 	end

@@ -149,6 +149,38 @@ test("a quest saved for later comes after everything else, its hand-in too", fun
 	eq(ns.Route_Plan(YOU, quests, 1, MERGE)[1].quests[1], 2, "following it doesn't pull it forward")
 end)
 
+test("quests close by are done first, nearest first, even where saving them for the way back is shorter", function()
+	-- Tirisfal: three quests around you, one far east, everything handed in at a town to the west. Saving the close ones
+	-- for the walk back west is the shortest tour; the route does them first instead.
+	local town = P(-1500, 0)
+	local quests = {
+		{ questID = 1, point = P(20, 0), hand = town },
+		{ questID = 2, point = P(600, 0), hand = town },
+		{ questID = 3, point = P(-150, 60), hand = town },
+		{ questID = 4, point = P(-100, -90), hand = town },
+	}
+	local stops = ns.Route_Plan(YOU, quests, 1, MERGE, 300)
+	eq(Kinds({ stops[1], stops[2], stops[3], stops[4] }), "do:1 do:4 do:3 do:2")
+	eq(InOrder(stops), true)
+	eq(stops[#stops].kind, "hand", "then all four hand in at the town")
+end)
+
+test("a quest whose area you're in is close by however far its spot is", function()
+	local quests = { { questID = 1, point = P(700, 0), inside = true }, { questID = 2, point = P(400, 0) } }
+	eq(ns.Route_Plan(YOU, quests, nil, MERGE, 300)[1].quests[1], 1)
+	eq(ns.Route_Plan(YOU, quests, nil, MERGE, nil)[1].quests[1], 2, "without the close-by step: nearest first")
+end)
+
+test("close by doesn't pull a saved-for-later quest forward, or go before hand-ins next door", function()
+	local quests = {
+		{ questID = 1, point = P(30, 0), later = true },
+		{ questID = 2, point = P(800, 0) },
+		{ questID = 3, complete = true, point = P(200, 0) },
+		{ questID = 4, point = P(100, 0) },
+	}
+	eq(Kinds(ns.Route_Plan(YOU, quests, nil, MERGE, 300)), "hand:3 do:4 do:2 do:1")
+end)
+
 test("SavedForLater: a quest near one too high for you yet waits for it", function()
 	local doable = { { questID = 1, point = P(0, 0) }, { questID = 2, point = P(2000, 0) } }
 	local tooHigh = { P(200, 0) }
