@@ -4,9 +4,15 @@ local addonName, ns = ...
 -- counting whether or not Blizzard's meter window is on. In combat a source's name and amounts are secret: they go
 -- straight to font strings and status bars, never compared or added up here (warcraft.wiki.gg API_C_DamageMeter).
 
--- Whether the game has a damage meter for addons to read; second: why not, in its words.
+-- Whether this client has a damage meter at all (the module can't run without one).
+function ns.MeterRead_Exists()
+	return C_DamageMeter ~= nil and C_DamageMeter.GetCombatSessionFromType ~= nil
+end
+
+-- Whether the game's damage meter counts right now; second: why not, in its words. This changes during a session:
+-- Blizzard's own meter asks again on group, level and combat changes (Blizzard_DamageMeter/DamageMeter.lua).
 function ns.MeterRead_Available()
-	if not (C_DamageMeter and C_DamageMeter.GetCombatSessionFromType) then
+	if not ns.MeterRead_Exists() then
 		return false, "This client has no damage meter."
 	end
 	if C_DamageMeter.IsDamageMeterAvailable then

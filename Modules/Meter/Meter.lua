@@ -64,6 +64,10 @@ local function Shows()
 	if ns.EditMode_Active() then
 		return true
 	end
+	-- Asked every time, not once at login: the game's meter can come on later in the session (joining a group, a level).
+	if not ns.MeterRead_Available() then
+		return false
+	end
 	return ns.Meter_Shows({
 		always = db.visible == "always", grouped = IsInGroup(), solo = db.solo, inCombat = inCombat,
 		endedAgo = endedAt and GetTime() - endedAt or nil, linger = db.linger,
@@ -149,6 +153,9 @@ local WATCHED = {
 	PLAYER_REGEN_DISABLED = CombatStart,
 	PLAYER_REGEN_ENABLED = CombatEnd,
 	GROUP_ROSTER_UPDATE = Apply,
+	-- The game's meter turning available or not (the moments Blizzard's own meter asks again).
+	PLAYER_LEVEL_CHANGED = Apply,
+	PLAYER_ENTERING_WORLD = Apply,
 	DAMAGE_METER_COMBAT_SESSION_UPDATED = RedrawSoon,
 	DAMAGE_METER_CURRENT_SESSION_UPDATED = RedrawSoon,
 	DAMAGE_METER_RESET = RedrawSoon,
@@ -286,10 +293,11 @@ module = ns.RegisterModule({
 	init = function(moduleDB)
 		db = moduleDB
 	end,
+	-- Only a client without a damage meter blocks it. Whether the game's meter counts right now is asked in Shows: a
+	-- "no" at login used to keep the module off for the whole session, until it was toggled.
 	blocked = function()
-		local ok, why = ns.MeterRead_Available()
-		if not ok then
-			return why
+		if not ns.MeterRead_Exists() then
+			return "This client has no damage meter."
 		end
 	end,
 	toggle = function(on)
