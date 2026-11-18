@@ -285,4 +285,26 @@ test("Quest list party sync becomes Friend sharing's Quest progress setting", fu
 	eq(none.questlist, nil, "nothing made")
 end)
 
+test("Bags: an edited layout's untouched Quest category beats Consumable, edited ones stay", function()
+	local db = { schema = 22, bags = { layout = {
+		{ kind = "category", key = "consumable", rule = "is:consumable" },
+		{ kind = "category", key = "quest", rule = "is:quest" },
+		{ kind = "section", key = "mine", children = { { kind = "category", key = "quest", rule = "is:quest" } } },
+	} } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.bags.layout[2].priority, 1)
+	eq(db.bags.layout[3].children[1].priority, 1, "inside a section too")
+	eq(db.bags.layout[1].priority, nil)
+	local own = { schema = 22, bags = { layout = {
+		{ kind = "category", key = "quest", rule = "is:quest", priority = 3 },
+		{ kind = "category", key = "quest", rule = "is:quest or is:key" },
+	} } }
+	ns.RunMigrations(own, ns.MIGRATIONS)
+	eq(own.bags.layout[1].priority, 3, "a priority set by hand stays")
+	eq(own.bags.layout[2].priority, nil, "an edited rule stays as it is")
+	local none = { schema = 22 }
+	ns.RunMigrations(none, ns.MIGRATIONS)
+	eq(none.bags, nil, "nothing made")
+end)
+
 H.done()

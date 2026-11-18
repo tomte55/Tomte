@@ -50,7 +50,8 @@ ns.BAGS_LAYOUT = {
 	{ kind = "category", key = "potion", name = "Potion", rule = "is:potion" },
 	{ kind = "category", key = "food", name = "Food", rule = "is:food" },
 	{ kind = "category", key = "consumable", name = "Consumable", rule = "is:consumable" },
-	{ kind = "category", key = "quest", name = "Quest", rule = "is:quest" },
+	-- Above Consumable: a quest item or one that starts a quest is often a consumable by class (Craftsman's Writs).
+	{ kind = "category", key = "quest", name = "Quest", rule = "is:quest", priority = 1 },
 	{ kind = "section", key = "equipment", name = "Equipment", children = {
 		{ kind = "category", key = "sets", name = "Equipment sets", auto = "set", priority = 1 },
 		{ kind = "category", key = "weapon", name = "Weapon", rule = "is:weapon" },

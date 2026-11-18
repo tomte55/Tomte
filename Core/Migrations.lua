@@ -238,4 +238,20 @@ ns.MIGRATIONS = {
 		end
 		quests.partySync = nil
 	end,
+	-- 23: Bags' Quest category beats Consumable (priority 1), so quest-starting items such as Craftsman's Writs stop
+	-- landing in Consumable. Edited layouts are saved copies: their untouched Quest category gets it too.
+	function(db)
+		local layout = type(db.bags) == "table" and db.bags.layout
+		local function Walk(nodes)
+			for _, node in ipairs(type(nodes) == "table" and nodes or {}) do
+				if type(node) == "table" then
+					if node.key == "quest" and node.rule == "is:quest" and node.priority == nil then
+						node.priority = 1
+					end
+					Walk(node.children)
+				end
+			end
+		end
+		Walk(layout)
+	end,
 }
