@@ -2,8 +2,8 @@ local addonName, ns = ...
 
 -- Tomte map (World of Warcraft: Forever): our own world map, one seamless world you zoom and pan, in a window of
 -- Tomte's own, so nothing of Blizzard's map is touched (calls into it taint, see the project's map notes). Main file:
--- module, db, events while the window shows, key binding, commands. The window in Window.lua, art in Art.lua, pins in
--- Pins.lua, maths in Data.lua. See docs/superpowers/specs/2026-11-15-tomte-world-map-design.md.
+-- module, db, events while the window shows (and a flight master's, while on), key binding, commands. The window in
+-- Window.lua, art in Art.lua, pins in Pins.lua, the flight master mode in Flights.lua, maths in Data.lua. See docs/superpowers/specs/2026-11-15-tomte-world-map-design.md.
 
 local WORLD_MAP_ID = 947 -- Azeroth: the world map both continents sit on (OpenMap measured it on Forever)
 local ICON = "Interface\\Icons\\INV_Misc_Map_01"
@@ -31,8 +31,20 @@ end
 
 -- Events: only while the window shows ------------------------------------------------------------------------------
 
-events:SetScript("OnEvent", function(_, event)
-	if event == "PLAYER_REGEN_ENABLED" then
+local TAXI_SYSTEM = Enum.UIMapSystem and Enum.UIMapSystem.Taxi -- TAXIMAP_OPENED's system for a flight master
+
+events:SetScript("OnEvent", function(_, event, ...)
+	-- A flight master's map: while the module is on, shown or not (Flights.lua).
+	if event == "TAXIMAP_OPENED" then
+		local system = ...
+		if system == nil or TAXI_SYSTEM == nil or system == TAXI_SYSTEM then
+			ns.MapFlights_Opened()
+		end
+		return
+	elseif event == "TAXIMAP_CLOSED" then
+		ns.MapFlights_Closed()
+		return
+	elseif event == "PLAYER_REGEN_ENABLED" then
 		events:UnregisterEvent("PLAYER_REGEN_ENABLED")
 		if keyPending then
 			ApplyKey()
@@ -197,6 +209,7 @@ module = ns.RegisterModule({
 		quests = true,
 		questArea = true, -- the active quest's area on its zone
 		taxis = true,
+		flights = true, -- at a flight master the Tomte map opens instead of the game's flight map (Flights.lua)
 		dungeons = true,
 		party = true,
 		-- Town markers (the map's magnifying glass; kinds in Data.lua, MAP_TOWN_KINDS): off until picked.
@@ -219,9 +232,16 @@ module = ns.RegisterModule({
 		db = moduleDB
 		ns.MapArt_RevealAll(db.revealAll)
 		ns.MapWindow_Init(db)
+		ns.MapFlights_Init(nil, db)
 	end,
 	toggle = function(on)
-		if not on then
+		if on then
+			events:RegisterEvent("TAXIMAP_OPENED")
+			events:RegisterEvent("TAXIMAP_CLOSED")
+		else
+			events:UnregisterEvent("TAXIMAP_OPENED")
+			events:UnregisterEvent("TAXIMAP_CLOSED")
+			ns.MapFlights_Stop()
 			ns.MapWindow_Hide()
 		end
 		ApplyKey()
@@ -232,6 +252,9 @@ module = ns.RegisterModule({
 		end },
 		{ debug = true, "why", "what the map has loaded and where it looks", function()
 			Why()
+		end },
+		{ debug = true, "flights", "what the map read at the last flight master", function()
+			ns.MapFlights_Why()
 		end },
 		{ "reset", "put the map window back in the middle at its default size", function()
 			ns.MapWindow_ResetFrame()
@@ -284,6 +307,13 @@ module = ns.RegisterModule({
 			end
 		end, tooltip = "Drawn on its zone as the game's map draws it." },
 		{ type = "checkbox", key = "taxis", label = "Flight masters", onChange = Relayout },
+		{ type = "checkbox", key = "flights", label = "Use the Tomte map at flight masters", onChange = function(on)
+			if not on then
+				ns.MapFlights_Stop()
+			end
+		end, tooltip = "Talking to a flight master opens this map instead of the game's flight map, with your quests "
+			.. "on it. Hover a flight master for its route, time and cost; click to fly. The one nearest your "
+			.. "active quest has a ring." },
 		{ type = "checkbox", key = "dungeons", label = "Dungeon entrances", onChange = Relayout },
 		{ type = "checkbox", key = "party", label = "Party and raid members", onChange = Relayout },
 		{ type = "checkbox", key = "questSteps", label = "Quest steps in the quest log", onChange = function()

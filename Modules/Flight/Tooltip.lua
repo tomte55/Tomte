@@ -3,19 +3,29 @@ local addonName, ns = ...
 -- Recorded/estimated flight time on taxi map tooltips, and a note on flight masters without a recorded
 -- time (see MapCoverage.lua). The hooks can't be removed, so they check whether the module is on.
 
-local function AddTimeLine(slot)
+-- The flight time to a destination slot of the open taxi map ("~4m 10s" for an estimate), or nil when it isn't known
+-- or the module is off. Also for the Tomte map's flight pins (Modules/Map/Flights.lua).
+function ns.Flight_TimeText(slot)
 	if not ns.flightModule.active then
-		return
+		return nil
 	end
 	local route = ns.Flight_BuildRoute(slot)
 	if not route then
-		return
+		return nil
 	end
 	local t, isEstimate = ns.LookupTime(ns.flightDB, route.path, route)
 	if not t then
+		return nil
+	end
+	return (isEstimate and "~" or "") .. ns.FormatTime(t)
+end
+
+local function AddTimeLine(slot)
+	local text = ns.Flight_TimeText(slot)
+	if not text then
 		return
 	end
-	GameTooltip:AddLine((isEstimate and "~" or "") .. ns.FormatTime(t), ns.UI.RGB("text"))
+	GameTooltip:AddLine(text, ns.UI.RGB("text"))
 	GameTooltip:Show()
 end
 

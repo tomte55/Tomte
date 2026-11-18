@@ -396,7 +396,7 @@ local function LayoutPlaces(toView)
 	if level == "world" then
 		return
 	end
-	if db.taxis then
+	if db.taxis and not ns.MapFlights_Active() then -- at a flight master its own pins show (Flights.lua)
 		for _, t in ipairs(taxis or {}) do
 			local pin = Acquire("taxi")
 			Icon(pin, t.atlas, TAXI)

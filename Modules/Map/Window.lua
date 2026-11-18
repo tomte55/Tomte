@@ -106,6 +106,11 @@ local function ToView(cx, cy)
 	return x, y
 end
 
+-- As ToView, also for points off the view (a flight route's line runs on past its edge).
+local function ToViewAll(cx, cy)
+	return ns.Map_ToView(state, cx, cy, fit, W, H)
+end
+
 -- Where the continents' and the zones' art starts: the "Detail" settings (Map.lua; defaults 1.2 and 5, where a
 -- typical zone is a couple of hundred pixels wide).
 local function Level()
@@ -143,6 +148,7 @@ local function Apply()
 	ns.MapArt_Update(viewBox, ns.Map_LevelAlphas(state.zoom, db.continentZoom, db.zoneZoom, FADE_BAND))
 	ns.MapMini_Update(viewBox, state.zoom)
 	ns.MapPins_Layout(ToView, Level(), state.zoom)
+	ns.MapFlights_Layout(ToView, ToViewAll)
 	if areaDirty then
 		areaDirty = false
 		ns.MapArea_Redraw()
@@ -673,6 +679,7 @@ local function Build()
 	ns.MapArt_Init(canvas, W, H, worldID)
 	ns.MapMini_Init(canvas, db)
 	ns.MapPins_Init(layer, db)
+	ns.MapFlights_Init(layer, db)
 
 	view:SetScript("OnMouseDown", OnMouseDown)
 	view:SetScript("OnMouseUp", OnMouseUp)
@@ -715,6 +722,7 @@ local function Build()
 		end
 		ns.Map_Shown(false) -- art loading pauses by itself: its loader is on the hidden canvas
 		ns.MapPins_Focus(nil) -- a spot shown from elsewhere lasts while the window is open
+		ns.MapFlights_WindowHidden() -- closed at a flight master: the flight master's map closes too
 	end)
 	PlaceFrame()
 	return true
@@ -834,6 +842,28 @@ function ns.MapWindow_Toggle(withLog)
 	if not ns.MapWindow_FindMe() then
 		dirty = true
 	end
+end
+
+-- Flights.lua, before it reads where flight masters are on the canvas: the window built (art and canvas boxes come
+-- with it). False on a client without the world map's art.
+function ns.MapWindow_Ready()
+	return frame ~= nil or Build()
+end
+
+-- Flights.lua, at a flight master: the map opens (if it isn't open) and flies to box, the flight pins' canvas box.
+-- Returns whether it opened the window, so flight mode closes it again when the flight master's map closes.
+function ns.MapWindow_OpenFlights(box)
+	if not ns.MapWindow_Ready() then
+		return false
+	end
+	local opened = not frame:IsShown()
+	if opened then
+		sideWanted = db.sideShown
+		ns.MapWindow_LayoutSide(true)
+		frame:Show()
+	end
+	ns.MapWindow_Aim(box.l + box.w / 2, box.t + box.h / 2, box)
+	return opened
 end
 
 function ns.MapWindow_Hide()

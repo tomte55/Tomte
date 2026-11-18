@@ -93,6 +93,33 @@ function ns.Map_ViewBox(view, viewW, viewH, fit, W, H, margin, out)
 	return out
 end
 
+-- The canvas box around points ({ cx, cy } each), grown by pad (a share of its size) each way and at least one unit,
+-- so a single point still gets one: what the flight map frames. nil for no points.
+function ns.Map_BoxAround(points, pad)
+	local l, t, r, b
+	for _, p in ipairs(points) do
+		l, t = math.min(l or p.cx, p.cx), math.min(t or p.cy, p.cy)
+		r, b = math.max(r or p.cx, p.cx), math.max(b or p.cy, p.cy)
+	end
+	if not l then
+		return nil
+	end
+	local gw, gh = math.max((r - l) * pad, 1), math.max((b - t) * pad, 1)
+	return { l = l - gw, t = t - gh, w = r - l + 2 * gw, h = b - t + 2 * gh }
+end
+
+-- The index of the point ({ cx, cy } each) nearest x, y, or nil for none.
+function ns.Map_Nearest(points, x, y)
+	local best, bestD
+	for i, p in ipairs(points) do
+		local d = (p.cx - x) ^ 2 + (p.cy - y) ^ 2
+		if not bestD or d < bestD then
+			best, bestD = i, d
+		end
+	end
+	return best
+end
+
 function ns.Map_Overlaps(a, b)
 	return a.l < b.l + b.w and b.l < a.l + a.w and a.t < b.t + b.h and b.t < a.t + a.h
 end

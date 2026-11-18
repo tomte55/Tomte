@@ -556,6 +556,7 @@ ns.BUG_FILES = {
 	"Modules/Map/Mini.lua",
 	"Modules/Map/Area.lua",
 	"Modules/Map/Pins.lua",
+	"Modules/Map/Flights.lua",
 	"Modules/Map/QuestTab.lua",
 	"Modules/Map/Side.lua",
 	"Modules/Map/Window.lua",

@@ -72,7 +72,7 @@ return {
 			"Modules/Sources/Data.lua", "Modules/Sources/Page.lua", "Modules/Sources/Sources.lua",
 			-- docs/superpowers/specs/2026-11-15-tomte-world-map-design.md: uses the Quest list's and Leveling's reads.
 			"Modules/Map/Data.lua", "Modules/Map/Art.lua", "Modules/Map/Mini.lua", "Modules/Map/Area.lua",
-			"Modules/Map/Pins.lua",
+			"Modules/Map/Pins.lua", "Modules/Map/Flights.lua",
 			"Modules/Map/QuestTab.lua", "Modules/Map/Side.lua", "Modules/Map/Window.lua", "Modules/Map/Map.lua",
 			-- docs/superpowers/specs/2026-11-15-tomte-dungeon-journal-design.md
 			"Modules/DungeonJournal/Data.lua", "Modules/DungeonJournal/Read.lua", "Modules/DungeonJournal/Parts.lua",

@@ -240,6 +240,20 @@ test("town markers close together group", function()
 	eq(#again, 2, "fewer groups: the rest dropped"); eq(#again[1].members, 1, "old members gone")
 end)
 
+test("box around flight pins", function()
+	local box = ns.Map_BoxAround({ { cx = 10, cy = 20 }, { cx = 30, cy = 60 } }, 0.5)
+	near(box.l, 0); near(box.t, 0); near(box.w, 40); near(box.h, 80)
+	local one = ns.Map_BoxAround({ { cx = 10, cy = 10 } }, 0.5)
+	assert(one.w >= 2 and one.h >= 2, "a single pin still gets a box")
+	near(one.l + one.w / 2, 10); near(one.t + one.h / 2, 10)
+	eq(ns.Map_BoxAround({}, 0.5), nil)
+end)
+
+test("nearest point", function()
+	eq(ns.Map_Nearest({ { cx = 0, cy = 0 }, { cx = 10, cy = 0 }, { cx = 3, cy = 4 } }, 2, 3), 3)
+	eq(ns.Map_Nearest({}, 2, 3), nil)
+end)
+
 test("view box: filled into a given table", function()
 	local out = {}
 	local box = ns.Map_ViewBox({ u = 0.5, v = 0.5, zoom = 2 }, 800, 400, 0.8, 1000, 500, 0, out)
