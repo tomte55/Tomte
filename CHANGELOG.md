@@ -71,7 +71,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Mail:** on World of Warcraft: Forever the recipient menu offers your characters by their full name (the only one mail arrives by), and a character you deleted and made again no longer shows twice.
 - **Gold & value:** consumables like bandages, and quests for the other faction (The Alliance Needs Linen Bandages! for a Horde character), no longer make an item "Keep for a quest".
 - **Quest list:** the followed quest's area on the world map shows over explored land too, not only where the map is still unexplored.
-- **Quest list:** the followed quest's area on the world map changes as soon as you finish its objectives, instead of keeping the old area.
+- **Quest list:** the followed quest's area on the world map goes away as soon as you finish its objectives, as on the game's map, instead of staying.
 - **Quest list:** accepting a quest no longer takes the arrow off the quest Tomte follows.
 - **Quest list:** a quest with a time limit shows its time left again, also once it's ready to hand in ("Turn in within 4m"), counting down.
 - **Gear Check (Forever):** putting on a fishing pole no longer pops an upgrade toast for the weapon it replaced.

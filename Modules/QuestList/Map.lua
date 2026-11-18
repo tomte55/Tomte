@@ -122,8 +122,12 @@ Place = function()
 	if not (info and MapUtil and MapUtil.ShouldMapTypeShowQuests and MapUtil.ShouldMapTypeShowQuests(info.mapType)) then
 		return
 	end
-	area:SetMapID(mapID)
-	area:DrawBlob(quest, true)
+	-- A finished quest's objective area is done with (the game's own areas skip finished quests too); its ring still
+	-- marks the pin, which is the hand-in now.
+	if not (C_QuestLog.ReadyForTurnIn(quest) or C_QuestLog.IsComplete(quest)) then
+		area:SetMapID(mapID)
+		area:DrawBlob(quest, true)
+	end
 	local x, y = PinSpot(mapID, quest)
 	if x then
 		local scale = UIParent:GetEffectiveScale() / canvas:GetEffectiveScale()
