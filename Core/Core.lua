@@ -373,8 +373,21 @@ events:On("activequest", "QUEST_ACCEPTED", function()
 		ActiveChanged()
 	end
 end)
+-- The followed quest left your log (handed in, abandoned): let go of it. A widget re-picks only when it finds another
+-- quest, and inside a dungeon (no position to plan from) none does, so the minimap kept a handed-in quest at its
+-- hand-in spot (Wailing Caverns, 2026-11-18).
+local function QuestGone(_, questID)
+	if questID and questID == followedQuest then
+		followedQuest = nil
+		ActiveChanged()
+	end
+end
+events:On("activequest", "QUEST_TURNED_IN", QuestGone)
+events:On("activequest", "QUEST_REMOVED", QuestGone)
 events:TryWatch("activequest", "SUPER_TRACKING_CHANGED") -- a client without super-tracking has no such event
 events:TryWatch("activequest", "QUEST_ACCEPTED")
+events:TryWatch("activequest", "QUEST_TURNED_IN")
+events:TryWatch("activequest", "QUEST_REMOVED")
 
 events:On("safetrack", "PLAYER_REGEN_ENABLED", function(self)
 	self:Unwatch("safetrack", "PLAYER_REGEN_ENABLED")
