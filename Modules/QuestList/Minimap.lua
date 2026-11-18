@@ -15,7 +15,7 @@ local STRIP_PX = 4 -- pixels per clip strip standing in for a round minimap (ns.
 local AREA_FILL = "Interface\\WorldMap\\UI-QuestBlob-Inside"
 local AREA_BORDER = "Interface\\WorldMap\\UI-QuestBlob-Outside"
 -- Of 255: lighter than the game's own (128, 192 in QuestBlobPinMixin:OnLoad), which hid the small minimap's terrain.
--- The Tomte map uses the same (Modules/Map/Pins.lua).
+-- The Tomte map uses the same (Modules/Map/Area.lua).
 local AREA_FILL_ALPHA, AREA_BORDER_ALPHA = 56, 128
 local PICK = 1 -- seconds between checking the minimap's shape, rotation and your map (the quests' spots are read
 -- again only when the quest log, the active quest or your map changes: reading them made most of this file's garbage)

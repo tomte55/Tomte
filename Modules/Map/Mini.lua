@@ -10,7 +10,7 @@ local FADE_SPAN = 2.2 -- the tiles fade in from the "Ground pictures from" zoom 
 local MIX = 1 -- the tiles' alpha once faded in (at 0.85 the map's place names showed through, "engraved" in the ground)
 local DESATURATE = 0.35 -- the minimap's colours are stronger than the parchment's (OpenMap uses the same)
 local MAX_TILES = 120 -- never more textures than this: zoomed out further, no tiles
-local LEVEL = 20 -- frame levels above the canvas: over every zone's art, under the quest area (Pins.lua, 30)
+local LEVEL = 20 -- frame levels above the canvas: over every zone's art, under the quest area (Area.lua, 30)
 
 local layer, db
 local showing = 0 -- how far the tiles have faded in, 0..1
@@ -125,7 +125,7 @@ function ns.MapMini_Update(viewBox, zoom)
 	showing = n > 0 and mix / MIX or 0
 end
 
--- How far the ground pictures have faded in (0..1): Pins.lua draws the quest area lighter over them.
+-- How far the ground pictures have faded in (0..1): Area.lua draws the quest area lighter over them.
 function ns.MapMini_Showing()
 	return showing
 end

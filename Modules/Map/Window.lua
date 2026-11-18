@@ -133,7 +133,7 @@ local function Apply()
 	view:SetVerticalScroll(state.v * H - vh / 2 / scale)
 	if scale ~= drawnScale then
 		-- The game fixes a quest area's shape where its frame is when drawn, so a zoom draws it again
-		-- (as QuestBlobPinMixin:OnCanvasScaleChanged), in this same frame (ns.MapPins_RedrawArea).
+		-- (as QuestBlobPinMixin:OnCanvasScaleChanged), in this same frame (ns.MapArea_Redraw).
 		drawnScale, areaDirty = scale, true
 	end
 	local viewBox = ns.Map_ViewBox(state, vw, vh, fit, W, H, MARGIN, viewBoxKept)
@@ -145,11 +145,11 @@ local function Apply()
 	ns.MapPins_Layout(ToView, Level(), state.zoom)
 	if areaDirty then
 		areaDirty = false
-		ns.MapPins_RedrawArea()
+		ns.MapArea_Redraw()
 	end
 end
 
--- Pins.lua placed the quest area (during Apply): it's drawn when Apply ends.
+-- Area.lua placed the quest area (during Apply): it's drawn when Apply ends.
 function ns.MapWindow_AreaDirty()
 	areaDirty = true
 end

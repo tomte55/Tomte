@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 -- Tomte map: everything on the art. You (an arrow turned your way) and your party, the quests in your log (the active
--- one larger, with its area drawn on its zone as the game's map does), flight masters, dungeon entrances (a click opens
+-- one larger; its area is drawn by Area.lua), flight masters, dungeon entrances (a click opens
 -- the Dungeon journal), town markers (mailboxes, bankers ...: Data/Forever/Townsfolk.lua, picked in the map's
 -- tracking menu; those of a kind close together share one pin) and your map pin. Pins sit on a layer over the view
 -- that isn't scaled, so they keep their size at any zoom; Window.lua tells them where canvas points land
@@ -27,12 +27,6 @@ local PING_TIMES, PING_SECONDS, PING_FROM, PING_TO = 3, 0.9, 0.6, 2.6 -- pulses,
 local HOVER_SCALE = 1.5 -- a quest pin while its row in the side panel is under the mouse
 local FAN_GAP = 0.85 -- quest pins closer than this many of their widths gather and ring out (Data.lua, Map_Clusters)
 local FAN_EASE = 0.35 -- share of the way a pin moves toward its place in its ring each layout (no jumps as groups form)
-local AREA_FILL = "Interface\\WorldMap\\UI-QuestBlob-Inside"
-local AREA_BORDER = "Interface\\WorldMap\\UI-QuestBlob-Outside"
--- Of 255, fill and border: over the ground pictures as light as the minimap's (Modules/QuestList/Minimap.lua), which
--- lets the terrain show; over the zone maps' bright parchment the game's own (QuestBlobPinMixin:OnLoad), or it's hard
--- to see. Between the two as the ground pictures fade in.
-local AREA_LIGHT, AREA_STRONG = { 56, 128 }, { 128, 192 }
 local UNDISCOVERED_ALPHA = 0.4
 local FACTION = { Neutral = 0, Horde = 1, Alliance = 2 } -- Enum.FlightPathFaction
 local SIDE = { Horde = "H", Alliance = "A" } -- Townsfolk.lua's sides
@@ -59,7 +53,6 @@ local order = {} -- the quests' drawing order (Data.lua, Map_DrawOrder), made wh
 local level = "world"
 local zoomGrow, questGrow = 1, 1 -- pins grow as you zoom in close (Data.lua, Map_PinGrow); quest buttons less
 local GROW, QUEST_GROW = 1.6, 1.3 -- the most they grow
-local blobQuest
 local arrow
 local party = {} -- unit tokens shown
 
@@ -299,90 +292,6 @@ end
 -- A dungeon entrance from the Dungeon journal's data: a click opens it there.
 local function DungeonClick(pin)
 	ns.DJ_Open(pin.instanceID)
-end
-
--- The active quest's area --------------------------------------------------------------------------------------------
-
--- One area frame, laid out the way the game's map does it: a direct child of the canvas, the size of the map it
--- draws (QuestBlobDataProviderMixin), drawn again after every zoom (ns.MapPins_RedrawArea). Drawn once and then
--- scaled or moved, it landed in the wrong place and drifted with the zoom (measured 2026-11-15).
-local blob
-local blobZone
-
-local function AreaFrame(canvas)
-	if not blob then
-		blob = CreateFrame("QuestPOIFrame", nil, canvas)
-		blob:EnableMouse(false)
-		blob:SetFillTexture(AREA_FILL)
-		blob:SetBorderTexture(AREA_BORDER)
-		blob:SetBorderScalar(1.0)
-	end
-	return blob
-end
-
--- The zone whose map lists the quest: the smallest one, so a neighbour that also lists it doesn't win.
-local function QuestZone(quest)
-	local best
-	for _, z in ipairs(ns.MapArt_Zones()) do
-		for _, info in ipairs(C_QuestLog.GetQuestsOnMap(z.mapID) or {}) do
-			if info.questID == quest then
-				if not best or z.box.w * z.box.h < best.box.w * best.box.h then
-					best = z
-				end
-				break
-			end
-		end
-	end
-	return best
-end
-
--- The active quest's area, on its own zone while that zone's art shows.
-local function DrawAreas(force)
-	local quest = db.questArea and ns.ActiveQuest_ID() or nil
-	if quest and ns.IsSecret(quest) then
-		quest = nil
-	end
-	if force or quest ~= blobQuest then
-		blobQuest = quest
-		blobZone = quest and QuestZone(quest) or nil
-		if blob then
-			blob.drawn = nil
-		end
-	end
-	local zone = blobZone
-	if not (zone and zone.visible and zone.frame) then
-		if blob then
-			blob:Hide()
-		end
-		return
-	end
-	local canvas = zone.frame:GetParent()
-	local frame = AreaFrame(canvas)
-	if frame.drawn ~= quest or frame.zone ~= zone then
-		frame:ClearAllPoints()
-		frame:SetPoint("TOPLEFT", canvas, "TOPLEFT", zone.box.l, -zone.box.t)
-		frame:SetSize(zone.box.w, zone.box.h)
-		frame:SetFrameLevel(canvas:GetFrameLevel() + 30) -- over the zones' art and the minimap tiles (Mini.lua, 20)
-		frame:SetMapID(zone.mapID)
-		frame:DrawNone()
-		frame.drawn, frame.zone = quest, zone
-		ns.MapWindow_AreaDirty() -- drawn once the layout is done (ns.MapPins_RedrawArea)
-	end
-	frame:Show()
-end
-
--- Window.lua, after the canvas was placed or scaled: the area drawn for where it now is. Asking for the frame's edge
--- first makes the game place it now, so it's drawn for its new spot in this same frame (drawn before that it landed
--- where the frame was; drawn a frame later it shook during a zoom, measured 2026-11-15).
-function ns.MapPins_RedrawArea()
-	if blob and blob:IsShown() and blob.drawn then
-		local ground = ns.MapMini_Showing()
-		blob:SetFillAlpha(math.floor(AREA_STRONG[1] + (AREA_LIGHT[1] - AREA_STRONG[1]) * ground + 0.5))
-		blob:SetBorderAlpha(math.floor(AREA_STRONG[2] + (AREA_LIGHT[2] - AREA_STRONG[2]) * ground + 0.5))
-		blob:GetLeft()
-		blob:DrawNone()
-		blob:DrawBlob(blob.drawn, true)
-	end
 end
 
 -- Placing -------------------------------------------------------------------------------------------------------------
@@ -793,6 +702,7 @@ end
 
 function ns.MapPins_Init(pinLayer, moduleDB)
 	layer, db = pinLayer, moduleDB
+	ns.MapArea_Init(moduleDB)
 end
 
 -- The view moved or zoomed: everything placed again.
@@ -805,7 +715,7 @@ function ns.MapPins_Layout(toView, artLevel, zoom)
 	LayoutWaypoint(toView)
 	LayoutFocus(toView)
 	LayoutUnits(toView)
-	DrawAreas(false)
+	ns.MapArea_Draw(false)
 end
 
 -- Every tick while shown: you and your party.
@@ -825,7 +735,7 @@ end
 -- The quest log or the active quest changed.
 function ns.MapPins_Quests()
 	ReadQuests()
-	blobQuest = nil
+	ns.MapArea_Forget()
 	if ns.MapWindow_Relayout then
 		ns.MapWindow_Relayout()
 	end
@@ -851,7 +761,7 @@ end
 
 -- The zone a quest belongs to (its region in Art.lua), for zooming to it.
 function ns.MapPins_QuestZone(questID)
-	return QuestZone(questID)
+	return ns.MapArea_QuestZone(questID)
 end
 
 -- The side panel: the quest whose row is under the mouse (its pin grows and comes to the top), or nil.
