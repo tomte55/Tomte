@@ -184,6 +184,19 @@ ns.AUTOCORRECT_DOUBLES_OK = Set([[had that bye ha very so no go really far many 
 hey la blah knock boo chop too do run pew choo gg ty lol kk hip night tsk tut yeah yes oh please hello omg ok okay
 nope sure woo yay]])
 
+-- Swedish (the "Swedish too" setting) ------------------------------------------------------------------------------
+
+-- Typos of short, everyday Swedish words (lowercase typed form > fix), in a line that's Swedish only. Too short for a
+-- guess (Swedish.lua guesses from four letters), and so common they're worth listing. Each typed form isn't a Swedish
+-- word; å, ä, ö typed without their marks are WordsSwedish.lua's (AUTOCORRECT_SV_LETTERS).
+ns.AUTOCORRECT_SV_TYPOS = Fixes([[
+jga>jag ajg>jag dte>det edt>det ohc>och coh>och itne>inte nite>inte mde>med vda>vad hra>har ahr>har dgi>dig mgi>mig
+hna>han hno>hon fro>för atr>att tat>att ksa>ska kna>kan
+]])
+
+-- Swedish words that are fine doubled ("ja ja").
+ns.AUTOCORRECT_SV_DOUBLES_OK = Set([[ja nej jo nä aja kom så bra tack hej mycket]])
+
 -- Chat shorthand, slang and dialect that is never touched (lowercase). Real words don't need to be here.
 ns.AUTOCORRECT_SHORTHAND = Set([[
 lol lmao lmfao rofl brb afk gg ggs gj ty tyvm thx thnx np pls plz plox omg omfg idk idc imo imho btw ok okk k kk gz

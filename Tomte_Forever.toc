@@ -203,7 +203,9 @@ Modules/Chat/Tags.lua
 Modules/Chat/Copy.lua
 Modules/Chat/Quiet.lua
 Modules/Autocorrect/Words.lua
+Modules/Autocorrect/WordsSwedish.lua
 Modules/Autocorrect/Data.lua
+Modules/Autocorrect/Swedish.lua
 Modules/Autocorrect/Rules.lua
 Modules/Autocorrect/Line.lua
 Modules/Autocorrect/Note.lua

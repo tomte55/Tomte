@@ -1,6 +1,6 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_autocorrect_line.lua
 local ns = {}
-for _, file in ipairs({ "Words", "Data", "Rules", "Line" }) do
+for _, file in ipairs({ "Words", "WordsSwedish", "Data", "Swedish", "Rules", "Line" }) do
 	assert(loadfile("Tomte/Modules/Autocorrect/" .. file .. ".lua"))("Tomte", ns)
 end
 

@@ -2,8 +2,9 @@ local addonName, ns = ...
 
 -- Autocorrect: pure logic (no WoW API calls; unit-tested in tests/test_autocorrect.lua). What to do with one finished
 -- word: the player's own words, known typos, apostrophes, capitals and names, words run together, and a guess at the
--- nearest English word when one is clearly best. The line around the word (pairs, doubles, sentence starts, undo) is
--- Line.lua; the tables are Data.lua and the generated Words.lua.
+-- nearest English word when one is clearly best. With the Swedish setting on (ctx.sv), the line's language (ctx.lang,
+-- Line.lua) decides which rules and which word list apply; the Swedish ones are Swedish.lua. The line around the word
+-- (pairs, doubles, sentence starts, undo) is Line.lua; the tables are Data.lua and the generated Words.lua.
 
 local GUESS_MIN = 4 -- shorter words are too ambiguous to guess (known short typos are in AUTOCORRECT_TYPOS)
 local SHORT_MAX = 4 -- words this short are only guessed for a slip (nede -> need), never slang (gief, heya)
@@ -89,12 +90,17 @@ function ns.Autocorrect_Places(list, dict, single, double)
 end
 
 -- Words never touched, whoever typed them: anything but letters (and an inner apostrophe), shouting, stretched words
--- ("sooo"), chat shorthand.
-function ns.Autocorrect_Skip(word)
-	if not word:find("^[A-Za-z]+'?[A-Za-z]*$") or word:find("'$") then
+-- ("sooo"), chat shorthand. swedish: å, ä, ö and é count as letters (the Swedish setting).
+function ns.Autocorrect_Skip(word, swedish)
+	local marked = swedish and ns.Autocorrect_HasSwedishLetters(word)
+	if marked then
+		if not ns.Autocorrect_SwedishLetters(word) then
+			return true, "not a plain word"
+		end
+	elseif not word:find("^[A-Za-z]+'?[A-Za-z]*$") or word:find("'$") then
 		return true, "not a plain word"
 	end
-	if #word >= 2 and not word:find("%l") then
+	if #word >= 2 and not word:find("%l") and not (marked and ns.Autocorrect_Lower(word) == word) then
 		return true, "written in capitals"
 	end
 	local last = word:sub(-1):lower()
@@ -109,8 +115,8 @@ end
 
 -- Whether a sentence's first word may get its capital: not a word Skip leaves alone, except informal shorthand that is
 -- written like any word ("yeah", "gonna").
-function ns.Autocorrect_TakesCapital(word)
-	local skip, why = ns.Autocorrect_Skip(word)
+function ns.Autocorrect_TakesCapital(word, swedish)
+	local skip, why = ns.Autocorrect_Skip(word, swedish)
 	if not skip then
 		return true
 	end
@@ -282,7 +288,7 @@ function ns.Autocorrect_Guess(word, dict, refused)
 		end
 	end
 	if best and (not second or Better(best, second)) and (#word >= SHORT_MAX + 1 or edits[best] <= COST_SLIP) then
-		return best, edits[best]
+		return best, edits[best], found[best]
 	end
 	return nil
 end
@@ -310,24 +316,53 @@ end
 
 -- One word ---------------------------------------------------------------------------------------------------------
 
--- The typed word's leading capital carried over to the fix.
+-- The typed word's leading capital carried over to the fix (Å, Ä, Ö too: Swedish.lua).
 local function Cased(typed, fix)
-	if typed:find("^%u") then
-		return fix:sub(1, 1):upper() .. fix:sub(2)
+	if ns.Autocorrect_StartsUpper(typed) then
+		return ns.Autocorrect_CapitalFirst(fix)
 	end
 	return fix
 end
 ns.Autocorrect_Cased = Cased
 
+-- The nearest word in the line's language: the English guess (and its cost), the Swedish one, or, in a line whose
+-- language isn't known yet, whichever of the two is clearly better (nil when they disagree and tie).
+local function Guess(lower, ctx, refused, english, swedish)
+	local en, enCost, enScore, sv, svCost, svScore
+	if english and not ns.Autocorrect_HasSwedishLetters(lower) then
+		en, enCost, enScore = ns.Autocorrect_Guess(lower, ctx.dict, refused)
+	end
+	if swedish then
+		sv, svCost, svScore = ns.Autocorrect_SwedishGuess(lower, ctx.sv, refused, ctx.dict.level)
+	end
+	if en and sv and en ~= sv then
+		if enScore < svScore - 0.01 then
+			return en, enCost
+		elseif svScore < enScore - 0.01 then
+			return sv, svCost
+		end
+		return nil
+	end
+	if en then
+		return en, enCost
+	end
+	return sv, svCost
+end
+
 -- What to do with a finished word: fix, kind, reason (reason in player wording, for /tomte autocorrect why). ctx:
 -- dict, kinds (which fixes are on), own / keep / refused (the player's words), names (people, lowercase = true),
--- places (single-word place names, lowercase = Proper), sentenceStart.
+-- places (single-word place names, lowercase = Proper), sentenceStart, and with the Swedish setting sv (Swedish.lua's
+-- dict) and lang (the line's language: "en", "sv" or nil when it can't tell yet).
 function ns.Autocorrect_Word(word, ctx)
-	local skip, why = ns.Autocorrect_Skip(word)
+	local sv, lang = ctx.sv, ctx.lang
+	local skip, why = ns.Autocorrect_Skip(word, sv ~= nil)
 	if skip then
 		return nil, nil, why
 	end
-	local lower = word:lower()
+	local lower = sv and ns.Autocorrect_Lower(word) or word:lower()
+	-- Which rules count: English ones unless the line is Swedish, Swedish ones unless it's English.
+	local english, swedish = lang ~= "sv", sv ~= nil and lang ~= "en"
+	local inSwedish = sv ~= nil and lang == "sv"
 	if ctx.keep[lower] then
 		return nil, nil, "you keep this word"
 	end
@@ -345,17 +380,20 @@ function ns.Autocorrect_Word(word, ctx)
 		if not fix then
 			return nil
 		end
-		if (kind == "own" or kinds[kind]) and not (refused and refused[fix:lower()]) then
+		if (kind == "own" or kinds[kind]) and not (refused and refused[ns.Autocorrect_Lower(fix)]) then
 			return Cased(word, fix)
 		end
 		blocked = blocked or kind
 	end
 	local STEPS = {
 		{ ctx.own[lower], "own", "your own correction" },
-		{ ns.AUTOCORRECT_TYPOS[lower], "spelling", "a common typo" },
-		{ dict.contraction[lower], "apostrophes", "missing its apostrophe" },
-		{ lower == "i" and "I" or nil, "capitals", "always a capital" },
-		{ ctx.places[lower] or dict.upper[lower], "names", "a name written with a capital" },
+		{ english and ns.AUTOCORRECT_TYPOS[lower] or nil, "spelling", "a common typo" },
+		{ inSwedish and sv.letters[lower] or nil, "spelling", "a Swedish word missing its å, ä or ö" },
+		{ inSwedish and ns.AUTOCORRECT_SV_TYPOS[lower] or nil, "spelling", "a common Swedish typo" },
+		{ english and dict.contraction[lower] or nil, "apostrophes", "missing its apostrophe" },
+		-- Swedish "i" (in) stays small: with Swedish on, only a line known to be English capitalizes it.
+		{ lower == "i" and (sv == nil or lang == "en") and "I" or nil, "capitals", "always a capital" },
+		{ ctx.places[lower] or (english and dict.upper[lower]) or nil, "names", "a name written with a capital" },
 	}
 	for _, step in ipairs(STEPS) do
 		local fix = Offer(step[1], step[2])
@@ -366,27 +404,35 @@ function ns.Autocorrect_Word(word, ctx)
 	if blocked then
 		return nil, nil, "its fix (" .. blocked .. ") is off or you undid it"
 	end
+	-- A word right in either language is never fixed, whichever language the line is in.
 	if dict.level[lower] then
 		return nil, nil, "an English word"
 	end
-	if word:find("^%u") then
+	if sv and sv.level[lower] then
+		return nil, nil, "a Swedish word"
+	end
+	if ns.Autocorrect_StartsUpper(word) then
 		return nil, nil, "an unknown word with a capital: taken as a name"
 	end
 	if word:find("'") then
 		return nil, nil, "an unknown word with an apostrophe"
 	end
-	if lower:find("in$") and dict.level[lower .. "g"] then
+	if english and lower:find("in$") and dict.level[lower .. "g"] then
 		return nil, nil, "dialect: " .. lower .. "' for " .. lower .. "g"
 	end
-	if lower:find("s$") and dict.level[lower:sub(1, -2)] then
+	if english and lower:find("s$") and dict.level[lower:sub(1, -2)] then
 		return nil, nil, "more than one " .. lower:sub(1, -2)
+	end
+	local stem = swedish and ns.Autocorrect_SwedishEnding(lower, dict.level)
+	if stem then
+		return nil, nil, "the English word " .. stem .. " with a Swedish ending"
 	end
 	-- A slip (sumon -> summon) beats a split (sum on); otherwise the split goes first (tothe -> to the, not tithe).
 	local guess, cost
 	if kinds.spelling then
-		guess, cost = ns.Autocorrect_Guess(lower, dict, refused)
+		guess, cost = Guess(lower, ctx, refused, english, swedish)
 	end
-	if not (guess and cost <= COST_SLIP) then
+	if english and not (guess and cost <= COST_SLIP) then
 		local fix = Offer(ns.Autocorrect_Split(lower, dict), "tidying")
 		if fix then
 			return fix, "tidying", "two words run together"
@@ -396,6 +442,9 @@ function ns.Autocorrect_Word(word, ctx)
 	end
 	if guess then
 		return Cased(word, guess), "spelling", "the one clear nearest word"
+	end
+	if swedish and ns.Autocorrect_SwedishCompound(lower, sv, dict.level) then
+		return nil, nil, "two Swedish words joined"
 	end
 	return nil, nil, "no clear fix"
 end

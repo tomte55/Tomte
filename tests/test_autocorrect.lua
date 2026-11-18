@@ -2,6 +2,7 @@
 local ns = {}
 assert(loadfile("Tomte/Modules/Autocorrect/Words.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Autocorrect/Data.lua"))("Tomte", ns)
+assert(loadfile("Tomte/Modules/Autocorrect/Swedish.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Modules/Autocorrect/Rules.lua"))("Tomte", ns)
 
 local H = dofile("Tomte/tests/harness.lua")

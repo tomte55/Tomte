@@ -29,12 +29,19 @@ local UI = ns.UI
 local IsSecret = ns.IsSecret
 
 local module, db, dict
+local svDict -- the Swedish word list's tables, while the Swedish setting is on (Swedish.lua)
+local Lower = function(s)
+	return ns.Autocorrect_Lower(s)
+end
 local ctx = { names = {}, places = {}, places2 = {} }
 local boxes = {} -- [edit box] = true: the boxes hooked (permanent chat windows only)
 local pending -- { box, change }: the last fix, while Backspace can still undo it
 local pausedShown -- the "paused in combat chat" note was shown this lockdown
 local changed = {} -- [edit box] = true: we set its text since it last opened or sent
 local seen, learned = {}, 0 -- [word] = times other players used it; how many became words
+-- [conversation key] = the language of its last few messages, sent and received (Swedish.lua's
+-- Autocorrect_NoteConversation): with the Swedish setting, what a line is in before its own words tell. Session only.
+local conversations = {}
 
 -- Context ------------------------------------------------------------------------------------------------------------
 
@@ -44,7 +51,7 @@ local function AddName(set, name)
 	end
 	name = name:match("^[^%-]+")
 	if name and name ~= "" then
-		set[name:lower()] = true
+		set[Lower(name)] = true
 	end
 end
 
@@ -133,16 +140,49 @@ local function EnsureDict()
 	GatherNames()
 end
 
--- Frees the word list (several MB) while the module is off.
+-- The Swedish word list, built while the Swedish setting is on and dropped when it goes off (a few MB).
+local function ApplySwedish()
+	if db.swedish and dict and not svDict then
+		svDict = ns.Autocorrect_SwedishDict(ns.AUTOCORRECT_SV_WORDS, ns.AUTOCORRECT_SV_LETTERS)
+	elseif not db.swedish then
+		svDict = nil
+	end
+end
+
+-- Frees the word lists (several MB) while the module is off.
 local function DropDict()
-	dict, ctx.dict = nil, nil
+	dict, ctx.dict, svDict, ctx.sv = nil, nil, nil, nil
+	wipe(conversations)
 	ctx.places, ctx.places2, ctx.names, ctx.chatNames = {}, {}, {}, nil
 	seen, learned = {}, 0
 end
 
--- The rules' context, from the current db (a reset or profile import replaces its tables).
-local function Ctx()
+-- Which conversation a chat box sends to (Blizzard's ChatFrameEditBox attributes): party, guild, a whisper to someone,
+-- a channel by its number. nil when it can't be read (a secret whisper target, a Battle.net whisper).
+local function BoxConversation(box)
+	local chatType = box:GetAttribute("chatType")
+	if type(chatType) ~= "string" or IsSecret(chatType) then
+		return nil
+	end
+	local target
+	if chatType == "WHISPER" then
+		target = box:GetAttribute("tellTarget")
+	elseif chatType == "CHANNEL" then
+		local channel = box:GetAttribute("channelTarget")
+		target = channel and not IsSecret(channel) and GetChannelName(channel) or nil
+	end
+	if IsSecret(target) then
+		return nil
+	end
+	return ns.Autocorrect_ConversationKey(chatType, target)
+end
+
+-- The rules' context, from the current db (a reset or profile import replaces its tables). box: the chat box being
+-- typed in, whose conversation's language helps the Swedish setting judge a line.
+local function Ctx(box)
 	ctx.dict, ctx.kinds, ctx.own, ctx.keep, ctx.refused = dict, db.kinds, db.own, db.keep, db.refused
+	ctx.sv = db.swedish and svDict or nil
+	ctx.conversation = ctx.sv and box and ns.Autocorrect_Conversation(conversations, BoxConversation(box)) or nil
 	return ctx
 end
 
@@ -206,7 +246,7 @@ local function OnChar(box, char)
 	local cursor = Cursor(box, text)
 	local newText, newCursor, change
 	if cursor then
-		newText, newCursor, change = ns.Autocorrect_Finish(text, cursor, Ctx())
+		newText, newCursor, change = ns.Autocorrect_Finish(text, cursor, Ctx(box))
 	end
 	if not newText then
 		ClearPending()
@@ -282,7 +322,7 @@ local function OnPreSend(_, box)
 	if type(text) ~= "string" or IsSecret(text) or text == "" then
 		return
 	end
-	local newText = ns.Autocorrect_Finish(text, #text, Ctx(), true)
+	local newText = ns.Autocorrect_Finish(text, #text, Ctx(box), true)
 	if newText then
 		box:SetText(newText)
 	end
@@ -327,28 +367,47 @@ for _, event in ipairs(ROSTER_EVENTS) do
 	events[event] = namesSoon
 end
 
+-- With the Swedish setting: which language a message is in, remembered for its conversation. event: its CHAT_MSG_
+-- event; target: who it's from or to (whispers) or the channel's number.
+local function NoteConversation(event, msg, target)
+	if not svDict or IsSecret(target) then
+		return
+	end
+	local key = ns.Autocorrect_ConversationKey(event:sub(#"CHAT_MSG_" + 1), target)
+	if key then
+		ns.Autocorrect_NoteConversation(conversations, key,
+			ns.Autocorrect_MessageLanguage(msg, dict.level, svDict.level, svDict.letters))
+	end
+end
+
 -- Words other players use (twice) are real words to this session: their slang, names and guild terms are never
--- "fixed". The player's own lines don't count, or their typos would teach themselves.
-local function OnChat(_, _, msg, sender, ...)
+-- "fixed". The player's own lines don't count, or their typos would teach themselves (they do count for the
+-- conversation's language).
+local function OnChat(_, event, msg, sender, ...)
 	local guid = select(10, ...)
-	if type(msg) ~= "string" or IsSecret(msg) or IsSecret(guid) or guid == UnitGUID("player") or not dict then
+	if type(msg) ~= "string" or IsSecret(msg) or IsSecret(guid) or not dict then
+		return
+	end
+	NoteConversation(event, msg, event == "CHAT_MSG_CHANNEL" and select(6, ...) or sender)
+	if guid == UnitGUID("player") then
 		return
 	end
 	if type(sender) == "string" and not IsSecret(sender) then
 		local name = sender:match("^[^%-]+")
 		if name then
 			ctx.chatNames = ctx.chatNames or {}
-			ctx.chatNames[name:lower()] = true
-			ctx.names[name:lower()] = true
+			ctx.chatNames[Lower(name)] = true
+			ctx.names[Lower(name)] = true
 		end
 	end
 	if learned >= LEARN_MAX then
 		return
 	end
 	msg = msg:gsub("|H.-|h", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[^:|]*:", ""):gsub("|r", "")
-	for word in msg:gmatch("%a[%a']*") do
-		local lower = word:lower()
-		if #lower >= 3 and not dict.level[lower] then
+	-- Letters and the bytes of å, ä, ö: a Swedish word is learned whole, not cut at its first å.
+	for word in msg:gmatch("[%a\128-\255][%a\128-\255']*") do
+		local lower = Lower(word)
+		if #lower >= 3 and not dict.level[lower] and not (svDict and svDict.level[lower]) then
 			seen[lower] = (seen[lower] or 0) + 1
 			if seen[lower] >= LEARN_AFTER then
 				ns.Autocorrect_AddWords(dict, { [lower] = true })
@@ -362,8 +421,16 @@ for _, event in ipairs(CHAT_EVENTS) do
 	events[event] = OnChat
 end
 
+-- A whisper you sent: only its language, for that conversation (the target is the "sender" here).
+function events:CHAT_MSG_WHISPER_INFORM(event, msg, target)
+	if type(msg) == "string" and not IsSecret(msg) and dict then
+		NoteConversation(event, msg, target)
+	end
+end
+
 local function Start()
 	EnsureDict()
+	ApplySwedish()
 	HookBoxes()
 	for _, event in ipairs(ROSTER_EVENTS) do
 		pcall(events.RegisterEvent, events, event) -- BN_FRIEND_INFO_CHANGED may not exist on every client
@@ -371,6 +438,7 @@ local function Start()
 	for _, event in ipairs(CHAT_EVENTS) do
 		events:RegisterEvent(event)
 	end
+	events:RegisterEvent("CHAT_MSG_WHISPER_INFORM")
 	if IsInGuild() and C_GuildInfo and C_GuildInfo.GuildRoster then
 		C_GuildInfo.GuildRoster() -- the roster can be empty right after login; GUILD_ROSTER_UPDATE refreshes names
 	end
@@ -398,7 +466,7 @@ local function Keep(_, raw)
 		ns.Print("usage: /tomte autocorrect keep <word>")
 		return
 	end
-	db.keep[word:lower()] = true
+	db.keep[Lower(word)] = true
 	ns.Print("Autocorrect leaves " .. UI.Wrap(word, "accent") .. " alone from now on.")
 end
 
@@ -409,9 +477,9 @@ local function Add(_, raw)
 		return
 	end
 	fix = fix:match("^%s*(.-)%s*$")
-	db.own[typo:lower()] = fix
-	if db.refused[typo:lower()] then
-		db.refused[typo:lower()][fix:lower()] = nil
+	db.own[Lower(typo)] = fix
+	if db.refused[Lower(typo)] then
+		db.refused[Lower(typo)][Lower(fix)] = nil
 	end
 	ns.Print("Autocorrect now fixes " .. UI.Wrap(typo, "textMuted") .. " > " .. UI.Wrap(fix, "success") .. ".")
 end
@@ -422,7 +490,7 @@ local function Forget(_, raw)
 		ns.Print("usage: /tomte autocorrect forget <word>")
 		return
 	end
-	local lower = word:lower()
+	local lower = Lower(word)
 	local found = db.keep[lower] or db.own[lower] or db.refused[lower]
 	db.keep[lower], db.own[lower], db.refused[lower] = nil, nil, nil
 	ns.Print(found and ("Autocorrect forgot what you told it about " .. UI.Wrap(word, "accent") .. ".")
@@ -463,6 +531,7 @@ local function Why(_, raw)
 	end
 	local temporary = not dict
 	EnsureDict()
+	ApplySwedish()
 	local fix, kind, reason = ns.Autocorrect_Word(word, Ctx())
 	if fix then
 		ns.Print(UI.Wrap(word, "textMuted") .. " > " .. UI.Wrap(fix, "success") .. " (" .. kind .. "): " .. reason
@@ -490,11 +559,12 @@ module = ns.RegisterModule({
 	category = "chat",
 	icon = 237171, -- inv_inscription_tradeskill01
 	summary = "Fixes typos in your chat as you type; Backspace undoes a fix.",
-	description = "Fixes your chat as you type: common typos and misspelled words, missing apostrophes (dont), capitals at the start of a sentence, place names (stormwind), word pairs (could of) and doubled words. A note above the chat box shows each fix, and Backspace right after puts your word back and remembers it. Leaves commands, links, names, numbers and chat shorthand alone. Pauses in boss fights, Mythic+ and PvP matches, where the game blocks addon-changed chat. English only.",
+	description = "Fixes your chat as you type: common typos and misspelled words, missing apostrophes (dont), capitals at the start of a sentence, place names (stormwind), word pairs (could of) and doubled words. A note above the chat box shows each fix, and Backspace right after puts your word back and remembers it. Leaves commands, links, names, numbers and chat shorthand alone. Pauses in boss fights, Mythic+ and PvP matches, where the game blocks addon-changed chat. English, and Swedish too if you turn it on.",
 	enabledByDefault = false,
 	defaults = {
 		kinds = { spelling = true, apostrophes = true, capitals = true, names = true, pairs = true, tidying = true },
 		note = true,
+		swedish = false, -- Swedish too: each line is fixed as English or Swedish (Swedish.lua)
 		refused = {}, -- [typed, lowercase] = { [fix, lowercase] = true }: fixes the player undid
 		keep = {}, -- [word, lowercase] = true: never touched
 		own = {}, -- [typo, lowercase] = fix: the player's own corrections
@@ -531,6 +601,9 @@ module = ns.RegisterModule({
 			tooltip = "could of, your late, ill meet become could have, you're late, I'll meet." },
 		{ type = "checkbox", key = "kinds.tidying", label = "Tidying",
 			tooltip = "Doubled words (the the) and words run together (tothe)." },
+		{ type = "header", label = "Languages" },
+		{ type = "checkbox", key = "swedish", label = "Swedish too", onChange = ApplySwedish,
+			tooltip = "For when you chat in Swedish as well. A word that's right in either language is never changed. Each line is fixed as English or Swedish, judged from the words you've typed in it, and before those from the conversation you're writing in (the party, the guild, a whisper: the last few messages there, yours and theirs): Swedish typos get Swedish fixes, and å, ä and ö left out are put back (pa, ar, maste become på, är, måste)." },
 		{ type = "header", label = "Note" },
 		{ type = "checkbox", key = "note", label = "Show each fix above the chat box",
 			tooltip = "A small note with your word and the fix. Backspace right after a fix puts your word back, note or not." },

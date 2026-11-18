@@ -1,8 +1,9 @@
 local addonName, ns = ...
 
 -- Autocorrect: pure logic (no WoW API calls; unit-tested in tests/test_autocorrect_line.lua). The chat line around a
--- finished word: two-word fixes (could of, old town), doubled words, the capital at a sentence start, and the undo.
--- One word's own fix is Rules.lua; the edit box hooks are Autocorrect.lua.
+-- finished word: two-word fixes (could of, old town), doubled words, the capital at a sentence start, which language
+-- the line is in (the Swedish setting), and the undo. One word's own fix is Rules.lua; the edit box hooks are
+-- Autocorrect.lua.
 
 -- Characters that finish a word when typed.
 ns.AUTOCORRECT_BOUNDARY = { [" "] = true, ["."] = true, [","] = true, ["!"] = true, ["?"] = true, [";"] = true,
@@ -10,6 +11,8 @@ ns.AUTOCORRECT_BOUNDARY = { [" "] = true, ["."] = true, [","] = true, ["!"] = tr
 -- Kinds of fix whose undo is remembered (by what was typed: a word, or two for pairs and doubled words). Capitals
 -- belong to the sentence, so they're undone once only.
 local REMEMBERED = { own = true, spelling = true, apostrophes = true, names = true, pairs = true, tidying = true }
+-- A word in the line: letters, and any byte of a multi-byte letter (å, ä, ö), with inner apostrophes.
+local WORD = "[%a\128-\255][%a\128-\255']*"
 
 local Cased = ns.Autocorrect_Cased
 
@@ -30,7 +33,7 @@ end
 
 local function Refused(ctx, typed, fix)
 	local list = ctx.refused[typed]
-	return list and list[fix:lower()] or false
+	return list and list[ns.Autocorrect_Lower(fix)] or false
 end
 
 -- The edited line: text with bytes from..to replaced by segment, and the change that undoes it.
@@ -39,14 +42,14 @@ local function Apply(text, cursor, from, to, segment, info)
 	local newCursor = cursor + #segment - (to - from + 1)
 	info.before, info.after, info.cursor, info.oldCursor = text, after, newCursor, cursor
 	if REMEMBERED[info.kind] then
-		info.remember, info.rememberFix = info.typed:lower(), info.fix:lower()
+		info.remember, info.rememberFix = ns.Autocorrect_Lower(info.typed), ns.Autocorrect_Lower(info.fix)
 	end
 	return after, newCursor, info
 end
 
 -- The word before the current one, when only spaces sit between them: start, word, the spaces.
 local function PreviousWord(before)
-	local start, word, gap = before:match("()(%a[%a']*)(%s+)$")
+	local start, word, gap = before:match("()(" .. WORD .. ")(%s+)$")
 	if start and (start == 1 or before:sub(start - 1, start - 1):find("%s")) then
 		return start, word, gap
 	end
@@ -55,7 +58,9 @@ end
 -- Two-word fixes: a place name (old town), a word pair (could of), a doubled word (the the).
 local function Pair(text, cursor, wordEnd, ctx, prevStart, prev, gap, word)
 	local kinds = ctx.kinds
-	local pl, wl = prev:lower(), word:lower()
+	local Lower = ctx.sv and ns.Autocorrect_Lower or string.lower
+	local pl, wl = Lower(prev), Lower(word)
+	local english = ctx.lang ~= "sv"
 	local typed = pl .. " " .. wl
 	local shown = prev .. " " .. word
 	local place = kinds.names and ctx.places2 and ctx.places2[typed]
@@ -64,7 +69,7 @@ local function Pair(text, cursor, wordEnd, ctx, prevStart, prev, gap, word)
 		return Apply(text, cursor, prevStart, wordEnd, a .. gap .. b,
 			{ kind = "names", typed = shown, fix = place })
 	end
-	if kinds.pairs then
+	if kinds.pairs and english then
 		for _, rule in ipairs(ns.AUTOCORRECT_PAIRS) do
 			if rule[1] == pl and rule[2][wl] then
 				local a = rule[3] and Cased(prev, rule[3]) or prev
@@ -77,7 +82,8 @@ local function Pair(text, cursor, wordEnd, ctx, prevStart, prev, gap, word)
 			end
 		end
 	end
-	if kinds.tidying and pl == wl and not ns.AUTOCORRECT_DOUBLES_OK[wl] and not ctx.names[wl] and not ctx.keep[wl]
+	local fine = ns.AUTOCORRECT_DOUBLES_OK[wl] or (ctx.sv and ns.AUTOCORRECT_SV_DOUBLES_OK[wl])
+	if kinds.tidying and pl == wl and not fine and not ctx.names[wl] and not ctx.keep[wl]
 		and not Refused(ctx, typed, wl) then
 		return Apply(text, cursor, prevStart + #prev, wordEnd, "", { kind = "tidying", typed = shown, fix = prev })
 	end
@@ -111,11 +117,21 @@ function ns.Autocorrect_Finish(text, cursor, ctx, atEnd)
 	end
 	local wordStart = start + #lead
 	local before = head:sub(1, wordStart - 1)
+	-- The Swedish setting: which language the line is in, from the words before this one (Swedish.lua).
+	if ctx.sv then
+		local words = {}
+		for w in before:gsub("|H.-|h.-|h", ""):gmatch(WORD) do
+			words[#words + 1] = ns.Autocorrect_Lower(w)
+		end
+		-- The conversation (ctx.conversation: party, guild, a whisper ...) decides only where the words don't.
+		ctx.lang = ns.Autocorrect_Language(words, ctx.dict.level, ctx.sv.level, ctx.sv.letters, ctx.conversation)
+	end
 
 	local prevStart, prev, gap = PreviousWord(before)
 	if prev then
 		local a, b, c = Pair(text, cursor, wordEnd, ctx, prevStart, prev, gap, word)
 		if a then
+			ctx.lang = nil
 			return a, b, c
 		end
 	end
@@ -123,12 +139,14 @@ function ns.Autocorrect_Finish(text, cursor, ctx, atEnd)
 	local sentenceStart = lead == "" and (before:find("^%s*$") or before:find("[%.!%?]%s+$")) and true or false
 	ctx.sentenceStart = sentenceStart
 	local fix, kind = ns.Autocorrect_Word(word, ctx)
-	ctx.sentenceStart = nil
+	ctx.sentenceStart, ctx.lang = nil, nil
 	local out = fix or word
-	local lower = word:lower()
-	if sentenceStart and ctx.kinds.capitals and out:find("^%l") and ns.Autocorrect_TakesCapital(word)
+	local swedish = ctx.sv ~= nil
+	local lower = swedish and ns.Autocorrect_Lower(word) or word:lower()
+	local small = out:find("^%l") or (swedish and out:find("^\195[\164\165\169\182]"))
+	if sentenceStart and ctx.kinds.capitals and small and ns.Autocorrect_TakesCapital(word, swedish)
 		and not ctx.keep[lower] and not ctx.names[lower] then
-		out = out:sub(1, 1):upper() .. out:sub(2)
+		out = ns.Autocorrect_CapitalFirst(out)
 		kind = kind or "capitals"
 	end
 	if out == word then
@@ -137,7 +155,7 @@ function ns.Autocorrect_Finish(text, cursor, ctx, atEnd)
 	local info = { kind = kind, typed = word, fix = out }
 	local after, newCursor = Apply(text, cursor, wordStart, wordEnd, out, info)
 	if fix and info.remember then
-		info.rememberFix = fix:lower() -- the word's own fix, not the sentence's capital
+		info.rememberFix = ns.Autocorrect_Lower(fix) -- the word's own fix, not the sentence's capital
 	end
 	return after, newCursor, info
 end
