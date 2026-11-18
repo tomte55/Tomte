@@ -772,7 +772,6 @@ module = ns.RegisterModule({
 		collapsed = false,
 		party = true, -- party members' counts under your objectives
 		partyMissing = true, -- who in the party doesn't have a quest
-		partySync = true, -- swap progress with party members who run Tomte (hidden addon messages, party only)
 		folded = {}, -- [section key] = true (folded) | false (opened), the player's own clicks
 		chars = {}, -- [player GUID] = { hidden = { [questID] = true }, folded = { [questID] = true | false } }
 		frame = {}, -- point: the list's spot (UI.TopLeftPoint), nil for the default
@@ -899,13 +898,10 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Party" },
 		{ type = "checkbox", key = "party", label = "Party members' progress", onChange = PartyChanged,
 			preview = Preview,
-			tooltip = "Under each of your objectives, how far each party member is, such as Pala 9/15. Read from the mobs around you, so anyone works: counts for kills and drops come in as those mobs show up. Party members who run Tomte send all of theirs." },
+			tooltip = "Under each of your objectives, how far each party member is, such as Pala 9/15. Read from the mobs around you, so anyone works: counts for kills and drops come in as those mobs show up. Party members who run Tomte send all of theirs (Friend sharing's Quest progress setting, on both sides)." },
 		{ type = "checkbox", key = "partyMissing", label = "Who doesn't have a quest", parent = "party",
 			onChange = PartyChanged, preview = Preview,
 			tooltip = "A faint line under a quest names party members who don't have it, so you know to share it (right-click it)." },
-		{ type = "checkbox", key = "partySync", label = "Share progress with party members who run Tomte",
-			onChange = PartyChanged,
-			tooltip = "Your quest progress goes to your party in hidden addon messages, and theirs comes back, so you see all of it, not only what the mobs show. Nothing goes to chat." },
 
 		{ type = "header", label = "Spoken", shown = function()
 			return ns.QuestListSpoken_Installed()

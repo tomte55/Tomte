@@ -574,6 +574,8 @@ ns.BUG_FILES = {
 	"Modules/DungeonJournal/DungeonJournal.lua",
 	"Modules/Materials/GeneratedForever.lua",
 	"Modules/Fishing/Rod.lua",
+	"Modules/Share/QuestsData.lua",
+	"Modules/Share/Quests.lua",
 	"Modules/Loot/RoomData.lua",
 	"Modules/Loot/Room.lua",
 }

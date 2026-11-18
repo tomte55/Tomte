@@ -396,12 +396,20 @@ end))
 
 -- Start and stop ---------------------------------------------------------------------------------------------------
 
+-- Quest progress with your party (Quests.lua, Forever only): on while Friend sharing is on with its setting.
+local function ApplyQuests()
+	if ns.ShareQuests_Apply then
+		ns.ShareQuests_Apply(module.active and db.sets.quests == true)
+	end
+end
+
 local function Start()
 	C_ChatInfo.RegisterAddonMessagePrefix(PREFIX)
 	for _, event in ipairs(EVENTS) do
 		events:RegisterEvent(event)
 	end
 	ns.Share_RosterDirty()
+	ApplyQuests()
 	startTimer = C_Timer.NewTimer(START_DELAY, function()
 		startTimer = nil
 		HelloAll()
@@ -418,6 +426,7 @@ local function Stop()
 	wipe(sending)
 	wipe(inbox)
 	wipe(helloAt)
+	ApplyQuests()
 end
 
 -- For data sets and the page ---------------------------------------------------------------------------------------
@@ -613,7 +622,8 @@ module = ns.RegisterModule({
 	enabledByDefault = ns.FOREVER == true, -- on Forever friends craft for each other; retail keeps the quieter default
 	toasts = true,
 	defaults = {
-		sets = { flight = true, nodes = true, crafts = true }, -- [data set key] = shared (sent and accepted)
+		-- [data set key] = shared (sent and accepted); quests: quest progress with your party (Quests.lua, Forever)
+		sets = { flight = true, nodes = true, crafts = true, quests = true },
 		toast = false,
 		toldVersion = "", -- the newest Tomte version a friend's hello told us about (each version is told once)
 		-- [BattleTag] = { blocked, character, version, seen, sets = { [key] = { at, added, rev } } }; rev is the
@@ -635,6 +645,13 @@ module = ns.RegisterModule({
 		{ debug = true, "list", "friends seen running Tomte and what they gave you", List },
 		{ debug = true, "sync", "say hello to every friend now (they send what's new)", Sync },
 		{ debug = true, "why", "<name>: what was exchanged with that friend this session", Why },
+		{ debug = true, "quests", "who in your party shares quest progress with you", function()
+			if ns.ShareQuests_Why then
+				ns.ShareQuests_Why()
+			else
+				ns.Print("quest progress is shared on World of Warcraft: Forever only.")
+			end
+		end },
 	},
 	home = {
 		{ kind = "page", key = "share", noRail = true, order = 90, name = "Friend sharing", icon = ICON, page = ns.SharePage,
@@ -662,6 +679,10 @@ module = ns.RegisterModule({
 				ns.Share_Changed("crafts")
 			end,
 			tooltip = "Send your characters' professions and recipes, so friends see what you can craft on their Alts Crafting tab, and see theirs on yours. Off: no craft requests either way." },
+		{ type = "checkbox", key = "sets.quests", label = "Quest progress with your party", shown = function()
+			return ns.FOREVER == true -- the Quest list, which shows it, is Forever's
+		end, onChange = ApplyQuests,
+			tooltip = "Your quest progress goes to party members who run Tomte, and theirs comes back, so the Quest list shows all of it (kills, items, quests done), not only what the mobs around you show. Works whichever quest tracker you use. Anyone in your party, not only Battle.net friends; nothing goes to chat." },
 		{ type = "header", label = "Friends" },
 		{ type = "checkbox", key = "toast", label = "Toast when friends send something new",
 			preview = ns.Preview_When("toast", ReceivedPreview) },

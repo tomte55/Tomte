@@ -400,7 +400,9 @@ Modules/Gather/Follow.lua
 Modules/Gather/Seeds.lua
 Modules/Gather/Gather.lua
 Modules/Share/Protocol.lua
+Modules/Share/QuestsData.lua
 Modules/Share/Roster.lua
+Modules/Share/Quests.lua
 Modules/Share/Page.lua
 Modules/Share/Share.lua
 

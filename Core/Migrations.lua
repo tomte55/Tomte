@@ -224,4 +224,18 @@ ns.MIGRATIONS = {
 			db.enabled.rest = nil
 		end
 	end,
+	-- 22: sharing quest progress with the party left the Quest list for Friend sharing (1.35), so it works whichever
+	-- tracker you use. Turned off in the Quest list: Friend sharing's Quest progress setting starts off.
+	function(db)
+		local quests = db.questlist
+		if type(quests) ~= "table" then
+			return
+		end
+		if quests.partySync == false then
+			db.share = type(db.share) == "table" and db.share or {}
+			db.share.sets = type(db.share.sets) == "table" and db.share.sets or {}
+			db.share.sets.quests = false
+		end
+		quests.partySync = nil
+	end,
 }

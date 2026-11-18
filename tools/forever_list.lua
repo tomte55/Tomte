@@ -42,6 +42,9 @@ return {
 		{ after = "Modules/Fishing/Helpers.lua", files = { "Modules/Fishing/Rod.lua" } },
 		-- A split stack doesn't sell when dropped on the vendor there.
 		{ after = "Modules/Upkeep/Merchant.lua", files = { "Modules/Upkeep/SellSplit.lua" } },
+		-- Friend sharing's quest progress with your party, for the Quest list.
+		{ after = "Modules/Share/Protocol.lua", files = { "Modules/Share/QuestsData.lua" } },
+		{ after = "Modules/Share/Roster.lua", files = { "Modules/Share/Quests.lua" } },
 		-- The button under the loot window when your bags are full.
 		{ after = "Modules/Loot/Data.lua", files = { "Modules/Loot/RoomData.lua" } },
 		{ after = "Modules/Loot/Window.lua", files = { "Modules/Loot/Room.lua" } },

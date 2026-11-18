@@ -269,4 +269,20 @@ test("Eat and drink is gone: its settings and switch go", function()
 	eq(none.enabled, nil, "nothing made")
 end)
 
+test("Quest list party sync becomes Friend sharing's Quest progress setting", function()
+	local db = { schema = 21, questlist = { partySync = false, party = true }, share = { sets = { flight = false } } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.share.sets.quests, false, "turned off stays off")
+	eq(db.share.sets.flight, false, "other sets stay")
+	eq(db.questlist.partySync, nil)
+	eq(db.questlist.party, true, "other settings stay")
+	db = { schema = 21, questlist = { partySync = true } }
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.share, nil, "on: the default decides")
+	eq(db.questlist.partySync, nil)
+	local none = { schema = 21 }
+	ns.RunMigrations(none, ns.MIGRATIONS)
+	eq(none.questlist, nil, "nothing made")
+end)
+
 H.done()

@@ -2,19 +2,13 @@ local addonName, ns = ...
 
 -- Quest list: party members' progress and the party actions on the quest menu. Counts come from the tooltip data of
 -- your target, the unit under the mouse and the nameplates (works for anyone: it's what the game's own mob tooltip
--- shows), and from party members who run Tomte over hidden addon messages (sync), which replace the tooltip reads for
--- them. Rules and the message format in PartyData.lua; QuestList.lua starts and stops this and asks for each quest's
--- party lines (QuestListParty_Annotate). Makes the module's event bus, ns.QuestList_Events.
+-- shows), and from party members who run Tomte through Friend sharing's quest progress (Modules/Share/Quests.lua),
+-- which replaces the tooltip reads for them. Rules in PartyData.lua; QuestList.lua starts and stops this and asks for
+-- each quest's party lines (QuestListParty_Annotate). Makes the module's event bus, ns.QuestList_Events.
 -- See docs/superpowers/specs/2026-11-14-tomte-quest-list-party-design.md.
 
-local PREFIX = "TomteQuests" -- addon message prefix (16 characters at most)
 local READ_EVERY = 3 -- seconds between nameplate reads while you're in a party: kill credit doesn't fire an event here
-local SEND_GAP = 0.2 -- seconds between sync messages
-local THROTTLED = 2 -- seconds to wait after the game throttled a message
-local LOCKDOWN = 10 -- seconds to wait while addon messages are locked down
-local LOG_DELAY = 1 -- seconds: the quest log changes in bursts, one sync per burst
-local FULL_GAP = 10 -- seconds: our full state goes out at most this often (hellos from several new members share one)
-local HELLO_GAP = 10 -- seconds between our own hellos
+local LOG_DELAY = 1 -- seconds: the quest log changes in bursts, one read per burst
 local NAMEPLATES = 40 -- nameplate unit tokens to look through
 local OWNER = "questListParty"
 
@@ -27,16 +21,10 @@ local db
 local active = false
 local onChange -- QuestList.lua's redraw (debounced there)
 local roster = {} -- party members in party order: { unit, guid, name, class }
--- [guid] = { quests = { [questID] = { complete, objectives = { [k] = { have, need, finished } } } }, synced (runs
--- Tomte: its quests are all of them), turnedIn = { [questID] = true } }
+-- [guid] = { quests = { [questID] = { objectives = { [k] = { have, need, finished } } } } }: counts read from tooltips
 local members = {}
-local myQuests = {} -- your quests with their objectives, for matching tooltip lines and for sync
-local sent = {} -- [questID] = the entry last sent to the party
-local turnedIn = {} -- [questID] = true: handed in since the last sync
-local queue = {} -- sync messages waiting to go
-local pumping = false
-local fullAt, helloAt = -math.huge, -math.huge
-local readTicker, logTimer, fullTimer
+local myQuests = {} -- your quests with their objectives, for matching tooltip lines
+local readTicker, logTimer
 
 -- The party --------------------------------------------------------------------------------------------------------
 
@@ -78,14 +66,6 @@ local function ReadMine()
 			objectives = ns.QuestListRead_Objectives(q.questID) }
 	end
 	myQuests = list
-end
-
-local function MyEntries()
-	local out = {}
-	for _, q in ipairs(myQuests) do
-		out[q.questID] = ns.QuestListParty_Entry(q)
-	end
-	return out
 end
 
 -- Tooltip reads ------------------------------------------------------------------------------------------------------
@@ -143,7 +123,7 @@ local function ReadUnit(unit)
 	local changed = false
 	for guid, quests in pairs(ns.QuestListParty_ReadTooltip(lines, myQuests, me)) do
 		local m = members[guid]
-		if m and not m.synced then
+		if m and not ns.ShareQuests_Member(guid) then
 			for questID, objectives in pairs(quests) do
 				local q = m.quests[questID] or { objectives = {} }
 				m.quests[questID] = q
@@ -195,108 +175,11 @@ local function ApplyTicker()
 	end
 end
 
--- Sync ---------------------------------------------------------------------------------------------------------------
-
-local function Syncing()
-	return active and db.partySync and Channel() ~= nil
-end
-
-local function Pump()
-	local text = table.remove(queue, 1)
-	local channel = Channel()
-	if not text or not channel or not active then
-		wipe(queue)
-		pumping = false
-		return
-	end
-	local result = C_ChatInfo.SendAddonMessage(PREFIX, text, channel)
-	local wait = SEND_GAP
-	local R = Enum.SendAddonMessageResult
-	if R and (result == R.AddonMessageThrottle or result == R.ChannelThrottle) then
-		table.insert(queue, 1, text)
-		wait = THROTTLED
-	elseif R and result == R.AddOnMessageLockdown then
-		table.insert(queue, 1, text)
-		wait = LOCKDOWN
-	end
-	C_Timer.After(wait, Pump)
-end
-
-local function Send(messages)
-	for _, m in ipairs(messages) do
-		queue[#queue + 1] = m
-	end
-	if not pumping and #queue > 0 then
-		pumping = true
-		Pump()
-	end
-end
-
--- Every quest in your log, as a full state.
-local function SendFull()
-	fullTimer = nil
-	if not Syncing() then
-		return
-	end
-	ReadMine()
-	local mine = MyEntries()
-	local ids, entries = {}, {}
-	for id in pairs(mine) do
-		ids[#ids + 1] = id
-	end
-	table.sort(ids)
-	for i, id in ipairs(ids) do
-		entries[i] = mine[id]
-	end
-	sent = mine
-	wipe(turnedIn)
-	fullAt = GetTime()
-	Send(ns.QuestListParty_Pack("S", entries))
-end
-
--- A full state soon: right away unless one just went out, then once that gap is over.
-local function FullSoon()
-	if fullTimer then
-		return
-	end
-	fullTimer = C_Timer.NewTimer(math.max(SEND_GAP, fullAt + FULL_GAP - GetTime()), SendFull)
-end
-
--- Someone new in the party: ask everyone for theirs, and send ours.
-local function Greet()
-	if not Syncing() then
-		return
-	end
-	if GetTime() - helloAt >= HELLO_GAP then
-		helloAt = GetTime()
-		Send({ ns.QuestListParty_Hello() })
-	end
-	FullSoon()
-end
-
--- After the log changed: the quests that changed, those gone, those turned in.
+-- Your log changed: re-read your quests (their objectives match the tooltip lines).
 local function LogSettled()
 	logTimer = nil
-	if not active then
-		return
-	end
-	ReadMine()
-	if not Syncing() then
-		wipe(turnedIn)
-		return
-	end
-	local now = MyEntries()
-	local changed, gone, turned = ns.QuestListParty_Diff(sent, now, turnedIn)
-	sent = now
-	wipe(turnedIn)
-	if #changed > 0 then
-		Send(ns.QuestListParty_Pack("Q", changed))
-	end
-	if #gone > 0 then
-		Send(ns.QuestListParty_PackIDs("G", gone))
-	end
-	if #turned > 0 then
-		Send(ns.QuestListParty_PackIDs("T", turned))
+	if active then
+		ReadMine()
 	end
 end
 
@@ -306,56 +189,15 @@ local function LogChanged()
 	end
 end
 
--- A party member by the sender of an addon message ("Name-Realm"). Names in a party are told apart without the realm.
-local function FromSender(sender)
-	local short = Ambiguate(sender, "short")
-	for _, r in ipairs(roster) do
-		if r.name == short then
-			return members[r.guid]
-		end
-	end
-	return nil
-end
-
-local function Received(text, sender)
-	local m = FromSender(sender)
-	local msg = m and ns.QuestListParty_Decode(text)
-	if not msg then
-		return
-	end
-	if msg.kind == "hello" then
-		FullSoon()
-		return
-	end
-	m.synced = true
-	if msg.kind == "full" then
-		wipe(m.quests)
-		wipe(m.turnedIn)
-	end
-	if msg.kind == "full" or msg.kind == "update" then
-		for _, q in ipairs(msg.quests) do
-			m.quests[q.questID] = { complete = q.complete, objectives = q.objectives }
-			m.turnedIn[q.questID] = nil
-		end
-	else
-		for _, id in ipairs(msg.ids) do
-			m.quests[id] = nil
-			m.turnedIn[id] = msg.kind == "turnedIn" or nil
-		end
-	end
-	Changed()
-end
-
 -- Roster -------------------------------------------------------------------------------------------------------------
 
 local function UpdateRoster()
 	roster = ReadRoster()
-	local now, fresh = {}, false
+	local now = {}
 	for _, r in ipairs(roster) do
 		now[r.guid] = true
 		if not members[r.guid] then
-			members[r.guid] = { quests = {}, turnedIn = {} }
-			fresh = true
+			members[r.guid] = { quests = {} }
 		end
 	end
 	for guid in pairs(members) do
@@ -363,13 +205,7 @@ local function UpdateRoster()
 			members[guid] = nil
 		end
 	end
-	if #roster == 0 then
-		wipe(sent) -- the next party gets a full state anyway
-	end
 	ApplyTicker()
-	if fresh then
-		Greet()
-	end
 end
 
 -- Events -------------------------------------------------------------------------------------------------------------
@@ -379,16 +215,7 @@ local WATCHED = {
 		UpdateRoster()
 		Changed()
 	end,
-	CHAT_MSG_ADDON = function(_, prefix, text, _, sender)
-		if prefix == PREFIX and db.partySync and not IsSecret(text, sender) then
-			Received(text, sender)
-		end
-	end,
 	QUEST_LOG_UPDATE = LogChanged,
-	QUEST_TURNED_IN = function(_, questID)
-		turnedIn[questID] = true
-		LogChanged()
-	end,
 	-- A party member's log changed (a quest taken, done or dropped): what they have is asked again on the redraw.
 	UNIT_QUEST_LOG_CHANGED = function(_, unit)
 		if unit ~= "player" and #roster > 0 then
@@ -409,11 +236,21 @@ for event, fn in pairs(WATCHED) do
 	events:On(OWNER, event, fn)
 end
 
+-- Whether we listen to Friend sharing's quest progress yet (it loads after this file: listened to from the first start).
+local listening = false
+
 -- Started and stopped with the Quest list. changed: called when what the list shows about the party changed.
 function ns.QuestListParty_Start(moduleDB, changed)
 	db, onChange = moduleDB, changed
 	active = true
-	C_ChatInfo.RegisterAddonMessagePrefix(PREFIX)
+	if not listening and ns.ShareQuests_OnChange then
+		listening = true
+		ns.ShareQuests_OnChange(function()
+			if active then
+				Changed()
+			end
+		end)
+	end
 	for event in pairs(WATCHED) do
 		events:Watch(OWNER, event)
 	end
@@ -424,16 +261,13 @@ end
 function ns.QuestListParty_Stop()
 	active = false
 	events:UnwatchAll(OWNER)
-	for _, t in pairs({ readTicker, logTimer, fullTimer }) do
+	for _, t in pairs({ readTicker, logTimer }) do
 		t:Cancel()
 	end
-	readTicker, logTimer, fullTimer = nil, nil, nil
+	readTicker, logTimer = nil, nil
 	wipe(roster)
 	wipe(members)
 	wipe(myQuests)
-	wipe(sent)
-	wipe(turnedIn)
-	wipe(queue)
 end
 
 -- A party setting changed.
@@ -442,17 +276,6 @@ function ns.QuestListParty_Settings()
 		return
 	end
 	ApplyTicker()
-	if db.partySync then
-		Greet()
-	else
-		for _, m in pairs(members) do
-			if m.synced then
-				m.synced = false
-				wipe(m.quests)
-				wipe(m.turnedIn)
-			end
-		end
-	end
 	Changed()
 end
 
@@ -465,18 +288,19 @@ function ns.QuestListParty_Annotate(quests)
 		if show then
 			local list = {}
 			for i, r in ipairs(roster) do
-				local m = members[r.guid]
+				local synced = ns.ShareQuests_Member(r.guid)
+				local m = synced or members[r.guid]
 				local on
-				if m.synced then
-					on = m.quests[q.questID] ~= nil
+				if synced then
+					on = synced.quests[q.questID] ~= nil
 				elseif onQuest and UnitIsConnected(r.unit) then
 					on = onQuest(r.unit, q.questID)
 					if IsSecret(on) then
 						on = nil
 					end
 				end
-				list[i] = { name = r.name, class = r.class, onQuest = on, turnedIn = m.turnedIn[q.questID],
-					quest = m.quests[q.questID] }
+				list[i] = { name = r.name, class = r.class, onQuest = on,
+					turnedIn = synced ~= nil and synced.turnedIn[q.questID] == true, quest = m.quests[q.questID] }
 			end
 			q.party = ns.QuestListParty_Lines(q, list, { missing = db.partyMissing })
 		end
@@ -569,15 +393,16 @@ function ns.QuestListParty_Why()
 		ns.Print("Quest list party: you're not in a party.")
 		return
 	end
-	ns.Print(("Quest list party: %d with you, progress %s, sync %s."):format(#roster, db.party and "shown" or "hidden",
-		db.partySync and "on" or "off"))
+	ns.Print(("Quest list party: %d with you, progress %s, quest sharing %s."):format(#roster,
+		db.party and "shown" or "hidden", ns.ShareQuests_Active and ns.ShareQuests_Active() and "on" or "off"))
 	for _, r in ipairs(roster) do
-		local m = members[r.guid]
+		local synced = ns.ShareQuests_Member(r.guid)
+		local m = synced or members[r.guid]
 		local n = 0
 		for _ in pairs(m.quests) do
 			n = n + 1
 		end
 		print(("  %s: %s, counts for %d quest%s"):format(r.name,
-			m.synced and "runs Tomte (synced)" or "read from tooltips", n, n == 1 and "" or "s"))
+			synced and "runs Tomte (synced)" or "read from tooltips", n, n == 1 and "" or "s"))
 	end
 end
