@@ -20,6 +20,11 @@ local AREA_FILL_ALPHA, AREA_BORDER_ALPHA = 56, 128
 local PICK = 1 -- seconds between checking the minimap's shape, rotation and your map (the quests' spots are read
 -- again only when the quest log, the active quest or your map changes: reading them made most of this file's garbage)
 local MAP_ZONE = 3 -- Enum.UIMapType.Zone: quest areas are drawn on zone maps
+-- The game's own quest area on the minimap follows its active quest, which a newly taken quest becomes, not the one
+-- the Quest list follows (making ours the game's taints, see ns.ActiveQuest_Follow). While ours is drawn the game's is
+-- hidden through the minimap's own blob alphas (plain Minimap methods, no taint). They have no getters and Blizzard's
+-- Lua never sets them, so the engine's default (1, a multiplier) is what turning off puts back.
+local GAME_BLOB_ALPHA = 1
 
 local UI = ns.UI
 
@@ -42,6 +47,8 @@ local round, rotate = true, false
 local you, youX, youY, youMap -- your world point, and the zone map spot it was read at (read again once you move)
 local facing, ppy -- for Spot, set each frame
 local lastPx, lastPy, lastW -- what the area strips were last scrolled for
+
+local HideGameBlob -- On and off, below
 
 local function DB()
 	return ns.QuestList_DB()
@@ -193,6 +200,8 @@ local function Pick()
 	pickAt = GetTime() + PICK
 	round = ns.MinimapShape() == "ROUND"
 	rotate = C_CVar.GetCVarBool("rotateMinimap")
+	-- A rotating minimap gets no area of ours (DrawArea): the game's shows there.
+	HideGameBlob(DB().minimapArea and not rotate and true or false)
 	local _, map = ns.QuestListRead_Zone()
 	if map ~= zoneMap then
 		zoneMap, zoneW, zoneH = map, nil, nil
@@ -265,26 +274,38 @@ local function Update()
 		Pick()
 	end
 	local radius = C_Minimap.GetViewRadius()
-	-- Your spot on the zone map: read every frame (one call); your world point only once it moved.
-	local pos = zoneMap and C_Map.GetPlayerMapPosition(zoneMap, "player")
+	-- Your world point every frame from UnitPosition, and your zone map spot worked out from it with the zone's corners:
+	-- GetPlayerMapPosition makes a new vector (a table with its methods copied in) on every call, about 2 KB a frame
+	-- (24 MB in 3 minutes, measured 2026-11-18). UnitPosition's x, y are GetWorldPosFromMapPos's (as Waypoints uses).
 	local px, py
-	if pos then
-		px, py = pos:GetXY()
-		if not (ns.Readable(px) and ns.Readable(py)) then
-			px, py = nil, nil
-		end
+	local wx, wy, _, instance = UnitPosition("player")
+	if corner and wx and wy and instance == corner[7] and ns.Readable(wx) and ns.Readable(wy) then
+		px, py = ns.Mini_MapSpot(wx, wy, corner)
 	end
-	if px and corner then
-		-- From the zone map's corners: one table, filled again as you move.
-		if px ~= youX or py ~= youY or zoneMap ~= youMap or not you then
-			you = you or {}
-			you.x = corner[1] + px * corner[3] + py * corner[5]
-			you.y = corner[2] + px * corner[4] + py * corner[6]
-			you.continent = corner[7]
-			youX, youY, youMap = px, py, zoneMap
+	if px then
+		you = you or {}
+		you.x, you.y, you.continent = wx, wy, instance
+		youX, youY, youMap = px, py, zoneMap
+	else
+		-- No usable world position: the zone map spot (a new vector each call), the world point from it once you move.
+		local pos = zoneMap and C_Map.GetPlayerMapPosition(zoneMap, "player")
+		if pos then
+			px, py = pos:GetXY()
+			if not (ns.Readable(px) and ns.Readable(py)) then
+				px, py = nil, nil
+			end
 		end
-	elseif not px or px ~= youX or py ~= youY or zoneMap ~= youMap then
-		you, youX, youY, youMap = ns.LevelingRead_You(), px, py, zoneMap
+		if px and corner then
+			if px ~= youX or py ~= youY or zoneMap ~= youMap or not you then
+				you = you or {}
+				you.x = corner[1] + px * corner[3] + py * corner[5]
+				you.y = corner[2] + px * corner[4] + py * corner[6]
+				you.continent = corner[7]
+				youX, youY, youMap = px, py, zoneMap
+			end
+		elseif not px or px ~= youX or py ~= youY or zoneMap ~= youMap then
+			you, youX, youY, youMap = ns.LevelingRead_You(), px, py, zoneMap
+		end
 	end
 	if not (you and axes and radius and radius > 0) then
 		HideAll()
@@ -364,8 +385,22 @@ end
 
 -- On and off --------------------------------------------------------------------------------------------------------
 
+local gameBlobHidden = false
+
+HideGameBlob = function(hide)
+	if hide == gameBlobHidden or not (Minimap and Minimap.SetQuestBlobInsideAlpha) then
+		return
+	end
+	gameBlobHidden = hide
+	local alpha = hide and 0 or GAME_BLOB_ALPHA
+	Minimap:SetQuestBlobInsideAlpha(alpha)
+	Minimap:SetQuestBlobOutsideAlpha(alpha)
+	Minimap:SetQuestBlobRingAlpha(alpha)
+end
+
 local function Apply()
 	local on = active and Minimap and DB().minimapMark
+	HideGameBlob(on and DB().minimapArea and not rotate and true or false)
 	if not on then
 		if holder then
 			HideAll()

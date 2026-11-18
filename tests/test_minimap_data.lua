@@ -5,6 +5,16 @@ assert(loadfile("Tomte/Core/MinimapData.lua"))("Tomte", ns)
 local H = dofile("Tomte/tests/harness.lua")
 local test, eq, near = H.test, H.eq, H.near
 
+test("map spot: a world point back to the map, axes turned as the world's", function()
+	-- World x falls as map y grows, world y falls as map x grows (the client's axes); 2000 by 1000 yards.
+	local corner = { 5000, 3000, 0, -2000, -1000, 0 }
+	local x, y = ns.Mini_MapSpot(5000 - 0.4 * 1000, 3000 - 0.25 * 2000, corner)
+	near(x, 0.25, "map x"); near(y, 0.4, "map y")
+	x, y = ns.Mini_MapSpot(5000, 3000, corner)
+	near(x, 0, "top left"); near(y, 0)
+	eq(ns.Mini_MapSpot(1, 1, { 0, 0, 0, 0, 0, 0 }), nil, "no area")
+end)
+
 test("offset: east and north in yards", function()
 	local e, n = ns.Mini_Offset(0.6, 0.4, 0.5, 0.5, 1000, 2000)
 	near(e, 100, "east"); near(n, 200, "north (map y grows south)")

@@ -13,6 +13,17 @@ function ns.Mini_Offset(sx, sy, px, py, w, h, facing)
 	return ns.Mini_Turn((sx - px) * w, (py - sy) * h, facing)
 end
 
+-- A world point's spot on a map, from the map's world corners { x0, y0, dxx, dxy, dyx, dyy } (its top left, then the
+-- world step per unit of map x and of map y): x, y (0..1 inside the map), or nil for a map with no area.
+function ns.Mini_MapSpot(wx, wy, corner)
+	local det = corner[3] * corner[6] - corner[5] * corner[4]
+	if det == 0 then
+		return nil
+	end
+	local dx, dy = wx - corner[1], wy - corner[2]
+	return (dx * corner[6] - dy * corner[5]) / det, (dy * corner[3] - dx * corner[4]) / det
+end
+
 -- An offset east, north turned so the player faces up on a rotating minimap (facing as above; nil: unchanged).
 function ns.Mini_Turn(east, north, facing)
 	if not facing then
