@@ -48,6 +48,8 @@ local quests = {} -- { questID, mapID, x, y, ready }
 local taxis, dungeons = nil, nil -- read once (they don't change)
 local towns = {} -- [kind] = Map_TownRows' rows with cx, cy (canvas) added: read the first time a kind is shown
 local townSpots = {} -- this layout's town spots on the view, { x, y, row }, kept between layouts (no garbage)
+local townGroups -- Map_Group's list, filled again each layout (no garbage)
+local fromWorld = {} -- [continent mapID] = { fn (world yards to 0..1 on it), instance }, or false: read once
 local waypoint -- { mapID, x, y }
 local spot -- { mapID, x, y }: a place a side panel row points at (a teleport's destination)
 local focus -- { mapID, x, y, label }: a place another module asked the map to show (ns.MapWindow_ShowSpot)
@@ -401,6 +403,7 @@ local function Put(pin, mapID, x, y, toView)
 end
 
 local onView = {} -- this layout's quest pins on the view: { pin, x, y, key }, then tx, ty (Map_Clusters)
+local onViewKept = {} -- those entries' tables, kept between layouts (laid out every frame the view moves: no garbage)
 local shownAt = {} -- [questID] = { x, y }: where each pin is drawn from its spot now (eased toward its ring place)
 
 local function LayoutQuests(toView)
@@ -443,7 +446,11 @@ local function LayoutQuests(toView)
 			vx, vy = toView(cx, cy)
 		end
 		if vx then
-			onView[#onView + 1] = { pin = pin, x = vx, y = vy, key = q.questID }
+			local n = #onView + 1
+			local s = onViewKept[n] or {}
+			onViewKept[n] = s
+			s.pin, s.x, s.y, s.key = pin, vx, vy, q.questID
+			onView[n] = s
 		else
 			pin:Hide()
 		end
@@ -574,7 +581,8 @@ local function LayoutTowns(toView)
 				end
 			end
 			local kindName = _G[kind.global] or kind.name
-			for _, g in ipairs(ns.Map_Group(townSpots, n, gap)) do
+			townGroups = ns.Map_Group(townSpots, n, gap, townGroups)
+			for _, g in ipairs(townGroups) do
 				local pin = Acquire("town")
 				Icon(pin, nil, TRACKING .. kind.icon)
 				pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.town)
@@ -612,8 +620,27 @@ local function LayoutWaypoint(toView)
 	end
 end
 
--- You and your group: read every tick (they move).
+-- You and your group: read every tick (they move), and every frame the view moves. From UnitPosition and the
+-- continent's world corners: GetPlayerMapPosition makes a new vector (its methods copied in) on every call, about 2 KB
+-- each (measured 2026-11-18). Where UnitPosition can't be read (a party member it doesn't give), the vector after all.
 local function Where(unit)
+	local wx, wy, _, instance = UnitPosition(unit)
+	if wx and wy and instance and ns.Readable(wx) and ns.Readable(wy) and ns.Readable(instance) then
+		for _, c in ipairs(ns.MapArt_Continents()) do
+			local w = fromWorld[c.mapID]
+			if w == nil then
+				local fn, inst = ns.MapMini_Corners(c.mapID)
+				w = fn and { fn = fn, instance = inst } or false
+				fromWorld[c.mapID] = w
+			end
+			if w and w.instance == instance then
+				local x, y = w.fn(wx, wy)
+				if x >= 0 and x <= 1 and y >= 0 and y <= 1 then
+					return c.mapID, x, y
+				end
+			end
+		end
+	end
 	for _, c in ipairs(ns.MapArt_Continents()) do
 		local x, y = Pos(C_Map.GetPlayerMapPosition(c.mapID, unit))
 		if x then

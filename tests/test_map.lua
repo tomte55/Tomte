@@ -231,6 +231,29 @@ test("town markers close together group", function()
 	eq(groups[3].members[1], 5, "too far from the first spot")
 	eq(#ns.Map_Group(spots, 2, 10), 1, "only the first n")
 	eq(#ns.Map_Group(spots, 0, 10), 0)
+	-- Filled again into the last call's list: the same tables, nothing left over from before.
+	local kept, firstGroup = groups, groups[1]
+	local again = ns.Map_Group(spots, #spots, 10, kept)
+	eq(again, kept); eq(again[1], firstGroup, "a group table reused")
+	eq(#again, 3); eq(#again[1].members, 3); eq(again[3].members[1], 5)
+	again = ns.Map_Group({ { x = 0, y = 0 }, { x = 50, y = 0 } }, 2, 10, kept)
+	eq(#again, 2, "fewer groups: the rest dropped"); eq(#again[1].members, 1, "old members gone")
+end)
+
+test("view box: filled into a given table", function()
+	local out = {}
+	local box = ns.Map_ViewBox({ u = 0.5, v = 0.5, zoom = 2 }, 800, 400, 0.8, 1000, 500, 0, out)
+	eq(box, out)
+	near(box.w, 500); near(box.l, 250)
+end)
+
+test("pins that ring out: a second call with fewer pins, nothing left from the first", function()
+	local spots = ns.Map_Clusters({ { x = 0, y = 0, key = 1 }, { x = 5, y = 0, key = 2 }, { x = 8, y = 0, key = 3 } }, 16)
+	assert(spots[1].ty < 0, "the lowest key on top")
+	spots = ns.Map_Clusters({ { x = 0, y = 0, key = 7 } }, 16)
+	eq(spots[1].tx, 0); eq(spots[1].ty, 0)
+	spots = ns.Map_Clusters({}, 16)
+	eq(#spots, 0)
 end)
 
 test("town rows: your side and your class", function()

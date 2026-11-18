@@ -16,6 +16,7 @@ local layer, db
 local showing = 0 -- how far the tiles have faded in, 0..1
 local tiles = {} -- { box, file }, both continents
 local pool, used = {}, 0
+local near = {} -- the tiles near the view, [1..n] of the last update (kept: updated every frame the view moves)
 local built = false
 
 -- The world corners of a continent's map, as a function from world yards to 0..1 on it, and its instance map ID.
@@ -35,6 +36,7 @@ local function Corners(mapID)
 	end
 	return ns.Map_FromWorld(w00, w10, w01), instance
 end
+ns.MapMini_Corners = Corners -- Pins.lua: you and your group from UnitPosition
 
 local function Build()
 	built = true
@@ -83,23 +85,24 @@ function ns.MapMini_Update(viewBox, zoom)
 		return
 	end
 	local mix = db.ground and MIX * ns.Map_Fade(zoom, db.groundZoom, db.groundZoom * FADE_SPAN) or 0
-	local near = {}
+	local n = 0
 	if mix > 0 then
 		if not built then
 			Build()
 		end
 		for _, tile in ipairs(tiles) do
 			if ns.Map_Overlaps(tile.box, viewBox) then
-				near[#near + 1] = tile
-				if #near > MAX_TILES then
-					near = {}
+				n = n + 1
+				near[n] = tile
+				if n > MAX_TILES then
+					n = 0
 					break
 				end
 			end
 		end
 	end
-	local n = #near
-	for i, tile in ipairs(near) do
+	for i = 1, n do
+		local tile = near[i]
 		local tex = Texture(i)
 		if tex.file ~= tile.file then
 			tex:SetTexture(tile.file, nil, nil, "LINEAR")

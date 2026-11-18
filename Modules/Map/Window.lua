@@ -68,6 +68,7 @@ local pinCursor = false -- the map pin cursor is up (Ctrl held over the view)
 local drag -- { x, y, moved }
 local dirty = true
 local drawnScale, areaDirty
+local viewBoxKept = {} -- Apply's view box, filled again each layout (every frame the view moves: no garbage)
 local ticker
 local lastCursorX, lastCursorY
 local pingWhenLanded = false -- Find me: rings pulse out from you once the flight there ends
@@ -135,7 +136,7 @@ local function Apply()
 		-- (as QuestBlobPinMixin:OnCanvasScaleChanged), in this same frame (ns.MapPins_RedrawArea).
 		drawnScale, areaDirty = scale, true
 	end
-	local viewBox = ns.Map_ViewBox(state, vw, vh, fit, W, H, MARGIN)
+	local viewBox = ns.Map_ViewBox(state, vw, vh, fit, W, H, MARGIN, viewBoxKept)
 	if ns.MapSide_WantsMap() then
 		ns.MapSide_Viewing(ns.MapWindow_CenterMap())
 	end

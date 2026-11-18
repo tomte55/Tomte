@@ -82,12 +82,15 @@ function ns.Map_Pan(view, dx, dy, fit, W, H)
 	return view
 end
 
--- The canvas box the view shows, grown by margin (0.35: 35% each way) so art is ready before it scrolls in.
-function ns.Map_ViewBox(view, viewW, viewH, fit, W, H, margin)
+-- The canvas box the view shows, grown by margin (0.35: 35% each way) so art is ready before it scrolls in. out: a
+-- table to fill (the view moves every frame while dragged), or nil for a new one.
+function ns.Map_ViewBox(view, viewW, viewH, fit, W, H, margin, out)
 	local s = fit * view.zoom
 	local hw, hh = viewW / 2 / s * (1 + (margin or 0)), viewH / 2 / s * (1 + (margin or 0))
 	local cx, cy = view.u * W, view.v * H
-	return { l = cx - hw, t = cy - hh, w = hw * 2, h = hh * 2 }
+	out = out or {}
+	out.l, out.t, out.w, out.h = cx - hw, cy - hh, hw * 2, hh * 2
+	return out
 end
 
 function ns.Map_Overlaps(a, b)
@@ -275,50 +278,76 @@ end
 -- Pins that overlap on the view gather into groups (pins closer than gap, and pins close to those), and each group
 -- spreads round its middle in a ring, in a fixed order (key), so each can be seen and clicked, as the game's map
 -- spreads its quest pins. spots: { x, y, key } in view pixels; sets each spot's tx, ty (where to draw it).
+-- Runs every frame the view moves, so it makes no tables: the groups are runs of one sorted list of indexes, kept
+-- between calls (one table per group per frame made about 2 KB a frame, measured 2026-11-18).
+local clusterParent, clusterOrder, clusterSpots = {}, {}, nil
+
+local function ClusterRoot(i)
+	local parent = clusterParent
+	while parent[i] ~= i do
+		parent[i] = parent[parent[i]]
+		i = parent[i]
+	end
+	return i
+end
+
+-- By group (its root, once every index points straight at it), then by key inside a group.
+local function ByGroupThenKey(a, b)
+	local ra, rb = clusterParent[a], clusterParent[b]
+	if ra ~= rb then
+		return ra < rb
+	end
+	return clusterSpots[a].key < clusterSpots[b].key
+end
+
 function ns.Map_Clusters(spots, gap)
 	local n = #spots
-	local parent = {}
+	local parent, order = clusterParent, clusterOrder
 	for i = 1, n do
 		parent[i] = i
-	end
-	local function Root(i)
-		while parent[i] ~= i do
-			parent[i] = parent[parent[i]]
-			i = parent[i]
-		end
-		return i
 	end
 	for i = 1, n - 1 do
 		for j = i + 1, n do
 			local a, b = spots[i], spots[j]
 			if (a.x - b.x) ^ 2 + (a.y - b.y) ^ 2 < gap * gap then
-				parent[Root(j)] = Root(i)
+				parent[ClusterRoot(j)] = ClusterRoot(i)
 			end
 		end
 	end
-	local groups = {}
 	for i = 1, n do
-		local r = Root(i)
-		groups[r] = groups[r] or {}
-		table.insert(groups[r], spots[i])
+		parent[i] = ClusterRoot(i)
+		order[i] = i
 	end
-	for _, g in pairs(groups) do
-		if #g == 1 then
-			g[1].tx, g[1].ty = g[1].x, g[1].y
+	for i = n + 1, #order do
+		order[i] = nil
+	end
+	clusterSpots = spots
+	table.sort(order, ByGroupThenKey)
+	clusterSpots = nil
+	local first = 1
+	while first <= n do
+		local root, last = parent[order[first]], first
+		while last < n and parent[order[last + 1]] == root do
+			last = last + 1
+		end
+		local count = last - first + 1
+		if count == 1 then
+			local sp = spots[order[first]]
+			sp.tx, sp.ty = sp.x, sp.y
 		else
-			table.sort(g, function(a, b)
-				return a.key < b.key
-			end)
 			local cx, cy = 0, 0
-			for _, sp in ipairs(g) do
+			for k = first, last do
+				local sp = spots[order[k]]
 				cx, cy = cx + sp.x, cy + sp.y
 			end
-			cx, cy = cx / #g, cy / #g
-			for k, sp in ipairs(g) do
-				local ox, oy = ns.Map_FanOffset(k, #g, gap)
+			cx, cy = cx / count, cy / count
+			for k = first, last do
+				local sp = spots[order[k]]
+				local ox, oy = ns.Map_FanOffset(k - first + 1, count, gap)
 				sp.tx, sp.ty = cx + ox, cy + oy
 			end
 		end
+		first = last + 1
 	end
 	return spots
 end
@@ -415,13 +444,17 @@ end
 -- Town markers of one kind close together on the view become one pin: each spot joins the first group whose first
 -- spot is within gap (pixels) of it. spots[1..n]: { x, y } in view pixels, always in the same order, so groups don't
 -- change from frame to frame while nothing moves. Returns { { x, y (the members' middle), members = { i, ... } } }.
-function ns.Map_Group(spots, n, gap)
-	local groups = {}
+-- out: the list from the last call to fill again, its group tables reused (the view moves every frame while dragged),
+-- or nil for a new one.
+function ns.Map_Group(spots, n, gap, out)
+	local groups = out or {}
+	local count = 0
 	local gap2 = gap * gap
 	for i = 1, n do
 		local s = spots[i]
 		local home
-		for _, g in ipairs(groups) do
+		for k = 1, count do
+			local g = groups[k]
 			local first = spots[g.members[1]]
 			local dx, dy = s.x - first.x, s.y - first.y
 			if dx * dx + dy * dy <= gap2 then
@@ -433,10 +466,24 @@ function ns.Map_Group(spots, n, gap)
 			home.members[#home.members + 1] = i
 			home.sx, home.sy = home.sx + s.x, home.sy + s.y
 		else
-			groups[#groups + 1] = { members = { i }, sx = s.x, sy = s.y }
+			count = count + 1
+			local g = groups[count]
+			if g then
+				for m = #g.members, 1, -1 do
+					g.members[m] = nil
+				end
+			else
+				g = { members = {} }
+				groups[count] = g
+			end
+			g.members[1], g.sx, g.sy = i, s.x, s.y
 		end
 	end
-	for _, g in ipairs(groups) do
+	for k = #groups, count + 1, -1 do
+		groups[k] = nil
+	end
+	for k = 1, count do
+		local g = groups[k]
 		g.x, g.y = g.sx / #g.members, g.sy / #g.members
 	end
 	return groups
