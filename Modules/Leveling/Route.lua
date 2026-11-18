@@ -60,7 +60,8 @@ function ns.LevelingRoute_Print(you, stops)
 	for i, s in ipairs(stops) do
 		local titles = {}
 		for k, id in ipairs(s.quests) do
-			titles[k] = C_QuestLog.GetTitleForQuestID(id) or tostring(id)
+			titles[k] = (C_QuestLog.GetTitleForQuestID(id) or tostring(id))
+				.. (C_QuestLog.IsEliteQuest(id) and " (elite)" or "")
 		end
 		print(("    %d. %s %s%s"):format(i, s.kind == "do" and "Do" or UI.Wrap("Hand in", "success"),
 			table.concat(titles, ", "), s.later and UI.Wrap(" (saved for later: near a quest too high yet)", "textMuted")

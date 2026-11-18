@@ -279,7 +279,7 @@ local function Draw(stops, you)
 			row.quest, row.sample = q, stops.sample
 			local group = first.groups[q.questID] or "now"
 			row.level:SetText(("%s%s"):format(tostring(q.level or "?"), q.elite and "+" or ""))
-			UI.SetTextRole(row.level, GroupRole(group))
+			UI.SetTextRole(row.level, GroupRole(group == "hard" and ns.Leveling_LevelGroup(q) or group))
 			row.title:SetText(q.dungeon and ("%s  %s"):format(q.title or "?", UI.Wrap(q.dungeon, "info")) or q.title or "?")
 			if group == "done" then
 				row.gives:SetText("Turn in")

@@ -237,15 +237,35 @@ end
 
 -- Next quests: stops ------------------------------------------------------------------------------------------------
 
--- A quest goes on a stop: done, timed, worth doing and easy ones; while you're grouped also hard ones and dungeon quests.
+-- A quest goes on a stop: done, timed, worth doing and easy ones, and open-world elite quests at your level (yellow or
+-- green: often one elite mob a class can solo, as Bloodfury Bloodline in Stonetalon); while you're grouped also hard
+-- ones and dungeon quests.
 local STOP_GROUPS = { done = true, timed = true, now = true, easy = true }
 local STOP_ORDER = { done = 1, timed = 2 } -- inside a stop: turn-ins, then timers, then the rest by level
+
+-- An unfinished elite quest that's yellow or green for you: "hard" only for being elite.
+local function SoloElite(q, group)
+	return group == "hard" and q.elite and q.difficulty and q.difficulty <= FAIR
+end
 
 local function OnStop(q, group, grouped)
 	if q.dungeon then
 		return grouped
 	end
+	if SoloElite(q, group) then
+		return true
+	end
 	return STOP_GROUPS[group] or (grouped and group == "hard")
+end
+
+-- The group a quest's level is colored by: its own, except an elite quest at your level, colored by its level alone
+-- (as the game's quest log does), not red for being elite.
+function ns.Leveling_LevelGroup(q)
+	local group = QuestGroup(q)
+	if SoloElite(q, group) then
+		return q.difficulty == FAIR and "now" or "easy"
+	end
+	return group
 end
 
 local function Yards(a, b)
@@ -341,7 +361,8 @@ end
 -- [questID] = true, read from the map's quest areas) is followed before fallback (the nearest stop's top quest; a quest
 -- pin is often far from where the quest is done). The followed quest (current, a questID) stays while you're in its
 -- area, so walking through several areas doesn't flip between them. Only quests a stop would list (same rules as
--- Leveling_NextStops: no grey quests, hard ones only grouped). Returns a quest row, or fallback.
+-- Leveling_NextStops: no grey quests, hard ones only grouped, elite ones at your level always). Returns a quest row,
+-- or fallback.
 function ns.Leveling_FollowPick(quests, inside, current, fallback, grouped)
 	local best
 	for _, q in ipairs(quests) do

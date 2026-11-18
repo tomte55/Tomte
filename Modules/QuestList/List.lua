@@ -67,7 +67,7 @@ end
 -- Pieces ------------------------------------------------------------------------------------------------------------
 
 local function GroupRole(q)
-	local key = ns.Leveling_QuestGroup and ns.Leveling_QuestGroup(q)
+	local key = ns.Leveling_LevelGroup and ns.Leveling_LevelGroup(q)
 	for _, g in ipairs(ns.LEVELING_QUEST_GROUPS or {}) do
 		if g.key == key then
 			return g.role

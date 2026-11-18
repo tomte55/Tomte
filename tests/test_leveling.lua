@@ -441,6 +441,30 @@ test("FollowPick: a quest whose area you're in beats a turn-in nearby", function
 	eq(ns.Leveling_FollowPick(quests, {}, nil, nil, false), nil)
 end)
 
+test("NextStops: open-world elite quests at your level go on a stop solo, harder ones don't", function()
+	local quests = {
+		{ questID = 1, title = "Yellow elite", level = 26, elite = true, difficulty = 2 },
+		{ questID = 2, title = "Green elite", level = 24, elite = true, difficulty = 1 },
+		{ questID = 3, title = "Orange elite", level = 28, elite = true, difficulty = 3 },
+		{ questID = 4, title = "Elite, level unknown", level = 26, elite = true },
+	}
+	local points = {}
+	for id = 1, 4 do
+		points[id] = { x = 0, y = 0, continent = 1 }
+	end
+	local stops = ns.Leveling_NextStops(quests, points, { x = 0, y = 0, continent = 1 }, false, 300)
+	eq(#stops[1].quests, 2, "solo: the yellow and the green one")
+	eq(ns.Leveling_OnStop(quests[1], false), true)
+	eq(ns.Leveling_OnStop(quests[3], false), false, "orange waits for a group")
+	eq(ns.Leveling_OnStop(quests[3], true), true)
+	eq(ns.Leveling_OnStop(quests[4], false), false, "unknown difficulty: as before")
+	eq(ns.Leveling_QuestGroup(quests[1]), "hard", "still listed as elite on the Leveling page")
+	eq(ns.Leveling_LevelGroup(quests[1]), "now", "yellow level, not red")
+	eq(ns.Leveling_LevelGroup(quests[2]), "easy")
+	eq(ns.Leveling_LevelGroup(quests[3]), "hard", "orange elite stays red")
+	eq(ns.Leveling_LevelGroup({ elite = true, complete = true, difficulty = 2 }), "done")
+end)
+
 test("FollowPick: an area quest a stop wouldn't list isn't followed", function()
 	local quests = {
 		{ questID = 1, title = "Grey", level = 2, difficulty = 0 },
