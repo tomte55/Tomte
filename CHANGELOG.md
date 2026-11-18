@@ -38,6 +38,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### Improved
 
+- **DPS meter:** a Visible setting: During fights, as before, or Always, so the meter stays up.
 - **Drawers:** the editor sets the drawer's name, which way it opens and how many buttons per line. An open drawer has no border and closes when you click somewhere else (out of combat), and a drawer whose search finds nothing right now shows a faded icon.
 - **Eat and drink (Forever):** removed. The game hides your health and mana, so its button ate even at full health; a drawer with `is:eat` and one with `is:drink` does the job better.
 - **Drawers:** item counts have an outline and stay readable over the cooldown sweep.

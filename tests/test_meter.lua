@@ -31,6 +31,12 @@ test("shows in a group in combat and for a while after; solo only when asked", f
 	eq(ns.Meter_Shows({ grouped = false, solo = true, inCombat = true, linger = 10 }), true, "solo when asked")
 end)
 
+test("always visible: up out of combat, solo and outside instances too", function()
+	eq(ns.Meter_Shows({ always = true, grouped = false, solo = false, inCombat = false, linger = 10,
+		instancesOnly = true, inInstance = false }), true)
+	eq(ns.Meter_Shows({ always = false, grouped = true, inCombat = false, linger = 10 }), false, "during fights: hidden")
+end)
+
 test("only in dungeons and raids when asked", function()
 	local s = { grouped = true, inCombat = true, linger = 10, instancesOnly = true, inInstance = false }
 	eq(ns.Meter_Shows(s), false, "out in the world")

@@ -17,9 +17,13 @@ function ns.Meter_Rows(count, mine, lines)
 	return rows
 end
 
--- Whether the meter shows. s: { grouped, solo (the setting), inCombat, endedAgo (seconds since your last fight ended,
--- nil when there's been none), linger (seconds it stays after a fight), instancesOnly (the setting), inInstance }.
+-- Whether the meter shows. s: { always (the "Visible: Always" setting: up all the time, the rest ignored), grouped,
+-- solo (the setting), inCombat, endedAgo (seconds since your last fight ended, nil when there's been none), linger
+-- (seconds it stays after a fight), instancesOnly (the setting), inInstance }.
 function ns.Meter_Shows(s)
+	if s.always then
+		return true
+	end
 	if not (s.grouped or s.solo) then
 		return false
 	end

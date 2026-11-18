@@ -65,7 +65,7 @@ local function Shows()
 		return true
 	end
 	return ns.Meter_Shows({
-		grouped = IsInGroup(), solo = db.solo, inCombat = inCombat,
+		always = db.visible == "always", grouped = IsInGroup(), solo = db.solo, inCombat = inCombat,
 		endedAgo = endedAt and GetTime() - endedAt or nil, linger = db.linger,
 		instancesOnly = db.instancesOnly, inInstance = IsInInstance(),
 	})
@@ -244,6 +244,11 @@ local function Choices(...)
 	end
 end
 
+-- The rows about when it shows matter only while it comes and goes with fights.
+local function DuringFights()
+	return db.visible ~= "always"
+end
+
 module = ns.RegisterModule({
 	key = "meter",
 	name = "DPS meter",
@@ -252,12 +257,13 @@ module = ns.RegisterModule({
 	summary = "A small meter with the top damage dealers of the fight and your own place.",
 	description = "A few thin lines with the damage per second of the top damage dealers in the fight, and yours below "
 		.. "them when you're further down; healing instead if you like. Shows in a group from the start of a fight "
-		.. "until a few seconds after it, then fades. The game counts the damage itself; Blizzard's own meter window "
-		.. "can stay off.",
+		.. "until a few seconds after it, then fades, or always if you like. The game counts the damage itself; "
+		.. "Blizzard's own meter window can stay off.",
 	enabledByDefault = false,
 	alongside = { { addon = "MelloUI", why = "its own damage meter shows the same numbers beside your frames: keep the one you like" } },
 	defaults = {
 		lines = 3, -- top places shown; your own line comes on top of these when you're further down
+		visible = "fights", -- "fights" (from a fight's start until linger after it) | "always"
 		solo = false,
 		linger = 10, -- seconds it stays after a fight
 		counts = "fight", -- "fight" | "session" (every fight since the game's meter was reset)
@@ -352,11 +358,16 @@ module = ns.RegisterModule({
 		{ type = "button", label = "Position", text = "Reset", onClick = ResetSpot,
 			tooltip = "Move it back to its default spot. Blizzard's Edit Mode moves it too." },
 		{ type = "header", label = "When it shows" },
-		{ type = "checkbox", key = "solo", label = "Also when you're on your own", onChange = Apply },
-		{ type = "checkbox", key = "instancesOnly", label = "Only in dungeons and raids", onChange = Apply },
+		{ type = "dropdown", key = "visible", label = "Visible", onChange = Apply,
+			choices = Choices("fights", "During fights", "always", "Always"),
+			tooltip = "During fights: from the start of a fight until a little after it, then it fades out. "
+				.. "Always: it stays up all the time." },
+		{ type = "checkbox", key = "solo", label = "Also when you're on your own", onChange = Apply, shown = DuringFights },
+		{ type = "checkbox", key = "instancesOnly", label = "Only in dungeons and raids", onChange = Apply,
+			shown = DuringFights },
 		{ type = "slider", key = "linger", label = "Stays after a fight", min = 3, max = 60, step = 1,
 			format = function(v)
 				return ("%d s"):format(v)
-			end, tooltip = "Then it fades out until the next fight." },
+			end, tooltip = "Then it fades out until the next fight.", shown = DuringFights },
 	},
 })
