@@ -14,12 +14,17 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### New
 
+- **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
+- **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
+
+## v1.35.0 - 2026-11-19
+
+### New
+
 - **Autocorrect:** Swedish too (a setting): a word that's right in English or Swedish is never changed, and each line is fixed as English or Swedish from the words in it, and before those from the conversation (party, guild, a whisper: its last few messages, sent and received). Swedish typos get Swedish fixes, å, ä and ö left out are put back (pa, ar, maste become på, är, måste), and Swedish endings on English game words (questen, bossarna) are left alone.
 - **Dungeon journal (new module):** World of Warcraft: Forever only. Every dungeon sorted around your level, with each one's quests (what to pick up on the way, who starts each and where, a map pin, what they ask and give) and bosses (in a lit band you can turn, their loot as tiles marked Upgrade, Owned or the level it needs). Star items you want, hide loot you can't use, show the entrance on the Tomte map, and search by dungeon, boss, quest or item. Open it with `/tomte dj` (inside a dungeon it opens on that one), a key binding or a minimap button. Data from AllTheThings.
 - **Tomte map:** town markers like the minimap's tracking (mailboxes, auctioneers, bankers, inns, class and profession trainers, repair, stable masters, battlemasters), picked from a magnifying glass on the map; markers close together share one icon that lists every NPC on hover. Click a dungeon entrance to open it in the Dungeon journal. Find me sits beside the glass and flies to you. The quest log beside the map has a search box and shows each quest's steps left to do (a gear turns them off). On the Forever theme the map has the game's window frame with its book badge and quest log button. Town data from QuestieDB.
 - **Forever theme:** right-click menus and dropdowns look like the game's own.
-- **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
-- **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
 - **Nameplates:** your threat as a number under every enemy's health bar, solo too and in dungeons: your share of the tank's (or pet's) threat, or your lead while you hold aggro, in red when you've pulled it off your tank and green when holding it is your job.
 - **Drawers:** a drawer can hold a bag search: type `is:eat`, `is:drink`, `is:potion` (or anything the bag search box takes) and it fills in with what you carry, the best first, and keeps up as your bags change.
 - **Bags:** new searches `is:eat` (food that heals), `is:drink` (drink for mana) and `is:bandage`.

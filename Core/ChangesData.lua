@@ -10,6 +10,25 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.35.0", date = "2026-11-19",
+		new = {
+			{ module = "dj", text = "On Forever: every dungeon around your level with its quests, bosses and loot, "
+				.. "marked Upgrade or Owned." },
+			{ module = "map", text = "On Forever: a world map of Tomte's own, every zone in one piece, with your "
+				.. "quests, town markers and flight masters. It fades while you move." },
+			{ module = "questlist", text = "Follows your quests along the shortest route, shows your party's "
+				.. "progress, and hints when a flight is quicker." },
+			{ module = "plates", text = "Your threat as a number under every enemy's health bar." },
+		},
+		improved = {
+			{ module = "autocorrect", text = "Swedish too: each line is fixed as English or Swedish." },
+		},
+		fixed = {
+			{ module = "questlist", text = "Following a quest no longer leads to a Lua error from the quest tracker "
+				.. "after a level-up." },
+		},
+	},
+	{
 		version = "1.34.0", date = "2026-11-13",
 		new = {
 			{ module = "quietchat", text = "The chat window fades away when nothing is happening and comes back when "
