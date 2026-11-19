@@ -33,6 +33,9 @@ local HIDDEN_ALPHA = 0.6 -- quests on the Hidden line
 local ACTIVE_BAND_ALPHA = 0.05 -- the active quest's band: a hint under its accent bar, not a block
 local CHEVRON_LEN, CHEVRON_W = 5, 1.5 -- each of the fold chevron's two strokes
 local CHEVRON_REACH = CHEVRON_LEN / 2 * math.sqrt(0.5) -- how far a stroke's middle sits from the chevron's point
+local FLIGHT_H = 18 -- the flight hint's row under a stop's header
+local FLIGHT_ICON = "Interface\\Minimap\\Tracking\\FlightMaster"
+local FLIGHT_ICON_SIZE = 14
 
 local UI = ns.UI
 
@@ -59,8 +62,9 @@ local function SampleSections()
 	return {
 		{ key = "s1", kind = "stop", title = "Camp Taurajo", distance = 140, quests = { q2, q1, q3 }, shown = 3, more = 0,
 			open = true },
-		{ key = "s2", kind = "stop", title = "Thousand Needles", distance = 1180, quests = { q4 }, shown = 0, more = 0,
-			open = false },
+		{ key = "s2", kind = "stop", title = "Thousand Needles", distance = 4270, quests = { q4 }, shown = 0, more = 0,
+			open = false, flight = ns.QuestList_DB().flightHint and { from = { short = "Camp Taurajo" },
+				to = { short = "Freewind Post" }, walk = 610, fly = 280 } or nil },
 	}
 end
 
@@ -253,6 +257,60 @@ local function Line(f, i)
 		f.lines[i] = line
 	end
 	return line
+end
+
+-- The flight hint (QuestList.lua's s.flight, Data.lua's QuestList_FlightHint): flying there looks quicker than going
+-- by ground. Hover for the times, click for a map pin on the flight master to fly from.
+local function FlightEnter(self)
+	self.bg:Show()
+	local hint = self.hint
+	if not hint or self.list.sample or self.list.showingSample then
+		return
+	end
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	UI.TipLine("Faster by flight", "heading")
+	UI.TipLine(("Fly from %s to %s, then go on from there."):format(hint.from.short, hint.to.short), "text", true)
+	local mr, mg, mb = UI.Color("textMuted")
+	local tr, tg, tb = UI.Color("text")
+	local sr, sg, sb = UI.Color("success")
+	GameTooltip:AddDoubleLine("By ground", ns.QuestList_RoughTime(hint.walk), mr, mg, mb, tr, tg, tb)
+	GameTooltip:AddDoubleLine("By flight", ns.QuestList_RoughTime(hint.fly), mr, mg, mb, sr, sg, sb)
+	UI.TipLine("A rough guess: Tomte can't tell which flight masters connect until you open a flight map.",
+		"textFaint", true)
+	UI.TipLine(("Click: a map pin on the flight master at %s."):format(hint.from.short), "accent", true)
+	GameTooltip:Show()
+end
+
+local function FlightRow(f)
+	local r = f.flight
+	if not r then
+		r = CreateFrame("Button", nil, f.content)
+		r.list = f
+		r:SetHeight(FLIGHT_H)
+		HoverWash(r)
+		r.icon = r:CreateTexture(nil, "ARTWORK")
+		r.icon:SetSize(FLIGHT_ICON_SIZE, FLIGHT_ICON_SIZE)
+		r.icon:SetPoint("LEFT", ROW_INSET + MARK_W - 2, 0)
+		r.icon:SetTexture(FLIGHT_ICON)
+		r.saved = UI.Text(r, 10, "success", "number")
+		r.saved:SetPoint("RIGHT", -ROW_INSET, 0)
+		r.saved:SetJustifyH("RIGHT")
+		r.text = UI.Text(r, 11, "textMuted")
+		r.text:SetPoint("LEFT", r.icon, "RIGHT", 4, 0)
+		r.text:SetPoint("RIGHT", r.saved, "LEFT", -6, 0)
+		r.text:SetJustifyH("LEFT")
+		r.text:SetWordWrap(false)
+		r:SetScript("OnEnter", FlightEnter)
+		r:SetScript("OnLeave", Unhover)
+		r:SetScript("OnClick", function(self)
+			if self.hint and not (f.sample or f.showingSample) then
+				UI.Sound("pick")
+				ns.QuestList_FlightPin(self.hint)
+			end
+		end)
+		f.flight = r
+	end
+	return r
 end
 
 local function More(f, i)
@@ -553,6 +611,7 @@ function ns.QuestListUI_Draw(f, sections, total, speaking)
 	local bars = db.objectives == "bars"
 	local spokenOn = db.spoken and not f.sample
 	local nh, nq, nl, nm = 0, 0, 0, 0
+	local flightShown = false
 	local y = 2
 	local collapsed = db.collapsed and not f.sample
 	f.clip:SetShown(not collapsed)
@@ -574,6 +633,20 @@ function ns.QuestListUI_Draw(f, sections, total, speaking)
 				HeaderTexts(h)
 				h:Show()
 				y = y + HEADER_H + 2
+			end
+			if s.flight and not flightShown then
+				flightShown = true
+				local r = FlightRow(f)
+				r.hint = s.flight
+				r:ClearAllPoints()
+				r:SetPoint("TOPLEFT", PAD - ROW_INSET, -y)
+				r:SetPoint("RIGHT", f.content, "RIGHT", -(PAD - ROW_INSET), 0)
+				-- Short, so both names fit the list's width: the icon says it's a flight, the tooltip says the rest.
+				r.text:SetText(("%s %s %s"):format(UI.Wrap(s.flight.from.short, "text"), UI.Wrap("to", "textFaint"),
+					UI.Wrap(s.flight.to.short, "text")))
+				r.saved:SetText("-" .. (ns.QuestList_RoughTime(s.flight.walk - s.flight.fly):gsub("^~", "")))
+				r:Show()
+				y = y + FLIGHT_H + 2
 			end
 			for i = 1, s.shown do
 				local q = s.quests[i]
@@ -675,6 +748,9 @@ function ns.QuestListUI_Draw(f, sections, total, speaking)
 	end
 	for i = nm + 1, #f.mores do
 		f.mores[i]:Hide()
+	end
+	if f.flight and not flightShown then
+		f.flight:Hide()
 	end
 	f.contentH = y
 	f.content:SetHeight(math.max(y, 1))

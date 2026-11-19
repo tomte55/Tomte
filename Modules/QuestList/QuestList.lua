@@ -223,6 +223,114 @@ local function Follow(q)
 	ns.ActiveQuest_Follow(q.questID)
 end
 
+-- Flight hint -----------------------------------------------------------------------------------------------------
+
+-- The map pin the hint's click placed: { mapID, x, y, node }. Taken off once you reach that flight master or fly, so
+-- the follow (which steps aside for your own pin) picks up again.
+local flightPin
+local FLIGHT_PIN_REACHED = 40 -- yards from the flight master that count as there
+local FLIGHT_PIN_SPOT = 0.001 -- map coordinates this close are the same pin (another pin of yours is left alone)
+
+-- The flight masters this character has seen on a flight map ({ [name] = true }, saved: the game only says which you
+-- know while a flight map is open).
+local function KnownFlights()
+	local char = Char()
+	char.flights = char.flights or {}
+	return char.flights
+end
+
+local function KnownMasters(mapID)
+	return ns.QuestListRead_FlightMasters(mapID, KnownFlights())
+end
+
+-- Where the active quest takes you: its stop on the route, else its spot (or its hand-in once it's finished).
+local function ActiveTarget(activeID, you)
+	for _, stop in ipairs(route or {}) do
+		for _, id in ipairs(stop.quests) do
+			if id == activeID then
+				return stop
+			end
+		end
+	end
+	local p = points[activeID]
+	if C_QuestLog.ReadyForTurnIn(activeID) or C_QuestLog.IsComplete(activeID) then
+		p = ns.LevelingRead_HandPoint(activeID) or nil
+	end
+	return p and p.continent == you.continent and p or nil
+end
+
+-- The hint goes on the group holding the active quest (s.flight), when flying there looks quicker.
+local function FlightHint(sections, you, mapID)
+	local activeID = ns.ActiveQuest_ID()
+	if not (db.flightHint and you and activeID) or ns.IsSecret(activeID) then
+		return
+	end
+	for _, s in ipairs(sections) do
+		for _, q in ipairs(s.quests) do
+			if q.questID == activeID then
+				local target = s.kind ~= "hidden" and ActiveTarget(activeID, you)
+				if target then
+					local ground, flight = ns.QuestListRead_Speeds()
+					s.flight = ns.QuestList_FlightHint(you, target, KnownMasters(mapID), ground, flight)
+				end
+				return
+			end
+		end
+	end
+end
+
+local function OurPinUp()
+	if not (flightPin and C_Map.HasUserWaypoint()) then
+		return false
+	end
+	local pin = C_Map.GetUserWaypoint()
+	local at = pin and pin.position
+	return at ~= nil and pin.uiMapID == flightPin.mapID and math.abs(at.x - flightPin.x) < FLIGHT_PIN_SPOT
+		and math.abs(at.y - flightPin.y) < FLIGHT_PIN_SPOT
+end
+
+local function ClearFlightPin()
+	if OurPinUp() then
+		ns.ClearOwnPin()
+	end
+	flightPin = nil
+end
+
+-- List.lua: the hint clicked. A map pin on the flight master to fly from, on its zone's map where it has one.
+function ns.QuestList_FlightPin(hint)
+	local node = hint.from
+	local mapID, x, y = node.mapID, node.mapX, node.mapY
+	local zone = C_Map.GetMapInfoAtPosition(node.mapID, node.mapX, node.mapY)
+	if zone and zone.mapID then
+		local _, pos = C_Map.GetMapPosFromWorldPos(node.continent, CreateVector2D(node.x, node.y), zone.mapID)
+		local zx, zy = pos and pos:GetXY()
+		if zx and zx > 0 and zx < 1 and zy > 0 and zy < 1 and C_Map.CanSetUserWaypointOnMap(zone.mapID) then
+			mapID, x, y = zone.mapID, zx, zy
+		end
+	end
+	if not C_Map.CanSetUserWaypointOnMap(mapID) then
+		ns.Print(("can't put a map pin there; the flight master is at %s."):format(node.name or node.short))
+		return
+	end
+	flightPin = { mapID = mapID, x = x, y = y, node = node }
+	ns.TrackPin(mapID, x, y)
+end
+
+-- Tick: the pin goes once you're at the flight master.
+local function CheckFlightPin(you)
+	if not flightPin then
+		return
+	end
+	if not OurPinUp() then
+		flightPin = nil -- removed or replaced by you
+		return
+	end
+	local node = flightPin.node
+	if you and you.continent == node.continent and Yards(you, node) <= FLIGHT_PIN_REACHED then
+		ClearFlightPin()
+	end
+end
+
 -- Hidden in combat counts once the fade out has hidden it (ApplyAlpha); until then the list keeps drawing.
 local function HiddenNow()
 	return (HiddenForCombat() and not (frame and frame:IsShown()))
@@ -361,6 +469,7 @@ local function Update()
 		followed = nil
 		ns.ActiveQuest_Follow(nil)
 	end
+	FlightHint(sections, you, mapID)
 	if not frame then
 		Build()
 	end
@@ -399,11 +508,12 @@ Tick = function()
 	if not (frame and frame:IsShown()) then
 		return
 	end
+	local you = ns.LevelingRead_You()
+	CheckFlightPin(you)
 	if timed then -- a quest's clock runs: its time left counts down on each tick
 		Update()
 		return
 	end
-	local you = ns.LevelingRead_You()
 	if not you then
 		return -- no position (an instance): nothing to measure
 	end
@@ -566,6 +676,42 @@ local function CombatEnd()
 	UpdateSoon() -- shows it again if combat hid it; it fades in from where the fade out left it
 end
 
+-- A flight map opened: the flight masters it shows as yours are remembered (new ones are learned by talking to them,
+-- which opens it). Read a moment later as well, in case its nodes aren't filled in yet when the event comes.
+local function RememberFlights()
+	local known, added = KnownFlights(), false
+	for name in pairs(ns.QuestListRead_TaxiLearned()) do
+		if not known[name] then
+			known[name], added = true, true
+		end
+	end
+	if added then
+		ns.QuestListRead_ForgetFlightMasters()
+		UpdateSoon()
+	end
+end
+
+local function FlightMapOpened()
+	RememberFlights()
+	C_Timer.After(0.5, function()
+		if active then
+			RememberFlights()
+		end
+	end)
+end
+
+-- Control lost: on a flight a moment later (UnitOnTaxi lags the event), then the pin to the flight master is done.
+local function FlightTaken()
+	if not flightPin then
+		return
+	end
+	C_Timer.After(1, function()
+		if flightPin and UnitOnTaxi("player") then
+			ClearFlightPin()
+		end
+	end)
+end
+
 local WATCHED = {
 	QUEST_LOG_UPDATE = QuestsChanged,
 	QUEST_ACCEPTED = QuestsChanged,
@@ -580,6 +726,8 @@ local WATCHED = {
 	USER_WAYPOINT_UPDATED = UpdateSoon, -- a pin placed or removed: follow steps aside or picks up again
 	PLAYER_REGEN_DISABLED = CombatStart,
 	PLAYER_REGEN_ENABLED = CombatEnd,
+	TAXIMAP_OPENED = FlightMapOpened, -- the flight masters you know, the only time the game says so
+	PLAYER_CONTROL_LOST = FlightTaken, -- a flight took off (or a stun): the flight hint's pin is done with
 }
 for event, fn in pairs(WATCHED) do
 	events:On(OWNER, event, fn)
@@ -626,6 +774,7 @@ local function Stop()
 		ns.ActiveQuest_Follow(nil)
 	end
 	followed = nil
+	flightPin = nil
 	wipe(seen)
 	if ns.LevelingNext_Update then
 		ns.LevelingNext_Update()
@@ -670,6 +819,50 @@ local function Why()
 		followed and (C_QuestLog.GetTitleForQuestID(followed) or tostring(followed)) or "nothing"))
 	if db.follow and routeFrom then
 		ns.LevelingRoute_Print(routeFrom, route)
+	end
+	local you, mapID = ns.LevelingRead_You()
+	local ground, flight = ns.QuestListRead_Speeds()
+	local masters = KnownMasters(mapID)
+	print(("  Flight hint: %s; %d flight masters known here; ground %.1f yd/s, flight %d yd/s."):format(
+		db.flightHint and "on" or "off", #masters, ground, flight))
+	if not next(KnownFlights()) then
+		print("    No flight map seen on this character yet: talk to a flight master once to fill in the ones you know.")
+	end
+	local activeID = ns.ActiveQuest_ID()
+	local target = you and activeID and not ns.IsSecret(activeID) and ActiveTarget(activeID, you)
+	if target then
+		local dx, dy = target.x - you.x, target.y - you.y
+		print(("    Active quest %d yards off: by ground %s."):format(math.floor(math.sqrt(dx * dx + dy * dy) + 0.5),
+			ns.QuestList_RoughTime(math.sqrt(dx * dx + dy * dy) / ground)))
+		local function Near(p)
+			local best, bestD
+			for _, n in ipairs(masters) do
+				local d = math.sqrt((n.x - p.x) ^ 2 + (n.y - p.y) ^ 2)
+				if not bestD or d < bestD then
+					best, bestD = n, d
+				end
+			end
+			return best and ("%s (%d yards)"):format(best.name or "?", math.floor(bestD + 0.5)) or "none"
+		end
+		print(("    Nearest flight master to you: %s; to the quest: %s."):format(Near(you), Near(target)))
+		local _, best = ns.QuestList_FlightHint(you, target, masters, ground, flight)
+		if best then
+			print(("    Best flight: %s to %s, %s instead of %s."):format(best.from.name or "?", best.to.name or "?",
+				ns.QuestList_RoughTime(best.fly), ns.QuestList_RoughTime(best.walk)))
+		else
+			print("    No flight comes out quicker (both flight masters must be closer than the quest).")
+		end
+		local names = {}
+		for i, n in ipairs(masters) do
+			names[i] = n.short
+		end
+		print("    Known: " .. table.concat(names, ", "))
+	end
+	for _, s in ipairs(shown) do
+		if s.flight then
+			print(("    Shown: fly %s to %s, %s instead of %s."):format(s.flight.from.name, s.flight.to.name,
+				ns.QuestList_RoughTime(s.flight.fly), ns.QuestList_RoughTime(s.flight.walk)))
+		end
 	end
 	for i, s in ipairs(shown) do
 		local names = {}
@@ -767,13 +960,16 @@ module = ns.RegisterModule({
 		xp = true,
 		distance = true,
 		metric = false,
+		flightHint = true, -- a line under the active quest's group when flying there looks quicker
 		spoken = true,
 		speaking = true,
 		collapsed = false,
 		party = true, -- party members' counts under your objectives
 		partyMissing = true, -- who in the party doesn't have a quest
 		folded = {}, -- [section key] = true (folded) | false (opened), the player's own clicks
-		chars = {}, -- [player GUID] = { hidden = { [questID] = true }, folded = { [questID] = true | false } }
+		-- [player GUID] = { hidden = { [questID] = true }, folded = { [questID] = true | false },
+		-- flights = { [flight master name] = true } (seen as yours on a flight map; the flight hint's) }
+		chars = {},
 		frame = {}, -- point: the list's spot (UI.TopLeftPoint), nil for the default
 	},
 	init = function(moduleDB)
@@ -894,6 +1090,9 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "distance", label = "Distance to each quest", onChange = Redraw, preview = Preview },
 		{ type = "checkbox", key = "metric", label = "Distances in meters", onChange = Redraw,
 			tooltip = "Meters and kilometers instead of the game's yards." },
+		{ type = "checkbox", key = "flightHint", label = "Hint when flying is faster", onChange = Redraw,
+			preview = Preview,
+			tooltip = "When the active quest is far off and a flight looks quicker than going by ground, a line under its group names the flight masters to fly between, from the ones you know. A rough guess: which flight masters connect only shows on a flight map. Click the line for a map pin on the flight master to fly from." },
 
 		{ type = "header", label = "Party" },
 		{ type = "checkbox", key = "party", label = "Party members' progress", onChange = PartyChanged,

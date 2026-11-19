@@ -287,4 +287,47 @@ test("details: progress in a few words", function()
 	eq(ns.QuestList_ProgressText({}, false), nil)
 end)
 
+local function P(x, y, name)
+	return { x = x, y = y, name = name }
+end
+
+test("flight hint: a far stop with flight masters at both ends", function()
+	local nodes = { P(100, 0, "Camp Taurajo"), P(9000, 0, "Splintertree Post"), P(4000, 3000, "Off the way") }
+	local hint = ns.QuestList_FlightHint(P(0, 0), P(9200, 0), nodes, 7, 30)
+	eq(hint.from.name, "Camp Taurajo")
+	eq(hint.to.name, "Splintertree Post")
+	eq(hint.fly < hint.walk * 2 / 3, true)
+end)
+
+test("flight hint: saving 2 of 9 minutes is worth naming", function()
+	-- As measured: 160 yards to Ratchet, 1459 from Splintertree Post to the quest, 3945 straight: ~7 min against ~9.
+	local nodes = { P(160, 0, "Ratchet"), P(4200, 0, "Splintertree Post") }
+	local hint, best = ns.QuestList_FlightHint(P(0, 0), P(3800, 1300), nodes, 7, 30)
+	eq(best ~= nil, true)
+	eq(best.fly > best.walk * 2 / 3, true, "the case the old 2/3 share left out")
+	eq(hint ~= nil, true, ("walk %.0f s, fly %.0f s"):format(best.walk, best.fly))
+end)
+
+test("flight hint: none for a short trip, or without two flight masters on the way", function()
+	local nodes = { P(100, 0, "A"), P(1500, 0, "B") }
+	eq(ns.QuestList_FlightHint(P(0, 0), P(1600, 0), nodes, 7, 30), nil, "walking 1600 yards beats the overhead")
+	eq(ns.QuestList_FlightHint(P(0, 0), P(9000, 0), { P(100, 0, "A") }, 7, 30), nil, "one flight master")
+	eq(ns.QuestList_FlightHint(P(0, 0), P(9000, 0), { P(8000, 0, "A"), P(8900, 0, "B") }, 7, 30), nil,
+		"the first flight master is past half the way: no saving worth a hint")
+	eq(ns.QuestList_FlightHint(P(0, 0), P(9000, 0), {}, 7, 30), nil)
+	eq(ns.QuestList_FlightHint(nil, P(9000, 0), nodes, 7, 30), nil)
+end)
+
+test("flight hint: a mount makes the same trip not worth flying", function()
+	local nodes = { P(1500, 0, "A"), P(5500, 0, "B") }
+	eq(ns.QuestList_FlightHint(P(0, 0), P(7000, 0), nodes, 7, 30) ~= nil, true, "on foot")
+	eq(ns.QuestList_FlightHint(P(0, 0), P(7000, 0), nodes, 14, 30), nil, "on an epic mount")
+end)
+
+test("rough time", function()
+	eq(ns.QuestList_RoughTime(20), "<1 min")
+	eq(ns.QuestList_RoughTime(240), "~4 min")
+	eq(ns.QuestList_RoughTime(4200), "~1 h 10 min")
+end)
+
 H.done()

@@ -374,3 +374,63 @@ end
 function ns.QuestList_CountText(n)
 	return n == 1 and "1 quest" or ("%d quests"):format(n)
 end
+
+-- Flight hint ---------------------------------------------------------------------------------------------------------
+
+-- Whether flying to a stop beats going there on foot or mount, as a rough guess: walk to a flight master you know, fly
+-- straight to another you know, walk on from there. Which flight masters connect isn't known away from one (only the
+-- flight map says), so the straight line stands in for the route, made longer by FLIGHT_DETOUR.
+local FLIGHT_DETOUR = 1.3 -- flight paths bend round mountains and through other flight masters
+local FLIGHT_OVERHEAD = 30 -- seconds: talking to the flight master, takeoff and landing
+local HINT_MIN_SAVED = 120 -- seconds a flight saves before it's worth a hint
+-- And the flight takes at most this share of the walk. 2/3 left out Ratchet to Splintertree Post for a 9 minute walk
+-- (7 minutes by flight, measured 2026-11-19), a flight worth naming.
+local HINT_MAX_SHARE = 0.8
+
+-- you, target: { x, y } in world yards on one continent. nodes: the flight masters you know there, { { x, y, name } }.
+-- ground, flight: yards per second on the ground (running or mounted) and on a flight. Returns
+-- { from, to (nodes), walk, fly (seconds) } for the quickest flight that is worth it, or nil; and the quickest flight
+-- even when it isn't (for the "why" command).
+function ns.QuestList_FlightHint(you, target, nodes, ground, flight)
+	if not (you and target and nodes and ground and flight) or ground <= 0 or flight <= 0 then
+		return nil
+	end
+	local function D(a, b)
+		local dx, dy = a.x - b.x, a.y - b.y
+		return math.sqrt(dx * dx + dy * dy)
+	end
+	local walk = D(you, target) / ground
+	-- Each flight master's walk from you and to the target, once, then the best pair.
+	local toFrom, toTarget = {}, {}
+	for i, n in ipairs(nodes) do
+		toFrom[i], toTarget[i] = D(you, n) / ground, D(n, target) / ground
+	end
+	local best
+	for i, a in ipairs(nodes) do
+		if toFrom[i] < walk then
+			for j, b in ipairs(nodes) do
+				if i ~= j and toTarget[j] < walk then
+					local fly = toFrom[i] + D(a, b) * FLIGHT_DETOUR / flight + FLIGHT_OVERHEAD + toTarget[j]
+					if not best or fly < best.fly then
+						best = { from = a, to = b, walk = walk, fly = fly }
+					end
+				end
+			end
+		end
+	end
+	if best and walk - best.fly >= HINT_MIN_SAVED and best.fly <= walk * HINT_MAX_SHARE then
+		return best, best
+	end
+	return nil, best
+end
+
+-- A rough time: "~4 min", "~1 h 10 min"; under a minute "<1 min".
+function ns.QuestList_RoughTime(seconds)
+	local minutes = math.floor(seconds / 60 + 0.5)
+	if minutes < 1 then
+		return "<1 min"
+	elseif minutes < 60 then
+		return ("~%d min"):format(minutes)
+	end
+	return ("~%d h %d min"):format(math.floor(minutes / 60), minutes % 60)
+end
