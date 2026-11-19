@@ -54,6 +54,11 @@ local function DrawAreas(force)
 	if quest and ns.IsSecret(quest) then
 		quest = nil
 	end
+	-- A finished quest's objective area is done with, as on the world map (Modules/QuestList/Map.lua): its pin is the
+	-- hand-in now.
+	if quest and (C_QuestLog.ReadyForTurnIn(quest) or C_QuestLog.IsComplete(quest)) then
+		quest = nil
+	end
 	if force or quest ~= blobQuest then
 		blobQuest = quest
 		blobZone = quest and QuestZone(quest) or nil
