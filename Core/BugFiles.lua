@@ -561,6 +561,7 @@ ns.BUG_FILES = {
 	"Modules/Map/Flights.lua",
 	"Modules/Map/QuestTab.lua",
 	"Modules/Map/Side.lua",
+	"Modules/Map/Fade.lua",
 	"Modules/Map/Window.lua",
 	"Modules/Map/Map.lua",
 	"Modules/DungeonJournal/Data.lua",

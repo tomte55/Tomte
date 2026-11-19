@@ -364,6 +364,7 @@ local function OnUpdate(_, elapsed)
 	if dirty then
 		Apply()
 	end
+	ns.MapFade_Update(frame, elapsed)
 	-- Ctrl over the map: the game's map pin cursor, as its own map shows (WaypointLocationDataProviderMixin).
 	local over = view:IsMouseOver()
 	if over and IsControlKeyDown() and not drag then
@@ -676,6 +677,7 @@ local function Build()
 	logButton:SetFrameLevel(view:GetFrameLevel() + 50)
 	SyncLogButton()
 
+	ns.MapFade_Parts(frame, { view, layer, sideClip })
 	ns.MapArt_Init(canvas, W, H, worldID)
 	ns.MapMini_Init(canvas, db)
 	ns.MapPins_Init(layer, db)
@@ -712,6 +714,7 @@ local function Build()
 	end)
 	frame:HookScript("OnHide", function()
 		drag, target, aim, glide, pingWhenLanded = nil, nil, nil, nil, false
+		ns.MapFade_Reset(frame)
 		if pinCursor then
 			ResetCursor()
 			pinCursor = false

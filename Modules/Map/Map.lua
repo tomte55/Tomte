@@ -227,11 +227,14 @@ module = ns.RegisterModule({
 		ground = true, -- the game's minimap pictures close up
 		groundZoom = 10, -- zoom where they start fading in
 		window = false, -- { w, h, point, relPoint, x, y } once moved or resized
+		fadeMoving = true, -- the window fades while you move with the mouse off it (Fade.lua)
+		fadeAlpha = 0.5, -- how far: the game's own map fades to half
 	},
 	init = function(moduleDB)
 		db = moduleDB
 		ns.MapArt_RevealAll(db.revealAll)
 		ns.MapWindow_Init(db)
+		ns.MapFade_Init(db)
 		ns.MapFlights_Init(nil, db)
 	end,
 	toggle = function(on)
@@ -256,6 +259,9 @@ module = ns.RegisterModule({
 		{ debug = true, "flights", "what the map read at the last flight master", function()
 			ns.MapFlights_Why()
 		end },
+		{ debug = true, "fade", "the map's alpha while it fades, measured 3 seconds on (start walking)", function()
+			ns.MapFade_Why()
+		end },
 		{ "reset", "put the map window back in the middle at its default size", function()
 			ns.MapWindow_ResetFrame()
 		end },
@@ -279,6 +285,12 @@ module = ns.RegisterModule({
 			format = function(v)
 				return ("%d%%"):format(math.floor(v * 100 + 0.5))
 			end, onChange = Relayout },
+		{ type = "checkbox", key = "fadeMoving", label = "Fade while you move",
+			tooltip = "The map fades while you walk or ride, so you can see where you're going. Put the mouse on it to see it fully again." },
+		{ type = "slider", key = "fadeAlpha", label = "Faded to", min = 0.1, max = 0.9, step = 0.05, parent = "fadeMoving",
+			format = function(v)
+				return ("%d%%"):format(math.floor(v * 100 + 0.5))
+			end },
 
 		{ type = "header", label = "Detail" },
 		{ type = "slider", key = "continentZoom", label = "Continent maps from", min = 1.1, max = 3, step = 0.1,

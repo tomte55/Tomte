@@ -5,9 +5,9 @@ local addonName, ns = ...
 -- ## Version is this version. Drawn by Modules/Map/Art.lua.
 
 ns.Content_Register(ns.CONTENT_FOREVER, "mapArtIndex", {
-	version = 6,
-	masks = { [1200] = true, [1997] = true, [2031] = true, [2054] = true, [2121] = true, [2126] = true, [2130] = true, [2132] = true, [2133] = true, [2134] = true, [2147] = true, [2148] = true, [2149] = true, [2150] = true, [2151] = true, [2152] = true, [2153] = true, [2154] = true, [2156] = true, [2157] = true, [2158] = true, [2159] = true, [2160] = true, [2161] = true, [2162] = true, [2164] = true, [2165] = true, [2166] = true, [2167] = true, [2168] = true, [2169] = true, [2170] = true, [2171] = true, [2173] = true, [2174] = true, [2175] = true, [2177] = true, [2178] = true, [2179] = true, [2180] = true, [2181] = true, [2182] = true, [2184] = true, [2185] = true },
-	continents = { [2140] = true, [2142] = true }, -- Masks\Continent<uiMapArtID>.tga
+	version = 8,
+	masks = { [1200] = true, [1997] = true, [2031] = true, [2054] = true, [2121] = true, [2126] = true, [2130] = true, [2132] = true, [2133] = true, [2134] = true, [2147] = true, [2148] = true, [2149] = true, [2150] = true, [2151] = true, [2152] = true, [2153] = true, [2154] = true, [2156] = true, [2157] = true, [2158] = true, [2159] = true, [2160] = true, [2161] = true, [2162] = true, [2164] = true, [2165] = true, [2166] = true, [2167] = true, [2168] = true, [2169] = true, [2170] = true, [2171] = true, [2173] = true, [2174] = true, [2175] = true, [2177] = true, [2178] = true, [2179] = true, [2180] = true, [2181] = true, [2182] = true, [2184] = true, [2185] = true }, -- each also merged: Flat\Zone<uiMapArtID>_<tile>.blp
+	continents = { [2140] = true, [2142] = true }, -- Masks\Continent<uiMapArtID>.tga, and Masks\Gaps<uiMapArtID>.tga (no zone over it)
 	-- [uiMapArtID] = the place names' boxes { left, top, right, bottom } (art pixels), Masks\Labels<uiMapArtID>.tga
 	labels = {
 		[1200] = { { 273, 110, 361, 137 }, { 341, 233, 468, 252 }, { 453, 516, 530, 543 }, { 467, 422, 554, 449 }, { 530, 196, 615, 235 }, { 586, 515, 688, 552 } },

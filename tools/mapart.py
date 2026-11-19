@@ -23,7 +23,15 @@ name (Modules/Map/Art.lua). The idea of zone territories follows OpenMap's
 territory masks (MIT, github.com/openmap-world/openmap, tools/map-preview/territory.py); written anew here, with
 Pillow and numpy.
 
-The masks are made from Blizzard's art, so they ship in their own addon, outside the git repo and outside Tomte's zip.
+Each masked zone's picture is also written merged: its base art with every explored-area piece laid over it, as the map
+draws them with "Show the whole map" on, in 256-pixel tiles like the game's (Flat/Zone<art>_<n>.blp, DXT1 with mips,
+tools/blp.py). The map then draws a zone as one picture instead of the base and its pieces on top of each other: while
+the map fades (Modules/Map/Fade.lua) every spot shows through evenly, where the stacked pieces showed as darker
+rectangles (seen 2026-11-19). For the same reason each continent gets a gaps mask (Masks/Gaps<art>.tga): its own mask
+less every zone's territory, where only the continent's picture covers the land (a capital, the sea).
+
+The masks and pictures are made from Blizzard's art, so they ship in their own addon, outside the git repo and outside
+Tomte's zip.
 
 From the Tomte folder:
     python -P tools/mapart.py <build, e.g. 1.60.1.70938> <cache folder> <Tomte_MapArt folder>
@@ -41,9 +49,10 @@ import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import blp  # noqa: E402
 import wago  # noqa: E402
 
-VERSION = 6  # bump when the masks change shape: Tomte only uses an addon whose version it knows (MapArtIndex.lua)
+VERSION = 8  # bump when the masks change shape: Tomte only uses an addon whose version it knows (MapArtIndex.lua)
 ART_W, ART_H = 1002, 668  # every map's art on this client (its UiMapArt layer)
 TILE = 256  # art and pieces are cut in 256-pixel tiles, a piece's last row and column in the next power of two
 MASK = 256  # the mask file's size (stretched over the art; soft edges don't need more)
@@ -254,6 +263,20 @@ def picture(art, art_tiles, folder, build):
     return img.crop((0, 0, ART_W, ART_H))
 
 
+def write_flat(art, art_tiles, pieces, folder, build, out):
+    """A zone's base art with all its pieces over it, as 256-pixel BLP tiles in the game's order (row by row), the
+    last row and column filled out with their edge pixels so filtering at the used edge doesn't pull in black."""
+    img = picture(art, art_tiles, folder, build).convert("RGBA")
+    img.alpha_composite(pieces_picture(pieces, folder, build))
+    cols, rows = -(-ART_W // TILE), -(-ART_H // TILE)
+    a = np.asarray(img.convert("RGB"))
+    a = np.pad(a, ((0, rows * TILE - ART_H), (0, cols * TILE - ART_W), (0, 0)), mode="edge")
+    for r in range(rows):
+        for c in range(cols):
+            tile = Image.fromarray(a[r * TILE:(r + 1) * TILE, c * TILE:(c + 1) * TILE])
+            blp.write(tile, os.path.join(out, "Flat", "Zone%d_%d.blp" % (art, r * cols + c + 1)))
+
+
 def continent_land(art, art_tiles, folder, build, size):
     """Where a continent's picture shows land, as a bool grid of `size`."""
     hsv = np.asarray(picture(art, art_tiles, folder, build).filter(ImageFilter.GaussianBlur(1.5)).convert("HSV"))
@@ -355,9 +378,9 @@ def place(own, box, shape):
     return grid
 
 
-def territory_mask(labels, i, box):
-    """Zone i's mask (art-sized L image): its territory, reaching OVERLAP under its neighbours, inside its picture
-    less the frame (fading in over FRAME_FADE), blurred."""
+def territory_grid(labels, i, box):
+    """Zone i's mask on the continent grid (float 0..255): its territory, reaching OVERLAP under its neighbours, inside
+    its picture less the frame (fading in over FRAME_FADE), blurred."""
     x0, y0, w, h = box
     m = Image.fromarray(((labels == i) * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(2 * OVERLAP + 1))
     m = np.asarray(m.filter(ImageFilter.GaussianBlur(SOFT))).astype(np.float32)
@@ -368,8 +391,24 @@ def territory_mask(labels, i, box):
     sy = np.clip((np.minimum(ys, 1 - ys) - MARGIN) / FRAME_FADE, 0, 1)
     edge = np.minimum(sy[:, None], sx[None, :])
     edge = edge * edge * (3 - 2 * edge)
-    m = Image.fromarray((m * edge).astype(np.uint8))
+    return m * edge
+
+
+def territory_mask(grid, box):
+    """Zone's mask (art-sized L image) from its territory_grid."""
+    x0, y0, w, h = box
+    m = Image.fromarray(grid.astype(np.uint8))
     return m.crop((x0, y0, x0 + w, y0 + h)).resize((ART_W, ART_H), Image.BILINEAR)
+
+
+def gaps_mask(shore, union):
+    """Where a continent's picture shows with no zone's over it (art-sized L image): its own mask (shore) less every
+    zone's territory (union, the zones' grids at their most). The map draws the continent through this while it fades,
+    so those parts (a capital's land, the sea) are one picture there too (Modules/Map/Art.lua)."""
+    covered = np.asarray(Image.fromarray(np.clip(union, 0, 255).astype(np.uint8)).resize((ART_W, ART_H),
+                                                                                         Image.BILINEAR))
+    gap = np.asarray(shore).astype(np.float32) * (1 - covered.astype(np.float32) / 255)
+    return Image.fromarray(gap.astype(np.uint8))
 
 
 def continent_mask(land):
@@ -417,9 +456,10 @@ def write_index(arts, continents, labels, build):
         "",
         "ns.Content_Register(ns.CONTENT_FOREVER, \"mapArtIndex\", {",
         "\tversion = %d," % VERSION,
-        "\tmasks = { %s }," % ", ".join("[%d] = true" % a for a in sorted(arts)),
-        "\tcontinents = { %s }, -- Masks\\Continent<uiMapArtID>.tga" % ", ".join(
-            "[%d] = true" % a for a in sorted(continents)),
+        "\tmasks = { %s }, -- each also merged: Flat\\Zone<uiMapArtID>_<tile>.blp" % ", ".join(
+            "[%d] = true" % a for a in sorted(arts)),
+        "\tcontinents = { %s }, -- Masks\\Continent<uiMapArtID>.tga, and Masks\\Gaps<uiMapArtID>.tga (no zone over it)" %
+        ", ".join("[%d] = true" % a for a in sorted(continents)),
         "\t-- [uiMapArtID] = the place names' boxes { left, top, right, bottom } (art pixels), Masks\\Labels<uiMapArtID>.tga",
         "\tlabels = {",
     ]
@@ -439,6 +479,7 @@ def main():
     build, folder, out = sys.argv[1], sys.argv[2], sys.argv[3]
     os.makedirs(folder, exist_ok=True)
     os.makedirs(os.path.join(out, "Masks"), exist_ok=True)
+    os.makedirs(os.path.join(out, "Flat"), exist_ok=True)
     data = wago.load(folder, ["WorldMapOverlay", "WorldMapOverlayTile", "UiMapXMapArt", "UiMap", "UiMapAssignment",
                               "UiMapArtTile"], build)
     maps = {int(r["ID"]): r for r in data["UiMap"]}
@@ -462,7 +503,7 @@ def main():
                                                  int(o["TextureHeight"]), [fid for _, _, fid in sorted(tiles[oid])]))
     zones = [m for m, r in maps.items() if int(r["Type"]) == MAP_ZONE and pieces.get(art_of.get(m))]
     layout = Layout(data["UiMapAssignment"])
-    masks, shores, names = {}, {}, {}  # names: [art] = its place names' boxes
+    masks, shores, names, gaps = {}, {}, {}, {}  # names: [art] = its place names' boxes
     by_continent = defaultdict(list)
     for z in zones:
         parent = int(maps[z]["ParentUiMapID"])
@@ -483,8 +524,11 @@ def main():
             placed.append((box, place(own_land(pieces[art_of[z]], folder, build), box, (gh, gw))))
         labels = territories(placed, land)
         found = []  # (zone index, box in art pixels, box on the continent grid, owner of its middle)
+        union = np.zeros(labels.shape, np.float32)
         for i, z in enumerate(members):
-            masks[art_of[z]] = territory_mask(labels, i, placed[i][0])
+            grid = territory_grid(labels, i, placed[i][0])
+            union = np.maximum(union, grid)
+            masks[art_of[z]] = territory_mask(grid, placed[i][0])
             gx0, gy0, gw_, gh_ = placed[i][0]
             for b in label_boxes(pieces_picture(pieces[art_of[z]], folder, build)):
                 g = (gx0 + b[0] / ART_W * gw_, gy0 + b[1] / ART_H * gh_, gx0 + b[2] / ART_W * gw_,
@@ -498,6 +542,7 @@ def main():
                         and (o == j or owner == j) for j, _, h, o in found)
             if not clash:
                 names.setdefault(art_of[members[i]], []).append(b)
+        gaps[art_of[c]] = gaps_mask(shores[art_of[c]], union)
     for z in zones:
         if art_of[z] not in masks:
             print("zone %d (%s), off any continent" % (z, maps[z]["Name_lang"]))
@@ -510,8 +555,11 @@ def main():
     print("place names in %d zones, %d in all" % (len(labels), sum(len(b) for b in labels.values())))
     for art, mask in masks.items():
         write_tga(mask, os.path.join(out, "Masks", "Zone%d.tga" % art))
+        write_flat(art, art_tiles, pieces[art], folder, build, out)
     for art, mask in shores.items():
         write_tga(mask, os.path.join(out, "Masks", "Continent%d.tga" % art))
+    for art, mask in gaps.items():
+        write_tga(mask, os.path.join(out, "Masks", "Gaps%d.tga" % art))
     write_addon(out, list(masks), build)
     write_index(list(masks), list(shores), labels, build)
     print("wrote %d masks to %s and %s" % (len(masks), out, INDEX))

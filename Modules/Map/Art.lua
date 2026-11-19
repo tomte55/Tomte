@@ -19,6 +19,9 @@ local CELL = 12 -- art pixels: the grid a zone is cut on (about 1.2% of a zone's
 local SAMPLES_PER_FRAME = 500 -- GetMapInfoAtPosition calls per frame while zones are cut
 local ART_ADDON = "Tomte_MapArt" -- the zone masks, made by tools/mapart.py (optional, shipped on its own)
 local MASKS = "Interface\\AddOns\\Tomte_MapArt\\Masks\\" -- then Zone<uiMapArtID> or Continent<uiMapArtID>
+local FLAT = "Interface\\AddOns\\Tomte_MapArt\\Flat\\" -- then Zone<uiMapArtID>_<tile>: a zone's merged picture
+local FLAT_VERSION = 7 -- the art addon's first version with them
+local GAPS_VERSION = 8 -- and with the continents' gaps masks (Masks\Gaps<uiMapArtID>)
 local OVERLAY_TILE = 256 -- explored-area pieces are cut in 256-pixel files (MapExplorationPinMixin)
 local MAP_CONTINENT, MAP_ZONE = 2, 3 -- Enum.UIMapType
 local FILTER = "TRILINEAR" -- mipmapped: the art is drawn far smaller than its files at most zooms
@@ -196,6 +199,21 @@ local function BuildOverlays(region)
 		tex.file = nil
 	end
 	region.overlays = {}
+	if region.flat then
+		-- The merged picture already holds every piece: only its tiles under a place name are drawn again, on the
+		-- names frame (as AddPiece does with the pieces).
+		if region.labels then
+			for i, tile in ipairs(region.tiles) do
+				if OnALabel(region, tile.x, tile.y, tile.w, tile.h) then
+					local copy = AddTile(region, region.base[i].file, tile, "ARTWORK", 0)
+					copy:SetParent(region.labels)
+					copy:AddMaskTexture(region.labelMask)
+					region.overlays[#region.overlays + 1] = copy
+				end
+			end
+		end
+		return
+	end
 	local all = revealAll and region.mode == "mask" and ns.Content_Get(ns.CONTENT_FOREVER, "mapReveal")
 	local pieces = all and region.artID and all[region.artID]
 	if pieces then
@@ -303,6 +321,40 @@ local function MaskFile(artID, level)
 	end
 end
 
+-- A continent's gaps mask (its picture where no zone's lies over it, tools/mapart.py), or nil before version 8.
+local function GapsFile(artID)
+	MaskFile(artID, "continent")
+	if artOK and artOK.version >= GAPS_VERSION and artOK.continents and artOK.continents[artID] then
+		return MASKS .. "Gaps" .. artID
+	end
+end
+
+-- The file a zone's merged picture's tile index is in (its base art with every piece over it, tools/mapart.py), or nil
+-- where the art addon has none (before version 7).
+local function FlatFile(artID, index)
+	MaskFile(artID, "zone")
+	if artOK and artOK.version >= FLAT_VERSION and artOK.masks[artID] then
+		return FLAT .. "Zone" .. artID .. "_" .. index
+	end
+end
+
+-- A masked zone's base tiles: its merged picture while the whole map shows (one picture, so it fades evenly: Fade.lua),
+-- else the game's base art with the explored pieces over it (BuildOverlays). Set again when that setting changes.
+local function SetBaseFiles(region)
+	region.flat = false
+	for _, tex in ipairs(region.base or {}) do
+		local flat = revealAll and FlatFile(region.artID, tex.tileIndex)
+		region.flat = region.flat or flat ~= nil
+		local file = flat or region.gameFiles[tex.tileIndex]
+		if tex.file ~= file then
+			tex.file, tex.loaded = file, nil
+			if region.visible then
+				Want(tex)
+			end
+		end
+	end
+end
+
 -- A zone's place name boxes and their mask file, or nil (the art addon's index, as MaskFile).
 local function LabelFiles(artID)
 	MaskFile(artID, "zone")
@@ -345,13 +397,35 @@ local function Build(region, frameLevel)
 		local mask = frame:CreateMaskTexture()
 		mask:SetTexture(maskFile, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
 		mask:SetAllPoints(frame)
+		region.base, region.gameFiles, region.tiles = {}, files, {}
 		for _, tile in ipairs(ns.Map_Tiles(layer.layerWidth, layer.layerHeight, layer.tileWidth, layer.tileHeight)) do
 			if files[tile.index] then
-				AddTile(region, files[tile.index], tile, "BACKGROUND", 0):AddMaskTexture(mask)
+				local tex = AddTile(region, files[tile.index], tile, "BACKGROUND", 0)
+				tex:AddMaskTexture(mask)
+				tex.tileIndex = tile.index
+				region.base[#region.base + 1] = tex
+				region.tiles[#region.tiles + 1] = tile
 			end
 		end
 		region.cut, region.mode, region.mask = true, "mask", mask
+		local gapsFile = region.level == "continent" and GapsFile(artID)
+		if gapsFile then
+			-- The same picture again through its gaps mask (where no zone's picture lies over it): shown while the map
+			-- fades and the rest of the continent fades out under the zones (ApplyAlphas), so a capital's land and the
+			-- sea stay one picture instead of a hole (seen 2026-11-19).
+			local gapsMask = frame:CreateMaskTexture()
+			gapsMask:SetTexture(gapsFile, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+			gapsMask:SetAllPoints(frame)
+			region.gaps = {}
+			for _, tile in ipairs(region.tiles) do
+				local tex = AddTile(region, files[tile.index], tile, "ARTWORK", 0)
+				tex:AddMaskTexture(gapsMask)
+				tex:SetAlpha(0)
+				region.gaps[#region.gaps + 1] = tex
+			end
+		end
 		if region.level == "zone" then
+			SetBaseFiles(region)
 			-- Its place names, drawn again above every zone (AddPiece). A child, so it fades and hides with the zone.
 			local boxes, labelFile = LabelFiles(artID)
 			if boxes then
@@ -479,24 +553,120 @@ end
 -- After the view moved: the continents and zones that overlap viewBox show at the alpha this zoom gives their level
 -- (Data.lua, Map_LevelAlphas), so each level fades in over the one under it; the rest hides. Continents stay under the
 -- zones as a backdrop.
+-- While the window fades (Fade.lua) the levels under the one on top fade out with it: a window's alpha reaches each
+-- level on its own, so at half alpha every level showed through the one above, muddy and hardly see-through (seen
+-- 2026-11-19). cover: how far the window has faded (0..1); fading: it isn't solid (0 or 1); lastContinent, lastZone:
+-- the zoom's level alphas, kept for SetCover.
+local cover, fading = 0, 0
+local lastContinent, lastZone = 0, 0
+local allFlat = false -- every zone in view is drawn from its merged picture (SetBaseFiles)
+
+-- What goes:
+-- - everything under the ground pictures, which fill the view edge to edge (Mini.lua shows all its tiles or none), at
+--   once as the fade starts: the ground is still solid then, so nothing shows, where fading it along let the yellow
+--   paper map show through the ground for a moment (seen 2026-11-19);
+-- - along with the fade, the world picture under the continents (its sea), the continents under the zones when every
+--   zone in view is one merged picture (its territory reaches its neighbours'; the game's base art and pieces leave
+--   gaps, so then the continent stays), and the place names drawn again over the zones (two layers there).
+local applied = {} -- the inputs last applied: nothing is set again while they're the same
+local stacked = 1 -- the levels' alphas added up (MapArt_Layers)
+
+local function ApplyAlphas()
+	local ground = ns.MapMini_Showing()
+	if applied.cover == cover and applied.fading == fading and applied.ground == ground and applied.c == lastContinent
+		and applied.z == lastZone then
+		return
+	end
+	applied.cover, applied.fading, applied.ground, applied.c, applied.z = cover, fading, ground, lastContinent, lastZone
+	local underGround = 1 - fading * ground
+	local worldAlpha = (1 - cover * math.max(lastContinent, lastZone)) * underGround
+	local continentAlpha = lastContinent * underGround
+	-- How far the continent hands over to its gaps copy: the whole picture fades out under the zones, the copy that
+	-- only covers what no zone does fades in (Build). Without a gaps copy (an older art addon) nothing stays there.
+	local handOver = allFlat and cover * lastZone or 0
+	local zoneAlpha = lastZone * underGround
+	if world and world.frame then
+		world.frame:SetAlpha(worldAlpha)
+	end
+	for _, r in ipairs(continents) do
+		if r.frame then
+			r.frame:SetAlpha(continentAlpha)
+			for _, tex in ipairs(r.base or {}) do
+				tex:SetAlpha(1 - handOver)
+			end
+			for _, tex in ipairs(r.gaps or {}) do
+				tex:SetAlpha(handOver)
+			end
+		end
+	end
+	for _, r in ipairs(zones) do
+		if r.frame then
+			r.frame:SetAlpha(zoneAlpha)
+			if r.labels then
+				r.labels:SetAlpha(1 - cover)
+			end
+		end
+	end
+	-- The gaps copy lies beside the zones, not under them: one picture deep.
+	stacked = math.max(1, (world and world.frame and worldAlpha or 0) + continentAlpha * (1 - handOver) + zoneAlpha
+		+ ground)
+end
+
 function ns.MapArt_Update(viewBox, continentAlpha, zoneAlpha)
 	-- The world picture stays under the continents: with their masks they fade out past their shores.
 	Show(world, true)
 	for _, r in ipairs(continents) do
 		Show(r, continentAlpha > 0 and ns.Map_Overlaps(r.box, viewBox))
-		if r.frame then
-			r.frame:SetAlpha(continentAlpha)
-		end
 	end
+	local flat, any = true, false
 	for _, r in ipairs(zones) do
 		Show(r, zoneAlpha > 0 and ns.Map_Overlaps(r.box, viewBox))
-		if r.frame then
-			r.frame:SetAlpha(zoneAlpha)
+		if r.visible then
+			any = true
+			flat = flat and r.flat == true
 		end
 	end
+	allFlat = any and flat
+	lastContinent, lastZone = continentAlpha, zoneAlpha
+	applied.cover = nil -- a frame may have been built just now: all are set again
+	ApplyAlphas()
+end
+
+-- How many pictures lie on top of each other on the land now, as their alphas added up (so it moves smoothly as a level
+-- fades in or out): the world, the continents, the zones and the ground pictures (Mini.lua). Fade.lua fades the view
+-- more when there are more of them.
+function ns.MapArt_Layers()
+	ApplyAlphas() -- the ground pictures may have changed since (Mini.lua is laid out after this file)
+	return stacked
+end
+
+-- Fade.lua's "why": every zone in view is drawn from its merged picture.
+function ns.MapArt_AllFlat()
+	return allFlat
+end
+
+-- Fade.lua's "why": a zone frame showing now, else a continent's, else the world's.
+function ns.MapArt_TopFrame()
+	for _, list in ipairs({ zones, continents }) do
+		for _, r in ipairs(list) do
+			if r.visible and r.frame then
+				return r.frame
+			end
+		end
+	end
+	return world and world.frame
+end
+
+-- Fade.lua, each frame while it fades: amount, how far (0..1); started, whether it's left solid at all.
+function ns.MapArt_SetCover(amount, started)
+	cover, fading = amount, started and 1 or 0
+	ApplyAlphas()
 end
 
 local function Rebuild(region)
+	if region.base then
+		SetBaseFiles(region)
+	end
 	BuildOverlays(region)
 	if region.visible then
 		for _, tex in ipairs(region.overlays) do

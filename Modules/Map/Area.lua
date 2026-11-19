@@ -119,3 +119,8 @@ function ns.MapArea_Forget()
 end
 
 ns.MapArea_QuestZone = QuestZone
+
+-- Fade.lua: the area frame (nil until first drawn), faded as one picture while the map fades.
+function ns.MapArea_Frame()
+	return blob
+end
