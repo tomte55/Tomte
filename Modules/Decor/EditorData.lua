@@ -67,6 +67,29 @@ function ns.DecorEditor_DyePlan(colors, slots)
 	return plan
 end
 
+-- Dye presets: { { name, colors } }, newest first. Saving colors that are already a preset moves it to the top (with the
+-- new name); at most max are kept, the oldest fall off.
+function ns.DecorEditor_PresetAdd(presets, colors, name, max)
+	for i = #presets, 1, -1 do
+		local p = presets[i]
+		local same = #p.colors == #colors
+		for j = 1, #colors do
+			same = same and p.colors[j] == colors[j]
+		end
+		if same then
+			table.remove(presets, i)
+		end
+	end
+	local copy = {}
+	for i, c in ipairs(colors) do
+		copy[i] = c
+	end
+	table.insert(presets, 1, { name = name, colors = copy })
+	while #presets > max do
+		table.remove(presets)
+	end
+end
+
 -- Placing another ----------------------------------------------------------------------------------------------------
 
 -- variants: HousingCatalogEntryVariantInfo list ({ entryVariantID, numStored, dyeSlots }). hoveredSlots: the hovered
