@@ -132,6 +132,15 @@ function ns.MapSide_Viewing(mapID)
 	end
 end
 
+-- Window.lua, a quest pin right-clicked: the quests' tab, now or when the panel next shows.
+function ns.MapSide_ShowQuests()
+	if side and side:IsShown() then
+		Pick("quests")
+	elseif db then
+		db.side = "quests"
+	end
+end
+
 -- QuestTab.lua: how many quests are in your log (beside the heading).
 function ns.MapSide_Count(n)
 	if count then

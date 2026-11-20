@@ -16,6 +16,7 @@ local keyPending = false -- it changed in combat: applied when that ends
 
 local EVENTS = {
 	"QUEST_LOG_UPDATE", "QUEST_POI_UPDATE", "USER_WAYPOINT_UPDATED", "MAP_EXPLORATION_UPDATED", "PLAYER_ENTERING_WORLD",
+	"PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST",
 }
 
 -- The world map's ID: Azeroth, or the client's fallback world map where Azeroth has no art.
@@ -52,6 +53,8 @@ events:SetScript("OnEvent", function(_, event, ...)
 		return
 	elseif event == "USER_WAYPOINT_UPDATED" then
 		ns.MapPins_Waypoint()
+	elseif event == "PLAYER_DEAD" or event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST" then
+		ns.MapPins_Corpse()
 	elseif event == "MAP_EXPLORATION_UPDATED" then
 		ns.MapArt_Explored()
 	else

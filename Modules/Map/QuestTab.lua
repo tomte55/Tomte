@@ -4,7 +4,8 @@ local addonName, ns = ...
 -- Click a quest: your active quest, and the map glides to it. Right-click: the Quest list's menu (details, share, find
 -- group). Hover: its pin on the map grows and comes to the top (ns.MapPins_Hover). A search box over the list keeps the
 -- quests whose title, zone or objectives hold every word typed (Data.lua, Map_QuestMatches); the gear beside it turns
--- each quest's steps on or off (db.questSteps; Data.lua, Map_QuestSteps). Quests are read by Leveling
+-- each quest's steps on or off (db.questSteps; Data.lua, Map_QuestSteps). A quest pin right-clicked scrolls to its row
+-- and flashes it (ns.MapQuests_Reveal). Quests are read by Leveling
 -- (ns.LevelingRead_Quests).
 
 local ROW_H, HEADER_H = 34, 24
@@ -27,6 +28,7 @@ local UI = ns.UI
 local frame, scroll, empty, search, db
 local texts = {} -- a quest's texts for the search (Map_QuestMatches), refilled per quest
 local rows, used = {}, 0
+local reveal -- questID to scroll to and flash on the next draw (a quest pin right-clicked)
 local Redraw
 
 -- Rows ------------------------------------------------------------------------------------------------------------------
@@ -234,7 +236,29 @@ end
 
 -- Drawing ---------------------------------------------------------------------------------------------------------------
 
-local function Draw()
+local Draw
+
+-- The quest asked for (reveal) in the middle of the list, its row flashed. A search hiding it is cleared.
+local function RevealRow(typed)
+	local id = reveal
+	for i = 1, used do
+		local row = rows[i]
+		if row.quest and row.quest.questID == id then
+			reveal = nil
+			scroll:SetScroll(row.top - (scroll:GetHeight() - row:GetHeight()) / 2)
+			UI.Flash(row)
+			return
+		end
+	end
+	if typed:find("%S") then
+		search:SetText("")
+		Draw() -- reveal still set: found now, or not in your log
+	else
+		reveal = nil
+	end
+end
+
+function Draw()
 	if not (frame and frame:IsVisible()) then
 		return
 	end
@@ -284,6 +308,7 @@ local function Draw()
 			row:SetPoint("RIGHT")
 			local h = SetQuest(row, q, playerLevel, greenRange)
 			row:SetHeight(h)
+			row.top = y
 			y = y + h
 		end
 		y = y + 6
@@ -292,6 +317,9 @@ local function Draw()
 	empty:SetShown(#quests == 0)
 	ns.MapSide_Count(#all)
 	scroll:SetContentHeight(y)
+	if reveal then
+		RevealRow(typed)
+	end
 end
 
 Redraw = UI.Debounce(REDRAW, Draw)
@@ -356,6 +384,14 @@ function ns.MapQuests_Build(parent, moduleDB)
 	empty:Hide()
 	frame:SetScript("OnShow", Draw)
 	return frame
+end
+
+-- Window.lua, a quest pin right-clicked: that quest in view and flashed, now or as the list next shows.
+function ns.MapQuests_Reveal(questID)
+	reveal = questID
+	if frame and frame:IsVisible() then
+		Draw()
+	end
 end
 
 -- The quest log or the active quest changed (a moment later, once a burst of events is over).

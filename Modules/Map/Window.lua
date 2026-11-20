@@ -772,6 +772,20 @@ function ns.MapWindow_LayoutSide(now)
 	end, nil, UI.EaseOut)
 end
 
+-- Pins.lua, a quest pin right-clicked: the side panel opens on your quests (for this time, as the quest log key opens
+-- it; the log button's choice stays as it was), scrolled to that quest, its row flashed.
+function ns.MapWindow_RevealQuest(questID)
+	if not side then
+		return
+	end
+	ns.MapSide_ShowQuests()
+	ns.MapQuests_Reveal(questID)
+	if not sideWanted then
+		sideWanted = true
+		ns.MapWindow_LayoutSide()
+	end
+end
+
 -- For other modules (the Dungeon journal's "Show on map"): opens the map on spot x, y (0..1) of mapID, flying there
 -- (out to an overview, across, then in until that map fills most of the view), and marks it with a pulsing ring (its label on
 -- hover) for a few seconds (Pins.lua, FOCUS_LASTS). Called from a click. False while the Tomte map is off or when the

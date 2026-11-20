@@ -3,7 +3,7 @@ local addonName, ns = ...
 -- Tomte map: everything on the art. You (an arrow turned your way) and your party, the quests in your log (the active
 -- one larger; its area is drawn by Area.lua), flight masters, dungeon entrances (a click opens
 -- the Dungeon journal), town markers (mailboxes, bankers ...: Data/Forever/Townsfolk.lua, picked in the map's
--- tracking menu; those of a kind close together share one pin) and your map pin. Pins sit on a layer over the view
+-- tracking menu; those of a kind close together share one pin), your map pin and, while you're dead, your corpse. Pins sit on a layer over the view
 -- that isn't scaled, so they keep their size at any zoom; Window.lua tells them where canvas points land
 -- (ns.MapPins_Layout). Art and canvas boxes in Art.lua.
 
@@ -13,12 +13,15 @@ local DOT = "Interface\\Buttons\\WHITE8X8"
 local TURN_IN = "Interface\\GossipFrame\\ActiveQuestIcon" -- the gold "?"
 local TAXI = "Interface\\TaxiFrame\\UI-Taxi-Icon-Green" -- if a node's atlas isn't on this client
 local WAYPOINT_ATLAS = "Waypoint-MapPin-Tracked"
+-- The game map's tombstone (Blizzard_SharedMapDataProviders/DeathMapDataProvider.xml, CorpsePinTemplate).
+local CORPSE_ICON = "Interface\\Minimap\\POIIcons"
+local CORPSE_COORDS = { 0.56640625, 0.6328125, 0.001953125, 0.03515625 }
 local SIZE = { arrow = 34, party = 10, quest = 18, active = 22, taxi = 16, dungeon = 20, waypoint = 22, -- pixels
-	town = 14 }
+	town = 14, corpse = 24 }
 -- Frame levels over the pin layer: places, then quests (one level each, so overlapping ones always stack the same
--- way), then the map pin, your party and you.
-local LEVEL = { town = 1, taxi = 2, dungeon = 3, quest = 10, waypoint = 200, spot = 205, focus = 207, party = 210,
-	arrow = 220 }
+-- way), then the map pin, your corpse, your party and you.
+local LEVEL = { town = 1, taxi = 2, dungeon = 3, quest = 10, waypoint = 200, corpse = 202, spot = 205, focus = 207,
+	party = 210, arrow = 220 }
 local FOCUS_SIZE, FOCUS_PULSE = 26, 1.2 -- pixels, and seconds per pulse of the ring round a spot shown from elsewhere
 -- That ring stays this many seconds (the flight there takes one or two), then fades out over FOCUS_FADE.
 local FOCUS_LASTS, FOCUS_FADE = 7, 0.8
@@ -45,6 +48,7 @@ local townSpots = {} -- this layout's town spots on the view, { x, y, row }, kep
 local townGroups -- Map_Group's list, filled again each layout (no garbage)
 local fromWorld = {} -- [continent mapID] = { fn (world yards to 0..1 on it), instance }, or false: read once
 local waypoint -- { mapID, x, y }
+local corpse -- { mapID, x, y }: while you're dead
 local spot -- { mapID, x, y }: a place a side panel row points at (a teleport's destination)
 local focus -- { mapID, x, y, label }: a place another module asked the map to show (ns.MapWindow_ShowSpot)
 local focusPin -- its own frame, not pooled: pooled pins hide and show on every layout, which would restart the pulse
@@ -83,11 +87,15 @@ local function NewPin(kind)
 	pin.icon:SetAllPoints()
 	pin.ring = pin:CreateTexture(nil, "OVERLAY")
 	pin.ring:SetAllPoints()
-	pin:RegisterForClicks("LeftButtonUp")
+	pin:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	pin:SetScript("OnEnter", Tooltip)
 	pin:SetScript("OnLeave", GameTooltip_Hide)
 	pin:SetScript("OnClick", function(self, button)
-		if self.click then
+		if button == "RightButton" then
+			if self.rightClick then
+				self.rightClick(self)
+			end
+		elseif self.click then
 			self.click(self, button)
 		end
 	end)
@@ -107,7 +115,7 @@ local function Acquire(kind)
 	pin:SetSize(size, size)
 	pin.ring:Hide()
 	pin:SetAlpha(1)
-	pin.tip, pin.click, pin.hint = nil, nil, nil
+	pin.tip, pin.click, pin.rightClick, pin.hint = nil, nil, nil, nil
 	pin:Show()
 	return pin
 end
@@ -248,11 +256,33 @@ local function ReadWaypoint()
 	waypoint = x and { mapID = point.uiMapID, x = x, y = y } or nil
 end
 
+-- Your corpse on whichever continent has it; nil while you're alive.
+local function ReadCorpse()
+	corpse = nil
+	if not UnitIsDeadOrGhost("player") then
+		return
+	end
+	for _, c in ipairs(ns.MapArt_Continents()) do
+		local x, y = Pos(C_DeathInfo.GetCorpseMapPosition(c.mapID))
+		if x then
+			corpse = { mapID = c.mapID, x = x, y = y }
+			return
+		end
+	end
+end
+
 -- Tooltips and clicks -------------------------------------------------------------------------------------------------
 
 local function QuestTip(pin)
 	local id = pin.questID
 	UI.TipLine(C_QuestLog.GetTitleForQuestID(id) or tostring(id), "heading")
+	local logIndex = C_QuestLog.GetLogIndexForQuestID(id)
+	local info = logIndex and C_QuestLog.GetInfo(logIndex)
+	local level = info and (info.difficultyLevel or info.level)
+	if level and level > 0 then
+		local role = ns.QuestList_DifficultyRole(level, UnitLevel("player"), GetQuestGreenRange and GetQuestGreenRange())
+		UI.TipLine("Level " .. ns.QuestList_LevelText(level, C_QuestLog.IsEliteQuest(id)), role)
+	end
 	if pin.ready then
 		UI.TipLine(QUEST_WATCH_QUEST_READY or "Ready to turn in", "success")
 	else
@@ -263,12 +293,17 @@ local function QuestTip(pin)
 	if ns.ActiveQuest_ID() ~= id then
 		UI.TipLine("Click: make it your active quest", "textMuted")
 	end
+	UI.TipLine("Right-click: show it in your quest log", "textMuted")
 end
 
 local function QuestClick(pin)
 	ns.LevelingPage_MakeActive(pin.questID, function()
 		ns.MapPins_Quests()
 	end)
+end
+
+local function QuestRightClick(pin)
+	ns.MapWindow_RevealQuest(pin.questID)
 end
 
 -- Ctrl-click on your map pin: gone, with its tracking (ns.ClearOwnPin), or the Quest list's follow went on stepping
@@ -349,6 +384,7 @@ local function LayoutQuests(toView)
 		end
 		pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.quest + (top and #quests + 2 or isActive and #quests + 1 or rank))
 		pin.questID, pin.ready, pin.tip, pin.click = q.questID, q.ready, QuestTip, QuestClick
+		pin.rightClick = QuestRightClick
 		local cx, cy = ns.MapArt_ToCanvas(q.mapID, q.x, q.y)
 		local vx, vy
 		if cx then
@@ -526,6 +562,19 @@ local function LayoutWaypoint(toView)
 		pin.icon:SetVertexColor(UI.Color("accent"))
 		pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.spot)
 		Put(pin, spot.mapID, spot.x, spot.y, toView)
+	end
+end
+
+-- Your corpse while you're dead: the game map's tombstone (CorpsePinTemplate's art and tooltip).
+local function LayoutCorpse(toView)
+	Release("corpse")
+	if corpse then
+		local pin = Acquire("corpse")
+		Icon(pin, nil, CORPSE_ICON)
+		pin.icon:SetTexCoord(unpack(CORPSE_COORDS))
+		pin:SetFrameLevel(layer:GetFrameLevel() + LEVEL.corpse)
+		pin.name, pin.note, pin.tip = CORPSE or "Corpse", nil, NameTip
+		Put(pin, corpse.mapID, corpse.x, corpse.y, toView)
 	end
 end
 
@@ -713,6 +762,7 @@ function ns.MapPins_Layout(toView, artLevel, zoom)
 	LayoutPlaces(toView)
 	LayoutTowns(toView)
 	LayoutWaypoint(toView)
+	LayoutCorpse(toView)
 	LayoutFocus(toView)
 	LayoutUnits(toView)
 	ns.MapArea_Draw(false)
@@ -730,6 +780,7 @@ function ns.MapPins_Read()
 	end
 	ReadQuests()
 	ReadWaypoint()
+	ReadCorpse()
 end
 
 -- The quest log or the active quest changed.
@@ -820,6 +871,14 @@ end
 -- A side panel row's place on the map (mapID, x, y on it), or nil to take it away.
 function ns.MapPins_Spot(mapID, x, y)
 	spot = mapID and { mapID = mapID, x = x, y = y } or nil
+	if ns.MapWindow_Relayout then
+		ns.MapWindow_Relayout()
+	end
+end
+
+-- You died, released or came back to life.
+function ns.MapPins_Corpse()
+	ReadCorpse()
 	if ns.MapWindow_Relayout then
 		ns.MapWindow_Relayout()
 	end
