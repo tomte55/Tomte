@@ -303,8 +303,11 @@ function ns.QuestList_FlightPin(hint)
 	local zone = C_Map.GetMapInfoAtPosition(node.mapID, node.mapX, node.mapY)
 	if zone and zone.mapID then
 		local _, pos = C_Map.GetMapPosFromWorldPos(node.continent, CreateVector2D(node.x, node.y), zone.mapID)
-		local zx, zy = pos and pos:GetXY()
-		if zx and zx > 0 and zx < 1 and zy > 0 and zy < 1 and C_Map.CanSetUserWaypointOnMap(zone.mapID) then
+		local zx, zy
+		if pos then
+			zx, zy = pos:GetXY()
+		end
+		if zx and zy and zx > 0 and zx < 1 and zy > 0 and zy < 1 and C_Map.CanSetUserWaypointOnMap(zone.mapID) then
 			mapID, x, y = zone.mapID, zx, zy
 		end
 	end
@@ -313,7 +316,13 @@ function ns.QuestList_FlightPin(hint)
 		return
 	end
 	flightPin = { mapID = mapID, x = x, y = y, node = node }
-	ns.TrackPin(mapID, x, y)
+	-- Named, so Waypoints' arrow says where it leads (Way_SetPoint places it with Waypoints off too).
+	local title = ("%s: %s"):format(MINIMAP_TRACKING_FLIGHTMASTER or "Flight Master", node.short or node.name or "?")
+	if ns.Way_SetPoint then
+		ns.Way_SetPoint(mapID, x, y, title)
+	else
+		ns.TrackPin(mapID, x, y)
+	end
 end
 
 -- Tick: the pin goes once you're at the flight master.
@@ -937,7 +946,7 @@ module = ns.RegisterModule({
 		mapMark = true, -- the followed quest's area, pin ring and quest log bar on the world map
 		minimapMark = true, -- the active quest's spot on the minimap (Minimap.lua)
 		minimapArea = true, -- and its area
-		minimapOthers = false, -- the other quests' spots too
+		minimapOthers = true, -- the other quests' spots too
 		itemButton = true, -- a button beside the list with the quest item to use (ItemButton.lua)
 		open = 1, -- sections shown open
 		stops = 3, -- nearest stops with a group of their own; the rest share Other quests

@@ -18,6 +18,15 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
 - **Tomte map:** quest pins show the quest's level, colored by how hard it is for you; right-click one to show it in the quest log beside the map. Your corpse shows on the map while you're dead.
 
+### Improved
+
+- **Quest list:** your other quests show on the minimap by default, as big as the active quest's mark.
+- **Quest list:** the flight hint's map pin is named after its flight master, and the arrow says so.
+
+### Fixed
+
+- **Quest list:** clicking the flight hint errored instead of placing a map pin on the flight master.
+
 ## v1.35.0 - 2026-11-19
 
 ### New
