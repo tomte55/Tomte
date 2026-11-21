@@ -83,7 +83,10 @@ return {
 			-- docs/superpowers/specs/2026-11-15-tomte-world-map-design.md: uses the Quest list's and Leveling's reads.
 			"Modules/Map/Data.lua", "Modules/Map/Art.lua", "Modules/Map/Mini.lua", "Modules/Map/Area.lua",
 			"Modules/Map/TownPin.lua", "Modules/Map/Pins.lua", "Modules/Map/RouteLine.lua", "Modules/Map/Flights.lua",
-			"Modules/Map/QuestTab.lua", "Modules/Map/Side.lua", "Modules/Map/Fade.lua", "Modules/Map/Window.lua", "Modules/Map/Map.lua",
+			"Modules/Map/QuestTab.lua", "Modules/Map/Side.lua", "Modules/Map/Fade.lua", "Modules/Map/FindBox.lua",
+			"Modules/Map/Window.lua", "Modules/Map/Map.lua",
+			-- Find: the Tomte map's townsfolk (Map/Data.lua) by name or title, from a command and the map's search.
+			"Modules/Find/Data.lua", "Modules/Find/Find.lua",
 			-- docs/superpowers/specs/2026-11-15-tomte-dungeon-journal-design.md
 			"Modules/DungeonJournal/Data.lua", "Modules/DungeonJournal/Read.lua", "Modules/DungeonJournal/Parts.lua",
 			"Modules/DungeonJournal/Stage.lua", "Modules/DungeonJournal/Tiles.lua", "Modules/DungeonJournal/Detail.lua",

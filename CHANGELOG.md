@@ -20,6 +20,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Waypoints:** on World of Warcraft: Forever, a map pin that's quicker to reach by flight path, zeppelin or boat gets a route, drawn as a line on the Tomte map (`/tomte way route`).
 - **Tomte map:** click a town marker (a trainer, a banker, a mailbox ...) to put your map pin on whoever stands there.
 - **Waypoints:** `/tway <x> <y> [name]` and an optional `#mapID` first, when TomTom isn't loaded.
+- **Find (new module):** on World of Warcraft: Forever, `/tomte find tailor` puts your map pin on the nearest trainer, banker, innkeeper, mailbox and more whose name or title matches, saying plainly when it's outside your zone and how far. On the Tomte map, Find someone... under the magnifying glass lists the matches nearest first; click one to fly there.
 
 ### Improved
 

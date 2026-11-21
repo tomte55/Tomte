@@ -434,9 +434,14 @@ local function Marked()
 	end
 end
 
--- As the minimap's tracking menu: a checkbox per kind, its icon at the right; it opens leftward, over the map.
+-- As the minimap's tracking menu: a checkbox per kind, its icon at the right; it opens leftward, over the map. First,
+-- the search for one townsperson (FindBox.lua).
 local function TrackMenu(owner)
 	UI.ContextMenu(owner, function(_, root)
+		root:CreateButton("Find someone...", function()
+			ns.MapFind_Toggle(owner)
+		end)
+		root:CreateDivider()
 		root:CreateButton("Uncheck all", function()
 			for _, kind in ipairs(ns.MAP_TOWN_KINDS) do
 				db.town[kind.key] = false
@@ -675,7 +680,8 @@ local function Build()
 	-- On the map's corners, as the game's map has its buttons: town markers and Find me top right, the quest log
 	-- bottom right. They ride the view's edge as the side panel slides.
 	local track = RoundButton(TRACK_ICON, "Town markers", "Choose what the map shows: mailboxes, bankers, inns, "
-		.. "trainers and more. They show once you're zoomed in on a zone.", TrackMenu)
+		.. "trainers and more. They show once you're zoomed in on a zone. Find someone... searches for the nearest one.",
+		TrackMenu)
 	track:SetPoint("TOPRIGHT", view, "TOPRIGHT", -TRACK_INSET, -TRACK_INSET)
 	track:SetFrameLevel(view:GetFrameLevel() + 50)
 	local find = RoundButton(FIND_ICON, "Find me", "Go to where you are, zoomed in on your zone.", function()
