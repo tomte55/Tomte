@@ -262,6 +262,36 @@ function ns.TrackPin(mapID, x, y)
 	end)
 end
 
+-- A world point (instance, world x, y) as a map pin's spot: mapID, x, y (0..1) on the most detailed map that takes a
+-- pin (a city, not the continent), or nil. For the routers (Modules/Travel/Router.lua, ForeverRouter.lua).
+function ns.MapPinSpot(instance, wx, wy)
+	local world = CreateVector2D(wx, wy)
+	local mapID, pos = C_Map.GetMapPosFromWorldPos(instance, world)
+	if not mapID or not pos then
+		return nil
+	end
+	local bestID, bestX, bestY
+	if C_Map.CanSetUserWaypointOnMap(mapID) then
+		bestID, bestX, bestY = mapID, pos.x, pos.y
+	end
+	-- Down through child maps (continent > zone > city > ...), at most 5 levels: a safety cap so the walk always ends.
+	for _ = 1, 5 do
+		local child = C_Map.GetMapInfoAtPosition(mapID, pos.x, pos.y)
+		if not child or child.mapID == mapID then
+			break
+		end
+		local childID, childPos = C_Map.GetMapPosFromWorldPos(instance, world, child.mapID)
+		if not childID or not childPos or childPos.x < 0 or childPos.x > 1 or childPos.y < 0 or childPos.y > 1 then
+			break
+		end
+		mapID, pos = childID, childPos
+		if C_Map.CanSetUserWaypointOnMap(mapID) then
+			bestID, bestX, bestY = mapID, pos.x, pos.y
+		end
+	end
+	return bestID, bestX, bestY
+end
+
 -- Takes away the map pin you placed and its tracking, as the game's map does when you Ctrl-click it
 -- (WaypointLocationDataProviderMixin:HandleClick): the arrow and the Quest list's follow go back to your quests.
 function ns.ClearOwnPin()

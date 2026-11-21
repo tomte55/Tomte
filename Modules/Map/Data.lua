@@ -108,6 +108,35 @@ function ns.Map_BoxAround(points, pad)
 	return { l = l - gw, t = t - gh, w = r - l + 2 * gw, h = b - t + 2 * gh }
 end
 
+-- What the flight map frames (nodes: { cx, cy, key, name }, key "current", "reachable" or "distant"): where you are
+-- and where you're flying next: the flight master your route flies to (flyTo, its name), else the one nearest you.
+-- Every flight path you know at once framed both ends of a continent, the whole world in view (seen 2026-11-21); the
+-- rest are a wheel turn out. Away from a flight master you know (no current one): every one you can fly to.
+function ns.Map_FlightFrame(nodes, flyTo)
+	local here
+	local reachable = {}
+	for _, n in ipairs(nodes) do
+		if n.key == "current" then
+			here = n
+		elseif n.key == "reachable" then
+			reachable[#reachable + 1] = n
+		end
+	end
+	if not here then
+		return #reachable > 0 and reachable or nodes
+	end
+	local next
+	for _, n in ipairs(reachable) do
+		if flyTo and n.name == flyTo then
+			next = n
+		end
+	end
+	if not next then
+		next = reachable[ns.Map_Nearest(reachable, here.cx, here.cy) or 0]
+	end
+	return { here, next }
+end
+
 -- The index of the point ({ cx, cy } each) nearest x, y, or nil for none.
 function ns.Map_Nearest(points, x, y)
 	local best, bestD

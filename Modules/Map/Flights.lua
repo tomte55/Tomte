@@ -103,8 +103,8 @@ local function PinTip(pin)
 		if time then
 			UI.TipLine(time, "textMuted")
 		end
-		if node.slot == nearestSlot and pin.questTitle then
-			UI.TipLine(("Nearest to %s"):format(pin.questTitle), "accent")
+		if node.slot == nearestSlot and pin.ringNote then
+			UI.TipLine(pin.ringNote, "accent")
 		end
 		UI.TipLine("Click: fly there", "textMuted")
 	else
@@ -205,8 +205,17 @@ local function HidePins()
 	HideLines()
 end
 
--- The flight master nearest your followed quest's spot (on the Tomte map's canvas), or nil.
+-- The flight master to ring, and its tooltip line: where a Waypoints route flies next (ForeverRouter.lua), else the
+-- one nearest your followed quest's spot (on the Tomte map's canvas); nil for none.
 local function NearestToQuest()
+	local fly = ns.WayRouter_FlyTo and ns.WayRouter_FlyTo()
+	if fly then
+		for _, node in ipairs(reachable) do
+			if node.name == fly.name then
+				return node.slot, fly.note
+			end
+		end
+	end
 	local quest = ns.ActiveQuest_ID()
 	if not quest or ns.IsSecret(quest) then
 		return nil
@@ -220,7 +229,8 @@ local function NearestToQuest()
 		return nil
 	end
 	local i = ns.Map_Nearest(reachable, cx, cy)
-	return i and reachable[i].slot, C_QuestLog.GetTitleForQuestID(quest)
+	local title = C_QuestLog.GetTitleForQuestID(quest)
+	return i and reachable[i].slot, title and ("Nearest to %s"):format(title)
 end
 
 -- Reading ----------------------------------------------------------------------------------------------------------------
@@ -285,15 +295,10 @@ local function ReadNodes()
 	end
 end
 
--- The places to frame: where you can fly and where you are (all of them when there's none of those).
+-- The places to frame: where you are and where you fly next (Data.lua, Map_FlightFrame).
 local function FrameBox()
-	local list = {}
-	for _, node in ipairs(nodes) do
-		if node.key == "reachable" or node.key == "current" then
-			list[#list + 1] = node
-		end
-	end
-	return ns.Map_BoxAround(#list > 0 and list or nodes, FRAME_PAD)
+	local fly = ns.WayRouter_FlyTo and ns.WayRouter_FlyTo()
+	return ns.Map_BoxAround(ns.Map_FlightFrame(nodes, fly and fly.name), FRAME_PAD)
 end
 
 -- From Map.lua and Window.lua ------------------------------------------------------------------------------------------
@@ -301,6 +306,7 @@ end
 -- Map.lua's init gives the settings; Window.lua's build the pin layer.
 function ns.MapFlights_Init(pinLayer, moduleDB)
 	layer, db = pinLayer or layer, moduleDB or db
+	ns.MapRoute_Init(pinLayer)
 end
 
 function ns.MapFlights_Active()
@@ -385,17 +391,18 @@ end
 -- Window.lua, every layout: the flight pins placed. toView: on the view or nil; toViewAll: anywhere (route lines).
 function ns.MapFlights_Layout(toView, toViewAll)
 	lastToViewAll = toViewAll
+	ns.MapRoute_Layout(toViewAll) -- a Waypoints route's line (RouteLine.lua), flight mode or not
 	if not flightMode then
 		HidePins()
 		return
 	end
-	local questTitle
-	nearestSlot, questTitle = NearestToQuest()
+	local ringNote
+	nearestSlot, ringNote = NearestToQuest()
 	local size = PIN * (db.pinScale or 1)
 	for i, node in ipairs(nodes) do
 		local pin = pins[i] or NewPin()
 		pins[i] = pin
-		pin.node, pin.questTitle = node, questTitle
+		pin.node, pin.ringNote = node, ringNote
 		local x, y = toView(node.cx, node.cy)
 		if x and node.key ~= "distant" then
 			pin:SetSize(size, size)

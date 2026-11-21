@@ -118,8 +118,12 @@ function ns.Way_UpdateArrival(state, distance, now)
 end
 
 -- The footer line under the marker for a footer mode. Missing parts are left out. timeText (a countdown, already
--- colored) joins the distance line in the "all" mode.
-function ns.Way_FooterText(mode, distanceText, arrivalText, name, timeText)
+-- colored) joins the distance line in the "all" mode. subtitle (who the named target is, already colored) goes on a
+-- line of its own under the name.
+function ns.Way_FooterText(mode, distanceText, arrivalText, name, timeText, subtitle)
+	if name and name ~= "" and subtitle and subtitle ~= "" then
+		name = name .. "\n" .. subtitle
+	end
 	if mode == "none" then
 		return nil
 	elseif mode == "distance" then

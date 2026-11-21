@@ -56,32 +56,7 @@ end
 
 -- A node's spot as a map pin on the most detailed map that takes one (a city, not the continent).
 local function PinFor(node)
-	local world = CreateVector2D(node[2], node[3])
-	local mapID, pos = C_Map.GetMapPosFromWorldPos(node[1], world)
-	if not mapID or not pos then
-		return nil
-	end
-	local bestID, bestX, bestY
-	if C_Map.CanSetUserWaypointOnMap(mapID) then
-		bestID, bestX, bestY = mapID, pos.x, pos.y
-	end
-	-- Down through child maps (continent > zone > city > ...), at most 5 levels: a safety cap so the walk
-	-- always ends.
-	for _ = 1, 5 do
-		local child = C_Map.GetMapInfoAtPosition(mapID, pos.x, pos.y)
-		if not child or child.mapID == mapID then
-			break
-		end
-		local childID, childPos = C_Map.GetMapPosFromWorldPos(node[1], world, child.mapID)
-		if not childID or not childPos or childPos.x < 0 or childPos.x > 1 or childPos.y < 0 or childPos.y > 1 then
-			break
-		end
-		mapID, pos = childID, childPos
-		if C_Map.CanSetUserWaypointOnMap(mapID) then
-			bestID, bestX, bestY = mapID, pos.x, pos.y
-		end
-	end
-	return bestID, bestX, bestY
+	return ns.MapPinSpot(node[1], node[2], node[3])
 end
 
 local function SameSpot(point, spot)

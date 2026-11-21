@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Tomte map: everything on the art. You (an arrow turned your way) and your party, the quests in your log (the active
 -- one larger; its area is drawn by Area.lua), flight masters, dungeon entrances (a click opens
 -- the Dungeon journal), town markers (mailboxes, bankers ...: Data/Forever/Townsfolk.lua, picked in the map's
--- tracking menu; those of a kind close together share one pin), your map pin and, while you're dead, your corpse. Pins sit on a layer over the view
+-- tracking menu; those of a kind close together share one pin; a click pins one: TownPin.lua), your map pin and, while
+-- you're dead, your corpse. Pins sit on a layer over the view
 -- that isn't scaled, so they keep their size at any zoom; Window.lua tells them where canvas points land
 -- (ns.MapPins_Layout). Art and canvas boxes in Art.lua.
 
@@ -488,6 +489,7 @@ local function TownTip(pin)
 		if r.name then
 			UI.TipLine(r.title or pin.kindName, "textMuted")
 		end
+		UI.TipLine(ns.MapTown_Hint(list), "textMuted")
 		return
 	end
 	UI.TipLine(pin.kindName, "heading")
@@ -503,6 +505,7 @@ local function TownTip(pin)
 	if named == 0 then
 		UI.TipLine(("%d here"):format(#list), "textMuted")
 	end
+	UI.TipLine(ns.MapTown_Hint(list), "textMuted")
 end
 
 -- Only at the zones' level: zoomed out they'd bury the continents. Only spots on the view are looked at (there are
@@ -536,7 +539,7 @@ local function LayoutTowns(toView)
 				for i, m in ipairs(g.members) do
 					pin.rows[i] = townSpots[m].row
 				end
-				pin.kindName, pin.tip = kindName, TownTip
+				pin.kindName, pin.tip, pin.click = kindName, TownTip, ns.MapTown_Click -- TownPin.lua
 				pin:ClearAllPoints()
 				pin:SetPoint("CENTER", layer, "CENTER", g.x, -g.y)
 			end

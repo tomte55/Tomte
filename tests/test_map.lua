@@ -240,6 +240,23 @@ test("town markers close together group", function()
 	eq(#again, 2, "fewer groups: the rest dropped"); eq(#again[1].members, 1, "old members gone")
 end)
 
+test("flight map frames you and where you fly next, not every flight path", function()
+	local here = { cx = 0, cy = 0, key = "current", name = "Undercity" }
+	local near = { cx = 10, cy = 0, key = "reachable", name = "Tarren Mill" }
+	local far = { cx = 0, cy = 100, key = "reachable", name = "Booty Bay" }
+	local unknown = { cx = 2, cy = 0, key = "distant", name = "The Sepulcher" }
+	local nodes = { here, near, far, unknown }
+	local framed = ns.Map_FlightFrame(nodes)
+	eq(#framed, 2)
+	eq(framed[1], here)
+	eq(framed[2], near, "the nearest one you can fly to, never an unknown one")
+	eq(ns.Map_FlightFrame(nodes, "Booty Bay")[2], far, "the route's next flight")
+	eq(ns.Map_FlightFrame(nodes, "Nowhere")[2], near)
+	eq(#ns.Map_FlightFrame({ here }), 1, "nowhere to fly: you alone")
+	eq(#ns.Map_FlightFrame({ near, far }), 2, "no current one: every one you can fly to")
+	eq(#ns.Map_FlightFrame({ unknown }), 1, "none you can fly to: all of them")
+end)
+
 test("box around flight pins", function()
 	local box = ns.Map_BoxAround({ { cx = 10, cy = 20 }, { cx = 30, cy = 60 } }, 0.5)
 	near(box.l, 0); near(box.t, 0); near(box.w, 40); near(box.h, 80)

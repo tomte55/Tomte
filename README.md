@@ -131,7 +131,7 @@ other characters need, and material tooltips say who uses them.
 
 **Waypoints** puts a marker in the world on whatever you track, with distance and arrival time. Walk up to it and it
 turns into a card with the objectives. A map pin on another continent is routed through the portals, zeppelins and
-boats on the way.
+boats on the way. On Forever, a map pin that's quicker to reach by flight path, zeppelin or boat gets a route too.
 
 <table>
 <tr>
@@ -383,7 +383,7 @@ want:
 - `/tomte setup` (the module picker), `/tomte changes` (what's new in this version), `/tomte bug` (`full`, `clear`), `/tomte profile export` / `import` / `undo` / `send <name>`, `/tomte unlock` / `lock` (move Tomte's on-screen widgets without Edit Mode)
 - `/tomte recap` (this session), `/tomte recap last`
 - `/tomte whispers inbox`, `/tomte chatcopy` (copy the chat window you last used)
-- `/tomte way <x> <y> [name]` (also `/way <x> <y> [name]` when TomTom isn't loaded), `/tomte way clear`, `/tomte way route` (the portal route to a pin on another continent), `/tomte way next` / `prev` (focus the next or previous tracked quest), `/tomte way ping` (ping your arrow on the map)
+- `/tomte way <x> <y> [name]` (also `/way` or `/tway <x> <y> [name]`, with an optional `#mapID` first, when TomTom isn't loaded), `/tomte way clear`, `/tomte way route` (the portal route to a pin on another continent; on Forever, the route by flight path, zeppelin and boat), `/tomte way next` / `prev` (focus the next or previous tracked quest), `/tomte way ping` (ping your arrow on the map)
 - `/tomte map` (World of Warcraft: Forever: open or close the Tomte map), `/tomte map reset` (its window back in the middle)
 - `/tomte mail open` (at a mailbox: open all, again to stop), `/tomte mail gold` (take only the gold)
 - `/tomte gather` (the Gathering page), `/tomte gather start` / `end`, `/tomte gather follow` (follow the zone's gathering route, or stop), `/tomte gather skip` (skip the route's next spot), `/tomte gather route`

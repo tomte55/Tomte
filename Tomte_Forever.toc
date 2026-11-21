@@ -57,6 +57,7 @@ Data/Forever/MapReveal.lua
 Data/Forever/MapArtIndex.lua
 Data/Forever/DungeonJournal.lua
 Data/Forever/Townsfolk.lua
+Data/Forever/Transports.lua
 Core/Journal.lua
 Core/CheckData.lua
 Core/Check.lua
@@ -115,10 +116,12 @@ Modules/Flight/ZoneText.lua
 Modules/Flight/Scene.lua
 Modules/Flight/Flight.lua
 Modules/Travel/Data.lua
+Modules/Travel/ForeverRouteData.lua
 Modules/Travel/Target.lua
 Modules/Travel/Marker.lua
 Modules/Travel/MapPing.lua
 Modules/Travel/Guard.lua
+Modules/Travel/ForeverRouter.lua
 Modules/Travel/Waypoint.lua
 Modules/Mount/Data.lua
 Modules/Mount/Forms.lua
@@ -315,7 +318,9 @@ Modules/Map/Data.lua
 Modules/Map/Art.lua
 Modules/Map/Mini.lua
 Modules/Map/Area.lua
+Modules/Map/TownPin.lua
 Modules/Map/Pins.lua
+Modules/Map/RouteLine.lua
 Modules/Map/Flights.lua
 Modules/Map/QuestTab.lua
 Modules/Map/Side.lua

@@ -52,6 +52,11 @@ local TICK = 0.1 -- seconds between moving you and your party
 local FIND_SHARE = 0.85 -- finding you zooms until your zone fills this much of the view
 
 local UI = ns.UI
+-- The performance report times each part of a frame on its own ("Window · layout · art"), to show which one makes the
+-- garbage; with the report off it's a plain call.
+local Stage = ns.Perf_WrapNamed(function(fn, ...)
+	return fn(...)
+end)
 
 local db
 local frame, view, canvas, layer, zoneText, coordText, side, sideClip, logButton
@@ -68,6 +73,7 @@ local pinCursor = false -- the map pin cursor is up (Ctrl held over the view)
 local drag -- { x, y, moved }
 local dirty = true
 local drawnScale, areaDirty
+local drawnRoute -- the Waypoints plan whose line is drawn (ns.WayRouter_Shown): another one draws it again
 local viewBoxKept = {} -- Apply's view box, filled again each layout (every frame the view moves: no garbage)
 local ticker
 local lastCursorX, lastCursorY
@@ -127,7 +133,7 @@ local function Apply()
 	if aim then
 		local a = aim
 		aim = nil
-		ns.MapWindow_Aim(a.cx, a.cy, a.box, a.zoom)
+		ns.MapWindow_Aim(a.cx, a.cy, a.box, a.zoom, a.maxZoom)
 	end
 	ns.Map_Clamp(state, MIN_ZOOM, MAX_ZOOM, vw, vh, fit, W, H)
 	local scale = fit * state.zoom
@@ -145,13 +151,14 @@ local function Apply()
 	if ns.MapSide_WantsMap() then
 		ns.MapSide_Viewing(ns.MapWindow_CenterMap())
 	end
-	ns.MapArt_Update(viewBox, ns.Map_LevelAlphas(state.zoom, db.continentZoom, db.zoneZoom, FADE_BAND))
-	ns.MapMini_Update(viewBox, state.zoom)
-	ns.MapPins_Layout(ToView, Level(), state.zoom)
-	ns.MapFlights_Layout(ToView, ToViewAll)
+	Stage("layout · art", ns.MapArt_Update, viewBox,
+		ns.Map_LevelAlphas(state.zoom, db.continentZoom, db.zoneZoom, FADE_BAND))
+	Stage("layout · mini", ns.MapMini_Update, viewBox, state.zoom)
+	Stage("layout · pins", ns.MapPins_Layout, ToView, Level(), state.zoom)
+	Stage("layout · flights", ns.MapFlights_Layout, ToView, ToViewAll)
 	if areaDirty then
 		areaDirty = false
-		ns.MapArea_Redraw()
+		Stage("layout · quest area", ns.MapArea_Redraw)
 	end
 end
 
@@ -246,18 +253,21 @@ end
 
 -- The view flies to canvas point cx, cy (Data.lua, Map_Flight: out only as far as needed to see both places, then
 -- in), ending zoomed in until box (a map's canvas box) fills most of the view, or at zoom when given. Before the view
--- has its size (the window only just shown) it waits for the next layout.
-function ns.MapWindow_Aim(cx, cy, box, zoom)
+-- has its size (the window only just shown) it waits for the next layout. maxZoom: a box is never framed closer.
+function ns.MapWindow_Aim(cx, cy, box, zoom, maxZoom)
 	local vw, vh = ViewSize()
 	target, pingWhenLanded = nil, false -- a new flight: Find me sets it again after this
 	if not (vw > 0 and vh > 0) then
-		aim, glide = { cx = cx, cy = cy, box = box, zoom = zoom }, nil
+		aim, glide = { cx = cx, cy = cy, box = box, zoom = zoom, maxZoom = maxZoom }, nil
 		dirty = true
 		return
 	end
 	local fitNow = Fit(vw, vh)
 	if not zoom then
 		zoom = box and ns.Map_ZoomFor(box, vw, vh, fitNow, FIND_SHARE) or state.zoom
+		if box and maxZoom then
+			zoom = math.min(zoom, maxZoom)
+		end
 	end
 	-- Ends where Apply would let the view be (a spot near the world's edge).
 	local to = ns.Map_Clamp({ u = cx / W, v = cy / H, zoom = zoom }, MIN_ZOOM, MAX_ZOOM, vw, vh, fitNow, W, H)
@@ -361,10 +371,17 @@ local function OnUpdate(_, elapsed)
 		end
 		dirty = true
 	end
+	-- Another route (a quest picked here or anywhere, a step done, the route ended): its line is drawn again now,
+	-- not on the next pan. One comparison a frame; the plan stays the same table while its steps do.
+	local route = ns.WayRouter_Shown and ns.WayRouter_Shown()
+	if route ~= drawnRoute then
+		drawnRoute = route
+		dirty = true
+	end
 	if dirty then
 		Apply()
 	end
-	ns.MapFade_Update(frame, elapsed)
+	Stage("fade", ns.MapFade_Update, frame, elapsed)
 	-- Ctrl over the map: the game's map pin cursor, as its own map shows (WaypointLocationDataProviderMixin).
 	local over = view:IsMouseOver()
 	if over and IsControlKeyDown() and not drag then
@@ -379,7 +396,7 @@ local function OnUpdate(_, elapsed)
 		local x, y = GetCursorPosition()
 		if x ~= lastCursorX or y ~= lastCursorY then
 			lastCursorX, lastCursorY = x, y
-			local info, mx, my = MapAt(Cursor())
+			local info, mx, my = Stage("title", MapAt, Cursor())
 			if info then
 				zoneText:SetText(info.name or "")
 				coordText:SetFormattedText("%.1f, %.1f", mx * 100, my * 100)
@@ -694,6 +711,14 @@ local function Build()
 		lastCursorX = nil
 		ShowHere()
 	end)
+	local PinTickTimed = ns.Perf_Wrap(function()
+		if not dirty then
+			ns.MapPins_Tick(ToView)
+		end
+		if not view:IsMouseOver() then
+			ShowHere()
+		end
+	end, "pins · ticker")
 
 	frame:HookScript("OnShow", function()
 		ns.Map_Shown(true)
@@ -703,14 +728,7 @@ local function Build()
 		-- After the first layout (the arrow is made and placed there).
 		C_Timer.After(0, ns.MapPins_PingPlayer)
 		dirty = true
-		ticker = C_Timer.NewTicker(TICK, function()
-			if not dirty then
-				ns.MapPins_Tick(ToView)
-			end
-			if not view:IsMouseOver() then
-				ShowHere()
-			end
-		end)
+		ticker = C_Timer.NewTicker(TICK, PinTickTimed)
 	end)
 	frame:HookScript("OnHide", function()
 		drag, target, aim, glide, pingWhenLanded = nil, nil, nil, nil, false
@@ -879,7 +897,8 @@ function ns.MapWindow_OpenFlights(box)
 		ns.MapWindow_LayoutSide(true)
 		frame:Show()
 	end
-	ns.MapWindow_Aim(box.l + box.w / 2, box.t + box.h / 2, box)
+	-- Two flight masters next to each other: no closer than the zone maps, so the land round them shows.
+	ns.MapWindow_Aim(box.l + box.w / 2, box.t + box.h / 2, box, nil, db.zoneZoom)
 	return opened
 end
 

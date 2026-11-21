@@ -1,10 +1,11 @@
 local addonName, ns = ...
 
--- Waypoints: what is super-tracked, as { kind, name, icon, lines, questID, redirect, indoor, endsAt }. icon is
+-- Waypoints: what is super-tracked, as { kind, name, icon, lines, questID, redirect, indoor, endsAt, subtitle }. icon is
 -- { atlas = } or { texture = }, lines are the card's text lines (objectives, turn-in text, descriptions), indoor the
 -- world point the compass points at: a route step inside a building (WayRouter_Step), or on World of Warcraft: Forever,
 -- which has no in-world navigation frame, every target with a place on the map. endsAt is the server time
--- (GetServerTime) a world quest, timed area POI or named pin ends (the countdown). Rebuilt on events, not per frame.
+-- (GetServerTime) a world quest, timed area POI or named pin ends (the countdown); subtitle who a named pin's NPC is,
+-- shown under the name. Rebuilt on events, not per frame.
 -- API facts checked against the 12.1.0 docs (GetNextWaypointForMap moved to C_Navigation).
 
 local ST = Enum.SuperTrackingType
@@ -111,7 +112,8 @@ local function RouteStep(step)
 	if step.nextText then
 		AddLine(target.lines, "Then: " .. step.nextText)
 	end
-	AddLine(target.lines, "On the way to your pin in " .. step.destName)
+	AddLine(target.lines, step.destTitle and ("On the way to " .. step.destTitle)
+		or ("On the way to your pin in " .. step.destName))
 	return target
 end
 
@@ -130,8 +132,8 @@ local function UserWaypoint()
 	local point = named and C_Map.GetUserWaypoint()
 	if point and point.position and ns.Way_SamePoint(named,
 		{ mapID = point.uiMapID, x = point.position.x, y = point.position.y }) then
-		return { kind = "pin", name = named.title or ItemName() or "Map pin", icon = ICON_PIN, lines = {},
-			endsAt = named.endsAt }
+		return { kind = "pin", name = named.title or ItemName() or "Map pin", icon = ICON_PIN,
+			lines = { named.subtitle }, subtitle = named.subtitle, endsAt = named.endsAt }
 	end
 	return { kind = "pin", name = ItemName() or "Map pin", icon = ICON_PIN, lines = {} }
 end
@@ -139,6 +141,13 @@ end
 -- point: { mapID, x, y, title, endsAt } (Way_SetPoint), or nil to forget it.
 function ns.WayTarget_NamePin(point)
 	named = point
+end
+
+-- The name another module gave the pin at mapID, x, y (Way_SetPoint), or nil. For a route's steps (ForeverRouter.lua).
+function ns.WayTarget_PinTitle(mapID, x, y)
+	if named and ns.Way_SamePoint(named, { mapID = mapID, x = x, y = y }) then
+		return named.title
+	end
 end
 
 local function HousingIcon(plotDataID)
@@ -224,6 +233,15 @@ local function QuestSpot(questID)
 		end
 		mapID = map.parentMapID
 	end
+	-- Forever: a quest on another continent, from that continent's map (the continents routes know, ForeverRouter.lua),
+	-- so the arrow can be routed there.
+	for _, c in ipairs(ns.WayRouter_Continents and ns.WayRouter_Continents() or {}) do
+		for _, info in ipairs(C_QuestLog.GetQuestsOnMap(c) or {}) do
+			if info.questID == questID then
+				return World(c, info.x, info.y)
+			end
+		end
+	end
 	if C_QuestLog.GetNextWaypoint then
 		return World(C_QuestLog.GetNextWaypoint(questID))
 	end
@@ -253,6 +271,9 @@ function ns.WayTarget_Get()
 		trackType = ST.Quest
 	end
 	if trackType == nil then
+		if ns.FOREVER and ns.WayRouter_Aim then
+			ns.WayRouter_Aim(nil) -- nothing followed now: the arrow's route (and its line on the map) goes
+		end
 		return nil
 	end
 	local target
@@ -276,6 +297,14 @@ function ns.WayTarget_Get()
 	target.name = target.name or ""
 	if ns.FOREVER and not target.indoor then
 		target.indoor = Spot(trackType, target)
+		-- A target that isn't a map pin (the followed quest, your corpse) and is quicker to reach by flight path,
+		-- zeppelin or boat: the arrow leads to the route's next step (ForeverRouter.lua). A map pin's route moves the
+		-- pin itself (WayRouter_Step above).
+		local step = ns.WayRouter_Aim
+			and ns.WayRouter_Aim(trackType ~= ST.UserWaypoint and target.indoor or nil, target.name)
+		if step then
+			target = RouteStep(step)
+		end
 	end
 
 	-- A route step on the way (portal, boat, zone exit) replaces the name in the footer and leads the card. Not for

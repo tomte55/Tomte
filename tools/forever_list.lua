@@ -18,7 +18,8 @@ return {
 		"Modules/Achievements/", "Modules/Moments/", "Modules/Recap/", "Modules/DressUp/", "Modules/Showcase/",
 		"Modules/Talents/", "Modules/Hunter/", "Modules/Rogue/", "Modules/Combat/", "Modules/Meter/", "Modules/Buffs/", "Modules/Gather/",
 		"Modules/Graphics/", "Modules/Performance/", "Modules/Hidden/", "Modules/EmoteWheel/",
-		-- Waypoints without portal routes (Network*, Route, Router: retail's route tables).
+		-- Waypoints without retail's portal routes (Network*, Route, Router: retail's route tables); Forever's own
+		-- routes by flight path, zeppelin and boat instead (docs/superpowers/specs/2026-11-21-tomte-forever-routes-design.md).
 		"Modules/Travel/Data.lua", "Modules/Travel/Target.lua", "Modules/Travel/Marker.lua",
 		"Modules/Travel/MapPing.lua", "Modules/Travel/Guard.lua", "Modules/Travel/Waypoint.lua",
 		-- Instances: the lockout banner (no difficulty flag, difficulty menu or Dungeon Finder there).
@@ -38,8 +39,12 @@ return {
 		{ after = "Themes/Cartographer.lua", files = { "Themes/Forever.lua" } },
 		{ after = "Panel/Widgets.lua", files = { "Panel/ForeverArt.lua" } },
 		{ after = "Panel/Rail.lua", files = { "Panel/ForeverTabs.lua" } },
-		{ after = "Core/Content.lua", files = { "Data/Forever/Teleports.lua", "Data/Forever/Buffs.lua", "Data/Forever/Rogue.lua", "Data/Forever/Tools.lua", "Data/Forever/Fishing.lua", "Data/Forever/Dungeons.lua", "Data/Forever/ArmorKits.lua", "Data/Forever/ItemSources.lua", "Data/Forever/WeaponMasters.lua", "Data/Forever/QuestItems.lua", "Data/Forever/QuestEnds.lua", "Data/Forever/MinimapTiles.lua", "Data/Forever/MapReveal.lua", "Data/Forever/MapArtIndex.lua", "Data/Forever/DungeonJournal.lua", "Data/Forever/Townsfolk.lua" } },
+		{ after = "Core/Content.lua", files = { "Data/Forever/Teleports.lua", "Data/Forever/Buffs.lua", "Data/Forever/Rogue.lua", "Data/Forever/Tools.lua", "Data/Forever/Fishing.lua", "Data/Forever/Dungeons.lua", "Data/Forever/ArmorKits.lua", "Data/Forever/ItemSources.lua", "Data/Forever/WeaponMasters.lua", "Data/Forever/QuestItems.lua", "Data/Forever/QuestEnds.lua", "Data/Forever/MinimapTiles.lua", "Data/Forever/MapReveal.lua", "Data/Forever/MapArtIndex.lua", "Data/Forever/DungeonJournal.lua", "Data/Forever/Townsfolk.lua", "Data/Forever/Transports.lua" } },
 		{ after = "Modules/Fishing/Helpers.lua", files = { "Modules/Fishing/Rod.lua" } },
+		-- Waypoints' routes by flight path, zeppelin and boat, in Router.lua's place
+		-- (docs/superpowers/specs/2026-11-21-tomte-forever-routes-design.md).
+		{ after = "Modules/Travel/Data.lua", files = { "Modules/Travel/ForeverRouteData.lua" } },
+		{ after = "Modules/Travel/Guard.lua", files = { "Modules/Travel/ForeverRouter.lua" } },
 		-- A split stack doesn't sell when dropped on the vendor there.
 		{ after = "Modules/Upkeep/Merchant.lua", files = { "Modules/Upkeep/SellSplit.lua" } },
 		-- Friend sharing's quest progress with your party, for the Quest list.
@@ -77,7 +82,7 @@ return {
 			"Modules/Sources/Data.lua", "Modules/Sources/Page.lua", "Modules/Sources/Sources.lua",
 			-- docs/superpowers/specs/2026-11-15-tomte-world-map-design.md: uses the Quest list's and Leveling's reads.
 			"Modules/Map/Data.lua", "Modules/Map/Art.lua", "Modules/Map/Mini.lua", "Modules/Map/Area.lua",
-			"Modules/Map/Pins.lua", "Modules/Map/Flights.lua",
+			"Modules/Map/TownPin.lua", "Modules/Map/Pins.lua", "Modules/Map/RouteLine.lua", "Modules/Map/Flights.lua",
 			"Modules/Map/QuestTab.lua", "Modules/Map/Side.lua", "Modules/Map/Fade.lua", "Modules/Map/Window.lua", "Modules/Map/Map.lua",
 			-- docs/superpowers/specs/2026-11-15-tomte-dungeon-journal-design.md
 			"Modules/DungeonJournal/Data.lua", "Modules/DungeonJournal/Read.lua", "Modules/DungeonJournal/Parts.lua",

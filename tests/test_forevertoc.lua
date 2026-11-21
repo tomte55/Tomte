@@ -106,7 +106,6 @@ end)
 -- Calls guarded in a way the scan can't see, with where the guard is.
 local KNOWN_GUARDED = {
 	["Panel/HomeHero.lua GearSheet_Open"] = true, -- clickable() is false on Forever
-	["Modules/Travel/Waypoint.lua WayRouter_Toggle"] = true, -- the row's shown = ns.NotForever
 	["Modules/Achievements/Achievements.lua Events_Current"] = true, -- Holidays() returns first without it
 	["Modules/Achievements/Achievements.lua Events_Names"] = true, -- likewise
 	["Modules/Alts/Collect.lua Weekly_ProfDef"] = true, -- ExpansionLine and its tiers return first without it

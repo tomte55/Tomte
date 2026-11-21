@@ -86,6 +86,11 @@ test("FooterText per mode", function()
 	eq(ns.Way_FooterText("all", nil, nil, "Bob"), "Bob")
 	eq(ns.Way_FooterText("all", "10 m", "5s", "Bob", "Ends in 3:00"), "Bob\n10 m  ·  5s  ·  Ends in 3:00")
 	eq(ns.Way_FooterText("distance", "10 m", "5s", "Bob", "Ends in 3:00"), "10 m")
+	-- Who the named one is goes on its own line under the name, never without a name.
+	eq(ns.Way_FooterText("all", "10 m", nil, "Bob", nil, "Enchanter"), "Bob\nEnchanter\n10 m")
+	eq(ns.Way_FooterText("name", "10 m", nil, "Bob", nil, "Enchanter"), "Bob\nEnchanter")
+	eq(ns.Way_FooterText("all", "10 m", nil, nil, nil, "Enchanter"), "10 m")
+	eq(ns.Way_FooterText("distance", "10 m", nil, "Bob", nil, "Enchanter"), "10 m")
 end)
 
 -- State ----------------------------------------------------------------------------------------------------

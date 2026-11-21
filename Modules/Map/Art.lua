@@ -126,9 +126,11 @@ local function Load()
 	end
 end
 
+local LoadTimed = ns.Perf_Wrap(Load, "loader · OnUpdate")
+
 local function Wake()
 	if not loader:GetScript("OnUpdate") then
-		loader:SetScript("OnUpdate", Load)
+		loader:SetScript("OnUpdate", LoadTimed)
 	end
 end
 

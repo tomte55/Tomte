@@ -132,12 +132,14 @@ local function UpdateInfo()
 		timeText, timeRole = ns.Way_TimeLeftText(ns.Way_TimeLeft(target.endsAt, GetServerTime()))
 	end
 	local arrivalText, name = ns.Way_FormatArrival(seconds), target.redirect or target.name
+	local subtitle = not target.redirect and target.subtitle or nil
 	local f = footerFrom
 	if f.mode ~= db.footer or f.distance ~= distanceText or f.arrival ~= arrivalText or f.name ~= name
-		or f.time ~= timeText or f.role ~= timeRole then
-		f.mode, f.distance, f.arrival, f.name, f.time, f.role = db.footer, distanceText, arrivalText, name, timeText,
-			timeRole
-		footer = ns.Way_FooterText(db.footer, distanceText, arrivalText, name, timeText and ns.UI.Wrap(timeText, timeRole))
+		or f.time ~= timeText or f.role ~= timeRole or f.subtitle ~= subtitle then
+		f.mode, f.distance, f.arrival, f.name, f.time, f.role, f.subtitle = db.footer, distanceText, arrivalText, name,
+			timeText, timeRole, subtitle
+		footer = ns.Way_FooterText(db.footer, distanceText, arrivalText, name, timeText and ns.UI.Wrap(timeText, timeRole),
+			subtitle and ns.UI.Wrap(subtitle, "textMuted"))
 	end
 	scale = ns.Way_DistanceScale(distance)
 end
@@ -270,17 +272,37 @@ local function TestPin()
 end
 
 -- For other modules (Tips, Prey, ...): a map pin at x, y (0..1) on mapID, tracked, with a name for the marker and
--- card (the game's map pin carries none) and, optionally, opts.endsAt (server time, GetServerTime) for a countdown.
+-- card (the game's map pin carries none) and, optionally, opts.endsAt (server time, GetServerTime) for a countdown
+-- and opts.subtitle (who the named one is: "Journeyman Enchanter"), shown under the name.
 -- Places the pin with Waypoints off too (the game's own arrow then shows it). Prints nothing. Returns true when
 -- placed now, false when it waits for the end of combat, nil when that map can't take a pin.
 function ns.Way_SetPoint(mapID, x, y, title, opts)
 	if not (mapID and x and y) or not C_Map.CanSetUserWaypointOnMap(mapID) then
 		return nil
 	end
-	ns.WayTarget_NamePin({ mapID = mapID, x = x, y = y, title = title, endsAt = opts and opts.endsAt })
+	local point = { mapID = mapID, x = x, y = y, title = title, endsAt = opts and opts.endsAt,
+		subtitle = title and opts and opts.subtitle }
+	ns.WayTarget_NamePin(point)
+	-- Kept for a /reload or the next login: the game keeps the pin, but not its name.
+	local guid = UnitGUID("player")
+	if db and guid then
+		db.named[guid] = title and point or nil
+	end
 	MarkDirty()
 	return ns.TrackPin(mapID, x, y)
 end
+
+-- The name of the pin placed through Way_SetPoint before a /reload. Matched by its spot when shown (Target.lua), so a
+-- name kept for a pin that's gone since never shows on another. Also from ForeverRouter.lua's resume after login, in
+-- case the character isn't known yet when the module starts.
+local function RestoreName()
+	local guid = UnitGUID("player")
+	local saved = guid and db and db.named[guid]
+	if saved and saved.title and (not saved.endsAt or saved.endsAt > GetServerTime()) then
+		ns.WayTarget_NamePin(saved)
+	end
+end
+ns.Way_RestoreName = RestoreName
 
 -- "45.2 67.8", "45.2, 67.8" or TomTom's "#2248 45.2 67.8" (a map ID first). Text after the coordinates (TomTom's
 -- description) names the pin. text: as typed (Core passes the fallback both lower-cased and raw).
@@ -331,7 +353,7 @@ local function CycleFocus(step)
 	end)
 end
 
--- /way is TomTom's: Tomte claims it only when TomTom isn't loaded, and only once Waypoints is on (an off or blocked
+-- /way and /tway are TomTom's: Tomte claims them only when TomTom isn't loaded, and only once Waypoints is on (an off or blocked
 -- module doesn't take a command name). TomTom loads after Tomte, so the check waits for PLAYER_LOGIN. A slash command
 -- can't be taken back, so turning Waypoints off later leaves /way saying it's off. /tomte way <x> <y> always works.
 local wayClaimed, waitingForLogin
@@ -357,6 +379,7 @@ function ClaimWay()
 		return
 	end
 	SLASH_TOMTEWAY1 = "/way"
+	SLASH_TOMTEWAY2 = "/tway" -- TomTom's second name for /way, which guides also print
 	SlashCmdList.TOMTEWAY = function(msg)
 		PinAt(strtrim(msg or ""))
 	end
@@ -459,13 +482,21 @@ local COMMANDS = {
 		end
 	end },
 }
--- Router.lua and the retail route tables don't load on Forever: its maps aren't on that network.
+-- Router.lua on retail, ForeverRouter.lua on Forever (flight paths, zeppelins and boats).
 if ns.WayRouter_Print then
-	table.insert(COMMANDS, 3, { "route", "show the portal route to a map pin on another continent", function()
+	table.insert(COMMANDS, 3, { "route", ns.FOREVER and "show the route (flights, zeppelins, boats) to your map pin"
+		or "show the portal route to a map pin on another continent", function()
 		if ns.Module_RequireOn(module) then
 			ns.WayRouter_Print()
 		end
 	end })
+end
+
+if ns.WayRouter_Flights then
+	COMMANDS[#COMMANDS + 1] = { debug = true, "flights", "list the flight paths routes take as known (\"reset\" forgets "
+		.. "them); at a flight master, what its map says of each", function(arg)
+		ns.WayRouter_Flights(arg)
+	end }
 end
 
 module = ns.RegisterModule({
@@ -507,11 +538,15 @@ module = ns.RegisterModule({
 		guard = "ask",
 		portals = true,
 		routes = {}, -- per character GUID: the real map pin while a portal route has the pin on a step
+		named = {}, -- [player GUID] = { mapID, x, y, title, endsAt, subtitle }: the last pin placed with a name
+		-- (Way_SetPoint)
+		flights = {}, -- Forever: [player GUID] = { [flight path name] = true }, learned at flight masters (ForeverRouter)
 		showWhenHidden = false,
 		hideInCombat = true, -- the marker or arrow hides while you're in combat
 		countdown = true,
 		mapPing = true,
 	},
+	noShare = { "routes", "named", "flights" }, -- this character's pins and flight paths, not settings (Core/Profile.lua)
 	init = function(saved)
 		db = saved
 	end,
@@ -532,6 +567,7 @@ module = ns.RegisterModule({
 				events:Watch(OWNER, event)
 			end
 			HideBlizzard()
+			RestoreName()
 			Start()
 			ClaimWay()
 			ns.WayGuard_Toggle(true, db)
@@ -555,7 +591,7 @@ module = ns.RegisterModule({
 		end
 	end,
 	commands = COMMANDS,
-	fallbackCommand = { "<x> <y> [name]", "pin and track a spot on this map (also /way <x> <y> when TomTom isn't loaded)",
+	fallbackCommand = { "<x> <y> [name]", "pin and track a spot on this map (also /way or /tway <x> <y> when TomTom isn't loaded)",
 		PinAt, pattern = "^[#%d.]" },
 	options = {
 		{ type = "header", label = "Look" },
@@ -614,13 +650,17 @@ module = ns.RegisterModule({
 		{ type = "checkbox", key = "metric", label = "Use meters", onChange = Refresh, preview = MarkerPreview },
 		{ type = "checkbox", key = "autoTrack", label = "Track map pins when placed",
 			tooltip = "Placing a pin on the world map tracks it right away." },
-		{ type = "checkbox", key = "portals", label = "Route to other continents", shown = ns.NotForever,
+		{ type = "checkbox", key = "portals",
+			label = ns.FOREVER and "Route by flights, zeppelins and boats" or "Route to other continents",
 			onChange = function()
 				ns.WayRouter_Toggle(module.active and db.portals, db)
 			end,
-			tooltip = "A map pin on another continent gets no navigation from the game. Tomte moves the pin to each "
+			tooltip = ns.FOREVER and ("When a map pin is quicker to reach by flight path, zeppelin or boat, Tomte moves "
+				.. "the pin to each flight master, zeppelin tower or dock on the way, and puts your pin back once the rest "
+				.. "is on foot. Only flight paths you know count. /tomte way route shows the whole route.")
+				or ("A map pin on another continent gets no navigation from the game. Tomte moves the pin to each "
 				.. "portal, zeppelin or boat on the way, using the same network the game uses for quests, and puts "
-				.. "your pin back once you're on its continent. /tomte way route shows the whole route." },
+				.. "your pin back once you're on its continent. /tomte way route shows the whole route.") },
 		{ type = "dropdown", key = "guard", label = "Waypoint for guard directions",
 			tooltip = "When a guard shows you the way, place and track a map pin there. Ask: a Yes/No question first.",
 			choices = function()
