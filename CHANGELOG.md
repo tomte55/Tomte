@@ -22,6 +22,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Quest list:** your other quests show on the minimap by default, as big as the active quest's mark.
 - **Quest list:** the flight hint's map pin is named after its flight master, and the arrow says so.
+- **Quest list:** the quest item button also holds items you use from your bags, such as the Etched Phial for The Sacred Flame.
 - **Autocorrect:** works in the whisper inbox too.
 - **Autocorrect:** Backspace after a fix only puts your word back; the note then offers for a few seconds to never make that fix again, and only that click remembers it.
 - **Whispers:** the inbox opens with the cursor in its chat line, and one Esc closes it.

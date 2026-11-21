@@ -242,6 +242,29 @@ function ns.QuestList_ItemQuest(sections, followedID)
 	return first
 end
 
+-- Which bag item each quest's button uses when the game gives the quest no quest log item (Forever's older quests: you
+-- use the Etched Phial from your bags). questItems: Forever's quest item data ([itemID] = "questID:kind,...", kind o, g
+-- or r; Data/Forever/QuestItems.lua); carried: the usable items in your bags, in bag order ({ itemID, ... }). Returns
+-- [questID] = itemID. An item the quest needs (r) or gives you (g) beats one it has you collect (o), then bag order.
+local KIND_RANK = { r = 1, g = 2, o = 3 }
+
+function ns.QuestList_BagItems(questItems, carried)
+	local items, ranks = {}, {}
+	for _, itemID in ipairs(carried) do
+		local entry = questItems[itemID]
+		if entry then
+			for id, kind in entry:gmatch("(%d+):(%a)") do
+				id = tonumber(id)
+				local rank = KIND_RANK[kind] or 4 -- a kind the data doesn't name: last
+				if not ranks[id] or rank < ranks[id] then
+					items[id], ranks[id] = itemID, rank
+				end
+			end
+		end
+	end
+	return items
+end
+
 -- Whether a quest's own distance is worth a line: not when it's what its stop's header already says (the stop's only
 -- quest, or its nearest, at the same rounded distance). Quests in zone and list sections always show theirs.
 function ns.QuestList_ShowQuestDistance(section, q)

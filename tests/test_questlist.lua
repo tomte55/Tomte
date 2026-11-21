@@ -175,6 +175,18 @@ test("ItemQuest: a done quest's item only when the game keeps showing it", funct
 	eq(ns.QuestList_ItemQuest(sections, 1).questID, 2)
 end)
 
+test("BagItems: carried items tied to quests, needed or given before collected", function()
+	local data = { [5867] = "1195:r", [5868] = "1195:o,1196:g,1197:g", [5869] = "1197:o", [10] = "7:o,8:o" }
+	local items = ns.QuestList_BagItems(data, { 5868, 5867, 99 })
+	eq(items[1195], 5867, "needed beats collected, whatever the bag order")
+	eq(items[1196], 5868)
+	eq(items[1197], 5868, "given beats collected")
+	eq(items[99], nil, "items the data doesn't know")
+	local two = ns.QuestList_BagItems({ [10] = "7:o", [11] = "7:o" }, { 11, 10 })
+	eq(two[7], 11, "same kind: bag order")
+	eq(next(ns.QuestList_BagItems(data, {})), nil)
+end)
+
 test("objectives read both ways the game writes them", function()
 	local o = ns.QuestList_Objective({ text = "0/6 Grimtotem Brute slain" })
 	eq(o.label, "Grimtotem Brute slain")

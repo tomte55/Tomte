@@ -2,9 +2,11 @@ local addonName, ns = ...
 
 -- Quest list: reads the game into plain tables for Data.lua and List.lua. The quest log, positions and quest spots come
 -- from Leveling's readers (Modules/Leveling/Read.lua, loaded before this file on Forever); this file adds what only the
--- list needs: each quest's objectives, the zone you're in, and the flight masters you know (the flight hint).
+-- list needs: each quest's objectives, the zone you're in, the quest items in your bags (the quest item button) and
+-- the flight masters you know (the flight hint).
 
 local MAP_ZONE = 3 -- Enum.UIMapType.Zone: caves, buildings and sub-zones (4 and up) sit under a zone map
+local LAST_CARRIED_BAG = 4 -- bag IDs: 0 is the backpack, 1 to 4 the bags you wear
 
 -- A quest's objectives as Data.lua reads them: { { label, have, need, finished } }, in the game's order.
 function ns.QuestListRead_Objectives(questID)
@@ -62,6 +64,29 @@ function ns.QuestListRead_Instance()
 		return name
 	end
 	return nil
+end
+
+-- The usable items in your bags that questItems (Forever's quest item data) ties to a quest, for QuestList_BagItems:
+-- { itemID, ... } in bag order, each once, and [itemID] = how many you carry. Usable means it has a "Use:" spell; items
+-- without one never get one (Value's scrolls and essences), so nil is final.
+function ns.QuestListRead_CarriedQuestItems(questItems)
+	local list, counts = {}, {}
+	for bag = 0, LAST_CARRIED_BAG do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) do
+			local info = C_Container.GetContainerItemInfo(bag, slot)
+			local itemID = info and info.itemID
+			if itemID and questItems[itemID] then
+				if not counts[itemID] and C_Item.GetItemSpell(itemID) then
+					list[#list + 1] = itemID
+					counts[itemID] = 0
+				end
+				if counts[itemID] then
+					counts[itemID] = counts[itemID] + (info.stackCount or 1)
+				end
+			end
+		end
+	end
+	return list, counts
 end
 
 -- Flight masters ------------------------------------------------------------------------------------------------------

@@ -417,6 +417,7 @@ local function Update()
 		points, pointsMap, pointsStale = mapID and ns.LevelingRead_QuestPoints(mapID) or {}, mapID, false
 	end
 	local quests = ns.LevelingRead_QuestsTagged()
+	ns.QuestListItem_AddBagItems(quests)
 	Prune(quests)
 	Annotate(quests, you)
 	local stops = db.groupBy == "stop" and ns.Leveling_NextStops(quests, points, you, IsInGroup(), CLUSTER_YARDS) or {}
@@ -759,7 +760,7 @@ local function Start()
 	ns.QuestListParty_Start(db, UpdateSoon)
 	ns.QuestListMap_Start()
 	ns.QuestListMini_Start()
-	ns.QuestListItem_Start()
+	ns.QuestListItem_Start(UpdateSoon)
 	ApplyTracker()
 	if ns.LevelingNext_Update then
 		ns.LevelingNext_Update()
