@@ -28,14 +28,11 @@ local addonName, ns = ...
 --   test = a preview (not noted); a pin's recentCount = Recent hears of it again only when this rises.
 -- ns.Toast_Pin(key, spec) / ns.Toast_Unpin(key), ns.Toast_Clear(owner), ns.Toast_SetDigest(owner, fn(held))
 -- ns.Toast_DrawSample(host, spec, i): a still card drawn into a settings preview, not shown as a toast.
+-- A card's look and filling, and those samples, are in ToastCard.lua.
 
-local WIDTH = 300
-local PAD = 10
-local GAP = 6
-local ICON = 28
+local WIDTH = ns.TOAST_WIDTH -- ToastCard.lua
+local GAP = ns.TOAST_GAP
 local MAX_SHOWN = 4
-local TIMER_H = 2 -- the countdown line along the bottom
-local SAMPLE_TIME_LEFT = 0.65 -- a settings preview's card shows this much of its time left
 local SLIDE_IN = 0.6 -- seconds to slide in from the nearest screen edge, overshoot and settle included
 local LAND = SLIDE_IN * 0.37 -- when UI.EaseOutBack first reaches its place: the icon pops then
 local BACK_SWING = 0.1 -- how far past 1 UI.EaseOutBack swings at most
@@ -44,12 +41,9 @@ local SHINE_DELAY = 0.1 -- seconds after the card has settled before the shine s
 local LEAVE_DRIFT = 24 -- pixels a leaving card drifts back towards the edge it came from while it fades
 local FADE_IN, FADE_OUT = 0.15, 0.6
 local PULSE = 0.5 -- a merged message: the card flashes in its accent color and bounces
-local FOREVER_EDGE = 3 -- px the Forever theme's tooltip border takes
 local BOUNCE = 10 -- pixels, towards the middle of the screen
 local MOVE_SPEED = 12 -- reflow easing
-local HOLD_MIN, HOLD_PER_CHAR, HOLD_MAX = 7, 0.06, 18
 local HELD_CHECK = 0.5
-local SECRET_TITLE_H, SECRET_TEXT_H = 18, 45 -- one title line, three text lines (the most a card shows)
 local DEFAULT_POINT = { "TOPLEFT", "LEFT", 40, 140 } -- on UIParent: left side, above the chat
 local DODGE_CHECK = 0.2 -- seconds between looks at the open UI panels
 local DODGE_GAP = 12 -- pixels between a panel and the stack beside it
@@ -69,6 +63,7 @@ local heldCheck = 0
 local dodgeX, dodgeTarget, dodgeCheck = 0, 0, DODGE_CHECK
 
 local Smooth = ns.Smoothstep
+local Dress, Fill = ns.ToastCard_Dress, ns.ToastCard_Fill
 
 -- Offset along one axis while a card slides in from offset `from` (0 when it doesn't move on this axis), p in 0..1.
 -- It overshoots its place and settles back; the overshoot is capped in pixels, since a share of the distance from the
@@ -193,58 +188,6 @@ local function OnCardClick(card, button)
 	end
 end
 
--- What a card looks like: panel, hover and flash layers, accent bar and line, icon, texts (filled by Fill). Shared by
--- the real cards (NewCard adds the clicks) and the still samples in settings previews (ns.Toast_DrawSample).
-local function Dress(card)
-	card:SetWidth(WIDTH)
-	UI.Panel(card, { alpha = 0.92, subtle = true, toast = true })
-	-- The Forever theme's tooltip frame has rounded corners: the card's own layers stay inside them.
-	local inset = ns.Theme.panel == "forever" and FOREVER_EDGE or 0
-	card.glow = card:CreateTexture(nil, "BORDER")
-	card.glow:SetPoint("TOPLEFT", inset, -inset)
-	card.glow:SetPoint("BOTTOMRIGHT", -inset, inset)
-	card.glow:SetColorTexture(UI.Color("hover"))
-	card.glow:Hide()
-	card.flash = card:CreateTexture(nil, "BORDER", nil, 1)
-	card.flash:SetPoint("TOPLEFT", inset, -inset)
-	card.flash:SetPoint("BOTTOMRIGHT", -inset, inset)
-	card.flash:SetColorTexture(1, 1, 1, 1)
-	card.flash:SetAlpha(0)
-	card.bar = card:CreateTexture(nil, "ARTWORK")
-	card.bar:SetPoint("TOPLEFT", inset, -inset)
-	card.bar:SetPoint("BOTTOMLEFT", inset, inset)
-	card.bar:SetWidth(2)
-	card.line = card:CreateTexture(nil, "ARTWORK")
-	card.line:SetPoint("BOTTOMLEFT", 2 + inset, inset)
-	card.line:SetPoint("BOTTOMRIGHT", -inset, inset)
-	card.line:SetHeight(1)
-	card.line:SetColorTexture(1, 1, 1, 1)
-	-- How long the card stays: shrinks from full width to nothing over its life, stands still while hovered.
-	card.timer = card:CreateTexture(nil, "ARTWORK", nil, 1)
-	card.timer:SetPoint("BOTTOMLEFT", 2 + inset, inset)
-	card.timer:SetHeight(TIMER_H)
-	card.timerFull = WIDTH - 2 - 2 * inset
-
-	card.icon = card:CreateTexture(nil, "ARTWORK")
-	card.icon:SetSize(ICON, ICON)
-	card.icon:SetPoint("TOPLEFT", PAD + 2, -PAD)
-
-	card.label = ns.SceneText(card, 10, "textMuted")
-	card.label:SetJustifyH("LEFT")
-	card.label:SetWordWrap(false) -- spaced letters would wrap mid-word, and the card's height counts one line
-	card.count = ns.SceneText(card, 10, "textMuted", "number")
-	card.count:SetJustifyH("RIGHT")
-	card.count:SetPoint("TOPRIGHT", -PAD, -PAD)
-	card.title = ns.SceneText(card, 15, "heading", "title") -- the name stands out from the text under it
-	card.title:SetJustifyH("LEFT")
-	card.title:SetWordWrap(false)
-	card.text = ns.SceneText(card, 13, "text")
-	card.text:SetJustifyH("LEFT")
-	card.text:SetJustifyV("TOP")
-	card.text:SetWordWrap(true)
-	card.text:SetMaxLines(3)
-end
-
 local function NewCard()
 	-- Cards with opensMap open the world map first on a left-click (ns.MapTabs_Opener); the card's own click is its
 	-- PostClick.
@@ -266,115 +209,12 @@ local function NewCard()
 	return card
 end
 
--- A measurement of a region holding a secret may itself be secret.
-local function Measured(value, fallback)
-	if ns.IsSecret(value) then
-		return fallback
-	end
-	return value
-end
-
-local function Fill(card, spec)
-	card.spec = spec
-	local r, g, b = UI.RGBA(spec.accent or "accent")
-	card.bar:SetColorTexture(r, g, b, 1)
-	card.flash:SetColorTexture(r, g, b, 1)
-	card.line:SetGradient("HORIZONTAL", CreateColor(r, g, b, 0.5), CreateColor(r, g, b, 0))
-	card.timer:SetColorTexture(r, g, b, 0.85)
-	card.timer:SetWidth(card.timerFull)
-	card.label:SetTextColor(r, g, b)
-	card.label:SetText(ns.Spaced(spec.label or ""))
-	local corner = (spec.count or 1) > 1 and ("x" .. spec.count) or nil
-	local ago = spec.heldAt and ns.Toast_HeldText(GetTime() - spec.heldAt)
-	if ago then
-		corner = corner and (ago .. " - " .. corner) or ago
-	end
-	card.count:SetText(corner or "")
-
-	local hasIcon = spec.icon ~= nil or spec.iconAtlas ~= nil
-	card.icon:SetShown(hasIcon)
-	if spec.iconAtlas then
-		card.icon:SetAtlas(spec.iconAtlas)
-	elseif spec.icon then
-		card.icon:SetTexture(spec.icon)
-	end
-	local left = PAD + 2 + (hasIcon and (ICON + 8) or 0)
-	card.label:ClearAllPoints()
-	card.label:SetPoint("TOPLEFT", left, -PAD)
-	card.label:SetPoint("RIGHT", card.count, "LEFT", -6, 0)
-	card.title:ClearAllPoints()
-	card.title:SetPoint("TOPLEFT", card.label, "BOTTOMLEFT", 0, -4)
-	card.title:SetPoint("RIGHT", -PAD, 0)
-	card.title:SetText(spec.title or "")
-	card.text:ClearAllPoints()
-	card.text:SetPoint("TOPLEFT", card.title, "BOTTOMLEFT", 0, -4)
-	card.text:SetWidth(WIDTH - left - PAD)
-	-- A chat line is the message itself and stays bright; any other text is detail under the name.
-	UI.SetFont(card.text, spec.chat and "chat" or "body", spec.chat and 13 or 12)
-	UI.SetTextRole(card.text, spec.chat and "text" or "textMuted")
-	card.text:SetText(spec.text or "")
-
-	-- Secret text (chat lockdown) can be shown but not measured or compared: assume the longest card.
-	local textH
-	if spec.secret then
-		textH = Measured(card.text:GetStringHeight(), SECRET_TEXT_H) + 3
-	else
-		-- Measured here too: a pooled card that once held secret text may still measure as secret.
-		textH = (spec.text and spec.text ~= "") and (math.min(Measured(card.text:GetStringHeight(), SECRET_TEXT_H), SECRET_TEXT_H) + 3) or 0
-	end
-	local titleH = Measured(card.title:GetStringHeight(), SECRET_TITLE_H)
-	local h = PAD + Measured(card.label:GetStringHeight(), 10) + 4 + titleH + textH + PAD
-	if hasIcon then
-		h = math.max(h, ICON + 2 * PAD)
-	end
-	card:SetHeight(math.floor(h + 0.5))
-	card.life = spec.hold or (spec.secret and HOLD_MAX)
-		or ns.Social_HoldTime(spec.text, HOLD_MIN, HOLD_PER_CHAR, HOLD_MAX)
-	card.age = 0
-end
-
 local function Acquire()
 	local card = table.remove(pool) or NewCard()
 	card.leaving, card.hovered, card.pinKey = nil, false, nil
 	card.glow:Hide()
 	card.flash:SetAlpha(0)
 	return card
-end
-
--- A still card for a settings preview (Panel/Preview.lua): a plain frame dressed and filled like a real card, the
--- i-th from the top of host (cards below i are hidden, so drawing 1 then 2 stacks two). Nothing on it moves or times
--- out: Fill's life and age are never counted. Returns the stack's width and height so far.
-function ns.Toast_DrawSample(host, spec, i)
-	i = i or 1
-	host.toastSamples = host.toastSamples or {}
-	local cards = host.toastSamples
-	for n = 1, i do
-		if not cards[n] then
-			local card = CreateFrame("Frame", nil, host)
-			Dress(card)
-			card.glow:Hide()
-			card.flash:SetAlpha(0)
-			cards[n] = card
-		end
-	end
-	for n = i + 1, #cards do
-		cards[n]:Hide()
-	end
-	local card = cards[i]
-	Fill(card, spec)
-	card.timer:SetWidth(card.timerFull * SAMPLE_TIME_LEFT)
-	card:ClearAllPoints()
-	if i == 1 then
-		card:SetPoint("TOPLEFT", host, "TOPLEFT")
-	else
-		card:SetPoint("TOPLEFT", cards[i - 1], "BOTTOMLEFT", 0, -GAP)
-	end
-	card:Show()
-	local h = 0
-	for n = 1, i do
-		h = h + cards[n]:GetHeight() + (n > 1 and GAP or 0)
-	end
-	return WIDTH, h
 end
 
 -- New card nearest the spot, under any pinned cards (a pinned card goes nearest of all).

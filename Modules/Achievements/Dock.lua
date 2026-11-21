@@ -3,20 +3,20 @@ local addonName, ns = ...
 -- Almost Done: the list docked to the right of the Achievements window. Two tabs: List (search, reward and sort
 -- dropdowns, a filters menu, the threshold, the rows) and Metas (the big expansion metas and the metas you're close
 -- on; open one to see its children). A List row whose progress went up while the dock is open pops and shines.
--- Hovering a row shows its tooltip beside the dock and, for mounts, pets and
+-- Hovering a row shows its tooltip beside the dock (Tooltip.lua) and, for mounts, pets and
 -- appearances, a reward preview next to the tooltip. When closed, a small tab on the window's edge opens it again.
 -- Built once Blizzard_AchievementUI has loaded; on Forever, where the Achievements window never shows, on the Legacy
 -- window's challenges page once Blizzard_LegacySystem has.
 
 local UI = ns.UI
 local Word = ns.Ach_Word
+local ShowAchievementTooltip = ns.AchTooltip_Show -- Tooltip.lua
 -- Forever: narrower, because the Legacy window takes 1005 of a 16:9 screen's 1365 wide (Blizzard_LegacySystemRegistration).
 local WIDTH = ns.FOREVER and 340 or 380
 local ROW_H = 34
 local META_ROW_H = 28
 local INDENT = 16
 local ICON = 24
-local TOOLTIP_GAP = 18 -- from a row's right edge to the tooltip: past the scroll thumb and the dock's edge
 -- Levels of child rows the Metas tab shows under an open meta. A display limit only, separate from Metas.lua's
 -- MAX_DEPTH (how deep the expansion fill follows nested metas).
 local MAX_NESTING = 4
@@ -88,45 +88,7 @@ local function ShowPreview(record)
 	ns.ModelPreview_Show(dock.preview, model)
 end
 
--- Tooltips and menus -----------------------------------------------------------------------------------------
-
-local function AddExtraLines(record)
-	local info = ns.Ach_RewardInfo(record)
-	if info then
-		local kind = ns.ACH_REWARD_NAMES[info.type] or "Reward"
-		if info.owned then
-			GameTooltip:AddLine(kind .. " already owned", UI.RGB("textMuted"))
-		elseif info.type ~= "other" then
-			GameTooltip:AddLine("New " .. kind:lower(), UI.RGB("success"))
-		end
-	end
-	local parents = ns.Ach_ParentsOf(record.id)
-	for i = 1, math.min(#parents, 2) do
-		local _, name = GetAchievementInfo(parents[i])
-		if name then
-			GameTooltip:AddLine("Part of: " .. name, UI.RGB("heading"))
-		end
-	end
-	GameTooltip:AddLine("Click: open  -  Shift-click: link in chat  -  Right-click: pin, ignore", UI.RGB("textMuted"))
-end
-
-local function ShowAchievementTooltip(owner, id, record)
-	local link = GetAchievementLink(id)
-	if not link then
-		return
-	end
-	GameTooltip:SetOwner(owner, "ANCHOR_NONE")
-	if ns.FOREVER then -- the dock ends near the screen's edge there: over the Legacy window, not off the screen
-		GameTooltip:SetPoint("TOPRIGHT", owner, "TOPLEFT", -TOOLTIP_GAP, 0)
-	else
-		GameTooltip:SetPoint("TOPLEFT", owner, "TOPRIGHT", TOOLTIP_GAP, 0)
-	end
-	GameTooltip:SetHyperlink(link)
-	if record then
-		AddExtraLines(record)
-	end
-	GameTooltip:Show()
-end
+-- Menus ------------------------------------------------------------------------------------------------------
 
 local Refresh, ShowMeta
 

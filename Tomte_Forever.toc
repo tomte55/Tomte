@@ -68,7 +68,10 @@ Cinematic/Banner.lua
 Panel/Layout.lua
 Panel/Widgets.lua
 Panel/ForeverArt.lua
+Panel/Inputs.lua
+Panel/Scroll.lua
 Panel/Controls.lua
+Panel/Escape.lua
 Panel/Motion.lua
 Panel/Menu.lua
 Panel/Dialog.lua
@@ -182,6 +185,7 @@ Modules/Meter/Read.lua
 Modules/Meter/Window.lua
 Modules/Meter/Meter.lua
 Modules/Social/Data.lua
+Modules/Social/ToastCard.lua
 Modules/Social/Toast.lua
 Modules/Social/InboxWho.lua
 Modules/Social/InboxMessages.lua
@@ -238,6 +242,7 @@ Modules/Bags/Currencies.lua
 Modules/Bags/Find.lua
 Modules/Bags/Window.lua
 Modules/Bags/Bank.lua
+Modules/Bags/BankGold.lua
 Modules/Bags/EditList.lua
 Modules/Bags/EditPage.lua
 Modules/Bags/MarksEditor.lua
@@ -264,6 +269,7 @@ Modules/Achievements/Rewards.lua
 Modules/Achievements/Metas.lua
 Modules/Achievements/Walk.lua
 Modules/Achievements/Scan.lua
+Modules/Achievements/Tooltip.lua
 Modules/Achievements/Dock.lua
 Modules/Achievements/Tracker.lua
 Modules/Achievements/Achievements.lua
@@ -345,10 +351,12 @@ Modules/Alts/AskDialog.lua
 Modules/Alts/RosterTab.lua
 Modules/Alts/ProfTab.lua
 Modules/Alts/HomeSection.lua
+Modules/Alts/SendRead.lua
 Modules/Alts/Send.lua
 Modules/Alts/SendDisenchant.lua
 Modules/Alts/Deposit.lua
 Modules/Alts/FriendMail.lua
+Modules/Alts/Labels.lua
 Modules/Alts/List.lua
 Modules/Alts/ProfButton.lua
 Modules/Alts/Learnable.lua

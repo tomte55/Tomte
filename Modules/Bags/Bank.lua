@@ -3,7 +3,8 @@ local addonName, ns = ...
 -- Bags: the bank window, built from Kit.lua like the bag window (header band, tray, footer band). The character bank
 -- or the Warband bank in the same categories and marks as the bags (View.lua), the bank's tabs attached to its right
 -- edge (click: only that tab; right-click: rename it; "+"
--- buys the next tab when one can be bought), Clean Up, deposit everything that can go in, and the Warband bank's gold.
+-- buys the next tab when one can be bought), Clean Up, deposit everything that can go in, and the Warband bank's gold
+-- (its drawer in BankGold.lua).
 --
 -- Blizzard's BankFrame stays open the whole visit, invisible and off screen (alpha 0, moved off): it runs the bank
 -- (its OnShow picks the tab, its OnHide ends the visit), and Blizzard's item buttons read its bank panel's type when an
@@ -19,6 +20,7 @@ local addonName, ns = ...
 -- window's Bank button): display-only items, no tabs, nothing to deposit, "Seen 2h ago" in the footer.
 
 local PAD = 8 -- window edge to the tray, and the tray to the bands
+ns.BAGS_BANK_PAD = PAD -- BankGold.lua lines its drawer up with the window's edge
 local TRAY_PAD = 8
 local MIN_W = 520 -- the switch, the title, a usable search box and the right cluster fit
 local BAND_H = 34
@@ -29,9 +31,7 @@ local EVERYTHING_GAP = 6 -- extra room under the "Everything" tab, apart from th
 local EVERYTHING_ICON = "Interface\\Icons\\Achievement_GuildPerk_MobileBanking"
 local BANK_TAB_ICON = "Interface\\Icons\\INV_SideTab_Bank_c60" -- Forever: the tab that is the bank itself
 local EMPTY_BAG_ICON = "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag" -- Forever: a bought slot with no bag in it yet
-local DRAWER_H = 34 -- the gold drawer under the footer
 local TITLE_W = 110 -- "Character bank" at 14; the search box takes the rest
-local DRAWER_SLIDE = 0.15 -- seconds
 local OFF_SCREEN = -10000 -- where Blizzard's bank frame waits while Tomte's shows the bank
 local CHARACTER, ACCOUNT = Enum.BankType.Character, Enum.BankType.Account
 local DEPOSIT_REAGENTS_CVAR = "bankAutoDepositReagents" -- the game's "Include reagents" choice (BankFrame.lua)
@@ -441,114 +441,6 @@ local function DepositAll()
 	C_Bank.AutoDepositItemsIntoBank(bankType)
 end
 
--- Asks for an amount of gold and moves it (deposit = true: into the Warband bank).
--- The gold panel: a small box under the Deposit / Withdraw buttons with gold, silver and copper, and a button that
--- moves the amount. Made on first use.
-local moneyBox
-local MONEY_W = 300 -- the gold panel: three boxes with their coin icons, then the button
-
-local function Copper()
-	local function N(box)
-		return tonumber(box:GetText()) or 0
-	end
-	return N(moneyBox.gold) * 10000 + N(moneyBox.silver) * 100 + N(moneyBox.copper)
-end
-
-local function MoveNow()
-	local bankType = ActiveType()
-	local copper = Copper()
-	if not bankType or copper <= 0 then
-		return
-	end
-	-- More than there is moves all there is (99999 and Enter takes everything).
-	if moneyBox.depositing then
-		copper = math.min(copper, GetMoney())
-		if copper > 0 then
-			C_Bank.DepositMoney(bankType, copper)
-		end
-	else
-		copper = math.min(copper, C_Bank.FetchDepositedMoney(bankType) or 0)
-		if copper > 0 then
-			C_Bank.WithdrawMoney(bankType, copper)
-		end
-	end
-	moneyBox:Hide()
-end
-
-local function CoinBox(width, after, icon)
-	local box = CreateFrame("EditBox", nil, moneyBox)
-	box:SetSize(width, 20)
-	box:SetAutoFocus(false)
-	box:SetNumeric(true)
-	UI.SetFont(box, "number", 12)
-	UI.SetTextRole(box, "text")
-	box:SetJustifyH("RIGHT")
-	box:SetTextInsets(4, 4, 0, 0)
-	UI.Surface(box, 0.35)
-	if after then
-		box:SetPoint("LEFT", after, "RIGHT", 18, 0)
-	else
-		box:SetPoint("LEFT", 8, 0)
-	end
-	box.icon = box:CreateTexture(nil, "ARTWORK")
-	box.icon:SetSize(12, 12)
-	box.icon:SetPoint("LEFT", box, "RIGHT", 3, 0)
-	box.icon:SetTexture(icon)
-	box:SetScript("OnEnterPressed", MoveNow)
-	box:SetScript("OnEscapePressed", function()
-		moneyBox:Hide()
-	end)
-	box:SetScript("OnTabPressed", function(self)
-		local order = { moneyBox.gold, moneyBox.silver, moneyBox.copper }
-		for i, b in ipairs(order) do
-			if b == self then
-				order[i % #order + 1]:SetFocus()
-				return
-			end
-		end
-	end)
-	return box
-end
-
-local function BuildMoneyBox()
-	moneyBox = CreateFrame("Frame", nil, frame)
-	moneyBox:SetSize(MONEY_W, DRAWER_H)
-	moneyBox:SetFrameLevel(math.max(frame:GetFrameLevel() - 1, 1)) -- slides out from behind the window
-	moneyBox:EnableMouse(true)
-	UI.Panel(moneyBox, { subtle = true })
-	ns.BagsKit_Band(moneyBox):SetAllPoints()
-	moneyBox.gold = CoinBox(70, nil, "Interface\\MoneyFrame\\UI-GoldIcon")
-	moneyBox.silver = CoinBox(30, moneyBox.gold, "Interface\\MoneyFrame\\UI-SilverIcon")
-	moneyBox.copper = CoinBox(30, moneyBox.silver, "Interface\\MoneyFrame\\UI-CopperIcon")
-	moneyBox.go = ns.BagsKit_Cluster(moneyBox, { { text = "Deposit", onClick = MoveNow } })
-	moneyBox.go:SetPoint("RIGHT", -6, 0)
-	moneyBox:Hide()
-end
-
--- Opens the gold panel under the buttons (depositing: into the Warband bank), or closes it when it's open for the same.
-local function MoveMoney(depositing)
-	if not moneyBox then
-		BuildMoneyBox()
-	end
-	if moneyBox:IsShown() and moneyBox.depositing == depositing then
-		moneyBox:Hide()
-		return
-	end
-	moneyBox.depositing = depositing
-	moneyBox.go.buttons[1].label:SetText(depositing and "Deposit" or "Withdraw")
-	moneyBox.go:Layout()
-	for _, box in ipairs({ moneyBox.gold, moneyBox.silver, moneyBox.copper }) do
-		box:SetText("")
-	end
-	moneyBox:Show()
-	-- Slides down from behind the footer.
-	UI.Tween(moneyBox, "slide", DRAWER_SLIDE, function(t)
-		moneyBox:ClearAllPoints()
-		moneyBox:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", -PAD, math.floor((1 - t) * DRAWER_H + 0.5) + 1)
-	end, nil, UI.EaseOut)
-	moneyBox.gold:SetFocus()
-end
-
 -- The Character / Warband switch: the bank panel's own call (see the top of the file).
 local function SwitchTo(bankType)
 	local panel = BankFrame and BankFrame.BankPanel
@@ -761,10 +653,10 @@ local function Build()
 	end)
 	moneyCluster = ns.BagsKit_Cluster(footer, {
 		{ text = "Deposit", onClick = function()
-			MoveMoney(true)
+			ns.BagsGold_Toggle(frame, true)
 		end },
 		{ text = "Withdraw", onClick = function()
-			MoveMoney(false)
+			ns.BagsGold_Toggle(frame, false)
 		end },
 	})
 	moneyCluster:SetPoint("RIGHT", -PAD, 0)
@@ -788,9 +680,7 @@ local function Build()
 		remembered = nil
 		search:SetText("") -- each visit starts unfiltered
 		search:ClearFocus()
-		if moneyBox then
-			moneyBox:Hide()
-		end
+		ns.BagsGold_Hide()
 	end)
 end
 

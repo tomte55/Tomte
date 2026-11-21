@@ -7,7 +7,7 @@ local addonName, ns = ...
 -- With Gear Check's upgrades for alts, Bind on Equip gear that's a clean upgrade for another character gets a "Gear
 -- for <name>" group at the mailbox, and warbound gear goes in the Warband bank with the rest. Gear worth more as
 -- enchanting materials gets a "To disenchant" group for your enchanter (SendDisenchant.lua). Every move is one click;
--- nothing happens in combat. Rules in SendData.lua.
+-- nothing happens in combat. Rules in SendData.lua; the bag, realm and reagent-user reads in SendRead.lua.
 
 local UI = ns.UI
 local WIDTH = 270
@@ -15,9 +15,6 @@ local ROW_H = 18
 local MAX_ATTACH = ATTACHMENTS_MAX_SEND or 12 -- stacks per mail
 local POSTAGE_SLACK = 10000 -- copper (1 gold) a top-up's spent gold may exceed its amount by: the postage
 local MAX_ITEM_ROWS = 4 -- per group; the rest is "+n more"
-local QUEST = 12 -- Enum.ItemClass.Questitem
-local CONSUMABLE = 0 -- Enum.ItemClass.Consumable
-local FOOD_DRINK = 5 -- Enum.ItemConsumableSubclass.Fooddrink: stays with you (Alts_Recipient)
 
 local db
 local dock
@@ -30,6 +27,8 @@ local TOPUP_WAIT = 30 -- seconds a gold top-up may wait for its confirmation bef
 local REBUILD_EVERY = 1 -- seconds between rebuilds on bag changes at the mailbox or bank
 
 local events = ns.Alts_Events
+local BagStacks = ns.AltsSend_BagStacks -- SendRead.lua
+local UsersChanged, Users = ns.AltsSend_UsersChanged, ns.AltsSend_Users
 
 local function ClassColor(c)
 	local color = c.class and C_ClassColor.GetClassColor(c.class)
@@ -38,63 +37,6 @@ local function ClassColor(c)
 	end
 	local r, g, b = UI.Color("text")
 	return { r, g, b }
-end
-
--- This character's bag stacks with what the rules need.
-local function BagStacks()
-	local stacks = {}
-	for bag = 0, 5 do -- Backpack .. ReagentBag
-		for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
-			local info = C_Container.GetContainerItemInfo(bag, slot)
-			if info and info.itemID and not info.isLocked then
-				local _, _, _, _, _, classID, subClassID = C_Item.GetItemInfoInstant(info.itemID)
-				if classID ~= QUEST then
-					stacks[#stacks + 1] = {
-						bag = bag, slot = slot, itemID = info.itemID, name = info.itemName, count = info.stackCount,
-						icon = info.iconFileID, link = info.hyperlink, bound = info.isBound, quality = info.quality,
-						classID = classID, food = classID == CONSUMABLE and subClassID == FOOD_DRINK,
-					}
-				end
-			end
-		end
-	end
-	return stacks
-end
-
--- The realms mail reaches (ns.Alts_RealmSet), nil while that isn't known. The connected realms don't change in a
--- session, so a non-empty list is kept. C_AutoComplete.GetAutoCompleteRealms answers an empty list on a realm that
--- isn't connected.
-local realmSet
-function ns.Alts_MailRealms()
-	if realmSet then
-		return realmSet
-	end
-	local myRealm = ns.RealmName()
-	if not myRealm then
-		return nil
-	end
-	local ok, realms = pcall(C_AutoComplete.GetAutoCompleteRealms)
-	realms = ok and type(realms) == "table" and realms or {}
-	local set = ns.Alts_RealmSet(realms, myRealm)
-	if #realms > 0 then
-		realmSet = set
-	end
-	return set
-end
-
--- Every character's reagent users, kept until recipes or characters change (Alts_RecipesChanged, a new recipe, a
--- mailbox or bank visit) or a minute has passed: the panel is drawn again on bag changes.
-local usersCache, usersAt
-local function UsersChanged()
-	usersCache = nil
-end
-
-local function Users()
-	local now = GetTime()
-	if not usersCache or now - usersAt > 60 then
-		usersCache, usersAt = ns.Alts_ReagentUsers(ns.altsDB.chars, ns.altsDB.recipes), now
-	end
-	return usersCache
 end
 
 -- forMail: leave out characters mail can't reach (the Warband bank reaches everyone).
@@ -212,7 +154,6 @@ end
 
 -- For the Warband bank side (Deposit.lua).
 ns.AltsSend_ClassColor = ClassColor
-ns.AltsSend_BagStacks = BagStacks
 ns.AltsSend_Context = Context
 ns.AltsSend_Warbandable = Warbandable
 ns.AltsSend_GearOn = GearOn
@@ -220,7 +161,6 @@ ns.AltsSend_GearStacks = GearStacks
 ns.AltsSend_Without = Without
 ns.AltsSend_Slots = Slots
 ns.AltsSend_Busy = Busy
-ns.AltsSend_UsersChanged = UsersChanged
 
 -- Mail ------------------------------------------------------------------------------------------------------------
 
@@ -878,7 +818,6 @@ function ns.AltsSend_Dock()
 	return dock and dock:IsShown() and dock or nil
 end
 
-ns.AltsSend_BagStacks = BagStacks
 ns.AltsSend_MAX_ATTACH = MAX_ATTACH
 
 -- Whether the Send Mail tab can take attachments now (opens it; says why not in chat).
