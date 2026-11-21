@@ -56,7 +56,7 @@ end
 local function ReadBasics(c)
 	c.name = UnitName("player")
 	c.fullName = ns.Alts_PlayerFullName() -- Forever: "Dead Nnam", for mail (Alts_MailName) and friends
-	c.realm = GetNormalizedRealmName()
+	c.realm = ns.RealmName() or c.realm
 	c.class = select(2, UnitClass("player"))
 	c.race = UnitRace("player")
 	c.faction = UnitFactionGroup("player") -- "Horde" | "Alliance": friends see whether mail can reach it (Friends.lua)

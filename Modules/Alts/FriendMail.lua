@@ -61,7 +61,7 @@ local function Attach(g)
 	end
 	-- Name-Realm when the realm differs; on Forever the full name alone ("Dead Nnam": a first name gave "Please enter a
 	-- full name"), which friends send since 1.31.0-beta.4.
-	SendMailNameEditBox:SetText(ns.Alts_MailName(ns.FOREVER and { fullName = g.to.name } or g.to, GetNormalizedRealmName()))
+	SendMailNameEditBox:SetText(ns.Alts_MailName(ns.FOREVER and { fullName = g.to.name } or g.to, ns.RealmName()))
 	SendMailSubjectEditBox:SetText("Tomte: " .. ns.AltsFriends_RecipeName(g.req))
 	attached = { id = g.req.id, kind = g.kind }
 	UI.Sound("confirm")

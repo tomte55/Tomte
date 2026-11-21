@@ -92,6 +92,56 @@ function ns.Social_AddMessage(store, key, info, entry)
 	return convo, claimed
 end
 
+-- Two chronological message lists as one, a's first on equal times, trimmed to the newest MAX_MESSAGES.
+local function MergeMessages(a, b)
+	local out, i, j = {}, 1, 1
+	while a[i] or b[j] do
+		if b[j] == nil or (a[i] and (a[i].at or 0) <= (b[j].at or 0)) then
+			out[#out + 1], i = a[i], i + 1
+		else
+			out[#out + 1], j = b[j], j + 1
+		end
+	end
+	while #out > MAX_MESSAGES do
+		table.remove(out, 1)
+	end
+	return out
+end
+
+-- Forever stopped telling addons the realm (1.60.1 hotfix, 2026-11-21) and, until Tomte remembered it, whispers were
+-- filed under "Name-" with nothing after the dash. Each such conversation moves to the name with its realm, merging
+-- into the one already there. realmFor(guid): the realm of your character the conversation is on (it came with
+-- no realm, so it's on yours), nil when unknown (left as it is). Returns { [old key] = new key }.
+function ns.Social_RepairRealmless(store, realmFor)
+	local broken, moved = {}, {}
+	for _, convo in pairs(store.convos) do
+		if not convo.bn and convo.char and type(convo.with) == "string" and convo.with:sub(-1) == "-" then
+			broken[#broken + 1] = convo
+		end
+	end
+	for _, old in ipairs(broken) do
+		local realm = realmFor(old.char)
+		if type(realm) == "string" and realm ~= "" then
+			local oldKey, with = old.key, old.with .. realm
+			local key = ns.Social_ConvoKey(with, old.char)
+			store.convos[oldKey] = nil
+			local convo = store.convos[key]
+			if convo then
+				convo.messages = MergeMessages(convo.messages, old.messages)
+				convo.unread = convo.unread + old.unread
+				convo.last = math.max(convo.last or 0, old.last or 0)
+				convo.pinned = convo.pinned or old.pinned
+				convo.class = convo.class or old.class
+			else
+				old.key, old.with = key, with
+				store.convos[key] = old
+			end
+			moved[oldKey] = key
+		end
+	end
+	return moved
+end
+
 -- A conversation's key: per character of yours (guid) for a character, one per account for Battle.net ("bn:...").
 function ns.Social_ConvoKey(with, guid)
 	if not guid or with:sub(1, 3) == "bn:" then

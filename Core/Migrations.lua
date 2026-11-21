@@ -254,4 +254,19 @@ ns.MIGRATIONS = {
 		end
 		Walk(layout)
 	end,
+	-- 24: Forever stopped telling addons the realm (1.60.1 hotfix, 2026-11-21). The realms modules saved for your
+	-- characters ({ [player GUID] = { realm } } in any module's chars) fill TomteDB.realms (ns.RealmName, Compat.lua).
+	function(db)
+		db.realms = type(db.realms) == "table" and db.realms or {}
+		for _, section in pairs(db) do
+			local chars = type(section) == "table" and section.chars
+			if type(chars) == "table" then
+				for guid, c in pairs(chars) do
+					if type(c) == "table" and not ns.Realm_Find(db.realms, guid) then
+						ns.Realm_Learn(db.realms, guid, c.realm)
+					end
+				end
+			end
+		end
+	end,
 }

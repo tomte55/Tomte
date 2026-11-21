@@ -34,7 +34,7 @@ local function Guild()
 end
 
 local function MyRealm()
-	return GetNormalizedRealmName() or GetRealmName()
+	return ns.RealmName()
 end
 
 -- The friend list keeps friends from your own realm without the realm. Each entry is matched as ns.Social_IsCharacter

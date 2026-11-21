@@ -55,7 +55,7 @@ local function FullName(name)
 	if ns.FOREVER or name:find("-", 1, true) then
 		return name
 	end
-	local realm = GetNormalizedRealmName()
+	local realm = ns.RealmName()
 	return realm and (name .. "-" .. realm) or name
 end
 
@@ -434,10 +434,12 @@ local function MenuTarget(context)
 		end
 		local game = account and account.gameAccountInfo
 		if not (game and game.clientProgram == BNET_CLIENT_WOW and game.wowProjectID == WOW_PROJECT_ID
-			and game.characterName and game.realmName) then
+			and game.characterName) then
 			return nil
 		end
-		return "whisper", game.characterName .. "-" .. game.realmName:gsub("[%s%-]", "")
+		-- Forever leaves realmName empty (1.60.1 hotfix); a name there is unique in the region and whispers by itself.
+		local realm = (game.realmName or ""):gsub("[%s%-]", "")
+		return "whisper", realm ~= "" and (game.characterName .. "-" .. realm) or game.characterName
 	end
 	local name = context.name
 	if type(name) ~= "string" or name == "" or ns.IsSecret(name) then

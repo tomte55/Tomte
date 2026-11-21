@@ -30,7 +30,7 @@ local function Me()
 		db.chars[guid] = char
 	end
 	char.name = UnitName("player")
-	char.realm = GetNormalizedRealmName()
+	char.realm = ns.RealmName() or char.realm
 	char.class = select(2, UnitClass("player"))
 	char.places = char.places or {}
 	return char
@@ -111,7 +111,7 @@ local function ReadGuildBank()
 	if not (guild and tab) then
 		return
 	end
-	local key = guild .. "-" .. GetNormalizedRealmName()
+	local key = guild .. "-" .. (ns.RealmName() or "?")
 	local record = db.guilds[key] or { tabs = {} }
 	db.guilds[key] = record
 	record.name, record.at = guild, GetServerTime()

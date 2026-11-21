@@ -6,7 +6,7 @@ local GLOBALS = {
 	"C_AddOns", "GetAddOnMetadata", "ChatFrameUtil", "ChatFrame_SendTell", "ChatFrame_SendBNetTell",
 	"ChatFrame_ReplyTell", "ChatFrame_OpenChat", "ChatEdit_InsertLink", "ChatFrame_AddMessageEventFilter",
 	"ChatFrame_RemoveMessageEventFilter", "C_ChatInfo", "SendChatMessage", "C_SpecializationInfo", "hooksecurefunc",
-	"C_SpellBook", "IsSpellKnown", "C_EventUtils", "CreateFrame", "Ambiguate",
+	"C_SpellBook", "IsSpellKnown", "C_EventUtils", "CreateFrame", "Ambiguate", "GetNormalizedRealmName", "UnitGUID",
 }
 
 -- Loads Compat.lua with only the given game globals present.
@@ -273,6 +273,41 @@ test("event valid: a test registration without C_EventUtils", function()
 	end })
 	eq(ns.EventValid("READY_CHECK"), true, "known")
 	eq(ns.EventValid("LFG_PROPOSAL_SHOW"), false, "unknown")
+end)
+
+local function RealmGame(realm)
+	return { GetNormalizedRealmName = function()
+		return realm
+	end, UnitGUID = function()
+		return "Player-6939-00BF0A06"
+	end }
+end
+
+test("realm: the game's answer, remembered by server number", function()
+	local ns = Load(RealmGame("CAMWOWEU4Realm5PvE"))
+	ns.db = { realms = {} }
+	eq(ns.RealmName(), "CAMWOWEU4Realm5PvE")
+	eq(ns.db.realms["6939"], "CAMWOWEU4Realm5PvE", "learned")
+end)
+
+test("realm: Forever's empty answer falls back to the remembered realm, else nil", function()
+	local ns = Load(RealmGame(""))
+	ns.db = { realms = { ["6939"] = "CAMWOWEU4Realm5PvE" } }
+	eq(ns.RealmName(), "CAMWOWEU4Realm5PvE", "remembered")
+	ns.db.realms = {}
+	eq(ns.RealmName(), nil, "never seen")
+	ns.db = nil
+	eq(ns.RealmName(), nil, "before saved variables load")
+end)
+
+test("realm learning ignores empty realms and non-player GUIDs", function()
+	local ns = Load({})
+	local known = {}
+	ns.Realm_Learn(known, "Player-1-0001", "")
+	ns.Realm_Learn(known, "Creature-0-1-2-3-4-5", "Silvermoon")
+	ns.Realm_Learn(known, nil, "Silvermoon")
+	eq(next(known), nil)
+	eq(ns.Realm_Find(known, "Creature-0-1-2"), nil)
 end)
 
 H.done()

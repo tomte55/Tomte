@@ -24,7 +24,7 @@ local events = ns.NewEvents() -- owners "login" (once, at file load) and "tabs" 
 
 -- Records were keyed like this before 1.16 (ns.Chat_TabsRecord moves this character's to its GUID).
 local function OldCharacterKey()
-	return (UnitName("player") or "?") .. "-" .. (GetNormalizedRealmName() or "?")
+	return (UnitName("player") or "?") .. "-" .. (ns.RealmName() or "?")
 end
 
 -- This character's record: { index, name, created, added = { [zoneID] = name }, removed = { [zoneID] = name } },

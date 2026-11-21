@@ -163,7 +163,7 @@ local function InviterInfo(name, guid)
 			info.className, info.classFile = className, classFile
 		end
 	end
-	local key = ns.Social_FullName(name, GetNormalizedRealmName())
+	local key = ns.Social_FullName(name, ns.RealmName())
 	local who = key and ns.InboxWho_Get and ns.InboxWho_Get({ with = key })
 	if who then
 		info.level = info.level or who.level

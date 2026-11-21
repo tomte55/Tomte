@@ -237,7 +237,7 @@ local function Refresh()
 	db.chars[guid] = snap
 	snap.guid = guid
 	snap.name = UnitName("player")
-	snap.realm = GetNormalizedRealmName()
+	snap.realm = ns.RealmName() or snap.realm
 	snap.class = select(2, UnitClass("player"))
 	snap.level = UnitLevel("player")
 	snap.expansion = ns.ContentExpansion()

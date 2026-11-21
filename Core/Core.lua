@@ -23,6 +23,7 @@ local CORE_DEFAULTS = {
 	changes = {}, -- what's new after an update (Panel/Changes.lua): seen = the Tomte version whose changes were shown
 	bugs = {}, -- Tomte's last Lua errors, only without BugGrabber (Panel/Bug.lua); never exported or reset
 	taintWatch = {}, -- hidden /tomte bug taint (Panel/Bug.lua): on = watching, seen = newest first { at, what, by, stack }
+	realms = {}, -- [realm number from a player GUID] = normalized realm name last seen there (ns.RealmName, Compat.lua)
 	-- profileBackup = { at, text }: settings from before the last import (Panel/Share.lua), no default
 }
 

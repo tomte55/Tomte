@@ -48,7 +48,7 @@ end
 local function RecordMe()
 	local char = CharDB()
 	char.name = UnitName("player")
-	char.realm = GetNormalizedRealmName() or char.realm
+	char.realm = ns.RealmName() or char.realm
 	char.faction = UnitFactionGroup("player") or char.faction
 	char.class = select(2, UnitClass("player"))
 end
@@ -293,7 +293,7 @@ end
 
 local function MailName(c)
 	if ns.Alts_MailName then
-		return ns.Alts_MailName(c, GetNormalizedRealmName())
+		return ns.Alts_MailName(c, ns.RealmName())
 	end
 	return c.name
 end
@@ -304,7 +304,7 @@ local function Reachable(c)
 	if realms and ns.Alts_Reachable then
 		return ns.Alts_Reachable(c, realms)
 	end
-	return c.realm == GetNormalizedRealmName()
+	return c.realm == ns.RealmName()
 end
 
 -- Your characters: everyone the Alts module knows (most are there long before Mail saw them log in), plus Mail's

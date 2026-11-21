@@ -511,4 +511,36 @@ test("InviterText leaves out what isn't known", function()
 	eq(ns.Social_InviterText({}), nil)
 end)
 
+test("realmless conversations move to the name with your realm, merged by time", function()
+	local me = "Player-6939-00AA"
+	local store = { convos = {
+		["Aldric-R5@" .. me] = { key = "Aldric-R5@" .. me, with = "Aldric-R5", char = me, unread = 1, last = 30,
+			messages = { { at = 10, text = "a" }, { at = 30, text = "c" } } },
+		["Aldric-@" .. me] = { key = "Aldric-@" .. me, with = "Aldric-", char = me, unread = 2, last = 20,
+			pinned = true, class = "WARRIOR", messages = { { at = 20, text = "b" }, { at = 30, text = "c2" } } },
+		["Mira-@" .. me] = { key = "Mira-@" .. me, with = "Mira-", char = me, unread = 0, last = 5,
+			messages = { { at = 5, text = "m" } } },
+		["Kesha-@Player-1-00BB"] = { key = "Kesha-@Player-1-00BB", with = "Kesha-", char = "Player-1-00BB", unread = 0,
+			messages = {} },
+		["bn:Tag#1"] = { key = "bn:Tag#1", with = "bn:Tag#1", bn = true, unread = 0, messages = {} },
+	} }
+	local moved = ns.Social_RepairRealmless(store, function(guid)
+		return guid == me and "R5" or nil
+	end)
+	local merged = store.convos["Aldric-R5@" .. me]
+	eq(moved["Aldric-@" .. me], "Aldric-R5@" .. me)
+	eq(store.convos["Aldric-@" .. me], nil, "old one gone")
+	eq(#merged.messages, 4)
+	eq(merged.messages[2].text, "b", "in time order")
+	eq(merged.messages[3].text, "c", "the kept one first on equal times")
+	eq(merged.unread, 3)
+	eq(merged.last, 30)
+	eq(merged.pinned, true)
+	eq(merged.class, "WARRIOR")
+	eq(store.convos["Mira-R5@" .. me].with, "Mira-R5", "no conversation there yet: renamed")
+	eq(store.convos["Mira-R5@" .. me].key, "Mira-R5@" .. me)
+	eq(store.convos["Kesha-@Player-1-00BB"] ~= nil, true, "realm unknown: left alone")
+	eq(store.convos["bn:Tag#1"] ~= nil, true, "Battle.net untouched")
+end)
+
 H.done()

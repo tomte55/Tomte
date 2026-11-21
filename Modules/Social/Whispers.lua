@@ -49,8 +49,9 @@ end
 
 -- "Name" -> "Name-Realm": whisper and inform events use full names, but not always for your own realm.
 local function FullName(name)
-	if not name:find("-", 1, true) then
-		return name .. "-" .. GetNormalizedRealmName()
+	local realm = ns.RealmName()
+	if realm and not name:find("-", 1, true) then
+		return name .. "-" .. realm
 	end
 	return name
 end
@@ -679,6 +680,9 @@ module = ns.RegisterModule({
 		ns.whispersDB = db
 		if db.keepHistory then
 			ns.Social_PruneConvos(db.store, time(), db.historyDays * DAY)
+			ns.Social_RepairRealmless(db.store, function(guid)
+				return ns.Realm_Find(ns.db.realms, guid)
+			end)
 		else
 			wipe(db.store.convos)
 		end

@@ -1,5 +1,6 @@
 -- Run from the AddOns folder: lua Tomte/tests/test_migrations.lua
 local ns = { errorHandler = function(err) print("migration error: " .. tostring(err)) end }
+assert(loadfile("Tomte/Core/Compat.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Core/Modules.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Core/Setup.lua"))("Tomte", ns)
 assert(loadfile("Tomte/Core/SessionData.lua"))("Tomte", ns)
@@ -305,6 +306,26 @@ test("Bags: an edited layout's untouched Quest category beats Consumable, edited
 	local none = { schema = 22 }
 	ns.RunMigrations(none, ns.MIGRATIONS)
 	eq(none.bags, nil, "nothing made")
+end)
+
+test("realms saved for your characters fill the realm memory by server number", function()
+	local db = { schema = 23, realms = { ["7"] = "Kept" },
+		alts = { chars = {
+			["Player-6939-00AAAA01"] = { realm = "" },
+			["Player-6939-00AAAA02"] = { realm = "CAMWOWEU4Realm5PvE" },
+			["Player-7"] = { realm = "Odd" },
+			["Player-7-00AAAA03"] = { realm = "Other" },
+		} },
+		weekly = { chars = { ["Player-1001-00BBBB01"] = { realm = "Silvermoon" } } },
+		mail = { chars = "not a table" },
+	}
+	ns.RunMigrations(db, ns.MIGRATIONS)
+	eq(db.realms["6939"], "CAMWOWEU4Realm5PvE", "an empty realm teaches nothing")
+	eq(db.realms["1001"], "Silvermoon", "any module's characters")
+	eq(db.realms["7"], "Kept", "a known realm stays")
+	local none = { schema = 23 }
+	ns.RunMigrations(none, ns.MIGRATIONS)
+	eq(next(none.realms), nil, "nothing saved, nothing learned")
 end)
 
 H.done()

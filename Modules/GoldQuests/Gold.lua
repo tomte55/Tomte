@@ -40,7 +40,7 @@ end
 local function UpdateChar()
 	local c = Char()
 	c.name = UnitName("player")
-	c.realm = GetNormalizedRealmName()
+	c.realm = ns.RealmName() or c.realm
 	c.class = select(2, UnitClass("player"))
 	local level = UnitLevel("player")
 	if not ns.IsSecret(level) then

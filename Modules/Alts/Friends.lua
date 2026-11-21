@@ -94,8 +94,8 @@ end
 -- goes to the character's full name, first name and surname (Alts_MailName).
 function ns.AltsFriends_Realms()
 	if ns.FOREVER then
-		local mine = GetNormalizedRealmName()
-		if not mine or mine == "" then
+		local mine = ns.RealmName()
+		if not mine then
 			return nil, ns.AltsFriends_ForeverRealm
 		end
 		return { [ns.AltsFriends_ForeverRealm(mine)] = true }, ns.AltsFriends_ForeverRealm
@@ -120,7 +120,7 @@ end
 
 -- /tomte alts friends: what each friend shared and why each of their characters is shown or not.
 function ns.AltsFriends_Why()
-	local faction, realm = UnitFactionGroup("player"), GetNormalizedRealmName()
+	local faction, realm = UnitFactionGroup("player"), ns.RealmName()
 	ns.Print(("friends' crafting: %s; you are %s on %s."):format(Sharing() and "on" or "off (Friend sharing, its "
 		.. "Professions and recipes switch, or not on Forever)", tostring(faction), tostring(realm)))
 	if not next(db.friendCrafts) then
@@ -236,7 +236,7 @@ function ns.AltsFriends_Ask(crafter, recipeID, amount, mats)
 	local req = ns.AltsFriends_NewRequest({ id = NewID(), mine = true, friend = crafter.friend.tag,
 		recipeID = recipeID, itemID = recipe.item, name = recipe.name, amount = amount, mats = mats,
 		crafter = crafter.name, crafterRealm = crafter.realm, crafterFaction = crafter.faction, asker = ns.Alts_PlayerFullName() or UnitName("player"),
-		askerRealm = GetNormalizedRealmName(), askerFaction = UnitFactionGroup("player"), at = time() })
+		askerRealm = ns.RealmName(), askerFaction = UnitFactionGroup("player"), at = time() })
 	db.requests[req.id] = req
 	Deliver(req)
 	ns.Print(("asked %s (%s) for %d %s%s."):format(crafter.name or "?", ShortName(req.friend), amount,

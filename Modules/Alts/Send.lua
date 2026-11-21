@@ -69,8 +69,8 @@ function ns.Alts_MailRealms()
 	if realmSet then
 		return realmSet
 	end
-	local myRealm = GetNormalizedRealmName and GetNormalizedRealmName()
-	if not myRealm or myRealm == "" then
+	local myRealm = ns.RealmName()
+	if not myRealm then
 		return nil
 	end
 	local ok, realms = pcall(C_AutoComplete.GetAutoCompleteRealms)
@@ -311,7 +311,7 @@ local function Attach(g)
 		ClearCursor() -- in case the slot didn't take it
 		done[#done + 1] = s
 	end
-	SendMailNameEditBox:SetText(ns.Alts_MailName(c, GetRealmName()))
+	SendMailNameEditBox:SetText(ns.Alts_MailName(c, ns.RealmName()))
 	SendMailSubjectEditBox:SetText(db.sendSubject ~= "" and db.sendSubject or "Tomte")
 	attached = { guid = g.guid, stacks = done, gear = g.gear, disenchant = g.disenchant }
 	UI.Sound("confirm")
@@ -357,7 +357,7 @@ local function AttachCraft(cm)
 		ClearCursor()
 	end
 	local c = ns.altsDB.chars[cm.to]
-	SendMailNameEditBox:SetText(ns.Alts_MailName(c, GetRealmName()))
+	SendMailNameEditBox:SetText(ns.Alts_MailName(c, ns.RealmName()))
 	local recipe = ns.altsDB.recipes[cm.todo.entry.recipeID]
 	SendMailSubjectEditBox:SetText(("%s: %s"):format(db.sendSubject ~= "" and db.sendSubject or "Tomte", recipe and recipe.name or "craft"))
 	attached = { guid = cm.to, stacks = plan, craft = cm.todo.entry.recipeID }
@@ -398,7 +398,7 @@ local function TopUp(c, amount)
 		ns.Print("open an empty Send Mail tab first.")
 		return
 	end
-	SendMailNameEditBox:SetText(ns.Alts_MailName(c, GetRealmName()))
+	SendMailNameEditBox:SetText(ns.Alts_MailName(c, ns.RealmName()))
 	SendMailSubjectEditBox:SetText(db.sendSubject ~= "" and db.sendSubject or "Tomte")
 	SetSendMailCOD(0)
 	SetSendMailMoney(amount)

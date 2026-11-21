@@ -99,6 +99,47 @@ function ns.Chat_HookSend(fn)
 	end
 end
 
+-- Realm -----------------------------------------------------------------------------------------------------------
+
+-- World of Warcraft: Forever stopped telling addons the realm in a 1.60.1 hotfix (2026-11-21): GetRealmName and
+-- GetNormalizedRealmName answer "" and GetRealmID 0 (seen in game). A player GUID still names the server
+-- ("Player-6939-00BF0A06"), so Tomte remembers each realm it has seen by that number: known is TomteDB.realms,
+-- { [realm number from a GUID] = normalized realm name }, filled while the game still answered (and from older
+-- saved characters by migration 24).
+
+local function GuidRealmID(guid)
+	return type(guid) == "string" and guid:match("^Player%-(%d+)%-") or nil
+end
+
+-- Notes a realm seen with a player GUID. Empty realms and other GUIDs teach nothing.
+function ns.Realm_Learn(known, guid, realm)
+	local id = GuidRealmID(guid)
+	if id and type(realm) == "string" and realm ~= "" then
+		known[id] = realm
+	end
+end
+
+-- The realm last seen on this GUID's server, or nil.
+function ns.Realm_Find(known, guid)
+	local id = GuidRealmID(guid)
+	return id and known[id] or nil
+end
+
+-- Your realm, normalized (no spaces or dashes): the game's answer, else the one last seen on your server; nil when
+-- neither is known. Use this instead of GetNormalizedRealmName or GetRealmName, which can answer "".
+function ns.RealmName()
+	local known = ns.db and ns.db.realms
+	local guid = UnitGUID and UnitGUID("player")
+	local live = GetNormalizedRealmName and GetNormalizedRealmName()
+	if type(live) == "string" and live ~= "" then
+		if known then
+			ns.Realm_Learn(known, guid, live)
+		end
+		return live
+	end
+	return known and ns.Realm_Find(known, guid) or nil
+end
+
 -- Events ----------------------------------------------------------------------------------------------------------
 
 -- Whether this client knows an event (RegisterEvent errors on one it doesn't). Without C_EventUtils, a test
