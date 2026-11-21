@@ -17,6 +17,9 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
 - **Tomte map:** quest pins show the quest's level, colored by how hard it is for you; right-click one to show it in the quest log beside the map. Your corpse shows on the map while you're dead.
+- **Waypoints:** on World of Warcraft: Forever, a map pin that's quicker to reach by flight path, zeppelin or boat gets a route, drawn as a line on the Tomte map (`/tomte way route`).
+- **Tomte map:** click a town marker (a trainer, a banker, a mailbox ...) to put your map pin on whoever stands there.
+- **Waypoints:** `/tway <x> <y> [name]` and an optional `#mapID` first, when TomTom isn't loaded.
 
 ### Improved
 
@@ -27,6 +30,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Autocorrect:** works in the whisper inbox too.
 - **Autocorrect:** Backspace after a fix only puts your word back; the note then offers for a few seconds to never make that fix again, and only that click remembers it.
 - **Whispers:** the inbox opens with the cursor in its chat line, and one Esc closes it.
+- **Performance:** Quiet Chat, drawers, the flight card, the Quest list and item source tooltips do much less work and make less garbage; the Performance report shows memory made per part and no longer counts a call twice.
+- **Trade Filter:** the channel shows as "Trade" without its instance ("Trade - English 33").
 
 ### Fixed
 
