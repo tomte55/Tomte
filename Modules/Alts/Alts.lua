@@ -166,6 +166,24 @@ function ns.Alts_RecipesChanged()
 	ns.AltsList_Changed() -- the to-do's plans use the recipes
 end
 
+-- This character's recipes as Alts last read them: { { id, name, item, base, known } } for its professions, every
+-- recipe the profession window listed (learned or not). Nil while Alts is off. Trade Filter asks what you can craft.
+function ns.Alts_MyRecipes()
+	if not (module.active and db) then
+		return nil
+	end
+	local me = db.chars[UnitGUID("player")]
+	local list = {}
+	for id, r in pairs(db.recipes) do
+		local prof = me and me.profs and me.profs[r.base]
+		if prof and r.name then
+			list[#list + 1] = { id = id, name = r.name, item = r.item, base = r.base,
+				known = prof.known and prof.known[id] or false }
+		end
+	end
+	return list
+end
+
 -- "Compare crafted gear at" (the setting, and the Profession gear tab's dropdown).
 function ns.Alts_GearQualityChoices()
 	local list = { { value = "range", text = "Every quality (a range)" } }

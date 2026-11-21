@@ -20,6 +20,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### Improved
 
+- **Trade Filter:** a message asking for a recipe you don't know is hidden ("Only recipes you know", on by default); one naming a recipe you know shows even without your profession's name.
 - **Quest list:** your other quests show on the minimap by default, as big as the active quest's mark.
 - **Quest list:** the flight hint's map pin is named after its flight master, and the arrow says so.
 - **Quest list:** the quest item button also holds items you use from your bags, such as the Etched Phial for The Sacred Flame.

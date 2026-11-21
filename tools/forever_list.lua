@@ -49,6 +49,8 @@ return {
 		{ after = "Modules/Loot/Data.lua", files = { "Modules/Loot/RoomData.lua" } },
 		{ after = "Modules/Loot/Window.lua", files = { "Modules/Loot/Room.lua" } },
 		{ after = "Modules/Materials/Data.lua", files = { "Modules/Materials/GeneratedForever.lua" } },
+		-- Every recipe of the game, for Trade Filter (its profession window lists only the ones you know).
+		{ after = "Modules/Chat/RecipeData.lua", files = { "Modules/Chat/RecipesForever.lua" } },
 		{ after = "Modules/Rogue/Lockpick.lua", files = { "Modules/Rogue/Forever.lua" } },
 		{ after = "Modules/Hunter/Checks.lua", files = { "Modules/Hunter/Aspect.lua" } },
 		-- ForeverItems.lua makes the event bus RewardCard.lua takes at file load; Forever.lua is the main file, so last.

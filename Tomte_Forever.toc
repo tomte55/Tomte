@@ -197,6 +197,8 @@ Modules/EmoteWheel/Thanks.lua
 Modules/EmoteWheel/Page.lua
 Modules/EmoteWheel/EmoteWheel.lua
 Modules/Chat/Data.lua
+Modules/Chat/RecipeData.lua
+Modules/Chat/RecipesForever.lua
 Modules/Chat/Tabs.lua
 Modules/Chat/Filter.lua
 Modules/Chat/Tags.lua
