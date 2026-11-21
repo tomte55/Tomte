@@ -179,7 +179,8 @@ local function Note(lineID, show, text, sender, guid, channelIndex, baseName)
 		local now = GetTime()
 		if not lastToast[sender] or now - lastToast[sender] >= TOAST_GAP then
 			lastToast[sender] = now
-			local label = (baseName and baseName ~= "") and baseName or "Trade"
+			-- The channel's name without its instance: "Trade - City" (retail), "Trade - English 33" (Forever) -> "Trade".
+			local label = (baseName and baseName ~= "") and (baseName:match("^(.-) %- ") or baseName) or "Trade"
 			ShowToast(label, sender, guid, text, channelIndex)
 		end
 	end
