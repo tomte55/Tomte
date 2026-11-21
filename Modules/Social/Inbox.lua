@@ -362,7 +362,7 @@ local function ApplyLayout()
 end
 
 -- The chat line under the conversation: Enter sends to whoever is open and keeps the box focused for the
--- next line, Esc leaves it. Not focused on open, so movement keys keep working while you read.
+-- next line, Esc closes the inbox. Focused when the inbox opens (Inbox_Toggle).
 local function CreateInput(parent)
 	local box = CreateFrame("EditBox", nil, parent)
 	if ns.Theme.panel == "forever" then
@@ -383,11 +383,17 @@ local function CreateInput(parent)
 		self.placeholder:SetShown(self:GetText() == "")
 	end)
 	box:SetScript("OnEnterPressed", function(self)
+		if ns.Autocorrect_BeforeSend then
+			ns.Autocorrect_BeforeSend(self)
+		end
 		if current and ns.Whispers_Send(current, self:GetText()) then
 			self:SetText("")
 		end
 	end)
-	box:SetScript("OnEscapePressed", box.ClearFocus)
+	box:SetScript("OnEscapePressed", function(self)
+		self:ClearFocus()
+		frame:Hide()
+	end)
 	box:SetScript("OnHide", box.ClearFocus)
 	box:SetScript("OnEditFocusGained", function(self)
 		UI.SetBorderColor(self, "accent", 0.8)
@@ -401,6 +407,14 @@ local function CreateInput(parent)
 			self.artFocus(self, false)
 		end
 	end)
+	-- Autocorrect fixes this line too; its conversation (who you're writing to) helps its Swedish setting.
+	if ns.Autocorrect_Attach then
+		ns.Autocorrect_Attach(box, function()
+			local convo = current and ns.Whispers_Get(current)
+			local with = convo and not convo.bn and convo.with
+			return with and ns.Autocorrect_ConversationKey("WHISPER", with) or nil
+		end)
+	end
 	return box
 end
 
@@ -581,6 +595,13 @@ function ns.Inbox_Toggle(key)
 	frame:Raise() -- opened from the Tomte window, whose click just raised it
 	current = nil -- so Open sets the NEW divider for it
 	Open(key)
+	-- A frame later: opened by a key binding, the key's own character would otherwise be typed into the line
+	-- (Shift+R typed "R", seen in game).
+	C_Timer.After(0, function()
+		if frame:IsShown() and frame.input:IsShown() then
+			frame.input:SetFocus()
+		end
+	end)
 end
 
 function ns.Inbox_IsShowing(key)

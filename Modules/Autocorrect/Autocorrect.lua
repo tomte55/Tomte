@@ -1,8 +1,8 @@
 local addonName, ns = ...
 
 -- Autocorrect module: fixes the player's chat line as they type. A finished word (space or punctuation typed after
--- it) is fixed in the edit box, a note above the box shows what changed, and Backspace right after puts it back (and
--- that fix is never made again). Enter fixes the last word too. Pure rules in Rules.lua and Line.lua, tables in
+-- it) is fixed in the edit box, a note above the box shows what changed, and Backspace right after puts it back (then
+-- the note offers, for a few seconds, to never make that fix again: only that click remembers it). Enter fixes the last word too. Pure rules in Rules.lua and Line.lua, tables in
 -- Data.lua and the generated Words.lua, the note in Note.lua.
 --
 -- Taint (EllesmereUIChat's in-game findings, retail 12.x): a HookScript("OnTextChanged") on a Blizzard chat edit box
@@ -14,6 +14,7 @@ local addonName, ns = ...
 
 local OWNER = "TomteAutocorrect" -- EventRegistry callback owner
 local NAMES_DELAY = 2 -- seconds to gather a burst of roster updates into one names refresh
+local OFFER_SECONDS = 5 -- how long the note offers to never make an undone fix again
 local LEARN_AFTER = 2 -- a word other players used this many times this session counts as a real word
 local LEARN_MAX = 5000 -- learned words per session, at most
 local MAP_ROOT = 946 -- the Cosmic map: every zone and continent hangs under it
@@ -35,7 +36,10 @@ local Lower = function(s)
 end
 local ctx = { names = {}, places = {}, places2 = {} }
 local boxes = {} -- [edit box] = true: the boxes hooked (permanent chat windows only)
+-- [edit box] = fn() -> its conversation key or nil: Tomte's own chat lines (the whisper inbox, ns.Autocorrect_Attach)
+local ownBoxes = {}
 local pending -- { box, change }: the last fix, while Backspace can still undo it
+local offer -- { timer }: the note's offer, after an undo, to never make that fix again
 local pausedShown -- the "paused in combat chat" note was shown this lockdown
 local changed = {} -- [edit box] = true: we set its text since it last opened or sent
 local seen, learned = {}, 0 -- [word] = times other players used it; how many became words
@@ -160,6 +164,9 @@ end
 -- Which conversation a chat box sends to (Blizzard's ChatFrameEditBox attributes): party, guild, a whisper to someone,
 -- a channel by its number. nil when it can't be read (a secret whisper target, a Battle.net whisper).
 local function BoxConversation(box)
+	if ownBoxes[box] then
+		return ownBoxes[box]()
+	end
 	local chatType = box:GetAttribute("chatType")
 	if type(chatType) ~= "string" or IsSecret(chatType) then
 		return nil
@@ -203,9 +210,26 @@ end
 
 -- Edit box ---------------------------------------------------------------------------------------------------------
 
+local function EndOffer()
+	if offer then
+		offer.timer:Cancel()
+		offer = nil
+	end
+end
+
 local function ClearPending()
 	pending = nil
+	EndOffer()
 	ns.AutocorrectNote_Hide()
+end
+
+-- Focus lost or the box hidden: the undo ends, but an offer on the note stays for its click (clicking the note can
+-- take the chat box's focus first).
+local function ClearPendingKeepOffer()
+	pending = nil
+	if not offer then
+		ns.AutocorrectNote_Hide()
+	end
 end
 
 -- The cursor as a byte offset into text, or nil when it can't be trusted. Plain ASCII: the cursor counts bytes. With
@@ -264,11 +288,32 @@ local function OnChar(box, char)
 end
 
 local function Remember(change)
-	if change.remember then
-		local list = db.refused[change.remember] or {}
-		list[change.rememberFix] = true
-		db.refused[change.remember] = list
+	local list = db.refused[change.remember] or {}
+	list[change.rememberFix] = true
+	db.refused[change.remember] = list
+	ns.Print(("Autocorrect won't change %s again (/tomte autocorrect forget %s brings the fix back)."):format(
+		UI.Wrap(change.typed, "accent"), change.remember))
+end
+
+-- After an undo, the note offers for a few seconds to never make that fix again. A Backspace is often a reflex, so
+-- nothing is remembered unless the note is clicked. Typing on or sending ends the offer.
+local function OfferNever(box, change)
+	if not change.remember then
+		return
 	end
+	local this = {}
+	this.timer = C_Timer.NewTimer(OFFER_SECONDS, function()
+		if offer == this then
+			ClearPending()
+		end
+	end)
+	offer = this
+	ns.AutocorrectNote_Kept(box, change.typed, function()
+		if offer == this and module.active then
+			ClearPending()
+			Remember(change)
+		end
+	end)
 end
 
 -- Backspace right after a fix: the line as typed. OnKeyDown runs before the box acts on the key (EllesmereUIChat
@@ -300,11 +345,23 @@ local function OnKeyDown(box, key)
 			box:SetCursorPosition(at)
 		end
 	end)
-	Remember(change)
+	OfferNever(box, change)
 end
 
--- Enter: the last word has no space after it yet. A line we changed before chat locked down is a tainted send now,
--- which the game drops: say so, since it can't be undone.
+-- Enter: the last word has no space after it yet.
+local function FixLastWord(box)
+	local text = box:GetText()
+	if type(text) ~= "string" or IsSecret(text) or text == "" then
+		return
+	end
+	local newText = ns.Autocorrect_Finish(text, #text, Ctx(box), true)
+	if newText then
+		box:SetText(newText)
+	end
+end
+
+-- A line we changed before chat locked down is a tainted send now, which the game drops: say so, since it can't be
+-- undone.
 local function OnPreSend(_, box)
 	if not (module.active and dict and boxes[box]) then
 		return
@@ -318,25 +375,50 @@ local function OnPreSend(_, box)
 		end
 		return
 	end
-	local text = box:GetText()
-	if type(text) ~= "string" or IsSecret(text) or text == "" then
-		return
-	end
-	local newText = ns.Autocorrect_Finish(text, #text, Ctx(box), true)
-	if newText then
-		box:SetText(newText)
-	end
+	FixLastWord(box)
 end
 
 local function OnBoxHide(_, box)
-	ClearPending()
+	if not module.active then
+		return
+	end
+	ClearPendingKeepOffer()
 	pausedShown = false
 	changed[box] = nil
 end
 
 -- The undo only holds while the player is still on the line.
 local function OnFocusLost()
+	if module.active then
+		ClearPendingKeepOffer()
+	end
+end
+
+-- Tomte's own chat line (the whisper inbox) is fixed as you type, like the chat box. conversation: fn() -> the
+-- Autocorrect_ConversationKey of whoever it sends to, or nil. Our own frame, so the taint limits above don't apply.
+function ns.Autocorrect_Attach(box, conversation)
+	if ownBoxes[box] then
+		return
+	end
+	ownBoxes[box] = conversation or function() end
+	box:HookScript("OnChar", OnChar)
+	box:HookScript("OnKeyDown", OnKeyDown)
+	box:HookScript("OnEditFocusLost", OnFocusLost)
+	box:HookScript("OnHide", function(self)
+		OnBoxHide(nil, self)
+	end)
+end
+
+-- Enter in an attached box, right before it sends.
+function ns.Autocorrect_BeforeSend(box)
+	if not (module.active and dict and ownBoxes[box]) then
+		return
+	end
 	ClearPending()
+	changed[box] = nil
+	if not Restricted() then
+		FixLastWord(box)
+	end
 end
 
 -- Hooks can't be undone: each checks module.active first.
@@ -559,13 +641,13 @@ module = ns.RegisterModule({
 	category = "chat",
 	icon = 237171, -- inv_inscription_tradeskill01
 	summary = "Fixes typos in your chat as you type; Backspace undoes a fix.",
-	description = "Fixes your chat as you type: common typos and misspelled words, missing apostrophes (dont), capitals at the start of a sentence, place names (stormwind), word pairs (could of) and doubled words. A note above the chat box shows each fix, and Backspace right after puts your word back and remembers it. Leaves commands, links, names, numbers and chat shorthand alone. Pauses in boss fights, Mythic+ and PvP matches, where the game blocks addon-changed chat. English, and Swedish too if you turn it on.",
+	description = "Fixes your chat as you type: common typos and misspelled words, missing apostrophes (dont), capitals at the start of a sentence, place names (stormwind), word pairs (could of) and doubled words. A note above the chat box shows each fix, and Backspace right after puts your word back, and the note then offers to never make that fix again. Leaves commands, links, names, numbers and chat shorthand alone. Pauses in boss fights, Mythic+ and PvP matches, where the game blocks addon-changed chat. English, and Swedish too if you turn it on.",
 	enabledByDefault = false,
 	defaults = {
 		kinds = { spelling = true, apostrophes = true, capitals = true, names = true, pairs = true, tidying = true },
 		note = true,
 		swedish = false, -- Swedish too: each line is fixed as English or Swedish (Swedish.lua)
-		refused = {}, -- [typed, lowercase] = { [fix, lowercase] = true }: fixes the player undid
+		refused = {}, -- [typed, lowercase] = { [fix, lowercase] = true }: fixes the player chose never to have again
 		keep = {}, -- [word, lowercase] = true: never touched
 		own = {}, -- [typo, lowercase] = fix: the player's own corrections
 	},
@@ -585,8 +667,7 @@ module = ns.RegisterModule({
 		{ "forget", "<word>: drop what you told it about a word, and fixes you undid for it", Forget,
 			whileOff = true },
 		{ "list", "the words you keep, your corrections and the fixes you undid", List, whileOff = true },
-		{ debug = true, "why", "<word>: what it would do with a word, and why", Why, whileOff = true },
-	},
+		{ debug = true, "why", "<word>: what it would do with a word, and why", Why, whileOff = true },	},
 	options = {
 		{ type = "header", label = "Fixes" },
 		{ type = "checkbox", key = "kinds.spelling", label = "Spelling",
@@ -615,6 +696,6 @@ module = ns.RegisterModule({
 			confirm = "Clear your own corrections?", tooltip = "Added with /tomte autocorrect add <typo> <fix>." },
 		{ type = "button", label = "Fixes you undid", text = "Clear", onClick = Clear("refused", "fixes you undid"),
 			confirm = "Let Autocorrect make the fixes you undid again?",
-			tooltip = "A fix you undo with Backspace is never made again. This lets it come back." },
+			tooltip = "After Backspace undoes a fix, clicking the note above the chat box stops that fix for good. This lets them all come back." },
 	},
 })
