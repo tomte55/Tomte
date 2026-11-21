@@ -22,10 +22,15 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Quest list:** your other quests show on the minimap by default, as big as the active quest's mark.
 - **Quest list:** the flight hint's map pin is named after its flight master, and the arrow says so.
+- **Autocorrect:** works in the whisper inbox too.
+- **Autocorrect:** Backspace after a fix only puts your word back; the note then offers for a few seconds to never make that fix again, and only that click remembers it.
+- **Whispers:** the inbox opens with the cursor in its chat line, and one Esc closes it.
 
 ### Fixed
 
 - **Quest list:** clicking the flight hint errored instead of placing a map pin on the flight master.
+- **Forever:** the game no longer tells addons your realm; Tomte remembers it from before, so whispers, mail to your characters, friends' crafting and character lists keep working. Whispers split off under a name without a realm are merged back.
+- **Friends Online:** on World of Warcraft: Forever, friends playing Forever are counted as in game (with their character), not as in other games.
 
 ## v1.35.0 - 2026-11-19
 

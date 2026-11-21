@@ -52,13 +52,14 @@ local function Idle(game)
 	return client == BNET_CLIENT_APP or client == BNET_CLIENT_CLNT or client == "BSAp"
 end
 
--- What a Battle.net friend is doing: "Thrall - Dornogal", "World of Warcraft Classic". nil in the launcher.
+-- What a Battle.net friend is doing: "Thrall - Dornogal", "World of Warcraft Classic". nil in the launcher. In WoW
+-- means the same game as yours (WOW_PROJECT_ID: retail on retail, Forever on Forever); another version is another game.
 local function Activity(game)
 	if not (game and game.isOnline) then
 		return nil
 	end
 	if game.clientProgram == BNET_CLIENT_WOW then
-		if game.wowProjectID == WOW_PROJECT_MAINLINE and game.characterName and game.characterName ~= "" then
+		if game.wowProjectID == WOW_PROJECT_ID and game.characterName and game.characterName ~= "" then
 			local area = game.areaName and game.areaName ~= "" and (" - " .. game.areaName) or ""
 			return ClassColored(game.characterName, game.classFilename) .. area, true
 		end
