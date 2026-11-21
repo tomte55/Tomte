@@ -370,7 +370,7 @@ function ns.QuestListUI_New(parent, sample)
 		f:SetScript("OnMouseWheel", Scroll)
 		-- Set before UI.CollapseButton, which hooks OnUpdate (a SetScript after it would drop its hook).
 		local since = 0
-		f:SetScript("OnUpdate", function(self, elapsed)
+		f:SetScript("OnUpdate", ns.Perf_Wrap(function(self, elapsed)
 			since = since + elapsed
 			if since < MOUSE_POLL or not ns.QuestList_DB().mouseFade then
 				return
@@ -381,7 +381,7 @@ function ns.QuestListUI_New(parent, sample)
 				self.hovered = over
 				ns.QuestList_ApplyAlpha()
 			end
-		end)
+		end, "mouse · OnUpdate"))
 		f.collapse = UI.CollapseButton(f, function()
 			return ns.QuestList_DB().collapsed
 		end, function()

@@ -403,7 +403,13 @@ local function Sections(quests, stops)
 	})
 end
 
-local function Update()
+-- Each stage of an update timed on its own in the Performance report ("update · <stage>"), so its time and the
+-- memory it makes show apart (an update made about 270 KB; the report said nothing more).
+local Stage = ns.Perf_WrapNamed(function(fn, ...)
+	return fn(...)
+end)
+
+local function UpdateNow()
 	if not active then
 		Hide()
 		return
@@ -414,14 +420,16 @@ local function Update()
 	end
 	local you, mapID = ns.LevelingRead_You()
 	if pointsStale or pointsMap ~= mapID then
-		points, pointsMap, pointsStale = mapID and ns.LevelingRead_QuestPoints(mapID) or {}, mapID, false
+		points = mapID and Stage("update · quest points", ns.LevelingRead_QuestPoints, mapID) or {}
+		pointsMap, pointsStale = mapID, false
 	end
-	local quests = ns.LevelingRead_QuestsTagged()
+	local quests = Stage("update · quest log", ns.LevelingRead_QuestsTagged)
 	ns.QuestListItem_AddBagItems(quests)
 	Prune(quests)
-	Annotate(quests, you)
-	local stops = db.groupBy == "stop" and ns.Leveling_NextStops(quests, points, you, IsInGroup(), CLUSTER_YARDS) or {}
-	local sections = Sections(quests, stops)
+	Stage("update · objectives", Annotate, quests, you)
+	local stops = db.groupBy == "stop"
+		and Stage("update · stops", ns.Leveling_NextStops, quests, points, you, IsInGroup(), CLUSTER_YARDS) or {}
+	local sections = Stage("update · sections", Sections, quests, stops)
 	-- A new active quest (picked on the map, in the quest log or here): a fold you clicked on its group goes, so it
 	-- shows (Data.lua opens the group holding the active quest and puts the quest first).
 	local activeID = ns.ActiveQuest_ID()
@@ -471,8 +479,8 @@ local function Update()
 			end
 		end
 		local pick
-		local inside = ns.LevelingRead_QuestsInArea()
-		pick, route = ns.LevelingRoute_Pick(listed, points, you, IsInGroup(), followed, inside)
+		local inside = Stage("update · quest areas", ns.LevelingRead_QuestsInArea)
+		pick, route = Stage("update · route", ns.LevelingRoute_Pick, listed, points, you, IsInGroup(), followed, inside)
 		routeFrom = you
 		Follow(ns.Leveling_FollowPick(quests, inside, followed, pick, IsInGroup()))
 	elseif followed then -- turned off in the settings
@@ -485,15 +493,17 @@ local function Update()
 	end
 	drawnAt, distanceAt = you, you
 	frame:SetScale(db.scale)
-	ns.QuestListUI_Draw(frame, sections, #quests, ns.QuestListSpoken_Speaking())
+	Stage("update · draw", ns.QuestListUI_Draw, frame, sections, #quests, ns.QuestListSpoken_Speaking())
 	frame:Show()
 	ns.QuestList_ApplyAlpha()
 	-- After the draw: the button sits beside the list where it now is (ItemButton.lua).
 	ns.QuestListItem_Set(ns.QuestList_ItemQuest(sections, ns.ActiveQuest_ID()), frame)
 	if not ticker then
-		ticker = C_Timer.NewTicker(TICK, Tick)
+		ticker = C_Timer.NewTicker(TICK, ns.Perf_Wrap(Tick, "tick"))
 	end
 end
+-- Timed on its own: it runs from timers and the tick as often as from events, which no other timing covers.
+local Update = ns.Perf_Wrap(UpdateNow, "update")
 
 local function UpdateSoon()
 	if updatePending then

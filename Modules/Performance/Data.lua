@@ -359,8 +359,8 @@ function ns.Perf_Report(r)
 			row.peakWhat and (" (" .. ns.Perf_PartText(row.group, row.peakSub, row.peakWhat) .. ")") or "",
 			row.slow, ns.Perf_KBText(row.kb))
 		for _, p in ipairs(r.parts[row.group] or {}) do
-			Add("      %s: %s in %d calls, peak %s", ns.Perf_PartText(row.group, p.sub, p.what), ns.Perf_MsText(p.total),
-				p.calls, ns.Perf_MsText(p.peak))
+			Add("      %s: %s in %d calls, peak %s, made %s", ns.Perf_PartText(row.group, p.sub, p.what),
+				ns.Perf_MsText(p.total), p.calls, ns.Perf_MsText(p.peak), ns.Perf_KBText(p.kb))
 		end
 	end
 	Add("")

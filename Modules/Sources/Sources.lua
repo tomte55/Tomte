@@ -55,14 +55,30 @@ function ns.Sources_Pin(source)
 	ns.Print(("Pin set: %s, %s %.1f, %.1f."):format(label, source.zoneName or "?", source.x, source.y))
 end
 
+-- Each item's tooltip line, for your level and zone now ([itemID] = line or false): reading and sorting an item's
+-- sources made about 100 KB of garbage per tooltip (measured 2026-11-21), and the game redraws a tooltip often. The
+-- data never changes, so the lines are worked out again only after a level-up or on another map.
+local tipLines, tipLevel, tipZone = {}, nil, nil
+local function TipLine(itemID)
+	local level, here = UnitLevel("player"), HereZone()
+	if level ~= tipLevel or here ~= tipZone then
+		tipLines, tipLevel, tipZone = {}, level, here
+	end
+	local line = tipLines[itemID]
+	if line == nil then
+		line = ns.Sources_TipLine(ns.Sources_ForMe(itemID), level, here) or false
+		tipLines[itemID] = line
+	end
+	return line or nil
+end
+
 -- Post-calls can't be removed: this does nothing while off.
 local function OnItemTooltip(tooltip, data)
 	local itemID = data and data.id
 	if not (module.active and db.tooltip and tooltip == GameTooltip and type(itemID) == "number" and not ns.IsSecret(itemID)) then
 		return
 	end
-	local line = ns.SOURCES_ITEMS[itemID]
-		and ns.Sources_TipLine(ns.Sources_ForMe(itemID), UnitLevel("player"), HereZone())
+	local line = ns.SOURCES_ITEMS[itemID] and TipLine(itemID)
 	if line then
 		ns.UI.TipLine(line, "textMuted")
 	end

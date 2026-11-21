@@ -332,6 +332,17 @@ test("ShadowSpan: wrapped, unknown or too wide lines take the frame width", func
 	eq(ns.Chat_ShadowSpan({ { shown = true, alpha = 1, width = 900 } }, 400).width, 400, "capped")
 end)
 
+test("ShadowSpan: fills the table it's given", function()
+	local into = { first = 9, last = 9, alpha = 0.1, width = 1 }
+	local span = ns.Chat_ShadowSpan({ { shown = true, alpha = 0.5, width = 120 } }, 400, into)
+	eq(span, into, "same table")
+	eq(span.first, 1)
+	eq(span.last, 1)
+	eq(span.alpha, 0.5)
+	eq(span.width, 120)
+	eq(ns.Chat_ShadowSpan({}, 400, into), nil, "nothing shown: nil, as without it")
+end)
+
 test("ShadowSpan: nothing shown, nothing to cover", function()
 	eq(ns.Chat_ShadowSpan({ { shown = false, alpha = 0 }, { shown = true, alpha = 0 } }, 400), nil, "faded")
 	eq(ns.Chat_ShadowSpan({}, 400), nil, "empty")

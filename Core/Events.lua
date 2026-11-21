@@ -9,8 +9,7 @@ local addonName, ns = ...
 -- and its owner (Perf.lua, loaded before this file; absent in the tests).
 -- Unit-tested with a CreateFrame stub (tests/test_eventbus.lua).
 
-local clock, record = ns.Perf_Clock, ns.Perf_Record
-local gcount = collectgarbage
+local measure = ns.Perf_Measure
 
 function ns.NewEvents()
 	local frame = CreateFrame("Frame")
@@ -31,9 +30,7 @@ function ns.NewEvents()
 				-- One handler's error goes to BugSack and the others still run. ns.errorHandler is looked up per
 				-- call: Core.lua sets it after this file loads.
 				if timed then
-					local t0, m0 = clock(), gcount("count")
-					xpcall(h.fn, ns.errorHandler, bus, ...)
-					record(group, h.label, event, clock() - t0, gcount("count") - m0)
+					measure(group, h.label, event, xpcall, h.fn, ns.errorHandler, bus, ...)
 				else
 					xpcall(h.fn, ns.errorHandler, bus, ...)
 				end

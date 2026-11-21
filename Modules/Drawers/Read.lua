@@ -104,45 +104,77 @@ local function TooltipText(bag, slot)
 	return table.concat(parts, "\n")
 end
 
--- One record per item ID in the bags, with the fields Bags/Search.lua's rules read (those a bag slot alone knows,
+-- One record per item ID ever read, kept for the session: what an item is doesn't change, so a bag update only
+-- recounts. Building the records (slot info, quest info, the tooltip) on every BAG_UPDATE_DELAYED was most of the
+-- garbage Tomte made while questing (Performance report: about 270 KB a bag update).
+local records = {} -- [itemID] = the record ReadBags returns
+local readList = {} -- the last read's records, reused
+local readStamp = 0 -- which read a record was last counted in
+
+-- A new record from the first slot an item is seen in, or nil while its data is loading.
+local function NewRecord(id, bag, slot)
+	local name, _, quality, ilvl, minLevel, typeName, subTypeName, _, _, _, price, classID, subclassID, _,
+		expansion = C_Item.GetItemInfo(id)
+	if not name then
+		return nil
+	end
+	local info = C_Container.GetContainerItemInfo(bag, slot)
+	classID = ns.BagsRead_ItemClass(id, classID, subclassID)
+	local quest = C_Container.GetContainerItemQuestInfo(bag, slot)
+	local item = {
+		itemID = id, name = name, typeName = typeName, subTypeName = subTypeName,
+		quality = info and info.quality or quality, ilvl = ilvl, minLevel = minLevel, price = price,
+		classID = classID, subclassID = subclassID, expansion = expansion,
+		count = 0,
+		hearth = ns.BAGS_HEARTHS[id] == true,
+		toy = false,
+		mount = C_MountJournal ~= nil and C_MountJournal.GetMountFromItem(id) ~= nil,
+		quest = quest ~= nil and (quest.isQuestItem or quest.questID ~= nil) or false,
+		buff = false, -- consumable and buff: filled in by ReadBags
+	}
+	return item
+end
+
+-- The records for the items in the bags, with the fields Bags/Search.lua's rules read (those a bag slot alone knows,
 -- such as a marker or "new", stay empty and never match). Items above your level are left out: a drawer is for
 -- using things. pending: some item's data hasn't loaded yet (asked for; BAG_UPDATE_DELAYED or the load reads again).
+-- The list and its records are reused by the next read: read them right away, don't keep or change them.
 local function ReadBags(withText)
-	local byID, list, pending = {}, {}, false
+	readStamp = readStamp + 1
+	local list, pending = readList, false
+	for i = #list, 1, -1 do
+		list[i] = nil
+	end
 	local level = UnitLevel("player")
 	for _, bag in ipairs(BAGS) do
 		for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
-			local info = C_Container.GetContainerItemInfo(bag, slot)
-			local id = info and info.itemID
-			if id and not IsSecret(id, info.stackCount) then
-				local item = byID[id]
-				if item then
-					item.count = item.count + (info.stackCount or 1)
-				else
-					local name, _, quality, ilvl, minLevel, typeName, subTypeName, _, _, _, price, classID, subclassID, _,
-						expansion = C_Item.GetItemInfo(id)
-					if not name then
+			local id = ns.BagSlotItemID(bag, slot)
+			if id and not IsSecret(id) then
+				local item = records[id]
+				if not item then
+					item = NewRecord(id, bag, slot)
+					records[id] = item
+					if not item then
 						pending = true
 						C_Item.RequestLoadItemDataByID(id)
-					elseif (minLevel or 0) <= level then
-						classID = ns.BagsRead_ItemClass(id, classID, subclassID)
-						local quest = C_Container.GetContainerItemQuestInfo(bag, slot)
-						item = {
-							itemID = id, name = name, typeName = typeName, subTypeName = subTypeName,
-							quality = info.quality or quality, ilvl = ilvl, minLevel = minLevel, price = price,
-							classID = classID, subclassID = subclassID, expansion = expansion,
-							count = info.stackCount or 1,
-							hearth = ns.BAGS_HEARTHS[id] == true,
-							toy = PlayerHasToy ~= nil and PlayerHasToy(id) or false,
-							mount = C_MountJournal ~= nil and C_MountJournal.GetMountFromItem(id) ~= nil,
-							quest = quest ~= nil and (quest.isQuestItem or quest.questID ~= nil) or false,
-							consumable = classID == CONSUMABLE and ns.ConsumableKind(id) or nil,
-						}
-						item.buff = item.consumable == "food" and ns.IsBuffFood(id)
-						if withText then
+					end
+				end
+				if item and item.stamp ~= readStamp then
+					item.stamp = readStamp
+					if (item.minLevel or 0) <= level then
+						-- The bags' count once per item, rather than a slot info table per stack.
+						local count = C_Item.GetItemCount(id)
+						item.count = (not IsSecret(count) and count) or 1
+						item.toy = PlayerHasToy ~= nil and PlayerHasToy(id) or false
+						if item.classID == CONSUMABLE and not item.consumable then
+							-- Asked again until known: the item's spell can still be loading when the record is made.
+							item.consumable = ns.ConsumableKind(id)
+							item.buff = item.consumable == "food" and ns.IsBuffFood(id)
+						end
+						if withText and not item.text then
+							-- Read once: the words a search matches (Use:, the item's kind) are the same every time.
 							item.text = TooltipText(bag, slot)
 						end
-						byID[id] = item
 						list[#list + 1] = item
 					end
 				end
@@ -152,13 +184,27 @@ local function ReadBags(withText)
 	return list, pending
 end
 
+-- A search compiled once per text: compiling builds a new matcher (closures) each time, and a drawer's searches are
+-- matched on every bag update.
+local compiled = {} -- [text] = { match, usesText }
+
+local function Compiled(text)
+	local c = compiled[text]
+	if not c then
+		local match, _, usesText = ns.BagsSearch_Compile(text)
+		c = { match or false, usesText == true }
+		compiled[text] = c
+	end
+	return c[1] or nil, c[2]
+end
+
 -- The items each search entry finds in your bags: found[entry] = { itemIDs }, best first. Bad searches find
 -- nothing (the editor says why when they're added). Also whether some item's data was still loading.
 function ns.Drawers_Found(entries)
 	local matchers, withText = {}, false
 	for _, entry in ipairs(entries) do
 		if entry.kind == "search" then
-			local match, _, usesText = ns.BagsSearch_Compile(entry.text)
+			local match, usesText = Compiled(entry.text)
 			matchers[entry] = match
 			withText = withText or usesText == true
 		end

@@ -164,11 +164,13 @@ local function ReadAround()
 	end
 end
 
+local ReadAroundTimed = ns.Perf_Wrap(ReadAround, "read ticker")
+
 -- The read ticker runs only while there's a party to read for.
 local function ApplyTicker()
 	local want = Reading()
 	if want and not readTicker then
-		readTicker = C_Timer.NewTicker(READ_EVERY, ReadAround)
+		readTicker = C_Timer.NewTicker(READ_EVERY, ReadAroundTimed)
 	elseif not want and readTicker then
 		readTicker:Cancel()
 		readTicker = nil

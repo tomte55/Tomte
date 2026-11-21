@@ -85,13 +85,15 @@ local function AfterAddMessage(frame, line)
 	end)
 end
 
+local AfterAddMessageTimed = ns.Perf_Wrap(AfterAddMessage, "AddMessage")
+
 -- Once per window; the hook does nothing while the module is off.
 local function HookFrames()
 	for i = 1, MaxWindows() do
 		local frame = _G["ChatFrame" .. i]
 		if frame and not wrapped[frame] and frame.AddMessage and frame.TransformMessages then
 			wrapped[frame] = true
-			hooksecurefunc(frame, "AddMessage", AfterAddMessage)
+			hooksecurefunc(frame, "AddMessage", AfterAddMessageTimed)
 		end
 	end
 end

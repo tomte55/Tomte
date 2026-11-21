@@ -350,10 +350,30 @@ local function ApplyLayout(i)
 	FlyoutColor(f)
 end
 
-local function Build(i)
+-- Refresh(BAGS_ONLY): a bag update. Only then may a drawer whose buttons would show the same keep them as they are
+-- (a settings change rebuilds always; the editor changes entries in place). A table, as event handlers pass args.
+local BAGS_ONLY = {}
+
+-- Whether two shown lists hold the same entries in the same order.
+local function SameEntries(a, b)
+	if not a or #a ~= #b then
+		return false
+	end
+	for j = 1, #a do
+		if a[j].kind ~= b[j].kind or a[j].id ~= b[j].id or a[j].search ~= b[j].search then
+			return false
+		end
+	end
+	return true
+end
+
+local function Build(i, bagsOnly)
 	local d = drawers[i]
 	local saved = DrawerDB(i)
 	local entries = Shown(i)
+	if bagsOnly and SameEntries(d.shown, entries) then
+		return -- the bags changed but not what this drawer shows: its buttons stay as they are
+	end
 	d.shown = entries
 	for j, entry in ipairs(entries) do
 		local b = d.buttons[j] or CreateEntryButton(d)
@@ -385,7 +405,8 @@ local function SetShown(d, show)
 	end
 end
 
-function Refresh()
+function Refresh(how)
+	local bagsOnly = how == BAGS_ONLY and not pending -- a refresh waiting from combat may carry a settings change
 	if InCombatLockdown() then
 		pending = true
 		return
@@ -402,7 +423,7 @@ function Refresh()
 		local saved, entries = DrawerDB(i)
 		ns.Drawers_Clean(entries)
 		ApplyLayout(i)
-		Build(i)
+		Build(i, bagsOnly)
 		SetShown(d, module.active and saved.enabled and (#entries > 0 or preview))
 	end
 	UpdateLooks()
@@ -532,7 +553,7 @@ events:On(owner, "BAG_UPDATE_DELAYED", function()
 	for i = 1, #drawers do
 		local _, entries = DrawerDB(i)
 		if ns.Drawers_HasSearch(entries) then
-			Refresh()
+			Refresh(BAGS_ONLY)
 			return
 		end
 	end

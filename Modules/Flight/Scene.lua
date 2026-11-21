@@ -9,6 +9,8 @@ local addonName, ns = ...
 local PAD = 48 -- side padding inside the bottom band
 local LINE_WIDTH = 440 -- progress line under the timer
 local STATS_PAGE_TIME = 6
+local FILL_STEP_PX = 0.25 -- screen pixels the progress line grows before it's set again
+local UI_HEIGHT = 768 -- UI units from the bottom of the screen to the top at an effective scale of 1
 local Text, Spaced, Place, SetText = ns.SceneText, ns.Spaced, ns.ScenePlace, ns.SceneSetText
 
 local card
@@ -16,6 +18,8 @@ local flight
 local ticks = {}
 local statsSwap
 local pages, page, pageTimer = {}, 1, 0
+local textKey, textClock -- the timer second (ns.TimerKey) and clock second the card's texts were built for
+local fillWidth, fillStep = nil, 0 -- the progress line's width as set, and FILL_STEP_PX in card units
 
 -- "Gundargaz, The Ringing Deeps" -> "Gundargaz", "The Ringing Deeps"
 local function SplitName(name)
@@ -149,6 +153,10 @@ function scene.Begin(f)
 	-- Same on-screen size as normal UI text, whatever the UI scale.
 	card:SetScale(UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale())
 	ns.SceneSnap(card)
+	local _, screenH = GetPhysicalScreenSize()
+	local scale = card:GetEffectiveScale()
+	fillStep = screenH and screenH > 0 and scale > 0 and FILL_STEP_PX * UI_HEIGHT / screenH / scale or 0
+	textKey, textClock, fillWidth = nil, nil, nil
 	ns.ResetSwap(statsSwap)
 	SetDestinationTitle()
 
@@ -202,12 +210,28 @@ function scene.Update(alpha, dt)
 	end
 	local now = GetTime()
 	local elapsed = now - flight.start
-	local text, fill, remaining = ns.TimerText(flight.expected, false, elapsed) -- no "~": the cinematic doesn't flag estimates
-	SetText(card.time, text)
+	local fill = ns.TimerFill(flight.expected, elapsed)
 	if fill then
-		-- The line grows left to right as the flight progresses.
-		card.fill:SetWidth(math.max((1 - fill) * LINE_WIDTH, 0.01))
-		SetText(card.eta, remaining >= 0 and Spaced("Arrives " .. date("%H:%M", time() + math.floor(remaining + 0.5))) or "")
+		-- The line grows left to right as the flight progresses; set again once it grew a fraction of a pixel.
+		local width = math.max((1 - fill) * LINE_WIDTH, 0.01)
+		if not fillWidth or math.abs(width - fillWidth) >= fillStep then
+			fillWidth = width
+			card.fill:SetWidth(width)
+		end
+	end
+	-- The texts show whole seconds and minutes: built again only when the timer's second or the clock's changes,
+	-- not every frame (eight new strings a frame were most of the flight card's cost).
+	local key, clock = ns.TimerKey(flight.expected, elapsed), time()
+	if key ~= textKey or clock ~= textClock then
+		textKey, textClock = key, clock
+		local text, _, remaining = ns.TimerText(flight.expected, false, elapsed) -- no "~": the cinematic doesn't flag estimates
+		SetText(card.time, text)
+		if remaining then
+			SetText(card.eta, remaining >= 0 and Spaced("Arrives " .. date("%H:%M", clock + math.floor(remaining + 0.5))) or "")
+		end
+		if page == 1 and not statsSwap.t then
+			ShowPage(elapsed) -- live air time
+		end
 	end
 
 	pageTimer = pageTimer + dt
@@ -217,9 +241,6 @@ function scene.Update(alpha, dt)
 			page = page % #pages + 1
 			ShowPage(elapsed)
 		end)
-	end
-	if page == 1 and not statsSwap.t then
-		ShowPage(elapsed) -- live air time
 	end
 	ns.UpdateSwap(statsSwap, dt)
 end

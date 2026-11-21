@@ -164,7 +164,7 @@ local function FadeUI(from, to, duration, onDone)
 				onDone()
 			end
 		end
-	end, "OnUpdate"))
+	end, "UI fade"))
 end
 
 local function HideUI(instant)
@@ -223,7 +223,7 @@ local function GlideZoom(state, delta, duration)
 		if t >= duration then
 			self:SetScript("OnUpdate", nil)
 		end
-	end, "OnUpdate"))
+	end, "zoom"))
 end
 
 -- state.zoomedOut is signed: below 0 when opts.zoom moved the camera in.
@@ -288,7 +288,7 @@ local function LimitPitch(state, limit, noLift)
 			MoveViewUpStop()
 			self:SetScript("OnUpdate", nil)
 		end
-	end, "OnUpdate"))
+	end, "pitch"))
 end
 
 local function RestorePitch(state)
@@ -558,7 +558,7 @@ local function CreateLetterbox()
 	hint:SetPoint("RIGHT", letterbox.top, "RIGHT", -HINT_PAD, 0)
 	hint:SetAlpha(0)
 
-	letterbox:SetScript("OnUpdate", ns.Perf_Wrap(LetterboxOnUpdate, "OnUpdate"))
+	letterbox:SetScript("OnUpdate", ns.Perf_Wrap(LetterboxOnUpdate, "letterbox · OnUpdate"))
 
 	-- Input is only enabled while active: clicks/drags and the wheel never reach the camera. A passthrough
 	-- cinematic leaves the mouse alone (clicks are seen in OnUpdate) and lets keys through, and any of them
@@ -791,7 +791,7 @@ function C.Watch(state)
 end
 
 watcher:Hide()
-watcher:SetScript("OnUpdate", ns.Perf_Wrap(WatcherOnUpdate, "OnUpdate"))
+watcher:SetScript("OnUpdate", ns.Perf_Wrap(WatcherOnUpdate, "watcher · OnUpdate"))
 watcher:SetScript("OnKeyDown", TopUp)
 
 local function RestoreOrphaned()

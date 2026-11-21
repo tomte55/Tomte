@@ -356,14 +356,37 @@ function ns.OrbitFactor(expected, elapsed)
 	return (remaining - CINEMATIC_END_LEAD) / (ARRIVAL_SHOT - CINEMATIC_END_LEAD)
 end
 
--- Display text for the timer. Returns text, fill (0..1 remaining, nil when recording), remaining seconds (nil when recording).
+-- How much of the progress line is left: 0..1 remaining, 0 once overdue, nil when recording (no expected time).
+function ns.TimerFill(expected, elapsed)
+	if not expected then
+		return nil
+	end
+	local remaining = expected - elapsed
+	return remaining >= 0 and remaining / expected or 0
+end
+
+-- Display text for the timer. Returns text, fill (ns.TimerFill), remaining seconds (nil when recording).
 function ns.TimerText(expected, isEstimate, elapsed)
 	if not expected then
 		return ns.FormatTime(elapsed), nil, nil
 	end
 	local remaining = expected - elapsed
+	local fill = ns.TimerFill(expected, elapsed)
 	if remaining >= 0 then
-		return (isEstimate and "~" or "") .. ns.FormatTime(remaining), remaining / expected, remaining
+		return (isEstimate and "~" or "") .. ns.FormatTime(remaining), fill, remaining
 	end
-	return "+" .. ns.FormatTime(-remaining), 0, remaining
+	return "+" .. ns.FormatTime(-remaining), fill, remaining
+end
+
+-- A number that changes exactly when ns.TimerText's text does (the whole second it shows), so a caller drawing every
+-- frame builds the text only once a second.
+function ns.TimerKey(expected, elapsed)
+	if not expected then
+		return Round(elapsed)
+	end
+	local remaining = expected - elapsed
+	if remaining >= 0 then
+		return Round(remaining)
+	end
+	return -1 - Round(-remaining) -- overdue: "+00:00" is not "00:00"
 end

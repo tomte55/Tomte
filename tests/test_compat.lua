@@ -6,7 +6,7 @@ local GLOBALS = {
 	"C_AddOns", "GetAddOnMetadata", "ChatFrameUtil", "ChatFrame_SendTell", "ChatFrame_SendBNetTell",
 	"ChatFrame_ReplyTell", "ChatFrame_OpenChat", "ChatEdit_InsertLink", "ChatFrame_AddMessageEventFilter",
 	"ChatFrame_RemoveMessageEventFilter", "C_ChatInfo", "SendChatMessage", "C_SpecializationInfo", "hooksecurefunc",
-	"C_SpellBook", "IsSpellKnown", "C_EventUtils", "CreateFrame", "Ambiguate", "GetNormalizedRealmName", "UnitGUID",
+	"C_SpellBook", "IsSpellKnown", "C_EventUtils", "CreateFrame", "Ambiguate", "GetNormalizedRealmName", "UnitGUID", "C_Container",
 }
 
 -- Loads Compat.lua with only the given game globals present.
@@ -308,6 +308,19 @@ test("realm learning ignores empty realms and non-player GUIDs", function()
 	ns.Realm_Learn(known, nil, "Silvermoon")
 	eq(next(known), nil)
 	eq(ns.Realm_Find(known, "Creature-0-1-2"), nil)
+end)
+
+test("bag slot item ID: the plain call, else the slot info", function()
+	local ns = Load({ C_Container = { GetContainerItemID = function(bag, slot)
+		return bag == 0 and slot == 1 and 6948 or nil
+	end } })
+	eq(ns.BagSlotItemID(0, 1), 6948, "plain call")
+	eq(ns.BagSlotItemID(0, 2), nil, "empty slot")
+	ns = Load({ C_Container = { GetContainerItemInfo = function(bag, slot)
+		return bag == 0 and slot == 1 and { itemID = 6948, stackCount = 1 } or nil
+	end } })
+	eq(ns.BagSlotItemID(0, 1), 6948, "from the slot info")
+	eq(ns.BagSlotItemID(0, 2), nil, "empty slot, slot info")
 end)
 
 H.done()

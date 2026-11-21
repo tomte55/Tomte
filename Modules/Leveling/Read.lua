@@ -406,13 +406,37 @@ end
 -- continent, zone }. Read from your map and the maps above it up to the continent; your zone's map also lists the
 -- quests of the zones around it, each with its own map (measured on Forever, 2026-11-08). A quest's x, y are on the map
 -- that was asked, as Blizzard's quest pins place them.
+-- The world points already worked out: [mapID][questID] = point, with the map spot it came from (mx, my). The quest log
+-- changes many times a fight (every kill credit) and three readers (Quest list, its minimap, Next quests) read again
+-- each time, while a quest's spot rarely moves: an unmoved spot reuses its point instead of making two vectors and a
+-- table (the minimap's 7 MB of garbage and slow frames in a questing report, 2026-11-21). Points are shared: read-only.
+local pointCache = {}
+
+local function CachedPoint(mapID, questID, x, y)
+	local byQuest = pointCache[mapID]
+	if not byQuest then
+		byQuest = {}
+		pointCache[mapID] = byQuest
+	end
+	local p = byQuest[questID]
+	if p and p.mx == x and p.my == y then
+		return p
+	end
+	p = WorldPoint(mapID, x, y)
+	if p then
+		p.mx, p.my = x, y
+	end
+	byQuest[questID] = p
+	return p
+end
+
 function ns.LevelingRead_QuestPoints(mapID)
 	local points, seen = {}, {}
 	while mapID and not seen[mapID] do
 		seen[mapID] = true
 		for _, info in ipairs(C_QuestLog.GetQuestsOnMap(mapID) or {}) do
 			if info.questID and not points[info.questID] and info.x and info.y then
-				local p = WorldPoint(mapID, info.x, info.y)
+				local p = CachedPoint(mapID, info.questID, info.x, info.y)
 				if p then
 					p.zone = ZoneName(info.mapID or mapID)
 					points[info.questID] = p

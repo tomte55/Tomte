@@ -384,6 +384,24 @@ test("TimerText for countdown, estimate, overrun and recording", function()
 	eq(text, "01:15", "recording counts up"); eq(fill, nil, "no fill"); eq(remaining, nil, "no remaining")
 end)
 
+test("TimerKey changes exactly when the timer text does", function()
+	for _, expected in ipairs({ 100, 37.3, false }) do
+		local exp = expected or nil
+		local lastText, lastKey
+		for step = 0, 1200 do
+			local elapsed = step * 0.1
+			local text, key = ns.TimerText(exp, false, elapsed), ns.TimerKey(exp, elapsed)
+			if lastText then
+				eq(text ~= lastText, key ~= lastKey, ("expected %s at %.1f s"):format(tostring(exp), elapsed))
+			end
+			lastText, lastKey = text, key
+		end
+	end
+	eq(ns.TimerFill(100, 40), 0.6, "fill")
+	eq(ns.TimerFill(100, 120), 0, "overdue")
+	eq(ns.TimerFill(nil, 40), nil, "recording")
+end)
+
 test("RecordStats tracks per-map time, departures and route counts", function()
 	local db = ns.Flight_InitDB(nil)
 	ns.RecordStats(db, 100, "A to B", "A", 7)

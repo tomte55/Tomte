@@ -104,11 +104,12 @@ local function Sweep()
 		MouseOff(header.FilterButton)
 	end
 end
+local SweepTimed = ns.Perf_Wrap(Sweep, "sweep")
 
 local function SweepSoon()
 	if muted and not sweepPending then
 		sweepPending = true
-		C_Timer.After(0, Sweep)
+		C_Timer.After(0, SweepTimed)
 	end
 end
 

@@ -157,6 +157,19 @@ function ns.EventValid(event)
 	return ok
 end
 
+-- Bags ------------------------------------------------------------------------------------------------------------
+
+-- The item ID in a bag slot, or nil. The plain call where the client has it: GetContainerItemInfo makes a table per
+-- slot, and a scan of every slot on each bag update was a good part of the garbage Tomte made (Performance report).
+function ns.BagSlotItemID(bag, slot)
+	local container = C_Container
+	if container.GetContainerItemID then
+		return container.GetContainerItemID(bag, slot)
+	end
+	local info = container.GetContainerItemInfo(bag, slot)
+	return info and info.itemID
+end
+
 -- Spells ----------------------------------------------------------------------------------------------------------
 
 function ns.SpellKnown(spellID)

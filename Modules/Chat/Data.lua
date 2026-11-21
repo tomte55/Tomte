@@ -371,13 +371,15 @@ end
 -- each { shown = drawn now, alpha = 0..1, width = text width in px or nil when unknown, wraps = takes more than one
 -- row }. Returns nil when no line shows, else { first, last = the lowest and highest shown slot, alpha = the
 -- strongest line's, width = the widest line's, capped at frameWidth (frameWidth for a wrapped or unknown one) }.
-function ns.Chat_ShadowSpan(lines, frameWidth)
+-- into: an optional table to fill and return instead of a new one (Quiet Chat reads 20 times a second).
+function ns.Chat_ShadowSpan(lines, frameWidth, into)
 	local span
 	for index, line in ipairs(lines or {}) do
 		if line.shown and (line.alpha or 0) > 0 then
 			local width = (line.wraps or not line.width) and frameWidth or math.min(line.width, frameWidth)
 			if not span then
-				span = { first = index, last = index, alpha = line.alpha, width = width }
+				span = into or {}
+				span.first, span.last, span.alpha, span.width = index, index, line.alpha, width
 			else
 				span.last = index
 				span.alpha = math.max(span.alpha, line.alpha)

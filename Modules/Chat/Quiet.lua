@@ -86,6 +86,7 @@ local wake, wakeTarget = 0, 0 -- 0 asleep .. 1 awake
 local holder, line, chip, driver
 local asleepLayer, backing, tracker -- the backing lives on a layer faded opposite to the wake
 local lineInfo = {} -- the shown window's line slots, as ns.Chat_ShadowSpan reads them (reused)
+local spanBuffer = {} -- ns.Chat_ShadowSpan's answer, filled in place 20 times a second rather than made anew
 local lineHooked = {} -- [chat frame] = true once its AddMessage is hooked
 -- The backing's place as px from the shown window's bottom edge: where the lines are (target) and where it is now,
 -- easing toward that (nil while hidden).
@@ -234,10 +235,18 @@ end
 
 -- The shown window's line slots as plain values. A line's width or row count can be secret (chat lockdown): then
 -- the width is unknown and the shadow takes the frame's width.
+-- Measuring a line's width lays its text out, and this runs 20 times a second for every slot while lines show (most of
+-- Quiet Chat's cost in a busy chat): a slot is measured again only when its text, the window's width or the font size
+-- changed since, and not at all while it's hidden or faded out (Chat_ShadowSpan skips those).
 local function ReadLines(frame)
 	local slots = frame.visibleLines
 	if type(slots) ~= "table" then
 		return nil
+	end
+	local frameWidth = frame:GetWidth()
+	local _, fontSize = frame:GetFont()
+	if IsSecret(frameWidth, fontSize) then
+		frameWidth, fontSize = nil, nil -- can't be compared: every line is measured
 	end
 	local count = 0
 	for index, fs in ipairs(slots) do
@@ -246,11 +255,21 @@ local function ReadLines(frame)
 		lineInfo[index] = info
 		info.shown = fs:IsShown()
 		info.alpha = fs:GetAlpha()
-		local width, rows = fs:GetUnboundedStringWidth(), fs:GetNumLines()
-		if IsSecret(width, rows) then
-			info.width, info.wraps = nil, false
-		else
-			info.width, info.wraps = width, rows > 1
+		if info.shown and (info.alpha or 0) > 0 then
+			local text = fs:GetText()
+			if IsSecret(text) then
+				text = nil -- can't be compared: measured every time
+			end
+			if not (text and frameWidth) or text ~= info.text or frameWidth ~= info.frameWidth
+				or fontSize ~= info.fontSize then
+				info.text, info.frameWidth, info.fontSize = text, frameWidth, fontSize
+				local width, rows = fs:GetUnboundedStringWidth(), fs:GetNumLines()
+				if IsSecret(width, rows) then
+					info.width, info.wraps = nil, false
+				else
+					info.width, info.wraps = width, rows > 1
+				end
+			end
 		end
 	end
 	for index = #lineInfo, count + 1, -1 do
@@ -291,7 +310,7 @@ local function ReadTarget()
 	if not frame then
 		return nil
 	end
-	local span = ns.Chat_ShadowSpan(ReadLines(frame), frame:GetWidth())
+	local span = ns.Chat_ShadowSpan(ReadLines(frame), frame:GetWidth(), spanBuffer)
 	if not span then
 		backingTarget.alpha = 0
 		return frame
@@ -364,12 +383,14 @@ local function OnTrackerUpdate(self, elapsed)
 	end
 end
 
+local OnTrackerUpdateTimed = ns.Perf_Wrap(OnTrackerUpdate, "lines · OnUpdate")
+
 -- Lines show (a new one, chat going back to sleep, a setting): read the slots until they've all faded.
 local function TrackLines()
 	if module.active and module.db.lineBacking then
 		tracker.wait = 0
 		tracker.keepUntil = GetTime() + TRACK_GRACE
-		tracker:SetScript("OnUpdate", OnTrackerUpdate)
+		tracker:SetScript("OnUpdate", OnTrackerUpdateTimed)
 	end
 end
 
@@ -378,6 +399,7 @@ local function OnLineAdded(frame)
 		TrackLines()
 	end
 end
+local OnLineAddedTimed = ns.Perf_Wrap(OnLineAdded, "AddMessage")
 
 -- Unread ------------------------------------------------------------------------------------------------------------
 
@@ -540,6 +562,7 @@ local function OnDriverUpdate(self, elapsed)
 		self:SetScript("OnUpdate", nil)
 	end
 end
+local OnDriverUpdateTimed = ns.Perf_Wrap(OnDriverUpdate, "wake · OnUpdate")
 
 local function UpdateWake()
 	local target = (next(hovered) or typingBox) and 1 or 0
@@ -557,7 +580,7 @@ local function UpdateWake()
 	else
 		TrackLines() -- the lines a hover brought back fade from here on
 	end
-	driver:SetScript("OnUpdate", OnDriverUpdate)
+	driver:SetScript("OnUpdate", OnDriverUpdateTimed)
 end
 
 -- Restyling Blizzard's chat -----------------------------------------------------------------------------------------
@@ -708,7 +731,7 @@ local function Restyle(frame, name)
 	if not lineHooked[frame] and frame.AddMessage then
 		lineHooked[frame] = true
 		-- These do nothing while the module is off.
-		hooksecurefunc(frame, "AddMessage", OnLineAdded)
+		hooksecurefunc(frame, "AddMessage", OnLineAddedTimed)
 		if frame.SetScrollOffset then
 			hooksecurefunc(frame, "SetScrollOffset", UpdateArrow)
 		end

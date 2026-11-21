@@ -88,13 +88,13 @@ local function Build(canvas)
 	ringFrame.breathe = breathe
 	ringFrame:Hide()
 	-- Shown with the map (it's on the canvas): follows map changes, zoom and the followed quest while it shows.
-	holder:SetScript("OnUpdate", function()
+	holder:SetScript("OnUpdate", ns.Perf_Wrap(function()
 		local canvasNow = WorldMapFrame:GetCanvas()
 		if WorldMapFrame:GetMapID() ~= placedMap or canvasNow:GetEffectiveScale() ~= placedScale
 			or canvasNow:GetWidth() ~= placedWidth or Quest() ~= placedQuest then
 			Place()
 		end
-	end)
+	end, "OnUpdate"))
 end
 
 -- The quest's pin on mapID: x, y (0..1), or nil when it has none there.

@@ -20,6 +20,8 @@ local AREA_FILL_ALPHA, AREA_BORDER_ALPHA = 56, 128
 local PICK = 1 -- seconds between checking the minimap's shape, rotation and your map (the quests' spots are read
 -- again only when the quest log, the active quest or your map changes: reading them made most of this file's garbage)
 local MAP_ZONE = 3 -- Enum.UIMapType.Zone: quest areas are drawn on zone maps
+local QUANTUM_PX = 0.25 -- screen pixels the minimap moves before the markers follow: far below what an eye can see
+local UI_HEIGHT = 768 -- UI units from the bottom of the screen to the top at an effective scale of 1
 -- The game's own quest area on the minimap follows its active quest, which a newly taken quest becomes, not the one
 -- the Quest list follows (making ours the game's taints, see ns.ActiveQuest_Follow). While ours is drawn the game's is
 -- hidden through the minimap's own blob alphas (plain Minimap methods, no taint). They have no getters and Blizzard's
@@ -32,7 +34,10 @@ local active = false
 local holder, activePin
 local others, othersUsed = {}, 0
 local strips = {} -- clip frames, each { frame, blob }
-local stripsFor -- "round:half" or "square:half": the shape the strips were laid out for
+local stripsHalf, stripsRound -- the minimap size and shape the strips were laid out for
+local stripsShown = 0 -- strips[1..stripsShown] are in use
+local areaShown = false -- some strip's area is shown
+local areaFor, areaFinished -- the quest and its finished objectives (QuestsChanged) when its area was last drawn
 local points = {} -- [questID] = world point { x, y, continent } (Leveling's readers)
 local axes, axesMap
 local zoneMap, zoneW, zoneH -- the player's zone map and its size in yards
@@ -47,6 +52,13 @@ local round, rotate = true, false
 local you, youX, youY, youMap -- your world point, and the zone map spot it was read at (read again once you move)
 local facing, ppy -- for Spot, set each frame
 local lastPx, lastPy, lastW -- what the area strips were last scrolled for
+-- What the markers were last placed for. Until the minimap has moved by more than `quantum` (a fraction of a screen
+-- pixel) every marker is still where it belongs and a frame does nothing: walking at the default zoom moves the minimap
+-- about 0.04 pixels a frame, so most frames are skipped while nothing visibly lags. stale: something else changed
+-- (the quests, the map, the minimap's shape, a setting), so the next frame places everything again.
+local drawnX, drawnY, drawnContinent, drawnFacing, drawnPpy, drawnQuest
+local stale = true
+local quantum = 0 -- minimap units in QUANTUM_PX screen pixels, worked out in Pick
 
 local HideGameBlob -- On and off, below
 
@@ -128,11 +140,10 @@ end
 
 -- The clip strips for the minimap's shape and size: one square, or bands STRIP_PX high down the circle.
 local function LayStrips(half)
-	local key = (round and "round:" or "square:") .. half
-	if key == stripsFor then
+	if half == stripsHalf and round == stripsRound then
 		return
 	end
-	stripsFor = key
+	stripsHalf, stripsRound = half, round
 	local shape = round and ns.Mini_Strips(half, math.max(12, math.floor(2 * half / STRIP_PX)))
 		or { { top = half, height = 2 * half, halfWidth = half } }
 	for i, s in ipairs(shape) do
@@ -147,14 +158,20 @@ local function LayStrips(half)
 	for i = #shape + 1, #strips do
 		strips[i].frame:Hide()
 	end
+	stripsShown = #shape
 	blobQuest = nil -- drawn again into the strips now shown
 	lastPx = nil
 end
 
 local function HideArea()
+	if not areaShown then
+		return
+	end
+	areaShown = false
 	for _, strip in ipairs(strips) do
 		strip.blob:Hide()
 	end
+	blobQuest = nil -- drawn (and shown) again when it comes back
 end
 
 -- The area of questID on the player's zone map, the map's own size in yards scaled to minimap pixels (ppy) and placed
@@ -173,33 +190,42 @@ local function DrawArea(questID, px, py, ppy)
 	lastPx, lastPy, lastW = px, py, w
 	blobQuest, blobMap, blobW = questID, zoneMap, w
 	-- The area's top left sits at (-px * w, py * h) from the minimap's centre; each strip scrolls to show its part.
-	for _, strip in ipairs(strips) do
-		if strip.frame:IsShown() then
-			if redraw then
-				strip.inner:SetSize(w, h)
-				strip.blob:SetMapID(zoneMap)
-			end
-			strip.frame:SetHorizontalScroll(px * w + strip.left)
-			strip.frame:SetVerticalScroll(py * h - strip.top)
+	-- Walking only scrolls: two calls a strip.
+	local sx, sy = px * w, py * h
+	for i = 1, stripsShown do
+		local strip = strips[i]
+		if redraw then
+			strip.inner:SetSize(w, h)
+			strip.blob:SetMapID(zoneMap)
+		end
+		strip.frame:SetHorizontalScroll(sx + strip.left)
+		strip.frame:SetVerticalScroll(sy - strip.top)
+		if redraw then
 			strip.blob:Show()
-			if redraw then
-				-- The game fixes an area's shape where its frame is when drawn. Asking for the frame's edge first makes
-				-- the game place it now, so it's drawn for its new size in this frame (drawn a frame later, it flashed
-				-- on every zoom; drawn before the frame was placed, it landed in the old spot).
-				strip.blob:GetLeft()
-				strip.blob:DrawNone()
-				strip.blob:DrawBlob(questID, true)
-			end
+			-- The game fixes an area's shape where its frame is when drawn. Asking for the frame's edge first makes
+			-- the game place it now, so it's drawn for its new size in this frame (drawn a frame later, it flashed
+			-- on every zoom; drawn before the frame was placed, it landed in the old spot).
+			strip.blob:GetLeft()
+			strip.blob:DrawNone()
+			strip.blob:DrawBlob(questID, true)
 		end
 	end
+	areaShown = true
 end
 
 -- Reading -----------------------------------------------------------------------------------------------------------
 
 local function Pick()
 	pickAt = GetTime() + PICK
+	local wasRound, wasRotate = round, rotate
 	round = ns.MinimapShape() == "ROUND"
 	rotate = C_CVar.GetCVarBool("rotateMinimap")
+	if round ~= wasRound or rotate ~= wasRotate then
+		stale = true
+	end
+	local _, screenH = GetPhysicalScreenSize()
+	local scale = holder:GetEffectiveScale()
+	quantum = screenH and screenH > 0 and scale > 0 and QUANTUM_PX * UI_HEIGHT / screenH / scale or 0
 	-- A rotating minimap gets no area of ours (DrawArea): the game's shows there.
 	HideGameBlob(DB().minimapArea and not rotate and true or false)
 	local _, map = ns.QuestListRead_Zone()
@@ -225,11 +251,12 @@ local function Pick()
 			end
 		end
 		you = nil
+		stale = true
 	end
 	local best = C_Map.GetBestMapForUnit("player")
 	best = best and ns.Readable(best) and best or nil
 	if pointsDirty or best ~= pointsMap then
-		pointsDirty, pointsMap = false, best
+		pointsDirty, pointsMap, stale = false, best, true
 		points = best and ns.LevelingRead_QuestPoints(best) or {}
 		local quest = Quest()
 		if quest and not points[quest] then
@@ -243,6 +270,7 @@ local function Pick()
 	if best ~= axesMap then
 		-- A cave or building map may have no world position: the zone's axes then.
 		axesMap, axes = best, best and ns.QuestListRead_Axes(best) or zoneMap and ns.QuestListRead_Axes(zoneMap) or nil
+		stale = true
 	end
 end
 
@@ -257,6 +285,7 @@ local function HideAll()
 	end
 	othersUsed = 0
 	HideArea()
+	stale = true -- shown again in full when you can be placed again
 end
 
 -- A world point's offset from you on the minimap, in pixels, or nil on another continent.
@@ -315,6 +344,18 @@ local function Update()
 	ppy = half / radius -- pixels per yard
 	facing = rotate and Facing() or nil
 	local quest = Quest()
+	if not stale and ppy == drawnPpy and quest == drawnQuest and you.continent == drawnContinent then
+		local dx, dy = you.x - drawnX, you.y - drawnY
+		local turned = facing ~= drawnFacing
+		if turned and facing and drawnFacing then
+			turned = math.abs(facing - drawnFacing) * half >= quantum -- the minimap's rim moves the most when it turns
+		end
+		if not turned and (dx * dx + dy * dy) * ppy * ppy < quantum * quantum then
+			return -- moved less than a fraction of a pixel: every marker and the area are where they belong
+		end
+	end
+	stale = false
+	drawnX, drawnY, drawnContinent, drawnFacing, drawnPpy, drawnQuest = you.x, you.y, you.continent, facing, ppy, quest
 	local db = DB()
 
 	-- The area, on the player's zone map.
@@ -330,10 +371,13 @@ local function Update()
 				local x, y = Spot(point)
 				if x and ns.Mini_Inside(x, y, edge, round) then
 					used = used + 1
-					local pin = others[used] or NewPin(OTHER)
-					others[used] = pin
+					local pin = others[used]
+					if not pin then
+						pin = NewPin(OTHER)
+						pin:SetAlpha(OTHER_ALPHA)
+						others[used] = pin
+					end
 					Dress(pin, ready[id], "frame")
-					pin:SetAlpha(OTHER_ALPHA)
 					pin:SetPoint("CENTER", holder, "CENTER", x, y)
 					pin:Show()
 				end
@@ -356,8 +400,10 @@ local function Update()
 		end
 		return
 	end
-	activePin = activePin or NewPin(PIN)
-	activePin:SetFrameLevel(holder:GetFrameLevel() + 3)
+	if not activePin then
+		activePin = NewPin(PIN)
+		activePin:SetFrameLevel(holder:GetFrameLevel() + 3)
+	end
 	local inner = half - PIN / 2
 	if ns.Mini_Inside(x, y, inner, round) then
 		Dress(activePin, ready[quest] or false, "accent")
@@ -366,19 +412,22 @@ local function Update()
 		-- Out of view: an arrow on the edge pointing at it.
 		local angle = math.atan2(-x, y) -- counterclockwise from up, as SetRotation turns
 		x, y = ns.Mini_Clamp(x, y, inner, round)
-		activePin.ring:Hide()
-		activePin.mark:Hide()
-		ns.QuestPin_Show(activePin, false)
+		if not activePin.arrow:IsShown() then
+			-- Turned into the arrow once; after that only its angle follows you.
+			activePin.ring:Hide()
+			activePin.mark:Hide()
+			ns.QuestPin_Show(activePin, false)
+			activePin.arrow:SetVertexColor(UI.Color("accent"))
+			activePin.arrow:Show()
+		end
 		activePin.arrow:SetRotation(angle)
-		activePin.arrow:SetVertexColor(UI.Color("accent"))
-		activePin.arrow:Show()
 	end
 	activePin:SetPoint("CENTER", holder, "CENTER", x, y)
 	activePin:Show()
 end
 
 -- Every frame: the minimap's terrain moves every frame, and markers moved less often visibly lagged it (jitter,
--- measured 2026-11-15). Update reads one position and moves a handful of frames.
+-- measured 2026-11-15). Update reads one position and moves a handful of frames, and stops there while nothing moved.
 local function OnUpdate()
 	Update()
 end
@@ -415,19 +464,38 @@ local function Apply()
 		holder:SetScript("OnUpdate", ns.Perf_Wrap(OnUpdate, "OnUpdate"))
 	end
 	holder:SetFrameLevel(Minimap:GetFrameLevel() + 4)
-	pickAt, blobQuest, stripsFor, pointsDirty = 0, nil, nil, true
+	pickAt, blobQuest, stripsHalf, pointsDirty, stale = 0, nil, nil, true, true
 	holder:Show()
 end
 
 ns.ActiveQuest_OnChange(function()
 	if active then
-		pickAt, blobQuest, pointsDirty = 0, nil, true
+		pickAt, blobQuest, pointsDirty, stale = 0, nil, true, true
 	end
 end)
 
--- The quest log changed: spots are read again and the area drawn again (a finished quest's area changes).
+-- The quest log changed: spots are read again. The area is drawn again only once one of the quest's objectives
+-- finished (its area changes then): the log changes with every kill credit, and drawing the area into every strip again
+-- each time is the likely cause of the minimap's slow frames when questing (report of 2026-11-21).
 function ns.QuestListMini_QuestsChanged()
-	pickAt, blobQuest, pointsDirty = 0, nil, true
+	pickAt, pointsDirty, stale = 0, true, true
+	if not active then
+		return -- Apply draws everything again when it starts
+	end
+	local quest = Quest()
+	local finished = quest and 0
+	if quest then
+		for _, o in ipairs(C_QuestLog.GetQuestObjectives(quest) or {}) do
+			if o.finished then
+				finished = finished + 1
+			end
+		end
+		finished = finished + (Ready(quest) and 1000 or 0) -- ready to hand in counts too
+	end
+	if quest ~= areaFor or finished ~= areaFinished then
+		areaFor, areaFinished = quest, finished
+		blobQuest = nil
+	end
 end
 
 function ns.QuestListMini_Start()

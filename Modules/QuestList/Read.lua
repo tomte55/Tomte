@@ -21,15 +21,27 @@ end
 
 -- The zone you're in, by name and map: the zone-level map above a cave, building or sub-zone map you may be on, as
 -- quest spots name their zone. Used to put your zone first and to name stops in it by direction.
+-- Kept per map you stand on: maps don't move in the tree, and the list asks several times per update and tick.
+local zoneOf = {} -- [best map ID] = { name, zone map ID } (false fields when there's no zone above it)
+
 function ns.QuestListRead_Zone()
-	local mapID, seen = C_Map.GetBestMapForUnit("player"), {}
-	local info = mapID and C_Map.GetMapInfo(mapID)
-	while info and info.mapType > MAP_ZONE and info.parentMapID and info.parentMapID > 0 and not seen[mapID] do
-		seen[mapID] = true
-		mapID = info.parentMapID
-		info = C_Map.GetMapInfo(mapID)
+	local best = C_Map.GetBestMapForUnit("player")
+	if not best or ns.IsSecret(best) then
+		return nil, nil
 	end
-	return info and info.name or nil, info and mapID or nil
+	local known = zoneOf[best]
+	if not known then
+		local mapID, seen = best, {}
+		local info = C_Map.GetMapInfo(mapID)
+		while info and info.mapType > MAP_ZONE and info.parentMapID and info.parentMapID > 0 and not seen[mapID] do
+			seen[mapID] = true
+			mapID = info.parentMapID
+			info = C_Map.GetMapInfo(mapID)
+		end
+		known = { info and info.name or false, info and mapID or false }
+		zoneOf[best] = known
+	end
+	return known[1] or nil, known[2] or nil
 end
 
 -- Which way east and north run in world coordinates on mapID, as unit vectors: { ex, ey, nx, ny }, or nil where the map
@@ -73,15 +85,16 @@ function ns.QuestListRead_CarriedQuestItems(questItems)
 	local list, counts = {}, {}
 	for bag = 0, LAST_CARRIED_BAG do
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
-			local info = C_Container.GetContainerItemInfo(bag, slot)
-			local itemID = info and info.itemID
+			-- The slot info table only for a quest item's slot: one per slot made 40 KB a bag update.
+			local itemID = ns.BagSlotItemID(bag, slot)
 			if itemID and questItems[itemID] then
 				if not counts[itemID] and C_Item.GetItemSpell(itemID) then
 					list[#list + 1] = itemID
 					counts[itemID] = 0
 				end
 				if counts[itemID] then
-					counts[itemID] = counts[itemID] + (info.stackCount or 1)
+					local info = C_Container.GetContainerItemInfo(bag, slot)
+					counts[itemID] = counts[itemID] + (info and info.stackCount or 1)
 				end
 			end
 		end

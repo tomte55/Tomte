@@ -40,9 +40,34 @@ function ns.Perf_Caller(depth)
 	return GroupOf(SourceOf(debugstack(depth + 1, 1, 0)))
 end
 
-local function Finish(group, sub, what, t0, m0, ...)
-	Record(group, sub, what, clock() - t0, gcount("count") - m0)
+-- Self time: a timed call made inside another (a hook run by a timed Show, a handler run by a timed script) is
+-- charged to itself and taken off the outer one, so nothing is counted twice. childMs, childKb: what the timed calls
+-- inside the current one took so far. An error inside a timed call skips its Finish; the totals start clean on the
+-- next frame (GetTime is the same all through one frame).
+local childMs, childKb, stackAt = 0, 0, nil
+
+local function Enter()
+	local now = GetTime()
+	if now ~= stackAt then
+		childMs, childKb, stackAt = 0, 0, now
+	end
+	local savedMs, savedKb = childMs, childKb
+	childMs, childKb = 0, 0
+	return savedMs, savedKb
+end
+
+local function Finish(group, sub, what, t0, m0, savedMs, savedKb, ...)
+	local ms, kb = clock() - t0, gcount("count") - m0
+	Record(group, sub, what, ms - childMs, kb - childKb)
+	childMs, childKb = savedMs + ms, savedKb + kb
 	return ...
+end
+
+-- fn(...) timed now under group, sub and what, as self time (the event buses use it for each handler).
+function ns.Perf_Measure(group, sub, what, fn, ...)
+	local savedMs, savedKb = Enter()
+	local t0, m0 = clock(), gcount("count")
+	return Finish(group, sub, what, t0, m0, savedMs, savedKb, fn(...))
 end
 
 -- fn, timed while recording, under the caller's module folder and file; what names it ("OnUpdate", "tooltip").
@@ -53,8 +78,9 @@ function ns.Perf_Wrap(fn, what)
 		if not ns.perfOn then
 			return fn(...)
 		end
+		local savedMs, savedKb = Enter()
 		local t0, m0 = clock(), gcount("count")
-		return Finish(group, file, what, t0, m0, fn(...))
+		return Finish(group, file, what, t0, m0, savedMs, savedKb, fn(...))
 	end
 end
 
@@ -65,8 +91,23 @@ function ns.Perf_WrapNamed(fn)
 		if not ns.perfOn then
 			return fn(...)
 		end
+		local savedMs, savedKb = Enter()
 		local t0, m0 = clock(), gcount("count")
-		return Finish(group, file, what, t0, m0, fn(...))
+		return Finish(group, file, what, t0, m0, savedMs, savedKb, fn(...))
+	end
+end
+
+-- For callbacks made fresh each time (a C_Timer.After closure): run(what, fn, ...) times fn(...) under the file
+-- that made run, without reading the stack per call. Make run once per file.
+function ns.Perf_Runner()
+	local group, file = ns.Perf_Caller(2)
+	return function(what, fn, ...)
+		if not ns.perfOn then
+			return fn(...)
+		end
+		local savedMs, savedKb = Enter()
+		local t0, m0 = clock(), gcount("count")
+		return Finish(group, file, what, t0, m0, savedMs, savedKb, fn(...))
 	end
 end
 
@@ -77,8 +118,9 @@ function ns.Perf_WrapEvents(fn)
 		if not ns.perfOn then
 			return fn(self, event, ...)
 		end
+		local savedMs, savedKb = Enter()
 		local t0, m0 = clock(), gcount("count")
-		return Finish(group, file, event or "?", t0, m0, fn(self, event, ...))
+		return Finish(group, file, event or "?", t0, m0, savedMs, savedKb, fn(self, event, ...))
 	end
 end
 
