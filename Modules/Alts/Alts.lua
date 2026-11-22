@@ -14,6 +14,7 @@ local function Label() -- built when used: the theme is chosen on ADDON_LOADED
 	return UI.Wrap("Alts:", "accent") .. " "
 end
 local TAB_H = 22
+local ENCHANTING = 333 -- Enchanting's skill line (GetProfessionInfo's seventh return)
 
 local module, db
 local page
@@ -276,6 +277,18 @@ function ns.Alts_RecipeLearnersFor(itemID, data)
 	return ns.Alts_RecipeLearners(db.chars, db.recipes, key and recipesByName[key], Requirement(data))
 end
 
+-- The enchanter the mailbox's "To disenchant" group sends to (Alts_Enchanter), as { name, skill (their Enchanting
+-- when last played) }; nil while Alts is off or none is found. Gold & value marks mailable gear to disenchant for them
+-- while they're leveling Enchanting.
+function ns.Alts_EnchanterFor()
+	if not (module.active and db) then
+		return nil
+	end
+	local guid = ns.Alts_Enchanter(db.chars, UnitGUID("player"), ns.Alts_MailRealms(), ENCHANTING)
+	local prof = guid and db.chars[guid].profs[ENCHANTING]
+	return prof and { name = db.chars[guid].name, skill = prof.skill or 0 } or nil
+end
+
 local function OnItem(tooltip, data)
 	if not (module.active and db.tooltip and tooltip.AddLine and data) then
 		return
@@ -432,7 +445,8 @@ module = ns.RegisterModule({
 		unneeded = function()
 			return ns.Counts_Active and ns.Counts_Active()
 		end },
-		{ addon = "Auctionator", why = "shopping lists for missing materials" } },
+		{ addon = "Auctionator", why = "shopping lists for missing materials" },
+		{ addon = "TradeSkillMaster", why = "a search for missing materials to paste into its Shopping tab" } },
 	keep = { "sendRules" }, -- typed by the user: a settings reset keeps it
 	-- Character GUIDs and friends' BattleTags: not in settings strings (Core/Profile.lua).
 	noShare = { "filterChar", "filterFor", "friendCrafts", "requests" },

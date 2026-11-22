@@ -295,6 +295,8 @@ end
 
 -- Which recipe to use for a crafted material: one somebody knows (then any), lowest ID for a stable answer.
 local function PickProducer(itemIDs, producers, recipes, chars, stack)
+	-- A recipe none of your characters knows is only planned when a friend makes it (FriendsData.lua): otherwise the
+	-- material is bought, rather than its own materials gathered for a craft nobody can do.
 	local fallback
 	for _, itemID in ipairs(itemIDs) do
 		for _, id in ipairs(producers[itemID] or {}) do
@@ -302,7 +304,9 @@ local function PickProducer(itemIDs, producers, recipes, chars, stack)
 				if #(ns.Alts_Crafters(chars, recipes[id], id)) > 0 then
 					return id
 				end
-				fallback = fallback or id
+				if recipes[id].friend then
+					fallback = fallback or id
+				end
 			end
 		end
 	end
@@ -423,6 +427,19 @@ end
 -- What to buy for one plan or a list of plans (the Crafting list): { { itemID, qty } } in first-seen order, one per
 -- material (its first quality rank). "full": only what's missing (crafted materials are made from their own,
 -- which are listed). "one": the recipe's own materials, a crafted one too (bought instead of made).
+-- A TSM Shopping search for items ({ itemID, qty }, Alts_ShoppingItems): "i:2589/x64;i:2320/x9", the item strings and
+-- quantities TSM's own gathering search builds (TSM App/AuctionUI/Shopping.lua). By ID, so it needs no item names
+-- and works in any client language.
+function ns.Alts_TsmSearch(items)
+	local parts = {}
+	for _, it in ipairs(items) do
+		if it.qty and it.qty > 0 then
+			parts[#parts + 1] = ("i:%d/x%d"):format(it.itemID, it.qty)
+		end
+	end
+	return table.concat(parts, ";")
+end
+
 function ns.Alts_ShoppingItems(plans, mode)
 	if plans.materials then
 		plans = { plans }

@@ -88,6 +88,25 @@ test("plan: full chain crafts the missing materials first", function()
 	eq(plan.unknown, 0, "unknown")
 end)
 
+test("plan: a material whose recipe nobody knows is bought, not crafted", function()
+	-- Flux's recipe known only to Alchy: without Alchy, the 2 Flux for 2 Alloy are missing, no Herb gathered for them.
+	local alchy = CHARS.b
+	CHARS.b = nil
+	local plan = ns.Alts_Plan(1, 1, Ctx({ [3001] = 5, [4001] = 8 }))
+	CHARS.b = alchy
+	eq(Material(plan, 5001).crafted, nil, "flux not crafted")
+	eq(Material(plan, 5001).missing, 2, "flux to buy")
+	eq(Material(plan, 6001), nil, "no herb for a craft nobody does")
+	eq(#plan.steps, 2, "alloy, then the axe")
+	-- A friend's recipe is still planned (they're asked to make it).
+	RECIPES[3].friend = true
+	CHARS.b = nil
+	plan = ns.Alts_Plan(1, 1, Ctx({ [3001] = 5, [4001] = 8 }))
+	CHARS.b = alchy
+	RECIPES[3].friend = nil
+	eq(Material(plan, 5001).crafted, 3, "a friend makes the flux")
+end)
+
 test("plan: yields round crafts up, shortages are counted", function()
 	-- 2 Alloy to craft: 8 Ore (none in stock) and 2 Flux, one Flux craft (makes 2) from the 1 Herb.
 	local plan = ns.Alts_Plan(1, 1, Ctx({ [2001] = 0, [3001] = 0, [6001] = 1 }))
@@ -277,6 +296,12 @@ test("professions: main ones listed, secondary ones only in their own line", fun
 	eq(list[1].name, "Blacksmithing", "by name")
 	eq(ns.Alts_SecondaryText(c), "Secondary: Cooking 52/100, Fishing 20/100", "secondary line")
 	eq(ns.Alts_SecondaryText({ profs = {} }), nil, "none")
+end)
+
+test("TSM search: item strings and amounts, as TSM's own gathering search", function()
+	eq(ns.Alts_TsmSearch({ { itemID = 2589, qty = 64 }, { itemID = 2320, qty = 9 } }), "i:2589/x64;i:2320/x9")
+	eq(ns.Alts_TsmSearch({ { itemID = 2589, qty = 0 } }), "", "nothing to buy")
+	eq(ns.Alts_TsmSearch({}), "")
 end)
 
 test("shopping list: full chain only what's missing, one step the recipe's own materials", function()

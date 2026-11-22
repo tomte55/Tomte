@@ -254,4 +254,110 @@ test("a picked crafter crafts it; one who doesn't know it is ignored", function(
 	chars.Main.profs = {}
 end)
 
+test("craft mails: one per crafter, the same material added up", function()
+	local function T(...)
+		return { entry = {}, lines = { ... } }
+	end
+	local mails = ns.Alts_CraftMails({
+		T({ kind = "mail", itemID = HERB, n = 1, to = "Alch" }, { kind = "wait", text = "Mira crafts Flask" }),
+		T({ kind = "mail", itemID = ORE, n = 2, to = "Smith" }),
+		T({ kind = "mail", itemID = HERB, n = 3, to = "Alch" }, { kind = "mail", itemID = INGOT, n = 1, to = "Alch" }),
+		T({ kind = "grab", itemID = HERB, n = 1 }),
+	})
+	eq(#mails, 2, "Mira and Tolvan; nothing to mail for the last craft")
+	eq(mails[1].to, "Alch")
+	eq(#mails[1].todos, 2)
+	eq(#mails[1].wants, 2)
+	eq(mails[1].wants[1].itemID, HERB)
+	eq(mails[1].wants[1].n, 4, "1 + 3 herbs in one mail")
+	eq(mails[1].wants[2].n, 1)
+	eq(mails[2].to, "Smith")
+end)
+
+-- Tracker: shared steps and folds ---------------------------------------------------------------------------------
+
+local TEXT = {
+	itemName = function(id, noRank)
+		return ({ [HERB] = "Herb", [ORE] = "Ore", [INGOT] = "Ingot" })[id] .. (noRank and "*" or "")
+	end,
+	recipeName = function(id)
+		return recipes[id].name
+	end,
+	gold = function(c)
+		return c .. "c"
+	end,
+}
+
+local function Todo(entry, lines)
+	return { entry = entry, lines = lines }
+end
+
+test("tracker: steps two crafts share add up at the top, materials before crafts", function()
+	local a = Todo({}, {
+		{ kind = "missing", mine = true, itemID = HERB, n = 4, unit = 10, text = "Get 4 Herb" },
+		{ kind = "craft", mine = true, recipeID = 2, crafts = 2, text = "Craft 2 Iron Ingot first" },
+		{ kind = "other", itemID = ORE, n = 1, text = "Mira has 1 Ore for Tomte" },
+	})
+	local b = Todo({}, {
+		{ kind = "craft", mine = true, recipeID = 2, crafts = 3, text = "Craft 3 Iron Ingot first" },
+		{ kind = "missing", mine = true, itemID = HERB, n = 6, unit = 10, text = "Get 6 Herb" },
+		{ kind = "grab", mine = true, itemID = ORE, n = 2, where = "bank", text = "Grab 2 Ore from bank" },
+	})
+	local shared, rest = ns.Alts_TrackerShared({ a, b }, TEXT)
+	eq(#shared, 2)
+	eq(shared[1].text, "Get 10 Herb (~100c)")
+	eq(shared[1].itemID, HERB, "still finds the item in your bags on click")
+	eq(shared[2].text, "Craft 5 Iron Ingot first")
+	eq(#rest[1], 1, "someone else's line stays with its craft")
+	eq(rest[1][1].kind, "other")
+	eq(#rest[2], 1, "a step only one craft has stays with it")
+	eq(rest[2][1].text, "Grab 2 Ore from bank")
+end)
+
+test("tracker: one craft shares nothing; someone else's steps never merge", function()
+	local a = Todo({}, { { kind = "missing", mine = true, itemID = HERB, n = 4, text = "Get 4 Herb" } })
+	local shared, rest = ns.Alts_TrackerShared({ a }, TEXT)
+	eq(#shared, 0)
+	eq(#rest[1], 1)
+	local c = Todo({}, { { kind = "craft", mine = false, recipeID = 2, crafts = 1, text = "Tolvan: craft 1 Iron Ingot first" } })
+	local d = Todo({}, { { kind = "craft", mine = false, recipeID = 2, crafts = 1, text = "Tolvan: craft 1 Iron Ingot first" } })
+	shared = ns.Alts_TrackerShared({ c, d }, TEXT)
+	eq(#shared, 0)
+end)
+
+test("tracker: grabs from bank and mail add up apart, with their own wording", function()
+	local a = Todo({}, { { kind = "grab", mine = true, itemID = ORE, n = 1, where = "bank" },
+		{ kind = "collect", mine = true, itemID = ORE, n = 2, where = "mail" } })
+	local b = Todo({}, { { kind = "grab", mine = true, itemID = ORE, n = 3, where = "bank" },
+		{ kind = "collect", mine = true, itemID = ORE, n = 1, where = "mail" } })
+	local shared = ns.Alts_TrackerShared({ a, b }, TEXT)
+	eq(shared[1].text, "Grab 4 Ore from bank")
+	eq(shared[2].text, "Collect 3 Ore from mail")
+end)
+
+test("tracker folds: short lists open; on long ones ready crafts and the next one", function()
+	local function T(...)
+		return Todo({}, { ... })
+	end
+	local step = { kind = "other", text = "Mira has 1 Ore for Tomte" }
+	local ready = { kind = "ready", mine = true, text = "Ready: craft Flask" }
+	local short = { T(step), T(step), T(step) }
+	local open = ns.Alts_TrackerOpen(short, { short[1].lines, short[2].lines, short[3].lines })
+	eq(open[1] and open[2] and open[3], true, "under 4 crafts nothing folds")
+	local long = { T(step), T(ready), T(step), T(), T(step) }
+	local rest = {}
+	for i, t in ipairs(long) do
+		rest[i] = t.lines
+	end
+	open = ns.Alts_TrackerOpen(long, rest, {})
+	eq(open[1], true, "the first craft with steps")
+	eq(open[2], true, "ready to craft")
+	eq(open[3], false)
+	eq(open[4], true, "nothing to fold")
+	eq(open[5], false)
+	open = ns.Alts_TrackerOpen(long, rest, { [long[3].entry] = true, [long[1].entry] = false })
+	eq(open[1], false, "a click folds it")
+	eq(open[3], true, "a click opens it")
+end)
+
 H.done()

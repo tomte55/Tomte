@@ -49,16 +49,7 @@ local function Attach(g)
 		ns.Print(g.kind == "item" and "the craft isn't in your bags." or "none of the materials are in your bags.")
 		return
 	end
-	ClearCursor()
-	for i, a in ipairs(plan) do
-		if a.split then
-			C_Container.SplitContainerItem(a.bag, a.slot, a.split)
-		else
-			C_Container.PickupContainerItem(a.bag, a.slot)
-		end
-		ClickSendMailItemButton(i)
-		ClearCursor()
-	end
+	ns.AltsSend_AttachPlanned(plan) -- Send.lua: on Forever a split lands in the bags first
 	-- Name-Realm when the realm differs; on Forever the full name alone ("Dead Nnam": a first name gave "Please enter a
 	-- full name"), which friends send since 1.31.0-beta.4.
 	SendMailNameEditBox:SetText(ns.Alts_MailName(ns.FOREVER and { fullName = g.to.name } or g.to, ns.RealmName()))
@@ -69,6 +60,10 @@ local function Attach(g)
 end
 
 local function Send()
+	if ns.AltsSend_Placing() then
+		ns.Print("still attaching the split stacks: a moment.")
+		return
+	end
 	if not attached or ns.AltsSend_AttachmentCount() == 0 then
 		ns.Print("nothing attached to send.")
 		attached = nil

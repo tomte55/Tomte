@@ -843,13 +843,8 @@ function ns.AltsListTab_Create(frame)
 	frame.scroll.onWidthChanged = function()
 		ns.AltsListTab_Refresh()
 	end
-	-- The Auctionator shopping list, as a button under the shopping table.
-	local shop = ns.AltsShop_CreateLink(frame.scroll.content)
-	shop:SetSize(124, 22)
-	UI.Surface(shop, 0.45)
-	shop.text:ClearAllPoints()
-	shop.text:SetPoint("CENTER")
-	frame.shop = shop
+	-- The Auctionator shopping list and the TSM search, as buttons under the shopping table.
+	frame.shop = ns.AltsShop_CreateLink(frame.scroll.content, true)
 	frame.empty = UI.Text(frame, 13, "textMuted")
 	frame.empty:SetPoint("TOPLEFT", 8, -8)
 	frame.empty:SetPoint("RIGHT", -8, 0)

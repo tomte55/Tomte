@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
--- Auctionator shopping list: the "Shopping list" link on the Crafting tab (CraftDetail.lua) and the Crafting list tab
--- (ListTab.lua), as ns.AltsShop_CreateLink.
+-- Shopping for missing materials: the "Shopping list" (Auctionator) and "TSM search" links on the Crafting tab
+-- (CraftDetail.lua) and the Crafting list tab (ListTab.lua), as ns.AltsShop_CreateLink.
 
 local UI = ns.UI
 
@@ -62,34 +62,93 @@ local function MakeShoppingList(name, items)
 		#strings == 1 and "" or "s"))
 end
 
--- A "Shopping list" link (Crafting tab and Crafting list tab headings). link:Set(listName, items) shows it when
--- Auctionator is loaded and something is missing.
-function ns.AltsShop_CreateLink(parent)
-	local link = CreateFrame("Button", nil, parent)
-	link:SetHeight(16)
-	link.text = UI.Text(link, 12, "accent")
-	link.text:SetPoint("RIGHT")
-	link.text:SetText("Shopping list")
-	link:SetWidth(link.text:GetStringWidth())
-	link:SetScript("OnEnter", function(self)
+-- TSM search ------------------------------------------------------------------------------------------------
+
+-- TSM has no API that makes a shopping list (TSM_API only reads), so Tomte hands over a search to paste into its
+-- Shopping tab (Alts_TsmSearch in PlanData.lua).
+local function TsmLoaded()
+	return C_AddOns.IsAddOnLoaded("TradeSkillMaster")
+end
+
+local function ShowTsmSearch(items)
+	ns.Dialog_Show({
+		title = "TSM search",
+		hint = "Copy it (Ctrl+C) and paste it into the search box of TSM's Shopping tab at the Auction House.",
+		text = ns.Alts_TsmSearch(items),
+		readOnly = true,
+	})
+end
+
+-- Links ------------------------------------------------------------------------------------------------------
+
+-- asButton: drawn as a small button (the Crafting list tab) instead of a text link.
+local function TextLink(parent, label, tooltip, onClick, asButton)
+	local b = CreateFrame("Button", nil, parent)
+	b.text = UI.Text(b, 12, "accent")
+	b.text:SetText(label)
+	if asButton then
+		b:SetSize(math.max(124, b.text:GetStringWidth() + 20), 22)
+		UI.Surface(b, 0.45)
+		b.text:SetPoint("CENTER")
+	else
+		b:SetSize(b.text:GetStringWidth(), 16)
+		b.text:SetPoint("RIGHT")
+	end
+	b:SetScript("OnEnter", function(self)
 		SetColor(self.text, "text")
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText("Auctionator shopping list")
-		GameTooltip:AddLine(("Makes the list \"%s\" with the %d missing material%s and how many, replacing an older one "
-			.. "of that name."):format(self.listName, #self.items, #self.items == 1 and "" or "s"), 1, 1, 1, true)
+		tooltip(parent)
 		GameTooltip:Show()
 	end)
-	link:SetScript("OnLeave", function(self)
+	b:SetScript("OnLeave", function(self)
 		SetColor(self.text, "accent")
 		GameTooltip:Hide()
 	end)
-	link:SetScript("OnClick", function(self)
+	b:SetScript("OnClick", function()
 		UI.Sound("confirm")
-		MakeShoppingList(self.listName, self.items)
+		onClick(parent)
 	end)
+	return b
+end
+
+local function Missing(link)
+	return ("the %d missing material%s"):format(#link.items, #link.items == 1 and "" or "s")
+end
+
+-- The shopping links (Crafting tab and Crafting list tab headings): "Shopping list" for Auctionator and "TSM search"
+-- for TSM, right-aligned in that order. link:Set(listName, items) shows the ones whose addon is loaded while
+-- something is missing. asButtons: small buttons instead of text links.
+function ns.AltsShop_CreateLink(parent, asButtons)
+	local link = CreateFrame("Frame", nil, parent)
+	link:SetHeight(asButtons and 22 or 16)
+	link.auctionator = TextLink(link, "Shopping list", function(self)
+		GameTooltip:SetText("Auctionator shopping list")
+		GameTooltip:AddLine(("Makes the list \"%s\" with %s and how many, replacing an older one of that name.")
+			:format(self.listName, Missing(self)), 1, 1, 1, true)
+	end, function(self)
+		MakeShoppingList(self.listName, self.items)
+	end, asButtons)
+	link.tsm = TextLink(link, "TSM search", function(self)
+		GameTooltip:SetText("TSM search")
+		GameTooltip:AddLine(("A search for %s and how many, to paste into TSM's Shopping tab."):format(Missing(self)),
+			1, 1, 1, true)
+	end, function(self)
+		ShowTsmSearch(self.items)
+	end, asButtons)
 	function link:Set(listName, items)
 		self.listName, self.items = listName, items
-		self:SetShown(#items > 0 and ShoppingAPI() ~= nil)
+		local width = 0
+		for _, b in ipairs({ { self.auctionator, ShoppingAPI() ~= nil }, { self.tsm, TsmLoaded() } }) do
+			local button, on = b[1], b[2]
+			button:SetShown(on)
+			if on then
+				button:ClearAllPoints()
+				button:SetPoint("RIGHT", -(width > 0 and width + 12 or 0), 0)
+				width = width + (width > 0 and 12 or 0) + button:GetWidth()
+			end
+		end
+		self:SetWidth(math.max(width, 1))
+		self:SetShown(#items > 0 and width > 0)
 	end
 	link:Hide()
 	return link

@@ -178,8 +178,8 @@ local function AttachmentCount()
 	return n
 end
 
--- Tracked crafts that need something from your bags: { { todo, wants, to } }. Worked out once per to-do (List.lua
--- keeps the to-do until something changes).
+-- Tracked crafts that need something from your bags, one mail per crafter: { { to, todos, wants } }
+-- (Alts_CraftMails). Worked out once per to-do (List.lua keeps the to-do until something changes).
 local craftMails, craftMailsFor
 local function CraftMails()
 	if not ns.AltsList_Todos then
@@ -190,10 +190,9 @@ local function CraftMails()
 		return craftMails
 	end
 	local out = {}
-	for _, todo in ipairs(todos) do
-		local wants, to = ns.Alts_CraftMail(todo)
-		if to and #wants > 0 and ns.altsDB.chars[to] then
-			out[#out + 1] = { todo = todo, wants = wants, to = to }
+	for _, cm in ipairs(ns.Alts_CraftMails(todos)) do
+		if ns.altsDB.chars[cm.to] then
+			out[#out + 1] = cm
 		end
 	end
 	craftMails, craftMailsFor = out, todos
@@ -258,8 +257,8 @@ local function Attach(g)
 	ns.AltsSend_Refresh()
 end
 
--- Crafting list: attach what one tracked craft needs from your bags (exact amounts by splitting stacks, or whole
--- stacks), for its crafter.
+-- Crafting list: attach what one crafter's tracked crafts need from your bags (exact amounts by splitting stacks, or
+-- whole stacks).
 local function AttachCraft(cm)
 	if Busy() then
 		return
@@ -286,27 +285,23 @@ local function AttachCraft(cm)
 		ns.Print("nothing in your bags for that craft.")
 		return
 	end
-	ClearCursor()
-	for i, a in ipairs(plan) do
-		if a.split then
-			C_Container.SplitContainerItem(a.bag, a.slot, a.split)
-		else
-			C_Container.PickupContainerItem(a.bag, a.slot)
-		end
-		ClickSendMailItemButton(i)
-		ClearCursor()
-	end
+	ns.AltsSend_AttachPlanned(plan) -- SendAttach.lua
 	local c = ns.altsDB.chars[cm.to]
 	SendMailNameEditBox:SetText(ns.Alts_MailName(c, ns.RealmName()))
-	local recipe = ns.altsDB.recipes[cm.todo.entry.recipeID]
-	SendMailSubjectEditBox:SetText(("%s: %s"):format(db.sendSubject ~= "" and db.sendSubject or "Tomte", recipe and recipe.name or "craft"))
-	attached = { guid = cm.to, stacks = plan, craft = cm.todo.entry.recipeID }
+	local recipe = ns.altsDB.recipes[cm.todos[1].entry.recipeID]
+	local what = #cm.todos > 1 and ("%d crafts"):format(#cm.todos) or (recipe and recipe.name or "craft")
+	SendMailSubjectEditBox:SetText(("%s: %s"):format(db.sendSubject ~= "" and db.sendSubject or "Tomte", what))
+	attached = { guid = cm.to, stacks = plan, craft = cm.to }
 	UI.Sound("confirm")
 	ns.AltsSend_Refresh()
 end
 
 local function Send()
 	if Busy() or not attached then
+		return
+	end
+	if ns.AltsSend_Placing() then
+		ns.Print("still attaching the split stacks: a moment.")
 		return
 	end
 	if not SendTabShown() or AttachmentCount() == 0 then
@@ -324,6 +319,15 @@ local function Send()
 	-- both too, SendMailMailButton_OnClick).
 	SetSendMailCOD(0)
 	SetSendMailMoney(0)
+	-- What goes out, for the crafting list to count as the alt's mail once it's sent (MAIL_SEND_SUCCESS).
+	local items = {}
+	for i = 1, MAX_ATTACH do
+		local _, itemID, _, count = GetSendMailItem(i)
+		if itemID and count then
+			items[itemID] = (items[itemID] or 0) + count
+		end
+	end
+	attached.items = items
 	SendMail(SendMailNameEditBox:GetText(), SendMailSubjectEditBox:GetText(), SendMailBodyEditBox and SendMailBodyEditBox:GetText() or "")
 end
 
@@ -431,20 +435,24 @@ function ns.AltsSend_Refresh()
 	-- Tracked crafts first.
 	for _, cm in ipairs(CraftMails()) do
 		local c = ns.altsDB.chars[cm.to]
-		local recipe = ns.altsDB.recipes[cm.todo.entry.recipeID]
 		blocks = blocks + 1
 		local b = Block(blocks)
 		b:ClearAllPoints()
 		b:SetPoint("TOPLEFT", 12, -y)
 		b:SetPoint("RIGHT", -12, 0)
-		-- Who it's for first (like the rows below), so a long recipe name is what gets cut.
-		local quality = recipe and ns.Alts_Qualities(recipe) > 1 and ns.Alts_ClampQuality(recipe, cm.todo.entry.quality)
-		b.name:SetText(("%s: %s%s"):format(
-			UI.ClassColored(c.name or "?", c.class),
-			UI.Wrap(("%s x%d"):format(recipe and recipe.name or "?", cm.todo.entry.crafts), "heading"),
-			quality and (" " .. ns.Alts_QualityMarkup(cm.todo.entry.recipeID, quality)) or ""))
+		-- Who it's for first (like the rows below), so a long recipe name is what gets cut. Their crafts, each with
+		-- its amount (and quality).
+		local crafts = {}
+		for i, todo in ipairs(cm.todos) do
+			local recipe = ns.altsDB.recipes[todo.entry.recipeID]
+			local quality = recipe and ns.Alts_Qualities(recipe) > 1 and ns.Alts_ClampQuality(recipe, todo.entry.quality)
+			crafts[i] = ("%s x%d%s"):format(recipe and recipe.name or "?", todo.entry.crafts,
+				quality and (" " .. ns.Alts_QualityMarkup(todo.entry.recipeID, quality)) or "")
+		end
+		b.name:SetText(("%s: %s"):format(UI.ClassColored(c.name or "?", c.class),
+			UI.Wrap(table.concat(crafts, ", "), "heading")))
 		UI.SetTextRole(b.name, "text")
-		local isAttached = attached and attached.craft == cm.todo.entry.recipeID
+		local isAttached = attached and attached.craft == cm.to
 		b.button.label:SetText(isAttached and "Send" or "Attach")
 		b.button.onClick = function()
 			if isAttached then
@@ -686,6 +694,7 @@ end)
 
 events:On("send", "MAIL_CLOSED", function()
 	attached = nil
+	ns.AltsSend_StopPlacing()
 	ClearTopUp()
 	if dock then
 		dock:Hide()
@@ -696,6 +705,10 @@ events:On("send", "MAIL_SEND_SUCCESS", function()
 	if attached then
 		local c = ns.altsDB.chars[attached.guid]
 		ns.Print(("sent %d stack%s to %s."):format(#attached.stacks, #attached.stacks == 1 and "" or "s", c and c.name or "?"))
+		-- In their mailbox now, though no count sees it until they read it: the crafting list counts it meanwhile.
+		if c and attached.items and ns.AltsList_MailWaiting then
+			ns.AltsList_MailWaiting(c, attached.items)
+		end
 	end
 	local topUp = toppingUp
 	attached = nil
@@ -735,6 +748,7 @@ end)
 -- attached: the attached stacks left the bags and the Send button must stay.
 local bagsPending
 events:On("send", "BAG_UPDATE_DELAYED", function()
+	ns.AltsSend_AttachLanded()
 	if bagsPending or not db or not ((MailFrame and MailFrame:IsShown()) or ns.AltsDeposit_IsOpen()) then
 		return
 	end

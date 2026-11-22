@@ -2,10 +2,12 @@ local addonName, ns = ...
 
 -- Alts: an "Add to list" button in the game's profession window (retail and Forever both use ProfessionsFrame), left
 -- of the selected recipe's Track Recipe checkbox. It puts the recipe on the crafting list (List.lua's AltsList_Add) with the
--- number in the window's count box. Started and stopped by Alts.lua.
+-- number in the window's count box. Recipes on the list get their crafts left ("x3") at the end of their row in the
+-- recipe list (Panel/RecipeRows.lua), left of Gear Check's upgrade mark. Started and stopped by Alts.lua.
 
 local WIDTH = 80
 local TRACK_GAP = 8 -- between the button and the Track Recipe checkbox on its right
+local ROW_ORDER = 2 -- left of Gear Check's mark (Modules/Gear/Recipes.lua, order 1)
 
 local UI = ns.UI
 
@@ -78,12 +80,34 @@ end
 
 events:On(OWNER, "TRADE_SKILL_SHOW", Apply)
 
+-- Crafts left on the crafting list for a recipe row, as "x3".
+ns.RecipeRows_Add("craftlist", ROW_ORDER, function(recipe)
+	if not active then
+		return nil
+	end
+	local left = 0
+	for _, entry in ipairs(ns.altsDB.list) do
+		if entry.recipeID == recipe.recipeID then
+			left = left + (entry.crafts or 0)
+		end
+	end
+	if left <= 0 then
+		return nil
+	end
+	return "x" .. left, "accent"
+end)
+
+-- Every add, remove and finished craft goes through AltsList_Changed (List.lua). Never undone: the mark answers nil
+-- while Alts is off.
+hooksecurefunc(ns, "AltsList_Changed", ns.RecipeRows_Refresh)
+
 function ns.AltsProfButton_Start()
 	active = true
 	events:Watch(OWNER, "TRADE_SKILL_SHOW")
 	if Page() then
 		Apply()
 	end
+	ns.RecipeRows_Refresh()
 end
 
 function ns.AltsProfButton_Stop()
@@ -92,4 +116,5 @@ function ns.AltsProfButton_Stop()
 	if button then
 		button:Hide()
 	end
+	ns.RecipeRows_Refresh()
 end

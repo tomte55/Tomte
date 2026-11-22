@@ -316,7 +316,7 @@ function ns.Alts_CraftTodo(entry, ctx)
 		if m.missing > 0 then
 			outstanding = outstanding + m.missing
 			local price = ctx.price and ctx.price(m.items[1])
-			Add({ kind = "missing", itemID = m.items[1], n = m.missing,
+			Add({ kind = "missing", itemID = m.items[1], n = m.missing, unit = price, noRank = #m.items > 1,
 				text = ("Get %d %s%s"):format(m.missing, ctx.itemName(m.items[1], #m.items > 1),
 					price and (" (~%s)"):format(ctx.gold(price * m.missing)) or ""), mine = true })
 		end
@@ -326,6 +326,7 @@ function ns.Alts_CraftTodo(entry, ctx)
 			local crafter = CrafterOf(step)
 			local what = ("%d %s"):format(step.crafts, ctx.recipeName(step.recipeID, step.quality))
 			Add({ kind = "craft", recipeID = step.recipeID, mine = crafter == me, nobody = crafter == nil,
+				crafts = step.crafts, quality = step.quality,
 				text = crafter == me and ("Craft %s first"):format(what)
 					or crafter and ("%s: craft %s first"):format(Name(crafter), what)
 					or ("Nobody knows how to craft %s"):format(what) })
@@ -380,6 +381,35 @@ function ns.Alts_CraftMail(todo)
 		end
 	end
 	return wants, to
+end
+
+-- The crafts' mail, one per crafter: { { to, todos = { todo }, wants = { { itemID, n } } } } in list order, the same
+-- material for two of their crafts added up (one row and one mail at the mailbox, not two).
+function ns.Alts_CraftMails(todos)
+	local out, byTo = {}, {}
+	for _, todo in ipairs(todos) do
+		local wants, to = ns.Alts_CraftMail(todo)
+		if to and #wants > 0 then
+			local m = byTo[to]
+			if not m then
+				m = { to = to, todos = {}, wants = {}, byItem = {} }
+				byTo[to] = m
+				out[#out + 1] = m
+			end
+			m.todos[#m.todos + 1] = todo
+			for _, w in ipairs(wants) do
+				local have = m.byItem[w.itemID]
+				if have then
+					have.n = have.n + w.n
+				else
+					have = { itemID = w.itemID, n = w.n }
+					m.byItem[w.itemID] = have
+					m.wants[#m.wants + 1] = have
+				end
+			end
+		end
+	end
+	return out
 end
 
 -- How to attach `wants` from bag stacks ({ bag, slot, itemID, count }): { { bag, slot, split = n | nil } } with at most
@@ -446,6 +476,105 @@ function ns.Alts_MarkedItems(todos)
 		end
 	end
 	return marked
+end
+
+-- Tracker -----------------------------------------------------------------------------------------------------------
+
+local FOLD_FROM = 4 -- crafts on the list before any fold: a short list shows everything
+-- Your steps that add up across crafts: the key that makes two lines the same step.
+local SHARED_KEY = {
+	missing = function(l) return "missing:" .. l.itemID end,
+	grab = function(l) return "grab:" .. l.itemID end,
+	collect = function(l) return "collect:" .. l.itemID end,
+	take = function(l) return "take:" .. l.itemID end,
+	craft = function(l) return ("craft:%d:%s"):format(l.recipeID, tostring(l.quality)) end,
+}
+
+local function SharedText(l, ctx)
+	if l.kind == "missing" then
+		local price = l.unit and (" (~%s)"):format(ctx.gold(l.unit * l.n)) or ""
+		return ("Get %d %s%s"):format(l.n, ctx.itemName(l.itemID, l.noRank), price)
+	elseif l.kind == "take" then
+		return ("Take %d %s from Warband bank"):format(l.n, ctx.itemName(l.itemID))
+	elseif l.kind == "craft" then
+		return ("Craft %d %s first"):format(l.crafts, ctx.recipeName(l.recipeID, l.quality))
+	end
+	return FetchText(l, ctx.itemName(l.itemID))
+end
+
+-- Your steps that two or more crafts share, added up into one list for the top of the tracker ("Get 64 Linen Cloth",
+-- "Craft 33 Bolt of Linen Cloth first"), and each craft's lines without them.
+-- ctx = { itemName(itemID, noRank), recipeName(recipeID, quality), gold(copper) -> text }
+-- -> shared = { line }, materials first, then crafts; rest = { [todo index] = { line } }
+function ns.Alts_TrackerShared(todos, ctx)
+	local crafts = {} -- [key] = how many crafts have the step
+	for _, t in ipairs(todos) do
+		local seen = {}
+		for _, l in ipairs(t.lines) do
+			local Key = l.mine and SHARED_KEY[l.kind]
+			local key = Key and (l.itemID or l.recipeID) and Key(l)
+			if key and not seen[key] then
+				seen[key] = true
+				crafts[key] = (crafts[key] or 0) + 1
+			end
+		end
+	end
+	local byKey, order, rest = {}, {}, {}
+	for i, t in ipairs(todos) do
+		rest[i] = {}
+		for _, l in ipairs(t.lines) do
+			local Key = l.mine and SHARED_KEY[l.kind]
+			local key = Key and (l.itemID or l.recipeID) and Key(l)
+			if key and crafts[key] >= 2 then
+				local s = byKey[key]
+				if not s then
+					s = { kind = l.kind, mine = true, itemID = l.itemID, recipeID = l.recipeID, quality = l.quality,
+						where = l.where, unit = l.unit, noRank = l.noRank, n = 0, crafts = 0 }
+					byKey[key] = s
+					order[#order + 1] = s
+				end
+				s.n = s.n + (l.n or 0)
+				s.crafts = s.crafts + (l.crafts or 0)
+			else
+				rest[i][#rest[i] + 1] = l
+			end
+		end
+	end
+	local shared = {}
+	for _, craftsLast in ipairs({ false, true }) do
+		for _, s in ipairs(order) do
+			if (s.kind == "craft") == craftsLast then
+				s.text = SharedText(s, ctx)
+				shared[#shared + 1] = s
+			end
+		end
+	end
+	return shared, rest
+end
+
+-- Which crafts the tracker shows open: on a list of FOLD_FROM or more, the ones you can craft now and the first one
+-- still with steps; the rest fold to their title. toggled = { [entry] = true (opened) | false (folded) } from clicks
+-- wins. rest = Alts_TrackerShared's lines per craft. -> { [todo index] = true when open }
+function ns.Alts_TrackerOpen(todos, rest, toggled)
+	local open, nextOpen = {}, false
+	for i, t in ipairs(todos) do
+		local lines = rest[i] or t.lines
+		local ready = t.done == true
+		for _, l in ipairs(lines) do
+			ready = ready or (l.mine == true and l.kind == "ready")
+		end
+		local auto = #todos < FOLD_FROM or #lines == 0 or ready
+		if not auto and not nextOpen then
+			auto, nextOpen = true, true
+		end
+		local pick = t.entry and toggled and toggled[t.entry]
+		if pick == nil then
+			open[i] = auto
+		else
+			open[i] = pick
+		end
+	end
+	return open
 end
 
 -- Progress of a craft as a fraction (materials in the crafter's bags / needed).
