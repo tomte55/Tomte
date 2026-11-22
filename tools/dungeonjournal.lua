@@ -13,7 +13,42 @@ local DUNGEONS_DIR, CONSTANTS_DIR, COMMIT = arg[1], arg[2], arg[3]
 assert(DUNGEONS_DIR and CONSTANTS_DIR and COMMIT, "usage: lua tools/dungeonjournal.lua <dungeons folder> <constants folder> <commit>")
 
 local OUT = "Data/Forever/DungeonJournal.lua"
-local DUNGEON_LEVELS = "Data/Forever/Dungeons.lua" -- Classic's level ranges, for a dungeon whose ATT file has no max
+local DUNGEON_LEVELS = "Data/Forever/Dungeons.lua" -- Classic's level ranges, for a dungeon the group finder doesn't list
+
+-- The level ranges Forever's group finder suggests (C_LFGList.GetActivityInfoTable: minLevelSuggestion,
+-- maxLevelSuggestion; read in game 2026-11-22), by instance ID. ATT's level is the one you may enter at, a lot lower
+-- (Deadmines 10 against 17). wings: the finder's range for a wing, by the wing's name here.
+local FOREVER_LEVELS = {
+	[63] = { 17, 26 }, -- Deadmines
+	[240] = { 15, 24 }, -- Wailing Caverns
+	[3065] = { 13, 20 }, -- Hall of Thanes
+	[226] = { 13, 18 }, -- Ragefire Chasm
+	[64] = { 20, 30 }, -- Shadowfang Keep
+	[2999] = { 15, 22 }, -- Ruins of Lordaeron
+	[234] = { 29, 38 }, -- Razorfen Kraul
+	[227] = { 24, 32 }, -- Blackfathom Deeps
+	[231] = { 29, 38 }, -- Gnomeregan
+	[2998] = { 26, 33 }, -- Excavation Site: Wetlands
+	[2959] = { 28, 35 }, -- City of Dalaran
+	[316] = { 30, 46, wings = { Graveyard = { 30, 38 }, Library = { 33, 41 }, Armory = { 36, 44 },
+		Cathedral = { 38, 46 } } }, -- Scarlet Monastery
+	[233] = { 37, 46 }, -- Razorfen Downs
+	[2970] = { 35, 42 }, -- The Drowned City
+	[3039] = { 40, 47 }, -- Krol'dok Stronghold
+	[239] = { 41, 51 }, -- Uldaman
+	[241] = { 44, 54 }, -- Zul'Farrak
+	[232] = { 46, 55 }, -- Maraudon
+	[2994] = { 48, 55 }, -- Alcaz Prison
+	[237] = { 50, 60 }, -- The Temple of Atal'hakkar (the finder's Sunken Temple)
+	[228] = { 52, 60 }, -- Blackrock Depths
+	[230] = { 54, 60, wings = { ["Warpwood Quarter"] = { 54, 60 }, ["Gordok Commons"] = { 56, 60 },
+		["Capital Gardens"] = { 56, 60 } } }, -- Dire Maul (East, North, West)
+	[229] = { 55, 60, wings = { ["Hordemar City (Lower)"] = { 55, 60 }, ["Dragonspire Hall (Upper)"] = { 59, 60 } } },
+	[2974] = { 55, 60 }, -- Blackmaw Hold
+	[236] = { 58, 60 }, -- Stratholme (both gates)
+	[246] = { 58, 60 }, -- Scholomance
+	[3001] = { 58, 60 }, -- The Shaper's Terrace
+}
 
 -- Raids, and dungeons not open yet: left out (instance IDs). Molten Core, Blackwing Lair, Ahn'Qiraj and Naxxramas use
 -- inst() rather than instanceroot() and are never read.
@@ -27,7 +62,7 @@ local ORDER = {
 -- Headings at a dungeon's top level are its wings, except these, which only group bosses (ATT's readable names).
 local BOSS_GROUPS = { ["Atal'ai Defenders"] = true }
 
--- Dungeons.lua names some dungeons differently (for its max level): ATT's name, lowercase without "The ", to its.
+-- Dungeons.lua names some dungeons differently (for its levels): ATT's name, lowercase without "The ", to its.
 local LEVEL_NAMES = { ["temple of atal'hakkar"] = "sunken temple", ["blackrock spire"] = "upper blackrock spire" }
 
 local ALLIANCE_RACES = { HUMAN = true, DWARF = true, NIGHTELF = true, GNOME = true, SKYBORNE_ALLIANCE = true }
@@ -405,12 +440,33 @@ local function NormName(s)
 	return (s:lower():gsub("^the ", ""))
 end
 
-local function ClassicMax()
-	local max = {}
-	for name, hi in ReadFile(DUNGEON_LEVELS):gmatch('name = "([^"]+)", min = %d+, max = (%d+)') do
-		max[NormName(name)] = tonumber(hi)
+local function ClassicLevels()
+	local levels = {}
+	for name, lo, hi in ReadFile(DUNGEON_LEVELS):gmatch('name = "([^"]+)", min = (%d+), max = (%d+)') do
+		levels[NormName(name)] = { tonumber(lo), tonumber(hi) }
 	end
-	return max
+	return levels
+end
+
+-- A dungeon's range: the group finder's, else Classic's, else ATT's entry level and the comment's range. Its wings get
+-- the finder's range for them, else the dungeon's.
+local function Levels(id, name, wings, attMin, cMax, classic)
+	local finder = FOREVER_LEVELS[id]
+	if finder then
+		for _, w in ipairs(wings) do
+			local own = finder.wings and w.name and finder.wings[w.name]
+			w.min = own and own[1] or finder[1]
+		end
+		return finder[1], finder[2]
+	end
+	local old = classic[LEVEL_NAMES[NormName(name)] or NormName(name)]
+	if old then
+		for _, w in ipairs(wings) do
+			w.min = old[1]
+		end
+		return old[1], old[2]
+	end
+	return attMin, cMax
 end
 
 -- Writing -------------------------------------------------------------------------------------------------------------
@@ -493,7 +549,7 @@ for _, file in ipairs(ListLua(DUNGEONS_DIR)) do
 	end
 end
 
-local classicMax = ClassicMax()
+local classicLevels = ClassicLevels()
 local result = {}
 for _, node in ipairs(instances) do
 	local id = node.id
@@ -526,8 +582,9 @@ for _, node in ipairs(instances) do
 			local c = node.t.coord or (IsTable(node.t.coords) and node.t.coords[1])
 			local door = IsTable(c) and Num(c[1]) and Num(c[2]) and Num(c[3]) and not (c[1] == 50 and c[2] == 50) and c
 				or nil
-			result[#result + 1] = { id = id, name = name, area = Num(node.t.zoneTextAreaID), min = lo,
-				max = cMax or classicMax[LEVEL_NAMES[NormName(name)] or NormName(name)], door = door, wings = wings }
+			local lvlMin, lvlMax = Levels(id, name, wings, lo, cMax, classicLevels)
+			result[#result + 1] = { id = id, name = name, area = Num(node.t.zoneTextAreaID), min = lvlMin,
+				max = lvlMax, door = door, wings = wings }
 		end
 	end
 end
