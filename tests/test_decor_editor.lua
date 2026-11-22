@@ -21,6 +21,21 @@ test("dye colors come in display order, 0 for an undyed slot", function()
 	eq(SLOTS[1].ID, 12, "the game's table isn't sorted in place")
 end)
 
+test("PresetAdd keeps newest first, moves a repeat to the top and keeps at most max", function()
+	local presets = {}
+	ns.DecorEditor_PresetAdd(presets, { 1, 2 }, "A", 2)
+	ns.DecorEditor_PresetAdd(presets, { 3 }, "B", 2)
+	ns.DecorEditor_PresetAdd(presets, { 1, 2 }, "A again", 2)
+	eq(#presets, 2)
+	eq(presets[1].name, "A again")
+	eq(presets[2].name, "B")
+	local colors = { 4 }
+	ns.DecorEditor_PresetAdd(presets, colors, "C", 2)
+	colors[1] = 9
+	eq(presets[1].colors[1], 4, "a copy of the colors")
+	eq(presets[2].name, "A again", "B fell off")
+end)
+
 test("a decor without dye slots has no colors", function()
 	eq(ns.DecorEditor_DyeColors({}), nil)
 	eq(ns.DecorEditor_DyeColors(nil), nil)
