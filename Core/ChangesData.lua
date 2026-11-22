@@ -10,6 +10,27 @@ local addonName, ns = ...
 
 ns.CHANGES = {
 	{
+		version = "1.36.0", date = "2026-11-22",
+		new = {
+			{ module = "find", text = "On Forever: /tomte find tailor puts your map pin on the nearest trainer, banker, "
+				.. "mailbox and more." },
+			{ module = "talentguide", text = "On Forever: paste a Method build and the talent window marks the next "
+				.. "talent to take." },
+			{ module = "way", text = "On Forever: a map pin quicker to reach by flight path, zeppelin or boat gets "
+				.. "a route on the Tomte map." },
+			{ module = "gear", text = "Gear recipes in the profession window show what their item would be for you." },
+		},
+		improved = {
+			{ module = "alts", text = "The crafting list adds up shared steps, counts what you bought or mailed, and "
+				.. "sends one mail per alt." },
+			{ label = "Money", text = "Gold, silver and copper show in their coin colors everywhere." },
+		},
+		fixed = {
+			{ label = "Forever", text = "Whispers, mail to your characters and character lists keep working now that "
+				.. "the game no longer tells addons your realm." },
+		},
+	},
+	{
 		version = "1.35.0", date = "2026-11-19",
 		new = {
 			{ module = "dj", text = "On Forever: every dungeon around your level with its quests, bosses and loot, "

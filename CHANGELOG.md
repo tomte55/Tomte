@@ -16,6 +16,11 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 - **Decorating tools (new module):** copy, cut and paste decor in the house editor, place another with Ctrl+D, a quickbar of eight decor, a Decorating panel with your clipboard, recent and saved decor (favorites and tags), hold Ctrl to keep placing, 90 degree turn keys, Expert mode reset and axis keys, turn buttons and a bigger gizmo, locked decor, a search on the placed decor list, decor lists to share as text and Destroy a number. Off by default; every key can be changed.
 - **Housing decor:** dye presets: save a set of copied dyes and put it on other decor later.
+
+## v1.36.0 - 2026-11-22
+
+### New
+
 - **Tomte map:** quest pins show the quest's level, colored by how hard it is for you; right-click one to show it in the quest log beside the map. Your corpse shows on the map while you're dead.
 - **Waypoints:** on World of Warcraft: Forever, a map pin that's quicker to reach by flight path, zeppelin or boat gets a route, drawn as a line on the Tomte map (`/tomte way route`).
 - **Tomte map:** click a town marker (a trainer, a banker, a mailbox ...) to put your map pin on whoever stands there.
@@ -57,6 +62,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Alts:** on World of Warcraft: Forever, the mailbox attaches the exact amount for your alts' crafts instead of the whole stack.
 - **Dungeon journal:** dungeon levels are the ones Forever's group finder suggests (Deadmines 17-26, not 10-26), and the new Forever dungeons have a top level.
 - **Chat Tabs:** opening its Trade tab no longer makes it the current tab; the tab you were on (and the chat box you type in) stays.
+
 ## v1.35.0 - 2026-11-19
 
 ### New
