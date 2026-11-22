@@ -42,6 +42,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Friends Online:** on World of Warcraft: Forever, friends playing Forever are counted as in game (with their character), not as in other games.
 - **Gear Check:** a one-handed weapon that beats your two-hander on its own (a mage's Intellect dagger over a staff with no stats) is an upgrade, not "needs an off-hand": its tooltip, the bags' arrow and the roll advice now agree.
 - **Dungeon journal:** dungeon levels are the ones Forever's group finder suggests (Deadmines 17-26, not 10-26), and the new Forever dungeons have a top level.
+- **Chat Tabs:** opening its Trade tab no longer makes it the current tab; the tab you were on (and the chat box you type in) stays.
 ## v1.35.0 - 2026-11-19
 
 ### New

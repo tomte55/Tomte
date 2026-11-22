@@ -125,10 +125,19 @@ local function Apply()
 		local index
 		frame, index = FrameByName(name)
 		if not frame then
+			-- Blizzard's FCF_OpenNewWindow docks the new window selected and makes its chat box the one you type in;
+			-- the tab you were on stays the current one.
+			local selected = FCFDock_GetSelectedWindow(GENERAL_CHAT_DOCK)
 			frame, index = FCF_OpenNewWindow(name, true)
 			if not frame then
 				ns.Print("Chat Tabs: all chat windows are in use. Close one and type /reload.")
 				return
+			end
+			if selected and selected ~= frame then
+				FCFDock_SelectWindow(GENERAL_CHAT_DOCK, selected)
+				if ChatFrameUtil and ChatFrameUtil.SetLastActiveWindow and selected.editBox then
+					ChatFrameUtil.SetLastActiveWindow(selected.editBox)
+				end
 			end
 			state.created = true
 		end
