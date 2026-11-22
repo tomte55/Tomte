@@ -4,50 +4,48 @@ local addonName, ns = ...
 -- characters' recipes use an item) and the generated table (which professions use it) into tooltip lines.
 -- The tooltip hook is in Materials.lua; the table is Generated.lua (tools/materials.py).
 
-local SHORT_NAMES = 2 -- characters named on the short line before "+n"
+local SHORT_NAMES = 2 -- characters named per profession before "+n"
 local SHIFT_RECIPES = 5 -- recipe lines with Shift before "+n more"
 
 local function ByName(a, b)
 	return a.name < b.name
 end
 
--- Characters in usedBy (Alts_UsedByChars entries), most recipes in total first, then by name:
--- { { name, total, entries = { entry, ... } } }
-local function Characters(usedBy)
-	local list, byName = {}, {}
-	for _, entry in ipairs(usedBy) do
-		local c = byName[entry.name]
-		if not c then
-			c = { name = entry.name or "?", total = 0, entries = {} }
-			byName[entry.name] = c
-			list[#list + 1] = c
-		end
-		c.total = c.total + #entry.recipes
-		c.entries[#c.entries + 1] = entry
+local function MostFirst(a, b)
+	if a.total ~= b.total then
+		return a.total > b.total
 	end
-	table.sort(list, function(a, b)
-		if a.total ~= b.total then
-			return a.total > b.total
-		end
-		return a.name < b.name
-	end)
-	return list
+	return a.name < b.name
 end
 
-local function ShortLine(usedBy)
-	local chars = Characters(usedBy)
-	if #chars == 1 then
-		local parts = {}
-		for _, entry in ipairs(chars[1].entries) do
-			parts[#parts + 1] = ("%s (%d)"):format(entry.profName or "?", #entry.recipes)
+-- Your professions in usedBy (Alts_UsedByChars entries), most known recipes first, then by name:
+-- { { base, name, total, chars = { name, ... } } }, chars ordered the same way.
+local function Yours(usedBy)
+	local list, byBase = {}, {}
+	for _, entry in ipairs(usedBy) do
+		local p = byBase[entry.base]
+		if not p then
+			p = { base = entry.base, name = entry.profName or "?", total = 0, chars = {} }
+			byBase[entry.base] = p
+			list[#list + 1] = p
 		end
-		return ("Used by %s: %s"):format(chars[1].name, table.concat(parts, ", "))
+		p.total = p.total + #entry.recipes
+		p.chars[#p.chars + 1] = { name = entry.name or "?", total = #entry.recipes }
 	end
+	table.sort(list, MostFirst)
+	for _, p in ipairs(list) do
+		table.sort(p.chars, MostFirst)
+	end
+	return list, byBase
+end
+
+-- "Kesha, Mira +1"
+local function Names(chars)
 	local names = {}
 	for i = 1, math.min(SHORT_NAMES, #chars) do
 		names[i] = chars[i].name
 	end
-	local text = "Used by " .. table.concat(names, ", ")
+	local text = table.concat(names, ", ")
 	if #chars > SHORT_NAMES then
 		text = text .. " +" .. (#chars - SHORT_NAMES)
 	end
@@ -66,7 +64,6 @@ local function RecipeLines(usedBy, lines)
 			table.insert(who[r.id].chars, entry.name or "?")
 		end
 	end
-	lines[#lines + 1] = { text = "Used by", role = "accent" }
 	for i = 1, math.min(SHIFT_RECIPES, #order) do
 		local r = who[order[i]]
 		lines[#lines + 1] = { text = ("  %s - %s"):format(r.name, table.concat(r.chars, ", ")), role = "textMuted" }
@@ -76,28 +73,42 @@ local function RecipeLines(usedBy, lines)
 	end
 end
 
--- The professions in uses that line 1 doesn't already show, by name: "Also: A, B" ("A (4), B (1)" with Shift).
-local function AlsoLine(uses, usedBy, profName, shift)
-	local shown = {}
-	for _, entry in ipairs(usedBy) do
-		shown[entry.base] = true
-	end
-	local profs = {}
+-- "Used in: First Aid (Kesha, Mira +1), Tailoring (Aldric), Blacksmithing, Engineering": your professions first
+-- with who has them, then the table's other professions by name. With Shift, recipe counts instead of names (the
+-- table's count where it has one). The line comes as parts, each with its own color role.
+local function UsedInLine(input, usedBy)
+	local yours, byBase = Yours(usedBy)
+	local uses = input.uses or {}
+	local others = {}
 	for line, count in pairs(uses) do
-		local name = not shown[line] and profName(line)
+		local name = not byBase[line] and input.profName(line)
 		if name then
-			profs[#profs + 1] = { name = name, count = count }
+			others[#others + 1] = { name = name, count = count }
 		end
 	end
-	if #profs == 0 then
+	table.sort(others, ByName)
+	if #yours == 0 and #others == 0 then
 		return nil
 	end
-	table.sort(profs, ByName)
-	local parts = {}
-	for i, p in ipairs(profs) do
-		parts[i] = shift and ("%s (%d)"):format(p.name, p.count) or p.name
+	local parts = { { text = "Used in: ", role = "textMuted" } }
+	local function Add(text, role)
+		if #parts > 1 then
+			parts[#parts + 1] = { text = ", ", role = "textMuted" }
+		end
+		parts[#parts + 1] = { text = text, role = role }
 	end
-	return "Also: " .. table.concat(parts, ", ")
+	for _, p in ipairs(yours) do
+		local detail = input.shift and tostring(uses[p.base] or p.total) or Names(p.chars)
+		Add(("%s (%s)"):format(p.name, detail), "accent")
+	end
+	for _, p in ipairs(others) do
+		Add(input.shift and ("%s (%d)"):format(p.name, p.count) or p.name, "textFaint")
+	end
+	local texts = {}
+	for i, part in ipairs(parts) do
+		texts[i] = part.text
+	end
+	return { text = table.concat(texts), parts = parts }
 end
 
 -- Whether the generated table can know the item: its ID is no newer than the newest trade good or reagent of the
@@ -109,23 +120,17 @@ end
 -- input = { usedBy (Alts_UsedBy's list), uses (MATERIALS_USES entry or nil), isMaterial (a trade good or plain
 -- reagent), known (Materials_Known), notUsed (the setting), shift, profName = function(skillLine) -> localized name
 -- or nil }
--- -> { { text, role } } (theme color roles)
+-- -> { { text, role } or { text, parts = { { text, role } } } } (theme color roles; text is the plain whole line)
 function ns.Materials_Lines(input)
 	local lines = {}
 	local usedBy = input.usedBy or {}
-	if #usedBy > 0 then
+	local usedIn = UsedInLine(input, usedBy)
+	if usedIn then
+		lines[#lines + 1] = usedIn
 		if input.shift then
 			RecipeLines(usedBy, lines)
-		else
-			lines[#lines + 1] = { text = ShortLine(usedBy), role = "accent" }
 		end
-	end
-	if input.uses then
-		local also = AlsoLine(input.uses, usedBy, input.profName, input.shift)
-		if also then
-			lines[#lines + 1] = { text = also, role = "textFaint" }
-		end
-	elseif #usedBy == 0 and input.isMaterial and input.known and input.notUsed then
+	elseif #usedBy == 0 and not input.uses and input.isMaterial and input.known and input.notUsed then
 		lines[#lines + 1] = { text = "Not used in crafting", role = "textFaint" }
 	end
 	return lines

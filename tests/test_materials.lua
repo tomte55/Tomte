@@ -31,50 +31,77 @@ local function Lines(input)
 	return ns.Materials_Lines(input)
 end
 
+-- The roles of a line's parts, separators left out: "accent textFaint".
+local function Roles(line)
+	local roles = {}
+	for _, part in ipairs(line.parts) do
+		if part.text ~= ", " and part.text ~= "Used in: " then
+			roles[#roles + 1] = part.role
+		end
+	end
+	return table.concat(roles, " ")
+end
+
 test("one character, one profession", function()
 	local lines = Lines({ usedBy = { Entry("Aldric", ALCH, "A", "B", "C") }, uses = { [ALCH] = 22 } })
-	eq(#lines, 1, "Alchemy is on line 1, so no Also line")
-	eq(lines[1].text, "Used by Aldric: Alchemy (3)")
-	eq(lines[1].role, "accent")
+	eq(#lines, 1)
+	eq(lines[1].text, "Used in: Alchemy (Aldric)")
+	eq(Roles(lines[1]), "accent")
 end)
 
-test("one character, two professions", function()
-	local lines = Lines({ usedBy = { Entry("Aldric", ALCH, "A", "B"), Entry("Aldric", LW, "C") } })
-	eq(lines[1].text, "Used by Aldric: Alchemy (2), Leatherworking (1)")
+test("one character, two professions: most recipes first", function()
+	local lines = Lines({ usedBy = { Entry("Aldric", LW, "C"), Entry("Aldric", ALCH, "A", "B") } })
+	eq(lines[1].text, "Used in: Alchemy (Aldric), Leatherworking (Aldric)")
 end)
 
-test("several characters: two names and +n, most recipes first", function()
+test("several characters in one profession: two names and +n, most recipes first", function()
 	local lines = Lines({ usedBy = {
-		Entry("Mira", ALCH, "A", "B", "C"),
-		Entry("Aldric", BS, "D", "E"),
-		Entry("Bob", LW, "F"),
-		Entry("Aldric", LW, "G", "H"),
+		Entry("Mira", ALCH, "A"),
+		Entry("Aldric", ALCH, "A", "B"),
+		Entry("Bob", ALCH, "A"),
 	} })
-	eq(lines[1].text, "Used by Aldric, Mira +1", "Aldric has 4 recipes over two professions")
+	eq(lines[1].text, "Used in: Alchemy (Aldric, Bob +1)", "Bob and Mira tie, so by name")
 end)
 
-test("Also: other professions, alphabetical, minus line 1's", function()
-	local lines = Lines({ usedBy = { Entry("Aldric", ALCH, "A") }, uses = { [ALCH] = 22, [LW] = 1, [INSC] = 4 } })
-	eq(#lines, 2)
-	eq(lines[2].text, "Also: Inscription, Leatherworking")
-	eq(lines[2].role, "textFaint")
+test("yours first with who has them, then the others by name, one list", function()
+	-- Linen Cloth on Forever: Tailoring used to vanish from both the "Used by" and the "Also" line.
+	local lines = Lines({ usedBy = { Entry("Aldric", LW, "A", "B"), Entry("Mira", ALCH, "C") },
+		uses = { [LW] = 6, [ALCH] = 2, [BS] = 3, [INSC] = 1 } })
+	eq(#lines, 1)
+	eq(lines[1].text, "Used in: Leatherworking (Aldric), Alchemy (Mira), Blacksmithing, Inscription")
+	eq(Roles(lines[1]), "accent accent textFaint textFaint")
 end)
 
-test("Also alone when no character uses it", function()
+test("no character uses it: the table's professions", function()
 	local lines = Lines({ uses = { [LW] = 1, [ALCH] = 22 } })
 	eq(#lines, 1)
-	eq(lines[1].text, "Also: Alchemy, Leatherworking")
+	eq(lines[1].text, "Used in: Alchemy, Leatherworking")
+	eq(Roles(lines[1]), "textFaint textFaint")
 end)
 
-test("Also skips a profession the client has no name for", function()
+test("skips a profession the client has no name for", function()
 	local lines = Lines({ uses = { [LW] = 1, [999] = 3 } })
-	eq(lines[1].text, "Also: Leatherworking")
+	eq(lines[1].text, "Used in: Leatherworking")
 	eq(#Lines({ uses = { [999] = 3 } }), 0, "nothing to show, and not 'not used' either")
 end)
 
-test("Also with Shift: recipe counts", function()
-	local lines = Lines({ uses = { [LW] = 1, [INSC] = 4 }, shift = true })
-	eq(lines[1].text, "Also: Inscription (4), Leatherworking (1)")
+test("Shift: recipe counts, the table's where it has one, then one line per recipe", function()
+	local lines = Lines({ usedBy = { Entry("Aldric", BS, "Sturdy Ingot"), Entry("Mira", BS, "Sturdy Ingot"),
+		Entry("Mira", ALCH, "Oil") }, uses = { [BS] = 4, [LW] = 1, [INSC] = 4 }, shift = true })
+	eq(lines[1].text, "Used in: Blacksmithing (4), Alchemy (1), Inscription (4), Leatherworking (1)")
+	eq(lines[2].text, "  Sturdy Ingot - Aldric, Mira", "a recipe two characters know is one line")
+	eq(lines[2].role, "textMuted")
+	eq(lines[3].text, "  Oil - Mira")
+	eq(#lines, 3)
+end)
+
+test("Shift: at most 5 recipes, then +n more", function()
+	local lines = Lines({ usedBy = { Entry("Aldric", ALCH, "A", "B", "C", "D", "E", "F", "G") }, shift = true })
+	eq(#lines, 7, "Used in, 5 recipes, +n more")
+	eq(lines[1].text, "Used in: Alchemy (7)")
+	eq(lines[2].text, "  A - Aldric")
+	eq(lines[6].text, "  E - Aldric")
+	eq(lines[7].text, "  +2 more")
 end)
 
 test("not used in crafting: materials only, setting on", function()
@@ -89,25 +116,7 @@ end)
 test("used only through Alts: no 'not used' line", function()
 	local lines = Lines({ usedBy = { Entry("Aldric", BS, "A") }, isMaterial = true })
 	eq(#lines, 1)
-	eq(lines[1].text, "Used by Aldric: Blacksmithing (1)")
-end)
-
-test("Shift: one line per recipe with who knows it", function()
-	local lines = Lines({ usedBy = { Entry("Aldric", BS, "Sturdy Ingot"), Entry("Mira", BS, "Sturdy Ingot") },
-		shift = true })
-	eq(#lines, 2)
-	eq(lines[1].text, "Used by")
-	eq(lines[1].role, "accent")
-	eq(lines[2].text, "  Sturdy Ingot - Aldric, Mira", "a recipe two characters know is one line")
-	eq(lines[2].role, "textMuted")
-end)
-
-test("Shift: at most 5 recipes, then +n more", function()
-	local lines = Lines({ usedBy = { Entry("Aldric", ALCH, "A", "B", "C", "D", "E", "F", "G") }, shift = true })
-	eq(#lines, 7, "header, 5 recipes, +n more")
-	eq(lines[2].text, "  A - Aldric")
-	eq(lines[6].text, "  E - Aldric")
-	eq(lines[7].text, "  +2 more")
+	eq(lines[1].text, "Used in: Blacksmithing (Aldric)")
 end)
 
 test("Known: only items no newer than the table's build", function()
@@ -123,7 +132,7 @@ test("not used in crafting: never for an item the table can't know", function()
 	local lines = Lines({ isMaterial = false, known = true })
 	eq(#lines, 0, "a keystone isn't a material")
 	lines = Lines({ uses = { [LW] = 1 }, isMaterial = true, known = false })
-	eq(lines[1].text, "Also: Leatherworking", "what the table does say still shows")
+	eq(lines[1].text, "Used in: Leatherworking", "what the table does say still shows")
 end)
 
 H.done()

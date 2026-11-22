@@ -1,8 +1,8 @@
 local addonName, ns = ...
 
 -- Material uses: item tooltips on crafting materials say which of your characters craft with them (from Alts'
--- recipes, ns.Alts_UsedBy), which other professions use them (Generated.lua, made by tools/materials.py) or that
--- nothing uses them. Holding Shift lists the recipes. Wording and rules in Data.lua.
+-- recipes, ns.Alts_UsedBy) and which other professions use them (Generated.lua, made by tools/materials.py), as one
+-- "Used in" line, or that nothing uses them. Holding Shift lists the recipes. Wording and rules in Data.lua.
 
 local UI = ns.UI
 
@@ -50,7 +50,17 @@ local function OnItem(tooltip, data)
 	end
 	local lines = LinesFor(itemID, IsShiftKeyDown())
 	for _, line in ipairs(lines) do
-		tooltip:AddLine(UI.Wrap(line.text, line.role), 1, 1, 1, true)
+		local text
+		if line.parts then
+			local wrapped = {}
+			for i, part in ipairs(line.parts) do
+				wrapped[i] = UI.Wrap(part.text, part.role)
+			end
+			text = table.concat(wrapped)
+		else
+			text = UI.Wrap(line.text, line.role)
+		end
+		tooltip:AddLine(text, 1, 1, 1, true)
 	end
 	if #lines > 0 then
 		tagged = tooltip
@@ -122,8 +132,8 @@ module = ns.RegisterModule({
 	options = {
 		{ type = "header", label = "Tooltips" },
 		{ type = "checkbox", key = "tooltip", label = "Material uses on item tooltips",
-			tooltip = "\"Used by\" names your characters who know a recipe with the material (needs Alts, and each "
-				.. "profession window opened once). \"Also\" lists the other professions that use it." },
+			tooltip = "\"Used in\" lists the professions that craft with the material: yours first, with which "
+				.. "characters have them (needs Alts, and each profession window opened once), then the others." },
 		{ type = "checkbox", key = "notUsed", label = "Say when nothing uses a material", parent = "tooltip",
 			tooltip = "Trade goods and reagents that no recipe in Tomte's list uses get \"Not used in crafting\". Items newer than the list get no line." },
 	},
