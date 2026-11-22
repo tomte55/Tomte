@@ -159,6 +159,45 @@ test("disenchant: worth more than vendor plus the limit and than the auction hou
 	eq(Kind(gear), "vendor", "legendaries can't be disenchanted")
 end)
 
+test("the Enchanting skill disenchanting needs, by item level", function()
+	eq(ns.Value_DisenchantSkill(12, 2), 1)
+	eq(ns.Value_DisenchantSkill(20, 2), 1)
+	eq(ns.Value_DisenchantSkill(21, 2), 25)
+	eq(ns.Value_DisenchantSkill(12, 3), 25, "a rare needs 25 even at low item level")
+	eq(ns.Value_DisenchantSkill(43, 4), 125)
+	eq(ns.Value_DisenchantSkill(60, 2), 200)
+	eq(ns.Value_DisenchantSkill(63, 3), 225)
+	eq(ns.Value_DisenchantSkill(nil, 2), nil)
+end)
+
+test("disenchant while leveling Enchanting: soulbound greens a vendor would take", function()
+	-- The Pristine Orcish Dagger: soulbound, the materials worth less than the vendor pays.
+	local dagger = { classID = 2, quality = 2, ilvl = 12, vendor = 412, count = 1, minGain = 100, destroy = 175,
+		bound = true }
+	eq(Kind(dagger), "vendor", "not an enchanter")
+	dagger.enchanting = 40
+	eq(Kind(dagger), "disenchant")
+	eq(Rule(dagger), "Disenchant: leveling Enchanting")
+	eq(ns.Value_Marker(dagger).why, "You're leveling Enchanting.")
+	dagger.destroy = nil
+	eq(Kind(dagger), "disenchant", "no TSM price needed")
+	dagger.enchanting = 300
+	eq(Kind(dagger), "vendor", "Enchanting at the top")
+	dagger.enchanting, dagger.ilvl = 40, 30
+	eq(Kind(dagger), "vendor", "item level 30 needs skill 50")
+	dagger.ilvl, dagger.upgrade = 12, "later"
+	eq(Kind(dagger), "keep", "an upgrade still comes first")
+	dagger.upgrade = nil
+	local boe = { classID = 4, quality = 2, ilvl = 18, vendor = 100, count = 1, minGain = 100, destroy = 200,
+		enchanting = 40, sell = { kind = "ah", expected = 2000 } }
+	eq(Kind(boe), "auction", "sells for far more than its materials")
+	boe.sell.expected = 250
+	boe.sell.kind = "ah"
+	eq(Kind(boe), "disenchant", "about what the materials are worth")
+	eq(Kind({ classID = 7, quality = 2, vendor = 10, count = 1, minGain = 100, enchanting = 40, ilvl = 10 }) ~= "disenchant",
+		true, "only gear")
+end)
+
 test("collectibles and crafting materials are kept unless they sell well", function()
 	eq(Kind(Goods({ collectible = true })), "keep")
 	eq(Kind(Goods({ crafting = true, sell = { kind = "vendor", expected = 10 } })), "keep")

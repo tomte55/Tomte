@@ -436,6 +436,7 @@ module = ns.RegisterModule({
 			corner = "BOTTOMLEFT", -- where in the game's bags: TOPLEFT | TOPRIGHT | BOTTOMLEFT | BOTTOMRIGHT
 			baganator = true, -- a corner widget in Baganator's bags
 			ignore = {}, -- [itemID] = true: never marked (/tomte value ignore)
+			levelDisenchant = true, -- Forever: gear to disenchant while your Enchanting is below the top
 		},
 		backpack = {
 			shown = true,
@@ -509,6 +510,10 @@ module = ns.RegisterModule({
 		{ type = "button", label = "Markers", text = "How each is decided", onClick = function()
 			ns.ValueMarkerRules_Show(db.sell.minGain)
 		end, tooltip = "Every rule, in the order they're tried. /tomte value why <item> says which one decided an item." },
+		{ type = "checkbox", key = "markers.levelDisenchant", label = "Disenchant while leveling Enchanting",
+			onChange = MarkersChanged, shown = function()
+				return ns.FOREVER == true
+			end, tooltip = "While your Enchanting is below 300, green to epic gear your skill can disenchant is marked to disenchant, for the skill and the materials, unless it sells at the auction house for clearly more. Only for characters who know Disenchant." },
 		{ type = "checkbox", key = "markers.tooltip", label = "Marker on item tooltips",
 			tooltip = "The marker of an item in your bags and why it got it, on its tooltip." },
 		{ type = "checkbox", key = "sell.tooltip", label = "Auction price on item tooltips", onChange = ns.ValueSell_Update,

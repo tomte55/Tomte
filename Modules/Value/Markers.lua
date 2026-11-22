@@ -11,6 +11,7 @@ local SKIP = { [CONTAINER] = "bag", [KEY] = "key", [PROJECTILE] = "ammo", [QUIVE
 	[BATTLEPET] = "pet" }
 local UNCOMMON, EPIC = 2, 4 -- Enum.ItemQuality: what can be disenchanted
 local DISENCHANT = 13262 -- the Disenchant spell, on retail and Forever
+local ENCHANTING = 333 -- Enchanting's skill line (GetProfessionInfo's seventh return)
 local CHANGE_DELAY = 0.5 -- seconds to gather a burst of quest log, gear or skill events into one redraw
 -- Seconds a slot's marker is kept: prices change without the item changing (an Auctionator scan, TSM's data loading
 -- after login), so a marker is judged again on the first draw after this.
@@ -108,6 +109,21 @@ local function DestroyValue(itemID, classID, quality)
 	return ns.ValueSell_TSMNumber and ns.ValueSell_TSMNumber("Destroy", "i:" .. itemID)
 end
 
+-- Your Enchanting skill, for "Disenchant while leveling Enchanting" (World of Warcraft: Forever, Disenchant known);
+-- nil when that doesn't apply.
+local function LevelingEnchanting()
+	if not (ns.FOREVER and db.markers.levelDisenchant and ns.SpellKnown(DISENCHANT)) then
+		return nil
+	end
+	for _, index in pairs({ GetProfessions() }) do
+		local _, _, skill, _, _, _, skillLine = GetProfessionInfo(index)
+		if skillLine == ENCHANTING then
+			return skill
+		end
+	end
+	return nil
+end
+
 -- The facts MarkerData.lua's rules read; nil while the item's data is loading (or unreadable). src: the item, from a
 -- bag slot (SlotSource) or from a link alone (Value_LinkMarker): { link, itemID, stackCount, quality, hasNoValue,
 -- isBound, hasLoot, quest (ItemQuestInfo or nil), location (an ItemLocation or nil), tooltip() (its tooltip data),
@@ -120,7 +136,7 @@ local function Facts(src, inSet)
 	if link:find("|Hbattlepet:") then
 		return { skip = "pet" }
 	end
-	local name, _, quality, _, _, _, _, _, _, _, price, classID, subclassID, bindType = C_Item.GetItemInfo(link)
+	local name, _, quality, ilvl, _, _, _, _, _, _, price, classID, subclassID, bindType = C_Item.GetItemInfo(link)
 	if not name then
 		return nil
 	end
@@ -165,6 +181,8 @@ local function Facts(src, inSet)
 		f.unusable = src.unusable()
 		f.destroy = DestroyValue(itemID, classID, f.quality)
 		f.canDisenchant = f.destroy ~= nil and ns.SpellKnown(DISENCHANT)
+		f.ilvl = ilvl
+		f.enchanting = LevelingEnchanting()
 	end
 	if classID == RECIPE and ns.Alts_RecipeLearnersFor then -- Alts may be off: then nil, and the selling rules decide
 		f.recipe = ns.Value_RecipeFact(ns.Alts_RecipeLearnersFor(itemID, src.tooltip()))
@@ -430,7 +448,7 @@ function ns.ValueMarkers_Why(_, rawArg)
 	local f, parts = marker.facts or {}, {}
 	for _, k in ipairs({ "skip", "quality", "classID", "vendor", "noValue", "bound", "consumable", "count", "questItem",
 		"startsQuest", "questDone", "questActive", "openable", "questFor", "upgrade", "inSet", "newLook", "unusable", "destroy", "canDisenchant",
-		"collectible", "crafting" }) do
+		"ilvl", "enchanting", "collectible", "crafting" }) do
 		if f[k] ~= nil and f[k] ~= false then
 			parts[#parts + 1] = ("%s=%s"):format(k, tostring(f[k]))
 		end

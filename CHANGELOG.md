@@ -33,6 +33,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Whispers:** the inbox opens with the cursor in its chat line, and one Esc closes it.
 - **Performance:** Quiet Chat, drawers, the flight card, the Quest list and item source tooltips do much less work and make less garbage; the Performance report shows memory made per part and no longer counts a call twice.
 - **Trade Filter:** the channel shows as "Trade" without its instance ("Trade - English 33").
+- **Gold & value:** on World of Warcraft: Forever, while your Enchanting is below 300, gear your skill can disenchant is marked to disenchant (for the skill and the materials) instead of to vendor, even without TSM. A setting turns it off.
 
 ### Fixed
 

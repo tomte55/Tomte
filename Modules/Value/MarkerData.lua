@@ -31,11 +31,20 @@ local addonName, ns = ...
 --   sell          Value_SellVerdict for the whole stack, or nil (bound, or no auction price)
 --   destroy       copper its disenchanting materials are worth (TSM), or nil
 --   canDisenchant you know Disenchant (needed for a soulbound item)
+--   ilvl          its item level (what Enchanting skill disenchanting it needs)
+--   enchanting    World of Warcraft: Forever, with "Disenchant while leveling Enchanting" on and Disenchant known:
+--                 your Enchanting skill; nil otherwise
 --   count         how many you carry
 --   minGain       the player's limit: copper a stack must gain somewhere else to beat a vendor
 
 local WEAPON, ARMOR, TRADE_GOODS, QUEST = 2, 4, 7, 12 -- Enum.ItemClass
-local UNCOMMON, EPIC = 2, 4 -- Enum.ItemQuality: what can be disenchanted
+local UNCOMMON, RARE, EPIC = 2, 3, 4 -- Enum.ItemQuality: what can be disenchanted
+local ENCHANTING_TOP = 300 -- Forever's highest Enchanting skill: below it you're still leveling it
+-- Enchanting skill needed to disenchant, by item level up to 60 (warcraft.wiki.gg Disenchanting, the original game's
+-- table; not measured on Forever): { up to this item level, skill }. Rare items need 25 even below item level 21.
+local DISENCHANT_SKILL = { { 20, 1 }, { 25, 25 }, { 30, 50 }, { 35, 75 }, { 40, 100 }, { 45, 125 }, { 50, 150 },
+	{ 55, 175 }, { 60, 200 } }
+local DISENCHANT_SKILL_ABOVE = 225 -- item level 61 and up
 
 -- The markers, in the order the settings and the rules page list them. role: the color they're drawn in (MarkerArt.lua
 -- draws vendor as the game's coin and disenchant in the epic quality color).
@@ -75,6 +84,9 @@ ns.VALUE_MARKER_RULES = {
 	{ kind = "disenchant", title = "Disenchant", text = "Green to epic gear whose materials are worth more than the "
 		.. "auction house pays for it, and more than a vendor by over your limit. Needs TSM's prices; a soulbound one "
 		.. "only if you know Disenchant." },
+	{ kind = "disenchant", title = "Disenchant: leveling Enchanting", text = "World of Warcraft: Forever: while your "
+		.. "Enchanting is below 300, green to epic gear your skill can disenchant, for the skill and the materials, "
+		.. "unless it sells at the auction house for more than its materials by over your limit." },
 	{ kind = "keep", title = "Keep: open it", text = "Something that opens with a right-click (a bundle, a "
 		.. "satchel, a crate)." },
 	{ title = "No marker: an unknown quest item", text = "The game calls it a quest item, or it started a quest "
@@ -98,7 +110,8 @@ ns.VALUE_MARKER_RULES = {
 }
 
 local R = {} -- rule indexes by name, for the code below
-for i, key in ipairs({ "skip", "quest", "delete", "gear", "recipe", "disenchant", "open", "leftover", "learn", "unsellable",
+for i, key in ipairs({ "skip", "quest", "delete", "gear", "recipe", "disenchant", "levelDisenchant", "open", "leftover",
+	"learn", "unsellable",
 	"boundUse", "bound", "grey", "replace", "auction", "cheap", "nothing" }) do
 	R[key] = i
 end
@@ -168,6 +181,34 @@ local function WorthDisenchanting(f)
 	return f.destroy * count >= vendor + (f.minGain or 0) and f.destroy * count > auction
 end
 
+-- The Enchanting skill disenchanting an item needs, or nil when its item level isn't known.
+function ns.Value_DisenchantSkill(ilvl, quality)
+	if not ilvl then
+		return nil
+	end
+	for _, step in ipairs(DISENCHANT_SKILL) do
+		if ilvl <= step[1] then
+			return (quality == RARE and step[2] < 25) and 25 or step[2]
+		end
+	end
+	return DISENCHANT_SKILL_ABOVE
+end
+
+-- Disenchanting it levels your Enchanting and gives you materials; only an auction worth clearly more than those
+-- materials beats that.
+local function LevelingDisenchant(f)
+	if not (f.enchanting and f.enchanting < ENCHANTING_TOP and IsGear(f) and f.quality and f.quality >= UNCOMMON
+		and f.quality <= EPIC) then
+		return false
+	end
+	local need = ns.Value_DisenchantSkill(f.ilvl, f.quality)
+	if not need or need > f.enchanting then
+		return false
+	end
+	local count = f.count or 1
+	return not (Listing(f) and f.sell.expected * count > (f.destroy or 0) * count + (f.minGain or 0))
+end
+
 -- The marker for an item: { kind (a VALUE_MARKERS key, nil for none), rule (index into VALUE_MARKER_RULES), why
 -- (a short reason for the tooltip) }.
 function ns.Value_Marker(f)
@@ -210,6 +251,8 @@ function ns.Value_Marker(f)
 	end
 	if WorthDisenchanting(f) then
 		return Verdict(R.disenchant, "Its materials are worth more.")
+	elseif LevelingDisenchant(f) then
+		return Verdict(R.levelDisenchant, "You're leveling Enchanting.")
 	end
 	if f.openable then
 		return Verdict(R.open, "Right-click to open it.")
