@@ -133,6 +133,7 @@ local function InvalidateVerdicts()
 	if ns.Bags_Reread then
 		ns.Bags_Reread()
 	end
+	ns.GearRecipes_Refresh()
 end
 
 -- Another character's context from Alts' stored snapshot (chars[guid]: specID, spec, primary, class token); nil

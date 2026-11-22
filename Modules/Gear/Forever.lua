@@ -155,6 +155,7 @@ local function Invalidate()
 	if ns.Bags_Reread then
 		ns.Bags_Reread()
 	end
+	ns.GearRecipes_Refresh()
 end
 
 -- Tooltips ---------------------------------------------------------------------------------------------------------
@@ -579,12 +580,14 @@ local function Start()
 	NoteWorn()
 	NoteBags()
 	ns.GearRewardCard_Start(db)
+	ns.GearRecipes_Start(db)
 	Invalidate()
 end
 
 local function Stop()
 	events:UnwatchAll("gear")
 	ns.GearRewardCard_Stop()
+	ns.GearRecipes_Stop()
 	ns.Toast_Clear("gear")
 	wipe(pending)
 	banking = false
@@ -616,6 +619,7 @@ module = ns.RegisterModule({
 		revealToast = true,
 		equipSound = true,
 		rollAdvice = true, -- need, greed or pass beside group loot rolls (Roll.lua)
+		recipeMarks = true, -- the upgrade beside gear recipes in the profession window (Recipes.lua)
 	},
 	init = function(moduleDB)
 		db = moduleDB
@@ -663,6 +667,10 @@ module = ns.RegisterModule({
 			ns.GearRoll_Refresh()
 		end, tooltip = "Beside a group loot roll: need, greed or pass, and why, with that button lit. Gear a few levels "
 			.. "ahead of you is judged as if you had them. It only suggests; you still click." },
+		{ type = "checkbox", key = "recipeMarks", label = "Upgrades in the profession window",
+			onChange = ns.GearRecipes_Refresh,
+			tooltip = "Beside each gear recipe in the profession window, what the item would be for you, as its tooltip "
+				.. "says: \"+12%\" for an upgrade, \"+5%?\" in yellow for one to check. Other recipes show nothing." },
 	},
 })
 ns.gearModule = module

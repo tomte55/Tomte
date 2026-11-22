@@ -10,8 +10,9 @@ local addonName, ns = ...
 -- (picked by the character's content expansion, Scales.lua), item reading in Items.lua, the character sheet button
 -- and panel in Sheet.lua, upgrades for other characters in Alts.lua, the new-upgrade reveal and equip toast in
 -- Reveal.lua, the quest reward pick in Rewards.lua (rules) and RewardCard.lua (the card), the character pane at the
--- upgrade NPC (Upgrade.lua), the gem socket helper (Sockets.lua) and the bag quality border and sort direction
--- (Bags.lua), with their rules in HelperData.lua.
+-- upgrade NPC (Upgrade.lua), the gem socket helper (Sockets.lua), the bag quality border and sort direction
+-- (Bags.lua), with their rules in HelperData.lua, and the upgrade beside gear recipes in the profession window
+-- (Recipes.lua).
 -- Weights: imported Pawn string per character and spec > built-in for the spec > primary 1 / secondaries 0.5.
 
 local Context = ns.Gear_OwnContext
@@ -187,6 +188,7 @@ local function Start()
 	ns.GearUpgrade_Start(db)
 	ns.GearSockets_Start(db)
 	ns.GearBags_Start(db)
+	ns.GearRecipes_Start(db)
 	C_Timer.After(ns.inWorld and 0 or 8, WeightsHint) -- at login, after the chat flood
 end
 
@@ -197,6 +199,7 @@ local function Stop()
 	ns.GearUpgrade_Stop()
 	ns.GearSockets_Stop()
 	ns.GearBags_Stop()
+	ns.GearRecipes_Stop()
 	ns.GearWeights_HideDialog()
 	InvalidateVerdicts()
 	ns.GearSheet_Refresh()
@@ -268,6 +271,7 @@ module = ns.RegisterModule({
 		rewardCard = { point = "TOP", relPoint = "TOP", x = 0, y = -120 }, -- the reward card's spot (Edit Mode)
 		upgradePane = true, -- open the character pane at the item upgrade NPC
 		gemHelper = true,
+		recipeMarks = true, -- the upgrade beside gear recipes in the profession window (Recipes.lua)
 		qualityGlow = false,
 		bagSort = "keep", -- keep | ltr | rtl: the bag sort direction Tomte sets (keep: the game's own setting)
 		-- The game's sort direction before Tomte changed it ("rtl" or "ltr"), put back when bagSort goes back to keep
@@ -386,6 +390,11 @@ module = ns.RegisterModule({
 			ns.GearSockets_Refresh()
 		end, tooltip = "While you socket an item, a strip under the window shows the gems in your bags that fit, with "
 			.. "the best one for your spec marked. Click a gem to put it in the first empty socket, then press Apply." },
+		{ type = "checkbox", key = "recipeMarks", label = "Upgrades in the profession window",
+			onChange = ns.GearRecipes_Refresh,
+			tooltip = "Beside each gear recipe in the profession window, what the item would be for your spec, as its "
+				.. "tooltip says: \"+12%\" for an upgrade, \"+5%?\" in yellow for one to check. Crafts whose item level "
+				.. "depends on the reagents are judged at their base quality." },
 		{ type = "header", label = "Upgrade reveal" },
 		{ type = "checkbox", key = "reveal", label = "Reveal new upgrades",
 			tooltip = "When gear that's new to your bags (loot, quest rewards, the vault, mail) is a clean upgrade, show "

@@ -784,6 +784,32 @@ function ns.Gear_IsMaybeUpgrade(v)
 	return v.kind == "simIt" or v.kind == "upgradeBut" or (v.kind == "sidegrade" and v.statMix == true)
 end
 
+-- The short mark beside a recipe in the profession window (Recipes.lua): text and theme color role, or nil when the
+-- craft is no upgrade. "+12%" for a clean upgrade (one decimal below 10%), the same with "?" in the warning color for
+-- one that needs checking (Gear_IsMaybeUpgrade).
+function ns.Gear_RecipeMark(v)
+	local clean = ns.Gear_IsCleanUpgrade(v)
+	if not (clean or ns.Gear_IsMaybeUpgrade(v)) then
+		return nil
+	end
+	local text
+	if v.kind == "empty" then
+		text = "empty slot"
+	elseif v.kind == "levelUp" then
+		text = ("+%d ilvl"):format(v.ilvlDiff)
+	elseif v.pct and v.pct >= 10 then
+		text = ("+%d%%"):format(math.floor(v.pct + 0.5))
+	elseif v.pct then
+		text = ("+%.1f%%"):format(v.pct)
+	else
+		text = "upgrade" -- yours has no stats
+	end
+	if clean then
+		return text, "success"
+	end
+	return text .. "?", "warning"
+end
+
 ---------------------------------------------------------------------------------------------------------------
 -- Upgrade reveal (Reveal.lua): which new items get a moment.
 
