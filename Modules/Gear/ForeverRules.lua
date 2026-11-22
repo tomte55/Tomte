@@ -449,7 +449,8 @@ function ns.GearForever_Evaluate(cand, equipped, ctx)
 	return off
 end
 
-Judge = function(cand, equipped, ctx)
+-- forcedTarget: judge against these slots instead of the ones Target picks (a one-hander alone in place of a two-hander).
+Judge = function(cand, equipped, ctx, forcedTarget)
 	for _, desc in pairs(equipped) do
 		if desc.link == cand.link then
 			return nil
@@ -463,7 +464,7 @@ Judge = function(cand, equipped, ctx)
 		return NotForYou(why)
 	end
 
-	local target = Target(cand, equipped, ctx)
+	local target = forcedTarget or Target(cand, equipped, ctx)
 	if not target then
 		return nil
 	end
@@ -493,6 +494,16 @@ Judge = function(cand, equipped, ctx)
 
 	local verdict = { reasons = {}, warnings = 0, slot = target.slots[1], untrained = untrained }
 	if target.mode == "pair" then
+		-- A main-hand weapon can stand in for the two-hander with the off-hand left empty, which costs nothing when it
+		-- beats the two-hander on its own: a mage's +1 Intellect dagger over a staff with no stats was called a pair, so
+		-- it got neither the "later" arrow nor a Need.
+		if not OFF_HAND_ONLY[cand.equipLoc] then
+			local alone = Judge(cand, equipped, ctx, { mode = "single", slots = { 16 } })
+			if alone and UPGRADES[alone.kind] then
+				alone.reasons[#alone.reasons + 1] = "Leaves your off-hand free"
+				return alone
+			end
+		end
 		verdict.kind = "pair"
 		verdict.reasons = { OFF_HAND_ONLY[cand.equipLoc] and "Needs a one-handed main hand to go with it"
 			or "Needs an off-hand to go with it" }

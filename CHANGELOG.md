@@ -39,7 +39,7 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Quest list:** clicking the flight hint errored instead of placing a map pin on the flight master.
 - **Forever:** the game no longer tells addons your realm; Tomte remembers it from before, so whispers, mail to your characters, friends' crafting and character lists keep working. Whispers split off under a name without a realm are merged back.
 - **Friends Online:** on World of Warcraft: Forever, friends playing Forever are counted as in game (with their character), not as in other games.
-
+- **Gear Check:** a one-handed weapon that beats your two-hander on its own (a mage's Intellect dagger over a staff with no stats) is an upgrade, not "needs an off-hand": its tooltip, the bags' arrow and the roll advice now agree.
 ## v1.35.0 - 2026-11-19
 
 ### New

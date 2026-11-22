@@ -378,9 +378,23 @@ test("a two-hander takes on both hands' damage", function()
 	eq(ns.GearForever_Evaluate(two, worn, Ctx("WARRIOR")).kind, "upgrade")
 end)
 
-test("a one-hander over a two-hander asks for an off-hand", function()
+test("a one-hander over a two-hander asks for an off-hand, unless it beats the two-hander alone", function()
 	local two = Item({ equipLoc = "INVTYPE_2HWEAPON", classID = WEAPON, subclassID = 8, ilvl = 12, dps = 12 })
-	eq(ns.GearForever_Evaluate(Sword(14, 20), { [16] = two }, Ctx("WARRIOR")).kind, "pair")
+	eq(ns.GearForever_Evaluate(Sword(14, 8), { [16] = two }, Ctx("WARRIOR")).kind, "pair")
+	local alone = ns.GearForever_Evaluate(Sword(14, 20), { [16] = two }, Ctx("WARRIOR"))
+	eq(alone.kind, "upgrade")
+	eq(alone.reasons[#alone.reasons], "Leaves your off-hand free")
+end)
+
+test("a mage's dagger beats a staff with no stats once Daggers is learned", function()
+	local staff = Item({ equipLoc = "INVTYPE_2HWEAPON", classID = WEAPON, subclassID = 10, ilvl = 8, dps = 4.2 })
+	local knife = Item({ equipLoc = "INVTYPE_WEAPON", classID = WEAPON, subclassID = 15, ilvl = 11, dps = 5.9,
+		subclassName = "Daggers", redSkill = true, stats = { PRIMARY = { AGI = 1, INT = 1 } } })
+	eq(ns.GearForever_Evaluate(knife, { [16] = staff }, Ctx("MAGE", 12)).kind, "notForYou", "not trained yet")
+	local ahead = ns.GearForever_Context({ class = "MAGE", level = 12, rangedSlot = RANGED_SLOT, assumeTrained = true })
+	local v = ns.GearForever_Evaluate(knife, { [16] = staff }, ahead)
+	eq(v.kind, "noStats", "an upgrade, so the bags' arrow and the roll's Need agree")
+	eq(v.untrained, "Daggers")
 end)
 
 test("a dual wielder's new weapon replaces the weaker hand", function()
@@ -605,7 +619,7 @@ test("a shield next to a two-hander needs a one-hander, not an off-hand", functi
 	local v = ns.GearForever_Evaluate(shield, { [16] = two }, Ctx("PALADIN", 4))
 	eq(v.kind, "pair")
 	eq(v.reasons[1], "Needs a one-handed main hand to go with it")
-	eq(ns.GearForever_Evaluate(Sword(7, 3), { [16] = two }, Ctx("PALADIN", 4)).reasons[1],
+	eq(ns.GearForever_Evaluate(Sword(7, 1), { [16] = two }, Ctx("PALADIN", 4)).reasons[1],
 		"Needs an off-hand to go with it")
 end)
 
