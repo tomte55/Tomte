@@ -32,8 +32,8 @@ local addonName, ns = ...
 --   destroy       copper its disenchanting materials are worth (TSM), or nil
 --   canDisenchant you know Disenchant (needed for a soulbound item)
 --   ilvl          its item level (what Enchanting skill disenchanting it needs)
---   enchanting    World of Warcraft: Forever, with "Disenchant while leveling Enchanting" on and Disenchant known:
---                 your Enchanting skill; nil otherwise
+--   enchanting    World of Warcraft: Forever, with "Disenchant while leveling Enchanting" on: your Enchanting skill
+--                 when you know Disenchant, else your enchanter alt's (enchanter: their name); nil otherwise
 --   count         how many you carry
 --   minGain       the player's limit: copper a stack must gain somewhere else to beat a vendor
 
@@ -86,7 +86,9 @@ ns.VALUE_MARKER_RULES = {
 		.. "only if you know Disenchant." },
 	{ kind = "disenchant", title = "Disenchant: leveling Enchanting", text = "World of Warcraft: Forever: while your "
 		.. "Enchanting is below 300, green to epic gear your skill can disenchant, for the skill and the materials, "
-		.. "unless it sells at the auction house for more than its materials by over your limit." },
+		.. "unless it sells at the auction house for more than its materials by over your limit. On a character "
+		.. "without Enchanting, the same for your enchanter alt (from Alts), for gear you can mail them: the "
+		.. "mailbox's To disenchant group sends it." },
 	{ kind = "keep", title = "Keep: open it", text = "Something that opens with a right-click (a bundle, a "
 		.. "satchel, a crate)." },
 	{ title = "No marker: an unknown quest item", text = "The game calls it a quest item, or it started a quest "
@@ -194,11 +196,11 @@ function ns.Value_DisenchantSkill(ilvl, quality)
 	return DISENCHANT_SKILL_ABOVE
 end
 
--- Disenchanting it levels your Enchanting and gives you materials; only an auction worth clearly more than those
--- materials beats that.
+-- Disenchanting it levels your (or your enchanter alt's) Enchanting and gives materials; only an auction worth clearly
+-- more than those materials beats that. An alt's only gets what can be mailed.
 local function LevelingDisenchant(f)
 	if not (f.enchanting and f.enchanting < ENCHANTING_TOP and IsGear(f) and f.quality and f.quality >= UNCOMMON
-		and f.quality <= EPIC) then
+		and f.quality <= EPIC) or (f.enchanter and f.bound) then
 		return false
 	end
 	local need = ns.Value_DisenchantSkill(f.ilvl, f.quality)
@@ -252,7 +254,8 @@ function ns.Value_Marker(f)
 	if WorthDisenchanting(f) then
 		return Verdict(R.disenchant, "Its materials are worth more.")
 	elseif LevelingDisenchant(f) then
-		return Verdict(R.levelDisenchant, "You're leveling Enchanting.")
+		return Verdict(R.levelDisenchant, f.enchanter and ("For %s: leveling Enchanting."):format(f.enchanter)
+			or "You're leveling Enchanting.")
 	end
 	if f.openable then
 		return Verdict(R.open, "Right-click to open it.")

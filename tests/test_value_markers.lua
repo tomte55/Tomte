@@ -198,6 +198,17 @@ test("disenchant while leveling Enchanting: soulbound greens a vendor would take
 		true, "only gear")
 end)
 
+test("disenchant while your enchanter alt levels Enchanting: only gear you can mail them", function()
+	local boe = { classID = 4, quality = 2, ilvl = 15, vendor = 300, count = 1, minGain = 100, destroy = 150,
+		enchanting = 40, enchanter = "Mira" }
+	eq(Kind(boe), "disenchant")
+	eq(ns.Value_Marker(boe).why, "For Mira: leveling Enchanting.")
+	boe.bound = true
+	eq(Kind(boe), "vendor", "soulbound: it can't be mailed")
+	boe.bound, boe.enchanting = nil, 300
+	eq(Kind(boe) ~= "disenchant", true, "Mira's Enchanting is at the top")
+end)
+
 test("collectibles and crafting materials are kept unless they sell well", function()
 	eq(Kind(Goods({ collectible = true })), "keep")
 	eq(Kind(Goods({ crafting = true, sell = { kind = "vendor", expected = 10 } })), "keep")

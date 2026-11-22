@@ -109,17 +109,25 @@ local function DestroyValue(itemID, classID, quality)
 	return ns.ValueSell_TSMNumber and ns.ValueSell_TSMNumber("Destroy", "i:" .. itemID)
 end
 
--- Your Enchanting skill, for "Disenchant while leveling Enchanting" (World of Warcraft: Forever, Disenchant known);
--- nil when that doesn't apply.
+-- For "Disenchant while leveling Enchanting" (World of Warcraft: Forever): the Enchanting skill that counts and whose it
+-- is. Yours when you know Disenchant (name nil); else your enchanter's from Alts (the one the mailbox's "To disenchant"
+-- group sends to), their skill as of when they last played. nil when that doesn't apply.
 local function LevelingEnchanting()
-	if not (ns.FOREVER and db.markers.levelDisenchant and ns.SpellKnown(DISENCHANT)) then
+	if not (ns.FOREVER and db.markers.levelDisenchant) then
 		return nil
 	end
-	for _, index in pairs({ GetProfessions() }) do
-		local _, _, skill, _, _, _, skillLine = GetProfessionInfo(index)
-		if skillLine == ENCHANTING then
-			return skill
+	if ns.SpellKnown(DISENCHANT) then
+		for _, index in pairs({ GetProfessions() }) do
+			local _, _, skill, _, _, _, skillLine = GetProfessionInfo(index)
+			if skillLine == ENCHANTING then
+				return skill
+			end
 		end
+		return nil
+	end
+	local alt = ns.Alts_EnchanterFor and ns.Alts_EnchanterFor() -- Alts may be off: then nil
+	if alt then
+		return alt.skill, alt.name
 	end
 	return nil
 end
@@ -182,7 +190,7 @@ local function Facts(src, inSet)
 		f.destroy = DestroyValue(itemID, classID, f.quality)
 		f.canDisenchant = f.destroy ~= nil and ns.SpellKnown(DISENCHANT)
 		f.ilvl = ilvl
-		f.enchanting = LevelingEnchanting()
+		f.enchanting, f.enchanter = LevelingEnchanting()
 	end
 	if classID == RECIPE and ns.Alts_RecipeLearnersFor then -- Alts may be off: then nil, and the selling rules decide
 		f.recipe = ns.Value_RecipeFact(ns.Alts_RecipeLearnersFor(itemID, src.tooltip()))
@@ -448,7 +456,7 @@ function ns.ValueMarkers_Why(_, rawArg)
 	local f, parts = marker.facts or {}, {}
 	for _, k in ipairs({ "skip", "quality", "classID", "vendor", "noValue", "bound", "consumable", "count", "questItem",
 		"startsQuest", "questDone", "questActive", "openable", "questFor", "upgrade", "inSet", "newLook", "unusable", "destroy", "canDisenchant",
-		"ilvl", "enchanting", "collectible", "crafting" }) do
+		"ilvl", "enchanting", "enchanter", "collectible", "crafting" }) do
 		if f[k] ~= nil and f[k] ~= false then
 			parts[#parts + 1] = ("%s=%s"):format(k, tostring(f[k]))
 		end
