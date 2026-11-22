@@ -248,3 +248,17 @@ end
 function Theme.Wrap(text, roleOrColor)
 	return "|c" .. Theme.Hex(roleOrColor) .. tostring(text) .. "|r"
 end
+
+-- The coin colors of the game's own money text (ffd700, c7c7cf, eda55f), the same in every theme: they mean the coin,
+-- not a role. ns.Gold and ns.Price (Core/Format.lua) color each part of an amount with them.
+Theme.COINS = {
+	g = { 1, 0.843, 0 },
+	s = { 0.78, 0.78, 0.812 },
+	c = { 0.929, 0.647, 0.373 },
+}
+
+-- One part of an amount ("88s") in its coin's color, number and letter both: a number in the surrounding color next
+-- to another coin's letter clashed (seen in game). |r pops back to the surrounding color for the text after it.
+function Theme.CoinPart(amount, letter)
+	return "|c" .. Theme.Hex(Theme.COINS[letter]) .. amount .. letter .. "|r"
+end

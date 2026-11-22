@@ -28,6 +28,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 
 ### Improved
 
+- **Tomte:** money shows in coin colors everywhere: gold, silver and copper, so "4g 88s 93c" reads at a glance.
+- **Tomte window:** on World of Warcraft: Forever, the logo sits inside the frame's ring instead of over its edge.
 - **Trade Filter:** a message asking for a recipe you don't know is hidden ("Only recipes you know", on by default); one naming a recipe you know shows even without your profession's name.
 - **Quest list:** your other quests show on the minimap by default, as big as the active quest's mark.
 - **Quest list:** the flight hint's map pin is named after its flight master, and the arrow says so.

@@ -13,23 +13,31 @@ function ns.Thousands(n)
 	return sign .. digits:sub(1, head) .. digits:sub(head + 1):gsub("%d%d%d", ",%0")
 end
 
+-- One part of an amount: ("88", "s") -> "88s", in its coin's color once Core/Theme.lua has loaded (Theme.CoinPart);
+-- plain in the unit tests, which don't load the theme. For money text built outside ns.Gold too.
+local function Coin(amount, letter)
+	local theme = ns.Theme
+	return theme and theme.CoinPart and theme.CoinPart(amount, letter) or (amount .. letter)
+end
+ns.CoinPart = Coin
+
 -- Whole gold: 1234567890 copper -> "123,456g". On World of Warcraft: Forever gold is scarce, so the silver and copper
--- show too ("123g 45s 67c", "45s 67c", "0c"), leaving out the parts that are 0.
+-- show too ("123g 45s 67c", "45s 67c", "0c"), leaving out the parts that are 0. Each part is coin-colored.
 function ns.Gold(copper)
 	copper = floor(copper or 0)
 	if not ns.FOREVER then
-		return ns.Thousands(floor(copper / 10000)) .. "g"
+		return Coin(ns.Thousands(floor(copper / 10000)), "g")
 	end
 	local g, s, c = floor(copper / 10000), floor(copper / 100) % 100, copper % 100
 	local parts = {}
 	if g > 0 then
-		parts[1] = ns.Thousands(g) .. "g"
+		parts[1] = Coin(ns.Thousands(g), "g")
 	end
 	if s > 0 then
-		parts[#parts + 1] = s .. "s"
+		parts[#parts + 1] = Coin(s, "s")
 	end
 	if c > 0 or #parts == 0 then
-		parts[#parts + 1] = c .. "c"
+		parts[#parts + 1] = Coin(c, "c")
 	end
 	return table.concat(parts, " ")
 end
@@ -40,9 +48,9 @@ function ns.Price(copper)
 	if copper >= 10000 or ns.FOREVER then
 		return ns.Gold(copper)
 	elseif copper >= 100 then
-		return floor(copper / 100) .. "s"
+		return Coin(floor(copper / 100), "s")
 	end
-	return copper .. "c"
+	return Coin(copper, "c")
 end
 
 -- "+2,500g" / "-2,500g"; "" for nil. For gold differences (session recap, Home).

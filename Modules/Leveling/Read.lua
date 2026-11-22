@@ -500,7 +500,8 @@ local function MountFund(db, level)
 	if not fund then
 		return nil
 	end
-	local text = ("%dg of %dg"):format(math.floor(fund.have / 10000), math.floor(fund.goal / 10000))
+	local text = ("%s of %s"):format(ns.CoinPart(math.floor(fund.have / 10000), "g"),
+		ns.CoinPart(math.floor(fund.goal / 10000), "g"))
 	local hours = fund.hours and ns.Recap_Duration and ns.Recap_Duration(math.floor(fund.hours * 3600)) or nil
 	return fund, text, hours
 end

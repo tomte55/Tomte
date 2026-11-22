@@ -45,7 +45,7 @@ local VERDICT_FIXED = {
 
 function ns.WQ_FormatGold(copper)
 	if floor((copper or 0) / COPPER_PER_GOLD) < 1 then
-		return "<1g"
+		return ns.CoinPart("<1", "g")
 	end
 	return ns.Gold(copper)
 end

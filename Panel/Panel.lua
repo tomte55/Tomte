@@ -222,7 +222,7 @@ local function CreateTitleBar()
 	end)
 	local title
 	if forever then
-		UI.Forever_Badge(panel, ns.ICON)
+		UI.Forever_Badge(panel, ns.ICON, nil, nil, nil, true) -- under the metal: the frame's ring goes round the logo
 		title = UI.Text(titleBar, 13, "heading", "title")
 		title:SetPoint("TOP", panel, "TOP", 0, -5)
 	else

@@ -481,7 +481,7 @@ module = ns.RegisterModule({
 		{ type = "header", label = "Mount fund" },
 		{ type = "slider", key = "mountGoal", label = "Save for riding", min = 0, max = 300, step = 10,
 			format = function(v)
-				return v == 0 and "Off" or (v .. "g")
+				return v == 0 and "Off" or ns.CoinPart(v, "g")
 			end, onChange = function()
 				ns.LevelingPage_Refresh()
 				ns.Panel_Refresh()

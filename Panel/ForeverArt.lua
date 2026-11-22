@@ -149,8 +149,8 @@ function UI.Forever_MockPanel(parent)
 end
 
 -- The window's round badge, in the frame's portrait hole (PortraitFrameBaseTemplate's anchors, or the ones given, for the
--- bags' smaller ring). Above the metal, as a picture with a rim of its own needs (Tomte's); under = true puts it under
--- the metal, so the frame's own ring goes round it, as the game's portraits sit (the Tomte map's book).
+-- bags' smaller ring). Above the metal, as a picture with a rim of its own needs; under = true puts it under the metal,
+-- so the frame's own ring goes round it, as the game's portraits sit (the Tomte window's logo, the Tomte map's book).
 function UI.Forever_Badge(window, texture, size, x, y, under)
 	local holder = CreateFrame("Frame", nil, window)
 	holder:SetSize(1, 1)
