@@ -72,7 +72,9 @@ local function LevelReport()
 		end
 	end
 	if db.talents and ns.LevelingRead_UnspentTalents() then
-		Toast("Talents", "Talent points to spend", "Open your talents and spend them.")
+		-- Talent guide (Forever only) names the next talent of the build this character follows.
+		local nextTalent = ns.TalentGuide_NextText and ns.HomeCall(ns.TalentGuide_NextText)
+		Toast("Talents", "Talent points to spend", nextTalent or "Open your talents and spend them.")
 	end
 	ns.LevelingPage_Refresh()
 end
