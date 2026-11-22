@@ -31,7 +31,7 @@ return {
 		"Modules/Materials/Data.lua", "Modules/Materials/Materials.lua",
 		-- Gear Check's Forever version shares these with retail; the rest of its folder is retail's.
 		"Modules/Gear/Rules.lua", "Modules/Gear/Rewards.lua", "Modules/Gear/RewardCard.lua", "Modules/Gear/Arrow.lua",
-		"Modules/Gear/Merchant.lua",
+		"Modules/Gear/Merchant.lua", "Modules/Gear/Recipes.lua",
 	},
 	drop = {},
 	extra = {
@@ -58,6 +58,9 @@ return {
 		{ after = "Modules/Chat/RecipeData.lua", files = { "Modules/Chat/RecipesForever.lua" } },
 		{ after = "Modules/Rogue/Lockpick.lua", files = { "Modules/Rogue/Forever.lua" } },
 		{ after = "Modules/Hunter/Checks.lua", files = { "Modules/Hunter/Aspect.lua" } },
+		-- docs/superpowers/specs/2026-11-22-tomte-talent-guide-design.md: Method's Forever build strings.
+		{ after = "Modules/Talents/Talents.lua", files = { "Modules/TalentGuide/Data.lua", "Modules/TalentGuide/Read.lua",
+			"Modules/TalentGuide/Marker.lua", "Modules/TalentGuide/TalentGuide.lua" } },
 		-- ForeverItems.lua makes the event bus RewardCard.lua takes at file load; Forever.lua is the main file, so last.
 		{ after = "Modules/Gear/Rewards.lua", files = { "Modules/Gear/ForeverRules.lua", "Modules/Gear/RollData.lua",
 			"Modules/Gear/ForeverItems.lua" } },

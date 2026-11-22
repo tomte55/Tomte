@@ -99,6 +99,7 @@ Panel/Bug.lua
 Panel/Setup.lua
 Panel/Changes.lua
 Panel/MapTabs.lua
+Panel/RecipeRows.lua
 Panel/ModelPreview.lua
 Panel/Entries.lua
 Modules/Minimap/Data.lua
@@ -180,6 +181,10 @@ Modules/Buffs/Buffs.lua
 Modules/Talents/Data.lua
 Modules/Talents/Card.lua
 Modules/Talents/Talents.lua
+Modules/TalentGuide/Data.lua
+Modules/TalentGuide/Read.lua
+Modules/TalentGuide/Marker.lua
+Modules/TalentGuide/TalentGuide.lua
 Modules/Combat/Data.lua
 Modules/Combat/UnitBar.lua
 Modules/Combat/PetHealth.lua
@@ -226,6 +231,7 @@ Modules/Gear/RollData.lua
 Modules/Gear/ForeverItems.lua
 Modules/Gear/Arrow.lua
 Modules/Gear/Merchant.lua
+Modules/Gear/Recipes.lua
 Modules/Gear/RewardCard.lua
 Modules/Gear/Roll.lua
 Modules/Gear/Forever.lua
@@ -360,12 +366,14 @@ Modules/Alts/RosterTab.lua
 Modules/Alts/ProfTab.lua
 Modules/Alts/HomeSection.lua
 Modules/Alts/SendRead.lua
+Modules/Alts/SendAttach.lua
 Modules/Alts/Send.lua
 Modules/Alts/SendDisenchant.lua
 Modules/Alts/Deposit.lua
 Modules/Alts/FriendMail.lua
 Modules/Alts/Labels.lua
 Modules/Alts/List.lua
+Modules/Alts/Tracker.lua
 Modules/Alts/ProfButton.lua
 Modules/Alts/Learnable.lua
 Modules/Alts/RequestsSection.lua

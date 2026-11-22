@@ -21,6 +21,10 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Tomte map:** click a town marker (a trainer, a banker, a mailbox ...) to put your map pin on whoever stands there.
 - **Waypoints:** `/tway <x> <y> [name]` and an optional `#mapID` first, when TomTom isn't loaded.
 - **Find (new module):** on World of Warcraft: Forever, `/tomte find tailor` puts your map pin on the nearest trainer, banker, innkeeper, mailbox and more whose name or title matches, saying plainly when it's outside your zone and how far. On the Tomte map, Find someone... under the magnifying glass lists the matches nearest first; click one to fly there.
+- **Talent guide (new module):** on World of Warcraft: Forever, paste a build from Method's Forever talent calculator and the talent window marks the next talent of the build, with the step you're on and the level it comes at; points spent off the build get an amber or red border. A Builds button picks a saved build or pastes a new one, and Leveling's talent toast names the next talent. Builds are saved for your class; Tomte never spends points.
+- **Gear Check:** gear recipes in the profession window show what their item would be for you: "+12%" in green, "+5%?" in yellow for one to check.
+- **Alts:** recipes on your crafting list show how many crafts are left ("x3") in the profession window's recipe list.
+- **Alts:** with TSM, a "TSM search" link next to Shopping list gives a search for the missing materials to paste into TSM's Shopping tab.
 
 ### Improved
 
@@ -34,6 +38,12 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Performance:** Quiet Chat, drawers, the flight card, the Quest list and item source tooltips do much less work and make less garbage; the Performance report shows memory made per part and no longer counts a call twice.
 - **Trade Filter:** the channel shows as "Trade" without its instance ("Trade - English 33").
 - **Gold & value:** on World of Warcraft: Forever, while your Enchanting is below 300, gear your skill can disenchant is marked to disenchant (for the skill and the materials) instead of to vendor, even without TSM. A setting turns it off.
+- **Gold & value:** on World of Warcraft: Forever, a character without Enchanting marks gear it can mail to disenchant for your enchanter alt while they level Enchanting; the mailbox's To disenchant group sends it.
+- **Material uses:** one "Used in" line lists every profession that uses a material: yours first with which characters have them, then the others.
+- **Alts:** the crafting list tracker adds up the steps several crafts share at its top, folds the crafts you can't act on yet on a long list (click one to open it), and scrolls when it gets tall.
+- **Alts:** what you buy at the Auction House and what you mail your characters counts as waiting in their mail right away, so the tracker stops telling you to buy or send it.
+- **Alts:** at the mailbox, For your alts sends one mail per character with the materials for all their crafts added up.
+- **Alts:** a material whose recipe none of your characters knows is on the list to buy, instead of to craft from its own materials.
 
 ### Fixed
 
@@ -41,6 +51,8 @@ Each line starts with the module or area in bold (`- **Whispers:** ...`).
 - **Forever:** the game no longer tells addons your realm; Tomte remembers it from before, so whispers, mail to your characters, friends' crafting and character lists keep working. Whispers split off under a name without a realm are merged back.
 - **Friends Online:** on World of Warcraft: Forever, friends playing Forever are counted as in game (with their character), not as in other games.
 - **Gear Check:** a one-handed weapon that beats your two-hander on its own (a mage's Intellect dagger over a staff with no stats) is an upgrade, not "needs an off-hand": its tooltip, the bags' arrow and the roll advice now agree.
+- **Material uses:** a profession your characters have (Tailoring on Linen Cloth) no longer goes missing from the tooltip when several of your characters use the material.
+- **Alts:** on World of Warcraft: Forever, the mailbox attaches the exact amount for your alts' crafts instead of the whole stack.
 - **Dungeon journal:** dungeon levels are the ones Forever's group finder suggests (Deadmines 17-26, not 10-26), and the new Forever dungeons have a top level.
 - **Chat Tabs:** opening its Trade tab no longer makes it the current tab; the tab you were on (and the chat box you type in) stays.
 ## v1.35.0 - 2026-11-19
